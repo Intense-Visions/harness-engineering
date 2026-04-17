@@ -67,6 +67,7 @@ import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
+import { MaintenanceScheduler } from './maintenance/scheduler';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
@@ -110,6 +111,7 @@ export class Orchestrator extends EventEmitter {
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
+  private maintenanceScheduler: MaintenanceScheduler | null = null;
   private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
@@ -1691,6 +1693,20 @@ export class Orchestrator extends EventEmitter {
         }
       }
     }, heartbeatMs);
+
+    // Start maintenance scheduler if enabled
+    if (this.config.maintenance?.enabled) {
+      this.maintenanceScheduler = new MaintenanceScheduler({
+        config: this.config.maintenance,
+        claimManager: this.claimManager!,
+        logger: this.logger,
+        onTaskDue: async (task) => {
+          this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
+          // Phase 3 will wire this to TaskRunner.run(task)
+        },
+      });
+      this.maintenanceScheduler.start();
+    }
   }
 
   /**
@@ -1704,6 +1720,10 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    if (this.maintenanceScheduler) {
+      this.maintenanceScheduler.stop();
+      this.maintenanceScheduler = null;
     }
     if (this.server) {
       this.server.stop();
@@ -1749,5 +1769,10 @@ export class Orchestrator extends EventEmitter {
       claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
+  }
+
+  /** Returns the maintenance scheduler status, or null if maintenance is not enabled. */
+  public getMaintenanceStatus(): import('./maintenance/types').MaintenanceStatus | null {
+    return this.maintenanceScheduler?.getStatus() ?? null;
   }
 }
