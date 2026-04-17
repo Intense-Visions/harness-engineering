@@ -28,9 +28,14 @@
       "allowedDependencies": ["types", "core"]
     },
     {
+      "name": "intelligence",
+      "pattern": "packages/intelligence/src/**",
+      "allowedDependencies": ["types", "graph"]
+    },
+    {
       "name": "orchestrator",
       "pattern": "packages/orchestrator/src/**",
-      "allowedDependencies": ["types", "core"]
+      "allowedDependencies": ["types", "core", "intelligence"]
     },
     {
       "name": "dashboard",
@@ -49,6 +54,7 @@
       "disallow": [
         "packages/core/src/**",
         "packages/graph/src/**",
+        "packages/intelligence/src/**",
         "packages/eslint-plugin/src/**",
         "packages/linter-gen/src/**",
         "packages/orchestrator/src/**",
@@ -60,6 +66,7 @@
       "from": "packages/graph/src/**",
       "disallow": [
         "packages/core/src/**",
+        "packages/intelligence/src/**",
         "packages/eslint-plugin/src/**",
         "packages/linter-gen/src/**",
         "packages/orchestrator/src/**",
@@ -70,6 +77,7 @@
     {
       "from": "packages/core/src/**",
       "disallow": [
+        "packages/intelligence/src/**",
         "packages/eslint-plugin/src/**",
         "packages/linter-gen/src/**",
         "packages/orchestrator/src/**",
@@ -78,14 +86,34 @@
       "message": "Core layer cannot import from higher layers"
     },
     {
+      "from": "packages/intelligence/src/**",
+      "disallow": [
+        "packages/core/src/**",
+        "packages/eslint-plugin/src/**",
+        "packages/linter-gen/src/**",
+        "packages/orchestrator/src/**",
+        "packages/dashboard/src/**",
+        "packages/cli/src/**"
+      ],
+      "message": "Intelligence layer cannot import from core, orchestrator, dashboard, or CLI"
+    },
+    {
       "from": "packages/eslint-plugin/src/**",
-      "disallow": ["packages/orchestrator/src/**", "packages/cli/src/**"],
-      "message": "ESLint plugin cannot import from orchestrator or CLI"
+      "disallow": [
+        "packages/intelligence/src/**",
+        "packages/orchestrator/src/**",
+        "packages/cli/src/**"
+      ],
+      "message": "ESLint plugin cannot import from intelligence, orchestrator, or CLI"
     },
     {
       "from": "packages/linter-gen/src/**",
-      "disallow": ["packages/orchestrator/src/**", "packages/cli/src/**"],
-      "message": "Linter gen cannot import from orchestrator or CLI"
+      "disallow": [
+        "packages/intelligence/src/**",
+        "packages/orchestrator/src/**",
+        "packages/cli/src/**"
+      ],
+      "message": "Linter gen cannot import from intelligence, orchestrator, or CLI"
     },
     {
       "from": "packages/orchestrator/src/**",
@@ -162,6 +190,7 @@
       "packages/types/src/index.ts",
       "packages/core/src/index.ts",
       "packages/graph/src/index.ts",
+      "packages/intelligence/src/index.ts",
       "packages/cli/src/index.ts",
       "packages/cli/src/bin/harness.ts",
       "packages/eslint-plugin/src/index.ts",
@@ -175,6 +204,7 @@
       "packages/types/src/index.ts",
       "packages/core/src/index.ts",
       "packages/graph/src/index.ts",
+      "packages/intelligence/src/index.ts",
       "packages/cli/src/index.ts",
       "packages/cli/src/bin/harness.ts",
       "packages/eslint-plugin/src/index.ts",
