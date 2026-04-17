@@ -665,6 +665,9 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
+    // 1b. Filter out candidates with open PRs
+    const candidates = await this.filterCandidatesWithOpenPRs(candidatesResult.value);
+
     // 2. Fetch current status for running issues
     const runningIds = Array.from(this.state.running.keys());
     const runningStatesResult = await this.tracker.fetchIssueStatesByIds(runningIds);
@@ -677,7 +680,7 @@ export class Orchestrator extends EventEmitter {
 
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
     const pipelineResult = this.pipeline
-      ? await this.runIntelligencePipeline(candidatesResult.value)
+      ? await this.runIntelligencePipeline(candidates)
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
     const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
@@ -686,7 +689,7 @@ export class Orchestrator extends EventEmitter {
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
       type: 'tick' as const,
-      candidates: candidatesResult.value,
+      candidates,
       runningStates: runningStatesResult.value,
       nowMs,
       ...(concernSignals !== undefined && { concernSignals }),
@@ -706,7 +709,7 @@ export class Orchestrator extends EventEmitter {
       const retryEvent: OrchestratorEvent = {
         type: 'retry_fired',
         issueId,
-        candidates: candidatesResult.value,
+        candidates,
         nowMs,
       };
       const result = applyEvent(this.state, retryEvent, this.config);
