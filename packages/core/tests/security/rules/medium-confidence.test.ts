@@ -13,9 +13,7 @@ describe('Path traversal rules', () => {
 
   it('detects ../ in writeFileSync', () => {
     const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
-    expect(rule.patterns.some((p) => p.test('writeFileSync("../../etc/passwd", data)'))).toBe(
-      true
-    );
+    expect(rule.patterns.some((p) => p.test('writeFileSync("../../etc/passwd", data)'))).toBe(true);
   });
 
   it('detects ../ in createReadStream', () => {

@@ -21,9 +21,9 @@ describe('Insecure-defaults rules', () => {
     });
 
     it('detects KEY fallback with ??', () => {
-      expect(matches('SEC-DEF-001', `const key = process.env.ENCRYPTION_KEY ?? 'default-key'`)).toBe(
-        true
-      );
+      expect(
+        matches('SEC-DEF-001', `const key = process.env.ENCRYPTION_KEY ?? 'default-key'`)
+      ).toBe(true);
     });
 
     it('detects TOKEN fallback', () => {
@@ -39,9 +39,7 @@ describe('Insecure-defaults rules', () => {
     });
 
     it('detects SESSION fallback', () => {
-      expect(matches('SEC-DEF-001', `const sess = process.env.SESSION_SECRET || 'abc'`)).toBe(
-        true
-      );
+      expect(matches('SEC-DEF-001', `const sess = process.env.SESSION_SECRET || 'abc'`)).toBe(true);
     });
 
     it('detects AUTH fallback', () => {
@@ -167,9 +165,9 @@ describe('Insecure-defaults rules', () => {
     });
 
     it('does not flag specific origin', () => {
-      expect(
-        matches('SEC-DEF-004', `const origin = config?.origin ?? 'https://example.com'`)
-      ).toBe(false);
+      expect(matches('SEC-DEF-004', `const origin = config?.origin ?? 'https://example.com'`)).toBe(
+        false
+      );
     });
 
     it('has correct metadata', () => {

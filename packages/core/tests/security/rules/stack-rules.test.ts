@@ -52,9 +52,9 @@ describe('Node.js rules', () => {
 
   it('detects NoSQL injection with $where operator', () => {
     const rule = nodeRules.find((r) => r.id === 'SEC-NODE-002')!;
-    expect(
-      rule.patterns.some((p) => p.test('db.find({ $where: "this.a > " + input })'))
-    ).toBe(true);
+    expect(rule.patterns.some((p) => p.test('db.find({ $where: "this.a > " + input })'))).toBe(
+      true
+    );
   });
 
   it('detects find with req.body directly', () => {

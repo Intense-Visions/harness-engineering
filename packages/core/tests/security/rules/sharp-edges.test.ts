@@ -131,21 +131,15 @@ describe('Sharp-edges rules', () => {
   // --- SEC-EDGE-006: TOCTOU Sync ---
   describe('SEC-EDGE-006 — Check-Then-Act (Sync)', () => {
     it('detects existsSync followed by readFileSync', () => {
-      expect(
-        matches('SEC-EDGE-006', 'if (existsSync(p)) { readFileSync(p) }')
-      ).toBe(true);
+      expect(matches('SEC-EDGE-006', 'if (existsSync(p)) { readFileSync(p) }')).toBe(true);
     });
 
     it('detects accessSync followed by writeFileSync', () => {
-      expect(
-        matches('SEC-EDGE-006', 'accessSync(file); writeFileSync(file, data)')
-      ).toBe(true);
+      expect(matches('SEC-EDGE-006', 'accessSync(file); writeFileSync(file, data)')).toBe(true);
     });
 
     it('detects statSync followed by unlinkSync', () => {
-      expect(
-        matches('SEC-EDGE-006', 'statSync(p); unlinkSync(p)')
-      ).toBe(true);
+      expect(matches('SEC-EDGE-006', 'statSync(p); unlinkSync(p)')).toBe(true);
     });
 
     it('does not flag standalone readFileSync', () => {
@@ -163,15 +157,11 @@ describe('Sharp-edges rules', () => {
   // --- SEC-EDGE-007: TOCTOU Async ---
   describe('SEC-EDGE-007 — Check-Then-Act (Async)', () => {
     it('detects access followed by readFile', () => {
-      expect(
-        matches('SEC-EDGE-007', 'access(p).then(() => readFile(p))')
-      ).toBe(true);
+      expect(matches('SEC-EDGE-007', 'access(p).then(() => readFile(p))')).toBe(true);
     });
 
     it('detects stat followed by writeFile', () => {
-      expect(
-        matches('SEC-EDGE-007', 'await stat(file); await writeFile(file, data)')
-      ).toBe(true);
+      expect(matches('SEC-EDGE-007', 'await stat(file); await writeFile(file, data)')).toBe(true);
     });
 
     it('does not flag standalone writeFile', () => {

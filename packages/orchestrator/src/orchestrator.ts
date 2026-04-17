@@ -855,8 +855,14 @@ export class Orchestrator extends EventEmitter {
       );
       return stdout.trim() === 'OPEN';
     } catch (err) {
+      const msg = String(err);
+      // "Could not resolve to a PullRequest" means the number is a GitHub
+      // issue, not a PR — expected for issue-backed External-IDs.
+      if (msg.includes('Could not resolve to a PullRequest')) {
+        return false;
+      }
       this.logger.warn(`Failed to check PR state for ${externalId}`, {
-        error: String(err),
+        error: msg,
       });
       return false;
     }

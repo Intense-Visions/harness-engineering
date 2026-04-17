@@ -162,6 +162,24 @@ describe('isExternalPROpen', () => {
     );
   });
 
+  it('returns false without warning when number is an issue not a PR', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(
+          new Error(
+            'GraphQL: Could not resolve to a PullRequest with the number of 89. (repository.pullRequest)'
+          ),
+          { stdout: '', stderr: '' }
+        );
+      }
+    );
+
+    const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
+    const result = await (orchestrator as any).isExternalPROpen('github:owner/repo#89');
+    expect(result).toBe(false);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('returns false and logs warning when gh command fails', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
