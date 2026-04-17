@@ -109,6 +109,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'compute_blast_radius',
   'dispatch_skills',
   'compact',
+  'detect_constraint_emergence',
 ];
 
 /**

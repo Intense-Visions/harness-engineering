@@ -9,6 +9,11 @@ export {
   ThresholdConfigSchema,
   ArchConfigSchema,
   ConstraintRuleSchema,
+  ViolationSnapshotSchema,
+  ViolationHistorySchema,
+  EmergenceConfidenceSchema,
+  EmergentConstraintSuggestionSchema,
+  EmergenceResultSchema,
 } from './types';
 
 export type {
@@ -23,6 +28,11 @@ export type {
   ArchConfig,
   ConstraintRule,
   Collector,
+  ViolationSnapshot,
+  ViolationHistory,
+  EmergenceConfidence,
+  EmergentConstraintSuggestion,
+  EmergenceResult,
 } from './types';
 
 export {
@@ -112,3 +122,9 @@ export { PredictionEngine } from './prediction-engine';
 
 export { SpecImpactEstimator } from './spec-impact-estimator';
 export type { EstimatorCoefficients } from './spec-impact-estimator';
+
+export { ViolationHistoryManager } from './violation-history';
+export { normalizeViolationPattern, extractDirectoryScope } from './normalize-pattern';
+export { clusterViolations } from './cluster-violations';
+export type { ViolationCluster } from './cluster-violations';
+export { detectEmergentConstraints } from './detect-emergence';

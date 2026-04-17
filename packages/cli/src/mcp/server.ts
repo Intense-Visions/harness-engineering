@@ -140,6 +140,10 @@ import { checkTraceabilityDefinition, handleCheckTraceability } from './tools/tr
 import { predictFailuresDefinition, handlePredictFailures } from './tools/predict-failures.js';
 import { recommendSkillsDefinition, handleRecommendSkills } from './tools/recommend-skills.js';
 import { compactToolDefinition, handleCompact } from './tools/compact.js';
+import {
+  detectConstraintEmergenceDefinition,
+  handleDetectConstraintEmergence,
+} from './tools/constraint-emergence.js';
 
 export type ToolDefinition = {
   name: string;
@@ -213,6 +217,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   computeBlastRadiusDefinition,
   dispatchSkillsDefinition,
   compactToolDefinition,
+  detectConstraintEmergenceDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -272,6 +277,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   compute_blast_radius: handleComputeBlastRadius as ToolHandler,
   dispatch_skills: handleDispatchSkills as ToolHandler,
   compact: handleCompact as ToolHandler,
+  detect_constraint_emergence: handleDetectConstraintEmergence as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
