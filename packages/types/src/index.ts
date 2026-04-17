@@ -139,3 +139,6 @@ export type {
   ContainerConfig,
   SecretConfig,
 } from './container';
+
+// --- Maintenance ---
+export type { MaintenanceConfig, TaskOverride } from './maintenance';
