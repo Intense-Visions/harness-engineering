@@ -879,9 +879,9 @@ export class Orchestrator extends EventEmitter {
     const filtered: Issue[] = [];
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      if (result.status === 'rejected') {
+      if (!result || result.status === 'rejected') {
         // Unreachable: isExternalPROpen catches internally. Fail-open defensively.
-        filtered.push(candidates[i]);
+        filtered.push(candidates[i]!);
         continue;
       }
       const { candidate, isOpen } = result.value;
