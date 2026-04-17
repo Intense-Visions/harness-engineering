@@ -1,7 +1,7 @@
 import type { TaskDefinition } from './types';
 
 /**
- * All 17 built-in maintenance task definitions with default schedules.
+ * All 18 built-in maintenance task definitions with default schedules.
  *
  * Tasks are grouped by type:
  * - mechanical-ai (7): Run check first, dispatch AI only if fixable issues found
