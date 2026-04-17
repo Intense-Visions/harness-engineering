@@ -222,4 +222,88 @@ describe('TaskRunner', () => {
       expect(result.error).toContain('missing fixSkill');
     });
   });
+
+  describe('report-only tasks', () => {
+    const PERF_TASK: TaskDefinition = {
+      id: 'perf-check',
+      type: 'report-only',
+      description: 'Run performance checks and record metrics',
+      schedule: '0 6 * * 1',
+      branch: null,
+      checkCommand: ['check-perf'],
+    };
+
+    it('runs check and returns findings without dispatching agent', async () => {
+      const checkRunner = createMockCheckRunner({ findings: 3 });
+      const agentDispatcher = createMockAgentDispatcher();
+      const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher }));
+
+      const result = await runner.run(PERF_TASK);
+
+      expect(result.status).toBe('success');
+      expect(result.findings).toBe(3);
+      expect(result.fixed).toBe(0);
+      expect(result.prUrl).toBeNull();
+      expect(checkRunner.run).toHaveBeenCalledWith(['check-perf'], '/test/project');
+      expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('returns failure when checkCommand is missing', async () => {
+      const task: TaskDefinition = { ...PERF_TASK, checkCommand: undefined };
+      const runner = new TaskRunner(createRunnerOptions());
+
+      const result = await runner.run(task);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('missing checkCommand');
+    });
+  });
+
+  describe('housekeeping tasks', () => {
+    const SESSION_CLEANUP_TASK: TaskDefinition = {
+      id: 'session-cleanup',
+      type: 'housekeeping',
+      description: 'Clean up stale orchestrator sessions',
+      schedule: '0 0 * * *',
+      branch: null,
+      checkCommand: ['cleanup-sessions'],
+    };
+
+    it('runs command directly and returns success', async () => {
+      const commandExecutor = createMockCommandExecutor();
+      const agentDispatcher = createMockAgentDispatcher();
+      const runner = new TaskRunner(createRunnerOptions({ commandExecutor, agentDispatcher }));
+
+      const result = await runner.run(SESSION_CLEANUP_TASK);
+
+      expect(result.status).toBe('success');
+      expect(result.findings).toBe(0);
+      expect(result.fixed).toBe(0);
+      expect(result.prUrl).toBeNull();
+      expect(commandExecutor.exec).toHaveBeenCalledWith(['cleanup-sessions'], '/test/project');
+      expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('returns failure when command throws', async () => {
+      const commandExecutor: CommandExecutor = {
+        exec: vi.fn().mockRejectedValue(new Error('cleanup failed')),
+      };
+      const runner = new TaskRunner(createRunnerOptions({ commandExecutor }));
+
+      const result = await runner.run(SESSION_CLEANUP_TASK);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('cleanup failed');
+    });
+
+    it('returns failure when checkCommand is missing', async () => {
+      const task: TaskDefinition = { ...SESSION_CLEANUP_TASK, checkCommand: undefined };
+      const runner = new TaskRunner(createRunnerOptions());
+
+      const result = await runner.run(task);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('missing checkCommand');
+    });
+  });
 });
