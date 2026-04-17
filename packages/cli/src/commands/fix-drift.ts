@@ -57,10 +57,10 @@ export async function runFixDrift(
   const rootDir = path.resolve(cwd, config.rootDir);
   const docsDir = path.resolve(cwd, config.docsDir);
 
-  // Build entropy config for snapshot
+  // Build entropy config for snapshot — use configured entry points or let resolveEntryPoints discover them
   const entropyConfig: EntropyConfig = {
     rootDir,
-    entryPoints: [path.join(rootDir, 'src/index.ts')],
+    ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
     docPaths: [docsDir],
     analyze: {
       drift: true,
