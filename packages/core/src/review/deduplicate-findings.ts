@@ -103,6 +103,13 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
 
   mergeSecurityFields(merged, primaryFinding, a, b);
 
+  // Preserve the higher trust score when merging
+  const trustA = a.trustScore ?? 0;
+  const trustB = b.trustScore ?? 0;
+  if (trustA > 0 || trustB > 0) {
+    merged.trustScore = Math.max(trustA, trustB);
+  }
+
   return merged;
 }
 
