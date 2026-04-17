@@ -10,6 +10,7 @@ export type RunAttemptPhase =
   | 'LaunchingAgent'
   | 'InitializingSession'
   | 'StreamingTurn'
+  | 'RateLimitSleeping'
   | 'Finishing'
   | 'Succeeded'
   | 'Failed'

@@ -11,6 +11,7 @@ import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
+import { extractRateLimitReset } from './rate-limit-events';
 
 /**
  * Bound on retained completion records. Without this, `state.completed`
@@ -279,17 +280,25 @@ function deriveSessionPatch(
 
   let nextPhase: RunAttemptPhase | null = null;
 
-  if (event.type === 'turn_start') {
-    updated.turnCount += 1;
-  } else if (
-    event.type === 'thought' ||
-    event.type === 'call' ||
-    event.type === 'status' ||
-    event.type === 'rate_limit'
-  ) {
-    nextPhase = 'StreamingTurn';
+  // Hoist the lastMessage assignment so we don't restate it in every
+  // streaming branch below. Only the result branch uses a different shape.
+  const streamingTypes = new Set(['thought', 'call', 'status', 'rate_limit', 'rate_limit_sleep']);
+  if (streamingTypes.has(event.type)) {
     updated.lastMessage =
       typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+  }
+
+  if (event.type === 'turn_start') {
+    updated.turnCount += 1;
+  } else if (event.type === 'thought' || event.type === 'call' || event.type === 'status') {
+    nextPhase = 'StreamingTurn';
+  } else if (event.type === 'rate_limit') {
+    // Subscription-level rate limits include resetsAtMs in their content.
+    // Per-request limits carry only a message — treat those as streaming.
+    nextPhase = extractRateLimitReset(event) !== null ? 'RateLimitSleeping' : 'StreamingTurn';
+  } else if (event.type === 'rate_limit_sleep') {
+    // Runner is sleeping until the subscription limit resets
+    nextPhase = 'RateLimitSleeping';
   } else if (event.type === 'result') {
     updated.lastMessage =
       typeof event.content === 'string'
@@ -334,7 +343,14 @@ function handleAgentUpdate(
   const effects: SideEffect[] = [];
 
   if (event.type === 'rate_limit') {
-    next.globalCooldownUntilMs = Date.now() + next.globalCooldownMs;
+    // Subscription-level limits include resetsAtMs — use that for global cooldown.
+    // Per-request limits use the configured globalCooldownMs fallback.
+    const resetsAtMs = extractRateLimitReset(event);
+    if (resetsAtMs !== null && resetsAtMs > Date.now()) {
+      next.globalCooldownUntilMs = resetsAtMs;
+    } else {
+      next.globalCooldownUntilMs = Date.now() + next.globalCooldownMs;
+    }
   } else if (event.type === 'turn_start') {
     const now = Date.now();
     next.recentRequestTimestamps.push(now);
