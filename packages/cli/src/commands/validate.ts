@@ -1,8 +1,12 @@
 import { Command } from 'commander';
 import * as path from 'path';
-import type { Result } from '@harness-engineering/core';
+import type { AgentConfigValidation, Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
-import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core';
+import {
+  validateAgentConfigs,
+  validateAgentsMap,
+  validateKnowledgeMap,
+} from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -14,6 +18,9 @@ interface ValidateOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  agentConfigs?: boolean;
+  strict?: boolean;
+  agnixBin?: string;
 }
 
 interface ValidateResult {
@@ -22,13 +29,18 @@ interface ValidateResult {
     agentsMap: boolean;
     fileStructure: boolean;
     knowledgeMap: boolean;
+    agentConfigs?: boolean;
   };
   issues: Array<{
     check: string;
     file?: string;
+    line?: number;
+    ruleId?: string;
+    severity?: 'error' | 'warning' | 'info';
     message: string;
     suggestion?: string;
   }>;
+  agentConfigs?: AgentConfigValidation;
 }
 
 export async function runValidate(
@@ -99,6 +111,28 @@ export async function runValidate(
   // For now, mark as passed if no conventions
   result.checks.fileStructure = true;
 
+  // Opt-in agent config validation (agnix binary preferred, TS fallback otherwise)
+  if (options.agentConfigs) {
+    const agentCfg = await validateAgentConfigs(cwd, {
+      strict: options.strict === true,
+      ...(options.agnixBin !== undefined && { agnixBin: options.agnixBin }),
+    });
+    result.agentConfigs = agentCfg;
+    result.checks.agentConfigs = agentCfg.valid;
+    if (!agentCfg.valid) result.valid = false;
+    for (const finding of agentCfg.issues) {
+      result.issues.push({
+        check: 'agentConfigs',
+        file: finding.file,
+        ...(finding.line !== undefined && { line: finding.line }),
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        message: finding.message,
+        ...(finding.suggestion !== undefined && { suggestion: finding.suggestion }),
+      });
+    }
+  }
+
   return Ok(result);
 }
 
@@ -129,33 +163,65 @@ export function createValidateCommand(): Command {
   const command = new Command('validate')
     .description('Run all validation checks')
     .option('--cross-check', 'Run cross-artifact consistency validation')
-    .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const mode = resolveValidateMode(globalOpts);
-      const formatter = new OutputFormatter(mode);
-
-      const result = await runValidate({
-        configPath: globalOpts.config,
-        json: globalOpts.json,
-        verbose: globalOpts.verbose,
-        quiet: globalOpts.quiet,
-      });
-
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) console.log(JSON.stringify({ error: result.error.message }));
-        else logger.error(result.error.message);
-        process.exit(result.error.exitCode);
-      }
-
-      if (opts.crossCheck) await printCrossCheckWarnings(mode);
-
-      const output = formatter.formatValidation({
-        valid: result.value.valid,
-        issues: result.value.issues,
-      });
-      if (output) console.log(output);
-      process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
-    });
-
+    .option(
+      '--agent-configs',
+      'Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules'
+    )
+    .option('--strict', 'Treat warnings as errors (applies to --agent-configs)')
+    .option('--agnix-bin <path>', 'Override the agnix binary path discovered on PATH')
+    .action(async (opts, cmd) => runValidateAction(opts, cmd.optsWithGlobals()));
   return command;
+}
+
+async function runValidateAction(
+  opts: Record<string, unknown>,
+  globalOpts: Record<string, unknown>
+): Promise<void> {
+  const mode = resolveValidateMode(globalOpts);
+  const formatter = new OutputFormatter(mode);
+
+  const result = await runValidate({
+    ...(typeof globalOpts.config === 'string' && { configPath: globalOpts.config }),
+    json: globalOpts.json === true,
+    verbose: globalOpts.verbose === true,
+    quiet: globalOpts.quiet === true,
+    agentConfigs: opts.agentConfigs === true,
+    strict: opts.strict === true,
+    ...(typeof opts.agnixBin === 'string' && { agnixBin: opts.agnixBin }),
+  });
+
+  if (!result.ok) {
+    if (mode === OutputMode.JSON) console.log(JSON.stringify({ error: result.error.message }));
+    else logger.error(result.error.message);
+    process.exit(result.error.exitCode);
+  }
+
+  if (opts.crossCheck) await printCrossCheckWarnings(mode);
+  emitValidateOutput(result.value, mode, formatter);
+  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
+function emitValidateOutput(
+  value: ValidateResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): void {
+  if (mode === OutputMode.JSON) {
+    // Emit the full ValidateResult so the agentConfigs section (engine, fallback reason) is visible.
+    console.log(JSON.stringify(value, null, 2));
+    return;
+  }
+  const output = formatter.formatValidation({ valid: value.valid, issues: value.issues });
+  if (output) console.log(output);
+  if (value.agentConfigs) printAgentConfigSummary(value.agentConfigs, mode);
+}
+
+function printAgentConfigSummary(cfg: AgentConfigValidation, mode: OutputModeType): void {
+  if (mode === OutputMode.QUIET) return;
+  const engineLabel = cfg.engine === 'agnix' ? 'agnix' : 'built-in fallback rules';
+  const note = cfg.fellBackBecause ? ` (${cfg.fellBackBecause})` : '';
+  console.log(`\nAgent configs checked via ${engineLabel}${note}`);
+  if (cfg.engine === 'fallback' && cfg.fellBackBecause === 'binary-not-found') {
+    console.log('  Install agnix for 385+ rule coverage: https://github.com/agent-sh/agnix');
+  }
 }

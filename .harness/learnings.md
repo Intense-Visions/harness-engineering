@@ -171,6 +171,12 @@
 - **[skill:harness-debugging] [outcome:gotcha]:** Claude stream-json chunks carry cumulative-ish usage on every assistant entry for a given requestId — only the final chunk (`stop_reason !== null`) has authoritative totals. Use the stop_reason guard when feeding an additive accumulator to avoid double-counting. This matches the `requestId` dedup logic in `packages/core/src/usage/cc-parser.ts`.
 - **[skill:harness-debugging] [outcome:gotcha]:** `session.turnCount` was dead-initialized to 0 in `orchestrator.ts:877` with no increment path in production code. Tests set it to 1/3 directly, masking the gap. Grepping for all references (not just definitions) confirmed no production mutation. Fix: bump in the state-machine's `turn_start` branch where `recentRequestTimestamps` is already updated.
 
+## 2026-04-16 — Agent Config Validation (ACE-B2)
+
+- **[skill:harness-autopilot] [outcome:observation]:** Hybrid "prefer external binary, fall back to TypeScript" pattern keeps validator surface area small without capping coverage — `validateAgentConfigs` shells out to `agnix` for 385+ rules when installed and otherwise runs 10-ish `HARNESS-AC-*` rules covering the impactful subset. The shape returned is engine-agnostic so CLI output / JSON schema stays stable across modes.
+- **[skill:harness-autopilot] [outcome:observation]:** Env-var escape hatches (`HARNESS_AGNIX_DISABLE=1`, `HARNESS_AGNIX_BIN`) make the runner trivially testable without mocking `spawn`. Runner tests force the fallback path via env and assert both `engine` and `fellBackBecause` fields.
+- **[skill:harness-autopilot] [outcome:gotcha]:** `exactOptionalPropertyTypes` in the core tsconfig forbids passing `foo: value | undefined` to fields typed `foo?: T`. Use conditional spreads `...(v !== undefined && { foo: v })` when building objects from possibly-absent values — this comes up in every builder helper.
+
 ## 2026-04-16 — Agent Effectiveness Introspection
 
 - **[skill:harness-execution] [outcome:success]:** Added `packages/intelligence/src/effectiveness/` with `computePersonaEffectiveness`, `detectBlindSpots`, and `recommendPersona`. Data lives entirely in existing `execution_outcome` graph nodes via a new optional `agentPersona` metadata field — no schema bump, no new node/edge types.
