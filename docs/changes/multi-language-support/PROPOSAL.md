@@ -28,49 +28,62 @@ Harness Engineering has tree-sitter parsers and extraction strategies for Python
 ## Remaining Gaps
 
 ### 1. CodeIngestor Symbol Extraction (graph package)
+
 `extractSymbols()` regex patterns only match TS/JS constructs. Need language-specific patterns for:
+
 - **Python**: `def funcname(`, `class ClassName:`
 - **Go**: `func FuncName(`, `type StructName struct`, `func (r *Receiver) MethodName(`
 - **Rust**: `fn func_name(`, `struct StructName`, `impl StructName`, `pub fn`
 - **Java**: `public class ClassName`, `public void methodName(`, `private int fieldName`
 
 ### 2. Constraint `resolveImportPath()` (core package)
+
 Lines 38-39 hardcode `.ts`/`.tsx`:
+
 ```typescript
 if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
   resolved = resolved + '.ts';
 }
 ```
+
 Must resolve based on the importing file's language.
 
 ### 3. `buildDependencyGraph()` Single Parser
+
 Takes one `LanguageParser` — needs to accept a registry or dispatch per-file.
 
 ### 4. Architecture Collectors
+
 - `CircularDepsCollector`: Uses stub parser + `**/*.ts` glob
 - `ForbiddenImportCollector`: Gets only TS parser from registry
 - `LayerViolationCollector`: Gets only TS parser from registry
 
 ### 5. TreeSitterParser outline/unfold Stubs
+
 `outline()` returns `{ symbols: [], error: '[parse-failed]' }` — should delegate to `code-nav/outline.ts` logic.
 
 ## Design
 
 ### A. Multi-language symbol extraction in CodeIngestor
+
 Add language-dispatched regex patterns in `extractSymbols()` for Python, Go, Rust, Java — keeping existing TS/JS patterns as-is for backward compatibility.
 
 ### B. Language-aware import resolution
+
 Modify `resolveImportPath()` in `dependencies.ts` to accept language context and resolve with the correct extension (`.py`, `.go`, `.rs`, `.java`).
 
 ### C. Multi-parser `buildDependencyGraph()`
+
 Change to accept `ParserRegistry` instead of single `LanguageParser`, dispatching per-file based on extension.
 
 ### D. Architecture collector multi-language wiring
+
 - Replace stub parser in `CircularDepsCollector` with real registry
 - Change `**/*.ts` glob to `**/*.{ts,tsx,js,jsx,py,go,rs,java}`
 - Update `ForbiddenImportCollector` and `LayerViolationCollector` to pass registry-aware config
 
 ### E. Wire TreeSitterParser outline/unfold
+
 Delegate to `code-nav/outline.ts` `getOutline()` and `code-nav/unfold.ts` logic.
 
 ## Test Plan

@@ -12,8 +12,7 @@ function makeMockParser(
   return {
     name: lang,
     extensions,
-    parseFile: async (path: string) =>
-      Ok({ type: 'Program', body: {}, language: lang } as AST),
+    parseFile: async (path: string) => Ok({ type: 'Program', body: {}, language: lang } as AST),
     extractImports: (ast: AST) => {
       // Return imports based on language
       const key = Object.keys(imports).find((k) => ast.language === lang) ?? '';
@@ -37,10 +36,7 @@ describe('Multi-language dependency graph', () => {
       ],
     });
 
-    const result = await buildDependencyGraph(
-      ['/project/src/auth.py'],
-      pyParser
-    );
+    const result = await buildDependencyGraph(['/project/src/auth.py'], pyParser);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -63,10 +59,7 @@ describe('Multi-language dependency graph', () => {
       ],
     });
 
-    const result = await buildDependencyGraph(
-      ['/project/src/main.go'],
-      goParser
-    );
+    const result = await buildDependencyGraph(['/project/src/main.go'], goParser);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -130,10 +123,7 @@ describe('Multi-language dependency graph', () => {
       },
     };
 
-    const result = await buildDependencyGraph(
-      ['/project/unknown.xyz'],
-      lookup
-    );
+    const result = await buildDependencyGraph(['/project/unknown.xyz'], lookup);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -146,10 +136,7 @@ describe('Multi-language dependency graph', () => {
       typescript: [],
     });
 
-    const result = await buildDependencyGraph(
-      ['/project/src/index.ts'],
-      parser
-    );
+    const result = await buildDependencyGraph(['/project/src/index.ts'], parser);
 
     expect(result.ok).toBe(true);
     if (result.ok) {

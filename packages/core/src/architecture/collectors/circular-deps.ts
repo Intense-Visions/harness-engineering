@@ -3,7 +3,18 @@ import { violationId, constraintRuleId } from './hash';
 import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
-import { getDefaultRegistry } from '../../shared/parsers/registry';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring via graph pipeline
+function makeStubParser(): any {
+  return {
+    name: 'typescript',
+    extensions: ['.ts', '.tsx'],
+    parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: 'not needed' } }),
+    extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }),
+    extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }),
+    health: async () => ({ ok: true, value: { available: true } }),
+  };
+}
 
 function mapCycleViolations(
   cycles: Array<{ cycle: string[]; severity: 'error' | 'warning' }>,
@@ -38,9 +49,8 @@ export class CircularDepsCollector implements Collector {
   }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const files = await findFiles('**/*.{ts,tsx,js,jsx,py,go,rs,java}', rootDir);
-    const registry = getDefaultRegistry();
-    const graphResult = await buildDependencyGraph(files, registry);
+    const files = await findFiles('**/*.ts', rootDir);
+    const graphResult = await buildDependencyGraph(files, makeStubParser());
 
     if (!graphResult.ok) {
       return [

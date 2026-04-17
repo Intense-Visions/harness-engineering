@@ -6,7 +6,25 @@ import type { AST, Import, Export, ParseError, LanguageParser, HealthCheckResult
 import { createParseError } from './base';
 import { getParser } from '../../code-nav/parser';
 import type { SupportedLanguage, OutlineResult, UnfoldResult } from '../../code-nav/types';
+import type { CodeSymbol } from '../../code-nav/types';
 import { extractOutlineFromTree } from '../../code-nav/outline';
+
+/**
+ * Find a symbol by name in an outline's symbol list (including children).
+ */
+function findSymbolByName(
+  symbols: CodeSymbol[],
+  name: string
+): { line: number; endLine: number } | null {
+  for (const sym of symbols) {
+    if (sym.name === name) return { line: sym.line, endLine: sym.endLine };
+    if (sym.children) {
+      const found = findSymbolByName(sym.children, name);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 /**
  * Strategy for extracting imports from a tree-sitter AST.
@@ -333,52 +351,25 @@ export class TreeSitterParser implements LanguageParser {
     return extractOutlineFromTree(tree.rootNode, this.lang, source, filePath);
   }
 
-  unfold(
-    filePath: string,
-    ast: AST,
-    symbolName: string
-  ): UnfoldResult | null {
-    // Use outline to find the symbol, then extract its range
+  unfold(filePath: string, ast: AST, symbolName: string): UnfoldResult | null {
     const outlineResult = this.outline(filePath, ast);
     if (outlineResult.error || !outlineResult.symbols.length) return null;
 
     const { source } = ast.body as { tree: Parser.Tree; source: string };
+    const match = findSymbolByName(outlineResult.symbols, symbolName);
+    if (!match) return null;
 
-    // Search top-level symbols and their children
-    for (const sym of outlineResult.symbols) {
-      if (sym.name === symbolName) {
-        const lines = source.split('\n');
-        const content = lines.slice(sym.line - 1, sym.endLine).join('\n');
-        return {
-          file: filePath,
-          symbolName,
-          startLine: sym.line,
-          endLine: sym.endLine,
-          content,
-          language: this.lang,
-          fallback: false,
-        };
-      }
-      if (sym.children) {
-        for (const child of sym.children) {
-          if (child.name === symbolName) {
-            const lines = source.split('\n');
-            const content = lines.slice(child.line - 1, child.endLine).join('\n');
-            return {
-              file: filePath,
-              symbolName,
-              startLine: child.line,
-              endLine: child.endLine,
-              content,
-              language: this.lang,
-              fallback: false,
-            };
-          }
-        }
-      }
-    }
-
-    return null;
+    const lines = source.split('\n');
+    const content = lines.slice(match.line - 1, match.endLine).join('\n');
+    return {
+      file: filePath,
+      symbolName,
+      startLine: match.line,
+      endLine: match.endLine,
+      content,
+      language: this.lang,
+      fallback: false,
+    };
   }
 }
 

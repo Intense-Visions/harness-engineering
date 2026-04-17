@@ -41,9 +41,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Python class', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const classes = store.findNodes({ type: 'class' });
-      const pyClass = classes.find(
-        (n) => n.name === 'AuthService' && n.path?.endsWith('.py')
-      );
+      const pyClass = classes.find((n) => n.name === 'AuthService' && n.path?.endsWith('.py'));
       expect(pyClass).toBeDefined();
     });
 
@@ -68,9 +66,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Python top-level variables', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const vars = store.findNodes({ type: 'variable' });
-      const pyVar = vars.find(
-        (n) => n.name === 'MAX_SESSIONS' && n.path?.endsWith('.py')
-      );
+      const pyVar = vars.find((n) => n.name === 'MAX_SESSIONS' && n.path?.endsWith('.py'));
       expect(pyVar).toBeDefined();
     });
   });
@@ -80,18 +76,14 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Go structs as class nodes', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const classes = store.findNodes({ type: 'class' });
-      const goStruct = classes.find(
-        (n) => n.name === 'AuthService' && n.path?.endsWith('.go')
-      );
+      const goStruct = classes.find((n) => n.name === 'AuthService' && n.path?.endsWith('.go'));
       expect(goStruct).toBeDefined();
     });
 
     it('should extract Go functions', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const functions = store.findNodes({ type: 'function' });
-      const goFn = functions.find(
-        (n) => n.name === 'NewAuthService' && n.path?.endsWith('.go')
-      );
+      const goFn = functions.find((n) => n.name === 'NewAuthService' && n.path?.endsWith('.go'));
       expect(goFn).toBeDefined();
       expect(goFn!.metadata?.exported).toBe(true);
     });
@@ -108,9 +100,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Go variables', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const vars = store.findNodes({ type: 'variable' });
-      const goVar = vars.find(
-        (n) => n.name === 'MaxSessions' && n.path?.endsWith('.go')
-      );
+      const goVar = vars.find((n) => n.name === 'MaxSessions' && n.path?.endsWith('.go'));
       expect(goVar).toBeDefined();
       expect(goVar!.metadata?.exported).toBe(true);
     });
@@ -118,9 +108,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should mark unexported Go functions correctly', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const functions = store.findNodes({ type: 'function' });
-      const hashFn = functions.find(
-        (n) => n.name === 'hashPassword' && n.path?.endsWith('.go')
-      );
+      const hashFn = functions.find((n) => n.name === 'hashPassword' && n.path?.endsWith('.go'));
       expect(hashFn).toBeDefined();
       expect(hashFn!.metadata?.exported).toBe(false);
     });
@@ -131,9 +119,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Rust structs as class nodes', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const classes = store.findNodes({ type: 'class' });
-      const rsStruct = classes.find(
-        (n) => n.name === 'AuthService' && n.path?.endsWith('.rs')
-      );
+      const rsStruct = classes.find((n) => n.name === 'AuthService' && n.path?.endsWith('.rs'));
       expect(rsStruct).toBeDefined();
     });
 
@@ -150,9 +136,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Rust traits as interface nodes', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const interfaces = store.findNodes({ type: 'interface' });
-      const rsTrait = interfaces.find(
-        (n) => n.name === 'Authenticator' && n.path?.endsWith('.rs')
-      );
+      const rsTrait = interfaces.find((n) => n.name === 'Authenticator' && n.path?.endsWith('.rs'));
       expect(rsTrait).toBeDefined();
     });
 
@@ -168,9 +152,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Rust constants as variables', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const vars = store.findNodes({ type: 'variable' });
-      const rsConst = vars.find(
-        (n) => n.name === 'MAX_SESSIONS' && n.path?.endsWith('.rs')
-      );
+      const rsConst = vars.find((n) => n.name === 'MAX_SESSIONS' && n.path?.endsWith('.rs'));
       expect(rsConst).toBeDefined();
     });
   });
@@ -180,9 +162,7 @@ describe('CodeIngestor — multi-language support', () => {
     it('should extract Java classes', async () => {
       await ingestor.ingest(FIXTURE_DIR);
       const classes = store.findNodes({ type: 'class' });
-      const javaClass = classes.find(
-        (n) => n.name === 'AuthService' && n.path?.endsWith('.java')
-      );
+      const javaClass = classes.find((n) => n.name === 'AuthService' && n.path?.endsWith('.java'));
       expect(javaClass).toBeDefined();
       expect(javaClass!.metadata?.exported).toBe(true);
     });

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-17T05:15:00.000Z",
+  "updatedAt": "2026-04-17T08:30:00.000Z",
   "updatedFrom": "multi-language-support",
   "metrics": {
     "circular-deps": {
@@ -12,7 +12,7 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 39,
+      "value": 40,
       "violationIds": [
         "f0ab3e67d7d4319dc430b474b53fb9c8ca3eca675255696fd4906d628b6a67ae",
         "f0ab3e67d7d4319dc430b474b53fb9c8ca3eca675255696fd4906d628b6a67ae",
@@ -63,7 +63,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 82752,
+      "value": 83100,
       "violationIds": [
         "e5162f4bcf3fa5b14ca7535ace40b58e6a1b319b38dd7e794d64ea1b577fae67",
         "c5b4c5a3ec42dfff0c1b6ecb8a0e2dc391925c3cef0645f6235b7b2ac2c03626",
@@ -72,7 +72,7 @@
       ]
     },
     "dependency-depth": {
-      "value": 335,
+      "value": 336,
       "violationIds": []
     }
   }

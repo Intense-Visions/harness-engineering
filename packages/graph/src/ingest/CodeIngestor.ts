@@ -12,6 +12,66 @@ interface ClassContext {
 
 const SKIP_METHOD_NAMES = new Set(['constructor', 'if', 'for', 'while', 'switch']);
 
+/**
+ * Regex patterns for extracting symbols by language.
+ * Using lookup tables to keep cyclomatic complexity low.
+ */
+const FUNCTION_PATTERNS: Record<string, RegExp> = {
+  python: /^def\s+(\w+)\s*\(/,
+  go: /^func\s+(\w+)\s*[[(]/,
+  rust: /^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/,
+  typescript: /(?:export\s+)?(?:async\s+)?function\s+(\w+)/,
+  javascript: /(?:export\s+)?(?:async\s+)?function\s+(\w+)/,
+};
+
+const CLASS_PATTERNS: Record<string, RegExp> = {
+  python: /^class\s+(\w+)/,
+  go: /^type\s+(\w+)\s+struct\b/,
+  rust: /^(?:pub\s+)?struct\s+(\w+)/,
+  java: /(?:public|private|protected)?\s*(?:abstract\s+|final\s+)?class\s+(\w+)/,
+  typescript: /(?:export\s+)?class\s+(\w+)/,
+  javascript: /(?:export\s+)?class\s+(\w+)/,
+};
+
+const INTERFACE_PATTERNS: Record<string, RegExp> = {
+  go: /^type\s+(\w+)\s+interface\b/,
+  rust: /^(?:pub\s+)?trait\s+(\w+)/,
+  java: /(?:public\s+)?interface\s+(\w+)/,
+  typescript: /(?:export\s+)?interface\s+(\w+)/,
+  javascript: /(?:export\s+)?interface\s+(\w+)/,
+};
+
+const METHOD_PATTERNS: Record<string, RegExp> = {
+  python: /^\s+def\s+(\w+)\s*\(/,
+  rust: /^\s+(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/,
+  java: /^\s+(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)*(?:\w+(?:<[^>]*>)?)\s+(\w+)\s*\(/,
+  typescript:
+    /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/,
+  javascript:
+    /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/,
+};
+
+// Go receiver methods are matched separately (different capture groups)
+const GO_METHOD_PATTERN = /^func\s+\(\w+\s+\*?(\w+)\)\s+(\w+)\s*\(/;
+
+const VARIABLE_PATTERNS: Record<string, RegExp> = {
+  python: /^([A-Z]\w*)\s*=/,
+  go: /^(?:var|const)\s+(\w+)/,
+  rust: /^(?:pub\s+)?(?:const|static)\s+(\w+)/,
+  typescript: /(?:export\s+)?(?:const|let|var)\s+(\w+)/,
+  javascript: /(?:export\s+)?(?:const|let|var)\s+(\w+)/,
+};
+
+/**
+ * Determine if a symbol is exported based on language conventions.
+ */
+function isExported(lang: string, line: string, name: string): boolean {
+  if (lang === 'go') return /^[A-Z]/.test(name);
+  if (lang === 'rust') return /^\s*pub\b/.test(line);
+  if (lang === 'java') return /\bpublic\b/.test(line);
+  return line.includes('export');
+}
+
 function countBraces(line: string): number {
   let net = 0;
   for (const ch of line) {
@@ -184,8 +244,7 @@ export class CodeIngestor {
         continue;
       if (this.tryEnterImplBlock(line, lang, relativePath, ctx)) continue;
       if (lang !== 'python' && this.updateClassContext(line, ctx)) continue;
-      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results, lang))
-        continue;
+      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results, lang)) continue;
       if (ctx.insideClass) continue;
       this.tryExtractVariable(line, i, fileId, relativePath, results, lang);
     }
@@ -194,19 +253,9 @@ export class CodeIngestor {
   }
 
   private matchFunction(line: string, lang: string): RegExpMatchArray | null {
-    switch (lang) {
-      case 'python':
-        return line.match(/^def\s+(\w+)\s*\(/);
-      case 'go':
-        // Match standalone functions (no receiver), exclude methods like func (r *T) Name(
-        return line.match(/^func\s+(\w+)\s*[\[(]/);
-      case 'rust':
-        return line.match(/^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/);
-      case 'java':
-        return null; // Java functions are always methods inside classes
-      default:
-        return line.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
-    }
+    if (lang === 'java') return null; // Java functions are always methods inside classes
+    const pattern = FUNCTION_PATTERNS[lang];
+    return pattern ? line.match(pattern) : null;
   }
 
   private tryExtractFunction(
@@ -225,15 +274,8 @@ export class CodeIngestor {
     const name = fnMatch[1]!;
     const id = `function:${relativePath}:${name}`;
     const endLine =
-      lang === 'python'
-        ? this.findEndOfIndentBlock(lines, i)
-        : this.findClosingBrace(lines, i);
-    const exported =
-      lang === 'go'
-        ? /^[A-Z]/.test(name)
-        : lang === 'rust'
-          ? /^\s*pub\b/.test(line)
-          : line.includes('export');
+      lang === 'python' ? this.findEndOfIndentBlock(lines, i) : this.findClosingBrace(lines, i);
+    const exported = isExported(lang, line, name);
     results.push({
       node: {
         id,
@@ -259,18 +301,8 @@ export class CodeIngestor {
   }
 
   private matchClass(line: string, lang: string): RegExpMatchArray | null {
-    switch (lang) {
-      case 'python':
-        return line.match(/^class\s+(\w+)/);
-      case 'go':
-        return line.match(/^type\s+(\w+)\s+struct\b/);
-      case 'rust':
-        return line.match(/^(?:pub\s+)?struct\s+(\w+)/);
-      case 'java':
-        return line.match(/(?:public|private|protected)?\s*(?:abstract\s+|final\s+)?class\s+(\w+)/);
-      default:
-        return line.match(/(?:export\s+)?class\s+(\w+)/);
-    }
+    const pattern = CLASS_PATTERNS[lang];
+    return pattern ? line.match(pattern) : null;
   }
 
   private tryExtractClass(
@@ -288,17 +320,8 @@ export class CodeIngestor {
     const name = classMatch[1]!;
     const id = `class:${relativePath}:${name}`;
     const endLine =
-      lang === 'python'
-        ? this.findEndOfIndentBlock(lines, i)
-        : this.findClosingBrace(lines, i);
-    const exported =
-      lang === 'go'
-        ? /^[A-Z]/.test(name)
-        : lang === 'rust'
-          ? /^\s*pub\b/.test(line)
-          : lang === 'java'
-            ? /\bpublic\b/.test(line)
-            : line.includes('export');
+      lang === 'python' ? this.findEndOfIndentBlock(lines, i) : this.findClosingBrace(lines, i);
+    const exported = isExported(lang, line, name);
     results.push({
       node: {
         id,
@@ -318,18 +341,8 @@ export class CodeIngestor {
   }
 
   private matchInterface(line: string, lang: string): RegExpMatchArray | null {
-    switch (lang) {
-      case 'python':
-        return null; // Python doesn't have interfaces
-      case 'go':
-        return line.match(/^type\s+(\w+)\s+interface\b/);
-      case 'rust':
-        return line.match(/^(?:pub\s+)?trait\s+(\w+)/);
-      case 'java':
-        return line.match(/(?:public\s+)?interface\s+(\w+)/);
-      default:
-        return line.match(/(?:export\s+)?interface\s+(\w+)/);
-    }
+    const pattern = INTERFACE_PATTERNS[lang];
+    return pattern ? line.match(pattern) : null;
   }
 
   private tryExtractInterface(
@@ -347,14 +360,7 @@ export class CodeIngestor {
     const name = ifaceMatch[1]!;
     const id = `interface:${relativePath}:${name}`;
     const endLine = this.findClosingBrace(lines, i);
-    const exported =
-      lang === 'go'
-        ? /^[A-Z]/.test(name)
-        : lang === 'rust'
-          ? /^\s*pub\b/.test(line)
-          : lang === 'java'
-            ? /\bpublic\b/.test(line)
-            : line.includes('export');
+    const exported = isExported(lang, line, name);
     results.push({
       node: {
         id,
@@ -409,29 +415,12 @@ export class CodeIngestor {
   }
 
   private matchMethod(line: string, lang: string, insideClass: boolean): RegExpMatchArray | null {
-    switch (lang) {
-      case 'python':
-        // Indented def inside a class
-        return insideClass ? line.match(/^\s+def\s+(\w+)\s*\(/) : null;
-      case 'go':
-        // Receiver method: func (r *Type) Name(
-        return line.match(/^func\s+\(\w+\s+\*?(\w+)\)\s+(\w+)\s*\(/);
-      case 'rust':
-        // fn inside impl block
-        return insideClass ? line.match(/^\s+(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/) : null;
-      case 'java':
-        return insideClass
-          ? line.match(
-              /^\s+(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)*(?:\w+(?:<[^>]*>)?)\s+(\w+)\s*\(/
-            )
-          : null;
-      default:
-        return insideClass
-          ? line.match(
-              /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/
-            )
-          : null;
-    }
+    // Go receiver methods are top-level, not inside a class
+    if (lang === 'go') return line.match(GO_METHOD_PATTERN);
+    // All other languages require being inside a class/impl context
+    if (!insideClass) return null;
+    const pattern = METHOD_PATTERNS[lang];
+    return pattern ? line.match(pattern) : null;
   }
 
   private tryExtractMethod(
@@ -467,9 +456,7 @@ export class CodeIngestor {
     if (SKIP_METHOD_NAMES.has(methodName)) return false;
     const id = `method:${relativePath}:${className}.${methodName}`;
     const endLine =
-      lang === 'python'
-        ? this.findEndOfIndentBlock(lines, i)
-        : this.findClosingBrace(lines, i);
+      lang === 'python' ? this.findEndOfIndentBlock(lines, i) : this.findClosingBrace(lines, i);
     results.push({
       node: {
         id,
@@ -479,14 +466,7 @@ export class CodeIngestor {
         location: { fileId, startLine: i + 1, endLine },
         metadata: {
           className,
-          exported:
-            lang === 'go'
-              ? /^[A-Z]/.test(methodName)
-              : lang === 'rust'
-                ? /^\s*pub\b/.test(line.trimStart())
-                : lang === 'java'
-                  ? /\bpublic\b/.test(line)
-                  : false,
+          exported: isExported(lang, line, methodName),
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
@@ -499,19 +479,8 @@ export class CodeIngestor {
   }
 
   private matchVariable(line: string, lang: string): RegExpMatchArray | null {
-    switch (lang) {
-      case 'python':
-        // Top-level assignment: NAME = value (not starting with _)
-        return line.match(/^([A-Z]\w*)\s*=/);
-      case 'go':
-        return line.match(/^(?:var|const)\s+(\w+)/);
-      case 'rust':
-        return line.match(/^(?:pub\s+)?(?:const|static)\s+(\w+)/);
-      case 'java':
-        return null; // Java fields handled in method extraction context
-      default:
-        return line.match(/(?:export\s+)?(?:const|let|var)\s+(\w+)/);
-    }
+    const pattern = VARIABLE_PATTERNS[lang];
+    return pattern ? line.match(pattern) : null;
   }
 
   private tryExtractVariable(
@@ -526,12 +495,7 @@ export class CodeIngestor {
     if (!varMatch) return;
     const name = varMatch[1]!;
     const id = `variable:${relativePath}:${name}`;
-    const exported =
-      lang === 'go'
-        ? /^[A-Z]/.test(name)
-        : lang === 'rust'
-          ? /^\s*pub\b/.test(line)
-          : line.includes('export');
+    const exported = isExported(lang, line, name);
     results.push({
       node: {
         id,
