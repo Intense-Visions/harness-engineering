@@ -25,7 +25,7 @@ export type {
 } from './workflow';
 
 // --- Skill & Pipeline ---
-export { STANDARD_COGNITIVE_MODES } from './skill';
+export { STANDARD_COGNITIVE_MODES, DEFAULT_SKILL_CONTEXT_BUDGET } from './skill';
 export type {
   CognitiveMode,
   SkillMetadata,
@@ -34,6 +34,8 @@ export type {
   SkillError,
   SkillResult,
   SkillLifecycleHooks,
+  SkillContextBudget,
+  LoadingLevel,
 } from './skill';
 
 // --- CI/CD ---

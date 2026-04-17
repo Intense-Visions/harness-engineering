@@ -63,6 +63,11 @@ const SkillCodexSchema = z.object({
   instructions_override: z.string().optional(),
 });
 
+export const SkillContextBudgetSchema = z.object({
+  max_tokens: z.number().int().min(100).max(50000).default(4000),
+  priority: z.number().int().min(1).max(5).default(3),
+});
+
 export const SkillAddressSchema = z.object({
   signal: z.string(),
   hard: z.boolean().optional(),
@@ -115,6 +120,7 @@ export const SkillMetadataSchema = z
       .regex(/^[a-z][a-z0-9-]*$/, 'Command namespace must be lowercase with hyphens')
       .optional(),
     addresses: z.array(SkillAddressSchema).default([]),
+    context_budget: SkillContextBudgetSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'knowledge') {
@@ -149,5 +155,7 @@ export type SkillState = z.infer<typeof SkillStateSchema>;
 export type SkillCursor = z.infer<typeof SkillCursorSchema>;
 export type SkillCodex = z.infer<typeof SkillCodexSchema>;
 export type SkillAddress = z.infer<typeof SkillAddressSchema>;
+
+export type SkillContextBudgetParsed = z.infer<typeof SkillContextBudgetSchema>;
 
 export { ALLOWED_TRIGGERS, ALLOWED_PLATFORMS };

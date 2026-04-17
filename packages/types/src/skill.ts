@@ -94,3 +94,25 @@ export interface SkillLifecycleHooks {
   /** Called after the skill completes execution */
   postExecution?: (context: SkillContext, result: SkillResult) => void;
 }
+
+/**
+ * Explicit token budget for a skill, controlling progressive loading behavior.
+ */
+export interface SkillContextBudget {
+  /** Maximum tokens this skill should consume when loaded. Range: 100-50000. */
+  max_tokens: number;
+  /** Loading priority (1=highest/last to degrade, 5=lowest/first to degrade). */
+  priority: number;
+}
+
+/**
+ * Loading level for progressive skill content loading.
+ * Level 1 (rules) through Level 5 (history) — each level includes all prior levels.
+ */
+export type LoadingLevel = 1 | 2 | 3 | 4 | 5;
+
+/** Default context budget applied when skill.yaml omits context_budget. */
+export const DEFAULT_SKILL_CONTEXT_BUDGET: SkillContextBudget = {
+  max_tokens: 4000,
+  priority: 3,
+};
