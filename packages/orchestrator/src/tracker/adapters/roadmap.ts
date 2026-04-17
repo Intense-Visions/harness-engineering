@@ -239,6 +239,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       createdAt: null,
       updatedAt: null,
       externalId: feature.externalId ?? null,
+      assignee: feature.assignee ?? null,
     };
   }
 
