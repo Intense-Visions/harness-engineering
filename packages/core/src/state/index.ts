@@ -46,7 +46,7 @@ export { clearLearningsCache, loadRelevantLearnings } from './learnings-loader';
  * Learning CRUD operations: append, load index, budgeted retrieval.
  */
 export { appendLearning, loadBudgetedLearnings, loadIndexEntries } from './learnings';
-export type { BudgetedLearningsOptions } from './learnings';
+export type { BudgetedLearningsOptions, AppendLearningResult } from './learnings';
 
 /**
  * Learning lifecycle: archival, pruning, session promotion.
@@ -58,6 +58,18 @@ export {
   countLearningEntries,
 } from './learnings-lifecycle';
 export type { PruneResult, PromoteResult } from './learnings-lifecycle';
+
+/**
+ * Semantic overlap detection for learnings.
+ */
+export { checkOverlap, computeLexicalSimilarity, extractFileReferences } from './learnings-overlap';
+export type { OverlapResult, OverlapDimensions } from './learnings-overlap';
+
+/**
+ * Active staleness detection for learnings.
+ */
+export { detectStaleLearnings } from './learnings-staleness';
+export type { StalenessReport, StalenessEntry } from './learnings-staleness';
 
 /**
  * Failure tracking, loading, and archival.
