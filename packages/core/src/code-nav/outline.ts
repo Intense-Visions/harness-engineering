@@ -262,6 +262,21 @@ function buildFailedResult(filePath: string, lang: SupportedLanguage | 'unknown'
 }
 
 /**
+ * Extract outline from an already-parsed tree-sitter tree.
+ * Used by TreeSitterParser to avoid re-parsing files.
+ */
+export function extractOutlineFromTree(
+  rootNode: Parser.SyntaxNode,
+  lang: SupportedLanguage,
+  source: string,
+  filePath: string
+): OutlineResult {
+  const totalLines = source.split('\n').length;
+  const symbols = extractSymbols(rootNode, lang, source, filePath);
+  return { file: filePath, language: lang, totalLines, symbols };
+}
+
+/**
  * Get structural outline for a single file.
  */
 export async function getOutline(filePath: string): Promise<OutlineResult> {
