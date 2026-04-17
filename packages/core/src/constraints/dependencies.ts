@@ -14,12 +14,57 @@ import type {
 } from './types';
 import { resolveFileToLayer } from './layers';
 import { findFiles, relativePosix } from '../shared/fs-utils';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, extname } from 'path';
 
 export { defineLayer } from './layers';
 
 /**
- * Resolve an import source to an absolute file path
+ * Map of file extensions to language categories for import resolution.
+ */
+const EXTENSION_BY_LANG: Record<string, string[]> = {
+  typescript: ['.ts', '.tsx'],
+  javascript: ['.js', '.jsx', '.mjs', '.cjs'],
+  python: ['.py'],
+  go: ['.go'],
+  rust: ['.rs'],
+  java: ['.java'],
+};
+
+/**
+ * Determine the language category from a file extension.
+ */
+function detectLangFromExt(ext: string): string | null {
+  for (const [lang, exts] of Object.entries(EXTENSION_BY_LANG)) {
+    if (exts.includes(ext)) return lang;
+  }
+  return null;
+}
+
+/**
+ * Get the appropriate file extensions to try when resolving imports for a given language.
+ */
+function getExtensionsForLang(lang: string | null): string[] {
+  switch (lang) {
+    case 'typescript':
+      return ['.ts', '.tsx'];
+    case 'javascript':
+      return ['.js', '.jsx', '.mjs', '.cjs'];
+    case 'python':
+      return ['.py'];
+    case 'go':
+      return ['.go'];
+    case 'rust':
+      return ['.rs'];
+    case 'java':
+      return ['.java'];
+    default:
+      return ['.ts', '.tsx', '.js', '.jsx'];
+  }
+}
+
+/**
+ * Resolve an import source to an absolute file path.
+ * Language-aware: uses the importing file's language to determine extensions.
  */
 function resolveImportPath(
   importSource: string,
@@ -34,9 +79,18 @@ function resolveImportPath(
   const fromDir = dirname(fromFile);
   let resolved = resolve(fromDir, importSource);
 
-  // Add .ts extension if not present
-  if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
-    resolved = resolved + '.ts';
+  // Detect language from the importing file's extension
+  const ext = extname(fromFile);
+  const lang = detectLangFromExt(ext);
+  const extensions = getExtensionsForLang(lang);
+
+  // Check if the resolved path already has a supported extension
+  const hasKnownExt = Object.values(EXTENSION_BY_LANG)
+    .flat()
+    .some((e) => resolved.endsWith(e));
+
+  if (!hasKnownExt) {
+    resolved = resolved + extensions[0]!;
   }
 
   // Normalize to forward slashes for cross-platform consistency
@@ -52,12 +106,20 @@ function getImportType(imp: Import): 'static' | 'dynamic' | 'type-only' {
 }
 
 /**
- * Build a dependency graph from a list of files
+ * Interface for looking up parsers by file path.
+ */
+export interface ParserLookup {
+  getForFile(filePath: string): LanguageParser | null;
+}
+
+/**
+ * Build a dependency graph from a list of files.
+ * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
  */
 export async function buildDependencyGraph(
   files: string[],
-  parser: LanguageParser,
+  parser: LanguageParser | ParserLookup,
   graphDependencyData?: GraphDependencyData
 ): Promise<Result<DependencyGraph, ConstraintError>> {
   // When graph data is provided, use it directly
@@ -68,19 +130,29 @@ export async function buildDependencyGraph(
     });
   }
 
+  const isLookup = 'getForFile' in parser;
+
   // Normalize all paths to forward slashes for cross-platform consistency
   const nodes = files.map((f) => f.replace(/\\/g, '/'));
   const edges: DependencyEdge[] = [];
 
   for (const file of files) {
     const normalizedFile = file.replace(/\\/g, '/');
-    const parseResult = await parser.parseFile(file);
+
+    // Select the appropriate parser for this file
+    const fileParser = isLookup
+      ? (parser as ParserLookup).getForFile(file)
+      : (parser as LanguageParser);
+
+    if (!fileParser) continue;
+
+    const parseResult = await fileParser.parseFile(file);
     if (!parseResult.ok) {
       // Skip files that can't be parsed
       continue;
     }
 
-    const importsResult = parser.extractImports(parseResult.value);
+    const importsResult = fileParser.extractImports(parseResult.value);
     if (!importsResult.ok) {
       continue;
     }
