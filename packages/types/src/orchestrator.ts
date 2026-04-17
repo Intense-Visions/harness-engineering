@@ -249,6 +249,8 @@ export interface TrackerConfig {
 export interface PollingConfig {
   /** Interval in milliseconds */
   intervalMs: number;
+  /** Optional random jitter in ms. Each tick offsets by a random value in [-jitterMs, +jitterMs]. Default: 0 */
+  jitterMs?: number;
 }
 
 /**
