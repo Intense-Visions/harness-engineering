@@ -1388,7 +1388,7 @@ export class Orchestrator extends EventEmitter {
 
     // Startup reconciliation: release orphaned claims from previous crash
     const runningIssueIds = new Set(this.state.running.keys());
-    const reconcileResult = await this.claimManager.reconcileOnStartup(runningIssueIds);
+    const reconcileResult = await this.claimManager!.reconcileOnStartup(runningIssueIds);
     if (!reconcileResult.ok) {
       this.logger.warn('Startup reconciliation failed, proceeding with first tick', {
         error: String(reconcileResult.error),
