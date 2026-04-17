@@ -56,6 +56,7 @@ export type { ForbiddenImportViolation } from './fixers/architecture-fixes';
 export {
   classifyFinding,
   applyHotspotDowngrade,
+  markProtectedFindings,
   deduplicateCleanupFindings,
 } from './fixers/cleanup-finding';
 
