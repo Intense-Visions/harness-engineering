@@ -13,12 +13,14 @@ const DEFAULT_CONFIG: TrackerSyncConfig = {
     'in-progress': 'open',
     done: 'closed',
     blocked: 'open',
+    'needs-human': 'open',
   },
   reverseStatusMap: {
     closed: 'done',
     'open:in-progress': 'in-progress',
     'open:blocked': 'blocked',
     'open:planned': 'planned',
+    'open:needs-human': 'needs-human',
   },
 };
 
@@ -56,6 +58,7 @@ function makeFeature(overrides?: Partial<RoadmapFeature>): RoadmapFeature {
     assignee: null,
     priority: null,
     externalId: null,
+    updatedAt: null,
     ...overrides,
   };
 }
@@ -87,6 +90,12 @@ describe('resolveReverseStatus()', () => {
   it('maps "open" + "blocked" label to "blocked"', () => {
     expect(resolveReverseStatus('open', ['harness-managed', 'blocked'], DEFAULT_CONFIG)).toBe(
       'blocked'
+    );
+  });
+
+  it('maps "open" + "needs-human" label to "needs-human"', () => {
+    expect(resolveReverseStatus('open', ['harness-managed', 'needs-human'], DEFAULT_CONFIG)).toBe(
+      'needs-human'
     );
   });
 
@@ -423,6 +432,205 @@ describe('GitHubIssuesSyncAdapter', () => {
       const [, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
       const body = JSON.parse(opts.body as string);
       expect(body.assignees).toEqual(['cwarner']);
+    });
+  });
+
+  describe('addComment', () => {
+    it('posts a comment to the issue', async () => {
+      const fetchFn = mockFetch(201, {});
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.addComment('github:owner/repo#42', 'My comment body');
+      expect(result.ok).toBe(true);
+
+      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(url).toBe('https://api.github.com/repos/owner/repo/issues/42/comments');
+      expect(opts.method).toBe('POST');
+      const body = JSON.parse(opts.body as string);
+      expect(body.body).toBe('My comment body');
+    });
+
+    it('returns Err for invalid externalId', async () => {
+      const fetchFn = mockFetch(201, {});
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.addComment('invalid', 'My comment body');
+      expect(result.ok).toBe(false);
+    });
+
+    it('returns Err on API failure', async () => {
+      const fetchFn = mockFetch(403, { message: 'Forbidden' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+        maxRetries: 0,
+      });
+
+      const result = await adapter.addComment('github:owner/repo#42', 'My comment body');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/403/);
+    });
+  });
+
+  describe('fetchComments', () => {
+    it('fetches and maps comments from a single page', async () => {
+      const fetchFn = mockFetch(200, [
+        {
+          id: 101,
+          body: 'First comment',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          user: { login: 'alice' },
+        },
+        {
+          id: 102,
+          body: 'Second comment',
+          created_at: '2026-01-03T00:00:00Z',
+          updated_at: null,
+          user: { login: 'bob' },
+        },
+      ]);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(2);
+      expect(result.value[0]).toEqual({
+        id: '101',
+        body: 'First comment',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-02T00:00:00Z',
+        author: 'alice',
+      });
+      expect(result.value[1]).toEqual({
+        id: '102',
+        body: 'Second comment',
+        createdAt: '2026-01-03T00:00:00Z',
+        updatedAt: null,
+        author: 'bob',
+      });
+
+      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(url).toBe(
+        'https://api.github.com/repos/owner/repo/issues/42/comments?per_page=100&page=1'
+      );
+      expect(opts.method).toBe('GET');
+    });
+
+    it('paginates when first page returns 100 results', async () => {
+      const page1 = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1,
+        body: `Comment ${i + 1}`,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: null,
+        user: { login: 'user' },
+      }));
+      const page2 = [
+        {
+          id: 101,
+          body: 'Last comment',
+          created_at: '2026-01-02T00:00:00Z',
+          updated_at: null,
+          user: { login: 'user' },
+        },
+      ];
+      const fetchFn = mockFetchSequence({ status: 200, body: page1 }, { status: 200, body: page2 });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(101);
+      expect(result.value[100]!.id).toBe('101');
+
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+      const [url2] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]!;
+      expect(url2).toContain('page=2');
+    });
+
+    it('returns empty array when issue has no comments', async () => {
+      const fetchFn = mockFetch(200, []);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+    });
+
+    it('returns Err for invalid externalId', async () => {
+      const fetchFn = mockFetch(200, []);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('invalid-id');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/Invalid externalId/);
+    });
+
+    it('returns Err on API failure', async () => {
+      const fetchFn = mockFetch(404, { message: 'Not Found' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+        maxRetries: 0,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/404/);
+    });
+
+    it('maps user to "ghost" when comment has null user', async () => {
+      const fetchFn = mockFetch(200, [
+        {
+          id: 200,
+          body: 'Orphaned comment',
+          created_at: '2026-01-05T00:00:00Z',
+          updated_at: null,
+          user: null,
+        },
+      ]);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]!.author).toBe('ghost');
     });
   });
 });

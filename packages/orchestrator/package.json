@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/orchestrator",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Orchestrator daemon for dispatching coding agents to issues",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -52,16 +52,21 @@
     "@anthropic-ai/sdk": "^0.87.0",
     "@google/generative-ai": "^0.24.0",
     "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/graph": "workspace:*",
+    "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "ink": "^4.4.1",
     "liquidjs": "^10.25.3",
+    "@mariozechner/pi-coding-agent": "^0.67.0",
     "openai": "^4.0.0",
     "react": "^18.3.1",
+    "ws": "^8.20.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
     "@types/react": "^18.3.28",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.2",
     "tsup": "^8.5.1",
     "vitest": "^4.1.2"

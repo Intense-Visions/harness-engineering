@@ -13,7 +13,7 @@ export interface EdgeQuery {
   readonly type?: EdgeType;
 }
 
-const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']); // harness-ignore SEC-NODE-001
+const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']); // harness-ignore SEC-NODE-001: this set IS the defense — used by safeMerge to reject poisoned keys
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeMerge(target: any, source: any): void {

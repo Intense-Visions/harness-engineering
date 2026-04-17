@@ -1,5 +1,7 @@
 // packages/core/src/entropy/types/fix.ts
 
+import type { ProtectedRegionMap } from '../../annotations';
+
 // ============ Fix Types ============
 
 export type FixType =
@@ -19,6 +21,8 @@ export interface FixConfig {
   fixTypes: FixType[];
   createBackup: boolean;
   backupDir?: string;
+  /** When provided, fixes targeting lines within protected regions are skipped. */
+  protectedRegions?: ProtectedRegionMap;
 }
 
 export interface Fix {
@@ -47,7 +51,7 @@ export interface FixResult {
 
 // ============ Cleanup Finding Types ============
 
-export type SafetyLevel = 'safe' | 'probably-safe' | 'unsafe';
+export type SafetyLevel = 'safe' | 'probably-safe' | 'unsafe' | 'protected';
 
 export interface CleanupFinding {
   id: string;

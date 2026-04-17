@@ -136,7 +136,7 @@ describe('RISK_COLORS', () => {
   it('has all three risk levels', () => {
     expect(RISK_COLORS.high).toBe('#ef4444');
     expect(RISK_COLORS.medium).toBe('#f59e0b');
-    expect(RISK_COLORS.low).toBe('#6b7280');
+    expect(RISK_COLORS.low).toBe('#71717a');
   });
 });
 
@@ -144,7 +144,7 @@ describe('BlastRadiusGraph component', () => {
   it('renders "No affected nodes" when layers are empty', () => {
     const data = makeTestData({ layers: [] });
     render(<BlastRadiusGraph data={data} />);
-    expect(screen.getByText('No affected nodes')).toBeDefined();
+    expect(screen.getByText(/No affected nodes/)).toBeDefined();
   });
 
   it('renders an SVG element when layers have nodes', () => {
@@ -167,24 +167,24 @@ describe('BlastRadiusGraph component', () => {
     const data = makeTestData();
     const { container } = render(<BlastRadiusGraph data={data} />);
     const texts = Array.from(container.querySelectorAll('text'));
-    const depthTexts = texts.filter((t) => t.textContent?.startsWith('Depth'));
-    expect(depthTexts).toHaveLength(2); // Depth 1, Depth 2
+    const depthTexts = texts.filter((t) => t.textContent?.startsWith('Layer'));
+    expect(depthTexts).toHaveLength(2); // Layer 1, Layer 2
   });
 
   it('renders source label', () => {
     const data = makeTestData();
     const { container } = render(<BlastRadiusGraph data={data} />);
     const texts = Array.from(container.querySelectorAll('text'));
-    const sourceLabel = texts.find((t) => t.textContent === 'Source');
+    const sourceLabel = texts.find((t) => t.textContent === 'Origin');
     expect(sourceLabel).toBeDefined();
   });
 
   it('renders node rectangles for each node', () => {
     const data = makeTestData();
     const { container } = render(<BlastRadiusGraph data={data} />);
-    // 1 source + 2 depth-1 + 1 depth-2 = 4 nodes, each with a rect
+    // 1 source + 2 depth-1 + 1 depth-2 = 4 nodes, each with 2 rects (bg + animated stroke)
     const rects = container.querySelectorAll('rect');
-    expect(rects.length).toBe(4);
+    expect(rects.length).toBe(8);
   });
 
   it('renders edges as lines', () => {

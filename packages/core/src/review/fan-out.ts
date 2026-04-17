@@ -9,6 +9,7 @@ import { runComplianceAgent } from './agents/compliance-agent';
 import { runBugDetectionAgent } from './agents/bug-agent';
 import { runSecurityAgent } from './agents/security-agent';
 import { runArchitectureAgent } from './agents/architecture-agent';
+import { runLearningsAgent } from './agents/learnings-agent';
 
 /**
  * Registry mapping each review domain to its agent function.
@@ -18,6 +19,7 @@ const AGENT_RUNNERS: Record<ReviewDomain, (bundle: ContextBundle) => ReviewFindi
   bug: runBugDetectionAgent,
   security: runSecurityAgent,
   architecture: runArchitectureAgent,
+  learnings: runLearningsAgent,
 };
 
 /**

@@ -115,16 +115,28 @@ export class GeminiBackend implements AgentBackend {
       };
     }
 
+    const usage = {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      cacheCreationTokens,
+      cacheReadTokens,
+    };
+
+    // Surface usage on a yielded event so the orchestrator state machine can
+    // advance session totals and rate-limit windows. TurnResult.usage alone is
+    // dropped by the for-await-of consumption loop in runAgentInBackgroundTask.
+    yield {
+      type: 'usage',
+      timestamp: new Date().toISOString(),
+      sessionId: session.sessionId,
+      usage,
+    };
+
     return {
       success: true,
       sessionId: session.sessionId,
-      usage: {
-        inputTokens,
-        outputTokens,
-        totalTokens,
-        cacheCreationTokens,
-        cacheReadTokens,
-      },
+      usage,
     };
   }
 

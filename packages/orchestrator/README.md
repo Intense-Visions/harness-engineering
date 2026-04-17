@@ -11,8 +11,16 @@ Orchestrator daemon for dispatching coding agents to issues. Polls an issue trac
 └──────────────────┬───────────────────────────────┘
                    ▼
 ┌──────────────────────────────────────────────────┐
+│           Intelligence Pipeline (optional)        │
+│  SEL (spec enrichment) → CML (complexity) →      │
+│  ConcernSignals → PESL (simulation + abort)      │
+│  (@harness-engineering/intelligence)             │
+└──────────────────┬───────────────────────────────┘
+                   ▼
+┌──────────────────────────────────────────────────┐
 │              Core State Machine                   │
 │  Candidate Selection · Concurrency Control       │
+│  Model Routing (routeIssue + concern signals)    │
 │  Reconciliation · Retry Logic                    │
 │  Event Sourcing (applyEvent → side effects)      │
 └──────────────────┬───────────────────────────────┘
@@ -74,6 +82,18 @@ import { sortCandidates, selectCandidates, isEligible } from '@harness-engineeri
 const ranked = sortCandidates(issues);
 const selected = selectCandidates(ranked, availableSlots);
 ```
+
+### Intelligence Pipeline Integration
+
+When `config.intelligence.enabled` is `true`, the orchestrator runs the intelligence pipeline during each tick:
+
+1. **Pre-routing** — For each candidate issue, `preprocessIssue()` runs SEL (spec enrichment) and CML (complexity scoring), producing `ConcernSignal[]` that feed into `routeIssue()`. For `alwaysHuman` tiers, the enriched spec is attached to the escalation for human context.
+2. **Post-routing** — For locally-routed issues, PESL simulation runs. If `abort: true` (confidence < 0.3), the dispatch converts to an escalation.
+3. **Post-execution** — On `worker_exit`, execution outcomes are recorded into the graph for future CML historical scoring.
+
+When disabled (default), the pipeline is skipped entirely and routing uses empty concern signals.
+
+See [`@harness-engineering/intelligence` README](../intelligence/README.md) for full pipeline documentation.
 
 ### Agent Backends
 

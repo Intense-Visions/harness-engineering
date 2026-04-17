@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Command } from 'commander';
 import {
   detectPackageManager,
   getInstalledVersion,
   getInstalledVersions,
   getInstalledPackages,
+  getLatestVersion,
+  getLatestVersionAsync,
   createUpdateCommand,
 } from '../../src/commands/update';
 
@@ -13,6 +16,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   return {
     ...actual,
     execFileSync: vi.fn(),
+    execFile: vi.fn(),
   };
 });
 
@@ -22,14 +26,50 @@ vi.mock('node:fs', async (importOriginal) => {
   return {
     ...actual,
     realpathSync: vi.fn(),
+    existsSync: vi.fn(() => false),
+    readFileSync: vi.fn(() => '{}'),
   };
 });
 
-import { execFileSync } from 'node:child_process';
+// Mock readline to avoid interactive prompts
+vi.mock('node:readline', () => ({
+  default: {
+    createInterface: vi.fn(() => ({
+      question: vi.fn((_q: string, cb: (answer: string) => void) => {
+        cb('n'); // Always answer 'n' to skip regeneration
+      }),
+      close: vi.fn(),
+    })),
+  },
+}));
+
+// Mock telemetry wizard
+vi.mock('../../src/commands/telemetry-wizard', () => ({
+  ensureTelemetryConfigured: vi.fn().mockResolvedValue({ status: 'pass', message: 'OK' }),
+}));
+
+// Mock hooks init
+vi.mock('../../src/commands/hooks/init', () => ({
+  initHooks: vi.fn(() => ({ copiedScripts: [] })),
+}));
+
+import { execFileSync, execFile } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRealpathSync = vi.mocked(realpathSync);
+const mockedExecFile = vi.mocked(execFile);
+
+function createProgram(): Command {
+  const program = new Command();
+  program.exitOverride();
+  program.option('--json', 'JSON output');
+  program.option('--verbose', 'Verbose output');
+  program.option('--quiet', 'Quiet output');
+  program.option('--config <path>', 'Config path');
+  program.addCommand(createUpdateCommand());
+  return program;
+}
 
 describe('update command', () => {
   beforeEach(() => {
@@ -237,6 +277,274 @@ describe('update command', () => {
         ['list', '-g', '--json'],
         expect.any(Object)
       );
+    });
+  });
+
+  describe('getLatestVersion', () => {
+    it('returns trimmed version string from npm view', () => {
+      mockedExecFileSync.mockReturnValue('1.25.0\n');
+      const version = getLatestVersion();
+      expect(version).toBe('1.25.0');
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        'npm',
+        ['view', '@harness-engineering/cli', 'dist-tags.latest'],
+        expect.objectContaining({ encoding: 'utf-8', timeout: 15000 })
+      );
+    });
+
+    it('uses custom package name when provided', () => {
+      mockedExecFileSync.mockReturnValue('0.21.3\n');
+      const version = getLatestVersion('@harness-engineering/core');
+      expect(version).toBe('0.21.3');
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        'npm',
+        ['view', '@harness-engineering/core', 'dist-tags.latest'],
+        expect.any(Object)
+      );
+    });
+
+    it('trims whitespace from output', () => {
+      mockedExecFileSync.mockReturnValue('  2.0.0-beta.1  \n');
+      expect(getLatestVersion()).toBe('2.0.0-beta.1');
+    });
+
+    it('throws when execFileSync throws', () => {
+      mockedExecFileSync.mockImplementation(() => {
+        throw new Error('npm not found');
+      });
+      expect(() => getLatestVersion()).toThrow('npm not found');
+    });
+  });
+
+  describe('getLatestVersionAsync', () => {
+    it('returns trimmed version from npm view', async () => {
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(null, { stdout: '1.25.0\n', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+      const version = await getLatestVersionAsync('@harness-engineering/cli');
+      expect(version).toBe('1.25.0');
+    });
+
+    it('rejects when execFile fails', async () => {
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(new Error('network error'), { stdout: '', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+      await expect(getLatestVersionAsync('@harness-engineering/cli')).rejects.toThrow(
+        'network error'
+      );
+    });
+
+    it('trims whitespace from stdout', async () => {
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(null, { stdout: '  3.0.0  \n', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+      const version = await getLatestVersionAsync('@harness-engineering/core');
+      expect(version).toBe('3.0.0');
+    });
+  });
+
+  describe('runUpdateAction via command parseAsync', () => {
+    const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    let logSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      // Default: detectPackageManager returns npm
+      mockedRealpathSync.mockReturnValue('/usr/local/lib/node_modules/harness/bin.js');
+    });
+
+    afterEach(() => {
+      logSpy.mockRestore();
+    });
+
+    it('runs --force update successfully', async () => {
+      // getInstalledPackages
+      mockedExecFileSync
+        .mockReturnValueOnce(
+          JSON.stringify({
+            dependencies: {
+              '@harness-engineering/cli': { version: '1.0.0' },
+            },
+          })
+        )
+        // install -g succeeds (stdio inherit returns undefined)
+        .mockReturnValueOnce(undefined as any);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update', '--force'])).rejects.toThrow(
+        'process.exit'
+      );
+
+      // Should have called install
+      const installCall = mockedExecFileSync.mock.calls.find(
+        (c) => c[1] && Array.isArray(c[1]) && c[1].includes('install')
+      );
+      expect(installCall).toBeDefined();
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('handles install failure with --force', async () => {
+      // getInstalledPackages
+      mockedExecFileSync
+        .mockReturnValueOnce(
+          JSON.stringify({
+            dependencies: {
+              '@harness-engineering/cli': { version: '1.0.0' },
+            },
+          })
+        )
+        // install -g fails
+        .mockImplementationOnce(() => {
+          throw new Error('install failed');
+        });
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update', '--force'])).rejects.toThrow(
+        'process.exit'
+      );
+
+      expect(mockExit).toHaveBeenCalledWith(2);
+    });
+
+    it('reports all packages up to date when no updates available', async () => {
+      // getInstalledPackages
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+      // getInstalledVersions
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+
+      // getLatestVersionAsync: mock execFile to return same version
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(null, { stdout: '1.0.0\n', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('detects outdated packages and runs install', async () => {
+      // getInstalledPackages
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+      // getInstalledVersions
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+      // install -g succeeds
+      mockedExecFileSync.mockReturnValueOnce(undefined as any);
+
+      // getLatestVersionAsync: newer version
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(null, { stdout: '2.0.0\n', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('uses --version flag to pin CLI version', async () => {
+      // getInstalledPackages
+      mockedExecFileSync
+        .mockReturnValueOnce(
+          JSON.stringify({
+            dependencies: {
+              '@harness-engineering/cli': { version: '1.0.0' },
+              '@harness-engineering/core': { version: '1.0.0' },
+            },
+          })
+        )
+        // install succeeds
+        .mockReturnValueOnce(undefined as any);
+
+      const program = createProgram();
+      await expect(
+        program.parseAsync(['node', 'test', 'update', '--version', '1.5.0', '--force'])
+      ).rejects.toThrow('process.exit');
+
+      // Verify the install call has pinned version for CLI
+      const installCall = mockedExecFileSync.mock.calls.find(
+        (c) => c[1] && Array.isArray(c[1]) && c[1].includes('install')
+      );
+      expect(installCall).toBeDefined();
+      const args = installCall![1] as string[];
+      expect(args.some((a) => a === '@harness-engineering/cli@1.5.0')).toBe(true);
+      expect(args.some((a) => a === '@harness-engineering/core@latest')).toBe(true);
+    });
+
+    it('uses verbose mode to log extra info', async () => {
+      mockedExecFileSync
+        .mockReturnValueOnce(
+          JSON.stringify({
+            dependencies: {
+              '@harness-engineering/cli': { version: '1.0.0' },
+            },
+          })
+        )
+        .mockReturnValueOnce(undefined as any);
+
+      const program = createProgram();
+      await expect(
+        program.parseAsync(['node', 'test', '--verbose', 'update', '--force'])
+      ).rejects.toThrow('process.exit');
+
+      expect(mockExit).toHaveBeenCalledWith(0);
     });
   });
 });

@@ -50,10 +50,10 @@ export async function runCleanup(
   const rootDir = path.resolve(cwd, config.rootDir);
   const docsDir = path.resolve(cwd, config.docsDir);
 
-  // Build entropy config
+  // Build entropy config — use configured entry points or let resolveEntryPoints discover them
   const entropyConfig: EntropyConfig = {
     rootDir,
-    entryPoints: [path.join(rootDir, 'src/index.ts')],
+    ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
     docPaths: [docsDir],
     analyze: {
       drift: type === 'all' || type === 'drift',

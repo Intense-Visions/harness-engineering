@@ -1,14 +1,23 @@
 // --- Phase 3: Context Scoping types ---
 
+import type { Rubric } from './meta-judge';
+
 /**
  * Change type detected from commit message prefix or diff heuristic.
  */
 export type ChangeType = 'feature' | 'bugfix' | 'refactor' | 'docs';
 
 /**
+ * Isolation stage for two-stage review.
+ * - `spec-compliance`: evaluates spec adherence; receives spec context.
+ * - `code-quality`: evaluates bugs, security, style; does NOT receive spec context.
+ */
+export type ReviewStage = 'spec-compliance' | 'code-quality';
+
+/**
  * Review domain — each gets its own scoped context bundle.
  */
-export type ReviewDomain = 'compliance' | 'bug' | 'security' | 'architecture';
+export type ReviewDomain = 'compliance' | 'bug' | 'security' | 'architecture' | 'learnings';
 
 /**
  * A file included in a context bundle with its content.
@@ -68,6 +77,17 @@ export interface ContextBundle {
   diffLines: number;
   /** Total lines of context gathered */
   contextLines: number;
+  /**
+   * Rubric generated before the bundle was assembled (thorough mode only).
+   * Agents use this to gate which findings to emit.
+   */
+  rubric?: Rubric;
+  /**
+   * Two-stage isolation marker (isolated mode only). When present, the
+   * bundle belongs to exactly one stage and its context is filtered
+   * accordingly.
+   */
+  stage?: ReviewStage;
 }
 
 /**

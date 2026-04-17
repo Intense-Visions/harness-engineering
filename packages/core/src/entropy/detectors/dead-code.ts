@@ -9,6 +9,7 @@ import type {
   DeadInternal,
   UnusedImport,
 } from '../types';
+import type { ProtectedRegionMap } from '../../annotations';
 import type { AST } from '../../shared/parsers';
 import { dirname, resolve } from 'path';
 
@@ -462,12 +463,53 @@ function buildReportFromSnapshot(snapshot: CodebaseSnapshot): DeadCodeReport {
   };
 }
 
+/**
+ * Filter a dead code report to exclude findings that fall within protected regions.
+ * - Dead exports/imports/internals: skipped when their line is protected for 'entropy'.
+ * - Dead files: skipped when the file has any protected region (conservative).
+ */
+function filterProtectedFindings(
+  report: DeadCodeReport,
+  regions: ProtectedRegionMap
+): DeadCodeReport {
+  const deadExports = report.deadExports.filter(
+    (e) => !regions.isProtected(e.file, e.line, 'entropy')
+  );
+  const deadFiles = report.deadFiles.filter((f) => regions.getRegions(f.path).length === 0);
+  const unusedImports = report.unusedImports.filter(
+    (i) => !regions.isProtected(i.file, i.line, 'entropy')
+  );
+  const deadInternals = report.deadInternals.filter(
+    (i) => !regions.isProtected(i.file, i.line, 'entropy')
+  );
+  const estimatedDeadLines = deadFiles.reduce((acc, f) => acc + f.lineCount, 0);
+
+  return {
+    deadExports,
+    deadFiles,
+    unusedImports,
+    deadInternals,
+    stats: {
+      ...report.stats,
+      deadExportCount: deadExports.length,
+      deadFileCount: deadFiles.length,
+      estimatedDeadLines,
+    },
+  };
+}
+
 export async function detectDeadCode(
   snapshot: CodebaseSnapshot,
-  graphDeadCodeData?: GraphDeadCodeData
+  graphDeadCodeData?: GraphDeadCodeData,
+  protectedRegions?: ProtectedRegionMap
 ): Promise<Result<DeadCodeReport, EntropyError>> {
-  const report = graphDeadCodeData
+  let report = graphDeadCodeData
     ? buildReportFromGraph(graphDeadCodeData)
     : buildReportFromSnapshot(snapshot);
+
+  if (protectedRegions) {
+    report = filterProtectedFindings(report, protectedRegions);
+  }
+
   return Ok(report);
 }

@@ -28,6 +28,37 @@ export function canDispatch(
   issueState: string,
   maxConcurrentAgentsByState: Record<string, number>
 ): boolean {
+  // Global cooldown check
+  if (state.globalCooldownUntilMs && Date.now() < state.globalCooldownUntilMs) {
+    return false;
+  }
+
+  // Rolling window request and token cap check
+  const now = Date.now();
+  // Per second requests check
+  const recentCountSec = state.recentRequestTimestamps.filter((ts) => now - ts < 1000).length;
+  if (recentCountSec >= state.maxRequestsPerSecond) {
+    return false;
+  }
+
+  if (state.maxInputTokensPerMinute > 0) {
+    const minInputTokens = state.recentInputTokens
+      .filter((t) => now - t.timestamp < 60000)
+      .reduce((sum, t) => sum + t.tokens, 0);
+    if (minInputTokens >= state.maxInputTokensPerMinute) {
+      return false; // Exhausted ITPM
+    }
+  }
+
+  if (state.maxOutputTokensPerMinute > 0) {
+    const minOutputTokens = state.recentOutputTokens
+      .filter((t) => now - t.timestamp < 60000)
+      .reduce((sum, t) => sum + t.tokens, 0);
+    if (minOutputTokens >= state.maxOutputTokensPerMinute) {
+      return false; // Exhausted OTPM
+    }
+  }
+
   // Global slots check
   if (getAvailableSlots(state) <= 0) {
     return false;

@@ -50,6 +50,16 @@ export interface ReviewFinding {
   remediation?: string;
   /** Links to CWE/OWASP reference docs (security domain only) */
   references?: string[];
+  /**
+   * Trust score (0-100%) computed in Phase 5.5 from validation method,
+   * evidence quality, cross-agent agreement, and historical accuracy.
+   */
+  trustScore?: number;
+  /**
+   * ID of the RubricItem this finding was produced against (thorough mode only).
+   * Lets consumers trace a finding back to the pre-generated criterion.
+   */
+  rubricItemId?: string;
 }
 
 /**

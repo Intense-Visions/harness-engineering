@@ -48,6 +48,41 @@ describe('code_outline', () => {
     expect(names).toContain('create_service');
   });
 
+  it('should extract outline from Go file', async () => {
+    const result = await getOutline(path.join(FIXTURES, 'sample.go'));
+    expect(result.error).toBeUndefined();
+    expect(result.language).toBe('go');
+    expect(result.totalLines).toBeGreaterThan(0);
+
+    const names = result.symbols.map((s) => s.name);
+    expect(names).toContain('NewAuthMiddleware');
+    expect(names).toContain('AuthConfig');
+  });
+
+  it('should extract outline from Rust file', async () => {
+    const result = await getOutline(path.join(FIXTURES, 'sample.rs'));
+    expect(result.error).toBeUndefined();
+    expect(result.language).toBe('rust');
+    expect(result.totalLines).toBeGreaterThan(0);
+
+    const names = result.symbols.map((s) => s.name);
+    expect(names).toContain('AuthConfig');
+    expect(names).toContain('create_middleware');
+    expect(names).toContain('Authenticator');
+  });
+
+  it('should extract outline from Java file', async () => {
+    const result = await getOutline(path.join(FIXTURES, 'sample.java'));
+    expect(result.error).toBeUndefined();
+    expect(result.language).toBe('java');
+    expect(result.totalLines).toBeGreaterThan(0);
+
+    const names = result.symbols.map((s) => s.name);
+    expect(names).toContain('AuthMiddleware');
+    expect(names).toContain('Authenticator');
+    expect(names).toContain('UserRole');
+  });
+
   it('should return parse-failed marker for syntax error files', async () => {
     const result = await getOutline(path.join(FIXTURES, 'syntax-error.ts'));
     // Tree-sitter is error-tolerant, so it may still parse partially.
@@ -56,7 +91,7 @@ describe('code_outline', () => {
   });
 
   it('should return parse-failed for unsupported files', async () => {
-    const result = await getOutline('/tmp/test.rs');
+    const result = await getOutline('/tmp/test.xyz');
     expect(result.error).toBe('[parse-failed]');
   });
 
@@ -69,13 +104,13 @@ describe('code_outline', () => {
   describe('formatOutline', () => {
     it('should format error result as file + error marker', () => {
       const errorResult: OutlineResult = {
-        file: '/tmp/test.rs',
+        file: '/tmp/test.xyz',
         language: 'unknown',
         totalLines: 0,
         symbols: [],
         error: '[parse-failed]',
       };
-      expect(formatOutline(errorResult)).toBe('/tmp/test.rs [parse-failed]');
+      expect(formatOutline(errorResult)).toBe('/tmp/test.xyz [parse-failed]');
     });
 
     it('should format outline with symbols and line numbers', async () => {

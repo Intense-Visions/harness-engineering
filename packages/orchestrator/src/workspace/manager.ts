@@ -1,12 +1,23 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { WorkspaceConfig, Result, Ok, Err } from '@harness-engineering/types';
 
 export class WorkspaceManager {
   private config: WorkspaceConfig;
+  /** Absolute path to the git repository root (resolved lazily). */
+  private repoRoot: string | null = null;
 
   constructor(config: WorkspaceConfig) {
     this.config = config;
+  }
+
+  /** Runs a git command and returns stdout. Extracted for testability. */
+  protected async git(args: string[], cwd: string): Promise<string> {
+    const exec = promisify(execFile);
+    const { stdout } = await exec('git', args, { cwd });
+    return stdout;
   }
 
   /**
@@ -29,15 +40,128 @@ export class WorkspaceManager {
   }
 
   /**
-   * Ensures the workspace directory exists.
+   * Discovers the git repository root from the workspace root directory.
+   */
+  private async getRepoRoot(): Promise<string> {
+    if (this.repoRoot) return this.repoRoot;
+    // Ensure the workspace root exists before using it as cwd for git.
+    // On a fresh machine the directory may not have been created yet,
+    // and execFile throws a misleading ENOENT ("spawn git ENOENT") when
+    // the cwd doesn't exist.
+    const root = path.resolve(this.config.root);
+    await fs.mkdir(root, { recursive: true });
+    const stdout = await this.git(['rev-parse', '--show-toplevel'], root);
+    this.repoRoot = stdout.trim();
+    return this.repoRoot;
+  }
+
+  /**
+   * Ensures the workspace exists as a git worktree so the agent has
+   * access to the full project source.
    */
   public async ensureWorkspace(identifier: string): Promise<Result<string, Error>> {
     try {
-      const workspacePath = this.resolvePath(identifier);
-      await fs.mkdir(workspacePath, { recursive: true });
+      const workspacePath = path.resolve(this.resolvePath(identifier));
+
+      // If the worktree already exists (e.g. resumed session), reuse it.
+      try {
+        await fs.access(path.join(workspacePath, '.git'));
+        return Ok(workspacePath);
+      } catch {
+        // Not yet created — fall through to create it.
+      }
+
+      // Remove stale directory if a previous run left one behind.
+      // The directory may be non-empty from a partially-failed dispatch.
+      try {
+        await fs.access(workspacePath);
+        // Directory exists but is not a valid worktree — clean it up.
+        const repoRoot = await this.getRepoRoot();
+        try {
+          await this.git(['worktree', 'remove', '--force', workspacePath], repoRoot);
+        } catch {
+          // Not registered as a git worktree; remove the directory directly.
+          await fs.rm(workspacePath, { recursive: true, force: true });
+        }
+      } catch {
+        // Directory doesn't exist — that's fine.
+      }
+
+      const repoRoot = await this.getRepoRoot();
+
+      // Best-effort fetch so origin/<default> reflects the latest remote
+      // state. Silent on failure so offline / no-remote setups still work.
+      await this.tryFetch(repoRoot);
+
+      // Resolve the base ref (configured → auto-detected → fallbacks). We
+      // create the worktree in detached mode so it can't collide with a
+      // branch that is already checked out elsewhere.
+      const baseRef = await this.resolveBaseRef(repoRoot);
+      await this.git(['worktree', 'add', '--detach', workspacePath, baseRef], repoRoot);
+
       return Ok(workspacePath);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Best-effort `git fetch origin` so subsequent ref resolution sees the
+   * latest remote state. Failures (offline, no remote, auth errors) are
+   * swallowed — dispatch should not be blocked by transient network issues.
+   */
+  private async tryFetch(repoRoot: string): Promise<void> {
+    try {
+      await this.git(['fetch', 'origin', '--quiet'], repoRoot);
+    } catch {
+      // Intentional: proceed with whatever refs already exist locally.
+    }
+  }
+
+  /**
+   * Resolves the ref that new worktrees should be based on.
+   *
+   * Priority order:
+   *   1. `config.baseRef` (explicit override). Throws if it doesn't resolve.
+   *   2. Default branch via `git symbolic-ref --short refs/remotes/origin/HEAD`.
+   *   3. Common fallbacks: `origin/main`, `origin/master`, `main`, `master`.
+   *   4. `HEAD` as an ultimate fallback (preserves old behavior for unusual
+   *      repos without any of the above).
+   */
+  private async resolveBaseRef(repoRoot: string): Promise<string> {
+    const configured = this.config.baseRef;
+    if (configured) {
+      if (await this.refExists(configured, repoRoot)) return configured;
+      throw new Error(
+        `Configured workspace.baseRef "${configured}" does not resolve in this repository`
+      );
+    }
+
+    try {
+      const stdout = await this.git(
+        ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
+        repoRoot
+      );
+      const detected = stdout.trim();
+      if (detected) return detected;
+    } catch {
+      // origin/HEAD not set — fall through to known-name lookups.
+    }
+
+    for (const candidate of ['origin/main', 'origin/master', 'main', 'master']) {
+      if (await this.refExists(candidate, repoRoot)) return candidate;
+    }
+
+    return 'HEAD';
+  }
+
+  /** Returns true iff `git rev-parse --verify` accepts the ref. */
+  private async refExists(ref: string, repoRoot: string): Promise<boolean> {
+    try {
+      await this.git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -55,12 +179,65 @@ export class WorkspaceManager {
   }
 
   /**
-   * Removes a workspace directory.
+   * Checks whether a worktree has commits ahead of the base branch that have
+   * been pushed to a remote branch. Returns the remote branch name if found,
+   * or null if the worktree is on a detached HEAD with no pushed branch.
+   */
+  public async findPushedBranch(identifier: string): Promise<string | null> {
+    try {
+      const workspacePath = path.resolve(this.resolvePath(identifier));
+      try {
+        await fs.access(path.join(workspacePath, '.git'));
+      } catch {
+        return null;
+      }
+
+      // In detached HEAD worktrees the agent creates and pushes a branch.
+      // Detect it by looking for remote branches whose tip matches HEAD.
+      const head = (await this.git(['rev-parse', 'HEAD'], workspacePath)).trim();
+      const refs = (
+        await this.git(
+          ['for-each-ref', '--format=%(refname:short) %(objectname)', 'refs/remotes/origin/'],
+          workspacePath
+        )
+      ).trim();
+
+      if (!refs) return null;
+
+      for (const line of refs.split('\n')) {
+        const [refName, sha] = line.split(' ');
+        if (!refName || !sha) continue;
+        // Skip the default branch pointer
+        if (refName === 'origin/HEAD') continue;
+        if (sha === head) {
+          // Strip the 'origin/' prefix to get the branch name
+          return refName.replace(/^origin\//, '');
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Removes a workspace directory and its git worktree registration.
    */
   public async removeWorkspace(identifier: string): Promise<Result<void, Error>> {
     try {
-      const workspacePath = this.resolvePath(identifier);
-      await fs.rm(workspacePath, { recursive: true, force: true });
+      const workspacePath = path.resolve(this.resolvePath(identifier));
+
+      // Try to remove via git worktree first (cleans up .git/worktrees entry).
+      try {
+        const repoRoot = await this.getRepoRoot();
+        await this.git(['worktree', 'remove', '--force', workspacePath], repoRoot);
+      } catch {
+        // If git worktree remove fails (not a worktree, already removed, etc.),
+        // fall back to plain directory removal.
+        await fs.rm(workspacePath, { recursive: true, force: true });
+      }
+
       return Ok(undefined);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));

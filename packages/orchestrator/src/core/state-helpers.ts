@@ -8,6 +8,15 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
   return {
     pollIntervalMs: config.polling.intervalMs,
     maxConcurrentAgents: config.agent.maxConcurrentAgents,
+    globalCooldownUntilMs: null,
+    recentRequestTimestamps: [],
+    globalCooldownMs: config.agent.globalCooldownMs ?? 60000,
+    maxRequestsPerMinute: config.agent.maxRequestsPerMinute ?? 50,
+    maxRequestsPerSecond: config.agent.maxRequestsPerSecond ?? 2,
+    maxInputTokensPerMinute: config.agent.maxInputTokensPerMinute ?? 400000,
+    maxOutputTokensPerMinute: config.agent.maxOutputTokensPerMinute ?? 80000,
+    recentInputTokens: [],
+    recentOutputTokens: [],
     running: new Map(),
     claimed: new Set(),
     retryAttempts: new Map(),
@@ -24,5 +33,6 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
       tokensRemaining: null,
       tokensLimit: null,
     },
+    claimRejections: 0,
   };
 }

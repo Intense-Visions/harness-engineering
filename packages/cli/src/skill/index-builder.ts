@@ -65,7 +65,6 @@ function parseSkillEntry(
   const effectiveTier = tierOverrides?.[meta.name] ?? meta.tier;
 
   if (meta.internal) return null;
-  if (effectiveTier !== 3 && source !== 'community') return null;
 
   return {
     tier: effectiveTier ?? 3,
@@ -109,7 +108,7 @@ function scanDirectory(
 
 /**
  * Build a fresh skills index by scanning all skill directories.
- * Only indexes Tier 3 and community skills — Tier 1/2 are always-loaded slash commands.
+ * Indexes all non-internal skills so the router and search can discover them.
  */
 export function buildIndex(
   platform: string,

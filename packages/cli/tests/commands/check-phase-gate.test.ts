@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Command } from 'commander';
 import {
   createCheckPhaseGateCommand,
   runCheckPhaseGate,
@@ -175,12 +176,361 @@ describe('check-phase-gate command', () => {
         expect(result.value.missingSpecs[0].implFile).toContain('utils/hash.ts');
       }
     });
+
+    it('returns error when config file does not exist', async () => {
+      const result = await runCheckPhaseGate({
+        configPath: path.join(tmpDir, 'nonexistent.json'),
+      });
+      expect(result.ok).toBe(false);
+    });
+
+    it('derives cwd from configPath when cwd not provided', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'feature'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'feature', 'impl.ts'), 'export {}');
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
+        },
+      });
+
+      // No cwd - should derive from configPath
+      const result = await runCheckPhaseGate({ configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.skipped).toBe(false);
+        expect(result.value.checkedFiles).toBe(1);
+      }
+    });
+
+    it('validates spec content when contentValidation is enabled', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'auth', 'login.ts'), 'export {}');
+
+      // Spec exists but has no required section
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'),
+        '# Auth Spec\nSome content without criteria section.'
+      );
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            {
+              implPattern: 'src/**/*.ts',
+              specPattern: 'docs/changes/{feature}/proposal.md',
+              contentValidation: true,
+            },
+          ],
+        },
+      });
+
+      const result = await runCheckPhaseGate({ cwd: tmpDir, configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.pass).toBe(false);
+        expect(result.value.missingSpecs).toHaveLength(1);
+        expect(result.value.missingSpecs[0].expectedSpec).toContain('missing requirements section');
+      }
+    });
+
+    it('validates spec content passes with Observable Truths section and numbered items', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'auth', 'login.ts'), 'export {}');
+
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'),
+        '# Auth Spec\n## Observable Truths\n1. User can login\n2. Session created\n'
+      );
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            {
+              implPattern: 'src/**/*.ts',
+              specPattern: 'docs/changes/{feature}/proposal.md',
+              contentValidation: true,
+            },
+          ],
+        },
+      });
+
+      const result = await runCheckPhaseGate({ cwd: tmpDir, configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.pass).toBe(true);
+        expect(result.value.missingSpecs).toHaveLength(0);
+      }
+    });
+
+    it('fails content validation when section has no numbered items', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'auth', 'login.ts'), 'export {}');
+
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'),
+        '# Auth Spec\n## Success Criteria\nSome text but no numbered items\n## Next Section\n'
+      );
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            {
+              implPattern: 'src/**/*.ts',
+              specPattern: 'docs/changes/{feature}/proposal.md',
+              contentValidation: true,
+            },
+          ],
+        },
+      });
+
+      const result = await runCheckPhaseGate({ cwd: tmpDir, configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.pass).toBe(false);
+        expect(result.value.missingSpecs[0].expectedSpec).toContain('no numbered items');
+      }
+    });
+
+    it('passes content validation with Acceptance Criteria section', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'auth', 'login.ts'), 'export {}');
+
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'),
+        '# Auth Spec\n## Acceptance Criteria\n1. First criterion\n'
+      );
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            {
+              implPattern: 'src/**/*.ts',
+              specPattern: 'docs/changes/{feature}/proposal.md',
+              contentValidation: true,
+            },
+          ],
+        },
+      });
+
+      const result = await runCheckPhaseGate({ cwd: tmpDir, configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.pass).toBe(true);
+      }
+    });
+
+    it('handles impl files in root of pattern (no subdirectory)', async () => {
+      mkdirp(path.join(tmpDir, 'src'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'index.ts'), 'export {}');
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
+        },
+      });
+
+      const result = await runCheckPhaseGate({ cwd: tmpDir, configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.checkedFiles).toBe(1);
+        // Feature should be derived from filename without extension
+        expect(result.value.missingSpecs[0].expectedSpec).toBe('docs/changes/index/proposal.md');
+      }
+    });
   });
 
   describe('createCheckPhaseGateCommand', () => {
     it('creates command with correct name', () => {
       const cmd = createCheckPhaseGateCommand();
       expect(cmd.name()).toBe('check-phase-gate');
+    });
+
+    it('has correct description', () => {
+      const cmd = createCheckPhaseGateCommand();
+      expect(cmd.description()).toContain('spec');
+    });
+  });
+
+  describe('action handler', () => {
+    const exitError = new Error('process.exit');
+    let mockExit: ReturnType<typeof vi.spyOn>;
+    let mockConsoleLog: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      mockExit = vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+        throw exitError;
+      }) as never);
+      mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      mockExit.mockRestore();
+      mockConsoleLog.mockRestore();
+    });
+
+    async function safeParseAsync(program: Command, args: string[]) {
+      try {
+        await program.parseAsync(args);
+      } catch (e) {
+        if (e !== exitError) throw e;
+      }
+    }
+
+    function makeProgram(): Command {
+      const program = new Command();
+      program.option('--json', 'JSON output');
+      program.option('--quiet', 'Quiet output');
+      program.option('--verbose', 'Verbose');
+      program.option('-c, --config <path>', 'Config');
+      program.addCommand(createCheckPhaseGateCommand());
+      return program;
+    }
+
+    it('exits with SUCCESS when phase gates disabled', async () => {
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: { enabled: false },
+      });
+
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', '-c', configPath, 'check-phase-gate']);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('outputs JSON when phase gates skipped and --json set', async () => {
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: { enabled: false },
+      });
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '--json',
+        '-c',
+        configPath,
+        'check-phase-gate',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+      expect(mockConsoleLog).toHaveBeenCalled();
+    });
+
+    it('exits with VALIDATION_FAILED when missing specs with error severity', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'payments'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'payments', 'charge.ts'), 'export {}');
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'error',
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
+        },
+      });
+
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', '-c', configPath, 'check-phase-gate']);
+
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it('exits with SUCCESS when missing specs with warning severity', async () => {
+      mkdirp(path.join(tmpDir, 'src', 'payments'));
+      fs.writeFileSync(path.join(tmpDir, 'src', 'payments', 'charge.ts'), 'export {}');
+
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: {
+          enabled: true,
+          severity: 'warning',
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
+        },
+      });
+
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', '-c', configPath, 'check-phase-gate']);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('exits with error when config is invalid', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '-c',
+        '/nonexistent/config.json',
+        'check-phase-gate',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(2);
+    });
+
+    it('outputs JSON error when config fails and --json is set', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '--json',
+        '-c',
+        '/nonexistent/config.json',
+        'check-phase-gate',
+      ]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('error'));
+    });
+
+    it('quiet mode suppresses skipped output', async () => {
+      const configPath = writeConfig(tmpDir, {
+        version: 1,
+        phaseGates: { enabled: false },
+      });
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '--quiet',
+        '-c',
+        configPath,
+        'check-phase-gate',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
     });
   });
 });

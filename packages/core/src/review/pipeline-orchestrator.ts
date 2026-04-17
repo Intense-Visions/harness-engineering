@@ -11,6 +11,8 @@ import type {
   MechanicalCheckResult,
   CommitHistoryEntry,
   EvidenceCoverageReport,
+  ContextBundle,
+  Rubric,
 } from './types';
 import { checkEligibility } from './eligibility-gate';
 import { runMechanicalChecks } from './mechanical-checks';
@@ -19,6 +21,8 @@ import { scopeContext } from './context-scoper';
 import { fanOutReview } from './fan-out';
 import { validateFindings } from './validate-findings';
 import { deduplicateFindings } from './deduplicate-findings';
+import { generateRubric } from './meta-judge';
+import { splitBundlesByStage } from './two-stage';
 import {
   formatTerminalOutput,
   formatGitHubComment,
@@ -26,6 +30,7 @@ import {
   getExitCode,
 } from './output';
 import { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
+import { computeTrustScores } from './trust-score';
 import { readSessionSection } from '../state/session-sections';
 
 /**
@@ -152,8 +157,21 @@ export async function runReviewPipeline(
     }
   }
 
+  // --- Phase 2.5: META-JUDGE RUBRIC (thorough mode only) ---
+  // Generated BEFORE the agents see the implementation. The generator
+  // is only given diff metadata + commit message — never file contents.
+  let rubric: Rubric | undefined;
+  if (flags.thorough) {
+    try {
+      rubric = await generateRubric({ diff, commitMessage });
+    } catch {
+      // Rubric generation is advisory — never block the pipeline on failure.
+      rubric = undefined;
+    }
+  }
+
   // --- Phase 3: CONTEXT ---
-  let contextBundles;
+  let contextBundles: ContextBundle[];
   try {
     contextBundles = await scopeContext({
       projectRoot,
@@ -166,19 +184,40 @@ export async function runReviewPipeline(
     });
   } catch {
     // Context scoping failed -- create minimal bundles
-    contextBundles = (['compliance', 'bug', 'security', 'architecture'] as const).map((domain) => ({
-      domain,
-      changeType: 'feature' as const,
-      changedFiles: [],
-      contextFiles: [],
-      commitHistory: [],
-      diffLines: diff.totalDiffLines,
-      contextLines: 0,
-    }));
+    contextBundles = (['compliance', 'bug', 'security', 'architecture', 'learnings'] as const).map(
+      (domain) => ({
+        domain,
+        changeType: 'feature' as const,
+        changedFiles: [],
+        contextFiles: [],
+        commitHistory: [],
+        diffLines: diff.totalDiffLines,
+        contextLines: 0,
+      })
+    );
+  }
+
+  // Attach rubric to every bundle so agents can reference it.
+  if (rubric) {
+    contextBundles = contextBundles.map((b) => ({ ...b, rubric }));
   }
 
   // --- Phase 4: FAN-OUT ---
-  const agentResults = await fanOutReview({ bundles: contextBundles });
+  // In isolated mode, run fan-out twice with disjoint context bundles:
+  // spec-compliance first (compliance + architecture see the spec),
+  // then code-quality (bug + security do NOT see the spec).
+  let agentResults;
+  if (flags.isolated) {
+    const specBundles = splitBundlesByStage(contextBundles, 'spec-compliance');
+    const qualityBundles = splitBundlesByStage(contextBundles, 'code-quality');
+    const [specResults, qualityResults] = await Promise.all([
+      fanOutReview({ bundles: specBundles }),
+      fanOutReview({ bundles: qualityBundles }),
+    ]);
+    agentResults = [...specResults, ...qualityResults];
+  } else {
+    agentResults = await fanOutReview({ bundles: contextBundles });
+  }
   const rawFindings: ReviewFinding[] = agentResults.flatMap((r) => r.findings);
 
   // --- Phase 5: VALIDATE ---
@@ -195,14 +234,17 @@ export async function runReviewPipeline(
     fileContents,
   });
 
-  // --- Evidence Check (between Phase 5 and Phase 6) ---
+  // --- Phase 5.5: TRUST SCORING ---
+  const scoredFindings = computeTrustScores(validatedFindings);
+
+  // --- Evidence Check (between Phase 5.5 and Phase 6) ---
   let evidenceCoverage: EvidenceCoverageReport | undefined;
   if (sessionSlug) {
     try {
       const evidenceResult = await readSessionSection(projectRoot, sessionSlug, 'evidence');
       if (evidenceResult.ok) {
-        evidenceCoverage = checkEvidenceCoverage(validatedFindings, evidenceResult.value);
-        tagUncitedFindings(validatedFindings, evidenceResult.value);
+        evidenceCoverage = checkEvidenceCoverage(scoredFindings, evidenceResult.value);
+        tagUncitedFindings(scoredFindings, evidenceResult.value);
       }
     } catch {
       // Evidence checking is optional — continue without it
@@ -210,7 +252,7 @@ export async function runReviewPipeline(
   }
 
   // --- Phase 6: DEDUP+MERGE ---
-  const dedupedFindings = deduplicateFindings({ findings: validatedFindings });
+  const dedupedFindings = deduplicateFindings({ findings: scoredFindings });
 
   // --- Phase 7: OUTPUT ---
   const strengths: ReviewStrength[] = [];

@@ -25,6 +25,7 @@ export const NODE_TYPES = [
   'commit',
   'build',
   'test_result',
+  'execution_outcome',
   // Observability (future)
   'span',
   'metric',
@@ -70,6 +71,7 @@ export const EDGE_TYPES = [
   'co_changes_with',
   'triggered_by',
   'failed_in',
+  'outcome_of',
   // Execution relationships (future)
   'executed_by',
   'measured_by',

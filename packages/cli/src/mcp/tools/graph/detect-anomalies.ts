@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
 import { graphNotFoundError } from './shared.js';
@@ -17,6 +18,15 @@ export const detectAnomaliesDefinition = {
         description:
           'Metrics to analyze (default: cyclomaticComplexity, fanIn, fanOut, hotspotScore, transitiveDepth)',
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of anomaly entries to skip (pagination). Default: 0. Anomalies are sorted by Z-score desc.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max anomaly entries to return (pagination). Default: 30.',
+      },
     },
     required: ['path'],
   },
@@ -26,6 +36,8 @@ export async function handleDetectAnomalies(input: {
   path: string;
   threshold?: number;
   metrics?: string[];
+  offset?: number;
+  limit?: number;
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -39,8 +51,19 @@ export async function handleDetectAnomalies(input: {
       ...(input.metrics !== undefined && { metrics: input.metrics }),
     });
 
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? 30;
+    const paged = paginate(report.statisticalOutliers, offset, limit);
+
+    const { statisticalOutliers: _fullOutliers, ...rest } = report;
+    const response = {
+      ...rest,
+      statisticalOutliers: paged.items,
+      pagination: paged.pagination,
+    };
+
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(report) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(response) }],
     };
   } catch (error) {
     return {

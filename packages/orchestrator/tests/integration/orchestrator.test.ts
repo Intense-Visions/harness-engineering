@@ -1,37 +1,44 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Orchestrator } from '../../src/orchestrator';
 import { WorkflowConfig, Issue, Ok } from '@harness-engineering/types';
 import { MockBackend } from '../../src/agent/backends/mock';
 import path from 'node:path';
 import os from 'node:os';
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 
-const mockConfig: WorkflowConfig = {
-  tracker: {
-    kind: 'mock',
-    activeStates: ['planned'],
-    terminalStates: ['done'],
-  },
-  polling: { intervalMs: 1000 },
-  workspace: { root: path.join(os.tmpdir(), 'harness-test') },
-  hooks: {
-    afterCreate: null,
-    beforeRun: null,
-    afterRun: null,
-    beforeRemove: null,
-    timeoutMs: 1000,
-  },
-  agent: {
-    backend: 'mock',
-    maxConcurrentAgents: 2,
-    maxTurns: 3,
-    maxRetryBackoffMs: 1000,
-    maxConcurrentAgentsByState: { planned: 1 },
-    turnTimeoutMs: 5000,
-    readTimeoutMs: 5000,
-    stallTimeoutMs: 5000,
-  },
-  server: { port: null },
-};
+let tmpDir: string;
+
+function createMockConfig(): WorkflowConfig {
+  return {
+    tracker: {
+      kind: 'mock',
+      activeStates: ['planned'],
+      terminalStates: ['done'],
+    },
+    polling: { intervalMs: 1000 },
+    workspace: { root: path.join(tmpDir, '.harness', 'workspaces') },
+    hooks: {
+      afterCreate: null,
+      beforeRun: null,
+      afterRun: null,
+      beforeRemove: null,
+      timeoutMs: 1000,
+    },
+    agent: {
+      backend: 'mock',
+      maxConcurrentAgents: 2,
+      maxTurns: 3,
+      maxRetryBackoffMs: 1000,
+      maxRetries: 5,
+      maxConcurrentAgentsByState: { planned: 1 },
+      turnTimeoutMs: 5000,
+      readTimeoutMs: 5000,
+      stallTimeoutMs: 5000,
+    },
+    server: { port: null },
+  };
+}
 
 const mockIssue: Issue = {
   id: 'issue-1',
@@ -42,10 +49,13 @@ const mockIssue: Issue = {
   state: 'planned',
   branchName: 'feat/test',
   url: null,
-  labels: [],
+  labels: ['scope:quick-fix'],
   blockedBy: [],
+  spec: null,
+  plans: [],
   createdAt: null,
   updatedAt: null,
+  externalId: null,
 };
 
 describe('Orchestrator Integration', () => {
@@ -54,19 +64,45 @@ describe('Orchestrator Integration', () => {
   let mockBackend: MockBackend;
 
   beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-'));
+    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    // Ensure workspace root exists so WorkspaceManager can run git commands in it
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
+
+    // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
+    let lastClaimedAssignee: string | null = null;
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-      fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
-    orchestrator = new Orchestrator(mockConfig, 'Prompt', {
+    orchestrator = new Orchestrator(createMockConfig(), 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
     });
   });
 
-  it('should poll, dispatch, and run an agent session', async () => {
+  afterEach(async () => {
+    if (orchestrator) await orchestrator.stop();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('should poll, dispatch, and run an agent session', { timeout: 15000 }, async () => {
     // 1. Initial tick
     await orchestrator.tick();
 
@@ -82,16 +118,14 @@ describe('Orchestrator Integration', () => {
     // Verify worker exit resulted in state change
     const finalSnapshot = orchestrator.getSnapshot();
     expect(finalSnapshot.running.length).toBe(0);
-    // Since mock exit for success triggers a continuation retry in handleWorkerExit,
-    // we expect it to be in claimed or completed.
-    // Actually, state-machine.ts handles it like this:
-    // next.completed.add(issueId);
-    // effects.push({ type: 'scheduleRetry', ... attempt: 1, ... });
-
-    expect(finalSnapshot.claimed.includes(mockIssue.id)).toBe(true);
+    // Successful completion is terminal: handleWorkerExit removes the running
+    // entry, releases the claim, and adds the issue to `completed`. No retry
+    // is scheduled — the issue should not re-appear in claimed or running.
+    expect(finalSnapshot.claimed.includes(mockIssue.id)).toBe(false);
+    expect((finalSnapshot.completed as string[]).includes(mockIssue.id)).toBe(true);
   });
 
-  it('should stop active runs when orchestrator stops', async () => {
+  it('should stop active runs when orchestrator stops', { timeout: 15000 }, async () => {
     await orchestrator.tick();
     const snapshot = orchestrator.getSnapshot();
     expect(snapshot.running.length).toBe(1);

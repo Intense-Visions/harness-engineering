@@ -10,6 +10,37 @@ describe('Path traversal rules', () => {
     expect(rule!.severity).toBe('warning');
     expect(rule!.patterns.some((p) => p.test('readFile(dir + "/../" + file)'))).toBe(true);
   });
+
+  it('detects ../ in writeFileSync', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.patterns.some((p) => p.test('writeFileSync("../../etc/passwd", data)'))).toBe(true);
+  });
+
+  it('detects ../ in createReadStream', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.patterns.some((p) => p.test('createReadStream(dir + "/../secret")'))).toBe(true);
+  });
+
+  it('detects string concatenation in readFile', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.patterns.some((p) => p.test('readFile(basePath + userInput)'))).toBe(true);
+  });
+
+  it('detects string concatenation in writeFileSync', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.patterns.some((p) => p.test('writeFileSync(dir + filename, data)'))).toBe(true);
+  });
+
+  it('does not flag safe path.join usage', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.patterns.some((p) => p.test('readFile(path.join(dir, file))'))).toBe(false);
+  });
+
+  it('has correct metadata', () => {
+    const rule = pathTraversalRules.find((r) => r.id === 'SEC-PTH-001')!;
+    expect(rule.confidence).toBe('medium');
+    expect(rule.references).toContain('CWE-22');
+  });
 });
 
 describe('Network rules', () => {
@@ -41,5 +72,46 @@ describe('Deserialization rules', () => {
     const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001');
     expect(rule).toBeDefined();
     expect(rule!.severity).toBe('warning');
+  });
+
+  it('detects JSON.parse(req.body)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('const data = JSON.parse(req.body)'))).toBe(true);
+  });
+
+  it('detects JSON.parse(request.body)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('JSON.parse(request.body)'))).toBe(true);
+  });
+
+  it('detects JSON.parse(event)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('const obj = JSON.parse(event.body)'))).toBe(true);
+  });
+
+  it('detects JSON.parse(data)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('JSON.parse(data)'))).toBe(true);
+  });
+
+  it('detects JSON.parse(payload)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('JSON.parse(payload)'))).toBe(true);
+  });
+
+  it('detects JSON.parse(input)', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test('JSON.parse(input)'))).toBe(true);
+  });
+
+  it('does not flag JSON.parse with literal', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.patterns.some((p) => p.test(`JSON.parse('{"a":1}')`))).toBe(false);
+  });
+
+  it('has correct metadata', () => {
+    const rule = deserializationRules.find((r) => r.id === 'SEC-DES-001')!;
+    expect(rule.confidence).toBe('medium');
+    expect(rule.references).toContain('CWE-502');
   });
 });

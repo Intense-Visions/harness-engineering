@@ -5,10 +5,17 @@ coverage
 .turbo
 .next
 out
+.tmp-*
 pnpm-lock.yaml
 *.min.js
 # Generated slash commands (YAML frontmatter must not be reformatted)
 agents/commands/**
+
+# Generated/local harness state files
+.harness/health-snapshot.json
+.harness/metrics/
+.harness/security/
+**/fixtures/**/.harness/
 
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts

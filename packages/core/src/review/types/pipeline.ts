@@ -44,6 +44,18 @@ export interface PipelineFlags {
   deep: boolean;
   /** Skip mechanical checks */
   noMechanical: boolean;
+  /**
+   * Enable meta-judge rubric pre-generation. When true, a rubric is
+   * generated from diff metadata + commit message BEFORE the agents
+   * read the implementation, then attached to each ContextBundle.
+   */
+  thorough?: boolean;
+  /**
+   * Split Phase 4 into two stages (spec-compliance then code-quality)
+   * with disjoint context bundles. Prevents spec context from biasing
+   * code-quality review and vice versa.
+   */
+  isolated?: boolean;
 }
 
 /**

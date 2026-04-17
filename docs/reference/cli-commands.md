@@ -15,6 +15,10 @@ Add a component to the project
 - `type` (required) — Component type (layer, module, doc, skill, persona)
 - `name` (required) — Component name
 
+### `harness audit-protected`
+
+Report all harness-ignore protected code regions
+
 ### `harness blueprint [path]`
 
 Generate a self-contained, interactive blueprint of the codebase
@@ -191,6 +195,7 @@ Initialize a new harness-engineering project
 
 - `-n, --name` — Project name
 - `-l, --level` — Adoption level (basic, intermediate, advanced) (default: "basic")
+- `-t, --template` — Specific template name (e.g. orchestrator)
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
 - `-f, --force` — Overwrite existing files
@@ -233,6 +238,8 @@ Start the MCP (Model Context Protocol) server on stdio
 **Options:**
 
 - `--tools` — Only register the specified tools (used by Cursor integration)
+- `--tier` — Load a preset tool tier instead of all tools
+- `--budget-tokens` — Auto-select tier to fit this baseline token budget
 
 ### `harness predict`
 
@@ -243,6 +250,14 @@ Predict which architectural constraints will break and when
 - `--category` — Filter to a single metric category
 - `--no-roadmap` — Baseline only — skip roadmap spec impact
 - `--horizon` — Forecast horizon in weeks (default: 12) (default: "12")
+
+### `harness publish-analyses`
+
+Publishes locally generated intelligence analyses to the external issue tracker (e.g., GitHub)
+
+**Options:**
+
+- `-d, --dir` — Workspace directory (default: current working directory)
 
 ### `harness query <rootNodeId>`
 
@@ -311,6 +326,14 @@ Extract and publish a constraints bundle from constraints.yaml
 
 - `-o, --output` — Output directory for the bundle (default: ".")
 
+### `harness sync-analyses`
+
+Pull published intelligence analyses from the external issue tracker into the local .harness/analyses/ directory
+
+**Options:**
+
+- `-d, --dir` — Workspace directory (default: current working directory)
+
 ### `harness traceability`
 
 Show spec-to-implementation traceability from the knowledge graph
@@ -360,6 +383,9 @@ Run all validation checks
 **Options:**
 
 - `--cross-check` — Run cross-artifact consistency validation
+- `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
+- `--strict` — Treat warnings as errors (applies to --agent-configs)
+- `--agnix-bin` — Override the agnix binary path discovered on PATH
 
 ## Adoption Commands
 
@@ -399,6 +425,8 @@ Run unified code review pipeline on current changes
 - `--ci` — Enable eligibility gate, non-interactive output
 - `--deep` — Add threat modeling pass to security agent
 - `--no-mechanical` — Skip mechanical checks
+- `--thorough` — Generate task-specific rubric before reading implementation
+- `--isolated` — Two-stage review: spec-compliance then code-quality with disjoint context
 
 ### `harness agent run [task]`
 
@@ -435,6 +463,21 @@ Generate CI configuration for harness checks
 
 - `--platform` — CI platform: github, gitlab, or generic
 - `--checks` — Comma-separated list of checks to include
+
+### `harness ci notify <report>`
+
+Post CI check results to GitHub (PR comment or issue)
+
+**Arguments:**
+
+- `report` (required) — Path to CI check report JSON file (from harness ci check --json)
+
+**Options:**
+
+- `--target` — Notification target: pr-comment or issue
+- `--pr` — PR number (required for pr-comment target)
+- `--title` — Custom issue title (for issue target)
+- `--labels` — Comma-separated labels for created issues
 
 ## Graph Commands
 
@@ -560,6 +603,7 @@ Run the orchestrator daemon
 **Options:**
 
 - `-w, --workflow` — Path to WORKFLOW.md (default: "WORKFLOW.md")
+- `--headless` — Run without TUI (server-only mode for use with web dashboard)
 
 ## Perf Commands
 

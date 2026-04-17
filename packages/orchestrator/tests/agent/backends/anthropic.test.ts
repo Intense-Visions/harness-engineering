@@ -141,6 +141,37 @@ describe('AnthropicBackend', () => {
       expect(result.usage.cacheReadTokens).toBe(800);
     });
 
+    // Regression: TurnResult.usage is discarded by the orchestrator's
+    // for-await-of loop. Backends must surface usage on a yielded AgentEvent.
+    it('yields a terminal usage event so state machine sees token totals', async () => {
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const events: import('@harness-engineering/types').AgentEvent[] = [];
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Say hello',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        events.push(next.value);
+        next = await gen.next();
+      }
+
+      const withUsage = events.filter((e) => e.usage);
+      expect(withUsage.length).toBeGreaterThanOrEqual(1);
+      const last = withUsage.at(-1)!;
+      expect(last.usage!.inputTokens).toBe(50);
+      expect(last.usage!.outputTokens).toBe(10);
+      expect(last.usage!.cacheCreationTokens).toBe(1200);
+      expect(last.usage!.cacheReadTokens).toBe(800);
+    });
+
     it('passes system prompt with cache_control to API', async () => {
       const sdkModule = await import('@anthropic-ai/sdk');
       const mockCreate = (sdkModule as unknown as Record<string, ReturnType<typeof vi.fn>>)[

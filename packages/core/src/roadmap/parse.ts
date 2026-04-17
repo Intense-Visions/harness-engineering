@@ -16,6 +16,7 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
   'in-progress',
   'done',
   'blocked',
+  'needs-human',
 ]);
 
 const EM_DASH = '\u2014';
@@ -223,6 +224,7 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
     assignee: optionalField(fieldMap, 'Assignee'),
     priority: priorityResult.value,
     externalId: optionalField(fieldMap, 'External-ID'),
+    updatedAt: optionalField(fieldMap, 'Updated-At'),
   });
 }
 

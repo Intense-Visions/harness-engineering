@@ -293,4 +293,165 @@ describe('gather_context tool', () => {
       expect(Array.isArray(parsed.meta.errors)).toBe(true);
     });
   });
+
+  describe('pagination schema', () => {
+    it('has section, offset, and limit properties in schema', () => {
+      const props = gatherContextDefinition.inputSchema.properties;
+      expect(props).toHaveProperty('section');
+      expect(props).toHaveProperty('offset');
+      expect(props).toHaveProperty('limit');
+      expect((props as Record<string, { type: string }>).offset.type).toBe('number');
+      expect((props as Record<string, { type: string }>).limit.type).toBe('number');
+    });
+
+    it('section enum has correct values', () => {
+      const sectionProp = (
+        gatherContextDefinition.inputSchema.properties as Record<string, { enum?: string[] }>
+      ).section;
+      expect(sectionProp.enum).toEqual(['graphContext', 'learnings', 'sessionSections']);
+    });
+  });
+
+  describe('section-aware pagination', () => {
+    it('returns learnings section with pagination when section=learnings', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['learnings'],
+        section: 'learnings',
+      });
+      expect(response.isError).toBeUndefined();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.section).toBe('learnings');
+      expect(parsed).toHaveProperty('items');
+      expect(parsed).toHaveProperty('pagination');
+      expect(parsed.pagination).toHaveProperty('offset', 0);
+      expect(parsed.pagination).toHaveProperty('limit', 20);
+      expect(parsed.pagination).toHaveProperty('total');
+      expect(parsed.pagination).toHaveProperty('hasMore');
+    });
+
+    it('returns graphContext section with pagination when section=graphContext and mode=detailed', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['graph'],
+        section: 'graphContext',
+        mode: 'detailed',
+      });
+      expect(response.isError).toBeUndefined();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.section).toBe('graphContext');
+      expect(parsed).toHaveProperty('items');
+      expect(parsed).toHaveProperty('pagination');
+      expect(parsed.pagination.offset).toBe(0);
+      expect(parsed.pagination.limit).toBe(20);
+    });
+
+    it('returns error when section=graphContext without mode=detailed', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['graph'],
+        section: 'graphContext',
+        // mode defaults to 'summary' — should be rejected
+      });
+      expect(response.isError).toBe(true);
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.error).toContain('mode=detailed');
+    });
+
+    it('returns sessionSections with pagination when section=sessionSections', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['sessions'],
+        session: 'test-session',
+        section: 'sessionSections',
+      });
+      expect(response.isError).toBeUndefined();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.section).toBe('sessionSections');
+      expect(parsed).toHaveProperty('items');
+      expect(parsed).toHaveProperty('pagination');
+    });
+
+    it('respects offset and limit for learnings section', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['learnings'],
+        section: 'learnings',
+        offset: 5,
+        limit: 2,
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.pagination.offset).toBe(5);
+      expect(parsed.pagination.limit).toBe(2);
+    });
+
+    it('without section param returns full output with no pagination wrapper', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test no section',
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      // Should have the standard shape, not the paginated shape
+      expect(parsed).toHaveProperty('state');
+      expect(parsed).toHaveProperty('learnings');
+      expect(parsed).toHaveProperty('graphContext');
+      expect(parsed).toHaveProperty('meta');
+      expect(parsed).not.toHaveProperty('section');
+      expect(parsed).not.toHaveProperty('items');
+    });
+  });
+
+  describe('section pagination with real session data', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-pagination-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ name: 'test-project' })
+      );
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('paginates session section entries across all sections', async () => {
+      const { appendSessionEntry } = await import('@harness-engineering/core');
+      const sessionSlug = 'pagination-test';
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', sessionSlug);
+      fs.mkdirSync(sessionDir, { recursive: true });
+
+      // Add multiple entries across sections
+      await appendSessionEntry(tmpDir, sessionSlug, 'decisions', 'skill-a', 'Decision 1');
+      await appendSessionEntry(tmpDir, sessionSlug, 'decisions', 'skill-a', 'Decision 2');
+      await appendSessionEntry(tmpDir, sessionSlug, 'constraints', 'skill-b', 'Constraint 1');
+
+      const response = await handleGatherContext({
+        path: tmpDir,
+        intent: 'test session pagination',
+        session: sessionSlug,
+        include: ['sessions'],
+        section: 'sessionSections',
+        offset: 0,
+        limit: 2,
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.section).toBe('sessionSections');
+      expect(parsed.items.length).toBeLessThanOrEqual(2);
+      expect(parsed.pagination.total).toBe(3);
+      expect(parsed.pagination.hasMore).toBe(true);
+      // Each item should have sectionName
+      for (const item of parsed.items) {
+        expect(item).toHaveProperty('sectionName');
+        expect(item).toHaveProperty('content');
+      }
+    });
+  });
 });

@@ -108,6 +108,29 @@ describe('ExecutionOutcomeConnector', () => {
     expect(node!.metadata.failureReasons).toEqual([]);
   });
 
+  it('records agentPersona in metadata when provided', () => {
+    const store = new GraphStore();
+    const connector = new ExecutionOutcomeConnector(store);
+
+    const outcome = makeOutcome({ agentPersona: 'task-executor' });
+    connector.ingest(outcome);
+
+    const node = store.getNode('outcome:issue-1:1');
+    expect(node!.metadata.agentPersona).toBe('task-executor');
+  });
+
+  it('omits agentPersona from metadata when not provided', () => {
+    const store = new GraphStore();
+    const connector = new ExecutionOutcomeConnector(store);
+
+    const outcome = makeOutcome();
+    connector.ingest(outcome);
+
+    const node = store.getNode('outcome:issue-1:1');
+    expect(node!.metadata.agentPersona).toBeUndefined();
+    expect('agentPersona' in node!.metadata).toBe(false);
+  });
+
   it('handles duplicate ingestion gracefully (upsert)', () => {
     const store = new GraphStore();
     const connector = new ExecutionOutcomeConnector(store);

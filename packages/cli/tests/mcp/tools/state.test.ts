@@ -124,13 +124,13 @@ describe('manage_state tool', () => {
     expect(props.newStatus).toBeDefined();
   });
 
-  it('append_entry returns error when session is missing', async () => {
+  it('append_entry returns error when session and section are both missing', async () => {
     const response = await handleManageState({
       path: '/tmp/test-project',
       action: 'append_entry',
     });
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain('session is required');
+    expect(response.content[0].text).toContain('section is required');
   });
 
   it('append_entry returns error when section is missing', async () => {
@@ -164,6 +164,46 @@ describe('manage_state tool', () => {
     });
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('content is required');
+  });
+
+  it('append_entry without session falls back to global state for decisions section', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-fallback-'));
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'state.json'),
+      JSON.stringify({ schemaVersion: 1, position: {}, decisions: [], blockers: [], progress: {} })
+    );
+
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'append_entry',
+      section: 'decisions',
+      authorSkill: 'harness-brainstorming',
+      content: 'Test decision content',
+    });
+    expect(response.isError).toBeFalsy();
+    expect(response.content[0].text).toContain('global-state');
+
+    // Verify the decision was appended to state.json
+    const state = JSON.parse(fs.readFileSync(path.join(harnessDir, 'state.json'), 'utf-8'));
+    expect(state.decisions).toHaveLength(1);
+    expect(state.decisions[0].decision).toBe('Test decision content');
+    expect(state.decisions[0].context).toBe('harness-brainstorming');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('append_entry without session returns error for non-decisions sections', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'append_entry',
+      section: 'constraints',
+      authorSkill: 'harness-brainstorming',
+      content: 'Test constraint',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required for non-decisions');
   });
 
   it('update_entry_status returns error when session is missing', async () => {

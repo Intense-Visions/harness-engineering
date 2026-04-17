@@ -1,7 +1,13 @@
 /**
  * Valid statuses for a roadmap feature.
  */
-export type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
+export type FeatureStatus =
+  | 'backlog'
+  | 'planned'
+  | 'in-progress'
+  | 'done'
+  | 'blocked'
+  | 'needs-human';
 
 /**
  * Priority override levels for roadmap features.
@@ -31,6 +37,8 @@ export interface RoadmapFeature {
   priority: Priority | null;
   /** External tracker ID (e.g., "github:owner/repo#42") — null if not synced */
   externalId: string | null;
+  /** ISO timestamp of last claim/heartbeat update — null if never set */
+  updatedAt: string | null;
 }
 
 /**

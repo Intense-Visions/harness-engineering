@@ -81,7 +81,8 @@ function runDashboard(opts: DashboardOptions): void {
   const clientPort = Number(opts.port ?? DEFAULT_CLIENT_PORT);
   const apiPort = Number(opts.apiPort ?? DEFAULT_API_PORT);
   const projectPath = resolve(opts.cwd ?? process.cwd());
-  const url = `http://localhost:${clientPort}`;
+  // The Hono server serves both API and built client from the API port
+  const url = `http://localhost:${apiPort}`;
   const server = resolveServerScript();
 
   if (!server) {

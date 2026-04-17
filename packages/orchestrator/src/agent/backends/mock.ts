@@ -44,14 +44,22 @@ export class MockBackend implements AgentBackend {
       sessionId: session.sessionId,
     };
 
+    // Surface usage on a yielded event — the state machine only advances
+    // token totals and rate-limit windows from event.usage (state-machine.ts:308).
+    // TurnResult.usage alone is invisible: the orchestrator consumes the
+    // generator with for-await-of, which discards the return value.
+    const usage = { inputTokens: 100, outputTokens: 50, totalTokens: 150 };
+    yield {
+      type: 'usage',
+      timestamp: new Date().toISOString(),
+      sessionId: session.sessionId,
+      usage,
+    };
+
     return {
       success: true,
       sessionId: session.sessionId,
-      usage: {
-        inputTokens: 100,
-        outputTokens: 50,
-        totalTokens: 150,
-      },
+      usage,
     };
   }
 

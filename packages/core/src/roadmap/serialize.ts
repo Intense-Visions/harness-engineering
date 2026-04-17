@@ -63,13 +63,20 @@ function listOrDash(items: string[]): string {
 
 function serializeExtendedLines(feature: RoadmapFeature): string[] {
   const hasExtended =
-    feature.assignee !== null || feature.priority !== null || feature.externalId !== null;
+    feature.assignee !== null ||
+    feature.priority !== null ||
+    feature.externalId !== null ||
+    feature.updatedAt !== null;
   if (!hasExtended) return [];
-  return [
+  const lines = [
     `- **Assignee:** ${orDash(feature.assignee)}`,
     `- **Priority:** ${orDash(feature.priority)}`,
     `- **External-ID:** ${orDash(feature.externalId)}`,
   ];
+  if (feature.updatedAt !== null) {
+    lines.push(`- **Updated-At:** ${feature.updatedAt}`);
+  }
+  return lines;
 }
 
 function serializeFeature(feature: RoadmapFeature): string[] {

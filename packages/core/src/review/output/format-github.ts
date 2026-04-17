@@ -35,7 +35,8 @@ export function isSmallSuggestion(suggestion: string | undefined): boolean {
  */
 export function formatGitHubComment(finding: ReviewFinding): GitHubInlineComment {
   const severityBadge = `**${finding.severity.toUpperCase()}**`;
-  const header = `${severityBadge} [${finding.domain}] ${sanitizeMarkdown(finding.title)}`;
+  const confidenceBadge = finding.trustScore != null ? ` (confidence: ${finding.trustScore}%)` : '';
+  const header = `${severityBadge} [${finding.domain}] ${sanitizeMarkdown(finding.title)}${confidenceBadge}`;
 
   let body: string;
 
@@ -103,7 +104,8 @@ export function formatGitHubSummary(options: {
     sections.push(`### ${SEVERITY_LABELS[severity]} (${group.length})\n`);
     for (const finding of group) {
       const location = `\`${finding.file}:L${finding.lineRange[0]}-${finding.lineRange[1]}\``;
-      sections.push(`- **${sanitizeMarkdown(finding.title)}** at ${location}`);
+      const confidence = finding.trustScore != null ? ` — ${finding.trustScore}% confidence` : '';
+      sections.push(`- **${sanitizeMarkdown(finding.title)}** at ${location}${confidence}`);
       sections.push(`  ${sanitizeMarkdown(finding.rationale)}`);
       sections.push('');
     }

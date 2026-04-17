@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
 import { graphNotFoundError } from './shared.js';
@@ -23,6 +24,15 @@ export const getRelationshipsDefinition = {
         description:
           'Response density: summary returns neighbor counts by type + direct neighbors only, detailed returns full traversal. Default: detailed',
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of edges to skip (pagination). Default: 0. Edges are sorted by weight (confidence desc).',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max edges to return (pagination). Default: 50.',
+      },
     },
     required: ['path', 'nodeId'],
   },
@@ -34,6 +44,8 @@ export async function handleGetRelationships(input: {
   direction?: 'outbound' | 'inbound' | 'both';
   depth?: number;
   mode?: 'summary' | 'detailed';
+  offset?: number;
+  limit?: number;
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -86,6 +98,15 @@ export async function handleGetRelationships(input: {
       };
     }
 
+    // Sort edges by confidence (weight) desc, defaulting to 1
+    const sortedEdges = [...filteredEdges].sort(
+      (a, b) => (b.confidence ?? 1) - (a.confidence ?? 1)
+    );
+
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? 50;
+    const paged = paginate(sortedEdges, offset, limit);
+
     return {
       content: [
         {
@@ -94,9 +115,15 @@ export async function handleGetRelationships(input: {
             nodeId: input.nodeId,
             direction,
             depth: input.depth ?? 1,
-            nodes: filteredNodes,
-            edges: filteredEdges,
+            // Filter nodes to only those referenced by paginated edges
+            nodes: filteredNodes.filter((n: { id: string }) =>
+              paged.items.some(
+                (e: { from: string; to: string }) => e.from === n.id || e.to === n.id
+              )
+            ),
+            edges: paged.items,
             stats: result.stats,
+            pagination: paged.pagination,
           }),
         },
       ],

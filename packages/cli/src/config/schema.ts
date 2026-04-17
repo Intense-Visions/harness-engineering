@@ -49,6 +49,8 @@ export const AgentConfigSchema = z.object({
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
+  /** Explicit entry points for reachability analysis (overrides auto-detection) */
+  entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
   excludePatterns: z.array(z.string()).default(['**/node_modules/**', '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
@@ -238,7 +240,10 @@ export const TrackerConfigSchema = z.object({
   /** Labels auto-applied to synced issues for filtering */
   labels: z.array(z.string()).optional(),
   /** Maps roadmap status -> external status */
-  statusMap: z.record(z.enum(['backlog', 'planned', 'in-progress', 'done', 'blocked']), z.string()),
+  statusMap: z.record(
+    z.enum(['backlog', 'planned', 'in-progress', 'done', 'blocked', 'needs-human']),
+    z.string()
+  ),
   /** Maps external status (optionally with label) -> roadmap status */
   reverseStatusMap: z.record(z.string(), z.string()).optional(),
 });

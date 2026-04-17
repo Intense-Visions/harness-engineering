@@ -23,4 +23,5 @@ export type {
   CleanWorkspaceEffect,
   UpdateTokensEffect,
   EmitLogEffect,
+  EscalateEffect,
 } from './events';

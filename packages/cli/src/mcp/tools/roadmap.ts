@@ -198,6 +198,7 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
     assignee: null,
     priority: null,
     externalId: null,
+    updatedAt: null,
   };
 }
 

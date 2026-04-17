@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TrackerSyncConfig } from '@harness-engineering/types';
-import { TrackerConfigSchema } from '../../config/schema';
+import { loadTrackerSyncConfig } from '@harness-engineering/core';
 
 /**
  * Automatically sync the roadmap after state transitions.
@@ -53,7 +52,7 @@ export async function autoSyncRoadmap(projectPath: string): Promise<void> {
  */
 export async function triggerExternalSync(projectPath: string, roadmapFile: string): Promise<void> {
   try {
-    const trackerConfig = loadTrackerConfig(projectPath);
+    const trackerConfig = loadTrackerSyncConfig(projectPath);
     if (!trackerConfig) return;
 
     // Load .env from the project root — the MCP server's startup dotenv/config
@@ -87,31 +86,5 @@ export async function triggerExternalSync(projectPath: string, roadmapFile: stri
     console.error(
       `[roadmap-sync] External sync failed: ${error instanceof Error ? error.message : String(error)}`
     );
-  }
-}
-
-/**
- * Load tracker config from harness.config.json.
- * Returns null if no config file, no roadmap section, no tracker section,
- * or if the tracker config fails schema validation.
- */
-export function loadTrackerConfig(projectPath: string): TrackerSyncConfig | null {
-  try {
-    const configPath = path.join(projectPath, 'harness.config.json');
-    if (!fs.existsSync(configPath)) return null;
-
-    const raw = fs.readFileSync(configPath, 'utf-8');
-    const config = JSON.parse(raw) as { roadmap?: { tracker?: unknown } };
-
-    const trackerRaw = config.roadmap?.tracker;
-    if (!trackerRaw) return null;
-
-    // Validate against schema to reject malformed config early
-    const parsed = TrackerConfigSchema.safeParse(trackerRaw);
-    if (!parsed.success) return null;
-
-    return parsed.data as TrackerSyncConfig;
-  } catch {
-    return null;
   }
 }

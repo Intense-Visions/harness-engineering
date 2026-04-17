@@ -1,5 +1,29 @@
 # @harness-engineering/cli
 
+## 1.24.3
+
+### Patch Changes
+
+- 46999c5: Fix `harness dashboard` returning 404 on all routes by serving built client static files from the Hono API server with SPA fallback.
+- 802a1dd: Fix `search_skills` returning irrelevant results and compaction destroying skill content.
+  - Index all non-internal skills regardless of tier so the router can discover Tier 1/2 skills
+  - Add minimum score threshold (0.25) to filter noise from incidental substring matches
+  - Fix `resultToMcpResponse` double-wrapping strings with `JSON.stringify`, which collapsed newlines and caused truncation to drop all content
+  - Truncate long lines to fit budget instead of silently skipping them; cap marker cost at 50% of budget
+  - Exempt 12 tools from lossy truncation (run_skill, emit_interaction, manage_state, etc.) — use structural-only compaction for tools whose output must arrive complete
+
+- Updated dependencies [46999c5]
+- Updated dependencies [802a1dd]
+  - @harness-engineering/dashboard@0.1.4
+  - @harness-engineering/core@0.21.4
+  - @harness-engineering/orchestrator@0.2.7
+
+## 1.24.1
+
+### Patch Changes
+
+- 5bbad27: Fix `harness update` to check all installed packages for updates, not just CLI. Adds `--force` and `--regenerate` flags.
+
 ## 1.24.0
 
 ### Minor Changes

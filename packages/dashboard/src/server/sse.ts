@@ -130,7 +130,8 @@ export class SSEManager {
       timestamp: new Date().toISOString(),
     };
 
-    // Run expensive gatherers only on first tick (via GatherCache.run)
+    // Run expensive gatherers only on first tick (via GatherCache.run),
+    // but always broadcast cached results so late-connecting clients receive them.
     const isFirstRun = !ctx.gatherCache.hasRun('security');
 
     if (isFirstRun) {
@@ -159,6 +160,21 @@ export class SSEManager {
       await this.broadcast(checksEvent);
     } else {
       await this.broadcast(overviewEvent);
+
+      // Replay cached checks so clients that connected after the first tick still see them.
+      // Safe to assert non-null: we're in the else-branch of hasRun('security').
+      const checksData: ChecksData = {
+        security: ctx.gatherCache.get('security')!,
+        perf: ctx.gatherCache.get('perf')!,
+        arch: ctx.gatherCache.get('arch')!,
+        anomalies: ctx.gatherCache.get('anomalies')!,
+        lastRun: new Date().toISOString(),
+      };
+      await this.broadcast({
+        type: 'checks',
+        data: checksData,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 }

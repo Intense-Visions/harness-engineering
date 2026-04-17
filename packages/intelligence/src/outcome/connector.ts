@@ -35,6 +35,7 @@ export class ExecutionOutcomeConnector {
         durationMs: outcome.durationMs,
         linkedSpecId: outcome.linkedSpecId,
         timestamp: outcome.timestamp,
+        ...(outcome.agentPersona !== undefined && { agentPersona: outcome.agentPersona }),
       },
     });
 

@@ -19,12 +19,26 @@ export const codeOutlineDefinition = {
         description:
           'Optional glob pattern to filter files (e.g. "*.ts", "src/**/*.py"). Only used when path is a directory.',
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of file entries to skip (pagination, directory mode only). Default: 0. Files are sorted by modification time desc.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max file entries to return (pagination, directory mode only). Default: 30.',
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleCodeOutline(input: { path: string; glob?: string }) {
+export async function handleCodeOutline(input: {
+  path: string;
+  glob?: string;
+  offset?: number;
+  limit?: number;
+}) {
   let targetPath: string;
   try {
     targetPath = sanitizePath(input.path);
@@ -57,18 +71,35 @@ export async function handleCodeOutline(input: { path: string; glob?: string }) 
       const pattern = input.glob ?? `**/*.{${exts.join(',')}}`;
       const files = await glob(pattern, { cwd: targetPath, absolute: true });
 
+      // Sort files by modification time desc for relevance-based pagination
+      const fileStats = await Promise.all(
+        files.map(async (f) => {
+          const fStat = await stat(f).catch(() => null);
+          return { path: f, mtimeMs: fStat?.mtimeMs ?? 0 };
+        })
+      );
+      fileStats.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+      const { paginate } = await import('@harness-engineering/core');
+      const paged = paginate(fileStats, input.offset ?? 0, input.limit ?? 30);
+
       const results: string[] = [];
-      const MAX_FILES = 50;
-      for (const file of files.slice(0, MAX_FILES)) {
-        const outline = await getOutline(file);
+      for (const entry of paged.items) {
+        const outline = await getOutline(entry.path);
         results.push(formatOutline(outline));
       }
-      if (files.length > MAX_FILES) {
-        results.push(
-          `\n... and ${files.length - MAX_FILES} more files (use a narrower glob to see them)`
-        );
-      }
-      return { content: [{ type: 'text' as const, text: results.join('\n\n') }] };
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              outlines: results.join('\n\n'),
+              pagination: paged.pagination,
+            }),
+          },
+        ],
+      };
     }
 
     return {

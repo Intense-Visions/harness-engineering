@@ -63,6 +63,13 @@ export function isEligible(
     return false;
   }
 
+  // Already finished in this orchestrator process. Without this guard,
+  // tracker write-back failures (e.g. dirty roadmap.md) would let a
+  // just-completed issue be picked up again on the very next tick.
+  if (state.completed.has(issue.id)) {
+    return false;
+  }
+
   // Blocker rule for Todo state: block if any blocker is non-terminal
   if (normalizedState === 'todo' && issue.blockedBy.length > 0) {
     const hasNonTerminalBlocker = issue.blockedBy.some((blocker) => {

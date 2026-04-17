@@ -2,7 +2,12 @@ import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import type { Result } from '@harness-engineering/core';
-import { Ok, SecurityScanner, parseSecurityConfig } from '@harness-engineering/core';
+import {
+  Ok,
+  SecurityScanner,
+  SecurityTimelineManager,
+  parseSecurityConfig,
+} from '@harness-engineering/core';
 import type { SecurityFinding, SecuritySeverity } from '@harness-engineering/core';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -86,6 +91,19 @@ export async function runCheckSecurity(
   }
 
   const result = await scanner.scanFiles(filesToScan);
+
+  // Best-effort timeline capture — never break the scan flow
+  try {
+    const commitHash = execSync('git rev-parse HEAD', {
+      cwd: projectRoot,
+      encoding: 'utf-8',
+    }).trim();
+    const timelineManager = new SecurityTimelineManager(projectRoot);
+    timelineManager.capture(result, commitHash);
+    timelineManager.updateLifecycles(result.findings, commitHash);
+  } catch {
+    // Timeline capture is best-effort
+  }
 
   const threshold = options.severity ?? 'warning';
   const thresholdRank = SEVERITY_RANK[threshold];

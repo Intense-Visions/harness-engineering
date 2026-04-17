@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRecommendCommand, runRecommend } from '../../src/commands/recommend';
 
 // Mock the heavy dependencies
@@ -179,5 +179,203 @@ describe('runRecommend', () => {
     await runRecommend({ cwd: '/tmp/test' });
 
     expect(captureHealthSnapshot).toHaveBeenCalledWith('/tmp/test');
+  });
+
+  it('returns snapshotAge "cached" when using cached snapshot', async () => {
+    (loadCachedSnapshot as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_SNAPSHOT);
+    (isSnapshotFresh as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+    const result = await runRecommend({ cwd: '/tmp/test' });
+
+    expect(result.snapshotAge).toBe('cached');
+  });
+
+  it('returns snapshotAge "fresh" when capturing new snapshot', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    const result = await runRecommend({ cwd: '/tmp/test', noCache: true });
+
+    expect(result.snapshotAge).toBe('fresh');
+  });
+
+  it('defaults top to 5 when not provided', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    await runRecommend({ cwd: '/tmp/test', noCache: true });
+
+    expect(recommend).toHaveBeenCalledWith(MOCK_SNAPSHOT, expect.any(Object), { top: 5 });
+  });
+
+  it('defaults cwd to process.cwd() when not provided', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+    const originalCwd = process.cwd();
+
+    await runRecommend({ noCache: true });
+
+    expect(captureHealthSnapshot).toHaveBeenCalledWith(originalCwd);
+  });
+
+  it('builds skills record from index and passes to recommend', async () => {
+    const customIndex = {
+      ...MOCK_INDEX,
+      skills: {
+        'skill-a': {
+          tier: 1,
+          description: 'A',
+          keywords: [],
+          stackSignals: [],
+          cognitiveMode: undefined,
+          phases: [],
+          source: 'bundled' as const,
+          addresses: [{ type: 'mcp', uri: 'mcp://test' }],
+          dependsOn: ['skill-b'],
+        },
+        'skill-b': {
+          tier: 2,
+          description: 'B',
+          keywords: [],
+          stackSignals: [],
+          cognitiveMode: undefined,
+          phases: [],
+          source: 'bundled' as const,
+          addresses: [],
+          dependsOn: [],
+        },
+      },
+    };
+    (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(customIndex);
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    await runRecommend({ cwd: '/tmp/test', noCache: true });
+
+    expect(recommend).toHaveBeenCalledWith(
+      MOCK_SNAPSHOT,
+      expect.objectContaining({
+        'skill-a': expect.objectContaining({ dependsOn: ['skill-b'] }),
+        'skill-b': expect.objectContaining({ dependsOn: [] }),
+      }),
+      { top: 5 }
+    );
+  });
+
+  it('handles config without skills.tierOverrides gracefully', async () => {
+    const { resolveConfig } = await import('../../src/config/loader');
+    (resolveConfig as ReturnType<typeof vi.fn>).mockReturnValue({
+      ok: false,
+      error: 'no config',
+    });
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    // Should not throw
+    const result = await runRecommend({ cwd: '/tmp/test', noCache: true });
+    expect(result).toHaveProperty('recommendations');
+  });
+});
+
+describe('createRecommendCommand - action', () => {
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let logOutput: string[];
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    logOutput = [];
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+      logOutput.push(args.join(' '));
+    });
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_INDEX);
+    (recommend as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_RESULT);
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
+
+  it('outputs JSON when --json flag is used', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    const { Command } = await import('commander');
+    const program = new Command();
+    program.option('--json', 'JSON output');
+    program.addCommand(createRecommendCommand());
+
+    await program.parseAsync(['node', 'harness', 'recommend', '--no-cache', '--json']);
+
+    const jsonLine = logOutput.find((line) => line.includes('recommendations'));
+    expect(jsonLine).toBeDefined();
+    const output = JSON.parse(jsonLine!);
+    expect(output).toHaveProperty('recommendations');
+    expect(output).toHaveProperty('sequenceReasoning');
+  });
+
+  it('outputs text with recommendation list', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    const { Command } = await import('commander');
+    const program = new Command();
+    program.option('--json', 'JSON output');
+    program.addCommand(createRecommendCommand());
+
+    await program.parseAsync(['node', 'harness', 'recommend', '--no-cache']);
+
+    const allOutput = logOutput.join('\n');
+    expect(allOutput).toContain('Recommended workflow');
+    expect(allOutput).toContain('Sequence reasoning');
+  });
+
+  it('shows "No recommendations" when result is empty', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+    (recommend as ReturnType<typeof vi.fn>).mockReturnValue({
+      recommendations: [],
+      snapshotAge: 'fresh',
+      sequenceReasoning: 'None needed.',
+    });
+
+    const { Command } = await import('commander');
+    const program = new Command();
+    program.option('--json', 'JSON output');
+    program.addCommand(createRecommendCommand());
+
+    await program.parseAsync(['node', 'harness', 'recommend', '--no-cache']);
+
+    const allOutput = logOutput.join('\n');
+    expect(allOutput).toContain('No recommendations');
+  });
+
+  it('formats critical recommendations with [CRITICAL] tag', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+
+    const { Command } = await import('commander');
+    const program = new Command();
+    program.option('--json', 'JSON output');
+    program.addCommand(createRecommendCommand());
+
+    await program.parseAsync(['node', 'harness', 'recommend', '--no-cache']);
+
+    const allOutput = logOutput.join('\n');
+    expect(allOutput).toContain('CRITICAL');
+    expect(allOutput).toContain('harness-enforce-architecture');
+  });
+
+  it('handles errors by printing to stderr and exiting', async () => {
+    (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('snapshot failed')
+    );
+
+    const errOutput: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((...args) => {
+      errOutput.push(args.join(' '));
+    });
+
+    const { Command } = await import('commander');
+    const program = new Command();
+    program.option('--json', 'JSON output');
+    program.addCommand(createRecommendCommand());
+
+    await program.parseAsync(['node', 'harness', 'recommend', '--no-cache']);
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

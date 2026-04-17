@@ -9,6 +9,7 @@ export const STATUS_RANK: Record<FeatureStatus, number> = {
   backlog: 0,
   planned: 1,
   blocked: 1, // lateral to planned — sync can move to/from blocked freely
+  'needs-human': 1, // lateral to planned — awaiting human intervention
   'in-progress': 2,
   done: 3,
 };

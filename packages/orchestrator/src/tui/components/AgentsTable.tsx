@@ -25,7 +25,7 @@ export const AgentsTable: React.FC<AgentsTableProps> = ({ agents }) => {
 
       {/* Header */}
       <Box flexDirection="row" borderStyle="single" borderColor="gray">
-        <Box width={20}>
+        <Box width={30}>
           <Text bold>Identifier</Text>
         </Box>
         <Box width={12}>
@@ -45,8 +45,8 @@ export const AgentsTable: React.FC<AgentsTableProps> = ({ agents }) => {
       {/* Rows */}
       {agents.map((agent) => (
         <Box key={agent.issueId} flexDirection="row">
-          <Box width={20}>
-            <Text>{agent.identifier}</Text>
+          <Box width={30}>
+            <Text wrap="truncate-end">{agent.identifier}</Text>
           </Box>
           <Box width={12}>
             <Text color="blue">{agent.session?.backendName || '-'}</Text>

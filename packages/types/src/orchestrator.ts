@@ -56,10 +56,18 @@ export interface Issue {
   labels: string[];
   /** References to issues that block this one */
   blockedBy: BlockerRef[];
+  /** Relative path to the spec file, or null if none */
+  spec: string | null;
+  /** Relative paths to plan files */
+  plans: string[];
   /** ISO timestamp of creation */
   createdAt: string | null;
   /** ISO timestamp of last update */
   updatedAt: string | null;
+  /** External tracker ID (e.g., "github:owner/repo#42"), null if not synced */
+  externalId: string | null;
+  /** Assignee identity (orchestrator ID, username, etc.), null if unassigned */
+  assignee?: string | null;
 }
 
 // --- Agent Backend Protocol ---
@@ -190,6 +198,27 @@ export interface IssueTrackerClient {
   fetchIssuesByStates(stateNames: string[]): Promise<Result<Issue[], Error>>;
   /** Fetches current state for a set of issue IDs */
   fetchIssueStatesByIds(issueIds: string[]): Promise<Result<Map<string, Issue>, Error>>;
+  /**
+   * Marks an issue as complete in the underlying tracker by transitioning it
+   * to a terminal state. Called by the orchestrator after a successful agent
+   * exit so the issue is no longer returned by `fetchCandidateIssues` on
+   * subsequent ticks (and across restarts). Adapters that cannot write —
+   * e.g., a read-only file or remote tracker without auth — should return
+   * `Ok` (no-op) rather than `Err`, so completion semantics are preserved
+   * in-process via `OrchestratorState.completed`.
+   */
+  markIssueComplete(issueId: string): Promise<Result<void, Error>>;
+  /**
+   * Claims an issue for the given orchestrator by transitioning it to
+   * "in-progress" and recording the orchestrator identity. Idempotent
+   * if already claimed by the same orchestratorId.
+   */
+  claimIssue(issueId: string, orchestratorId: string): Promise<Result<void, Error>>;
+  /**
+   * Releases a previously claimed issue by transitioning it back to an
+   * active state and clearing the orchestrator identity.
+   */
+  releaseIssue(issueId: string): Promise<Result<void, Error>>;
 }
 
 // --- Workflow Config ---
@@ -220,6 +249,8 @@ export interface TrackerConfig {
 export interface PollingConfig {
   /** Interval in milliseconds */
   intervalMs: number;
+  /** Optional random jitter in ms. Each tick offsets by a random value in [-jitterMs, +jitterMs]. Default: 0 */
+  jitterMs?: number;
 }
 
 /**
@@ -228,6 +259,14 @@ export interface PollingConfig {
 export interface WorkspaceConfig {
   /** Root directory where agent workspaces are created */
   root: string;
+  /**
+   * Git ref to base new worktrees on. When unset, the orchestrator attempts
+   * to resolve the repository's default branch (via `origin/HEAD`, then
+   * `origin/main`, `origin/master`, `main`, `master`), falling back to the
+   * current `HEAD`. Set explicitly to opt out of auto-detection (e.g. to
+   * branch agents off a long-running integration branch).
+   */
+  baseRef?: string;
 }
 
 /**
@@ -250,6 +289,16 @@ export interface HooksConfig {
  * Configuration for the agent runner.
  */
 export interface AgentConfig {
+  /** Global cooldown in milliseconds after a rate limit hit */
+  globalCooldownMs?: number;
+  /** Maximum number of requests allowed per minute */
+  maxRequestsPerMinute?: number;
+  /** Maximum number of requests allowed per second */
+  maxRequestsPerSecond?: number;
+  /** Maximum number of input tokens allowed per minute */
+  maxInputTokensPerMinute?: number;
+  /** Maximum number of output tokens allowed per minute */
+  maxOutputTokensPerMinute?: number;
   /** Backend type to use */
   backend: string;
   /** Command to launch the agent if applicable */
@@ -264,6 +313,8 @@ export interface AgentConfig {
   maxTurns: number;
   /** Maximum backoff for retries */
   maxRetryBackoffMs: number;
+  /** Maximum retry attempts before escalating (default: 5, 0 = unlimited) */
+  maxRetries: number;
   /** Concurrency limits partitioned by issue state */
   maxConcurrentAgentsByState: Record<string, number>;
   /** Policy for approving tool calls */
@@ -276,6 +327,18 @@ export interface AgentConfig {
   readTimeoutMs: number;
   /** Timeout for agent inactivity */
   stallTimeoutMs: number;
+  /** Local backend type */
+  localBackend?: 'openai-compatible' | 'pi';
+  /** Model name for local backend */
+  localModel?: string;
+  /** Endpoint URL for local backend (e.g., http://localhost:11434/v1) */
+  localEndpoint?: string;
+  /** API key for local backend (some servers require a dummy key) */
+  localApiKey?: string;
+  /** Request timeout in ms for local backend calls (default: 90000) */
+  localTimeoutMs?: number;
+  /** Escalation routing configuration */
+  escalation?: Partial<EscalationConfig>;
 }
 
 /**
@@ -304,6 +367,8 @@ export interface WorkflowConfig {
   server: ServerConfig;
   /** Intelligence pipeline settings */
   intelligence?: IntelligenceConfig;
+  /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
+  orchestratorId?: string;
 }
 
 /**

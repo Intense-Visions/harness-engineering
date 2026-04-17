@@ -887,3 +887,165 @@ describe('appendLearning performance', () => {
     expect(matches?.length).toBe(100);
   });
 });
+
+describe('extractIndexEntry with structured fields', () => {
+  it('should extract rootCause from entry', () => {
+    const entry =
+      '- **2026-04-17 [skill:debugging] [outcome:gotcha] [root_cause:circular-import]:** Found circular dep';
+    const idx = extractIndexEntry(entry);
+    expect(idx.rootCause).toBe('circular-import');
+  });
+
+  it('should extract triedAndFailed from entry', () => {
+    const entry =
+      '- **2026-04-17 [skill:debugging] [tried:manual-fix,auto-gen]:** Tried multiple approaches';
+    const idx = extractIndexEntry(entry);
+    expect(idx.triedAndFailed).toEqual(['manual-fix', 'auto-gen']);
+  });
+
+  it('should handle entry without structured fields', () => {
+    const entry = '- **2026-04-17 [skill:debugging]:** Simple learning';
+    const idx = extractIndexEntry(entry);
+    expect(idx.rootCause).toBeUndefined();
+    expect(idx.triedAndFailed).toBeUndefined();
+  });
+
+  it('should extract both rootCause and triedAndFailed together', () => {
+    const entry =
+      '- **2026-04-17 [skill:debug] [outcome:gotcha] [root_cause:race-condition] [tried:mutex,semaphore]:** Fixed race';
+    const idx = extractIndexEntry(entry);
+    expect(idx.rootCause).toBe('race-condition');
+    expect(idx.triedAndFailed).toEqual(['mutex', 'semaphore']);
+  });
+});
+
+describe('appendLearning with structured fields', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should include root_cause tag in written entry', async () => {
+    const result = await appendLearning(
+      tmpDir,
+      'Found circular dep',
+      'debugging',
+      'gotcha',
+      undefined,
+      undefined,
+      'circular-import'
+    );
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('[root_cause:circular-import]');
+  });
+
+  it('should include tried tag in written entry', async () => {
+    const result = await appendLearning(
+      tmpDir,
+      'Tried multiple approaches',
+      'debugging',
+      'gotcha',
+      undefined,
+      undefined,
+      undefined,
+      ['manual-fix', 'auto-gen']
+    );
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('[tried:manual-fix,auto-gen]');
+  });
+
+  it('should include both root_cause and tried tags', async () => {
+    const result = await appendLearning(
+      tmpDir,
+      'Complex fix',
+      'debugging',
+      'gotcha',
+      undefined,
+      undefined,
+      'race-condition',
+      ['mutex', 'semaphore']
+    );
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('[root_cause:race-condition]');
+    expect(content).toContain('[tried:mutex,semaphore]');
+  });
+
+  it('should work without structured fields (backwards compatible)', async () => {
+    const result = await appendLearning(tmpDir, 'Simple learning', 'testing', 'success');
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).not.toContain('[root_cause:');
+    expect(content).not.toContain('[tried:');
+  });
+});
+
+describe('appendLearning overlap detection', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should return overlap when similar entry exists', async () => {
+    await appendLearning(
+      tmpDir,
+      'The auth module has a race condition in src/auth.ts',
+      'debugging',
+      'gotcha',
+      undefined,
+      undefined,
+      'race-condition'
+    );
+    const result = await appendLearning(
+      tmpDir,
+      'Found race condition issue in the auth module src/auth.ts',
+      'debugging',
+      'gotcha',
+      undefined,
+      undefined,
+      'race-condition'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.appended).toBe(true);
+      expect(result.value.overlap).toBeDefined();
+      expect(result.value.overlap!.score).toBeGreaterThanOrEqual(0.7);
+    }
+  });
+
+  it('should not return overlap for unrelated entry', async () => {
+    await appendLearning(tmpDir, 'Database migration completed', 'testing', 'success');
+    const result = await appendLearning(
+      tmpDir,
+      'Auth token expiry needs handling',
+      'debugging',
+      'gotcha'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.appended).toBe(true);
+      expect(result.value.overlap).toBeUndefined();
+    }
+  });
+
+  it('should return appended false for exact duplicate', async () => {
+    await appendLearning(tmpDir, 'Exact same learning text', 'debugging', 'gotcha');
+    const result = await appendLearning(tmpDir, 'Exact same learning text', 'debugging', 'gotcha');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.appended).toBe(false);
+    }
+  });
+});
