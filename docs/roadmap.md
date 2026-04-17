@@ -953,6 +953,17 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#150
 
+### Orchestrator PR-Aware Dispatch Guard
+
+- **Status:** planned
+- **Spec:** docs/changes/orchestrator-pr-aware-dispatch/proposal.md
+- **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
