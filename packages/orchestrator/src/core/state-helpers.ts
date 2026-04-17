@@ -35,5 +35,6 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
       tokensRemaining: null,
       tokensLimit: null,
     },
+    claimRejections: 0,
   };
 }

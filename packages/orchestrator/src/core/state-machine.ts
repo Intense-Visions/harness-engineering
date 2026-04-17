@@ -549,6 +549,7 @@ function handleClaimRejected(state: OrchestratorState, issueId: string): ApplyEv
   const next = cloneState(state);
   next.claimed.delete(issueId);
   next.running.delete(issueId);
+  next.claimRejections += 1;
   return { nextState: next, effects: [] };
 }
 

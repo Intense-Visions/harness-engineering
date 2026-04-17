@@ -69,16 +69,15 @@ export class ClaimManager {
   }
 
   /**
-   * Refreshes claim timestamps for all running issues.
-   * Failures are logged but do not throw -- individual heartbeat
-   * failures are non-fatal.
+   * Refreshes claim timestamps for all running issues in parallel.
+   * Failures are non-fatal — individual heartbeat failures are swallowed
+   * so one failing claim does not block others.
    */
   async heartbeat(issueIds: string[]): Promise<void> {
-    for (const id of issueIds) {
-      await this.tracker.claimIssue(id, this.orchestratorId).catch(() => {
-        // Heartbeat failure is non-fatal; claim will expire via TTL
-      });
-    }
+    if (issueIds.length === 0) return;
+    await Promise.allSettled(
+      issueIds.map((id) => this.tracker.claimIssue(id, this.orchestratorId))
+    );
   }
 
   /**

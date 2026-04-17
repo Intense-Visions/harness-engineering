@@ -194,3 +194,10 @@ packages/types/src/
 - Integration test: two orchestrator instances against same roadmap file, verify no duplicate dispatch
 - Test stale claim recovery: simulate crash, verify second orchestrator reclaims after TTL
 - Test claim rejection: simulate race, verify graceful skip
+
+### Phase 6 — Hardening
+
+- **Parallel heartbeat:** `ClaimManager.heartbeat()` uses `Promise.allSettled()` for concurrent claim refreshes instead of sequential `for` loop. Reduces heartbeat latency from O(n) to O(1) network round-trips.
+- **Claim rejection tracking:** Add `claimRejections` counter to `OrchestratorState` and increment on `claim_rejected` events. Exposed via `getSnapshot()` for dashboard monitoring.
+- **updatedAt on claim write:** `RoadmapTrackerAdapter.claimIssue()` writes `updatedAt` timestamp to the roadmap feature metadata so `isStale()` can accurately detect heartbeat freshness.
+- **File-backed coordination test:** Integration test using real `RoadmapTrackerAdapter` against a temporary roadmap file — two `ClaimManager` instances racing for the same issue, verifying only one wins.
