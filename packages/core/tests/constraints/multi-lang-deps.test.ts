@@ -131,6 +131,113 @@ describe('Multi-language dependency graph', () => {
     }
   });
 
+  it('should resolve Rust imports with .rs extension', async () => {
+    const rsParser = makeMockParser('rust', ['.rs'], {
+      rust: [
+        {
+          source: './utils',
+          specifiers: [],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/lib.rs'], rsParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const rsEdge = result.value.edges.find((e) => e.from.includes('lib.rs'));
+      expect(rsEdge?.to).toContain('.rs');
+    }
+  });
+
+  it('should resolve Java imports with .java extension', async () => {
+    const javaParser = makeMockParser('java', ['.java'], {
+      java: [
+        {
+          source: './services',
+          specifiers: [],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/Main.java'], javaParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const javaEdge = result.value.edges.find((e) => e.from.includes('Main.java'));
+      expect(javaEdge?.to).toContain('.java');
+    }
+  });
+
+  it('should handle imports that already have a known extension', async () => {
+    const pyParser = makeMockParser('python', ['.py'], {
+      python: [
+        {
+          source: './utils.py',
+          specifiers: [],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/app.py'], pyParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const edge = result.value.edges[0];
+      // Should not double-append extension
+      expect(edge?.to).toContain('.py');
+      expect(edge?.to).not.toContain('.py.py');
+    }
+  });
+
+  it('should resolve JavaScript imports with .js extension', async () => {
+    const jsParser = makeMockParser('javascript', ['.js'], {
+      javascript: [
+        {
+          source: './helper',
+          specifiers: [],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/index.js'], jsParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const jsEdge = result.value.edges.find((e) => e.from.includes('index.js'));
+      expect(jsEdge?.to).toContain('.js');
+    }
+  });
+
+  it('should handle type-only imports', async () => {
+    const tsParser = makeMockParser('typescript', ['.ts'], {
+      typescript: [
+        {
+          source: './types',
+          specifiers: ['User'],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'type' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/service.ts'], tsParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const edge = result.value.edges[0];
+      expect(edge?.importType).toBe('type-only');
+    }
+  });
+
   it('should still accept a single LanguageParser for backward compat', async () => {
     const parser = makeMockParser('typescript', ['.ts', '.tsx'], {
       typescript: [],
