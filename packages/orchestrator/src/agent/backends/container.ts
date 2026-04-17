@@ -57,15 +57,18 @@ export class ContainerBackend implements AgentBackend {
     const envResult = await this.resolveEnv();
     if (!envResult.ok) return envResult as Result<AgentSession, AgentError>;
 
-    const containerResult = await this.runtime.createContainer({
+    const createOpts: import('@harness-engineering/types').ContainerCreateOpts = {
       image: this.containerConfig.image,
       workspacePath: params.workspacePath,
       readOnly: this.containerConfig.readOnly ?? true,
       user: this.containerConfig.user ?? '1000:1000',
       network: this.containerConfig.network ?? 'host',
       env: envResult.value,
-      extraArgs: this.containerConfig.extraArgs,
-    });
+    };
+    if (this.containerConfig.extraArgs) {
+      createOpts.extraArgs = this.containerConfig.extraArgs;
+    }
+    const containerResult = await this.runtime.createContainer(createOpts);
 
     if (!containerResult.ok) {
       return Err(
