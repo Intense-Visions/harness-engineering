@@ -98,7 +98,7 @@ export class Orchestrator extends EventEmitter {
   private renderer: PromptRenderer;
   private promptTemplate: string;
   private server?: OrchestratorServer;
-  private interval?: NodeJS.Timeout | undefined;
+  private interval?: ReturnType<typeof setTimeout> | undefined;
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
@@ -971,10 +971,9 @@ export class Orchestrator extends EventEmitter {
     const result = await this.claimManager.claimAndVerify(effect.issue.id);
 
     if (!result.ok) {
-      this.logger.warn(
-        `Claim failed for ${effect.issue.identifier}: ${result.error.message}`,
-        { issueId: effect.issue.id }
-      );
+      this.logger.warn(`Claim failed for ${effect.issue.identifier}: ${result.error.message}`, {
+        issueId: effect.issue.id,
+      });
       // Treat claim errors as rejections to avoid blocking
       const rejectEvent: OrchestratorEvent = {
         type: 'claim_rejected',
@@ -1329,10 +1328,18 @@ export class Orchestrator extends EventEmitter {
       void this.server.start();
     }
     const intervalMs = this.config.polling.intervalMs || 30000;
-    this.interval = setInterval(() => {
-      void this.tick();
-    }, intervalMs);
-    void this.tick(); // Initial tick
+    const jitterMs = this.config.polling.jitterMs ?? 0;
+
+    const scheduleNextTick = () => {
+      const jitter = jitterMs > 0 ? Math.round((Math.random() * 2 - 1) * jitterMs) : 0;
+      const delay = Math.max(0, intervalMs + jitter);
+      this.interval = setTimeout(() => {
+        void this.tick().finally(() => scheduleNextTick());
+      }, delay);
+    };
+
+    scheduleNextTick();
+    void this.tick(); // Initial tick (no jitter)
   }
 
   /**
@@ -1340,7 +1347,7 @@ export class Orchestrator extends EventEmitter {
    */
   public async stop(): Promise<void> {
     if (this.interval) {
-      clearInterval(this.interval);
+      clearTimeout(this.interval);
       this.interval = undefined;
     }
     if (this.server) {
