@@ -195,6 +195,17 @@ Detect structural anomalies — statistical outliers across code metrics and top
 - `offset` (number, optional) — Number of anomaly entries to skip (pagination). Default: 0. Anomalies are sorted by Z-score desc.
 - `limit` (number, optional) — Max anomaly entries to return (pagination). Default: 30.
 
+### `detect_constraint_emergence`
+
+Cluster recurring violations by pattern and suggest new constraint rules. When N similar violations appear in M weeks, suggests emergent architectural norms learned from team behavior.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `windowWeeks` (number, optional) — Time window in weeks to analyze (default: 4)
+- `minOccurrences` (number, optional) — Minimum number of similar violations to trigger a suggestion (default: 3)
+- `category` (string, optional) — Optional filter by constraint category
+
 ### `detect_entropy`
 
 Detect documentation drift, dead code, and pattern violations. Optionally auto-fix detected issues.
