@@ -31,8 +31,15 @@ import type {
   ContentHashIndex,
 } from './learnings-content';
 import { loadRelevantLearnings, invalidateLearningsCacheEntry } from './learnings-loader';
+import { checkOverlap } from './learnings-overlap';
+import type { OverlapResult } from './learnings-overlap';
 
 // --- Core CRUD ---
+
+export interface AppendLearningResult {
+  appended: boolean;
+  overlap?: OverlapResult;
+}
 
 export interface BudgetedLearningsOptions {
   intent: string;
@@ -43,14 +50,56 @@ export interface BudgetedLearningsOptions {
   depth?: 'index' | 'summary' | 'full';
 }
 
+/** Load or rebuild the content hash index, self-healing on corruption. */
+function loadOrRebuildHashes(stateDir: string, learningsPath: string): ContentHashIndex {
+  const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
+  if (fs.existsSync(hashesPath)) {
+    const hashes = loadContentHashes(stateDir);
+    if (Object.keys(hashes).length === 0 && fs.existsSync(learningsPath)) {
+      return rebuildContentHashes(stateDir, LEARNINGS_FILE);
+    }
+    return hashes;
+  }
+  if (fs.existsSync(learningsPath)) {
+    return rebuildContentHashes(stateDir, LEARNINGS_FILE);
+  }
+  return {};
+}
+
+/** Format a learning bullet line with tags. */
+function formatBulletLine(
+  timestamp: string,
+  learning: string,
+  skillName?: string,
+  outcome?: string,
+  rootCause?: string,
+  triedAndFailed?: string[]
+): string {
+  const structuredTags: string[] = [];
+  if (rootCause) structuredTags.push(`[root_cause:${rootCause}]`);
+  if (triedAndFailed && triedAndFailed.length > 0)
+    structuredTags.push(`[tried:${triedAndFailed.join(',')}]`);
+  const structuredStr = structuredTags.length > 0 ? ' ' + structuredTags.join(' ') : '';
+
+  if (skillName && outcome) {
+    return `- **${timestamp} [skill:${skillName}] [outcome:${outcome}]${structuredStr}:** ${learning}`;
+  }
+  if (skillName) {
+    return `- **${timestamp} [skill:${skillName}]${structuredStr}:** ${learning}`;
+  }
+  return `- **${timestamp}${structuredStr}:** ${learning}`;
+}
+
 export async function appendLearning(
   projectPath: string,
   learning: string,
   skillName?: string,
   outcome?: string,
   stream?: string,
-  session?: string
-): Promise<Result<void, Error>> {
+  session?: string,
+  rootCause?: string,
+  triedAndFailed?: string[]
+): Promise<Result<AppendLearningResult, Error>> {
   try {
     const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
@@ -59,73 +108,60 @@ export async function appendLearning(
 
     fs.mkdirSync(stateDir, { recursive: true });
 
-    // Content deduplication: check if this learning already exists
+    // Content deduplication
     const normalizedContent = normalizeLearningContent(learning);
     const contentHash = computeContentHash(normalizedContent);
+    const contentHashes = loadOrRebuildHashes(stateDir, learningsPath);
 
-    // Load or rebuild content hash index (self-healing)
-    const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
-    let contentHashes: ContentHashIndex;
-    if (fs.existsSync(hashesPath)) {
-      contentHashes = loadContentHashes(stateDir);
-      // If loaded index is empty but learnings exist, sidecar may be corrupted — rebuild
-      if (Object.keys(contentHashes).length === 0 && fs.existsSync(learningsPath)) {
-        contentHashes = rebuildContentHashes(stateDir, LEARNINGS_FILE);
-      }
-    } else if (fs.existsSync(learningsPath)) {
-      // Sidecar missing but learnings exist — rebuild (self-healing)
-      contentHashes = rebuildContentHashes(stateDir, LEARNINGS_FILE);
-    } else {
-      contentHashes = {};
-    }
-
-    // Skip duplicate
     if (contentHashes[contentHash]) {
-      return Ok(undefined);
+      return Ok({ appended: false });
     }
 
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = new Date().toISOString().split('T')[0]!;
+    const bulletLine = formatBulletLine(
+      timestamp,
+      learning,
+      skillName,
+      outcome,
+      rootCause,
+      triedAndFailed
+    );
 
-    // Build tags list for frontmatter
+    // Build frontmatter
     const fmTags: string[] = [];
     if (skillName) fmTags.push(skillName);
     if (outcome) fmTags.push(outcome);
-
-    let bulletLine: string;
-    if (skillName && outcome) {
-      bulletLine = `- **${timestamp} [skill:${skillName}] [outcome:${outcome}]:** ${learning}`;
-    } else if (skillName) {
-      bulletLine = `- **${timestamp} [skill:${skillName}]:** ${learning}`;
-    } else {
-      bulletLine = `- **${timestamp}:** ${learning}`;
-    }
-
     const hash = crypto.createHash('sha256').update(bulletLine).digest('hex').slice(0, 8);
     const tagsStr = fmTags.length > 0 ? ` tags:${fmTags.join(',')}` : '';
-    const frontmatter = `<!-- hash:${hash}${tagsStr} -->`;
-    const entry = `\n${frontmatter}\n${bulletLine}\n`;
+    const entry = `\n<!-- hash:${hash}${tagsStr} -->\n${bulletLine}\n`;
 
+    // Write entry and check overlap (single file read)
+    let overlapResult: OverlapResult | undefined;
     let existingLineCount: number;
     if (!fs.existsSync(learningsPath)) {
       fs.writeFileSync(learningsPath, `# Learnings\n${entry}`);
-      existingLineCount = 1; // "# Learnings" header
+      existingLineCount = 1;
     } else {
-      // Count lines from the existing file content already known to be present
       const existingContent = fs.readFileSync(learningsPath, 'utf-8');
+      const existingEntries = existingContent
+        .split('\n')
+        .filter((line) => /^- \*\*\d{4}-\d{2}-\d{2}/.test(line));
+      const overlap = checkOverlap(bulletLine, existingEntries);
+      if (overlap.score >= 0.7) overlapResult = overlap;
       existingLineCount = existingContent.split('\n').length;
       fs.appendFileSync(learningsPath, entry);
     }
 
-    // Update content hash index — line number is the bullet line within the appended entry
-    // entry = "\n{frontmatter}\n{bulletLine}\n" → bullet is 2 lines after the append start
-    const bulletLine_lineNum = existingLineCount + 2;
-    contentHashes[contentHash] = { date: timestamp ?? '', line: bulletLine_lineNum };
+    // Update content hash index
+    const bulletLineNum = existingLineCount + 2;
+    contentHashes[contentHash] = { date: timestamp ?? '', line: bulletLineNum };
     saveContentHashes(stateDir, contentHashes);
-
-    // Invalidate cache on write
     invalidateLearningsCacheEntry(learningsPath);
 
-    return Ok(undefined);
+    return Ok({
+      appended: true,
+      ...(overlapResult ? { overlap: overlapResult } : {}),
+    });
   } catch (error) {
     return Err(
       new Error(
@@ -269,11 +305,18 @@ export async function loadIndexEntries(
       if (isDatedBullet || isHeading) {
         // Start new entry
         if (pendingFrontmatter) {
+          // Extract structured fields from the entry line even when frontmatter is present
+          const rootCauseMatch = line.match(/\[root_cause:([^\]]+)\]/);
+          const triedMatch = line.match(/\[tried:([^\]]+)\]/);
           indexEntries.push({
             hash: pendingFrontmatter.hash,
             tags: pendingFrontmatter.tags,
             summary: line,
             fullText: '', // Placeholder — full text not loaded in index mode
+            ...(rootCauseMatch?.[1] ? { rootCause: rootCauseMatch[1] } : {}),
+            ...(triedMatch?.[1]
+              ? { triedAndFailed: triedMatch[1].split(',').map((s) => s.trim()) }
+              : {}),
           });
           pendingFrontmatter = null;
         } else {

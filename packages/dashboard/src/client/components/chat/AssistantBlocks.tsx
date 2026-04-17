@@ -41,6 +41,15 @@ function formatToolArgs(tool: string, args?: string) {
       // Clean up common long paths in bash commands if they exist
       return cmd.replace(/cd\s+("[^"]+"|'[^']+'|[^\s]+)\s*&&\s*/g, '').slice(0, 100);
     }
+    if (toolLower === 'agent' || toolLower === 'subagent' || parsed.subagent_type) {
+      const type = parsed.subagent_type || parsed.type;
+      if (type && parsed.description) {
+        return `${type}: ${parsed.description}`.slice(0, 100);
+      }
+      if (parsed.description) {
+        return parsed.description.slice(0, 100);
+      }
+    }
     if (parsed.path || parsed.file_path || parsed.filePath) {
       const p = parsed.path || parsed.file_path || parsed.filePath;
       return p.split('/').slice(-2).join('/');
@@ -138,6 +147,92 @@ function ToolUseBlockView({
           </div>
         </motion.div>
       )}
+    </div>
+  );
+}
+
+function AgentBlockView({ block }: { block: ToolUseBlock }) {
+  let parsedArgs: any = {};
+  if (block.args) {
+    try {
+      parsedArgs = JSON.parse(block.args);
+    } catch {
+      // ignore
+    }
+  }
+
+  const isSkill = block.tool.toLowerCase() === 'skill';
+  const containerClasses = isSkill
+    ? 'border-emerald-400/20 bg-emerald-400/5'
+    : 'border-secondary-400/20 bg-secondary-400/5';
+
+  const headerClasses = isSkill
+    ? 'border-emerald-400/10 bg-emerald-400/10'
+    : 'border-secondary-400/10 bg-secondary-400/10';
+
+  const iconClasses = isSkill ? 'text-emerald-400' : 'text-secondary-400';
+  const textTitleClasses = isSkill ? 'text-emerald-300' : 'text-secondary-300';
+  const textRunningClasses = isSkill ? 'text-emerald-400' : 'text-secondary-400';
+  const borderDescClasses = isSkill ? 'border-emerald-400/10' : 'border-secondary-400/10';
+
+  const titleText = isSkill
+    ? `Skill: ${parsedArgs.skill || 'Execution'}`
+    : `Subagent: ${parsedArgs.subagent_type || parsedArgs.type || 'Execution'}`;
+
+  const mainDesc = isSkill ? undefined : parsedArgs.description;
+  const promptText = isSkill ? parsedArgs.args : parsedArgs.prompt;
+
+  return (
+    <div className={`my-3 rounded border ${containerClasses} overflow-hidden`}>
+      <div className={`flex items-center gap-2 px-3 py-2 border-b ${headerClasses}`}>
+        <svg
+          className={`w-3 h-3 ${iconClasses}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          {isSkill ? (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+            />
+          )}
+        </svg>
+        <span className={`font-bold tracking-widest uppercase text-[10px] ${textTitleClasses}`}>
+          {titleText}
+        </span>
+        {!block.result && !block.isError && (
+          <span className={`ml-auto text-[10px] ${textRunningClasses} animate-pulse`}>
+            Running...
+          </span>
+        )}
+        {block.isError && <span className="ml-auto text-[10px] text-red-400">Error</span>}
+      </div>
+
+      <div className="flex flex-col p-3 gap-2">
+        {mainDesc && <div className="text-[13px] font-bold text-neutral-text">{mainDesc}</div>}
+        {promptText && (
+          <div className="text-xs text-neutral-muted bg-neutral-surface/40 p-2 rounded border border-neutral-border/50 whitespace-pre-wrap font-mono leading-relaxed mt-1 overflow-x-auto">
+            {promptText}
+          </div>
+        )}
+        {block.result && (
+          <div
+            className={`mt-2 pt-2 border-t ${borderDescClasses} text-xs text-neutral-muted prose prose-invert prose-xs max-h-[40vh] overflow-auto`}
+          >
+            <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -588,7 +683,10 @@ export function AssistantBlocks({
       };
 
       const isTodoWrite = block.tool.toLowerCase().includes('todo');
-      if (isTodoWrite) {
+      const isAgent =
+        block.tool.toLowerCase() === 'agent' || block.tool.toLowerCase() === 'subagent';
+      const isSkill = block.tool.toLowerCase() === 'skill';
+      if (isTodoWrite || isAgent || isSkill) {
         isActivity = false;
       }
     } else if (block.kind === 'thinking' || block.kind === 'status') {
@@ -618,6 +716,17 @@ export function AssistantBlocks({
         elements.push(
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <TodoBlockView block={block as ToolUseBlock} />
+          </motion.div>
+        );
+      } else if (
+        block.kind === 'tool_use' &&
+        (block.tool.toLowerCase() === 'agent' ||
+          block.tool.toLowerCase() === 'subagent' ||
+          block.tool.toLowerCase() === 'skill')
+      ) {
+        elements.push(
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <AgentBlockView block={block as ToolUseBlock} />
           </motion.div>
         );
       } else {

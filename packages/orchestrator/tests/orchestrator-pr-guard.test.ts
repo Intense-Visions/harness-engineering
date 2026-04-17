@@ -46,13 +46,15 @@ function makeMockTracker() {
     fetchIssuesByStates: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     fetchIssueStatesByIds: vi.fn().mockResolvedValue({ ok: true, value: new Map() }),
     markIssueComplete: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+    claimIssue: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+    releaseIssue: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
   };
 }
 
 function makeIssue(overrides: Partial<Issue> = {}): Issue {
   return {
     id: 'id-1',
-    identifier: 'TEST-1',
+    identifier: 'test-issue-abc12345',
     title: 'Test issue',
     description: null,
     priority: null,
@@ -70,7 +72,7 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
   };
 }
 
-describe('isExternalPROpen', () => {
+describe('hasOpenPRForIdentifier', () => {
   let orchestrator: Orchestrator;
   let mockExecFile: ReturnType<typeof vi.fn>;
 
@@ -82,84 +84,43 @@ describe('isExternalPROpen', () => {
     mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
   });
 
-  it('returns true when gh reports OPEN state', async () => {
+  it('returns true when an open PR exists for the identifier branch', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-        cb(null, { stdout: 'OPEN\n', stderr: '' });
+        cb(null, { stdout: '1\n', stderr: '' });
       }
     );
 
-    const result = await (orchestrator as any).isExternalPROpen('github:owner/repo#42');
+    const result = await (orchestrator as any).hasOpenPRForIdentifier('my-feature-abc12345');
     expect(result).toBe(true);
     expect(mockExecFile).toHaveBeenCalledWith(
       'gh',
-      ['pr', 'view', '42', '--repo', 'owner/repo', '--json', 'state', '--jq', '.state'],
+      [
+        'pr',
+        'list',
+        '--head',
+        'feat/my-feature-abc12345',
+        '--state',
+        'open',
+        '--json',
+        'number',
+        '--jq',
+        'length',
+      ],
       expect.objectContaining({ timeout: 10_000 }),
       expect.any(Function)
     );
   });
 
-  it('returns false when gh reports CLOSED state', async () => {
+  it('returns false when no open PR exists', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-        cb(null, { stdout: 'CLOSED\n', stderr: '' });
+        cb(null, { stdout: '0\n', stderr: '' });
       }
     );
 
-    const result = await (orchestrator as any).isExternalPROpen('github:owner/repo#42');
+    const result = await (orchestrator as any).hasOpenPRForIdentifier('no-pr-feature-def45678');
     expect(result).toBe(false);
-  });
-
-  it('returns false when gh reports MERGED state', async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-        cb(null, { stdout: 'MERGED\n', stderr: '' });
-      }
-    );
-
-    const result = await (orchestrator as any).isExternalPROpen('github:owner/repo#42');
-    expect(result).toBe(false);
-  });
-
-  it('returns false for non-github scheme without calling gh', async () => {
-    const result = await (orchestrator as any).isExternalPROpen('jira:PROJ-123');
-    expect(result).toBe(false);
-    expect(mockExecFile).not.toHaveBeenCalled();
-  });
-
-  it('returns false for malformed github externalId', async () => {
-    const result = await (orchestrator as any).isExternalPROpen('github:badformat');
-    expect(result).toBe(false);
-    expect(mockExecFile).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['github:owner/repo#1; echo pwned', false],
-    ['github:owner repo#1', false],
-  ])('rejects malformed input without calling gh: %s', async (input, _) => {
-    const result = await (orchestrator as any).isExternalPROpen(input);
-    expect(result).toBe(false);
-    expect(mockExecFile).not.toHaveBeenCalled();
-  });
-
-  it('safely passes adversarial but regex-matching input to execFile (no shell)', async () => {
-    // Inputs like "github:--flag/repo#1" match the regex but are safe
-    // because execFile passes args as an array, not through a shell
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-        cb(new Error('not found'), { stdout: '', stderr: '' });
-      }
-    );
-
-    const result = await (orchestrator as any).isExternalPROpen('github:--flag/repo#1');
-    expect(result).toBe(false);
-    // execFile was called safely with args array (no shell injection possible)
-    expect(mockExecFile).toHaveBeenCalledWith(
-      'gh',
-      expect.arrayContaining(['--repo', '--flag/repo']),
-      expect.any(Object),
-      expect.any(Function)
-    );
   });
 
   it('returns false and logs warning when gh command fails', async () => {
@@ -170,10 +131,10 @@ describe('isExternalPROpen', () => {
     );
 
     const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
-    const result = await (orchestrator as any).isExternalPROpen('github:owner/repo#42');
+    const result = await (orchestrator as any).hasOpenPRForIdentifier('failing-check-ghi78901');
     expect(result).toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to check PR state'),
+      expect.stringContaining('Failed to check open PRs'),
       expect.any(Object)
     );
   });
@@ -194,18 +155,18 @@ describe('filterCandidatesWithOpenPRs', () => {
   it('excludes candidates with open PRs', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-        // PR #10 is open, PR #20 is closed
-        if (args.includes('10')) {
-          cb(null, { stdout: 'OPEN\n', stderr: '' });
+        // feat/has-open-pr-aaa11111 has an open PR, feat/no-open-pr-bbb22222 does not
+        if (args.includes('feat/has-open-pr-aaa11111')) {
+          cb(null, { stdout: '1\n', stderr: '' });
         } else {
-          cb(null, { stdout: 'CLOSED\n', stderr: '' });
+          cb(null, { stdout: '0\n', stderr: '' });
         }
       }
     );
 
     const candidates = [
-      makeIssue({ id: '1', title: 'Open PR', externalId: 'github:owner/repo#10' }),
-      makeIssue({ id: '2', title: 'Closed PR', externalId: 'github:owner/repo#20' }),
+      makeIssue({ id: '1', identifier: 'has-open-pr-aaa11111', title: 'Open PR' }),
+      makeIssue({ id: '2', identifier: 'no-open-pr-bbb22222', title: 'No PR' }),
     ];
 
     const infoSpy = vi.spyOn((orchestrator as any).logger, 'info');
@@ -221,15 +182,6 @@ describe('filterCandidatesWithOpenPRs', () => {
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
-  it('passes through candidates with null externalId', async () => {
-    const candidates = [makeIssue({ id: '1', title: 'No external', externalId: null })];
-
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('1');
-    expect(mockExecFile).not.toHaveBeenCalled();
-  });
-
   it('passes through candidates when gh fails (fail-open)', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
@@ -238,7 +190,7 @@ describe('filterCandidatesWithOpenPRs', () => {
     );
 
     const candidates = [
-      makeIssue({ id: '1', title: 'Failing check', externalId: 'github:owner/repo#10' }),
+      makeIssue({ id: '1', identifier: 'failing-check-ccc33333', title: 'Failing check' }),
     ];
 
     const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
@@ -264,38 +216,28 @@ describe('asyncTick PR filtering', () => {
   it('excludes open-PR candidates from tick event while passing others through', async () => {
     const openPRCandidate = makeIssue({
       id: 'open-pr',
-      identifier: 'OPEN-1',
+      identifier: 'open-pr-feature-ddd44444',
       title: 'Has open PR',
       state: 'Todo',
-      externalId: 'github:owner/repo#10',
     });
-    const closedPRCandidate = makeIssue({
-      id: 'closed-pr',
-      identifier: 'CLOSED-1',
-      title: 'Has closed PR',
+    const noPRCandidate = makeIssue({
+      id: 'no-pr',
+      identifier: 'no-pr-feature-eee55555',
+      title: 'No open PR',
       state: 'Todo',
-      externalId: 'github:owner/repo#20',
-    });
-    const noExternalCandidate = makeIssue({
-      id: 'no-external',
-      identifier: 'NONE-1',
-      title: 'No external ID',
-      state: 'Todo',
-      externalId: null,
     });
 
     mockTracker.fetchCandidateIssues.mockResolvedValue({
       ok: true,
-      value: [openPRCandidate, closedPRCandidate, noExternalCandidate],
+      value: [openPRCandidate, noPRCandidate],
     } as Ok<Issue[]>);
 
-    // PR #10 is OPEN, PR #20 is CLOSED
     mockExecFile.mockImplementation(
       (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-        if (args.includes('10')) {
-          cb(null, { stdout: 'OPEN\n', stderr: '' });
+        if (args.includes('feat/open-pr-feature-ddd44444')) {
+          cb(null, { stdout: '1\n', stderr: '' });
         } else {
-          cb(null, { stdout: 'CLOSED\n', stderr: '' });
+          cb(null, { stdout: '0\n', stderr: '' });
         }
       }
     );
@@ -311,18 +253,16 @@ describe('asyncTick PR filtering', () => {
     expect(claimedIds).not.toContain('open-pr');
     expect(runningIds).not.toContain('open-pr');
 
-    // closed-PR and no-external candidates SHOULD be dispatched
-    expect(claimedIds).toContain('closed-pr');
-    expect(claimedIds).toContain('no-external');
+    // no-PR candidate SHOULD be dispatched
+    expect(claimedIds).toContain('no-pr');
   });
 
   it('passes all candidates through when gh fails (fail-open)', async () => {
     const candidate = makeIssue({
       id: 'failing-check',
-      identifier: 'FAIL-1',
+      identifier: 'fail-check-fff66666',
       title: 'API failure candidate',
       state: 'Todo',
-      externalId: 'github:owner/repo#99',
     });
 
     mockTracker.fetchCandidateIssues.mockResolvedValue({
