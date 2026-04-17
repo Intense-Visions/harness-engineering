@@ -49,6 +49,55 @@
         "c864cfa8b0ede459",
         "729694623d7f9750"
       ]
+    },
+    {
+      "capturedAt": "2026-04-17T20:29:07.746Z",
+      "commitHash": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "securityScore": 87,
+      "totalFindings": 13,
+      "bySeverity": {
+        "error": 0,
+        "warning": 13,
+        "info": 0
+      },
+      "byCategory": {
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        },
+        "deserialization": {
+          "findingCount": 11,
+          "errorCount": 0,
+          "warningCount": 11,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "f393d9a37b102175",
+        "f4d102463af981f5",
+        "59486b7794d91d74",
+        "2a74142753e97847",
+        "5b7d862e73f3b35e",
+        "4acba46e4b1e8046",
+        "e8a97c49175a3b99",
+        "24150152dbda1db7",
+        "91b930ef98241bc7",
+        "9d1df5abe906a5e7",
+        "60f7b89030b68b4a",
+        "dd953fca2b92a7c6",
+        "dba391093a65ab79"
+      ]
     }
   ],
   "findingLifecycles": [
@@ -60,8 +109,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/cli/src/skill/dispatch-session.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "828750b8ac35e26a",
@@ -71,8 +120,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "c1eb9cf95e49d83c",
@@ -82,8 +131,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/pages/Analyze.tsx",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "a8145add39c37fd9",
@@ -93,8 +142,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/utils/chat-stream.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "27fbc3f3f5546c36",
@@ -104,8 +153,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/server/routes/actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "4396de07948daf80",
@@ -115,8 +164,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/analyze.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "9459522898fc3cb3",
@@ -126,8 +175,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/chat-proxy.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "580e3aa6eb1b1732",
@@ -137,8 +186,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/dispatch-actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "84d7b1bfc635d0a0",
@@ -148,8 +197,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/interactions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "e181d1409de6956f",
@@ -159,8 +208,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/plans.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "25edad92611b919c",
@@ -170,8 +219,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/roadmap-actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "c864cfa8b0ede459",
@@ -181,8 +230,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
     },
     {
       "findingId": "729694623d7f9750",
@@ -192,6 +241,149 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
+      "resolvedAt": "2026-04-17T20:28:14.050Z",
+      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+    },
+    {
+      "findingId": "f393d9a37b102175",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "f4d102463af981f5",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "59486b7794d91d74",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "2a74142753e97847",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "5b7d862e73f3b35e",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "4acba46e4b1e8046",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "e8a97c49175a3b99",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "24150152dbda1db7",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "91b930ef98241bc7",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "9d1df5abe906a5e7",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "60f7b89030b68b4a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "dd953fca2b92a7c6",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "dba391093a65ab79",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-17T20:28:14.050Z",
+      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
       "resolvedAt": null,
       "resolvedCommit": null
     }
