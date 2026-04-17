@@ -223,4 +223,117 @@ describe('MaintenanceScheduler', () => {
       expect(onTaskDue).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('start and stop lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('start() begins interval and stop() clears it', async () => {
+      const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 1000 };
+      const claimManager = createMockClaimManager('rejected'); // Don't actually run tasks
+      const logger = createMockLogger();
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: logger as any,
+        onTaskDue: vi.fn(),
+      });
+
+      scheduler.start();
+
+      // Should have called evaluate once immediately
+      // Wait for the initial evaluate promise
+      await vi.advanceTimersByTimeAsync(0);
+      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(1);
+
+      // Advance past one interval
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+
+      scheduler.stop();
+
+      // No more calls after stop
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+    });
+
+    it('stop() sets isLeader to false', async () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: createMockLogger() as any,
+        onTaskDue: vi.fn().mockResolvedValue(undefined),
+      });
+
+      // Manually set leader state by running evaluate
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+      expect(scheduler.getStatus().isLeader).toBe(true);
+
+      scheduler.stop();
+      expect(scheduler.getStatus().isLeader).toBe(false);
+    });
+  });
+
+  describe('getStatus', () => {
+    it('returns full status with schedule entries', () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: createMockLogger() as any,
+        onTaskDue: vi.fn(),
+      });
+
+      const status = scheduler.getStatus();
+      expect(status.isLeader).toBe(false);
+      expect(status.lastLeaderClaim).toBeNull();
+      expect(status.activeRun).toBeNull();
+      expect(status.schedule).toHaveLength(18);
+      expect(status.history).toHaveLength(0);
+
+      // Each schedule entry should have a taskId and nextRun
+      for (const entry of status.schedule) {
+        expect(entry.taskId).toBeTruthy();
+        expect(entry.nextRun).toBeTruthy();
+        expect(entry.lastRun).toBeNull();
+      }
+    });
+
+    it('records run results in history', () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: createMockLogger() as any,
+        onTaskDue: vi.fn(),
+      });
+
+      scheduler.recordRun({
+        taskId: 'arch-violations',
+        startedAt: '2026-04-17T02:00:00Z',
+        completedAt: '2026-04-17T02:01:00Z',
+        status: 'success',
+        findings: 3,
+        fixed: 2,
+        prUrl: 'https://github.com/example/repo/pull/1',
+        prUpdated: false,
+      });
+
+      const status = scheduler.getStatus();
+      expect(status.history).toHaveLength(1);
+      expect(status.history[0]!.taskId).toBe('arch-violations');
+
+      // The schedule entry for arch-violations should now have lastRun
+      const archEntry = status.schedule.find((s) => s.taskId === 'arch-violations')!;
+      expect(archEntry.lastRun).not.toBeNull();
+      expect(archEntry.lastRun!.status).toBe('success');
+    });
+  });
 });
