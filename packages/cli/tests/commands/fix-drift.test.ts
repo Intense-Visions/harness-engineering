@@ -235,6 +235,47 @@ describe('fix-drift command', () => {
       const result = await runFixDrift({});
       expect(result.ok).toBe(true);
     });
+
+    it('passes configured entryPoints to buildSnapshot (#169)', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: {
+            entryPoints: ['playwright.config.ts', 'tests/global.setup.ts'],
+            excludePatterns: [],
+          },
+        },
+      } as never);
+
+      await runFixDrift({ cwd: '/tmp/test' });
+      expect(buildSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryPoints: ['playwright.config.ts', 'tests/global.setup.ts'],
+        })
+      );
+    });
+
+    it('omits entryPoints when not configured, allowing auto-detection (#169)', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: { excludePatterns: [] },
+        },
+      } as never);
+
+      await runFixDrift({ cwd: '/tmp/test' });
+      expect(buildSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryPoints: undefined,
+        })
+      );
+    });
   });
 
   describe('createFixDriftCommand', () => {

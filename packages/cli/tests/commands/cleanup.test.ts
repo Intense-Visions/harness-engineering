@@ -18,6 +18,7 @@ const defaultAnalyzeResult = {
 };
 
 const analyzeResultHolder = { current: defaultAnalyzeResult as unknown };
+const capturedConfigs: unknown[] = [];
 
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
@@ -29,6 +30,7 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
       config: unknown;
       constructor(config: unknown) {
         this.config = config;
+        capturedConfigs.push(config);
       }
       async analyze() {
         return analyzeResultHolder.current;
@@ -56,6 +58,7 @@ describe('cleanup command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     analyzeResultHolder.current = defaultAnalyzeResult;
+    capturedConfigs.length = 0;
   });
 
   describe('runCleanup', () => {
@@ -143,6 +146,43 @@ describe('cleanup command', () => {
     it('uses process.cwd() when cwd not provided', async () => {
       const result = await runCleanup({});
       expect(result.ok).toBe(true);
+    });
+
+    it('passes configured entryPoints to EntropyAnalyzer (#169)', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: {
+            entryPoints: ['playwright.config.ts', 'tests/global.setup.ts'],
+            excludePatterns: [],
+          },
+        },
+      } as never);
+
+      await runCleanup({ cwd: '/tmp/test' });
+      expect(capturedConfigs).toHaveLength(1);
+      const config = capturedConfigs[0] as { entryPoints?: string[] };
+      expect(config.entryPoints).toEqual(['playwright.config.ts', 'tests/global.setup.ts']);
+    });
+
+    it('omits entryPoints when not configured, allowing auto-detection (#169)', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: { excludePatterns: [] },
+        },
+      } as never);
+
+      await runCleanup({ cwd: '/tmp/test' });
+      expect(capturedConfigs).toHaveLength(1);
+      const config = capturedConfigs[0] as { entryPoints?: string[] };
+      expect(config.entryPoints).toBeUndefined();
     });
   });
 
