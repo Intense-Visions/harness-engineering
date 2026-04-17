@@ -83,20 +83,24 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
      });
 
      it('scores mechanical + 3 evidence items between 85-100', () => {
-       const findings = [makeFinding({
-         validatedBy: 'mechanical',
-         evidence: ['a', 'b', 'c'],
-       })];
+       const findings = [
+         makeFinding({
+           validatedBy: 'mechanical',
+           evidence: ['a', 'b', 'c'],
+         }),
+       ];
        const result = computeTrustScores(findings);
        expect(result[0]!.trustScore).toBeGreaterThanOrEqual(85);
        expect(result[0]!.trustScore).toBeLessThanOrEqual(100);
      });
 
      it('scores heuristic + 0 evidence + no agreement below 40', () => {
-       const findings = [makeFinding({
-         validatedBy: 'heuristic',
-         evidence: [],
-       })];
+       const findings = [
+         makeFinding({
+           validatedBy: 'heuristic',
+           evidence: [],
+         }),
+       ];
        const result = computeTrustScores(findings);
        expect(result[0]!.trustScore).toBeLessThan(40);
      });
@@ -108,7 +112,9 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
        ];
        const result = computeTrustScores(findings);
        // Both should have higher scores than standalone (agreement boost ~8pp)
-       const standalone = computeTrustScores([makeFinding({ id: 'a', domain: 'bug', file: 'src/x.ts', lineRange: [10, 20] })]);
+       const standalone = computeTrustScores([
+         makeFinding({ id: 'a', domain: 'bug', file: 'src/x.ts', lineRange: [10, 20] }),
+       ]);
        expect(result[0]!.trustScore).toBeGreaterThan(standalone[0]!.trustScore!);
      });
 
@@ -118,7 +124,9 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
          makeFinding({ id: 'b', domain: 'bug', file: 'src/x.ts', lineRange: [15, 25] }),
        ];
        const result = computeTrustScores(findings);
-       const standalone = computeTrustScores([makeFinding({ id: 'a', domain: 'bug', file: 'src/x.ts', lineRange: [10, 20] })]);
+       const standalone = computeTrustScores([
+         makeFinding({ id: 'a', domain: 'bug', file: 'src/x.ts', lineRange: [10, 20] }),
+       ]);
        expect(result[0]!.trustScore).toBe(standalone[0]!.trustScore);
      });
 
@@ -126,7 +134,7 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
        const findings = [makeFinding(), makeFinding({ id: 'b', domain: 'security' })];
        const result1 = computeTrustScores(findings);
        const result2 = computeTrustScores(findings);
-       expect(result1.map(f => f.trustScore)).toEqual(result2.map(f => f.trustScore));
+       expect(result1.map((f) => f.trustScore)).toEqual(result2.map((f) => f.trustScore));
      });
 
      it('graph validation scores higher than heuristic', () => {
@@ -181,8 +189,8 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
 
    /** Per-domain historical accuracy baselines (used when graph is unavailable). */
    const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
-     security: 0.70,
-     bug: 0.60,
+     security: 0.7,
+     bug: 0.6,
      architecture: 0.65,
      compliance: 0.75,
    };
@@ -191,8 +199,8 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
    const FACTOR_WEIGHTS = {
      validation: 0.35,
      evidence: 0.25,
-     agreement: 0.20,
-     historical: 0.20,
+     agreement: 0.2,
+     historical: 0.2,
    } as const;
 
    /** Evidence items needed for maximum evidence factor. */
@@ -329,7 +337,8 @@ MODIFY packages/core/src/review/index.ts                   (re-export)
 
 1. In `formatGitHubComment()`, add confidence to header:
    ```typescript
-   const confidenceBadge = finding.trustScore != null ? ` (confidence: ${finding.trustScore}%)` : '';
+   const confidenceBadge =
+     finding.trustScore != null ? ` (confidence: ${finding.trustScore}%)` : '';
    const header = `${severityBadge} [${finding.domain}] ${sanitizeMarkdown(finding.title)}${confidenceBadge}`;
    ```
 2. In `formatGitHubSummary()`, add confidence to finding line:

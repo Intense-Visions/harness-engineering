@@ -58,11 +58,11 @@ describe('scopeContext()', () => {
     mockFindFiles.mockResolvedValue([]);
   });
 
-  it('returns a ContextBundle for each of the four domains', async () => {
+  it('returns a ContextBundle for each review domain', async () => {
     const result = await scopeContext(makeOptions());
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(5);
     const domains = result.map((b) => b.domain).sort();
-    expect(domains).toEqual(['architecture', 'bug', 'compliance', 'security']);
+    expect(domains).toEqual(['architecture', 'bug', 'compliance', 'learnings', 'security']);
   });
 
   it('sets changeType on all bundles', async () => {

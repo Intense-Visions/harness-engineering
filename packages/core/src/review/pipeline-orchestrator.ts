@@ -184,15 +184,17 @@ export async function runReviewPipeline(
     });
   } catch {
     // Context scoping failed -- create minimal bundles
-    contextBundles = (['compliance', 'bug', 'security', 'architecture'] as const).map((domain) => ({
-      domain,
-      changeType: 'feature' as const,
-      changedFiles: [],
-      contextFiles: [],
-      commitHistory: [],
-      diffLines: diff.totalDiffLines,
-      contextLines: 0,
-    }));
+    contextBundles = (['compliance', 'bug', 'security', 'architecture', 'learnings'] as const).map(
+      (domain) => ({
+        domain,
+        changeType: 'feature' as const,
+        changedFiles: [],
+        contextFiles: [],
+        commitHistory: [],
+        diffLines: diff.totalDiffLines,
+        contextLines: 0,
+      })
+    );
   }
 
   // Attach rubric to every bundle so agents can reference it.
