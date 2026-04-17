@@ -829,6 +829,66 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Checks whether an external tracker ID points to an open GitHub PR.
+   * Parses `github:<owner>/<repo>#<number>` format. Non-github schemes
+   * return false (fail-open, not a GitHub item). API failures return
+   * false (fail-open) and log a warning.
+   */
+  private async isExternalPROpen(externalId: string): Promise<boolean> {
+    const match = externalId.match(/^github:([^/]+\/[^#]+)#(\d+)$/);
+    if (!match) return false;
+
+    const [, repo, number] = match;
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        ['pr', 'view', number, '--repo', repo, '--json', 'state', '--jq', '.state'],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return stdout.trim() === 'OPEN';
+    } catch (err) {
+      this.logger.warn(`Failed to check PR state for ${externalId}`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Filters out candidates that have an open GitHub PR, running checks
+   * in parallel via Promise.allSettled. Candidates with null externalId
+   * or non-github schemes pass through. Fail-open on API errors.
+   */
+  private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
+    const results = await Promise.allSettled(
+      candidates.map(async (candidate) => {
+        if (!candidate.externalId) return { candidate, isOpen: false };
+        const isOpen = await this.isExternalPROpen(candidate.externalId);
+        return { candidate, isOpen };
+      })
+    );
+
+    const filtered: Issue[] = [];
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // Promise.allSettled should not reject, but fail-open just in case
+        continue;
+      }
+      const { candidate, isOpen } = result.value;
+      if (isOpen) {
+        this.logger.info(`Skipping ${candidate.title}: open PR at ${candidate.externalId}`);
+      } else {
+        filtered.push(candidate);
+      }
+    }
+    return filtered;
+  }
+
+  /**
    * Handles an escalation effect by writing to the interaction queue and logging.
    */
   private async handleEscalation(effect: EscalateEffect): Promise<void> {
