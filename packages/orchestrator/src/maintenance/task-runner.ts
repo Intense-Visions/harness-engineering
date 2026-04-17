@@ -237,7 +237,7 @@ export class TaskRunner {
     }
 
     if (this.prManager) {
-      await this.prManager.ensureBranch(task.branch!, this.baseBranch);
+      await this.prManager.ensureBranch(task.branch, this.baseBranch);
     }
 
     const backendName = this.resolveBackend(task.id);

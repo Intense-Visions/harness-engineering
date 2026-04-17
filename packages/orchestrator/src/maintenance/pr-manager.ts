@@ -12,7 +12,11 @@ export interface GitExecutor {
  * Interface for executing gh CLI commands. Injected for testability.
  */
 export interface GhExecutor {
-  /** Run a gh command and return stdout. Throws on non-zero exit. */
+  /**
+   * Run a gh command and return stdout. Throws on non-zero exit.
+   * Implementation MUST use execFile/spawn (array args), not exec (string),
+   * to prevent shell metacharacter injection from PR body content.
+   */
   run(args: string[], cwd: string): Promise<string>;
 }
 
@@ -116,7 +120,10 @@ export class PRManager {
    * - If no PR exists: create one via gh pr create.
    */
   async ensurePR(task: TaskDefinition, runSummary: string): Promise<EnsurePRResult> {
-    const branchName = task.branch!;
+    if (!task.branch) {
+      throw new Error(`ensurePR requires task.branch to be set (task: ${task.id})`);
+    }
+    const branchName = task.branch;
 
     // Push commits to remote
     await this.git.run(['push', 'origin', branchName, '--force-with-lease'], this.cwd);
@@ -165,7 +172,10 @@ export class PRManager {
    */
   private async remoteBranchExists(branchName: string): Promise<boolean> {
     try {
-      const output = await this.git.run(['ls-remote', '--heads', 'origin', branchName], this.cwd);
+      const output = await this.git.run(
+        ['ls-remote', '--heads', 'origin', `refs/heads/${branchName}`],
+        this.cwd
+      );
       return output.trim().length > 0;
     } catch {
       return false;

@@ -35,6 +35,7 @@ export type {
   AgentDispatcher,
   AgentDispatchResult,
   CommandExecutor,
+  PRLifecycleManager,
   TaskRunnerOptions,
 } from './task-runner';
 
