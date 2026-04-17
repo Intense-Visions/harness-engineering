@@ -178,19 +178,44 @@ async function handleLoadHandoff(projectPath: string, input: StateInput) {
 }
 
 async function handleAppendEntry(projectPath: string, input: StateInput) {
-  if (!input.session) return mcpError('Error: session is required for append_entry action');
   if (!input.section) return mcpError('Error: section is required for append_entry action');
   if (!input.authorSkill) return mcpError('Error: authorSkill is required for append_entry action');
   if (!input.content) return mcpError('Error: content is required for append_entry action');
-  const { appendSessionEntry } = await import('@harness-engineering/core');
-  const result = await appendSessionEntry(
-    projectPath,
-    input.session,
-    input.section as import('@harness-engineering/types').SessionSectionName,
-    input.authorSkill,
-    input.content
+
+  // Session-scoped path (preferred)
+  if (input.session) {
+    const { appendSessionEntry } = await import('@harness-engineering/core');
+    const result = await appendSessionEntry(
+      projectPath,
+      input.session,
+      input.section as import('@harness-engineering/types').SessionSectionName,
+      input.authorSkill,
+      input.content
+    );
+    return resultToMcpResponse(result);
+  }
+
+  // Fallback: append to global state.json decisions array when no session is available
+  // (e.g., standalone brainstorming invocation without a session slug)
+  if (input.section === 'decisions') {
+    const { loadState, saveState } = await import('@harness-engineering/core');
+    const loadResult = await loadState(projectPath, input.stream);
+    if (!loadResult.ok) return resultToMcpResponse(loadResult);
+    const state = loadResult.value;
+    state.decisions.push({
+      date: new Date().toISOString(),
+      decision: input.content,
+      context: input.authorSkill,
+    });
+    const saveResult = await saveState(projectPath, state, input.stream);
+    if (!saveResult.ok) return resultToMcpResponse(saveResult);
+    return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
+  }
+
+  return mcpError(
+    'Error: session is required for append_entry on non-decisions sections. ' +
+      'Pass a session slug or use the decisions section for sessionless fallback.'
   );
-  return resultToMcpResponse(result);
 }
 
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
