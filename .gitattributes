@@ -12,3 +12,13 @@
 *.woff2 binary
 *.ttf binary
 *.eot binary
+
+# Auto-generated baseline files — use "ours" merge strategy to avoid
+# conflicts on every branch. Regenerate after merge instead.
+#
+# Requires one-time setup per clone:
+#   git config merge.ours.driver true
+.harness/**/baselines.json merge=ours
+packages/cli/.harness/**/baselines.json merge=ours
+coverage-baselines.json merge=ours
+benchmark-baselines.json merge=ours
