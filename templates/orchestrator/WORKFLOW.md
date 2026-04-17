@@ -75,7 +75,15 @@ Follow these steps exactly, using the corresponding slash commands to ensure hig
    - Create a topic branch if you are still on `main`/`master` (e.g. `feat/{{ issue.identifier }}`).
    - Stage your changes and create a descriptive commit (Conventional Commits style).
    - Push the branch with `git push -u origin HEAD`.
-   - Open a pull request with `gh pr create --fill` (or `--title`/`--body` for a custom message).
+   - Open a pull request. Use a HEREDOC for the body to preserve newlines:
+     ```
+     gh pr create --title "<title>" --body "$(cat <<'EOF'
+     ## Summary
+     <body content with real newlines>
+     EOF
+     )"
+     ```
+     Or use `gh pr create --fill` to auto-generate from commit messages.
    - Report the PR URL as your final output, then stop. Do not await further instructions — this is the terminal step of the workflow.
 
 ## Rules

@@ -475,8 +475,11 @@ Alternatively, do it manually:
 ```bash
 git checkout -b feature/bookmark-api
 git push -u origin feature/bookmark-api
-gh pr create --title "feat: bookmark API with CRUD and tagging" \
-  --body "Implements bookmark CRUD API per spec in docs/changes/bookmark-api/proposal.md"
+gh pr create --title "feat: bookmark API with CRUD and tagging" --body "$(cat <<'EOF'
+## Summary
+Implements bookmark CRUD API per spec in docs/changes/bookmark-api/proposal.md
+EOF
+)"
 ```
 
 Squash-merging to main keeps the history clean while preserving the detailed per-task commits in the PR for future reference.
