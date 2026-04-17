@@ -460,6 +460,21 @@ Generate CI configuration for harness checks
 - `--platform` — CI platform: github, gitlab, or generic
 - `--checks` — Comma-separated list of checks to include
 
+### `harness ci notify <report>`
+
+Post CI check results to GitHub (PR comment or issue)
+
+**Arguments:**
+
+- `report` (required) — Path to CI check report JSON file (from harness ci check --json)
+
+**Options:**
+
+- `--target` — Notification target: pr-comment or issue
+- `--pr` — PR number (required for pr-comment target)
+- `--title` — Custom issue title (for issue target)
+- `--labels` — Comma-separated labels for created issues
+
 ## Graph Commands
 
 Knowledge graph management
