@@ -70,6 +70,8 @@ export interface TokenTotals {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
   secondsRunning: number;
 }
 
