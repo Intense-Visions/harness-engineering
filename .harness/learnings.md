@@ -1,5 +1,14 @@
 # Learnings
 
+## 2026-04-17 — Persistent Agent Specialization
+
+- [skill:harness-execution] [outcome:success] Implemented specialization module at `packages/intelligence/src/specialization/` with temporal decay, expertise levels, composite scoring, weighted recommendations, and profile persistence. 4 new files, 3 test files, 41 new tests all passing.
+- [skill:harness-execution] [outcome:gotcha] TypeScript `exactOptionalPropertyTypes` rejects passing `undefined` for optional properties. Must conditionally add properties rather than destructure-and-spread when values may be `undefined`.
+- [skill:harness-execution] [outcome:gotcha] `noUncheckedIndexedAccess` requires non-null assertions (`!`) or nullish coalescing (`??`) for array index access even when logically guaranteed. Use `arr[idx]!` when the index is known valid.
+- [skill:harness-execution] [outcome:decision] Strengths and weaknesses in `SpecializationProfile` are mutually exclusive — an entry with low temporal success rate but high consistency/volume composite won't appear in both lists.
+- [skill:harness-execution] [outcome:decision] Smoothing in `temporalSuccessRate` uses mean observed weight (not smallest) for pseudo-counts, which provides balanced regularization across datasets of varying age distributions.
+- [skill:harness-execution] [outcome:decision] Profile persistence includes version guard — corrupt or incompatible JSON files fall back to empty store rather than crashing.
+
 ## 2026-04-16 — Adoption & Usage Telemetry: Roadmap Closure
 
 - [skill:harness-verification] [outcome:success] Verified all 13 spec success criteria satisfied against origin/main: types in `packages/types/src/adoption.ts`, core reader/aggregator in `packages/core/src/adoption/`, Stop hook `packages/cli/src/hooks/adoption-tracker.js` registered under `standard` profile, CLI `harness adoption skills|recent|skill` with `--json`, `/api/adoption` endpoint, dedicated `/adoption` dashboard page wired into route table and nav. `harness validate` passes.
