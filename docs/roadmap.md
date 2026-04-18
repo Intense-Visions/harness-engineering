@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-16
 last_synced: 2026-04-17T00:00:00.000Z
-last_manual_edit: 2026-04-17T02:12:22.357Z
+last_manual_edit: 2026-04-18T00:40:24.485Z
 ---
 
 # Roadmap
@@ -881,12 +881,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Prompt Caching with Content Stability Classification
 
-- **Status:** in-progress
+- **Status:** planned
 - **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
 - **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
 
@@ -960,6 +960,18 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
 - **Blockers:** —
 - **Plan:** —
+
+### Docker Containerization
+
+- **Status:** done
+- **Spec:** docs/changes/docker-containerization/proposal.md
+- **Summary:** Docker images for CLI, MCP server, orchestrator, and dashboard with multi-stage Dockerfile, docker-compose stack, and CI publishing to ghcr.io
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** chads-macbook-pro-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-18T01:02:20.571Z
 
 ## v3.0 Graph Intelligence
 
@@ -1132,14 +1144,15 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Constraint Emergence from Patterns
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#84
+- **Updated-At:** 2026-04-18T00:44:19.169Z
 
 ### Cascading Failure Simulation
 
@@ -1457,14 +1470,15 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Container Sandboxing
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#110
+- **Updated-At:** 2026-04-18T00:54:47.848Z
 
 ### Session Search & DX Tooling
 
@@ -1501,12 +1515,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Protected Code Regions
 
-- **Status:** in-progress
+- **Status:** planned
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#118
 
