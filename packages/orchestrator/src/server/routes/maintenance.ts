@@ -1,7 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { z } from 'zod';
 import type { MaintenanceScheduler } from '../../maintenance/scheduler';
 import type { MaintenanceReporter } from '../../maintenance/reporter';
 import { readBody } from '../utils.js';
+
+const TriggerRequestSchema = z.object({
+  taskId: z.string().min(1),
+});
 
 /**
  * Dependencies injected into the maintenance route handler.
@@ -47,21 +52,23 @@ function handlePostTrigger(
   void (async () => {
     try {
       const body = await readBody(req);
-      let parsed: { taskId?: string };
+      let json: unknown;
       try {
-        parsed = JSON.parse(body) as { taskId?: string };
+        // harness-ignore SEC-DES-001: input validated by Zod schema (TriggerRequestSchema) on next line
+        json = JSON.parse(body);
       } catch {
         sendJSON(res, 400, { error: 'Invalid JSON body' });
         return;
       }
 
-      if (!parsed.taskId || typeof parsed.taskId !== 'string') {
+      const result = TriggerRequestSchema.safeParse(json);
+      if (!result.success) {
         sendJSON(res, 400, { error: 'Missing taskId string' });
         return;
       }
 
-      await deps.triggerFn(parsed.taskId);
-      sendJSON(res, 200, { ok: true, taskId: parsed.taskId });
+      await deps.triggerFn(result.data.taskId);
+      sendJSON(res, 200, { ok: true, taskId: result.data.taskId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Trigger failed';
       if (!res.headersSent) {

@@ -1,7 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { z } from 'zod';
 import { readBody } from '../utils';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+
+const PlanWriteSchema = z.object({
+  filename: z.string().min(1),
+  content: z.string().min(1),
+});
 
 /**
  * Handle plan write API routes.
@@ -19,19 +25,16 @@ export function handlePlansRoute(
     void (async () => {
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { filename?: string; content?: string };
-
-        if (!parsed.filename || typeof parsed.filename !== 'string') {
+        // harness-ignore SEC-DES-001: input validated by Zod schema (PlanWriteSchema)
+        const result = PlanWriteSchema.safeParse(JSON.parse(body));
+        if (!result.success) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing or invalid filename' }));
+          res.end(
+            JSON.stringify({ error: result.error.issues[0]?.message ?? 'Invalid request body' })
+          );
           return;
         }
-
-        if (!parsed.content || typeof parsed.content !== 'string') {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing or invalid content' }));
-          return;
-        }
+        const parsed = result.data;
 
         // Security: reject path traversal and non-.md files
         const basename = path.basename(parsed.filename);

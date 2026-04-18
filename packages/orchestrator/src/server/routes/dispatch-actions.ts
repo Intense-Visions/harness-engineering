@@ -1,13 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import type { Issue } from '@harness-engineering/types';
+import { z } from 'zod';
 import { readBody } from '../utils.js';
 
-interface DispatchAdHocRequest {
-  title: string;
-  description?: string;
-  labels?: string[];
-}
+const DispatchAdHocRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+});
 
 /** Callback injected by the orchestrator to allow ad-hoc dispatch. */
 export interface DispatchAdHocFn {
@@ -48,12 +49,13 @@ export function handleDispatchActionsRoute(
       }
 
       const body = await readBody(req);
-      const parsed = JSON.parse(body) as DispatchAdHocRequest;
-
-      if (!parsed.title || typeof parsed.title !== 'string') {
-        sendJSON(res, 400, { error: 'Missing title string' });
+      // harness-ignore SEC-DES-001: input validated by Zod schema (DispatchAdHocRequestSchema)
+      const result = DispatchAdHocRequestSchema.safeParse(JSON.parse(body));
+      if (!result.success) {
+        sendJSON(res, 400, { error: result.error.issues[0]?.message ?? 'Invalid request body' });
         return;
       }
+      const parsed = result.data;
 
       const id = generateId(parsed.title);
       const issue: Issue = {

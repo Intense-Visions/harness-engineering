@@ -2,18 +2,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as readline from 'node:readline';
+import { z } from 'zod';
 import { readBody } from '../utils';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-interface ChatRequest {
-  /** The user's message for this turn */
-  prompt: string;
-  /** System prompt (only used on first turn) */
-  system?: string;
-  /** Session ID for multi-turn conversations. Omit for first turn. */
-  sessionId?: string;
-}
+const ChatRequestSchema = z.object({
+  prompt: z.string().min(1),
+  system: z.string().optional(),
+  sessionId: z.string().regex(UUID_RE).optional(),
+});
 
 /** SSE event types emitted to the client. */
 type SSEEvent =
@@ -48,17 +46,6 @@ export function handleChatProxyRoute(
   return false;
 }
 
-/** Validate the parsed chat request and return an error string if invalid, or null if valid. */
-function validateChatRequest(parsed: ChatRequest): string | null {
-  if (!parsed.prompt || typeof parsed.prompt !== 'string') {
-    return 'Missing prompt string';
-  }
-  if (parsed.sessionId && !UUID_RE.test(parsed.sessionId)) {
-    return 'Invalid sessionId format';
-  }
-  return null;
-}
-
 /** Stream Claude CLI output lines as SSE events to the response. */
 async function streamCLIOutput(
   child: ChildProcess,
@@ -71,6 +58,7 @@ async function streamCLIOutput(
   for await (const line of rl) {
     if (isDisconnected()) break;
     try {
+      // harness-ignore SEC-DES-001: parsing own subprocess (Claude CLI) stdout — trusted internal source
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const event = JSON.parse(line) as any;
       for (const chunk of extractChunks(event)) {
@@ -93,14 +81,14 @@ async function handleChatRequest(
   let child: ChildProcess | null = null;
   try {
     const body = await readBody(req);
-    const parsed = JSON.parse(body) as ChatRequest;
-
-    const validationError = validateChatRequest(parsed);
-    if (validationError) {
+    // harness-ignore SEC-DES-001: input validated by Zod schema (ChatRequestSchema)
+    const result = ChatRequestSchema.safeParse(JSON.parse(body));
+    if (!result.success) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: validationError }));
+      res.end(JSON.stringify({ error: result.error.issues[0]?.message ?? 'Invalid request body' }));
       return;
     }
+    const parsed = result.data;
 
     const sessionId = parsed.sessionId ?? randomUUID();
     const isFirstTurn = !parsed.sessionId;
