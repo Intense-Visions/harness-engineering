@@ -13,11 +13,9 @@ import { INTEGRATION_REGISTRY } from '../integrations/registry';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
 import { ensureTelemetryConfigured } from './telemetry-wizard';
+import type { StepResult } from './setup-types';
 
-export interface StepResult {
-  status: 'pass' | 'warn' | 'fail';
-  message: string;
-}
+export type { StepResult };
 
 function checkNodeVersion(): StepResult {
   const result = checkNode();

@@ -88,7 +88,7 @@ export class ClaimManager {
    * owning orchestrator may have crashed).
    */
   isStale(issue: Issue, ttlMs: number): boolean {
-    if (!issue.updatedAt) return false; // Unknown freshness = not stale (conservative)
+    if (!issue.updatedAt) return true; // Missing timestamp = likely never heartbeated = stale
     const age = Date.now() - new Date(issue.updatedAt).getTime();
     return age > ttlMs;
   }

@@ -209,12 +209,12 @@ export class MaintenanceScheduler {
    */
   private async processQueue(queue: TaskDefinition[], epochMinute: number): Promise<void> {
     for (const task of queue) {
-      this.lastRunMinute.set(task.id, epochMinute);
       this.activeRun = { taskId: task.id, startedAt: new Date().toISOString() };
 
       const startedAt = this.activeRun.startedAt;
       try {
         await this.onTaskDue(task);
+        this.lastRunMinute.set(task.id, epochMinute);
       } catch (err) {
         this.logger.error(`Maintenance task ${task.id} failed`, { error: String(err) });
         this.recordRun({

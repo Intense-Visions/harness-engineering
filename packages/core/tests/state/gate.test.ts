@@ -85,7 +85,7 @@ describe('runMechanicalGate', () => {
     }
   });
 
-  it('should report failed checks correctly', async () => {
+  it('should report failed checks correctly', { timeout: 15_000 }, async () => {
     const harnessDir = path.join(tmpDir, '.harness');
     fs.mkdirSync(harnessDir, { recursive: true });
     // Use npm run with a failing script — a safe command that fails

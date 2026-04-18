@@ -177,7 +177,11 @@ export class TaskRunner {
     }
 
     if (this.prManager) {
-      await this.prManager.ensureBranch(task.branch, this.baseBranch);
+      try {
+        await this.prManager.ensureBranch(task.branch, this.baseBranch);
+      } catch (err) {
+        return this.failureResult(task.id, startedAt, `ensureBranch failed: ${String(err)}`);
+      }
     }
 
     const backendName = this.resolveBackend(task.id);
@@ -207,10 +211,14 @@ export class TaskRunner {
     let prUrl: string | null = null;
     let prUpdated = false;
     if (this.prManager && agentResult.producedCommits) {
-      const summary = `Findings: ${checkResult.findings}, Fixed: ${agentResult.fixed}`;
-      const prResult = await this.prManager.ensurePR(task, summary);
-      prUrl = prResult.prUrl;
-      prUpdated = prResult.prUpdated;
+      try {
+        const summary = `Findings: ${checkResult.findings}, Fixed: ${agentResult.fixed}`;
+        const prResult = await this.prManager.ensurePR(task, summary);
+        prUrl = prResult.prUrl;
+        prUpdated = prResult.prUpdated;
+      } catch {
+        // PR creation failed but agent work is preserved on branch — swallow to avoid discarding results
+      }
     }
 
     return {
@@ -237,24 +245,37 @@ export class TaskRunner {
     }
 
     if (this.prManager) {
-      await this.prManager.ensureBranch(task.branch, this.baseBranch);
+      try {
+        await this.prManager.ensureBranch(task.branch, this.baseBranch);
+      } catch (err) {
+        return this.failureResult(task.id, startedAt, `ensureBranch failed: ${String(err)}`);
+      }
     }
 
     const backendName = this.resolveBackend(task.id);
-    const agentResult = await this.agentDispatcher.dispatch(
-      task.fixSkill,
-      task.branch,
-      backendName,
-      this.cwd
-    );
+    let agentResult;
+    try {
+      agentResult = await this.agentDispatcher.dispatch(
+        task.fixSkill,
+        task.branch,
+        backendName,
+        this.cwd
+      );
+    } catch (err) {
+      return this.failureResult(task.id, startedAt, `Agent dispatch failed: ${String(err)}`);
+    }
 
     let prUrl: string | null = null;
     let prUpdated = false;
     if (this.prManager && agentResult.producedCommits) {
-      const summary = `Fixed: ${agentResult.fixed}`;
-      const prResult = await this.prManager.ensurePR(task, summary);
-      prUrl = prResult.prUrl;
-      prUpdated = prResult.prUpdated;
+      try {
+        const summary = `Fixed: ${agentResult.fixed}`;
+        const prResult = await this.prManager.ensurePR(task, summary);
+        prUrl = prResult.prUrl;
+        prUpdated = prResult.prUpdated;
+      } catch {
+        // PR creation failed but agent work is preserved on branch — swallow to avoid discarding results
+      }
     }
 
     return {

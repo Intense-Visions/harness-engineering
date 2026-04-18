@@ -81,6 +81,7 @@ npm install && harness validate
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 11 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains, no unix shell commands, no hardcoded path separators, require path normalization |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                                                                                                             |
 | [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                                                                                                                 |
+| [`@harness-engineering/intelligence`](./packages/intelligence)   | Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation                                                                                                                                                                     |
 | [`@harness-engineering/orchestrator`](./packages/orchestrator)   | Agent orchestration daemon for dispatching coding agents to issues                                                                                                                                                                                               |
 | [`@harness-engineering/dashboard`](./packages/dashboard)         | Local web dashboard for project health and roadmap visualization                                                                                                                                                                                                 |
 
@@ -168,7 +169,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 55 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 58 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -240,13 +241,13 @@ enabled = true
 
 ## What's Included
 
-| Component                              | Count | Description                                                                                             |
-| -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
-| [Packages](./packages/)                | 8     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, dashboard, shared types        |
-| [Skills](./agents/skills/claude-code/) | 485   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
-| [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                      |
-| [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more) |
-| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                      |
+| Component                              | Count | Description                                                                                                    |
+| -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- |
+| [Packages](./packages/)                | 9     | Core library, CLI, ESLint plugin, linter generator, graph, intelligence, orchestrator, dashboard, shared types |
+| [Skills](./agents/skills/claude-code/) | 736   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                                      |
+| [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                             |
+| [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more)        |
+| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                             |
 
 ## Examples
 

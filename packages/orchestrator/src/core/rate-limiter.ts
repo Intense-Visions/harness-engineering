@@ -32,8 +32,8 @@ export function computeRateLimitDelay(
   // Per-minute request limit
   const recentMin = snapshot.recentRequestTimestamps.filter((ts) => now - ts < 60_000);
   if (recentMin.length > config.maxRequestsPerMinute) {
-    const oldest = Math.min(...recentMin);
-    return 60_000 - (now - oldest);
+    const oldest = recentMin.reduce((m, ts) => (ts < m ? ts : m), recentMin[0]!);
+    return Math.max(1, 60_000 - (now - oldest));
   }
 
   // Per-second request limit. The state machine pushes the current turn's
@@ -43,8 +43,8 @@ export function computeRateLimitDelay(
   // preventing a spurious ~999ms stall on the first dispatch when max=1.
   const recentSec = snapshot.recentRequestTimestamps.filter((ts) => now - ts < 1_000);
   if (recentSec.length > config.maxRequestsPerSecond) {
-    const oldest = Math.min(...recentSec);
-    return 1_000 - (now - oldest);
+    const oldest = recentSec.reduce((m, ts) => (ts < m ? ts : m), recentSec[0]!);
+    return Math.max(1, 1_000 - (now - oldest));
   }
 
   // Input token limit
@@ -52,8 +52,11 @@ export function computeRateLimitDelay(
     const window = snapshot.recentInputTokens.filter((t) => now - t.timestamp < 60_000);
     const total = window.reduce((sum, t) => sum + t.tokens, 0);
     if (total >= config.maxInputTokensPerMinute && window.length > 0) {
-      const oldest = Math.min(...window.map((t) => t.timestamp));
-      return 60_000 - (now - oldest);
+      const oldest = window.reduce(
+        (m, t) => (t.timestamp < m ? t.timestamp : m),
+        window[0]!.timestamp
+      );
+      return Math.max(1, 60_000 - (now - oldest));
     }
   }
 
@@ -62,8 +65,11 @@ export function computeRateLimitDelay(
     const window = snapshot.recentOutputTokens.filter((t) => now - t.timestamp < 60_000);
     const total = window.reduce((sum, t) => sum + t.tokens, 0);
     if (total >= config.maxOutputTokensPerMinute && window.length > 0) {
-      const oldest = Math.min(...window.map((t) => t.timestamp));
-      return 60_000 - (now - oldest);
+      const oldest = window.reduce(
+        (m, t) => (t.timestamp < m ? t.timestamp : m),
+        window[0]!.timestamp
+      );
+      return Math.max(1, 60_000 - (now - oldest));
     }
   }
 

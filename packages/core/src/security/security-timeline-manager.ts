@@ -127,7 +127,20 @@ export class SecurityTimelineManager {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       return this.parseAuditOutput(output);
-    } catch {
+    } catch (err: unknown) {
+      // npm audit exits non-zero when vulnerabilities exist but still
+      // produces valid JSON on stdout. Try to parse it before giving up.
+      const stderr =
+        err instanceof Error
+          ? (err as NodeJS.ErrnoException & { stdout?: string }).stdout
+          : undefined;
+      if (typeof stderr === 'string' && stderr.length > 0) {
+        try {
+          return this.parseAuditOutput(stderr);
+        } catch {
+          // JSON parse failed — fall through to empty
+        }
+      }
       return { ...EMPTY_SUPPLY_CHAIN };
     }
   }

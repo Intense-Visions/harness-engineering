@@ -63,12 +63,12 @@ describe('Stale Claim Detection', () => {
     expect(manager.isStale(issue, ttlMs)).toBe(false);
   });
 
-  it('isStale returns false when updatedAt is null (unknown freshness is conservative)', () => {
+  it('isStale returns true when updatedAt is null (missing timestamp = likely never heartbeated)', () => {
     const issue = makeIssue({
       updatedAt: null,
       assignee: 'other-orchestrator',
     });
-    expect(manager.isStale(issue, ttlMs)).toBe(false);
+    expect(manager.isStale(issue, ttlMs)).toBe(true);
   });
 
   it('release delegates to tracker.releaseIssue for stale claims', async () => {

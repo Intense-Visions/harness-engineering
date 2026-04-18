@@ -62,11 +62,24 @@ export class ContainerBackend implements AgentBackend {
       workspacePath: params.workspacePath,
       readOnly: this.containerConfig.readOnly ?? true,
       user: this.containerConfig.user ?? '1000:1000',
-      network: this.containerConfig.network ?? 'host',
+      network: this.containerConfig.network ?? 'none',
       env: envResult.value,
     };
     if (this.containerConfig.extraArgs) {
-      createOpts.extraArgs = this.containerConfig.extraArgs;
+      const BLOCKED_FLAGS = [
+        '--privileged',
+        '--cap-add',
+        '--security-opt',
+        '--pid',
+        '--ipc',
+        '--userns',
+      ];
+      const sanitized = this.containerConfig.extraArgs.filter(
+        (arg) => !BLOCKED_FLAGS.some((flag) => arg.startsWith(flag))
+      );
+      if (sanitized.length > 0) {
+        createOpts.extraArgs = sanitized;
+      }
     }
     const containerResult = await this.runtime.createContainer(createOpts);
 

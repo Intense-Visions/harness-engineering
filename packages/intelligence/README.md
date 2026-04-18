@@ -179,6 +179,95 @@ import {
 
 Each adapter accepts a pre-fetched data object and produces a `RawWorkItem`. No API clients are included — adapters are pure functions.
 
+### Effectiveness — Agent Performance Introspection
+
+Analyzes persona-attributed `execution_outcome` nodes in the graph to score per-persona accuracy, detect blind spots, and recommend which persona to route new issues to.
+
+```ts
+import {
+  computePersonaEffectiveness,
+  detectBlindSpots,
+  recommendPersona,
+} from '@harness-engineering/intelligence';
+
+// Per-(persona, system) success rates with Laplace smoothing
+const scores = computePersonaEffectiveness(store, { persona: 'backend-dev' });
+// scores[0].successRate — smoothed success rate in [0, 1]
+// scores[0].sampleSize  — total observations
+
+// Blind spots: (persona, system) pairs with high failure rates
+const spots = detectBlindSpots(store, { minFailures: 2, minFailureRate: 0.5 });
+// spots[0].failureRate — raw failure rate
+// spots[0].failures    — absolute failure count
+
+// Recommend personas for an issue given its affected systems
+const recs = recommendPersona(store, {
+  systemNodeIds: ['module-auth', 'module-db'],
+  candidatePersonas: ['backend-dev', 'fullstack'],
+  minSamples: 3,
+});
+// recs[0].persona — best candidate
+// recs[0].score   — mean smoothed success rate across requested systems
+```
+
+### Specialization — Persistent Agent Expertise Tracking
+
+Extends effectiveness with temporal decay, task-type categorization, consistency scoring, expertise levels, and persistent profile storage. Recent outcomes are weighted more heavily than old ones via exponential decay.
+
+```ts
+import {
+  computeSpecialization,
+  computeExpertiseLevel,
+  buildSpecializationProfile,
+  weightedRecommendPersona,
+  decayWeight,
+  temporalSuccessRate,
+  loadProfiles,
+  saveProfiles,
+  refreshProfiles,
+} from '@harness-engineering/intelligence';
+
+// Compute specialization entries for (persona, system, taskType) tuples
+const entries = computeSpecialization(store, {
+  persona: 'backend-dev',
+  taskType: 'bug-fix',
+  temporal: { halfLifeDays: 30 },
+});
+// entries[0].score.composite         — weighted combination of temporal, consistency, volume
+// entries[0].expertiseLevel          — 'novice' | 'competent' | 'proficient' | 'expert'
+
+// Classify expertise from raw numbers
+const level = computeExpertiseLevel(25, 0.8); // → 'proficient'
+
+// Build a full profile for a persona (strengths, weaknesses, overall level)
+const profile = buildSpecializationProfile(store, 'backend-dev', {
+  temporal: { halfLifeDays: 30 },
+});
+// profile.strengths   — top 3 entries by composite score
+// profile.weaknesses  — entries with temporal success rate < 0.5
+// profile.overallLevel — median expertise across all entries
+
+// Weighted recommendation incorporating specialization multipliers
+const weighted = weightedRecommendPersona(store, {
+  systemNodeIds: ['module-auth'],
+  taskType: 'bug-fix',
+});
+// weighted[0].weightedScore — baseScore * specializationMultiplier
+
+// Temporal decay helpers
+const weight = decayWeight(15, 30); // weight at 15 days with 30-day half-life
+const rate = temporalSuccessRate([{ result: 'success', timestamp: '2026-04-01T00:00:00Z' }], {
+  halfLifeDays: 30,
+});
+
+// Persist profiles to .harness/specialization-profiles.json
+const profiles = loadProfiles('/path/to/project');
+saveProfiles('/path/to/project', profiles);
+
+// Recompute and persist profiles for all personas with outcomes
+const refreshed = refreshProfiles('/path/to/project', store);
+```
+
 ### Outcome Recording
 
 Execution results feed back into the graph for future CML scoring:
@@ -265,6 +354,7 @@ When `enabled: false` (default), the pipeline is completely skipped. See the [In
 @harness-engineering/types  → shared type definitions
 @harness-engineering/graph  → GraphStore, CascadeSimulator, node/edge types
 @anthropic-ai/sdk           → LLM calls via AnalysisProvider
+openai                      → OpenAI-compatible analysis provider
 zod                         → response schema validation
 ```
 
@@ -298,6 +388,39 @@ The intelligence package has **no dependency** on `@harness-engineering/orchestr
 | `ComplexityScore`  | CML output with overall score, risk level, reasoning |
 | `SimulationResult` | PESL output with confidence, abort flag, predictions |
 | `ExecutionOutcome` | Outcome data for graph ingestion                     |
+
+### Effectiveness
+
+| Export                        | Description                                                    |
+| ----------------------------- | -------------------------------------------------------------- |
+| `computePersonaEffectiveness` | Per-(persona, system) Laplace-smoothed success rates           |
+| `detectBlindSpots`            | Find (persona, system) pairs with high failure rates           |
+| `recommendPersona`            | Recommend personas for an issue given affected system node IDs |
+| `PersonaEffectivenessScore`   | Type: smoothed success rate for a (persona, system) pair       |
+| `BlindSpot`                   | Type: (persona, system) pair with consistent failures          |
+| `PersonaRecommendation`       | Type: persona recommendation with score and coverage stats     |
+
+### Specialization
+
+| Export                       | Description                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| `computeSpecialization`      | Compute specialization entries for (persona, system, taskType) tuples           |
+| `computeExpertiseLevel`      | Classify expertise level from sample size and success rate                      |
+| `buildSpecializationProfile` | Build a full profile for a persona (strengths, weaknesses, overall level)       |
+| `weightedRecommendPersona`   | Persona recommendation with specialization multipliers                          |
+| `decayWeight`                | Exponential decay weight for an outcome at a given age                          |
+| `temporalSuccessRate`        | Temporally-weighted success rate from timestamped outcomes                      |
+| `loadProfiles`               | Load persisted specialization profiles from disk                                |
+| `saveProfiles`               | Save specialization profiles to `.harness/specialization-profiles.json`         |
+| `refreshProfiles`            | Recompute and persist profiles for all personas with outcomes                   |
+| `SpecializationScore`        | Type: composite score (temporal, consistency, volume, composite)                |
+| `SpecializationEntry`        | Type: single entry for a (persona, system, taskType) bucket                     |
+| `SpecializationProfile`      | Type: full persona profile with strengths, weaknesses, overall level            |
+| `WeightedRecommendation`     | Type: recommendation with base score, specialization multiplier, weighted score |
+| `ExpertiseLevel`             | Type: `'novice' \| 'competent' \| 'proficient' \| 'expert'`                     |
+| `TaskType`                   | Type: task type categorization                                                  |
+| `TemporalConfig`             | Type: temporal decay configuration (half-life, reference time)                  |
+| `ProfileStore`               | Type: persisted store of specialization profiles                                |
 
 ### Analysis
 

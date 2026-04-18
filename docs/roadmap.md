@@ -727,14 +727,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Skill Discipline Upgrades
 
-- **Status:** done
+- **Status:** in-progress
 - **Spec:** docs/changes/skill-discipline-upgrades/proposal.md
 - **Summary:** Evidence Requirements, Red Flags, and Rationalizations to Reject sections for 8 high-traffic skills (code-review, security-scan, architecture-advisor, enforce-architecture, auth, api-design, database, deployment) via shared discipline template. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#66
+- **Updated-At:** 2026-04-18T11:47:20.452Z
 
 ### Documentation Auto-Generation
 
@@ -1296,14 +1297,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Persistent Agent Specialization
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#96
+- **Updated-At:** 2026-04-18T11:43:48.349Z
 
 ### Security Posture Timeline
 
@@ -1397,7 +1399,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#102
 
-### Skill Discipline Upgrades
+### Skill Discipline Upgrades — ACE Batch 2
 
 - **Status:** planned
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
