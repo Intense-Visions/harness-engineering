@@ -1653,17 +1653,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Priority:** —
 - **External-ID:** —
 
-### Auto-Update Arch Baselines in Pre-Commit Hook
-
-- **Status:** planned
-- **Spec:** —
-- **Summary:** The #1 recurring gotcha (19 occurrences in learnings): arch baseline regression blocks commits on every new file, requiring manual `harness check-arch --update-baseline`. Pre-commit hook should auto-update baselines when module-size or dependency-depth increases, staging the updated baselines.json alongside the commit. Complexity violations should still block (those are real regressions).
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
-
 ## Assignment History
 
 | Feature                                  | Assignee | Action   | Date       |
