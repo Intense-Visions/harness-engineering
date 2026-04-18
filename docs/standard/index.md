@@ -219,8 +219,8 @@ The open-source toolkit that implements these principles:
 - **[Principles](./principles.md)** - Deep dive into all 7 principles
 - **[Implementation Guide](./implementation.md)** - Step-by-step adoption guide
 - **[KPIs & Metrics](./kpis.md)** - How to measure success
-- **[Harness Engineering Library](../../../README.md)** - Main project documentation
-- **[AGENTS.md](../../../AGENTS.md)** - Knowledge map for this project
+- **[Harness Engineering Library](../../README.md)** - Main project documentation
+- **[AGENTS.md](../../AGENTS.md)** - Knowledge map for this project
 
 ---
 

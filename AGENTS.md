@@ -31,6 +31,8 @@ harness-engineering/
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
+│   ├── intelligence/         # Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation
+│   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 736 skills (skill.yaml + SKILL.md each)
