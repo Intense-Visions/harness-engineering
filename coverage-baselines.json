@@ -1,9 +1,9 @@
 {
   "packages/core": {
-    "lines": 89.98,
-    "branches": 74.29,
-    "functions": 91.26,
-    "statements": 87.72
+    "lines": 89.92,
+    "branches": 74.15,
+    "functions": 91.27,
+    "statements": 87.65
   },
   "packages/graph": {
     "lines": 97.21,
@@ -12,16 +12,16 @@
     "statements": 95.7
   },
   "packages/cli": {
-    "lines": 80.98,
+    "lines": 80.99,
     "branches": 67.45,
     "functions": 85.06,
     "statements": 80.3
   },
   "packages/orchestrator": {
-    "lines": 73.34,
-    "branches": 60.5,
-    "functions": 76.54,
-    "statements": 72.39
+    "lines": 73.67,
+    "branches": 60.84,
+    "functions": 76.83,
+    "statements": 72.61
   },
   "packages/eslint-plugin": {
     "lines": 94.67,
