@@ -18,10 +18,12 @@ describe('Integration: leader election with two schedulers', () => {
       }),
     };
 
+    // Explicitly enable only arch-violations with a matching schedule.
+    // All other tasks are disabled to prevent breakage when new tasks are added.
     const config: MaintenanceConfig = {
       enabled: true,
       tasks: {
-        // Enable only one task for deterministic counting
+        'arch-violations': { enabled: true, schedule: '0 2 * * *' },
         ...Object.fromEntries(
           [
             'dep-violations',

@@ -89,6 +89,12 @@ describe('PRManager', () => {
         '/test/project'
       );
       expect(git.run).toHaveBeenCalledWith(['rebase', 'origin/main'], '/test/project');
+      // Verify destructive reset --hard and base branch fetch
+      expect(git.run).toHaveBeenCalledWith(
+        ['reset', '--hard', 'origin/harness-maint/arch-fixes'],
+        '/test/project'
+      );
+      expect(git.run).toHaveBeenCalledWith(['fetch', 'origin', 'main'], '/test/project');
     });
 
     it('recreates branch when rebase fails', async () => {
@@ -106,6 +112,8 @@ describe('PRManager', () => {
 
       expect(result).toEqual({ created: false, recreated: true });
       expect(git.run).toHaveBeenCalledWith(['rebase', '--abort'], '/test/project');
+      // Must checkout detached HEAD before deleting current branch
+      expect(git.run).toHaveBeenCalledWith(['checkout', 'origin/main'], '/test/project');
       expect(git.run).toHaveBeenCalledWith(
         ['branch', '-D', 'harness-maint/arch-fixes'],
         '/test/project'
