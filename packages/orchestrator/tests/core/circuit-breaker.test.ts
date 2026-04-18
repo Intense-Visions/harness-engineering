@@ -7,6 +7,7 @@ import { Orchestrator } from '../../src/orchestrator';
 import { MockBackend } from '../../src/agent/backends/mock';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 describe('Intelligence Pipeline Circuit Breaker', () => {
   let tmpDir: string;
@@ -95,6 +96,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // Replace the pipeline with a mock that always throws connection errors
@@ -136,6 +138,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // Fail, succeed, fail, fail → should trip on the last two
@@ -173,6 +176,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // All fail with a non-connection error (e.g., LLM returned invalid JSON)

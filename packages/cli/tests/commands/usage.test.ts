@@ -107,7 +107,9 @@ describe('harness usage', () => {
       const program = createProgram();
       await program.parseAsync(['node', 'harness', 'usage', 'daily', '--json']);
 
-      const output = JSON.parse(logOutput.join(''));
+      // Filter for JSON array line to avoid non-JSON logger output on some platforms
+      const jsonLine = logOutput.find((line) => line.trimStart().startsWith('['));
+      const output = JSON.parse(jsonLine ?? logOutput.join(''));
       expect(Array.isArray(output)).toBe(true);
       expect(output.length).toBeGreaterThanOrEqual(1);
       // Should have date, sessionCount, tokens, models
@@ -120,7 +122,9 @@ describe('harness usage', () => {
       const program = createProgram();
       await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '1', '--json']);
 
-      const output = JSON.parse(logOutput.join(''));
+      // Filter for JSON array line to avoid non-JSON logger output on some platforms
+      const jsonLine = logOutput.find((line) => line.trimStart().startsWith('['));
+      const output = JSON.parse(jsonLine ?? logOutput.join(''));
       expect(output).toHaveLength(1);
     });
 

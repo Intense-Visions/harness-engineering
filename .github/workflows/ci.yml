@@ -11,13 +11,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Primary CI: runs on every PR and push to main (ubuntu only for PRs)
   build-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
         node-version: [22]
+        include:
+          # Cross-platform tests run only on push to main (not PRs) to save CI minutes
+          - os: windows-latest
+            node-version: 22
+          - os: macos-latest
+            node-version: 22
+        exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'windows-latest' || 'none' }}
+            node-version: 22
+          - os: ${{ github.event_name == 'pull_request' && 'macos-latest' || 'none' }}
+            node-version: 22
 
     steps:
       - uses: actions/checkout@v4
@@ -60,11 +72,23 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+      # Upload coverage artifacts for refresh-baselines to reuse (avoids re-running tests)
+      - name: Upload coverage artifacts
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data
+          path: |
+            packages/*/coverage/
+            coverage-baselines.json
+          retention-days: 1
+
       - run: pnpm test:platform-parity
 
   # Regenerate auto-generated baselines on main after merge to prevent drift.
   # These files use merge=ours in .gitattributes, so they need a post-merge
-  # refresh to stay accurate.
+  # refresh to stay accurate. Downloads coverage from the test job to avoid
+  # running the full test suite twice.
   refresh-baselines:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: build-and-test
@@ -86,8 +110,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-      # Regenerate coverage baselines
-      - run: pnpm test:ci
+      # Download coverage from test job instead of re-running tests
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-data
+
+      # Update coverage baselines from downloaded data
       - run: node scripts/coverage-ratchet.mjs --update
 
       # Regenerate architecture baselines

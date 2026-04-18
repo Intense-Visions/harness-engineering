@@ -65,7 +65,7 @@ import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
-import { PRDetector } from './core/pr-detector';
+import { PRDetector, type ExecFileFn } from './core/pr-detector';
 import { MaintenanceScheduler } from './maintenance/scheduler';
 import { MaintenanceReporter } from './maintenance/reporter';
 import { TaskRunner } from './maintenance/task-runner';
@@ -149,7 +149,7 @@ export class Orchestrator extends EventEmitter {
   constructor(
     config: WorkflowConfig,
     promptTemplate: string,
-    overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend }
+    overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend; execFileFn?: ExecFileFn }
   ) {
     super();
     this.config = config;
@@ -184,6 +184,7 @@ export class Orchestrator extends EventEmitter {
     this.prDetector = new PRDetector({
       logger: this.logger,
       projectRoot: this.projectRoot,
+      ...(overrides?.execFileFn ? { execFileFn: overrides.execFileFn } : {}),
     });
 
     if (config.server?.port) {

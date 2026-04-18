@@ -8,6 +8,7 @@ import { MockBackend } from '../../src/agent/backends/mock';
 import { checkTaint } from '@harness-engineering/core';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 describe('Orchestrator Sentinel Integration', () => {
   let tmpDir: string;
@@ -108,6 +109,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then plant malicious CLAUDE.md
@@ -160,6 +162,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then add medium-severity CLAUDE.md
@@ -227,6 +230,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then add clean CLAUDE.md
@@ -279,6 +283,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     await orchestrator.tick();

@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 let tmpDir: string;
 
@@ -94,6 +95,7 @@ describe('Orchestrator Integration', () => {
     orchestrator = new Orchestrator(createMockConfig(), 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
   });
 

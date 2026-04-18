@@ -7,6 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 let tmpDir: string;
 
@@ -139,12 +140,12 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         const orchA = new Orchestrator(
           createMockConfig({ orchestratorId: 'orch-alpha' }),
           'Prompt',
-          { tracker: trackerA, backend: new MockBackend() }
+          { tracker: trackerA, backend: new MockBackend(), execFileFn: noopExecFile }
         );
         const orchB = new Orchestrator(
           createMockConfig({ orchestratorId: 'orch-beta' }),
           'Prompt',
-          { tracker: trackerB, backend: new MockBackend() }
+          { tracker: trackerB, backend: new MockBackend(), execFileFn: noopExecFile }
         );
 
         try {
@@ -235,6 +236,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-live' }), 'Prompt', {
           tracker,
           backend: new MockBackend(),
+          execFileFn: noopExecFile,
         });
 
         try {
@@ -294,6 +296,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-loser' }), 'Prompt', {
         tracker,
         backend: new MockBackend(),
+        execFileFn: noopExecFile,
       });
 
       try {
@@ -335,6 +338,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-err' }), 'Prompt', {
         tracker,
         backend: new MockBackend(),
+        execFileFn: noopExecFile,
       });
 
       try {
