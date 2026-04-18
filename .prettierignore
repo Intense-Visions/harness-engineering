@@ -20,6 +20,7 @@ agents/commands/**
 **/.harness/graph/
 **/.harness/arch/
 **/fixtures/**/.harness/
+**/.harness/arch/baselines.json
 
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts

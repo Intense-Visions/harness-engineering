@@ -71,3 +71,23 @@ export type {
   BlindSpot,
   PersonaRecommendation,
 } from './effectiveness/types.js';
+
+// Specialization — persistent agent expertise tracking
+export {
+  computeSpecialization,
+  computeExpertiseLevel,
+  buildSpecializationProfile,
+  weightedRecommendPersona,
+} from './specialization/scorer.js';
+export { decayWeight, temporalSuccessRate } from './specialization/temporal.js';
+export { loadProfiles, saveProfiles, refreshProfiles } from './specialization/persistence.js';
+export type {
+  SpecializationScore,
+  SpecializationEntry,
+  SpecializationProfile,
+  WeightedRecommendation,
+  ExpertiseLevel,
+  TaskType,
+} from './specialization/types.js';
+export type { TemporalConfig } from './specialization/temporal.js';
+export type { ProfileStore } from './specialization/persistence.js';

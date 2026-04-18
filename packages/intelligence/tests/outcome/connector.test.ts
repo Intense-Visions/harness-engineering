@@ -131,6 +131,29 @@ describe('ExecutionOutcomeConnector', () => {
     expect('agentPersona' in node!.metadata).toBe(false);
   });
 
+  it('records taskType in metadata when provided', () => {
+    const store = new GraphStore();
+    const connector = new ExecutionOutcomeConnector(store);
+
+    const outcome = makeOutcome({ taskType: 'bugfix' });
+    connector.ingest(outcome);
+
+    const node = store.getNode('outcome:issue-1:1');
+    expect(node!.metadata.taskType).toBe('bugfix');
+  });
+
+  it('omits taskType from metadata when not provided', () => {
+    const store = new GraphStore();
+    const connector = new ExecutionOutcomeConnector(store);
+
+    const outcome = makeOutcome();
+    connector.ingest(outcome);
+
+    const node = store.getNode('outcome:issue-1:1');
+    expect(node!.metadata.taskType).toBeUndefined();
+    expect('taskType' in node!.metadata).toBe(false);
+  });
+
   it('handles duplicate ingestion gracefully (upsert)', () => {
     const store = new GraphStore();
     const connector = new ExecutionOutcomeConnector(store);
