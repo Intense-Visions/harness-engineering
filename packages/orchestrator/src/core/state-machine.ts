@@ -46,37 +46,173 @@ function cloneState(state: OrchestratorState): OrchestratorState {
   };
 }
 
+const ESCALATION_DEFAULTS: EscalationConfig = {
+  alwaysHuman: ['full-exploration'],
+  autoExecute: ['quick-fix', 'diagnostic'],
+  primaryExecute: [],
+  signalGated: ['guided-change'],
+  diagnosticRetryBudget: 1,
+};
+
 export function resolveEscalationConfig(config: WorkflowConfig): EscalationConfig {
   const partial = config.agent.escalation;
+  if (!partial) return { ...ESCALATION_DEFAULTS };
   return {
-    alwaysHuman: partial?.alwaysHuman ?? ['full-exploration'],
-    autoExecute: partial?.autoExecute ?? ['quick-fix', 'diagnostic'],
-    primaryExecute: partial?.primaryExecute ?? [],
-    signalGated: partial?.signalGated ?? ['guided-change'],
-    diagnosticRetryBudget: partial?.diagnosticRetryBudget ?? 1,
+    alwaysHuman: partial.alwaysHuman ?? ESCALATION_DEFAULTS.alwaysHuman,
+    autoExecute: partial.autoExecute ?? ESCALATION_DEFAULTS.autoExecute,
+    primaryExecute: partial.primaryExecute ?? ESCALATION_DEFAULTS.primaryExecute,
+    signalGated: partial.signalGated ?? ESCALATION_DEFAULTS.signalGated,
+    diagnosticRetryBudget:
+      partial.diagnosticRetryBudget ?? ESCALATION_DEFAULTS.diagnosticRetryBudget,
   };
+}
+
+/** Optional fields carried on an escalation effect. */
+interface EscalateExtras {
+  issueTitle?: string;
+  issueDescription?: string | null;
+  enrichedSpec?: EscalateEffect['enrichedSpec'];
+  complexityScore?: EscalateEffect['complexityScore'];
+}
+
+/**
+ * Build an escalation side-effect, optionally attaching issue title,
+ * description, enrichedSpec, and complexityScore when present.
+ */
+function buildEscalateEffect(
+  issueId: string,
+  identifier: string,
+  reasons: string[],
+  extras?: EscalateExtras
+): EscalateEffect {
+  const effect: EscalateEffect = {
+    type: 'escalate',
+    issueId,
+    identifier,
+    reasons,
+  };
+  if (extras?.issueTitle) effect.issueTitle = extras.issueTitle;
+  if (extras?.issueDescription) effect.issueDescription = extras.issueDescription;
+  if (extras?.enrichedSpec !== undefined) effect.enrichedSpec = extras.enrichedSpec;
+  if (extras?.complexityScore !== undefined) effect.complexityScore = extras.complexityScore;
+  return effect;
+}
+
+/**
+ * Resolve the identifier for a running entry, falling back to the issueId.
+ */
+function entryIdentifier(entry: { identifier: string } | undefined, issueId: string): string {
+  return entry?.identifier ?? issueId;
+}
+
+/**
+ * Determine whether retries are exhausted and, if so, push an escalation
+ * effect. Returns true when the caller should stop (budget exceeded).
+ */
+function checkRetryBudget(
+  attempt: number,
+  budget: number,
+  issueId: string,
+  identifier: string,
+  reasonSuffix: string,
+  effects: SideEffect[],
+  extras?: EscalateExtras
+): boolean {
+  if (budget > 0 && attempt > budget) {
+    effects.push(buildEscalateEffect(issueId, identifier, [`exceeded ${reasonSuffix}`], extras));
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Push a retry entry into state and emit a scheduleRetry effect.
+ */
+function enqueueRetry(
+  next: OrchestratorState,
+  issueId: string,
+  identifier: string,
+  attempt: number,
+  nowMs: number,
+  error: string,
+  effects: SideEffect[],
+  maxRetryBackoffMs: number | undefined
+): void {
+  const delayMs = calculateRetryDelay(attempt, 'failure', maxRetryBackoffMs);
+  next.retryAttempts.set(issueId, {
+    issueId,
+    identifier,
+    attempt,
+    dueAtMs: nowMs + delayMs,
+    error,
+  });
+  effects.push({
+    type: 'scheduleRetry',
+    issueId,
+    identifier,
+    attempt,
+    delayMs,
+    error,
+  });
 }
 
 function tryPeslAbort(issue: Issue, event: TickEvent): EscalateEffect | null {
   const simulation = event.simulationResults?.get(issue.id);
   if (!simulation?.abort) return null;
 
-  const enrichedSpec = event.enrichedSpecs?.get(issue.id);
-  const complexityScore = event.complexityScores?.get(issue.id);
-  return {
-    type: 'escalate',
-    issueId: issue.id,
-    identifier: issue.identifier,
-    reasons: [
+  return buildEscalateEffect(
+    issue.id,
+    issue.identifier,
+    [
       `PESL simulation recommends abort (confidence: ${simulation.executionConfidence.toFixed(2)})`,
       ...simulation.predictedFailures.slice(0, 3).map((f) => `Predicted failure: ${f}`),
       ...simulation.testGaps.slice(0, 2).map((g) => `Test gap: ${g}`),
     ],
-    issueTitle: issue.title,
-    issueDescription: issue.description,
-    ...(enrichedSpec !== undefined && { enrichedSpec }),
-    ...(complexityScore !== undefined && { complexityScore }),
-  };
+    {
+      issueTitle: issue.title,
+      issueDescription: issue.description,
+      enrichedSpec: event.enrichedSpecs?.get(issue.id),
+      complexityScore: event.complexityScores?.get(issue.id),
+    }
+  );
+}
+
+/**
+ * Apply reconciliation side-effects to state: remove stopped issues
+ * from running and release claims.
+ */
+function applyReconcileEffects(next: OrchestratorState, effects: SideEffect[]): void {
+  for (const effect of effects) {
+    if (effect.type === 'stop') {
+      next.running.delete(effect.issueId);
+    }
+    if (effect.type === 'releaseClaim') {
+      next.claimed.delete(effect.issueId);
+    }
+  }
+}
+
+/**
+ * Determine the backend to use for dispatching an issue based on the
+ * routing decision and config.
+ */
+function resolveBackend(action: string, hasLocalBackend: boolean): 'local' | 'primary' {
+  if (action === 'dispatch-primary') return 'primary';
+  return hasLocalBackend ? 'local' : 'primary';
+}
+
+/**
+ * Prune completed entries that no longer have pending retries, running
+ * tasks, or active claims. Only runs when the set exceeds the threshold.
+ */
+function pruneCompleted(next: OrchestratorState): void {
+  if (next.completed.size <= COMPLETED_PRUNE_THRESHOLD) return;
+  for (const id of next.completed) {
+    const hasPending = next.retryAttempts.has(id) || next.running.has(id) || next.claimed.has(id);
+    if (!hasPending) {
+      next.completed.delete(id);
+    }
+  }
 }
 
 function handleTick(
@@ -98,14 +234,7 @@ function handleTick(
   effects.push(...reconcileEffects);
 
   // Apply reconciliation to state: remove stopped issues from running and claimed
-  for (const effect of reconcileEffects) {
-    if (effect.type === 'stop') {
-      next.running.delete(effect.issueId);
-    }
-    if (effect.type === 'releaseClaim') {
-      next.claimed.delete(effect.issueId);
-    }
-  }
+  applyReconcileEffects(next, reconcileEffects);
 
   // Phase 2: Select and dispatch eligible candidates
   const eligible = selectCandidates(
@@ -136,29 +265,19 @@ function handleTick(
     const decision = routeIssue(scopeTier, signals, escalationConfig);
 
     if (decision.action === 'needs-human') {
-      const enrichedSpec = event.enrichedSpecs?.get(issue.id);
-      const complexityScore = event.complexityScores?.get(issue.id);
-      const escalation: EscalateEffect = {
-        type: 'escalate',
-        issueId: issue.id,
-        identifier: issue.identifier,
-        reasons: decision.reasons,
-        issueTitle: issue.title,
-        issueDescription: issue.description,
-        ...(enrichedSpec !== undefined && { enrichedSpec }),
-        ...(complexityScore !== undefined && { complexityScore }),
-      };
       next.claimed.add(issue.id);
-      effects.push(escalation);
+      effects.push(
+        buildEscalateEffect(issue.id, issue.identifier, decision.reasons, {
+          issueTitle: issue.title,
+          issueDescription: issue.description,
+          enrichedSpec: event.enrichedSpecs?.get(issue.id),
+          complexityScore: event.complexityScores?.get(issue.id),
+        })
+      );
       continue;
     }
 
-    const backend: 'local' | 'primary' =
-      decision.action === 'dispatch-primary'
-        ? 'primary'
-        : config.agent.localBackend
-          ? 'local'
-          : 'primary';
+    const backend = resolveBackend(decision.action, !!config.agent.localBackend);
 
     next.claimed.add(issue.id);
     // Add a placeholder RunningEntry so canDispatch sees the correct count
@@ -180,14 +299,7 @@ function handleTick(
     });
   }
 
-  // Prune completed entries that no longer have pending retries or running tasks
-  if (next.completed.size > COMPLETED_PRUNE_THRESHOLD) {
-    for (const id of next.completed) {
-      if (!next.retryAttempts.has(id) && !next.running.has(id) && !next.claimed.has(id)) {
-        next.completed.delete(id);
-      }
-    }
-  }
+  pruneCompleted(next);
 
   return { nextState: next, effects };
 }
@@ -232,39 +344,39 @@ function handleWorkerExit(
     const scopeLabel = entry?.issue.labels.find((l) => l.startsWith('scope:'));
     const isDiagnostic = scopeLabel === 'scope:diagnostic';
     const retryBudget = isDiagnostic ? escalationConfig.diagnosticRetryBudget : maxRetries;
-    if (maxRetries > 0 && nextAttempt > retryBudget) {
-      const reason = isDiagnostic
-        ? `diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`
-        : `exceeded max retries (${maxRetries})`;
-      const escalateEffect: SideEffect = {
-        type: 'escalate',
+    const identifier = entryIdentifier(entry, issueId);
+    const budgetLabel = isDiagnostic
+      ? `diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`
+      : `max retries (${maxRetries})`;
+
+    const entryExtras: EscalateExtras = {};
+    if (entry?.issue.title) entryExtras.issueTitle = entry.issue.title;
+    if (entry?.issue.description) entryExtras.issueDescription = entry.issue.description;
+
+    if (
+      checkRetryBudget(
+        nextAttempt,
+        retryBudget,
         issueId,
-        identifier: entry?.identifier ?? issueId,
-        reasons: [reason],
-      };
-      if (entry?.issue.title) (escalateEffect as EscalateEffect).issueTitle = entry.issue.title;
-      if (entry?.issue.description)
-        (escalateEffect as EscalateEffect).issueDescription = entry.issue.description;
-      effects.push(escalateEffect);
+        identifier,
+        budgetLabel,
+        effects,
+        entryExtras
+      )
+    ) {
       return { nextState: next, effects };
     }
 
-    const delayMs = calculateRetryDelay(nextAttempt, 'failure', config.agent.maxRetryBackoffMs);
-    next.retryAttempts.set(issueId, {
+    enqueueRetry(
+      next,
       issueId,
-      identifier: entry?.identifier ?? issueId,
-      attempt: nextAttempt,
-      dueAtMs: nowMs + delayMs,
-      error: error ?? 'unknown error',
-    });
-    effects.push({
-      type: 'scheduleRetry',
-      issueId,
-      identifier: entry?.identifier ?? issueId,
-      attempt: nextAttempt,
-      delayMs,
-      error: error ?? 'unknown error',
-    });
+      identifier,
+      nextAttempt,
+      nowMs,
+      error ?? 'unknown error',
+      effects,
+      config.agent.maxRetryBackoffMs
+    );
   }
 
   return { nextState: next, effects };
@@ -426,33 +538,34 @@ function handleRetryFired(
     // Requeue with incremented attempt
     const nextAttempt = retryEntry.attempt + 1;
     const maxRetries = config.agent.maxRetries ?? 5;
-    if (maxRetries > 0 && nextAttempt > maxRetries) {
-      effects.push({
-        type: 'escalate',
+
+    if (
+      checkRetryBudget(
+        nextAttempt,
+        maxRetries,
         issueId,
-        identifier: retryEntry.identifier,
-        reasons: [`exceeded max retries (${maxRetries}) while waiting for slots`],
-        issueTitle: issue.title,
-        issueDescription: issue.description,
-      });
+        retryEntry.identifier,
+        `max retries (${maxRetries}) while waiting for slots`,
+        effects,
+        {
+          issueTitle: issue.title,
+          issueDescription: issue.description,
+        }
+      )
+    ) {
       return { nextState: next, effects };
     }
-    const delayMs = calculateRetryDelay(nextAttempt, 'failure', config.agent.maxRetryBackoffMs);
-    next.retryAttempts.set(issueId, {
+
+    enqueueRetry(
+      next,
       issueId,
-      identifier: retryEntry.identifier,
-      attempt: nextAttempt,
-      dueAtMs: nowMs + delayMs,
-      error: 'no available orchestrator slots',
-    });
-    effects.push({
-      type: 'scheduleRetry',
-      issueId,
-      identifier: retryEntry.identifier,
-      attempt: nextAttempt,
-      delayMs,
-      error: 'no available orchestrator slots',
-    });
+      retryEntry.identifier,
+      nextAttempt,
+      nowMs,
+      'no available orchestrator slots',
+      effects,
+      config.agent.maxRetryBackoffMs
+    );
     return { nextState: next, effects };
   }
 
@@ -463,25 +576,17 @@ function handleRetryFired(
   const decision = routeIssue(scopeTier, [], escalationConfig);
 
   if (decision.action === 'needs-human') {
-    effects.push({
-      type: 'escalate',
-      issueId: issue.id,
-      identifier: issue.identifier,
-      reasons: decision.reasons,
-      issueTitle: issue.title,
-      issueDescription: issue.description,
-    });
+    effects.push(
+      buildEscalateEffect(issue.id, issue.identifier, decision.reasons, {
+        issueTitle: issue.title,
+        issueDescription: issue.description,
+      })
+    );
   } else {
-    const backend: 'local' | 'primary' =
-      decision.action === 'dispatch-primary'
-        ? 'primary'
-        : config.agent.localBackend
-          ? 'local'
-          : 'primary';
     effects.push({
       type: 'claim',
       issue,
-      backend,
+      backend: resolveBackend(decision.action, !!config.agent.localBackend),
       attempt: retryEntry.attempt,
     });
   }
@@ -508,39 +613,36 @@ function handleStallDetected(
 
   const attempt = (entry?.attempt ?? 0) + 1;
   const maxRetries = config.agent.maxRetries ?? 5;
-  if (maxRetries > 0 && attempt > maxRetries) {
-    const escalateEffect: SideEffect = {
-      type: 'escalate',
+  const identifier = entryIdentifier(entry, issueId);
+
+  const stallExtras: EscalateExtras = {};
+  if (entry?.issue.title) stallExtras.issueTitle = entry.issue.title;
+  if (entry?.issue.description) stallExtras.issueDescription = entry.issue.description;
+
+  if (
+    checkRetryBudget(
+      attempt,
+      maxRetries,
       issueId,
-      identifier: entry?.identifier ?? issueId,
-      reasons: [`exceeded max retries (${maxRetries}) after stall`],
-    };
-    if (entry?.issue.title) (escalateEffect as EscalateEffect).issueTitle = entry.issue.title;
-    if (entry?.issue.description)
-      (escalateEffect as EscalateEffect).issueDescription = entry.issue.description;
-    effects.push(escalateEffect);
+      identifier,
+      `max retries (${maxRetries}) after stall`,
+      effects,
+      stallExtras
+    )
+  ) {
     return { nextState: next, effects };
   }
 
-  const delayMs = calculateRetryDelay(attempt, 'failure', config.agent.maxRetryBackoffMs);
-  const nowMs = Date.now();
-
-  next.retryAttempts.set(issueId, {
+  enqueueRetry(
+    next,
     issueId,
-    identifier: entry?.identifier ?? issueId,
+    identifier,
     attempt,
-    dueAtMs: nowMs + delayMs,
-    error: 'stall detected',
-  });
-
-  effects.push({
-    type: 'scheduleRetry',
-    issueId,
-    identifier: entry?.identifier ?? issueId,
-    attempt,
-    delayMs,
-    error: 'stall detected',
-  });
+    Date.now(),
+    'stall detected',
+    effects,
+    config.agent.maxRetryBackoffMs
+  );
 
   return { nextState: next, effects };
 }

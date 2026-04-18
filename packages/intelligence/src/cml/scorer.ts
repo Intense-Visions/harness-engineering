@@ -44,7 +44,7 @@ function determineRoute(
  * Score an enriched spec using the Complexity Modeling Layer (CML).
  *
  * Combines structural (graph-based blast radius), semantic (SEL enrichment
- * fields), and historical (placeholder) dimensions into a single
+ * fields), and historical (past execution outcomes) dimensions into a single
  * {@link ComplexityScore}.
  */
 export function score(spec: EnrichedSpec, store: GraphStore): ComplexityScore {

@@ -41,91 +41,119 @@ export function handleChatProxyRoute(
   const { method, url } = req;
 
   if (method === 'POST' && url === '/api/chat') {
-    void (async () => {
-      let child: ChildProcess | null = null;
-      try {
-        const body = await readBody(req);
-        const parsed = JSON.parse(body) as ChatRequest;
-
-        if (!parsed.prompt || typeof parsed.prompt !== 'string') {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing prompt string' }));
-          return;
-        }
-
-        if (parsed.sessionId && !UUID_RE.test(parsed.sessionId)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid sessionId format' }));
-          return;
-        }
-        const sessionId = parsed.sessionId ?? randomUUID();
-        const isFirstTurn = !parsed.sessionId;
-
-        // Set SSE headers
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        });
-
-        // Send session ID so client can resume
-        emit(res, { type: 'session', sessionId });
-
-        const args = buildArgs(parsed.prompt, sessionId, isFirstTurn, parsed.system);
-        child = spawn(command, args, { env: process.env, stdio: 'pipe' });
-        child.stdin?.end();
-
-        let clientDisconnected = false;
-        res.on('close', () => {
-          clientDisconnected = true;
-          if (child && child.exitCode === null) child.kill('SIGTERM');
-        });
-
-        child.on('error', (err) => {
-          if (!clientDisconnected) {
-            emit(res, { type: 'error', error: `Failed to start claude: ${err.message}` });
-            res.end();
-          }
-        });
-
-        const rl = readline.createInterface({ input: child.stdout!, terminal: false });
-        child.stderr?.resume(); // drain stderr to prevent backpressure
-
-        for await (const line of rl) {
-          if (clientDisconnected) break;
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const event = JSON.parse(line) as any;
-            for (const chunk of extractChunks(event)) {
-              emit(res, chunk);
-            }
-          } catch {
-            // skip non-JSON lines (stderr leaking, etc.)
-          }
-        }
-
-        rl.close();
-
-        if (!clientDisconnected) {
-          res.write('data: [DONE]\n\n');
-          res.end();
-        }
-      } catch (err) {
-        if (child && child.exitCode === null) child.kill('SIGTERM');
-        const errorMsg = err instanceof Error ? err.message : 'Chat proxy error';
-        if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: errorMsg }));
-        } else {
-          emit(res, { type: 'error', error: errorMsg });
-          res.end();
-        }
-      }
-    })();
+    void handleChatRequest(req, res, command);
     return true;
   }
 
   return false;
+}
+
+/** Validate the parsed chat request and return an error string if invalid, or null if valid. */
+function validateChatRequest(parsed: ChatRequest): string | null {
+  if (!parsed.prompt || typeof parsed.prompt !== 'string') {
+    return 'Missing prompt string';
+  }
+  if (parsed.sessionId && !UUID_RE.test(parsed.sessionId)) {
+    return 'Invalid sessionId format';
+  }
+  return null;
+}
+
+/** Stream Claude CLI output lines as SSE events to the response. */
+async function streamCLIOutput(
+  child: ChildProcess,
+  res: ServerResponse,
+  isDisconnected: () => boolean
+): Promise<void> {
+  const rl = readline.createInterface({ input: child.stdout!, terminal: false });
+  child.stderr?.resume(); // drain stderr to prevent backpressure
+
+  for await (const line of rl) {
+    if (isDisconnected()) break;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const event = JSON.parse(line) as any;
+      for (const chunk of extractChunks(event)) {
+        emit(res, chunk);
+      }
+    } catch {
+      // skip non-JSON lines (stderr leaking, etc.)
+    }
+  }
+
+  rl.close();
+}
+
+/** Handle a single POST /api/chat request end-to-end. */
+async function handleChatRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  command: string
+): Promise<void> {
+  let child: ChildProcess | null = null;
+  try {
+    const body = await readBody(req);
+    const parsed = JSON.parse(body) as ChatRequest;
+
+    const validationError = validateChatRequest(parsed);
+    if (validationError) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: validationError }));
+      return;
+    }
+
+    const sessionId = parsed.sessionId ?? randomUUID();
+    const isFirstTurn = !parsed.sessionId;
+
+    // Set SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+
+    // Send session ID so client can resume
+    emit(res, { type: 'session', sessionId });
+
+    const args = buildArgs(parsed.prompt, sessionId, isFirstTurn, parsed.system);
+    child = spawn(command, args, { env: process.env, stdio: 'pipe' });
+    child.stdin?.end();
+
+    let clientDisconnected = false;
+    res.on('close', () => {
+      clientDisconnected = true;
+      if (child && child.exitCode === null) child.kill('SIGTERM');
+    });
+
+    child.on('error', (err) => {
+      if (!clientDisconnected) {
+        emit(res, { type: 'error', error: `Failed to start claude: ${err.message}` });
+        res.end();
+      }
+    });
+
+    await streamCLIOutput(child, res, () => clientDisconnected);
+
+    if (!clientDisconnected) {
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
+  } catch (err) {
+    if (child && child.exitCode === null) child.kill('SIGTERM');
+    handleStreamError(res, err);
+  }
+}
+
+/** Send an error response, choosing format based on whether headers were already sent. */
+function handleStreamError(res: ServerResponse, err: unknown): void {
+  const errorMsg = err instanceof Error ? err.message : 'Chat proxy error';
+  if (!res.headersSent) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: errorMsg }));
+  } else {
+    emit(res, { type: 'error', error: errorMsg });
+    res.end();
+  }
 }
 
 function emit(res: ServerResponse, event: SSEEvent): void {
@@ -205,34 +233,50 @@ function mapUserBlock(block: any): SSEEvent | null {
   };
 }
 
+// --- Chunk extraction handlers (one per event type) ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractMessageBlocks(event: any): SSEEvent[] | null {
+  if (!Array.isArray(event.message?.content)) return null;
+  const mapper = event.type === 'assistant' ? mapContentBlock : mapUserBlock;
+  return event.message.content.map(mapper).filter(Boolean) as SSEEvent[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractDelta(event: any): SSEEvent[] | null {
+  if (event.delta?.text) return [{ type: 'text', text: event.delta.text }];
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractSystemStatus(event: any): SSEEvent[] | null {
+  if (event.subtype === 'task_progress' && event.description) {
+    return [{ type: 'status', text: event.description }];
+  }
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractResultText(event: any): SSEEvent[] | null {
+  const text = event.result ?? event.content?.result;
+  if (typeof text === 'string') return [{ type: 'text', text }];
+  return null;
+}
+
+/** Map event type to its chunk extractor. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chunkExtractors: Record<string, (event: any) => SSEEvent[] | null> = {
+  assistant: extractMessageBlocks,
+  user: extractMessageBlocks,
+  content_block_delta: extractDelta,
+  system: extractSystemStatus,
+  result: extractResultText,
+  turn_complete: extractResultText,
+};
+
 /** Extract SSE events from a Claude Code stream-json line. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractChunks(event: any): SSEEvent[] {
-  // assistant — message with content blocks (thinking + text + tool_use)
-  if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
-    return event.message.content.map(mapContentBlock).filter(Boolean) as SSEEvent[];
-  }
-
-  // tool results from user messages
-  if (event.type === 'user' && Array.isArray(event.message?.content)) {
-    return event.message.content.map(mapUserBlock).filter(Boolean) as SSEEvent[];
-  }
-
-  // content_block_delta — streaming text
-  if (event.type === 'content_block_delta' && event.delta?.text) {
-    return [{ type: 'text', text: event.delta.text }];
-  }
-
-  // system task_progress — agent activity
-  if (event.type === 'system' && event.subtype === 'task_progress' && event.description) {
-    return [{ type: 'status', text: event.description }];
-  }
-
-  // result / turn_complete — final output
-  if (event.type === 'result' || event.type === 'turn_complete') {
-    const text = event.result ?? event.content?.result;
-    if (typeof text === 'string') return [{ type: 'text', text }];
-  }
-
-  return [];
+  const extractor = chunkExtractors[event.type as string];
+  return extractor?.(event) ?? [];
 }

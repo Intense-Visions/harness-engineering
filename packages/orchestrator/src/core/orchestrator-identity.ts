@@ -8,21 +8,17 @@ const IDENTITY_FILE = path.join(os.homedir(), '.harness', 'orchestrator-id');
 /**
  * Resolves the orchestrator identity. Uses the explicit configId if
  * provided; otherwise reads or creates a persisted machine UUID at
- * ~/.harness/orchestrator-id and combines it with the hostname.
+ * ~/.harness/orchestrator-id and derives a stable hash.
  *
- * Format: `{hostname}-{first8charsOfSha256(uuid)}`
- * Example: `chads-macbook-a7f3b2c1`
+ * Format: `orchestrator-{first8charsOfSha256(uuid)}`
+ * Example: `orchestrator-a7f3b2c1`
  */
 export async function resolveOrchestratorId(configId?: string): Promise<string> {
   if (configId) return configId;
 
   const machineId = await getOrCreateMachineId();
   const shortHash = createHash('sha256').update(machineId).digest('hex').slice(0, 8);
-  const hostname = os
-    .hostname()
-    .toLowerCase()
-    .replace(/\.local$/, '');
-  return `${hostname}-${shortHash}`;
+  return `orchestrator-${shortHash}`;
 }
 
 async function getOrCreateMachineId(): Promise<string> {

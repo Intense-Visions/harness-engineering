@@ -2,7 +2,7 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-16
+updated: 2026-04-17
 last_synced: 2026-04-17T00:00:00.000Z
 last_manual_edit: 2026-04-17T02:12:22.357Z
 ---
@@ -776,7 +776,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Make ## Rationalizations to Reject a required section in all user-facing skills with domain-specific table format, universal entries defined once in skill authoring spec, hard error validation, and AI-generated backfill across ~112 skill SKILL.md files
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#117
 
@@ -787,7 +787,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#128
 
@@ -881,12 +881,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Prompt Caching with Content Stability Classification
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
 - **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
 
@@ -908,6 +908,9 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Local LLM routing for autonomous execution of simple tasks, signal-gated escalation to humans for complex work, web dashboard with Claude chat pane for human reasoning, OpenAI-compatible local backend.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#194
 
 ### Intelligence Pipeline
 
@@ -949,9 +952,9 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Claim-based coordination layer that uses the external tracker to prevent duplicate dispatch when multiple orchestrators run against the same issue source
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#195
 
 ### Orchestrator PR-Aware Dispatch Guard
 
@@ -960,6 +963,9 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#196
 
 ## v3.0 Graph Intelligence
 
@@ -1115,7 +1121,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
 - **Blockers:** —
 - **Plan:** docs/plans/2026-04-04-skill-recommendation-engine-phase1-types-plan.md
-- **Assignee:** @chadwct
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#82
 
@@ -1339,7 +1345,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** VS Code extension with sidebar and skill launcher, multi-CI recipes (GitLab, Jenkins, CircleCI, Azure DevOps), per-package config overrides for monorepos, and config inheritance chain (global to org to project to package). [B3/B7-B9]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#101
 
@@ -1501,12 +1507,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Protected Code Regions
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#118
 
@@ -1539,9 +1545,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Implement a scalable visual charting component on the graph dashboard to derive and display insights from the underlying core graph structure.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#197
 
 ## Assignment History
 
-| Feature                                  | Assignee    | Action   | Date       |
-| ---------------------------------------- | ----------- | -------- | ---------- |
-| Performance Engineering Knowledge Skills | Chad Warner | assigned | 2026-04-09 |
+| Feature                                  | Assignee | Action   | Date       |
+| ---------------------------------------- | -------- | -------- | ---------- |
+| Performance Engineering Knowledge Skills | @chadjw  | assigned | 2026-04-09 |
