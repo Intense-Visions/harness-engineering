@@ -11,6 +11,24 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 - **Adoption telemetry** — `harness adoption` command group (skills, recent, skill) for viewing skill usage metrics. `adoption-tracker` stop hook records invocations to `.harness/metrics/adoption.jsonl`. New `adoption` config key to disable tracking. (`@harness-engineering/cli`, `@harness-engineering/core`, `@harness-engineering/types`)
 - **Central telemetry** — `harness telemetry` command group (identify, status) for managing anonymous usage analytics. `telemetry-reporter` stop hook sends events to PostHog. Consent via `DO_NOT_TRACK=1`, `HARNESS_TELEMETRY_OPTOUT=1`, or `telemetry.enabled: false`. (`@harness-engineering/cli`, `@harness-engineering/core`, `@harness-engineering/types`)
 - **Session cleanup** — `harness cleanup-sessions` command removes stale `.harness/sessions/` directories older than 24 hours with `--dry-run` support. (`@harness-engineering/cli`)
+- **Agent config validation** — `harness validate --agent-configs` with agnix binary integration and built-in TypeScript fallback rules (`HARNESS-AC-*`). Supports `--strict`, `--agnix-bin`, `--json`. (`@harness-engineering/cli@1.25.0`, `@harness-engineering/core@0.22.0`)
+- **Security rule tests** — Unit tests for 9 security rule categories: crypto, deserialization, express, go, network, node, path-traversal, react, xss. (`@harness-engineering/core@0.22.0`)
+
+### Fixed
+
+- **Rate-limiter stack overflow** — Replace `Math.min(...spread)` with `reduce` to prevent stack overflow on large timestamp arrays. Ensure delays are always >= 1ms. (`@harness-engineering/orchestrator@0.2.8`)
+- **Container security defaults** — Default container network to `none` instead of `host`; block `--privileged`, `--cap-add`, `--security-opt`, `--pid`, `--ipc`, `--userns` flags. (`@harness-engineering/orchestrator@0.2.8`)
+- **Stale claim detection** — Missing `updatedAt` timestamp now treated as stale (was incorrectly treated as fresh). (`@harness-engineering/orchestrator@0.2.8`)
+- **Scheduler lastRunMinute** — Only record `lastRunMinute` on task success, preventing failed tasks from being skipped on next interval. (`@harness-engineering/orchestrator@0.2.8`)
+- **Task-runner error handling** — Add try-catch for `ensureBranch`, `ensurePR`, and agent dispatch to prevent unhandled rejections from losing agent work. (`@harness-engineering/orchestrator@0.2.8`)
+- **PR-manager rebase recovery** — Resilient `rebase --abort` with `reset --hard` fallback when no rebase is in progress. (`@harness-engineering/orchestrator@0.2.8`)
+- **contextBudget edge cases** — Handle zero total tokens and zero `originalSum` during ratio redistribution. (`@harness-engineering/core@0.22.0`)
+- **npm audit parsing** — Parse `npm audit` stdout on non-zero exit (audit exits non-zero when vulnerabilities exist). (`@harness-engineering/core@0.22.0`)
+- **StepResult type cycle** — Break circular import between `setup.ts` and `telemetry-wizard.ts` via `setup-types.ts`. (`@harness-engineering/cli@1.25.0`)
+
+### Changed
+
+- **PRDetector extraction** — PR detection logic extracted from `Orchestrator` into standalone `PRDetector` module with throttled concurrency. (`@harness-engineering/orchestrator@0.2.8`)
 
 ## 0.14.1 — 2026-04-07
 

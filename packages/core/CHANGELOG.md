@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.22.0
+
+### Minor Changes
+
+- f1bc300: Add `harness validate --agent-configs` for hybrid agent-config validation.
+  - Preferred path shells out to the [agnix](https://github.com/agent-sh/agnix) binary when it
+    is installed (385+ rules across CLAUDE.md, hooks, agents, skills, MCP).
+  - When agnix is unavailable (or disabled via `HARNESS_AGNIX_DISABLE=1`), the command runs a
+    built-in TypeScript fallback rule set (`HARNESS-AC-*`) covering broken agents, invalid
+    hooks, unreachable skills, oversize CLAUDE.md, malformed MCP entries, persona references,
+    and `.agnix.toml` sanity.
+  - `harness init` now ships a default `.agnix.toml` so the agnix path works with no extra
+    configuration.
+  - Supports `--strict`, `--agnix-bin`, `--json`, and `HARNESS_AGNIX_BIN` env override.
+
+### Patch Changes
+
+- Harden orchestrator, rate limiter, and container security defaults.
+
+  **@harness-engineering/orchestrator:**
+  - Extract PR detection from `Orchestrator` into standalone `PRDetector` module
+  - Fix rate-limiter stack overflow risk by replacing `Math.min(...spread)` with `reduce`
+  - Ensure rate limit delays are always >= 1ms
+  - Default container network to `none` and block privileged Docker flags
+  - Fix stale claim detection: missing timestamp now treated as stale
+  - Fix scheduler to only record `lastRunMinute` on task success
+  - Add error handling for `ensureBranch`/`ensurePR`/agent dispatch in task-runner
+  - Add resilient `rebase --abort` recovery in pr-manager
+
+  **@harness-engineering/core:**
+  - Fix `contextBudget` edge cases (zero total tokens, zero `originalSum` during redistribution)
+  - Parse `npm audit` stdout on non-zero exit in `SecurityTimelineManager`
+  - Add security rule tests (crypto, deserialization, express, go, network, node, path-traversal, react, xss)
+
+  **@harness-engineering/cli:**
+  - Break `StepResult` type cycle between `setup.ts` and `telemetry-wizard.ts` via `setup-types.ts`
+
 ## 0.21.4
 
 ### Patch Changes
