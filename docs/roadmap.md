@@ -1565,6 +1565,105 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#197
 
+### ESLint: Async IO Enforcement
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Migrate 30+ sync fs calls in async functions to async equivalents, then enable the no-sync-io-in-async ESLint rule to prevent event loop blocking in orchestrator and CLI hot paths
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint: Boundary Schema Validation
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Configure API boundary functions and enable the require-boundary-schema ESLint rule to enforce Zod validation at HTTP handlers, MCP tools, and CLI command entry points
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint: Performance-Critical Loop Guards
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Add @perf-critical annotations to hot-path functions (graph traversal, scan pipeline, state machine tick) and enable the no-nested-loops-in-critical ESLint rule to prevent O(n²) regressions
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint Rule: no-spread-in-variadic
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** New ESLint rule to flag Math.min(...arr) and Math.max(...arr) patterns that throw RangeError when arrays exceed the JS engine call stack argument limit (~65K). 10 instances in codebase. Suggest reduce-based alternatives.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint Rule: no-process-env-in-spawn
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** New ESLint rule to flag spawn/execFile/fork calls that pass process.env directly, which leaks all server-side secrets to subprocesses. 5 instances in codebase. Require explicit env allowlist construction.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint Rule: prefer-execfile-over-exec
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint Rule: no-undefined-optional-assignment
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** New ESLint rule to flag `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`. 5 recurring gotchas in learnings. Suggest conditional spread `...(val !== undefined && { field: val })` instead.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### ESLint Rule: no-hardcoded-test-count
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** New ESLint rule to flag magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size. Fragile to additions — 2 recurring gotchas in learnings where tool count assertions broke on every new tool. Suggest dynamic `TOOL_DEFINITIONS.length` references.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### Auto-Update Arch Baselines in Pre-Commit Hook
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The #1 recurring gotcha (19 occurrences in learnings): arch baseline regression blocks commits on every new file, requiring manual `harness check-arch --update-baseline`. Pre-commit hook should auto-update baselines when module-size or dependency-depth increases, staging the updated baselines.json alongside the commit. Complexity violations should still block (those are real regressions).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
 ## Assignment History
 
 | Feature                                  | Assignee | Action   | Date       |
