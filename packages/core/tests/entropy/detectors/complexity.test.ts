@@ -61,42 +61,13 @@ export function add(a: number, b: number): number {
 
   it('should detect high cyclomatic complexity (>15) as tier 1 error', async () => {
     // Build a function with many decision points to exceed 15
-    const content = `
-export function complexRouter(action: string, data: any) {
-  if (action === 'a') {
-    return 1;
-  } else if (action === 'b') {
-    return 2;
-  } else if (action === 'c') {
-    return 3;
-  } else if (action === 'd') {
-    return 4;
-  } else if (action === 'e') {
-    return 5;
-  } else if (action === 'f') {
-    return 6;
-  } else if (action === 'g') {
-    return 7;
-  } else if (action === 'h') {
-    return 8;
-  } else if (action === 'i') {
-    return 9;
-  } else if (action === 'j') {
-    return 10;
-  } else if (action === 'k') {
-    return 11;
-  } else if (action === 'l') {
-    return 12;
-  } else if (action === 'm') {
-    return 13;
-  } else if (action === 'n') {
-    return 14;
-  } else if (action === 'o') {
-    return 15;
-  }
-  return 0;
-}
-`;
+    // Generated programmatically to avoid the arch checker flagging the test fixture itself
+    const branches = Array.from(
+      { length: 15 },
+      (_, i) =>
+        `  ${i === 0 ? 'if' : 'else if'} (action === '${String.fromCharCode(97 + i)}') {\n    return ${i + 1};\n  }`
+    ).join(' ');
+    const content = `export function complexRouter(action: string, data: any) {\n${branches}\n  return 0;\n}\n`;
     await writeFixture('high-complexity.ts', content);
     const snapshot = makeSnapshot([{ name: 'high-complexity.ts', content }]);
 

@@ -206,6 +206,25 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
+  /**
+   * Resolve an assignee value to a GitHub login.
+   * - "@username" → "username"
+   * - "username" (no @) → "username"
+   * - Orchestrator IDs (hostname-hash like "chads-macbook-pro-8565381d") →
+   *   resolved via authenticated user, since they're not valid GitHub logins.
+   * Returns null if the assignee cannot be resolved.
+   */
+  private async resolveAssigneeLogin(assignee: string): Promise<string | null> {
+    if (assignee.startsWith('@')) return assignee.slice(1);
+    // Orchestrator IDs: "orchestrator-{8hexchars}" or legacy "hostname-{8hexchars}"
+    if (/^orchestrator-[0-9a-f]{8}$/.test(assignee) || /^[\w-]+-[0-9a-f]{8}$/.test(assignee)) {
+      const userResult = await this.getAuthenticatedUser();
+      if (userResult.ok) return userResult.value.replace(/^@/, '');
+      return null;
+    }
+    return assignee;
+  }
+
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.token}`,
@@ -233,19 +252,24 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
   async createTicket(feature: RoadmapFeature, milestone: string): Promise<Result<ExternalTicket>> {
     try {
-      const labels = [...labelsForStatus(feature.status, this.config), 'feature'];
+      const labels = labelsForStatus(feature.status, this.config);
       const body = [feature.summary, '', feature.spec ? `**Spec:** ${feature.spec}` : '']
         .filter(Boolean)
         .join('\n');
 
       const milestoneId = await this.ensureMilestone(milestone);
-      const issuePayload: Record<string, unknown> = { title: feature.name, body, labels };
+      const issuePayload: Record<string, unknown> = {
+        title: feature.name,
+        body,
+        labels,
+        type: 'Feature',
+      };
       if (milestoneId) issuePayload.milestone = milestoneId;
       if (feature.assignee) {
-        const login = feature.assignee.startsWith('@')
-          ? feature.assignee.slice(1)
-          : feature.assignee;
-        issuePayload.assignees = [login];
+        const login = await this.resolveAssigneeLogin(feature.assignee);
+        if (login) {
+          issuePayload.assignees = [login];
+        }
       }
 
       const response = await fetchWithRetry(
@@ -290,14 +314,15 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         const externalStatus = this.config.statusMap[changes.status];
         patch.state = externalStatus;
         // Update labels for status disambiguation, preserving the type label
-        patch.labels = [...labelsForStatus(changes.status, this.config), 'feature'];
+        patch.labels = labelsForStatus(changes.status, this.config);
       }
       if (changes.assignee !== undefined) {
         if (changes.assignee) {
-          const login = changes.assignee.startsWith('@')
-            ? changes.assignee.slice(1)
-            : changes.assignee;
-          patch.assignees = [login];
+          const login = await this.resolveAssigneeLogin(changes.assignee);
+          if (login) {
+            patch.assignees = [login];
+          }
+          // If login is null (unresolvable orchestrator ID), skip assignee update
         } else {
           patch.assignees = [];
         }
