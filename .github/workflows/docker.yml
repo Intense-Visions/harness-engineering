@@ -1,0 +1,63 @@
+name: Docker
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: cli
+            image: ghcr.io/intense-visions/harness-cli
+          - target: mcp-server
+            image: ghcr.io/intense-visions/harness-mcp
+          - target: orchestrator
+            image: ghcr.io/intense-visions/harness-orchestrator
+          - target: dashboard
+            image: ghcr.io/intense-visions/harness-dashboard
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          MAJOR="${TAG%%.*}"
+          MINOR="${TAG%.*}"
+          echo "full=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "minor=${MINOR}" >> "$GITHUB_OUTPUT"
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          push: true
+          tags: |
+            ${{ matrix.image }}:${{ steps.version.outputs.full }}
+            ${{ matrix.image }}:${{ steps.version.outputs.minor }}
+            ${{ matrix.image }}:${{ steps.version.outputs.major }}
+            ${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
