@@ -1,9 +1,8 @@
 export PATH="/opt/homebrew/bin:$PATH"
-pnpm run format:check
+
+# Fast checks only — format/lint already run via pre-commit (lint-staged).
+# Full harness ci check, docs:build, and format:check run in CI.
 pnpm run typecheck
-pnpm run lint
 pnpm run test:ci
 node scripts/coverage-ratchet.mjs
-pnpm run docs:build
-node packages/cli/dist/bin/harness.js ci check
 pnpm run generate-docs --check
