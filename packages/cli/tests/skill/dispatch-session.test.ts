@@ -29,6 +29,18 @@ const mockDispatch = vi.mocked(dispatchSkillsFromGit);
 const TEST_DIR = path.join(process.cwd(), '.test-dispatch-session');
 const LAST_HEAD_PATH = path.join(TEST_DIR, '.harness', 'dispatch-last-head.txt');
 
+/**
+ * Helper: make mockExecSync return the test dir for --show-toplevel and
+ * the given headSha for rev-parse HEAD. Throws for any other command.
+ */
+function mockGitCalls(headSha: string, toplevel: string = TEST_DIR): void {
+  mockExecSync.mockImplementation((cmd: string) => {
+    if (typeof cmd === 'string' && cmd.includes('--show-toplevel')) return toplevel + '\n';
+    if (typeof cmd === 'string' && cmd.includes('rev-parse HEAD')) return headSha + '\n';
+    throw new Error(`unmocked command: ${cmd}`);
+  });
+}
+
 describe('dispatch-session', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,10 +67,12 @@ describe('dispatch-session', () => {
 
   describe('readLastHead', () => {
     it('returns null when file does not exist', () => {
+      mockGitCalls('unused');
       expect(readLastHead(TEST_DIR)).toBeNull();
     });
 
     it('reads and trims HEAD from file', () => {
+      mockGitCalls('unused');
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
       expect(readLastHead(TEST_DIR)).toBe('abc123');
     });
@@ -66,12 +80,14 @@ describe('dispatch-session', () => {
 
   describe('writeLastHead', () => {
     it('writes HEAD to file', () => {
+      mockGitCalls('unused');
       writeLastHead(TEST_DIR, 'def456');
       expect(fs.readFileSync(LAST_HEAD_PATH, 'utf8').trim()).toBe('def456');
     });
 
     it('creates .harness directory if missing', () => {
       const freshDir = path.join(TEST_DIR, 'sub');
+      mockGitCalls('unused', freshDir);
       writeLastHead(freshDir, 'ghi789');
       expect(
         fs.readFileSync(path.join(freshDir, '.harness', 'dispatch-last-head.txt'), 'utf8').trim()
@@ -88,7 +104,7 @@ describe('dispatch-session', () => {
     });
 
     it('returns null and writes HEAD on first run (no last-head file)', () => {
-      mockExecSync.mockReturnValue('abc123\n');
+      mockGitCalls('abc123');
       expect(detectHeadDelta(TEST_DIR)).toBeNull();
       // Should have written the file
       expect(fs.readFileSync(LAST_HEAD_PATH, 'utf8').trim()).toBe('abc123');
@@ -96,13 +112,13 @@ describe('dispatch-session', () => {
 
     it('returns null when HEAD unchanged', () => {
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
-      mockExecSync.mockReturnValue('abc123\n');
+      mockGitCalls('abc123');
       expect(detectHeadDelta(TEST_DIR)).toBeNull();
     });
 
     it('returns current HEAD when changed', () => {
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
-      mockExecSync.mockReturnValue('def456\n');
+      mockGitCalls('def456');
       expect(detectHeadDelta(TEST_DIR)).toBe('def456');
     });
   });
@@ -110,7 +126,7 @@ describe('dispatch-session', () => {
   describe('sessionStartDispatch', () => {
     it('returns dispatched:false when HEAD unchanged', async () => {
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
-      mockExecSync.mockReturnValue('abc123\n');
+      mockGitCalls('abc123');
 
       const result = await sessionStartDispatch(TEST_DIR);
       expect(result.dispatched).toBe(false);
@@ -119,7 +135,7 @@ describe('dispatch-session', () => {
 
     it('dispatches and updates HEAD when changed', async () => {
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
-      mockExecSync.mockReturnValue('def456\n');
+      mockGitCalls('def456');
 
       const dispatchResult = {
         context: {
@@ -152,7 +168,7 @@ describe('dispatch-session', () => {
 
     it('returns dispatched:false when dispatch throws', async () => {
       fs.writeFileSync(LAST_HEAD_PATH, 'abc123\n', 'utf8');
-      mockExecSync.mockReturnValue('def456\n');
+      mockGitCalls('def456');
       mockDispatch.mockRejectedValue(new Error('snapshot failed'));
 
       const result = await sessionStartDispatch(TEST_DIR);

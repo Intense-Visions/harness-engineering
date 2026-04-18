@@ -14,6 +14,22 @@ import type { DispatchResult } from './dispatch-types.js';
 const LAST_HEAD_FILE = '.harness/dispatch-last-head.txt';
 
 /**
+ * Resolve the git repository root for the given path.
+ * Falls back to projectPath if not inside a git repo.
+ */
+function resolveGitRoot(projectPath: string): string {
+  try {
+    return execSync('git rev-parse --show-toplevel', {
+      cwd: projectPath,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return path.resolve(projectPath);
+  }
+}
+
+/**
  * Get the current git HEAD SHA, or null if not in a git repo.
  */
 export function getCurrentHead(projectPath: string): string | null {
@@ -30,9 +46,11 @@ export function getCurrentHead(projectPath: string): string | null {
 
 /**
  * Read the last-seen HEAD from the dispatch tracking file.
+ * Always reads from the git root, not the given projectPath.
  */
 export function readLastHead(projectPath: string): string | null {
-  const filePath = path.join(projectPath, LAST_HEAD_FILE);
+  const root = resolveGitRoot(projectPath);
+  const filePath = path.join(root, LAST_HEAD_FILE);
   try {
     return fs.readFileSync(filePath, 'utf8').trim();
   } catch {
@@ -42,10 +60,11 @@ export function readLastHead(projectPath: string): string | null {
 
 /**
  * Write the current HEAD to the dispatch tracking file.
+ * Always writes to the git root, not the given projectPath.
  */
 export function writeLastHead(projectPath: string, head: string): void {
-  const resolved = path.resolve(projectPath);
-  const filePath = path.join(resolved, LAST_HEAD_FILE);
+  const root = resolveGitRoot(projectPath);
+  const filePath = path.join(root, LAST_HEAD_FILE);
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
