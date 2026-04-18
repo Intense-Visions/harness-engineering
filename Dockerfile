@@ -48,7 +48,9 @@ RUN pnpm build
 # ==============================================================================
 FROM base AS cli
 
-# CLI bundles core/graph/linter-gen/types via tsup; orchestrator/dashboard/intelligence/eslint-plugin are resolved at runtime via pnpm workspace links
+# CLI bundles its own code via tsup; workspace packages (core, graph, linter-gen, types,
+# orchestrator, dashboard, intelligence) are copied as pre-built dist artifacts.
+# eslint-plugin is referenced by package.json only (no dist needed at runtime).
 COPY --from=build /app/packages/cli/dist /app/packages/cli/dist
 COPY --from=build /app/packages/cli/package.json /app/packages/cli/
 
@@ -88,7 +90,7 @@ ENTRYPOINT ["node", "packages/cli/dist/bin/harness-mcp.js"]
 
 # ==============================================================================
 # Stage: base-with-tools
-# Base image with curl (shared by orchestrator and dashboard)
+# Base image with curl (used by dashboard stage)
 # ==============================================================================
 FROM base AS base-with-tools
 
@@ -147,6 +149,6 @@ EXPOSE 3701
 USER node
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3701/health || exit 1
+  CMD curl -f http://localhost:3701/api/health-check || exit 1
 
 ENTRYPOINT ["node", "packages/dashboard/dist/server/serve.js"]

@@ -19,6 +19,8 @@ import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 /**
  * Returns the host address the server should bind to.
  * Defaults to 127.0.0.1 (loopback) unless the HOST env var is set (e.g. 0.0.0.0 for containers).
+ *
+ * NOTE: Duplicated in packages/dashboard/src/server/serve.ts
  */
 export function getBindHost(): string {
   return process.env['HOST'] ?? '127.0.0.1';

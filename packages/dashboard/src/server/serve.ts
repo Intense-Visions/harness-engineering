@@ -7,6 +7,8 @@ import { API_PORT } from '../shared/constants';
 /**
  * Returns the host address the server should bind to.
  * Defaults to 127.0.0.1 (loopback) unless the HOST env var is set (e.g. 0.0.0.0 for containers).
+ *
+ * NOTE: Duplicated in packages/orchestrator/src/server/http.ts
  */
 export function getBindHost(): string {
   return process.env['HOST'] ?? '127.0.0.1';

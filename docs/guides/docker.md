@@ -127,9 +127,11 @@ docker run -d \
 
 When running the dashboard standalone (outside Compose), set `ORCHESTRATOR_URL` to the orchestrator's reachable address. Inside Compose, Docker networking resolves `http://orchestrator:8080` automatically.
 
+> **Note:** `ORCHESTRATOR_URL` is reserved for future use. The dashboard source code does not yet read this variable; it will be wired in a future release.
+
 ### Health Check
 
-- **Endpoint:** `GET http://localhost:3701/health`
+- **Endpoint:** `GET http://localhost:3701/api/health-check`
 - **Interval:** 30s
 - **Timeout:** 10s
 - **Retries:** 3
@@ -185,12 +187,12 @@ docker run -d \
 
 ## Environment Variables
 
-| Variable               | Used by                 | Default   | Description                                                         |
-| ---------------------- | ----------------------- | --------- | ------------------------------------------------------------------- |
-| `HARNESS_PROJECT_PATH` | orchestrator, dashboard | none      | Path to the mounted project root inside the container               |
-| `ORCHESTRATOR_URL`     | dashboard               | none      | URL of the orchestrator HTTP API (e.g., `http://orchestrator:8080`) |
-| `HOST`                 | orchestrator, dashboard | `0.0.0.0` | Bind address for the HTTP server                                    |
-| `CI`                   | cli                     | none      | Set to `true` for headless CI mode                                  |
+| Variable               | Used by                 | Default   | Description                                                                   |
+| ---------------------- | ----------------------- | --------- | ----------------------------------------------------------------------------- |
+| `HARNESS_PROJECT_PATH` | orchestrator, dashboard | none      | Path to the mounted project root inside the container                         |
+| `ORCHESTRATOR_URL`     | dashboard               | none      | URL of the orchestrator HTTP API (reserved -- not yet read by dashboard code) |
+| `HOST`                 | orchestrator, dashboard | `0.0.0.0` | Bind address for the HTTP server                                              |
+| `CI`                   | cli                     | none      | Set to `true` for headless CI mode                                            |
 
 ## Building from Source
 
