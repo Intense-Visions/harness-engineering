@@ -272,5 +272,46 @@ describe('PRManager', () => {
         '/test/project'
       );
     });
+
+    it('propagates error when git push --force-with-lease fails', async () => {
+      const git = createMockGit();
+      const gh = createMockGh();
+      (git.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'push') throw new Error('push rejected: stale ref');
+        return '';
+      });
+      (gh.run as ReturnType<typeof vi.fn>).mockResolvedValue('');
+      const { prManager } = createPRManager({ git, gh });
+
+      await expect(prManager.ensurePR(ARCH_TASK, 'summary')).rejects.toThrow(
+        'push rejected: stale ref'
+      );
+    });
+
+    it('propagates error when gh pr create fails', async () => {
+      const git = createMockGit();
+      const gh = createMockGh();
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return '';
+        if (args[0] === 'pr' && args[1] === 'create') {
+          throw new Error('gh: label "harness-maintenance" not found');
+        }
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      await expect(prManager.ensurePR(ARCH_TASK, 'summary')).rejects.toThrow(
+        'label "harness-maintenance" not found'
+      );
+    });
+
+    it('throws when task.branch is null', async () => {
+      const nullBranchTask: TaskDefinition = { ...ARCH_TASK, branch: null };
+      const { prManager } = createPRManager();
+
+      await expect(prManager.ensurePR(nullBranchTask, 'summary')).rejects.toThrow(
+        'ensurePR requires task.branch'
+      );
+    });
   });
 });
