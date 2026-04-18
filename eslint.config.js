@@ -90,6 +90,10 @@ export default [
       '@harness-engineering/no-unix-shell-command': 'warn',
       '@harness-engineering/no-hardcoded-path-separator': 'warn',
       '@harness-engineering/require-path-normalization': 'warn',
+      '@harness-engineering/no-layer-violation': 'warn',
+      '@harness-engineering/no-forbidden-imports': 'warn',
+      '@harness-engineering/no-circular-deps': 'warn',
+      // no-sync-io-in-async: not enabled yet — 30+ existing violations need gradual migration
     },
   },
   prettierConfig,
