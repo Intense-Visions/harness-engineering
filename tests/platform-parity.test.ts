@@ -51,7 +51,9 @@ describe('no unix commands in package.json scripts', () => {
 
 // -- Anti-pattern 2: .sh files without cross-platform equivalents -------------
 describe('shell scripts have cross-platform equivalents', () => {
-  const shFiles = findFiles('**/*.sh').filter((f) => !f.includes('husky'));
+  const shFiles = findFiles('**/*.sh').filter(
+    (f) => !f.includes('husky') && !f.includes('docker-') // Docker scripts are Linux-only by design
+  );
 
   if (shFiles.length === 0) {
     it('no .sh files found (nothing to check)', () => {

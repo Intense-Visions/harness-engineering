@@ -94,7 +94,7 @@ export function handleMaintenanceRoute(
   deps: MaintenanceRouteDeps | null
 ): boolean {
   const { method, url } = req;
-  // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem
+  // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: URL path, not filesystem
   if (!url?.startsWith('/api/maintenance/')) return false;
   if (!deps) {
     sendJSON(res, 503, { error: 'Maintenance not available' });
