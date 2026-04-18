@@ -15,6 +15,8 @@ agents/commands/**
 .harness/health-snapshot.json
 .harness/metrics/
 .harness/security/
+**/.harness/graph/
+**/.harness/arch/
 **/fixtures/**/.harness/
 
 # Intentional syntax-error test fixtures

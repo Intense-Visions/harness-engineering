@@ -1257,12 +1257,7 @@ export class Orchestrator extends EventEmitter {
    * Fire-and-forget: failures are logged but never block dispatch.
    */
   private async postClaimComment(issue: Issue): Promise<void> {
-    await this.postLifecycleComment(
-      issue.id,
-      issue.identifier,
-      issue.externalId ?? null,
-      'claimed'
-    );
+    await this.postLifecycleComment(issue.identifier, issue.externalId ?? null, 'claimed');
   }
 
   /**
@@ -1271,7 +1266,6 @@ export class Orchestrator extends EventEmitter {
    * Fire-and-forget: failures are logged but never block the caller.
    */
   private async postLifecycleComment(
-    issueId: string,
     identifier: string,
     externalId: string | null,
     event: 'claimed' | 'completed' | 'released'
@@ -1547,7 +1541,6 @@ export class Orchestrator extends EventEmitter {
 
     if (entry) {
       await this.postLifecycleComment(
-        issueId,
         entry.identifier,
         entry.issue.externalId ?? null,
         'completed'

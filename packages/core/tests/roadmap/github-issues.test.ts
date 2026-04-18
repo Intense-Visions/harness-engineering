@@ -120,7 +120,7 @@ describe('GitHubIssuesSyncAdapter', () => {
   });
 
   describe('createTicket', () => {
-    it('creates an issue with milestone and feature label', async () => {
+    it('creates an issue with milestone and Feature type', async () => {
       const fetchFn = mockFetchSequence(
         // 1. loadMilestones GET — return empty array (no existing milestones)
         { status: 200, body: [] },
@@ -150,7 +150,8 @@ describe('GitHubIssuesSyncAdapter', () => {
       expect(body.title).toBe('Test Feature');
       expect(body.labels).toContain('harness-managed');
       expect(body.labels).toContain('planned');
-      expect(body.labels).toContain('feature');
+      expect(body.labels).not.toContain('feature');
+      expect(body.type).toBe('Feature');
       expect(body.milestone).toBe(1);
     });
 
