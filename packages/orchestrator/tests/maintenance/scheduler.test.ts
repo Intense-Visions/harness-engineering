@@ -263,6 +263,32 @@ describe('MaintenanceScheduler', () => {
       expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
     });
 
+    it('start() called twice does not create duplicate intervals', async () => {
+      const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 1000 };
+      const claimManager = createMockClaimManager('rejected');
+      const logger = createMockLogger();
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: logger as any,
+        onTaskDue: vi.fn(),
+      });
+
+      scheduler.start();
+      scheduler.start(); // Second call should be no-op
+
+      await vi.advanceTimersByTimeAsync(0);
+      // Only one initial evaluate call, not two
+      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      // One interval tick, not two
+      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+
+      scheduler.stop();
+    });
+
     it('stop() sets isLeader to false', async () => {
       const config: MaintenanceConfig = { enabled: true };
       const scheduler = new MaintenanceScheduler({

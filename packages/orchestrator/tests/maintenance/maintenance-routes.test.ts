@@ -144,6 +144,21 @@ describe('handleMaintenanceRoute', () => {
       expect(deps.reporter.getHistory).toHaveBeenCalledWith(5, 10);
     });
 
+    it('clamps limit to 100 when exceeding maximum', () => {
+      const req = mockReq('GET', '/api/maintenance/history?limit=200');
+      const res = mockRes();
+      handleMaintenanceRoute(req, res, deps);
+      expect(deps.reporter.getHistory).toHaveBeenCalledWith(100, 0);
+    });
+
+    it('falls back to default limit when limit=0 (falsy)', () => {
+      const req = mockReq('GET', '/api/maintenance/history?limit=0');
+      const res = mockRes();
+      handleMaintenanceRoute(req, res, deps);
+      // parseInt('0') is 0 (falsy), so || 20 fallback applies, then Math.max(1, 20) = 20
+      expect(deps.reporter.getHistory).toHaveBeenCalledWith(20, 0);
+    });
+
     it('returns the history array', () => {
       const req = mockReq('GET', '/api/maintenance/history');
       const res = mockRes();
@@ -179,6 +194,14 @@ describe('handleMaintenanceRoute', () => {
       handleMaintenanceRoute(req, res, deps);
       await vi.waitFor(() => expect(res._status).toBe(500));
       expect(JSON.parse(res._body)).toEqual({ error: 'boom' });
+    });
+
+    it('returns 400 for malformed JSON body', async () => {
+      const req = mockReq('POST', '/api/maintenance/trigger', 'not-json{{{');
+      const res = mockRes();
+      handleMaintenanceRoute(req, res, deps);
+      await vi.waitFor(() => expect(res._status).toBe(400));
+      expect(JSON.parse(res._body)).toEqual({ error: 'Invalid JSON body' });
     });
   });
 
