@@ -51,26 +51,26 @@
       ]
     },
     {
-      "capturedAt": "2026-04-17T20:30:02.714Z",
-      "commitHash": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
-      "securityScore": 87,
-      "totalFindings": 13,
+      "capturedAt": "2026-04-18T00:43:24.757Z",
+      "commitHash": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "securityScore": 48,
+      "totalFindings": 52,
       "bySeverity": {
         "error": 0,
-        "warning": 13,
+        "warning": 52,
         "info": 0
       },
       "byCategory": {
         "path-traversal": {
-          "findingCount": 2,
+          "findingCount": 8,
           "errorCount": 0,
-          "warningCount": 2,
+          "warningCount": 8,
           "infoCount": 0
         },
         "deserialization": {
-          "findingCount": 11,
+          "findingCount": 44,
           "errorCount": 0,
-          "warningCount": 11,
+          "warningCount": 44,
           "infoCount": 0
         }
       },
@@ -84,2153 +84,58 @@
       },
       "suppressionCount": 0,
       "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:30:59.204Z",
-      "commitHash": "706c3da0bee7a42e10ee2bbe83ad80dc9893f9fb",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:33:55.180Z",
-      "commitHash": "0aa6736001fd59cef5da4d4adae3a10e2eb0fe77",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:36:19.751Z",
-      "commitHash": "dd521c58689ddce904a206c284d423449d73f2f6",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:38:17.998Z",
-      "commitHash": "5a1a86d1fea9fda251ccb79f234283ff726a71c8",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:40:34.758Z",
-      "commitHash": "70f43049027b844d1662777f7d0af9752f418ab4",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T20:46:07.852Z",
-      "commitHash": "6728e6faeb3ca780a7e0b0a7cb4b9a9a59391c0d",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:11:24.531Z",
-      "commitHash": "e5ee62ad24f1315fb13695d6364539d925d1f093",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:15:11.885Z",
-      "commitHash": "dde79fdf3124822bc1dcaa695ce9e84393f47d84",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:16:30.800Z",
-      "commitHash": "9153d34b84b35bcd6eebf573f0c8259e9bdb6d70",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:17:51.535Z",
-      "commitHash": "99e4c6aef7f9ff3df92f1b52de48e55dc5455977",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:18:49.319Z",
-      "commitHash": "1eb36be2c5741fdbe1a765582b95033d7332f96a",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:20:09.649Z",
-      "commitHash": "f0bd6262e6ef68db7cb450618ab7598168cdc295",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:22:57.984Z",
-      "commitHash": "11855d0ea020bf9750f88db05ab2c37131c818a9",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:29:22.249Z",
-      "commitHash": "41d2ec3e93b6d30444a9e5fd0201f1d6827c90b6",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:37:05.498Z",
-      "commitHash": "18dfc806ce2be12551513b655f92bd191058485b",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:38:37.172Z",
-      "commitHash": "9c6ce1e1a53163ce10e057c488e998b032edd19a",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:39:30.619Z",
-      "commitHash": "83dd54f188d88ec8e611dd9011aeba892cd0af83",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:40:19.338Z",
-      "commitHash": "533c5b6e4b105a41e21de10ed93ac73af49433fb",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:41:04.387Z",
-      "commitHash": "e7db240f72cdd3d3dca80244e8704c0cbdc6b610",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:42:11.064Z",
-      "commitHash": "711e87df1277a016bfe4f67f1fdfa5c926cf0c31",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:43:46.040Z",
-      "commitHash": "55e91d794213ec9edf81851c19c2b99e73b35492",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:48:32.517Z",
-      "commitHash": "d311b769f46f5836ade39c7214df464914f0c3c1",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:55:11.039Z",
-      "commitHash": "734cc150de96036424bdc002c2e8524883419cd9",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:56:20.591Z",
-      "commitHash": "4766710f90a7f98a7ee0cd91c3a57203c341c5ba",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:57:16.913Z",
-      "commitHash": "397ee7901eb68f56644105f76db2066d1cfe2c47",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T21:58:49.968Z",
-      "commitHash": "28f8f4ec482a58c673761dd31569eff0078071e7",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T22:00:41.169Z",
-      "commitHash": "f6d0d7056ddc653d170babfeaeb3c199fad67252",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T22:02:17.101Z",
-      "commitHash": "1c72238691b2419e0177d4af3f6ca64f3c4a0226",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-17T22:07:15.910Z",
-      "commitHash": "868a3cd0833f8ab0ba10cc56b4a063801707a9a3",
-      "securityScore": 87,
-      "totalFindings": 13,
-      "bySeverity": {
-        "error": 0,
-        "warning": 13,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 11,
-          "errorCount": 0,
-          "warningCount": 11,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:14:34.479Z",
-      "commitHash": "870419df94576d7ba2e6a72bff1f88410f4e427b",
-      "securityScore": 86,
-      "totalFindings": 14,
-      "bySeverity": {
-        "error": 0,
-        "warning": 14,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 12,
-          "errorCount": 0,
-          "warningCount": 12,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:19:17.046Z",
-      "commitHash": "339102855e36d1a39af5ed40b3d091bf4cbac2d5",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "3c86dc80741c9c0a",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:20:40.670Z",
-      "commitHash": "607bc769691ee0845b1cc30af71a5f560ae1b818",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "3c86dc80741c9c0a",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:22:09.697Z",
-      "commitHash": "d3de4d1f4698fa85648d2c8f0af9fc1520d258c1",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "3c86dc80741c9c0a",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:25:38.593Z",
-      "commitHash": "656a9a5dbef60b53e1e8703616875e4fb6a0370f",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "3c86dc80741c9c0a",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:26:51.541Z",
-      "commitHash": "848e93ce44a3df6ece32c4706a5acea873d41559",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "3c86dc80741c9c0a",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:30:45.436Z",
-      "commitHash": "7a069114f7577cc80b2946f1e4b9ee09a41efaed",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:37:26.783Z",
-      "commitHash": "af111f87fc692d43db3b75b6172cc07c4ade85e7",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:39:05.068Z",
-      "commitHash": "73632f9521ce5d3f3f5936f02a6c203ee8eac6ec",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:40:20.595Z",
-      "commitHash": "93aabe37875b7438cb85002f1f9e187dceadc916",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:42:09.101Z",
-      "commitHash": "633dc0f9cc9186d3cb8d4f60ab50e31318ae8d51",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:43:42.987Z",
-      "commitHash": "a3819fd722687326afe02b92186df59f077daa6d",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:47:23.532Z",
-      "commitHash": "caa538fe4369d3fe36c084ad60e7a4c50b7c96fc",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
-      ]
-    },
-    {
-      "capturedAt": "2026-04-18T01:52:58.579Z",
-      "commitHash": "2331bcc28a8ea0d99c4754168244236a9ddc95b0",
-      "securityScore": 85,
-      "totalFindings": 15,
-      "bySeverity": {
-        "error": 0,
-        "warning": 15,
-        "info": 0
-      },
-      "byCategory": {
-        "path-traversal": {
-          "findingCount": 2,
-          "errorCount": 0,
-          "warningCount": 2,
-          "infoCount": 0
-        },
-        "deserialization": {
-          "findingCount": 13,
-          "errorCount": 0,
-          "warningCount": 13,
-          "infoCount": 0
-        }
-      },
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": [
-        "f393d9a37b102175",
-        "f4d102463af981f5",
-        "59486b7794d91d74",
-        "2a74142753e97847",
-        "5b7d862e73f3b35e",
-        "8cade84e4dd5b7f9",
-        "4acba46e4b1e8046",
-        "e8a97c49175a3b99",
-        "24150152dbda1db7",
-        "91b930ef98241bc7",
-        "6bdacfce437975de",
-        "9d1df5abe906a5e7",
-        "60f7b89030b68b4a",
-        "dd953fca2b92a7c6",
-        "dba391093a65ab79"
+        "2e4aa066d44d361b",
+        "4491ab7f9395558c",
+        "b445423dadb62dbd",
+        "8e29fe9f799b3c27",
+        "ea03c081983e5b2b",
+        "946dd555e28a252d",
+        "b871ae98b5784c93",
+        "f0a31c0f3b138663",
+        "56d304dcbaeed785",
+        "304cb7123414c9ec",
+        "b91c9b6818dbadee",
+        "0e503d83b46770d5",
+        "b333d1415d4e7cee",
+        "b3acd53d6e27b8bd",
+        "3d427f1e25932dfd",
+        "2dfb3a0ca3b3b95b",
+        "e0b34fd4efd5cb99",
+        "f497aa830954f4fd",
+        "93b80b170def4125",
+        "faa0b29205e0feb3",
+        "7598b5eaf9a8782a",
+        "bb8998a6cd9f41bc",
+        "669a18a3ddde43ba",
+        "1f0f9fb72a4f6e0c",
+        "91a34ada4b0b9905",
+        "226f718ca8654b30",
+        "dd5d5f2dbda16a09",
+        "d32364b2e7953402",
+        "928be5a8a5f2285c",
+        "6900de345298306a",
+        "65da2f7362310d84",
+        "64a4c3ba92f01988",
+        "ebd0c983e5c0b56b",
+        "2fd03cf2aef55260",
+        "e053348f705f0079",
+        "a2ce155a7ebcfce9",
+        "18567da81156813a",
+        "e8fdab9e883fe065",
+        "9dd354e0d79ddcb4",
+        "62b7292ba06dbaac",
+        "3986a9a6bbed78cc",
+        "350bf2dde3460928",
+        "ccca959c39a28c5b",
+        "c334571921309614",
+        "912a285d5eb3b302",
+        "88f271d8cefc9369",
+        "7eee392c962fc19e",
+        "b620b88319840448",
+        "dbccee63b8e680b7",
+        "6611873544fdce1d",
+        "39ae6699f393f8c9",
+        "9b01018bf19c2256"
       ]
     }
   ],
@@ -2243,8 +148,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/cli/src/skill/dispatch-session.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "828750b8ac35e26a",
@@ -2254,8 +159,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "c1eb9cf95e49d83c",
@@ -2265,8 +170,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/pages/Analyze.tsx",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "a8145add39c37fd9",
@@ -2276,8 +181,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/client/utils/chat-stream.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "27fbc3f3f5546c36",
@@ -2287,8 +192,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/dashboard/src/server/routes/actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "4396de07948daf80",
@@ -2298,8 +203,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/analyze.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "9459522898fc3cb3",
@@ -2309,8 +214,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/chat-proxy.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "580e3aa6eb1b1732",
@@ -2320,8 +225,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/dispatch-actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "84d7b1bfc635d0a0",
@@ -2331,8 +236,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/interactions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "e181d1409de6956f",
@@ -2342,8 +247,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/plans.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "25edad92611b919c",
@@ -2353,8 +258,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/roadmap-actions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "c864cfa8b0ede459",
@@ -2364,8 +269,8 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
       "findingId": "729694623d7f9750",
@@ -2375,182 +280,578 @@
       "file": "/Users/cwarner/Projects/harness-engineering/.harness/workspaces/orchestrator-pr-awar-287e45a5/packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-04-17T16:00:09.120Z",
       "firstSeenCommit": "9570d10f19220a7649ab1ff1e399696a73c1aa40",
-      "resolvedAt": "2026-04-17T20:28:14.050Z",
-      "resolvedCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796"
+      "resolvedAt": "2026-04-18T00:43:24.725Z",
+      "resolvedCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f"
     },
     {
-      "findingId": "f393d9a37b102175",
+      "findingId": "2e4aa066d44d361b",
       "ruleId": "SEC-PTH-001",
       "category": "path-traversal",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/cli/src/skill/dispatch-session.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "f4d102463af981f5",
+      "findingId": "4491ab7f9395558c",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "59486b7794d91d74",
+      "findingId": "b445423dadb62dbd",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/pages/Analyze.tsx",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "2a74142753e97847",
+      "findingId": "8e29fe9f799b3c27",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/client/utils/chat-stream.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "5b7d862e73f3b35e",
+      "findingId": "ea03c081983e5b2b",
       "ruleId": "SEC-PTH-001",
       "category": "path-traversal",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/dashboard/src/server/routes/actions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "4acba46e4b1e8046",
+      "findingId": "946dd555e28a252d",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/analyze.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "e8a97c49175a3b99",
+      "findingId": "b871ae98b5784c93",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/chat-proxy.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "24150152dbda1db7",
+      "findingId": "f0a31c0f3b138663",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/dispatch-actions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "91b930ef98241bc7",
+      "findingId": "56d304dcbaeed785",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/interactions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "9d1df5abe906a5e7",
+      "findingId": "304cb7123414c9ec",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/plans.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "60f7b89030b68b4a",
+      "findingId": "b91c9b6818dbadee",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/roadmap-actions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "dd953fca2b92a7c6",
+      "findingId": "0e503d83b46770d5",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/sessions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "dba391093a65ab79",
+      "findingId": "b333d1415d4e7cee",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/sessions.ts",
-      "firstSeenAt": "2026-04-17T20:28:14.050Z",
-      "firstSeenCommit": "df3dd9b75d8db128ab8daeed68a5b200542c3796",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/constraint-emergence-6224a4b5/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "8cade84e4dd5b7f9",
-      "ruleId": "SEC-DES-001",
-      "category": "deserialization",
+      "findingId": "b3acd53d6e27b8bd",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/maintenance/reporter.ts",
-      "firstSeenAt": "2026-04-18T01:13:59.407Z",
-      "firstSeenCommit": "870419df94576d7ba2e6a72bff1f88410f4e427b",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     },
     {
-      "findingId": "3c86dc80741c9c0a",
+      "findingId": "3d427f1e25932dfd",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/maintenance.ts",
-      "firstSeenAt": "2026-04-18T01:15:55.488Z",
-      "firstSeenCommit": "339102855e36d1a39af5ed40b3d091bf4cbac2d5",
-      "resolvedAt": "2026-04-18T01:30:45.369Z",
-      "resolvedCommit": "7a069114f7577cc80b2946f1e4b9ee09a41efaed"
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
     },
     {
-      "findingId": "6bdacfce437975de",
+      "findingId": "2dfb3a0ca3b3b95b",
       "ruleId": "SEC-DES-001",
       "category": "deserialization",
       "severity": "warning",
-      "file": "/Users/cwarner/Projects/harness-engineering-maintenance/packages/orchestrator/src/server/routes/maintenance.ts",
-      "firstSeenAt": "2026-04-18T01:30:45.369Z",
-      "firstSeenCommit": "7a069114f7577cc80b2946f1e4b9ee09a41efaed",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "e0b34fd4efd5cb99",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "f497aa830954f4fd",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "93b80b170def4125",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "faa0b29205e0feb3",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "7598b5eaf9a8782a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "bb8998a6cd9f41bc",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "669a18a3ddde43ba",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "1f0f9fb72a4f6e0c",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "91a34ada4b0b9905",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "226f718ca8654b30",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/context-budget-syste-f2a8d321/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "dd5d5f2dbda16a09",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "d32364b2e7953402",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "928be5a8a5f2285c",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "6900de345298306a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "65da2f7362310d84",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "64a4c3ba92f01988",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "ebd0c983e5c0b56b",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "2fd03cf2aef55260",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "e053348f705f0079",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "a2ce155a7ebcfce9",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "18567da81156813a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "e8fdab9e883fe065",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "9dd354e0d79ddcb4",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/.harness/workspaces/platform-expansion-dec41c6d/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "62b7292ba06dbaac",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "3986a9a6bbed78cc",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "350bf2dde3460928",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "ccca959c39a28c5b",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "c334571921309614",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "912a285d5eb3b302",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "88f271d8cefc9369",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "7eee392c962fc19e",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "b620b88319840448",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "dbccee63b8e680b7",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "6611873544fdce1d",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "39ae6699f393f8c9",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "9b01018bf19c2256",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/Intense Visions/harness-engineering/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-04-18T00:43:24.725Z",
+      "firstSeenCommit": "011ee120c91a81c31c0edb4a561e4c9c70920a2f",
       "resolvedAt": null,
       "resolvedCommit": null
     }

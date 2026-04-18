@@ -55,6 +55,18 @@ Learn how to use the Harness Orchestrator to automate your agent workforce:
 
 **Best for:** Operators managing multiple concurrent agents
 
+### [Docker Deployment](./docker.md)
+
+Run and deploy harness via Docker containers:
+
+- Quick start with Docker Compose
+- Individual CLI and MCP server usage
+- Orchestrator and dashboard deployment
+- Agent execution modes and environment variables
+- Building images from source
+
+**Best for:** Teams deploying harness as containerized services or running without local Node.js
+
 ### [Constraint Sharing](./constraint-sharing.md)
 
 Share architectural and security constraints across projects as portable bundles:

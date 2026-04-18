@@ -19,6 +19,7 @@
 # Requires one-time setup per clone:
 #   git config merge.ours.driver true
 .harness/**/baselines.json merge=ours
+.harness/security/timeline.json merge=ours
 **/.harness/**/baselines.json merge=ours
 coverage-baselines.json merge=ours
 benchmark-baselines.json merge=ours

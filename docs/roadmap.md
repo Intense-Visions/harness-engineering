@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-17
 last_synced: 2026-04-17T00:00:00.000Z
-last_manual_edit: 2026-04-17T02:12:22.357Z
+last_manual_edit: 2026-04-18T00:40:24.485Z
 ---
 
 # Roadmap
@@ -967,6 +967,18 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#196
 
+### Docker Containerization
+
+- **Status:** done
+- **Spec:** docs/changes/docker-containerization/proposal.md
+- **Summary:** Docker images for CLI, MCP server, orchestrator, and dashboard with multi-stage Dockerfile, docker-compose stack, and CI publishing to ghcr.io
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** chads-macbook-pro-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-18T01:02:20.571Z
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
@@ -1146,6 +1158,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#84
+- **Updated-At:** 2026-04-18T00:44:19.169Z
 
 ### Cascading Failure Simulation
 
@@ -1471,6 +1484,7 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#110
+- **Updated-At:** 2026-04-18T00:54:47.848Z
 
 ### Session Search & DX Tooling
 
