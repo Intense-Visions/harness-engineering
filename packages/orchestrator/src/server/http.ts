@@ -16,6 +16,14 @@ import type { InteractionQueue, PendingInteraction } from '../core/interaction-q
 import type { AnalysisArchive } from '../core/analysis-archive';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 
+/**
+ * Returns the host address the server should bind to.
+ * Defaults to 127.0.0.1 (loopback) unless the HOST env var is set (e.g. 0.0.0.0 for containers).
+ */
+export function getBindHost(): string {
+  return process.env['HOST'] ?? '127.0.0.1';
+}
+
 export interface Snapshotable {
   getSnapshot(): Record<string, unknown>;
   on(event: string, listener: (...args: unknown[]) => void): void;
@@ -166,7 +174,7 @@ export class OrchestratorServer {
     }
 
     return new Promise((resolve) => {
-      const host = process.env['HOST'] ?? '127.0.0.1';
+      const host = getBindHost();
       this.httpServer.listen(this.port, host, () => {
         console.log(`Orchestrator API listening on ${host}:${this.port}`);
         resolve();

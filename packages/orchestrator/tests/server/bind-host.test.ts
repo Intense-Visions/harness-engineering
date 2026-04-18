@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { getBindHost } from '../../src/server/http';
 
 describe('OrchestratorServer bind host', () => {
   const originalEnv = process.env['HOST'];
@@ -11,17 +12,13 @@ describe('OrchestratorServer bind host', () => {
     }
   });
 
-  it('defaults to 127.0.0.1 when HOST is not set', async () => {
+  it('defaults to 127.0.0.1 when HOST is not set', () => {
     delete process.env['HOST'];
-    // Re-import to get fresh module
-    const { OrchestratorServer } = await import('../../src/server/http');
-    // Verify the default by checking the source uses process.env.HOST ?? '127.0.0.1'
-    // The actual listen call is tested via integration tests; here we verify the env logic
-    expect(process.env['HOST'] ?? '127.0.0.1').toBe('127.0.0.1');
+    expect(getBindHost()).toBe('127.0.0.1');
   });
 
-  it('uses HOST env var when set', async () => {
+  it('uses HOST env var when set', () => {
     process.env['HOST'] = '0.0.0.0';
-    expect(process.env['HOST'] ?? '127.0.0.1').toBe('0.0.0.0');
+    expect(getBindHost()).toBe('0.0.0.0');
   });
 });

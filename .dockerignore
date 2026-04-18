@@ -46,6 +46,10 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
+# Directories not needed for build or runtime
+design-system/
+examples/
+
 # Misc
 *.tsbuildinfo
 .env*

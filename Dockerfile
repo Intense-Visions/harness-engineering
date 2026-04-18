@@ -24,6 +24,8 @@ COPY packages/intelligence/package.json packages/intelligence/
 COPY packages/linter-gen/package.json packages/linter-gen/
 COPY packages/orchestrator/package.json packages/orchestrator/
 COPY packages/types/package.json packages/types/
+COPY docs/package.json docs/
+COPY agents/skills/package.json agents/skills/
 
 # Install all dependencies (including dev for build)
 RUN pnpm install --frozen-lockfile
@@ -46,7 +48,7 @@ RUN pnpm build
 # ==============================================================================
 FROM base AS cli
 
-# CLI dist is self-contained (bundles workspace packages via tsup)
+# CLI bundles core/graph/linter-gen/types via tsup; orchestrator/dashboard/intelligence/eslint-plugin are resolved at runtime via pnpm workspace links
 COPY --from=build /app/packages/cli/dist /app/packages/cli/dist
 COPY --from=build /app/packages/cli/package.json /app/packages/cli/
 
@@ -72,6 +74,8 @@ COPY --from=build /app/packages/intelligence/dist /app/packages/intelligence/dis
 COPY --from=build /app/packages/eslint-plugin/package.json /app/packages/eslint-plugin/
 RUN pnpm install --frozen-lockfile --prod
 
+USER node
+
 ENTRYPOINT ["node", "packages/cli/dist/bin/harness.js"]
 
 # ==============================================================================
@@ -81,6 +85,15 @@ ENTRYPOINT ["node", "packages/cli/dist/bin/harness.js"]
 FROM cli AS mcp-server
 
 ENTRYPOINT ["node", "packages/cli/dist/bin/harness-mcp.js"]
+
+# ==============================================================================
+# Stage: base-with-tools
+# Base image with curl (shared by orchestrator and dashboard)
+# ==============================================================================
+FROM base AS base-with-tools
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
 # Stage: orchestrator
@@ -98,6 +111,9 @@ EXPOSE 8080
 
 # Create workspace directory
 RUN mkdir -p /app/.harness/workspaces
+RUN chown -R node:node /app/.harness/workspaces
+
+USER node
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8080/api/v1/state || exit 1
@@ -108,11 +124,7 @@ ENTRYPOINT ["node", "packages/cli/dist/bin/harness.js", "orchestrator", "run", "
 # Stage: dashboard
 # Web dashboard with Hono API server + Vite SPA
 # ==============================================================================
-FROM base AS dashboard
-
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+FROM base-with-tools AS dashboard
 
 # Copy dashboard dist (server + client)
 COPY --from=build /app/packages/dashboard/dist /app/packages/dashboard/dist
@@ -131,6 +143,8 @@ RUN pnpm install --frozen-lockfile --prod
 
 ENV HOST=0.0.0.0
 EXPOSE 3701
+
+USER node
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3701/health || exit 1
