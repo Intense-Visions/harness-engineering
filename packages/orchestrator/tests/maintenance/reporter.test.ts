@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -53,6 +53,34 @@ describe('MaintenanceReporter', () => {
       const reporter = new MaintenanceReporter({ persistDir });
       await reporter.load();
       expect(reporter.getHistory(100, 0)).toEqual(results);
+    });
+
+    it('handles corrupted JSON on disk gracefully', async () => {
+      const persistDir = path.join(tmpDir, 'corrupted');
+      fs.mkdirSync(persistDir, { recursive: true });
+      fs.writeFileSync(path.join(persistDir, 'history.json'), '{ broken json !!!');
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const reporter = new MaintenanceReporter({ persistDir });
+      await reporter.load();
+
+      expect(reporter.getHistory(100, 0)).toEqual([]);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'MaintenanceReporter: failed to load history',
+        expect.any(SyntaxError)
+      );
+      consoleSpy.mockRestore();
+    });
+
+    it('handles non-array JSON on disk gracefully', async () => {
+      const persistDir = path.join(tmpDir, 'non-array');
+      fs.mkdirSync(persistDir, { recursive: true });
+      fs.writeFileSync(path.join(persistDir, 'history.json'), '"just a string"');
+
+      const reporter = new MaintenanceReporter({ persistDir });
+      await reporter.load();
+
+      expect(reporter.getHistory(100, 0)).toEqual([]);
     });
   });
 
