@@ -1,0 +1,53 @@
+# Dependencies (will be installed inside the container)
+node_modules
+**/node_modules
+
+# Build outputs (will be built inside the container)
+dist
+**/dist
+.turbo
+**/.turbo
+
+# Version control
+.git
+.gitignore
+
+# Testing artifacts
+coverage
+**/coverage
+*.lcov
+
+# IDE and editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Harness runtime artifacts
+.harness/workspaces
+.harness/graph
+.harness/debug
+.harness/sessions
+.harness/security
+.harness/interactions
+.harness/analyses
+
+# Worktrees
+.worktrees
+.claude
+
+# Documentation site output
+.vitepress
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+*.tsbuildinfo
+.env*
+!.env.example
+.playwright-mcp
