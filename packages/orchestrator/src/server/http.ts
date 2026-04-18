@@ -9,6 +9,8 @@ import { handleRoadmapActionsRoute } from './routes/roadmap-actions';
 import { handleDispatchActionsRoute } from './routes/dispatch-actions';
 import type { DispatchAdHocFn } from './routes/dispatch-actions';
 import { handleAnalysesRoute } from './routes/analyses';
+import { handleMaintenanceRoute } from './routes/maintenance';
+import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
@@ -38,6 +40,8 @@ export interface ServerDependencies {
   dispatchAdHoc?: DispatchAdHocFn | null;
   /** Directory for chat session metadata (default: <cwd>/.harness/sessions) */
   sessionsDir?: string;
+  /** Maintenance scheduler + reporter deps for dashboard routes */
+  maintenanceDeps?: MaintenanceRouteDeps | null;
 }
 
 export class OrchestratorServer {
@@ -54,6 +58,7 @@ export class OrchestratorServer {
   private roadmapPath!: string | null;
   private dispatchAdHoc!: DispatchAdHocFn | null;
   private sessionsDir!: string;
+  private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
@@ -80,6 +85,7 @@ export class OrchestratorServer {
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
+    this.maintenanceDeps = deps?.maintenanceDeps ?? null;
   }
 
   private wireEvents(): void {
@@ -99,6 +105,23 @@ export class OrchestratorServer {
    */
   public broadcastInteraction(interaction: PendingInteraction): void {
     this.broadcaster.broadcast('interaction_new', interaction);
+  }
+
+  /**
+   * Broadcast a maintenance event to all WebSocket clients.
+   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error'
+   * @param data - Event payload (task info, run result, or error details)
+   */
+  public broadcastMaintenance(type: string, data: unknown): void {
+    this.broadcaster.broadcast(type, data);
+  }
+
+  /**
+   * Set (or update) the maintenance route dependencies after construction.
+   * Called by the Orchestrator once the scheduler and reporter are ready.
+   */
+  public setMaintenanceDeps(deps: MaintenanceRouteDeps): void {
+    this.maintenanceDeps = deps;
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -159,6 +182,11 @@ export class OrchestratorServer {
 
     // Ad-hoc dispatch route
     if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return true;
+    }
+
+    // Maintenance dashboard routes
+    if (handleMaintenanceRoute(req, res, this.maintenanceDeps)) {
       return true;
     }
 

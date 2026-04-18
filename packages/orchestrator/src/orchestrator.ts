@@ -68,6 +68,7 @@ import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
 import { MaintenanceScheduler } from './maintenance/scheduler';
+import { MaintenanceReporter } from './maintenance/reporter';
 import { TaskRunner } from './maintenance/task-runner';
 import type {
   CheckCommandRunner,
@@ -118,6 +119,7 @@ export class Orchestrator extends EventEmitter {
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
   private maintenanceScheduler: MaintenanceScheduler | null = null;
+  private maintenanceReporter: MaintenanceReporter | null = null;
   private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
@@ -292,6 +294,71 @@ export class Orchestrator extends EventEmitter {
       commandExecutor,
       cwd: this.projectRoot,
     });
+  }
+
+  /**
+   * Initializes the maintenance subsystem: reporter, scheduler, and server route wiring.
+   * Extracted from start() to keep function length under threshold.
+   */
+  private async initMaintenance(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): Promise<void> {
+    this.maintenanceReporter = new MaintenanceReporter({
+      persistDir: path.join(this.projectRoot, '.harness', 'maintenance'),
+    });
+    await this.maintenanceReporter.load();
+
+    const taskRunner = this.createMaintenanceTaskRunner(maintenanceConfig);
+    const reporter = this.maintenanceReporter;
+
+    this.maintenanceScheduler = new MaintenanceScheduler({
+      config: maintenanceConfig,
+      claimManager: this.claimManager!,
+      logger: this.logger,
+      onTaskDue: async (task) => {
+        this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
+        this.server?.broadcastMaintenance('maintenance:started', {
+          taskId: task.id,
+          startedAt: new Date().toISOString(),
+        });
+
+        const result = await taskRunner.run(task);
+        this.maintenanceScheduler!.recordRun(result);
+        await reporter.record(result);
+
+        if (result.status === 'failure') {
+          this.server?.broadcastMaintenance('maintenance:error', {
+            taskId: task.id,
+            error: result.error,
+          });
+        } else {
+          this.server?.broadcastMaintenance('maintenance:completed', result);
+        }
+
+        this.logger.info(`Maintenance task completed: ${task.id}`, {
+          taskId: task.id,
+          status: result.status,
+          findings: result.findings,
+          fixed: result.fixed,
+        });
+      },
+    });
+    this.maintenanceScheduler.start();
+
+    // Wire maintenance route deps into the server
+    if (this.server) {
+      const scheduler = this.maintenanceScheduler;
+      this.server.setMaintenanceDeps({
+        scheduler,
+        reporter,
+        triggerFn: async (taskId: string) => {
+          const tasks = scheduler.getResolvedTasks();
+          const task = tasks.find((t) => t.id === taskId);
+          if (!task) throw new Error(`Unknown task: ${taskId}`);
+          await scheduler.evaluate(new Date());
+        },
+      });
+    }
   }
 
   private createLocalBackend(): AgentBackend | null {
@@ -1748,24 +1815,7 @@ export class Orchestrator extends EventEmitter {
 
     // Start maintenance scheduler if enabled
     if (this.config.maintenance?.enabled) {
-      const taskRunner = this.createMaintenanceTaskRunner(this.config.maintenance);
-      this.maintenanceScheduler = new MaintenanceScheduler({
-        config: this.config.maintenance,
-        claimManager: this.claimManager!,
-        logger: this.logger,
-        onTaskDue: async (task) => {
-          this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
-          const result = await taskRunner.run(task);
-          this.maintenanceScheduler!.recordRun(result);
-          this.logger.info(`Maintenance task completed: ${task.id}`, {
-            taskId: task.id,
-            status: result.status,
-            findings: result.findings,
-            fixed: result.fixed,
-          });
-        },
-      });
-      this.maintenanceScheduler.start();
+      await this.initMaintenance(this.config.maintenance);
     }
   }
 
