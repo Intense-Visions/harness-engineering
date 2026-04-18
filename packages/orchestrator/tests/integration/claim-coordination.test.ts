@@ -114,7 +114,10 @@ function createRacingTracker(candidates: Issue[]) {
 describe('Multi-Orchestrator Claim Coordination', () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-coord-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
   });
 

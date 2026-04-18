@@ -66,7 +66,10 @@ describe('Orchestrator Integration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
     // Ensure workspace root exists so WorkspaceManager can run git commands in it
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
 

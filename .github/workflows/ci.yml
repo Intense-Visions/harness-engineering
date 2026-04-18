@@ -33,11 +33,15 @@ jobs:
 
       - run: pnpm build
 
+      # Typecheck, lint, and format are platform-independent — only run on ubuntu
       - run: pnpm typecheck
+        if: matrix.os == 'ubuntu-latest'
 
       - run: pnpm lint
+        if: matrix.os == 'ubuntu-latest'
 
       - run: pnpm format:check
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Test (with coverage on ubuntu)
         run: ${{ matrix.os == 'ubuntu-latest' && 'pnpm test:ci' || 'pnpm test' }}

@@ -72,7 +72,10 @@ describe('Orchestrator Sentinel Integration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-sentinel-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
   });
 
   afterEach(async () => {
