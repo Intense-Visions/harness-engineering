@@ -67,6 +67,18 @@ Run and deploy harness via Docker containers:
 
 **Best for:** Teams deploying harness as containerized services or running without local Node.js
 
+### [Templates and Framework Overlays](./templates-and-overlays.md)
+
+How project scaffolding works -- the template system behind `harness init`:
+
+- Template catalog: 19 templates across 5 languages
+- Adoption levels (basic, intermediate, advanced) for TypeScript
+- Language bases for Go, Python, Java, and Rust
+- Framework overlays (Express, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, and more)
+- Template composition, merging, and customization
+
+**Best for:** Understanding what `harness init` generates and how to choose the right template
+
 ### [Constraint Sharing](./constraint-sharing.md)
 
 Share architectural and security constraints across projects as portable bundles:
@@ -78,6 +90,31 @@ Share architectural and security constraints across projects as portable bundles
 
 **Best for:** Teams enforcing consistent architecture across multiple repositories
 
+### [Orchestrator HTTP API and Internals](./orchestrator-api.md)
+
+Deep reference for the Orchestrator's HTTP API, WebSocket interface, and internal subsystems:
+
+- Complete HTTP API reference (state, interactions, chat proxy, analyze, dispatch, maintenance, sessions)
+- WebSocket real-time event streaming
+- Claim manager (optimistic locking, heartbeat, staleness, startup reconciliation)
+- Rate limiter configuration and throttle hierarchy
+- Maintenance scheduler (18 built-in tasks, cron scheduling, leader election)
+- Task runner execution paths and PR lifecycle management
+
+**Best for:** Developers integrating with the orchestrator API or operating multi-instance deployments
+
+### [Intelligence Pipeline](./intelligence-pipeline.md)
+
+How the LLM-powered intelligence pipeline enriches, scores, and simulates work items before dispatch:
+
+- SEL (Spec Enrichment Layer) — LLM analysis with graph-validated system discovery
+- CML (Complexity Modeling Layer) — structural, semantic, and historical complexity scoring
+- PESL (Pre-Execution Simulation Layer) — graph-only and full LLM simulation modes
+- Effectiveness tracking and agent specialization with temporal decay
+- Tuning parameters, provider configuration, and cost considerations
+
+**Best for:** Teams using the orchestrator's intelligence pipeline for automated routing decisions
+
 ### [Roadmap Guide](./roadmap-sync.md)
 
 Complete guide to the harness roadmap system — structure, management, sync, and auto-pick:
@@ -88,6 +125,31 @@ Complete guide to the harness roadmap system — structure, management, sync, an
 - Assignment history, affinity scoring, and the auto-pick pilot
 
 **Best for:** Teams using `docs/roadmap.md` for project tracking and planning
+
+### [Graph Query Guide](./graph-queries.md)
+
+Query the knowledge graph to understand code structure, trace dependencies, and analyze impact:
+
+- ContextQL BFS-based traversal engine -- parameters, filtering, and bidirectional queries
+- Complete reference for all 28 node types and 26 edge types
+- Common query patterns: dependencies, reverse dependencies, co-changed files, impact analysis
+- FusionLayer hybrid search (keyword + semantic)
+- MCP tools: `ask_graph`, `query_graph`, `search_similar`, `find_context_for`, `get_relationships`, `get_impact`, `compute_blast_radius`, `detect_anomalies`
+- Natural language query pipeline: intent classification, entity extraction, and resolution
+
+**Best for:** Developers and agents querying the knowledge graph for context assembly and impact analysis
+
+### [MCP Tool Workflows](./mcp-workflows.md)
+
+Practical workflows showing how to combine MCP tools for common tasks:
+
+- Starting a new feature (recommend, gather context, assess)
+- Code review pipeline (quick check, self-review, full 7-phase review)
+- Architecture analysis (graph query, blast radius, failure prediction, decay trends)
+- Security checks (vulnerability scan, dependency validation)
+- Performance analysis (complexity, baselines, critical paths)
+
+**Best for:** AI agents and developers using harness MCP tools in combination
 
 ## How to Use These Guides
 
@@ -104,4 +166,4 @@ Complete guide to the harness roadmap system — structure, management, sync, an
 
 ---
 
-_Last Updated: 2026-03-16_
+_Last Updated: 2026-04-18_
