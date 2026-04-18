@@ -21,8 +21,10 @@ export { BUILT_IN_TASKS } from './task-registry';
 export { MaintenanceScheduler } from './scheduler';
 export type {
   MaintenanceSchedulerOptions,
+  MaintenanceLogger,
   SchedulerLogger,
   SchedulerClaimManager,
+  RunHistoryProvider,
 } from './scheduler';
 
 export { cronMatchesNow } from './cron-matcher';

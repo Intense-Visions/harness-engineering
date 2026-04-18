@@ -4,14 +4,18 @@ import { BUILT_IN_TASKS } from './task-registry';
 import { cronMatchesNow } from './cron-matcher';
 
 /**
- * Logger interface matching StructuredLogger's shape.
+ * Unified logger interface for all maintenance classes.
+ * Matches StructuredLogger's shape.
  */
-export interface SchedulerLogger {
+export interface MaintenanceLogger {
   info(message: string, context?: Record<string, unknown>): void;
   warn(message: string, context?: Record<string, unknown>): void;
   error(message: string, context?: Record<string, unknown>): void;
   debug?(message: string, context?: Record<string, unknown>): void;
 }
+
+/** @deprecated Use MaintenanceLogger instead */
+export type SchedulerLogger = MaintenanceLogger;
 
 /**
  * Minimal ClaimManager interface used by the scheduler.
@@ -23,12 +27,19 @@ export interface SchedulerClaimManager {
   ): Promise<{ ok: boolean; value?: 'claimed' | 'rejected'; error?: { message: string } }>;
 }
 
+/** Interface for providing run history to the scheduler's getStatus(). */
+export interface RunHistoryProvider {
+  getHistory(limit: number, offset: number): RunResult[];
+}
+
 export interface MaintenanceSchedulerOptions {
   config: MaintenanceConfig;
   claimManager: SchedulerClaimManager;
-  logger: SchedulerLogger;
+  logger: MaintenanceLogger;
   /** Callback invoked when a task is due. The scheduler calls this for each queued task sequentially. */
   onTaskDue: (task: TaskDefinition) => Promise<void>;
+  /** Optional history provider for getStatus(). When set, getStatus() reads history from here instead of internal state. */
+  historyProvider?: RunHistoryProvider;
 }
 
 /**
@@ -39,8 +50,9 @@ export interface MaintenanceSchedulerOptions {
 export class MaintenanceScheduler {
   private config: MaintenanceConfig;
   private claimManager: SchedulerClaimManager;
-  private logger: SchedulerLogger;
+  private logger: MaintenanceLogger;
   private onTaskDue: (task: TaskDefinition) => Promise<void>;
+  private historyProvider: RunHistoryProvider | null;
 
   private resolvedTasks: TaskDefinition[];
   private interval: ReturnType<typeof setInterval> | null = null;
@@ -50,14 +62,15 @@ export class MaintenanceScheduler {
   /** Tracks which minute (as epoch-minute) each task last ran to prevent re-runs. */
   private lastRunMinute: Map<string, number> = new Map();
 
-  /** History of completed runs (most recent first). */
-  private history: RunResult[] = [];
+  /** Fallback history when no historyProvider is set (for backward compat in tests). */
+  private internalHistory: RunResult[] = [];
   private activeRun: { taskId: string; startedAt: string } | null = null;
 
   constructor(options: MaintenanceSchedulerOptions) {
     this.config = options.config;
     this.claimManager = options.claimManager;
     this.logger = options.logger;
+    this.historyProvider = options.historyProvider ?? null;
     this.onTaskDue = options.onTaskDue;
 
     this.resolvedTasks = this.resolveTasks();
@@ -221,21 +234,29 @@ export class MaintenanceScheduler {
     }
   }
 
-  /** Record a completed run result (called by the task runner or orchestrator integration). */
+  /**
+   * Record a completed run result.
+   * Kept for backward compat (tests that don't inject historyProvider).
+   * In production, the orchestrator records via the reporter directly.
+   */
   recordRun(result: RunResult): void {
-    this.history.unshift(result);
-    // Cap history at 200 entries
-    if (this.history.length > 200) {
-      this.history.length = 200;
+    this.internalHistory.unshift(result);
+    if (this.internalHistory.length > 200) {
+      this.internalHistory.length = 200;
     }
   }
 
   /** Returns the current maintenance status for the dashboard API. */
   getStatus(): MaintenanceStatus {
+    // Use historyProvider (reporter) when available; fall back to internal history
+    const history = this.historyProvider
+      ? this.historyProvider.getHistory(200, 0)
+      : this.internalHistory;
+
     const schedule: ScheduleEntry[] = this.resolvedTasks.map((task) => ({
       taskId: task.id,
       nextRun: this.computeNextRun(task.schedule),
-      lastRun: this.history.find((r) => r.taskId === task.id) ?? null,
+      lastRun: history.find((r) => r.taskId === task.id) ?? null,
     }));
 
     return {
@@ -243,7 +264,7 @@ export class MaintenanceScheduler {
       lastLeaderClaim: this.lastLeaderClaim,
       schedule,
       activeRun: this.activeRun,
-      history: this.history,
+      history,
     };
   }
 

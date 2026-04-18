@@ -60,16 +60,19 @@ describe('MaintenanceReporter', () => {
       fs.mkdirSync(persistDir, { recursive: true });
       fs.writeFileSync(path.join(persistDir, 'history.json'), '{ broken json !!!');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const reporter = new MaintenanceReporter({ persistDir });
+      const mockLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+      const reporter = new MaintenanceReporter({ persistDir, logger: mockLogger });
       await reporter.load();
 
       expect(reporter.getHistory(100, 0)).toEqual([]);
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         'MaintenanceReporter: failed to load history',
-        expect.any(SyntaxError)
+        expect.objectContaining({ error: expect.any(String) })
       );
-      consoleSpy.mockRestore();
     });
 
     it('handles non-array JSON on disk gracefully', async () => {

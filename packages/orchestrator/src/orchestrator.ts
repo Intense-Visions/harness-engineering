@@ -258,10 +258,13 @@ export class Orchestrator extends EventEmitter {
   private createMaintenanceTaskRunner(
     maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
   ): TaskRunner {
+    this.logger.warn(
+      'Maintenance task runner using stub implementations — tasks will not execute real checks or dispatch agents. ' +
+        'Real implementations will be wired in a follow-up.'
+    );
+
     const checkRunner: CheckCommandRunner = {
       run: async (command: string[], cwd: string) => {
-        // Stub: Phase 4 will integrate with real check commands.
-        // For now, return no findings so mechanical-ai tasks skip AI dispatch.
         this.logger.info('Maintenance check runner invoked (stub)', { command, cwd });
         return { passed: true, findings: 0, output: '' };
       },
@@ -269,7 +272,6 @@ export class Orchestrator extends EventEmitter {
 
     const agentDispatcher: AgentDispatcher = {
       dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
-        // Stub: Phase 4 will integrate with real AgentRunner dispatch.
         this.logger.info('Maintenance agent dispatcher invoked (stub)', {
           skill,
           branch,
@@ -282,7 +284,6 @@ export class Orchestrator extends EventEmitter {
 
     const commandExecutor: CommandExecutor = {
       exec: async (command: string[], cwd: string) => {
-        // Stub: Phase 4 will integrate with real command execution.
         this.logger.info('Maintenance command executor invoked (stub)', { command, cwd });
       },
     };
@@ -305,6 +306,7 @@ export class Orchestrator extends EventEmitter {
   ): Promise<void> {
     this.maintenanceReporter = new MaintenanceReporter({
       persistDir: path.join(this.projectRoot, '.harness', 'maintenance'),
+      logger: this.logger,
     });
     await this.maintenanceReporter.load();
 
@@ -315,6 +317,7 @@ export class Orchestrator extends EventEmitter {
       config: maintenanceConfig,
       claimManager: this.claimManager!,
       logger: this.logger,
+      historyProvider: reporter,
       onTaskDue: async (task) => {
         this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
         this.server?.broadcastMaintenance('maintenance:started', {
@@ -323,7 +326,6 @@ export class Orchestrator extends EventEmitter {
         });
 
         const result = await taskRunner.run(task);
-        this.maintenanceScheduler!.recordRun(result);
         await reporter.record(result);
 
         if (result.status === 'failure') {

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { RunResult } from './types';
+import type { MaintenanceLogger } from './scheduler';
 
 /**
  * Options for the MaintenanceReporter.
@@ -8,6 +9,8 @@ import type { RunResult } from './types';
 export interface MaintenanceReporterOptions {
   /** Directory where history.json is persisted (default: '.harness/maintenance/') */
   persistDir?: string;
+  /** Logger for structured error/info output. Falls back to console if not provided. */
+  logger?: MaintenanceLogger;
 }
 
 /** Maximum number of history entries kept in memory and on disk. */
@@ -17,12 +20,20 @@ const MAX_HISTORY = 500;
  * MaintenanceReporter persists run results to disk and provides
  * paginated history access for the dashboard API.
  */
+const fallbackLogger: MaintenanceLogger = {
+  info: () => {},
+  warn: () => {},
+  error: (msg, ctx) => console.error(msg, ctx),
+};
+
 export class MaintenanceReporter {
   private persistDir: string;
+  private logger: MaintenanceLogger;
   private history: RunResult[] = [];
 
   constructor(options?: MaintenanceReporterOptions) {
     this.persistDir = options?.persistDir ?? '.harness/maintenance/';
+    this.logger = options?.logger ?? fallbackLogger;
   }
 
   /**
@@ -48,7 +59,7 @@ export class MaintenanceReporter {
         // No history file yet — start with empty history
         return;
       }
-      console.error('MaintenanceReporter: failed to load history', err);
+      this.logger.error('MaintenanceReporter: failed to load history', { error: String(err) });
     }
   }
 
@@ -80,7 +91,7 @@ export class MaintenanceReporter {
       const filePath = path.join(this.persistDir, 'history.json');
       await fs.promises.writeFile(filePath, JSON.stringify(this.history, null, 2), 'utf-8');
     } catch (err) {
-      console.error('MaintenanceReporter: failed to persist history', err);
+      this.logger.error('MaintenanceReporter: failed to persist history', { error: String(err) });
     }
   }
 }

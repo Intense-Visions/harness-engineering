@@ -43,9 +43,11 @@ export interface PRManagerOptions {
   logger: PRManagerLogger;
 }
 
+/** @deprecated Use MaintenanceLogger from scheduler.ts instead */
 export interface PRManagerLogger {
   info(message: string, context?: Record<string, unknown>): void;
   warn(message: string, context?: Record<string, unknown>): void;
+  error?(message: string, context?: Record<string, unknown>): void;
   debug?(message: string, context?: Record<string, unknown>): void;
 }
 
