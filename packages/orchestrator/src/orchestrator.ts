@@ -67,6 +67,14 @@ import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
+import { MaintenanceScheduler } from './maintenance/scheduler';
+import { MaintenanceReporter } from './maintenance/reporter';
+import { TaskRunner } from './maintenance/task-runner';
+import type {
+  CheckCommandRunner,
+  AgentDispatcher,
+  CommandExecutor,
+} from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
@@ -110,6 +118,8 @@ export class Orchestrator extends EventEmitter {
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
+  private maintenanceScheduler: MaintenanceScheduler | null = null;
+  private maintenanceReporter: MaintenanceReporter | null = null;
   private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
@@ -238,6 +248,121 @@ export class Orchestrator extends EventEmitter {
     }
 
     return backend;
+  }
+
+  /**
+   * Creates a TaskRunner for the maintenance scheduler.
+   * Provides stub implementations for check/agent/command execution.
+   * Phase 4 (PRManager) and Phase 5 (Reporter) will enhance these.
+   */
+  private createMaintenanceTaskRunner(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): TaskRunner {
+    this.logger.warn(
+      'Maintenance task runner using stub implementations — tasks will not execute real checks or dispatch agents. ' +
+        'Real implementations will be wired in a follow-up.'
+    );
+
+    const checkRunner: CheckCommandRunner = {
+      run: async (command: string[], cwd: string) => {
+        this.logger.info('Maintenance check runner invoked (stub)', { command, cwd });
+        return { passed: true, findings: 0, output: '' };
+      },
+    };
+
+    const agentDispatcher: AgentDispatcher = {
+      dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
+        this.logger.info('Maintenance agent dispatcher invoked (stub)', {
+          skill,
+          branch,
+          backendName,
+          cwd,
+        });
+        return { producedCommits: false, fixed: 0 };
+      },
+    };
+
+    const commandExecutor: CommandExecutor = {
+      exec: async (command: string[], cwd: string) => {
+        this.logger.info('Maintenance command executor invoked (stub)', { command, cwd });
+      },
+    };
+
+    return new TaskRunner({
+      config: maintenanceConfig,
+      checkRunner,
+      agentDispatcher,
+      commandExecutor,
+      cwd: this.projectRoot,
+    });
+  }
+
+  /**
+   * Initializes the maintenance subsystem: reporter, scheduler, and server route wiring.
+   * Extracted from start() to keep function length under threshold.
+   */
+  private async initMaintenance(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): Promise<void> {
+    this.maintenanceReporter = new MaintenanceReporter({
+      persistDir: path.join(this.projectRoot, '.harness', 'maintenance'),
+      logger: this.logger,
+    });
+    await this.maintenanceReporter.load();
+
+    const taskRunner = this.createMaintenanceTaskRunner(maintenanceConfig);
+    const reporter = this.maintenanceReporter;
+
+    this.maintenanceScheduler = new MaintenanceScheduler({
+      config: maintenanceConfig,
+      claimManager: this.claimManager!,
+      logger: this.logger,
+      historyProvider: reporter,
+      onTaskDue: async (task) => {
+        this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
+        this.server?.broadcastMaintenance('maintenance:started', {
+          taskId: task.id,
+          startedAt: new Date().toISOString(),
+        });
+
+        const result = await taskRunner.run(task);
+        await reporter.record(result);
+
+        if (result.status === 'failure') {
+          this.server?.broadcastMaintenance('maintenance:error', {
+            taskId: task.id,
+            error: result.error,
+          });
+        } else {
+          this.server?.broadcastMaintenance('maintenance:completed', result);
+        }
+
+        this.logger.info(`Maintenance task completed: ${task.id}`, {
+          taskId: task.id,
+          status: result.status,
+          findings: result.findings,
+          fixed: result.fixed,
+        });
+      },
+    });
+    this.maintenanceScheduler.start();
+
+    // Wire maintenance route deps into the server
+    if (this.server) {
+      const scheduler = this.maintenanceScheduler;
+      this.server.setMaintenanceDeps({
+        scheduler,
+        reporter,
+        triggerFn: async (taskId: string) => {
+          const tasks = scheduler.getResolvedTasks();
+          const task = tasks.find((t) => t.id === taskId);
+          if (!task) throw new Error(`Unknown task: ${taskId}`);
+          // Directly invoke the onTaskDue callback, bypassing cron schedule
+          const onTaskDue = scheduler.getOnTaskDue();
+          await onTaskDue(task);
+        },
+      });
+    }
   }
 
   private createLocalBackend(): AgentBackend | null {
@@ -485,44 +610,15 @@ export class Orchestrator extends EventEmitter {
     let publishedCount = 0;
 
     for (const issue of candidates) {
-      const spec = enrichedSpecs.get(issue.id) ?? null;
-      const score = complexityScores.get(issue.id) ?? null;
-      const simulation = simulationResults.get(issue.id) ?? null;
-      if (!spec && !score && !simulation) continue;
-
-      const externalId = issue.externalId ?? null;
-      if (!externalId) continue;
-      if (publishedIndex[issue.id]) continue;
-
-      const record: AnalysisRecord = {
-        issueId: issue.id,
-        identifier: issue.identifier,
-        spec,
-        score,
-        simulation,
-        analyzedAt: new Date().toISOString(),
-        externalId,
-      };
-
-      try {
-        const commentBody = renderAnalysisComment(record);
-        const result = await adapter.addComment(externalId, commentBody);
-
-        if (result.ok) {
-          publishedIndex[issue.id] = new Date().toISOString();
-          publishedCount++;
-          this.logger.info(`Auto-published analysis for ${issue.identifier} to ${externalId}`);
-        } else {
-          this.logger.warn(`Auto-publish failed for ${issue.identifier}: ${result.error.message}`, {
-            issueId: issue.id,
-          });
-        }
-      } catch (err) {
-        this.logger.warn(`Auto-publish error for ${issue.identifier}`, {
-          issueId: issue.id,
-          error: String(err),
-        });
-      }
+      const published = await this.publishAnalysisForIssue(
+        issue,
+        enrichedSpecs,
+        complexityScores,
+        simulationResults,
+        publishedIndex,
+        adapter
+      );
+      if (published) publishedCount++;
     }
 
     if (publishedCount > 0) {
@@ -534,6 +630,53 @@ export class Orchestrator extends EventEmitter {
         });
       }
     }
+  }
+
+  private async publishAnalysisForIssue(
+    issue: Issue,
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>,
+    simulationResults: Map<string, SimulationResult>,
+    publishedIndex: Record<string, string>,
+    adapter: TrackerSyncAdapter
+  ): Promise<boolean> {
+    const spec = enrichedSpecs.get(issue.id) ?? null;
+    const score = complexityScores.get(issue.id) ?? null;
+    const simulation = simulationResults.get(issue.id) ?? null;
+    if (!spec && !score && !simulation) return false;
+
+    const externalId = issue.externalId ?? null;
+    if (!externalId) return false;
+    if (publishedIndex[issue.id]) return false;
+
+    const record: AnalysisRecord = {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      spec,
+      score,
+      simulation,
+      analyzedAt: new Date().toISOString(),
+      externalId,
+    };
+
+    try {
+      const commentBody = renderAnalysisComment(record);
+      const result = await adapter.addComment(externalId, commentBody);
+      if (result.ok) {
+        publishedIndex[issue.id] = new Date().toISOString();
+        this.logger.info(`Auto-published analysis for ${issue.identifier} to ${externalId}`);
+        return true;
+      }
+      this.logger.warn(`Auto-publish failed for ${issue.identifier}: ${result.error.message}`, {
+        issueId: issue.id,
+      });
+    } catch (err) {
+      this.logger.warn(`Auto-publish error for ${issue.identifier}`, {
+        issueId: issue.id,
+        error: String(err),
+      });
+    }
+    return false;
   }
 
   private async runIntelligencePipeline(candidates: Issue[]): Promise<{
@@ -554,67 +697,21 @@ export class Orchestrator extends EventEmitter {
     const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
     const nowForCache = Date.now();
 
-    // Evict expired failure cache entries
-    for (const [id, failedAt] of this.analysisFailureCache) {
-      if (nowForCache - failedAt >= failureTtl) {
-        this.analysisFailureCache.delete(id);
-      }
-    }
+    this.evictExpiredFailures(nowForCache, failureTtl);
 
-    const eligibleCandidates = candidates.filter((issue) => {
-      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-      if (escalationConfig.autoExecute.includes(scopeTier)) return false;
-      if (this.analysisFailureCache.has(issue.id)) return false;
-      // Skip issues already successfully analyzed (cache cleared on completion)
-      if (this.enrichedSpecsByIssue.has(issue.id)) return false;
-      return true;
-    });
-
+    const eligibleCandidates = this.filterEligibleForAnalysis(candidates, escalationConfig);
     const circuitBreakerThreshold = this.config.intelligence?.circuitBreakerThreshold ?? 2;
-    let consecutiveConnectionErrors = 0;
 
-    let processed = 0;
-    for (const issue of eligibleCandidates) {
-      processed++;
-      this.setTickActivity('analyzing', `SEL/CML: ${issue.identifier} — ${issue.title}`, {
-        current: processed,
-        total: eligibleCandidates.length,
-      });
-
-      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-      try {
-        const result = await this.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
-        if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
-        if (result.spec) {
-          enrichedSpecs.set(issue.id, result.spec);
-          this.enrichedSpecsByIssue.set(issue.id, result.spec);
-        }
-        if (result.score) complexityScores.set(issue.id, result.score);
-        consecutiveConnectionErrors = 0;
-      } catch (err) {
-        this.analysisFailureCache.set(issue.id, nowForCache);
-
-        if (isConnectionError(err)) {
-          consecutiveConnectionErrors++;
-          if (consecutiveConnectionErrors >= circuitBreakerThreshold) {
-            const remaining = eligibleCandidates.slice(processed);
-            for (const skipped of remaining) {
-              this.analysisFailureCache.set(skipped.id, nowForCache);
-            }
-            this.logger.warn(
-              `Intelligence pipeline unreachable, skipping remaining ${remaining.length} issues (${consecutiveConnectionErrors} consecutive connection errors)`,
-              { error: String(err), cachedForMs: failureTtl }
-            );
-            break;
-          }
-        }
-
-        this.logger.error(
-          `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
-          { issueId: issue.id, error: String(err) }
-        );
-      }
-    }
+    await this.analyzeCandidates(
+      eligibleCandidates,
+      escalationConfig,
+      nowForCache,
+      failureTtl,
+      circuitBreakerThreshold,
+      concernSignals,
+      enrichedSpecs,
+      complexityScores
+    );
 
     this.setTickActivity('analyzing', 'PESL: Running simulations');
     const simulationResults = await this.runPeslSimulations(
@@ -648,6 +745,128 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Analyzes a single candidate issue through the intelligence pipeline.
+   * Returns connection error state and whether the circuit breaker tripped.
+   */
+  private async analyzeCandidate(
+    issue: Issue,
+    escalationConfig: ReturnType<typeof resolveEscalationConfig>,
+    nowForCache: number,
+    failureTtl: number,
+    consecutiveConnectionErrors: number,
+    circuitBreakerThreshold: number,
+    concernSignals: Map<string, ConcernSignal[]>,
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>
+  ): Promise<{
+    consecutiveConnectionErrors: number;
+    circuitBroken: boolean;
+    breakError: string | null;
+  }> {
+    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+    try {
+      const result = await this.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
+      if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
+      if (result.spec) {
+        enrichedSpecs.set(issue.id, result.spec);
+        this.enrichedSpecsByIssue.set(issue.id, result.spec);
+      }
+      if (result.score) complexityScores.set(issue.id, result.score);
+      return { consecutiveConnectionErrors: 0, circuitBroken: false, breakError: null };
+    } catch (err) {
+      this.analysisFailureCache.set(issue.id, nowForCache);
+
+      if (isConnectionError(err)) {
+        const newCount = consecutiveConnectionErrors + 1;
+        if (newCount >= circuitBreakerThreshold) {
+          return {
+            consecutiveConnectionErrors: newCount,
+            circuitBroken: true,
+            breakError: String(err),
+          };
+        }
+        this.logger.error(
+          `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
+          { issueId: issue.id, error: String(err) }
+        );
+        return { consecutiveConnectionErrors: newCount, circuitBroken: false, breakError: null };
+      }
+
+      this.logger.error(
+        `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
+        { issueId: issue.id, error: String(err) }
+      );
+      return { consecutiveConnectionErrors, circuitBroken: false, breakError: null };
+    }
+  }
+
+  private evictExpiredFailures(nowForCache: number, failureTtl: number): void {
+    for (const [id, failedAt] of this.analysisFailureCache) {
+      if (nowForCache - failedAt >= failureTtl) {
+        this.analysisFailureCache.delete(id);
+      }
+    }
+  }
+
+  private filterEligibleForAnalysis(
+    candidates: Issue[],
+    escalationConfig: ReturnType<typeof resolveEscalationConfig>
+  ): Issue[] {
+    return candidates.filter((issue) => {
+      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+      if (escalationConfig.autoExecute.includes(scopeTier)) return false;
+      if (this.analysisFailureCache.has(issue.id)) return false;
+      if (this.enrichedSpecsByIssue.has(issue.id)) return false;
+      return true;
+    });
+  }
+
+  private async analyzeCandidates(
+    eligibleCandidates: Issue[],
+    escalationConfig: ReturnType<typeof resolveEscalationConfig>,
+    nowForCache: number,
+    failureTtl: number,
+    circuitBreakerThreshold: number,
+    concernSignals: Map<string, ConcernSignal[]>,
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>
+  ): Promise<void> {
+    let processed = 0;
+    let consecutiveConnErrors = 0;
+    for (const issue of eligibleCandidates) {
+      processed++;
+      this.setTickActivity('analyzing', `SEL/CML: ${issue.identifier} — ${issue.title}`, {
+        current: processed,
+        total: eligibleCandidates.length,
+      });
+
+      const loopResult = await this.analyzeCandidate(
+        issue,
+        escalationConfig,
+        nowForCache,
+        failureTtl,
+        consecutiveConnErrors,
+        circuitBreakerThreshold,
+        concernSignals,
+        enrichedSpecs,
+        complexityScores
+      );
+      consecutiveConnErrors = loopResult.consecutiveConnectionErrors;
+
+      if (loopResult.circuitBroken) {
+        for (const skipped of eligibleCandidates.slice(processed)) {
+          this.analysisFailureCache.set(skipped.id, nowForCache);
+        }
+        this.logger.warn(
+          `Intelligence pipeline unreachable, skipping remaining ${eligibleCandidates.length - processed} issues`,
+          { error: loopResult.breakError!, cachedForMs: failureTtl }
+        );
+        break;
+      }
+    }
+  }
+
+  /**
    * Lazily initializes the ClaimManager if it hasn't been created yet.
    * Called from both start() and asyncTick() to avoid duplicating the init block.
    */
@@ -659,45 +878,59 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
+  /**
+   * Loads the graph store and hydrates the enriched spec cache from the analysis
+   * archive on the first tick. Subsequent calls are no-ops. All failures are
+   * non-fatal — empty graph / empty cache are valid fallbacks.
+   */
+  private async loadPersistedData(): Promise<void> {
+    if (!this.pipeline || !this.graphStore || this.graphLoaded) return;
+    this.graphLoaded = true;
+
+    await this.loadGraphStore();
+    await this.hydrateSpecCache();
+  }
+
+  private async loadGraphStore(): Promise<void> {
+    try {
+      const graphDir = path.join(this.config.workspace.root, '..', 'graph');
+      const loaded = await this.graphStore!.load(graphDir);
+      if (loaded) {
+        this.logger.info('Graph store loaded from disk');
+      } else {
+        this.logger.info('No persisted graph data found, starting with empty graph');
+      }
+    } catch (err) {
+      this.logger.warn('Failed to load graph store, starting with empty graph', {
+        error: String(err),
+      });
+    }
+  }
+
+  private async hydrateSpecCache(): Promise<void> {
+    try {
+      const archived = await this.analysisArchive.list();
+      for (const record of archived) {
+        if (record.spec && !this.enrichedSpecsByIssue.has(record.issueId)) {
+          this.enrichedSpecsByIssue.set(record.issueId, record.spec);
+        }
+      }
+      if (archived.length > 0) {
+        this.logger.info(`Loaded ${this.enrichedSpecsByIssue.size} cached analyses from archive`);
+      }
+    } catch (err) {
+      this.logger.warn('Failed to load analysis archive, will re-analyze on demand', {
+        error: String(err),
+      });
+    }
+  }
+
   public async asyncTick(): Promise<void> {
     // Ensure ClaimManager is initialized (no-op if start() already ran)
     await this.ensureClaimManager();
 
     // Load persisted data on first tick (can't await in constructor)
-    if (this.pipeline && this.graphStore && !this.graphLoaded) {
-      this.graphLoaded = true;
-      try {
-        const graphDir = path.join(this.config.workspace.root, '..', 'graph');
-        const loaded = await this.graphStore.load(graphDir);
-        if (loaded) {
-          this.logger.info('Graph store loaded from disk');
-        } else {
-          this.logger.info('No persisted graph data found, starting with empty graph');
-        }
-      } catch (err) {
-        // Graph load failure is non-fatal — empty graph is a valid fallback
-        this.logger.warn('Failed to load graph store, starting with empty graph', {
-          error: String(err),
-        });
-      }
-
-      // Hydrate enriched spec cache from analysis archive
-      try {
-        const archived = await this.analysisArchive.list();
-        for (const record of archived) {
-          if (record.spec && !this.enrichedSpecsByIssue.has(record.issueId)) {
-            this.enrichedSpecsByIssue.set(record.issueId, record.spec);
-          }
-        }
-        if (archived.length > 0) {
-          this.logger.info(`Loaded ${this.enrichedSpecsByIssue.size} cached analyses from archive`);
-        }
-      } catch (err) {
-        this.logger.warn('Failed to load analysis archive, will re-analyze on demand', {
-          error: String(err),
-        });
-      }
-    }
+    await this.loadPersistedData();
 
     const nowMs = Date.now();
 
@@ -1139,8 +1372,65 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
-    // Claim succeeded — proceed to dispatch
+    // Claim succeeded — post claim comment to GitHub issue, then dispatch
+    await this.postClaimComment(effect.issue);
     await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
+  }
+
+  /**
+   * Posts a structured comment on the GitHub issue when the orchestrator claims it.
+   * Fire-and-forget: failures are logged but never block dispatch.
+   */
+  private async postClaimComment(issue: Issue): Promise<void> {
+    await this.postLifecycleComment(issue.identifier, issue.externalId ?? null, 'claimed');
+  }
+
+  /**
+   * Posts a lifecycle event comment to the GitHub issue.
+   * Supports: claimed, completed, released.
+   * Fire-and-forget: failures are logged but never block the caller.
+   */
+  private async postLifecycleComment(
+    identifier: string,
+    externalId: string | null,
+    event: 'claimed' | 'completed' | 'released'
+  ): Promise<void> {
+    try {
+      if (!externalId) return;
+
+      const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
+      if (!trackerConfig) return;
+
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return;
+
+      const orchestratorId = await this.orchestratorIdPromise;
+      const adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
+      const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+      const actionMap = {
+        claimed: 'Dispatching agent for autonomous execution',
+        completed: 'Agent finished successfully',
+        released: 'Releasing back to candidate pool',
+      };
+
+      const body = [
+        `**Orchestrator ${event.charAt(0).toUpperCase() + event.slice(1)}** \`${orchestratorId}\``,
+        '',
+        `| Field | Value |`,
+        `|-------|-------|`,
+        `| Time | ${timestamp} UTC |`,
+        `| Orchestrator | \`${orchestratorId}\` |`,
+        `| Event | ${actionMap[event]} |`,
+      ].join('\n');
+
+      const result = await adapter.addComment(externalId, body);
+      if (!result.ok) {
+        this.logger.warn(`Lifecycle comment failed for ${identifier}: ${result.error.message}`);
+      }
+    } catch {
+      // Best-effort: never block the caller
+    }
   }
 
   /**
@@ -1317,6 +1607,86 @@ export class Orchestrator extends EventEmitter {
     });
   }
 
+  private async recordOutcomeIfPipelineEnabled(
+    issueId: string,
+    reason: 'normal' | 'error',
+    attempt: number | null,
+    error: string | undefined,
+    entry: { identifier: string; startedAt: string } | undefined
+  ): Promise<void> {
+    if (!this.pipeline) return;
+
+    const enrichedSpec = this.enrichedSpecsByIssue.get(issueId);
+    const affectedSystemNodeIds = enrichedSpec
+      ? enrichedSpec.affectedSystems
+          .filter((s) => s.graphNodeId !== null)
+          .map((s) => s.graphNodeId!)
+      : [];
+
+    const outcome: ExecutionOutcome = {
+      id: `outcome:${issueId}:${attempt ?? 0}`,
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+      result: reason === 'normal' ? 'success' : 'failure',
+      retryCount: attempt ?? 0,
+      failureReasons: error ? [error] : [],
+      durationMs: entry ? Date.now() - new Date(entry.startedAt).getTime() : 0,
+      linkedSpecId: enrichedSpec?.id ?? null,
+      affectedSystemNodeIds,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      this.pipeline.recordOutcome(outcome);
+      this.logger.info(`Recorded execution outcome for ${issueId}: ${reason}`, {
+        issueId,
+        result: outcome.result,
+      });
+      if (this.graphStore) {
+        const graphDir = path.join(this.config.workspace.root, '..', 'graph');
+        await this.graphStore.save(graphDir);
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to record execution outcome for ${issueId}`, {
+        error: String(err),
+      });
+    }
+
+    if (reason === 'normal') {
+      this.enrichedSpecsByIssue.delete(issueId);
+    }
+  }
+
+  private async handleCompletionSideEffects(
+    issueId: string,
+    reason: 'normal' | 'error',
+    entry?: { identifier: string; issue: { externalId?: string | null } }
+  ): Promise<void> {
+    if (reason !== 'normal') return;
+
+    if (entry) {
+      await this.postLifecycleComment(
+        entry.identifier,
+        entry.issue.externalId ?? null,
+        'completed'
+      );
+    }
+
+    try {
+      const result = await this.tracker.markIssueComplete(issueId);
+      if (!result.ok) {
+        this.logger.warn(`Tracker write-back failed for ${issueId}: ${String(result.error)}`, {
+          issueId,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Tracker write-back threw for ${issueId}`, {
+        issueId,
+        error: String(err),
+      });
+    }
+  }
+
   /**
    * Informs the state machine that an agent worker has exited.
    */
@@ -1326,72 +1696,10 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     error?: string
   ): Promise<void> {
-    // Record execution outcome in graph (if pipeline is enabled)
-    if (this.pipeline) {
-      const entry = this.state.running.get(issueId);
-      const enrichedSpec = this.enrichedSpecsByIssue.get(issueId);
-      const affectedSystemNodeIds = enrichedSpec
-        ? enrichedSpec.affectedSystems
-            .filter((s) => s.graphNodeId !== null)
-            .map((s) => s.graphNodeId!)
-        : [];
+    const entry = this.state.running.get(issueId);
 
-      const outcome: ExecutionOutcome = {
-        id: `outcome:${issueId}:${attempt ?? 0}`,
-        issueId,
-        identifier: entry?.identifier ?? issueId,
-        result: reason === 'normal' ? 'success' : 'failure',
-        retryCount: attempt ?? 0,
-        failureReasons: error ? [error] : [],
-        durationMs: entry ? Date.now() - new Date(entry.startedAt).getTime() : 0,
-        linkedSpecId: enrichedSpec?.id ?? null,
-        affectedSystemNodeIds,
-        timestamp: new Date().toISOString(),
-      };
-
-      try {
-        this.pipeline.recordOutcome(outcome);
-        this.logger.info(`Recorded execution outcome for ${issueId}: ${reason}`, {
-          issueId,
-          result: outcome.result,
-        });
-
-        // Persist graph to disk so historical complexity data survives restarts
-        if (this.graphStore) {
-          const graphDir = path.join(this.config.workspace.root, '..', 'graph');
-          await this.graphStore.save(graphDir);
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to record execution outcome for ${issueId}`, {
-          error: String(err),
-        });
-      }
-
-      // Clean up enriched spec cache for completed issues
-      if (reason === 'normal') {
-        this.enrichedSpecsByIssue.delete(issueId);
-      }
-    }
-
-    // Persist completion to the tracker so the issue is no longer a candidate
-    // on subsequent ticks — including across orchestrator restarts. Failures
-    // are logged but do not block: the in-memory `completed` set still
-    // prevents re-dispatch within this process.
-    if (reason === 'normal') {
-      try {
-        const result = await this.tracker.markIssueComplete(issueId);
-        if (!result.ok) {
-          this.logger.warn(`Tracker write-back failed for ${issueId}: ${String(result.error)}`, {
-            issueId,
-          });
-        }
-      } catch (err) {
-        this.logger.warn(`Tracker write-back threw for ${issueId}`, {
-          issueId,
-          error: String(err),
-        });
-      }
-    }
+    await this.recordOutcomeIfPipelineEnabled(issueId, reason, attempt, error, entry);
+    await this.handleCompletionSideEffects(issueId, reason, entry);
 
     const event: OrchestratorEvent = {
       type: 'worker_exit',
@@ -1508,6 +1816,11 @@ export class Orchestrator extends EventEmitter {
         }
       }
     }, heartbeatMs);
+
+    // Start maintenance scheduler if enabled
+    if (this.config.maintenance?.enabled) {
+      await this.initMaintenance(this.config.maintenance);
+    }
   }
 
   /**
@@ -1521,6 +1834,10 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    if (this.maintenanceScheduler) {
+      this.maintenanceScheduler.stop();
+      this.maintenanceScheduler = null;
     }
     if (this.server) {
       this.server.stop();
@@ -1566,5 +1883,10 @@ export class Orchestrator extends EventEmitter {
       claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
+  }
+
+  /** Returns the maintenance scheduler status, or null if maintenance is not enabled. */
+  public getMaintenanceStatus(): import('./maintenance/types').MaintenanceStatus | null {
+    return this.maintenanceScheduler?.getStatus() ?? null;
   }
 }

@@ -9,6 +9,8 @@ import { handleRoadmapActionsRoute } from './routes/roadmap-actions';
 import { handleDispatchActionsRoute } from './routes/dispatch-actions';
 import type { DispatchAdHocFn } from './routes/dispatch-actions';
 import { handleAnalysesRoute } from './routes/analyses';
+import { handleMaintenanceRoute } from './routes/maintenance';
+import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
@@ -48,6 +50,8 @@ export interface ServerDependencies {
   dispatchAdHoc?: DispatchAdHocFn | null;
   /** Directory for chat session metadata (default: <cwd>/.harness/sessions) */
   sessionsDir?: string;
+  /** Maintenance scheduler + reporter deps for dashboard routes */
+  maintenanceDeps?: MaintenanceRouteDeps | null;
 }
 
 export class OrchestratorServer {
@@ -55,22 +59,32 @@ export class OrchestratorServer {
   private broadcaster: WebSocketBroadcaster;
   private orchestrator: Snapshotable;
   private interactionQueue: InteractionQueue | undefined;
-  private plansDir: string;
-  private dashboardDir: string;
+  private plansDir!: string;
+  private dashboardDir!: string;
   private port: number;
-  private claudeCommand: string;
-  private pipeline: IntelligencePipeline | null;
+  private claudeCommand!: string;
+  private pipeline!: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive | undefined;
-  private roadmapPath: string | null;
-  private dispatchAdHoc: DispatchAdHocFn | null;
-  private sessionsDir: string;
+  private roadmapPath!: string | null;
+  private dispatchAdHoc!: DispatchAdHocFn | null;
+  private sessionsDir!: string;
+  private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private planWatcher: PlanWatcher | null = null;
-  private stateChangeListener: (snapshot: unknown) => void;
-  private agentEventListener: (event: unknown) => void;
+  private stateChangeListener!: (snapshot: unknown) => void;
+  private agentEventListener!: (event: unknown) => void;
 
   constructor(orchestrator: Snapshotable, port: number, deps?: ServerDependencies) {
     this.orchestrator = orchestrator;
     this.port = port;
+    this.initDependencies(deps);
+    this.httpServer = http.createServer(this.handleRequest.bind(this));
+    this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
+      this.orchestrator.getSnapshot()
+    );
+    this.wireEvents();
+  }
+
+  private initDependencies(deps?: ServerDependencies): void {
     this.interactionQueue = deps?.interactionQueue;
     this.plansDir = deps?.plansDir ?? path.resolve('docs', 'plans');
     this.dashboardDir =
@@ -81,12 +95,10 @@ export class OrchestratorServer {
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
-    this.httpServer = http.createServer(this.handleRequest.bind(this));
-    this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
-      this.orchestrator.getSnapshot()
-    );
+    this.maintenanceDeps = deps?.maintenanceDeps ?? null;
+  }
 
-    // Wire orchestrator events to WebSocket broadcasts (store refs for cleanup)
+  private wireEvents(): void {
     this.stateChangeListener = (snapshot: unknown) => {
       this.broadcaster.broadcast('state_change', snapshot);
     };
@@ -105,53 +117,29 @@ export class OrchestratorServer {
     this.broadcaster.broadcast('interaction_new', interaction);
   }
 
+  /**
+   * Broadcast a maintenance event to all WebSocket clients.
+   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error'
+   * @param data - Event payload (task info, run result, or error details)
+   */
+  public broadcastMaintenance(type: string, data: unknown): void {
+    this.broadcaster.broadcast(type, data);
+  }
+
+  /**
+   * Set (or update) the maintenance route dependencies after construction.
+   * Called by the Orchestrator once the scheduler and reporter are ready.
+   */
+  public setMaintenanceDeps(deps: MaintenanceRouteDeps): void {
+    this.maintenanceDeps = deps;
+  }
+
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const { method, url } = req;
-
-    // State endpoint (supports both /api/state and legacy /api/v1/state)
-    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+    if (this.handleStateEndpoint(req, res)) {
       return;
     }
 
-    // Interactions routes
-    if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
-      return;
-    }
-
-    // Plans route
-    if (handlePlansRoute(req, res, this.plansDir)) {
-      return;
-    }
-
-    // Analyze route (intelligence pipeline)
-    if (handleAnalyzeRoute(req, res, this.pipeline)) {
-      return;
-    }
-
-    // Analyses archive route
-    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
-      return;
-    }
-
-    // Roadmap append route
-    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
-      return;
-    }
-
-    // Ad-hoc dispatch route
-    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
-      return;
-    }
-
-    // Chat session metadata route
-    if (handleSessionsRoute(req, res, this.sessionsDir)) {
-      return;
-    }
-
-    // Chat proxy route (spawns Claude Code CLI — no API key required)
-    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
+    if (this.handleApiRoutes(req, res)) {
       return;
     }
 
@@ -162,6 +150,67 @@ export class OrchestratorServer {
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not Found' }));
+  }
+
+  /** Handle GET /api/state and legacy /api/v1/state */
+  private handleStateEndpoint(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    const { method, url } = req;
+    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+      return true;
+    }
+    return false;
+  }
+
+  /** Dispatch to API route handlers. Returns true if a route matched. */
+  private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    // Interactions routes
+    if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
+      return true;
+    }
+
+    // Plans route
+    if (handlePlansRoute(req, res, this.plansDir)) {
+      return true;
+    }
+
+    // Analyze route (intelligence pipeline)
+    if (handleAnalyzeRoute(req, res, this.pipeline)) {
+      return true;
+    }
+
+    // Analyses archive route
+    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
+      return true;
+    }
+
+    // Roadmap append route
+    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
+      return true;
+    }
+
+    // Ad-hoc dispatch route
+    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return true;
+    }
+
+    // Maintenance dashboard routes
+    if (handleMaintenanceRoute(req, res, this.maintenanceDeps)) {
+      return true;
+    }
+
+    // Chat session metadata route
+    if (handleSessionsRoute(req, res, this.sessionsDir)) {
+      return true;
+    }
+
+    // Chat proxy route (spawns Claude Code CLI — no API key required)
+    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
+      return true;
+    }
+
+    return false;
   }
 
   public get wsClientCount(): number {

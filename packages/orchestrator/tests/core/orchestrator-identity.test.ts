@@ -21,12 +21,11 @@ describe('resolveOrchestratorId', () => {
     expect(fs.readFile).not.toHaveBeenCalled();
   });
 
-  it('reads existing machine ID from disk and combines with hostname', async () => {
+  it('reads existing machine ID from disk and derives orchestrator ID', async () => {
     vi.mocked(fs.readFile).mockResolvedValue('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
     const { resolveOrchestratorId } = await import('../../src/core/orchestrator-identity');
     const result = await resolveOrchestratorId();
-    // Hostname "test-host.local" -> "test-host" (strip .local)
-    expect(result).toMatch(/^test-host-[a-f0-9]{8}$/);
+    expect(result).toMatch(/^orchestrator-[a-f0-9]{8}$/);
     expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
@@ -37,7 +36,7 @@ describe('resolveOrchestratorId', () => {
 
     const { resolveOrchestratorId } = await import('../../src/core/orchestrator-identity');
     const result = await resolveOrchestratorId();
-    expect(result).toMatch(/^test-host-[a-f0-9]{8}$/);
+    expect(result).toMatch(/^orchestrator-[a-f0-9]{8}$/);
     expect(fs.mkdir).toHaveBeenCalledTimes(1);
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
     // Verify the UUID was written

@@ -235,15 +235,15 @@ export async function fullSync(
 
     const roadmap = parseResult.value;
 
-    // Fetch all tickets once for both push (dedup) and pull (status/assignee)
+    // Fetch tickets for push (dedup) phase
     const fetchResult = await adapter.fetchAllTickets();
     const tickets = fetchResult.ok ? fetchResult.value : undefined;
 
     // Push first (planning fields out)
     const pushResult = await syncToExternal(roadmap, adapter, config, tickets);
 
-    // Then pull (execution fields back)
-    const pullResult = await syncFromExternal(roadmap, adapter, config, options, tickets);
+    // Pull with fresh data (push may have changed issue states)
+    const pullResult = await syncFromExternal(roadmap, adapter, config, options);
 
     // Write updated roadmap back to disk
     fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');

@@ -17,8 +17,10 @@ agents/commands/**
 .harness/stack-profile.json
 .harness/metrics/
 .harness/security/
-**/.harness/arch/baselines.json
+**/.harness/graph/
+**/.harness/arch/
 **/fixtures/**/.harness/
+**/.harness/arch/baselines.json
 
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts

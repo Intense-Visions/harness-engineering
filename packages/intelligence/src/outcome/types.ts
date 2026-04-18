@@ -1,3 +1,6 @@
+/** Task type categorization for specialization tracking. */
+export type TaskType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'chore';
+
 /**
  * Execution outcome -- result of a worker running an issue.
  * Ingested into the graph as an 'execution_outcome' node.
@@ -30,4 +33,6 @@ export interface ExecutionOutcome {
    * successes and failures to the responsible agent.
    */
   agentPersona?: string;
+  /** Task type categorization (e.g., 'feature', 'bugfix', 'refactor', 'docs'). */
+  taskType?: TaskType;
 }
