@@ -5,8 +5,7 @@
  * Phase 2 adds MaintenanceScheduler and cron matching.
  * Phase 3 adds TaskRunner with four execution paths.
  * Phase 4 adds PRManager for branch and PR lifecycle.
- * Subsequent phases add:
- * - Reporter (Phase 5)
+ * Phase 5 adds MaintenanceReporter for run result persistence.
  */
 
 export type {
@@ -38,6 +37,9 @@ export type {
   PRLifecycleManager,
   TaskRunnerOptions,
 } from './task-runner';
+
+export { MaintenanceReporter } from './reporter';
+export type { MaintenanceReporterOptions } from './reporter';
 
 export { PRManager } from './pr-manager';
 export type {
