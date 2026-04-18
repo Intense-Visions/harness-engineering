@@ -67,6 +67,14 @@ import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
+import { MaintenanceScheduler } from './maintenance/scheduler';
+import { MaintenanceReporter } from './maintenance/reporter';
+import { TaskRunner } from './maintenance/task-runner';
+import type {
+  CheckCommandRunner,
+  AgentDispatcher,
+  CommandExecutor,
+} from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
@@ -110,6 +118,8 @@ export class Orchestrator extends EventEmitter {
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
+  private maintenanceScheduler: MaintenanceScheduler | null = null;
+  private maintenanceReporter: MaintenanceReporter | null = null;
   private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
@@ -238,6 +248,121 @@ export class Orchestrator extends EventEmitter {
     }
 
     return backend;
+  }
+
+  /**
+   * Creates a TaskRunner for the maintenance scheduler.
+   * Provides stub implementations for check/agent/command execution.
+   * Phase 4 (PRManager) and Phase 5 (Reporter) will enhance these.
+   */
+  private createMaintenanceTaskRunner(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): TaskRunner {
+    this.logger.warn(
+      'Maintenance task runner using stub implementations — tasks will not execute real checks or dispatch agents. ' +
+        'Real implementations will be wired in a follow-up.'
+    );
+
+    const checkRunner: CheckCommandRunner = {
+      run: async (command: string[], cwd: string) => {
+        this.logger.info('Maintenance check runner invoked (stub)', { command, cwd });
+        return { passed: true, findings: 0, output: '' };
+      },
+    };
+
+    const agentDispatcher: AgentDispatcher = {
+      dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
+        this.logger.info('Maintenance agent dispatcher invoked (stub)', {
+          skill,
+          branch,
+          backendName,
+          cwd,
+        });
+        return { producedCommits: false, fixed: 0 };
+      },
+    };
+
+    const commandExecutor: CommandExecutor = {
+      exec: async (command: string[], cwd: string) => {
+        this.logger.info('Maintenance command executor invoked (stub)', { command, cwd });
+      },
+    };
+
+    return new TaskRunner({
+      config: maintenanceConfig,
+      checkRunner,
+      agentDispatcher,
+      commandExecutor,
+      cwd: this.projectRoot,
+    });
+  }
+
+  /**
+   * Initializes the maintenance subsystem: reporter, scheduler, and server route wiring.
+   * Extracted from start() to keep function length under threshold.
+   */
+  private async initMaintenance(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): Promise<void> {
+    this.maintenanceReporter = new MaintenanceReporter({
+      persistDir: path.join(this.projectRoot, '.harness', 'maintenance'),
+      logger: this.logger,
+    });
+    await this.maintenanceReporter.load();
+
+    const taskRunner = this.createMaintenanceTaskRunner(maintenanceConfig);
+    const reporter = this.maintenanceReporter;
+
+    this.maintenanceScheduler = new MaintenanceScheduler({
+      config: maintenanceConfig,
+      claimManager: this.claimManager!,
+      logger: this.logger,
+      historyProvider: reporter,
+      onTaskDue: async (task) => {
+        this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
+        this.server?.broadcastMaintenance('maintenance:started', {
+          taskId: task.id,
+          startedAt: new Date().toISOString(),
+        });
+
+        const result = await taskRunner.run(task);
+        await reporter.record(result);
+
+        if (result.status === 'failure') {
+          this.server?.broadcastMaintenance('maintenance:error', {
+            taskId: task.id,
+            error: result.error,
+          });
+        } else {
+          this.server?.broadcastMaintenance('maintenance:completed', result);
+        }
+
+        this.logger.info(`Maintenance task completed: ${task.id}`, {
+          taskId: task.id,
+          status: result.status,
+          findings: result.findings,
+          fixed: result.fixed,
+        });
+      },
+    });
+    this.maintenanceScheduler.start();
+
+    // Wire maintenance route deps into the server
+    if (this.server) {
+      const scheduler = this.maintenanceScheduler;
+      this.server.setMaintenanceDeps({
+        scheduler,
+        reporter,
+        triggerFn: async (taskId: string) => {
+          const tasks = scheduler.getResolvedTasks();
+          const task = tasks.find((t) => t.id === taskId);
+          if (!task) throw new Error(`Unknown task: ${taskId}`);
+          // Directly invoke the onTaskDue callback, bypassing cron schedule
+          const onTaskDue = scheduler.getOnTaskDue();
+          await onTaskDue(task);
+        },
+      });
+    }
   }
 
   private createLocalBackend(): AgentBackend | null {
@@ -1691,6 +1816,11 @@ export class Orchestrator extends EventEmitter {
         }
       }
     }, heartbeatMs);
+
+    // Start maintenance scheduler if enabled
+    if (this.config.maintenance?.enabled) {
+      await this.initMaintenance(this.config.maintenance);
+    }
   }
 
   /**
@@ -1704,6 +1834,10 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    if (this.maintenanceScheduler) {
+      this.maintenanceScheduler.stop();
+      this.maintenanceScheduler = null;
     }
     if (this.server) {
       this.server.stop();
@@ -1749,5 +1883,10 @@ export class Orchestrator extends EventEmitter {
       claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
+  }
+
+  /** Returns the maintenance scheduler status, or null if maintenance is not enabled. */
+  public getMaintenanceStatus(): import('./maintenance/types').MaintenanceStatus | null {
+    return this.maintenanceScheduler?.getStatus() ?? null;
   }
 }

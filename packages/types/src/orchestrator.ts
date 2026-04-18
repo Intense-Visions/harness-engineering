@@ -1,5 +1,6 @@
 import type { Result } from './result';
 import type { ContainerConfig, SecretConfig } from './container';
+import type { MaintenanceConfig } from './maintenance';
 
 // --- Token Usage ---
 
@@ -372,6 +373,8 @@ export interface WorkflowConfig {
   server: ServerConfig;
   /** Intelligence pipeline settings */
   intelligence?: IntelligenceConfig;
+  /** Scheduled maintenance settings */
+  maintenance?: MaintenanceConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
 }
