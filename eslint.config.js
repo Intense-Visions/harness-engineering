@@ -89,6 +89,7 @@ export default [
     rules: {
       '@harness-engineering/no-unix-shell-command': 'warn',
       '@harness-engineering/no-hardcoded-path-separator': 'warn',
+      '@harness-engineering/require-path-normalization': 'warn',
     },
   },
   prettierConfig,
