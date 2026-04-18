@@ -64,7 +64,10 @@ export async function triggerExternalSync(projectPath: string, roadmapFile: stri
     }
 
     const token = process.env.GITHUB_TOKEN;
-    if (!token) return; // No token — cannot sync
+    if (!token) {
+      console.warn('[roadmap-sync] GITHUB_TOKEN not found — external sync skipped');
+      return;
+    }
 
     const { fullSync, GitHubIssuesSyncAdapter } = await import('@harness-engineering/core');
 

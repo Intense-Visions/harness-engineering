@@ -45,22 +45,31 @@ export class OrchestratorServer {
   private broadcaster: WebSocketBroadcaster;
   private orchestrator: Snapshotable;
   private interactionQueue: InteractionQueue | undefined;
-  private plansDir: string;
-  private dashboardDir: string;
+  private plansDir!: string;
+  private dashboardDir!: string;
   private port: number;
-  private claudeCommand: string;
-  private pipeline: IntelligencePipeline | null;
+  private claudeCommand!: string;
+  private pipeline!: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive | undefined;
-  private roadmapPath: string | null;
-  private dispatchAdHoc: DispatchAdHocFn | null;
-  private sessionsDir: string;
+  private roadmapPath!: string | null;
+  private dispatchAdHoc!: DispatchAdHocFn | null;
+  private sessionsDir!: string;
   private planWatcher: PlanWatcher | null = null;
-  private stateChangeListener: (snapshot: unknown) => void;
-  private agentEventListener: (event: unknown) => void;
+  private stateChangeListener!: (snapshot: unknown) => void;
+  private agentEventListener!: (event: unknown) => void;
 
   constructor(orchestrator: Snapshotable, port: number, deps?: ServerDependencies) {
     this.orchestrator = orchestrator;
     this.port = port;
+    this.initDependencies(deps);
+    this.httpServer = http.createServer(this.handleRequest.bind(this));
+    this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
+      this.orchestrator.getSnapshot()
+    );
+    this.wireEvents();
+  }
+
+  private initDependencies(deps?: ServerDependencies): void {
     this.interactionQueue = deps?.interactionQueue;
     this.plansDir = deps?.plansDir ?? path.resolve('docs', 'plans');
     this.dashboardDir =
@@ -71,12 +80,9 @@ export class OrchestratorServer {
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
-    this.httpServer = http.createServer(this.handleRequest.bind(this));
-    this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
-      this.orchestrator.getSnapshot()
-    );
+  }
 
-    // Wire orchestrator events to WebSocket broadcasts (store refs for cleanup)
+  private wireEvents(): void {
     this.stateChangeListener = (snapshot: unknown) => {
       this.broadcaster.broadcast('state_change', snapshot);
     };
@@ -96,52 +102,11 @@ export class OrchestratorServer {
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const { method, url } = req;
-
-    // State endpoint (supports both /api/state and legacy /api/v1/state)
-    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+    if (this.handleStateEndpoint(req, res)) {
       return;
     }
 
-    // Interactions routes
-    if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
-      return;
-    }
-
-    // Plans route
-    if (handlePlansRoute(req, res, this.plansDir)) {
-      return;
-    }
-
-    // Analyze route (intelligence pipeline)
-    if (handleAnalyzeRoute(req, res, this.pipeline)) {
-      return;
-    }
-
-    // Analyses archive route
-    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
-      return;
-    }
-
-    // Roadmap append route
-    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
-      return;
-    }
-
-    // Ad-hoc dispatch route
-    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
-      return;
-    }
-
-    // Chat session metadata route
-    if (handleSessionsRoute(req, res, this.sessionsDir)) {
-      return;
-    }
-
-    // Chat proxy route (spawns Claude Code CLI — no API key required)
-    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
+    if (this.handleApiRoutes(req, res)) {
       return;
     }
 
@@ -152,6 +117,62 @@ export class OrchestratorServer {
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not Found' }));
+  }
+
+  /** Handle GET /api/state and legacy /api/v1/state */
+  private handleStateEndpoint(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    const { method, url } = req;
+    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+      return true;
+    }
+    return false;
+  }
+
+  /** Dispatch to API route handlers. Returns true if a route matched. */
+  private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    // Interactions routes
+    if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
+      return true;
+    }
+
+    // Plans route
+    if (handlePlansRoute(req, res, this.plansDir)) {
+      return true;
+    }
+
+    // Analyze route (intelligence pipeline)
+    if (handleAnalyzeRoute(req, res, this.pipeline)) {
+      return true;
+    }
+
+    // Analyses archive route
+    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
+      return true;
+    }
+
+    // Roadmap append route
+    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
+      return true;
+    }
+
+    // Ad-hoc dispatch route
+    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return true;
+    }
+
+    // Chat session metadata route
+    if (handleSessionsRoute(req, res, this.sessionsDir)) {
+      return true;
+    }
+
+    // Chat proxy route (spawns Claude Code CLI — no API key required)
+    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
+      return true;
+    }
+
+    return false;
   }
 
   public get wsClientCount(): number {
