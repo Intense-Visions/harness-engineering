@@ -166,8 +166,9 @@ export class OrchestratorServer {
     }
 
     return new Promise((resolve) => {
-      this.httpServer.listen(this.port, '127.0.0.1', () => {
-        console.log(`Orchestrator API listening on localhost:${this.port}`);
+      const host = process.env['HOST'] ?? '127.0.0.1';
+      this.httpServer.listen(this.port, host, () => {
+        console.log(`Orchestrator API listening on ${host}:${this.port}`);
         resolve();
       });
     });
