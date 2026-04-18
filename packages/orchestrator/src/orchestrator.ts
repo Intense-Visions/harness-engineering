@@ -355,7 +355,9 @@ export class Orchestrator extends EventEmitter {
           const tasks = scheduler.getResolvedTasks();
           const task = tasks.find((t) => t.id === taskId);
           if (!task) throw new Error(`Unknown task: ${taskId}`);
-          await scheduler.evaluate(new Date());
+          // Directly invoke the onTaskDue callback, bypassing cron schedule
+          const onTaskDue = scheduler.getOnTaskDue();
+          await onTaskDue(task);
         },
       });
     }

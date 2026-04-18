@@ -90,6 +90,11 @@ export class MaintenanceScheduler {
     return this.resolvedTasks;
   }
 
+  /** Returns the onTaskDue callback for direct invocation (manual trigger). */
+  getOnTaskDue(): (task: TaskDefinition) => Promise<void> {
+    return this.onTaskDue;
+  }
+
   /**
    * Start the scheduler interval timer.
    * Immediately performs the first evaluation, then repeats every checkIntervalMs.

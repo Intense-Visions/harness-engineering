@@ -33,7 +33,7 @@ function handleGetHistory(
   queryString: string
 ): void {
   const params = new URLSearchParams(queryString);
-  const limit = Math.max(1, parseInt(params.get('limit') ?? '20', 10) || 20);
+  const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '20', 10) || 20));
   const offset = Math.max(0, parseInt(params.get('offset') ?? '0', 10) || 0);
   const history = deps.reporter.getHistory(limit, offset);
   sendJSON(res, 200, history);
@@ -47,7 +47,13 @@ function handlePostTrigger(
   void (async () => {
     try {
       const body = await readBody(req);
-      const parsed = JSON.parse(body) as { taskId?: string };
+      let parsed: { taskId?: string };
+      try {
+        parsed = JSON.parse(body) as { taskId?: string };
+      } catch {
+        sendJSON(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
 
       if (!parsed.taskId || typeof parsed.taskId !== 'string') {
         sendJSON(res, 400, { error: 'Missing taskId string' });
