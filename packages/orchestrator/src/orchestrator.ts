@@ -1162,7 +1162,7 @@ export class Orchestrator extends EventEmitter {
       );
       return parseInt(stdout.trim(), 10) > 0;
     } catch (err) {
-      this.logger.warn(`Failed to check open PRs for externalId ${externalId}`, {
+      this.logger.debug(`Failed to check open PRs for externalId ${externalId}`, {
         error: String(err),
       });
       return false;
@@ -1198,7 +1198,7 @@ export class Orchestrator extends EventEmitter {
       );
       return parseInt(stdout.trim(), 10) > 0;
     } catch (err) {
-      this.logger.warn(`Failed to check open PRs for ${identifier}`, {
+      this.logger.debug(`Failed to check open PRs for ${identifier}`, {
         error: String(err),
       });
       return false;
@@ -1207,19 +1207,27 @@ export class Orchestrator extends EventEmitter {
 
   /**
    * Filters out candidates that already have an open GitHub PR, running
-   * checks in parallel via Promise.allSettled. For candidates with an
-   * externalId, searches for PRs linked to the GitHub issue. Falls back
-   * to `feat/<identifier>` branch lookup otherwise. Fail-open on API errors.
+   * checks with limited concurrency to avoid overwhelming the GitHub API.
+   * For candidates with an externalId, searches for PRs linked to the
+   * GitHub issue. Falls back to `feat/<identifier>` branch lookup otherwise.
+   * Fail-open on API errors.
    */
   private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
-    const results = await Promise.allSettled(
-      candidates.map(async (candidate) => {
-        const hasOpenPR = candidate.externalId
-          ? await this.hasOpenPRForExternalId(candidate.externalId)
-          : await this.hasOpenPRForIdentifier(candidate.identifier);
-        return { candidate, hasOpenPR };
-      })
-    );
+    // Throttle to 3 concurrent gh CLI calls to avoid GitHub API rate limits
+    const concurrency = 3;
+    const results: PromiseSettledResult<{ candidate: Issue; hasOpenPR: boolean }>[] = [];
+    for (let i = 0; i < candidates.length; i += concurrency) {
+      const batch = candidates.slice(i, i + concurrency);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (candidate) => {
+          const hasOpenPR = candidate.externalId
+            ? await this.hasOpenPRForExternalId(candidate.externalId)
+            : await this.hasOpenPRForIdentifier(candidate.identifier);
+          return { candidate, hasOpenPR };
+        })
+      );
+      results.push(...batchResults);
+    }
 
     const filtered: Issue[] = [];
     for (let i = 0; i < results.length; i++) {

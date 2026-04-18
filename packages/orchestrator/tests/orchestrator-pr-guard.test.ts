@@ -123,17 +123,17 @@ describe('hasOpenPRForIdentifier', () => {
     expect(result).toBe(false);
   });
 
-  it('returns false and logs warning when gh command fails', async () => {
+  it('returns false and logs debug when gh command fails', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
         cb(new Error('gh: not found'), { stdout: '', stderr: '' });
       }
     );
 
-    const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
+    const debugSpy = vi.spyOn((orchestrator as any).logger, 'debug');
     const result = await (orchestrator as any).hasOpenPRForIdentifier('failing-check-ghi78901');
     expect(result).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(debugSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to check open PRs'),
       expect.any(Object)
     );
@@ -205,17 +205,17 @@ describe('hasOpenPRForExternalId', () => {
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
-  it('returns false and logs warning when gh command fails (fail-open)', async () => {
+  it('returns false and logs debug when gh command fails (fail-open)', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
         cb(new Error('network timeout'), { stdout: '', stderr: '' });
       }
     );
 
-    const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
+    const debugSpy = vi.spyOn((orchestrator as any).logger, 'debug');
     const result = await (orchestrator as any).hasOpenPRForExternalId('github:acme/repo#42');
     expect(result).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(debugSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to check open PRs for externalId'),
       expect.any(Object)
     );
