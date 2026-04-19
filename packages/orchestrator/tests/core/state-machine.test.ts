@@ -236,32 +236,102 @@ describe('applyEvent - worker_exit', () => {
     });
   });
 
-  it('does not re-dispatch an issue already in completed even when present in candidates', () => {
+  it('does not re-dispatch an issue completed within the grace period', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
+    const nowMs = 1706745600000;
     const issue = makeIssue({
       id: 'id-1',
       identifier: 'TEST-1',
       state: 'in-progress',
       labels: ['scope:quick-fix'],
     });
-    state.completed.add('id-1');
+    // Completed on this tick — within the grace period
+    state.completed.set('id-1', nowMs);
 
     const tickEvent: OrchestratorEvent = {
       type: 'tick',
       candidates: [issue],
       runningStates: new Map(),
-      nowMs: 1706745600000,
+      nowMs,
     };
 
     const { effects } = applyEvent(state, tickEvent, config);
     expect(effects.find((e) => e.type === 'dispatch' || e.type === 'claim')).toBeUndefined();
   });
 
+  it('re-dispatches a completed issue that reappears in candidates after the grace period', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    const completedAtMs = 1706745500000;
+    // Grace period is pollIntervalMs * 2 = 30000 * 2 = 60000
+    const nowMs = completedAtMs + 61000; // just past grace period
+    const issue = makeIssue({
+      id: 'id-1',
+      identifier: 'TEST-1',
+      state: 'Todo',
+      labels: ['scope:quick-fix'],
+    });
+    state.completed.set('id-1', completedAtMs);
+
+    const tickEvent: OrchestratorEvent = {
+      type: 'tick',
+      candidates: [issue],
+      runningStates: new Map(),
+      nowMs,
+    };
+
+    const { nextState, effects } = applyEvent(state, tickEvent, config);
+    // The completed lock should be released
+    expect(nextState.completed.has('id-1')).toBe(false);
+    // And the issue should be dispatched
+    expect(effects.find((e) => e.type === 'claim')).toBeDefined();
+  });
+
+  it('releases orphaned claim when escalated issue is removed from active candidates', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    // Issue was escalated (claimed but not running/retrying)
+    state.claimed.add('id-1');
+
+    const tickEvent: OrchestratorEvent = {
+      type: 'tick',
+      candidates: [], // issue no longer in active candidates (status changed)
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { nextState } = applyEvent(state, tickEvent, config);
+    expect(nextState.claimed.has('id-1')).toBe(false);
+  });
+
+  it('does not release claim for escalated issue still in active candidates', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.claimed.add('id-1');
+
+    const issue = makeIssue({
+      id: 'id-1',
+      identifier: 'TEST-1',
+      state: 'Todo',
+      labels: ['scope:quick-fix'],
+    });
+
+    const tickEvent: OrchestratorEvent = {
+      type: 'tick',
+      candidates: [issue], // still active — don't release, it would cause re-escalation
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { nextState } = applyEvent(state, tickEvent, config);
+    expect(nextState.claimed.has('id-1')).toBe(true);
+  });
+
   it('handleRetryFired short-circuits when issue already completed', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
-    state.completed.add('id-1');
+    state.completed.set('id-1', 1706745600000);
     state.claimed.add('id-1');
     state.retryAttempts.set('id-1', {
       issueId: 'id-1',

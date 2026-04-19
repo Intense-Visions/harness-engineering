@@ -40,7 +40,7 @@ function cloneState(state: OrchestratorState): OrchestratorState {
     running: new Map(state.running),
     claimed: new Set(state.claimed),
     retryAttempts: new Map(state.retryAttempts),
-    completed: new Set(state.completed),
+    completed: new Map(state.completed),
     tokenTotals: { ...state.tokenTotals },
     rateLimits: { ...state.rateLimits },
   };
@@ -207,10 +207,69 @@ function resolveBackend(action: string, hasLocalBackend: boolean): 'local' | 'pr
  */
 function pruneCompleted(next: OrchestratorState): void {
   if (next.completed.size <= COMPLETED_PRUNE_THRESHOLD) return;
-  for (const id of next.completed) {
+  for (const [id] of next.completed) {
     const hasPending = next.retryAttempts.has(id) || next.running.has(id) || next.claimed.has(id);
     if (!hasPending) {
       next.completed.delete(id);
+    }
+  }
+}
+
+/**
+ * Default grace period multiplier applied to pollIntervalMs.
+ * A completed issue must be older than `pollIntervalMs * GRACE_MULTIPLIER`
+ * before it can be released from `completed` when it reappears in active
+ * candidates. This prevents duplicate dispatch on the tick immediately
+ * after completion when the tracker write-back may not have persisted.
+ */
+const COMPLETED_GRACE_MULTIPLIER = 2;
+
+/**
+ * Reconcile the `completed` set against current active candidates.
+ *
+ * If a completed issue reappears as an active candidate after the grace
+ * period, it means someone manually re-activated it in the roadmap. Release
+ * it from `completed` so it can be re-dispatched.
+ *
+ * Also reconciles orphaned `claimed` entries: issues that are claimed but
+ * not running and not retrying (e.g., from escalation) and whose roadmap
+ * status has changed from active to non-active — release the stale claim.
+ */
+function reconcileCompletedAndClaimed(
+  next: OrchestratorState,
+  candidates: readonly Issue[],
+  nowMs: number,
+  effects: SideEffect[]
+): void {
+  const gracePeriodMs = next.pollIntervalMs * COMPLETED_GRACE_MULTIPLIER;
+  const candidateIds = new Set(candidates.map((c) => c.id));
+
+  // Release completed entries that have been re-activated after the grace period
+  for (const [id, completedAtMs] of next.completed) {
+    if (candidateIds.has(id) && nowMs - completedAtMs > gracePeriodMs) {
+      next.completed.delete(id);
+      effects.push({
+        type: 'emitLog',
+        level: 'info',
+        message: `Released completed lock for ${id}: reappeared as active candidate after grace period`,
+      });
+    }
+  }
+
+  // Release orphaned claims: claimed but not running/retrying.
+  // Only release if the issue is NOT in the current candidate list — meaning
+  // its status was changed to non-active (e.g., user changed it to "blocked"
+  // or "backlog" after escalation). This avoids re-escalation loops for issues
+  // that are still in an active state.
+  for (const id of next.claimed) {
+    if (next.running.has(id) || next.retryAttempts.has(id)) continue;
+    if (!candidateIds.has(id)) {
+      next.claimed.delete(id);
+      effects.push({
+        type: 'emitLog',
+        level: 'info',
+        message: `Released orphaned claim for ${id}: no longer in active candidates`,
+      });
     }
   }
 }
@@ -235,6 +294,9 @@ function handleTick(
 
   // Apply reconciliation to state: remove stopped issues from running and claimed
   applyReconcileEffects(next, reconcileEffects);
+
+  // Phase 1.5: Reconcile completed/claimed against current candidates
+  reconcileCompletedAndClaimed(next, candidates, nowMs, effects);
 
   // Phase 2: Select and dispatch eligible candidates
   const eligible = selectCandidates(
@@ -326,7 +388,7 @@ function handleWorkerExit(
     // scheduled a 1000ms "continuation retry" which, combined with the lack
     // of a `completed` check in handleRetryFired/isEligible, caused completed
     // issues to be re-dispatched as soon as a slot reopened.
-    next.completed.add(issueId);
+    next.completed.set(issueId, nowMs);
     next.claimed.delete(issueId);
     // Clean up the worktree now that the agent has finished and shipped a PR.
     effects.push({
