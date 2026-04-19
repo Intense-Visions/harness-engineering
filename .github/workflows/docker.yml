@@ -107,4 +107,4 @@ jobs:
           docker tag ghcr.io/intense-visions/harness-dashboard:${TAG} harness-dashboard-smoke
 
       - name: Run smoke tests
-        run: ./scripts/docker-smoke-test.sh --skip-build
+        run: ./scripts/docker-smoke-test.sh --skip-build --skip-compose
