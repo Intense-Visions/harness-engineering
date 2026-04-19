@@ -54,7 +54,12 @@ export function buildSettingsHooks(
     }
     hooks[script.event]!.push({
       matcher: script.matcher,
-      hooks: [{ type: 'command', command: `node .harness/hooks/${script.name}.js` }],
+      hooks: [
+        {
+          type: 'command',
+          command: `node "$(git rev-parse --show-toplevel)/.harness/hooks/${script.name}.js"`,
+        },
+      ],
     });
   }
 

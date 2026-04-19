@@ -1,0 +1,171 @@
+/**
+ * CLI command telemetry — records command usage as adoption records.
+ *
+ * Flow:
+ * 1. On startup, flush any pending records from previous invocations (background)
+ * 2. On process exit, write current command's adoption record (sync)
+ *
+ * Records are written to .harness/metrics/adoption.jsonl in the same format as
+ * the adoption-tracker hook, so the existing telemetry-reporter and collector
+ * pipeline picks them up.
+ */
+import { existsSync, readFileSync, mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
+import { join, parse as parsePath, resolve } from 'node:path';
+import { spawn } from 'node:child_process';
+import type { Command } from 'commander';
+
+// PostHog project API key — public, write-only (cannot read data)
+const POSTHOG_API_KEY = 'phc_wNTdCMcfJXZPgdNeDociZW6vwoGGo4nb7vqEfWThFfsG'; // harness-ignore SEC-SEC-002: public PostHog write-only ingest key
+
+/** Commands that should not be tracked (too noisy or meta). */
+const EXCLUDED_COMMANDS = new Set(['help', 'completion']);
+
+/**
+ * Find the project root by walking up from cwd looking for harness.config.json.
+ * Falls back to cwd if not found.
+ */
+function findProjectRoot(cwd: string): string {
+  let dir = resolve(cwd);
+  const { root } = parsePath(dir);
+  while (dir !== root) {
+    if (existsSync(join(dir, 'harness.config.json'))) return dir;
+    dir = resolve(dir, '..');
+  }
+  return cwd;
+}
+
+let commandName = '';
+let startTime = 0;
+let recorded = false;
+
+/**
+ * Install Commander.js hooks on the program to capture command name and timing.
+ * Also registers a process.on('exit') handler to write the adoption record.
+ */
+export function installCommandTelemetry(program: Command, cwd: string): void {
+  const projectRoot = findProjectRoot(cwd);
+
+  // Flush pending records from previous invocations (fire-and-forget)
+  flushTelemetryBackground(projectRoot);
+
+  // Capture command name and start time
+  program.hook('preAction', (thisCommand) => {
+    commandName = resolveCommandName(thisCommand);
+    startTime = Date.now();
+  });
+
+  // Write adoption record on process exit (sync — survives process.exit())
+  process.on('exit', (code) => {
+    if (recorded || !commandName || EXCLUDED_COMMANDS.has(commandName)) return;
+    recorded = true;
+
+    const duration = Date.now() - startTime;
+    const outcome = code === 0 ? 'completed' : 'failed';
+    writeCommandRecordSync(projectRoot, commandName, duration, outcome);
+  });
+}
+
+/**
+ * Resolve the full dotted command name (e.g. "hooks.init", "graph.scan").
+ */
+function resolveCommandName(cmd: Command): string {
+  const parts: string[] = [];
+  let current: Command | null = cmd;
+  while (current) {
+    const name = current.name();
+    if (name && name !== 'harness') {
+      parts.unshift(name);
+    }
+    current = current.parent;
+  }
+  return parts.length > 0 ? `cli/${parts.join('.')}` : '';
+}
+
+/**
+ * Write an adoption record synchronously to .harness/metrics/adoption.jsonl.
+ * Uses appendFileSync so it survives process.exit() in the exit handler.
+ */
+function writeCommandRecordSync(
+  cwd: string,
+  command: string,
+  duration: number,
+  outcome: string
+): void {
+  try {
+    const metricsDir = join(cwd, '.harness', 'metrics');
+    mkdirSync(metricsDir, { recursive: true });
+
+    const record = {
+      skill: command,
+      session: `cli-${Date.now()}`,
+      startedAt: new Date(Date.now() - duration).toISOString(),
+      duration,
+      outcome,
+      phasesReached: [] as string[],
+    };
+
+    const adoptionFile = join(metricsDir, 'adoption.jsonl');
+    appendFileSync(adoptionFile, JSON.stringify(record) + '\n');
+  } catch {
+    // Silent — telemetry must never interfere with CLI operation
+  }
+}
+
+/**
+ * Spawn a background process to flush pending adoption records to PostHog.
+ * Fire-and-forget — errors are swallowed silently.
+ */
+function flushTelemetryBackground(cwd: string): void {
+  try {
+    // Skip if no adoption records exist
+    const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
+    if (!existsSync(adoptionFile)) return;
+
+    // Skip if telemetry is disabled
+    const configPath = join(cwd, 'harness.config.json');
+    if (existsSync(configPath)) {
+      try {
+        const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+        if (config?.telemetry?.enabled === false) return;
+      } catch {
+        // Can't read config — proceed anyway
+      }
+    }
+
+    // Env var opt-out
+    if (process.env.DO_NOT_TRACK === '1') return;
+    if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return;
+
+    // Spawn the telemetry reporter hook script as a detached background process.
+    // It reads adoption.jsonl, resolves consent, sends to PostHog, and truncates.
+    const reporterPath = join(cwd, '.harness', 'hooks', 'telemetry-reporter.js');
+    if (!existsSync(reporterPath)) return;
+
+    const child = spawn(process.execPath, [reporterPath], {
+      cwd,
+      stdio: ['pipe', 'ignore', 'ignore'],
+      detached: true,
+    });
+    // The reporter expects valid JSON on stdin (hook protocol)
+    child.stdin?.write('{}');
+    child.stdin?.end();
+    child.unref();
+  } catch {
+    // Silent — telemetry must never interfere with CLI operation
+  }
+}
+
+/**
+ * Truncate adoption.jsonl after successful direct send.
+ * Called when flushing inline (not via background process).
+ */
+export function truncateAdoptionFile(cwd: string): void {
+  try {
+    const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
+    writeFileSync(adoptionFile, '', 'utf-8');
+  } catch {
+    // Non-fatal
+  }
+}
+
+export { POSTHOG_API_KEY };

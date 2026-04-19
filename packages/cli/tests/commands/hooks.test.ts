@@ -277,7 +277,9 @@ describe('addHooks', () => {
     const preCommands = settings.hooks.PreToolUse.flatMap((e: any) =>
       e.hooks.map((h: any) => h.command)
     );
-    expect(preCommands).toContain('node .harness/hooks/sentinel-pre.js');
+    expect(preCommands).toContain(
+      'node "$(git rev-parse --show-toplevel)/.harness/hooks/sentinel-pre.js"'
+    );
   });
 
   it('adds a single hook by name', () => {

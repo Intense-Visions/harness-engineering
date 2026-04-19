@@ -17,6 +17,20 @@ function prompt(question: string): Promise<string> {
   });
 }
 
+/** Like prompt() but preserves original casing (for identity fields). */
+function promptRaw(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 function isNo(answer: string): boolean {
   return answer === 'n' || answer === 'no';
 }
@@ -79,13 +93,13 @@ async function promptIdentity(): Promise<TelemetryWizardResult['identity']> {
   const identity: TelemetryWizardResult['identity'] = {};
 
   if (answer === 'y' || answer === 'yes') {
-    const projectName = await prompt('    Project name: ');
+    const projectName = await promptRaw('    Project name: ');
     if (projectName) identity.project = projectName;
 
-    const teamName = await prompt('    Team name: ');
+    const teamName = await promptRaw('    Team name: ');
     if (teamName) identity.team = teamName;
 
-    const alias = await prompt('    Alias: ');
+    const alias = await promptRaw('    Alias: ');
     if (alias) identity.alias = alias;
   }
 

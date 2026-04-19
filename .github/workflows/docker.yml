@@ -2,7 +2,7 @@ name: Docker
 
 on:
   push:
-    tags: ['v*']
+    tags: ['@harness-engineering/*']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,10 +42,12 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          MAJOR="${TAG%%.*}"
-          MINOR="${TAG%.*}"
-          echo "full=${TAG}" >> "$GITHUB_OUTPUT"
+          # Changeset tags: @harness-engineering/cli@1.24.1
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG##*@}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION%.*}"
+          echo "full=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "minor=${MINOR}" >> "$GITHUB_OUTPUT"
           echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
 
@@ -76,7 +78,8 @@ jobs:
 
       - name: Pull built images
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
+          TAG="${GITHUB_REF#refs/tags/}"
+          TAG="${TAG##*@}"
           docker pull ghcr.io/intense-visions/harness-cli:${TAG}
           docker pull ghcr.io/intense-visions/harness-mcp:${TAG}
           docker pull ghcr.io/intense-visions/harness-orchestrator:${TAG}

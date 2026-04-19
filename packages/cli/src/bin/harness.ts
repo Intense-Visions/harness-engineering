@@ -2,6 +2,7 @@
 import 'dotenv/config';
 import { createProgram, handleError } from '../index';
 import { runUpdateCheckAtStartup, printUpdateNotification } from './update-check-hooks';
+import { installCommandTelemetry } from './command-telemetry';
 import { printFirstRunWelcome } from '../utils/first-run';
 import { sessionStartDispatch, formatDispatchBanner } from '../skill/dispatch-session';
 import type { SessionDispatchResult } from '../skill/dispatch-session';
@@ -19,6 +20,9 @@ async function main(): Promise<void> {
   );
 
   const program = createProgram();
+
+  // Install command telemetry — records usage and flushes pending records
+  installCommandTelemetry(program, process.cwd());
 
   try {
     await program.parseAsync(process.argv);

@@ -56,6 +56,8 @@ export function ensureHarnessGitignore(targetDir: string): void {
   const content = `# Runtime artifacts (generated, ephemeral, session-scoped)
 graph/
 debug/
+hooks/
+security/
 sessions/
 state.json
 state/

@@ -32,7 +32,7 @@ function readJson(p: string): JsonObject {
 
 function registerHook(s: JsonObject, ev: string, matcher: string, name: string): void {
   if (!s.hooks[ev]) s.hooks[ev] = [];
-  const cmd = `node .harness/hooks/${name}.js`;
+  const cmd = `node "$(git rev-parse --show-toplevel)/.harness/hooks/${name}.js"`;
   if (!s.hooks[ev].some((e: JsonObject) => e.hooks?.some((h: JsonObject) => h.command === cmd))) {
     s.hooks[ev].push({ matcher, hooks: [{ type: 'command', command: cmd }] });
   }
