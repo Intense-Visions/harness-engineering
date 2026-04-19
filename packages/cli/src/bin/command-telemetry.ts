@@ -43,6 +43,9 @@ let recorded = false;
  * Also registers a process.on('exit') handler to write the adoption record.
  */
 export function installCommandTelemetry(program: Command, cwd: string): void {
+  // Guard: program.hook() may not exist in test environments
+  if (typeof program.hook !== 'function') return;
+
   const projectRoot = findProjectRoot(cwd);
 
   // Flush pending records from previous invocations (fire-and-forget)
