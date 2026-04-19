@@ -63,28 +63,31 @@ export class WorkspaceManager {
     try {
       const workspacePath = path.resolve(this.resolvePath(identifier));
 
-      // If the worktree already exists (e.g. resumed session), reuse it.
+      // Remove any existing worktree so the agent always starts from the
+      // latest base ref. Previously this path reused stale worktrees which
+      // caused agents to work on outdated code after an orchestrator restart.
       try {
         await fs.access(path.join(workspacePath, '.git'));
-        return Ok(workspacePath);
-      } catch {
-        // Not yet created — fall through to create it.
-      }
-
-      // Remove stale directory if a previous run left one behind.
-      // The directory may be non-empty from a partially-failed dispatch.
-      try {
-        await fs.access(workspacePath);
-        // Directory exists but is not a valid worktree — clean it up.
+        // Valid worktree exists — remove it so we recreate from latest base.
         const repoRoot = await this.getRepoRoot();
         try {
           await this.git(['worktree', 'remove', '--force', workspacePath], repoRoot);
         } catch {
-          // Not registered as a git worktree; remove the directory directly.
           await fs.rm(workspacePath, { recursive: true, force: true });
         }
       } catch {
-        // Directory doesn't exist — that's fine.
+        // No .git marker — check for a stale directory from a partial run.
+        try {
+          await fs.access(workspacePath);
+          const repoRoot = await this.getRepoRoot();
+          try {
+            await this.git(['worktree', 'remove', '--force', workspacePath], repoRoot);
+          } catch {
+            await fs.rm(workspacePath, { recursive: true, force: true });
+          }
+        } catch {
+          // Directory doesn't exist — that's fine.
+        }
       }
 
       const repoRoot = await this.getRepoRoot();

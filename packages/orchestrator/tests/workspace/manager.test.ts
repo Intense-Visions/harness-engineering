@@ -211,13 +211,45 @@ describe('WorkspaceManager', () => {
     expect(removeCall!.args).toContain('--force');
   });
 
-  it('reuses existing worktree when .git is present', async () => {
-    vi.mocked(fs.access).mockResolvedValue(undefined);
+  it('recreates worktree from latest base ref when stale worktree exists', async () => {
+    // Regression: ensureWorkspace used to blindly reuse an existing worktree,
+    // causing the orchestrator to dispatch agents on stale code after a restart.
+    // The fix: remove the old worktree and create a fresh one from origin/main.
+
+    // First call: .git check succeeds (worktree exists)
+    // After removal: .git check fails (worktree gone), dir check fails (dir gone)
+    let gitCheckCount = 0;
+    vi.mocked(fs.access).mockImplementation(async (p) => {
+      const pathStr = String(p);
+      if (pathStr.endsWith('.git')) {
+        gitCheckCount++;
+        if (gitCheckCount === 1) return undefined; // First check: exists
+        throw new Error('ENOENT'); // After removal: gone
+      }
+      throw new Error('ENOENT');
+    });
+
+    manager.setGitImpl((args) => {
+      if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+      if (args[0] === 'symbolic-ref') return 'origin/main\n';
+      return '';
+    });
 
     const result = await manager.ensureWorkspace('test-issue');
     expect(result.ok).toBe(true);
-    // Should not have called git at all
-    expect(manager.gitCalls).toHaveLength(0);
+
+    // Must have removed the old worktree
+    const removeCall = manager.gitCalls.find(
+      (c) => c.args[0] === 'worktree' && c.args[1] === 'remove'
+    );
+    expect(removeCall).toBeDefined();
+
+    // Must have created a fresh worktree from origin/main
+    const addCall = manager.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'add');
+    expect(addCall).toBeDefined();
+    expect(addCall!.args).toContain('--detach');
+    // The base ref should be origin/main, not whatever was in the old worktree
+    expect(addCall!.args[4]).toBe('origin/main');
   });
 
   it('checks if workspace exists', async () => {
