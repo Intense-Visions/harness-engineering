@@ -46,7 +46,9 @@ export function getOrchestratorTarget(): URL | null {
 }
 
 function isOrchestratorRoute(pathname: string): boolean {
-  return ORCHESTRATOR_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
+  return ORCHESTRATOR_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/')
+  );
 }
 
 /**
@@ -99,7 +101,7 @@ export function attachWsProxy(server: http.Server): void {
   const target = getOrchestratorTarget();
   if (!target) return;
 
-  server.on('upgrade', (req, socket, head) => {
+  server.on('upgrade', (req, socket, _head) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     if (url.pathname !== '/ws') {
       // Not our route — let it fall through (Hono doesn't use upgrades, so just destroy)
@@ -124,7 +126,7 @@ export function attachWsProxy(server: http.Server): void {
         'HTTP/1.1 101 Switching Protocols\r\n' +
           Object.entries(_proxyRes.headers)
             .filter(([, v]) => v != null)
-            .map(([k, v]) => `${k}: ${v}`)
+            .map(([k, v]) => `${k}: ${String(v)}`)
             .join('\r\n') +
           '\r\n\r\n'
       );
