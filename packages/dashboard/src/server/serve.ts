@@ -1,8 +1,10 @@
 import { serve } from '@hono/node-server';
+import type http from 'node:http';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { API_PORT } from '../shared/constants';
+import { attachWsProxy, getOrchestratorTarget } from './orchestrator-proxy';
 
 /**
  * Returns the host address the server should bind to.
@@ -29,10 +31,19 @@ const { app } = await import('./index');
 
 const port = Number(process.env['DASHBOARD_API_PORT'] ?? API_PORT);
 
-console.log(`Hono server starting on http://localhost:${port}`);
+const hostname = getBindHost();
 
-serve({
+console.log(`Hono server starting on http://${hostname}:${port}`);
+
+// @hono/node-server's serve() returns ServerType (HTTP | HTTP2).
+// We always use HTTP here so the cast is safe.
+const server = serve({
   fetch: app.fetch,
   port,
-  hostname: getBindHost(),
-});
+  hostname,
+}) as unknown as http.Server;
+
+// Attach WebSocket proxy for orchestrator connections
+if (getOrchestratorTarget()) {
+  attachWsProxy(server);
+}

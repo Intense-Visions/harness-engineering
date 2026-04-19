@@ -16,6 +16,7 @@ const DEFAULT_API_PORT = 3701;
 interface DashboardOptions {
   port?: string;
   apiPort?: string;
+  orchestratorUrl?: string;
   noOpen?: boolean;
   cwd?: string;
 }
@@ -90,12 +91,20 @@ function runDashboard(opts: DashboardOptions): void {
     process.exit(1);
   }
 
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     DASHBOARD_API_PORT: String(apiPort),
     DASHBOARD_CLIENT_PORT: String(clientPort),
     HARNESS_PROJECT_PATH: projectPath,
   };
+
+  // Forward orchestrator connection info
+  if (opts.orchestratorUrl) {
+    env['ORCHESTRATOR_URL'] = opts.orchestratorUrl;
+  } else if (!env['ORCHESTRATOR_URL'] && !env['ORCHESTRATOR_PORT']) {
+    // Default: assume orchestrator is on localhost:8080
+    env['ORCHESTRATOR_PORT'] = '8080';
+  }
 
   spawnDashboardServer(server, env);
 
@@ -112,6 +121,7 @@ export function createDashboardCommand(): Command {
     .description('Start the Harness local web dashboard')
     .option('--port <port>', 'Client dev server port', String(DEFAULT_CLIENT_PORT))
     .option('--api-port <port>', 'API server port', String(DEFAULT_API_PORT))
+    .option('--orchestrator-url <url>', 'Orchestrator URL (default: http://localhost:8080)')
     .option('--no-open', 'Do not automatically open browser')
     .option('--cwd <path>', 'Project directory (defaults to cwd)')
     .action((opts: DashboardOptions) => runDashboard(opts));

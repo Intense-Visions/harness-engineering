@@ -13,5 +13,8 @@ export const DEFAULT_POLL_INTERVAL_MS = 30_000;
 /** SSE event stream endpoint */
 export const SSE_ENDPOINT = '/api/sse';
 
+/** Default port for the orchestrator server */
+export const ORCHESTRATOR_PORT = 8080;
+
 /** Path to the harness knowledge graph directory (relative to project root) */
 export const GRAPH_DIR = '.harness/graph';

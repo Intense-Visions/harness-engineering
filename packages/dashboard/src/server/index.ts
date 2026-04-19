@@ -15,20 +15,35 @@ import { buildImpactRouter } from './routes/impact';
 import { buildContext, type ServerContext } from './context';
 import { SSEManager } from './sse';
 import { DASHBOARD_PORT } from '../shared/constants';
+import { orchestratorProxyMiddleware, getOrchestratorTarget } from './orchestrator-proxy';
 
 export function buildApp(ctx: ServerContext): Hono {
   const app = new Hono();
 
   const clientPort = process.env['DASHBOARD_CLIENT_PORT'] ?? String(DASHBOARD_PORT);
+  const bindHost = process.env['HOST'] ?? '127.0.0.1';
+
+  // Build CORS allow-list: always include localhost/127.0.0.1, plus the bind host
+  const corsOrigins = [
+    `http://localhost:${clientPort}`,
+    `http://127.0.0.1:${clientPort}`,
+  ];
+  if (bindHost !== '127.0.0.1' && bindHost !== 'localhost') {
+    corsOrigins.push(`http://${bindHost}:${clientPort}`);
+  }
 
   // Middleware
   app.use('*', logger());
   app.use(
     '*',
-    cors({
-      origin: [`http://localhost:${clientPort}`, `http://127.0.0.1:${clientPort}`],
-    })
+    cors({ origin: corsOrigins })
   );
+
+  // Orchestrator proxy — must be registered before dashboard API routes
+  // so orchestrator-specific prefixes are forwarded rather than 404'd.
+  if (getOrchestratorTarget()) {
+    app.use('*', orchestratorProxyMiddleware());
+  }
 
   // API routes
   app.route('/api', buildHealthCheckRouter());
