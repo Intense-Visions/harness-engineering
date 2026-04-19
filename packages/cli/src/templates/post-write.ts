@@ -53,11 +53,14 @@ export function ensureHarnessGitignore(targetDir: string): void {
   const gitignorePath = path.join(targetDir, '.harness', '.gitignore');
 
   const content = `# Runtime artifacts (generated, ephemeral, session-scoped)
+analyses/
 graph/
 debug/
 hooks/
+interactions/
 security/
 sessions/
+workspaces/
 state.json
 state/
 handoff.json

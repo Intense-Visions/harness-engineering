@@ -1,9 +1,12 @@
 # Runtime artifacts (generated, ephemeral, session-scoped)
+analyses/
 graph/
 debug/
 hooks/
+interactions/
 security/
 sessions/
+workspaces/
 state.json
 state/
 handoff.json

@@ -4,13 +4,7 @@
 
 ### Patch Changes
 
-- 1d0fdd8: Rename orchestrator config file from WORKFLOW.md to harness.orchestrator.md
-
-## 0.2.9
-
-### Patch Changes
-
-- Rename orchestrator config file from `WORKFLOW.md` to `harness.orchestrator.md`. The workflow loader error messages and default template reflect the new name.
+- 1d0fdd8: Rename orchestrator config file from WORKFLOW.md to harness.orchestrator.md. The workflow loader error messages and default template reflect the new name.
 
 ## 0.2.8
 
