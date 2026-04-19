@@ -20,7 +20,7 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
     running: new Map(),
     claimed: new Set(),
     retryAttempts: new Map(),
-    completed: new Set(),
+    completed: new Map(),
     tokenTotals: {
       inputTokens: 0,
       outputTokens: 0,

@@ -103,7 +103,14 @@ export interface OrchestratorState {
   running: Map<string, RunningEntry>;
   claimed: Set<string>;
   retryAttempts: Map<string, RetryEntry>;
-  completed: Set<string>;
+  /**
+   * Tracks completed issue IDs mapped to the epoch-ms timestamp when the
+   * completion was recorded. The timestamp enables a grace-period so that
+   * issues manually re-activated in the roadmap can be re-dispatched, while
+   * still guarding against duplicate dispatch on the tick immediately after
+   * completion (when the tracker write-back may not have persisted yet).
+   */
+  completed: Map<string, number>;
   tokenTotals: TokenTotals;
   rateLimits: RateLimitSnapshot;
   /** Running count of claim rejections (another orchestrator won the race). */

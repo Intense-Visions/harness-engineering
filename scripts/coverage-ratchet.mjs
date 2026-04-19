@@ -15,6 +15,16 @@ const ROOT = resolve(import.meta.dirname, '..');
 const BASELINES_PATH = join(ROOT, 'coverage-baselines.json');
 const METRICS = ['lines', 'branches', 'functions', 'statements'];
 
+/**
+ * V8 code coverage is non-deterministic — identical code can produce slightly
+ * different branch/line percentages across runs due to JIT optimization
+ * decisions, inline caching, and GC timing. A tolerance of 0.5% absorbs
+ * this noise while still catching real regressions.
+ *
+ * See: commit 08d52ae4 ("fix(ci): lower coverage baselines to absorb CI V8 variance")
+ */
+const V8_VARIANCE_TOLERANCE = 0.5;
+
 // All workspace locations that produce coverage-summary.json.
 // The key is the baselines.json key; the value is the path to coverage-summary.json.
 const PACKAGES = {
@@ -81,9 +91,9 @@ function check() {
     for (const metric of METRICS) {
       const baselineVal = baseline[metric];
       const actualVal = actual[metric];
-      if (actualVal < baselineVal) {
+      if (actualVal < baselineVal - V8_VARIANCE_TOLERANCE) {
         console.error(
-          `  FAIL: ${pkgKey} ${metric} dropped from ${baselineVal}% to ${actualVal}%`
+          `  FAIL: ${pkgKey} ${metric} dropped from ${baselineVal}% to ${actualVal}% (tolerance: ${V8_VARIANCE_TOLERANCE}%)`
         );
         failures++;
       }
