@@ -3,6 +3,11 @@ name: Docker
 on:
   push:
     tags: ['@harness-engineering/*']
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,6 +20,8 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.full }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,12 +46,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
+      - name: Extract version
         id: version
         run: |
-          # Changeset tags: @harness-engineering/cli@1.24.1
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG##*@}"
+          if [ -n "${{ inputs.version }}" ]; then
+            # Called from release workflow
+            VERSION="${{ inputs.version }}"
+          else
+            # Triggered by tag push
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG##*@}"
+          fi
           MAJOR="${VERSION%%.*}"
           MINOR="${VERSION%.*}"
           echo "full=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -78,8 +90,7 @@ jobs:
 
       - name: Pull built images
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          TAG="${TAG##*@}"
+          TAG="${{ needs.build-and-push.outputs.version }}"
           docker pull ghcr.io/intense-visions/harness-cli:${TAG}
           docker pull ghcr.io/intense-visions/harness-mcp:${TAG}
           docker pull ghcr.io/intense-visions/harness-orchestrator:${TAG}
