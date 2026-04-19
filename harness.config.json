@@ -287,5 +287,11 @@
         "maxRuns": 20
       }
     }
+  },
+  "telemetry": {
+    "enabled": true
+  },
+  "adoption": {
+    "enabled": true
   }
 }

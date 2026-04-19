@@ -735,7 +735,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#66
-- **Updated-At:** 2026-04-18T11:47:20.452Z
+- **Updated-At:** 2026-04-19T11:58:16.170Z
 
 ### Documentation Auto-Generation
 
@@ -1572,9 +1572,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Migrate 30+ sync fs calls in async functions to async equivalents, then enable the no-sync-io-in-async ESLint rule to prevent event loop blocking in orchestrator and CLI hot paths
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint: Boundary Schema Validation
 
@@ -1583,9 +1580,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Configure API boundary functions and enable the require-boundary-schema ESLint rule to enforce Zod validation at HTTP handlers, MCP tools, and CLI command entry points
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint: Performance-Critical Loop Guards
 
@@ -1594,9 +1588,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Add @perf-critical annotations to hot-path functions (graph traversal, scan pipeline, state machine tick) and enable the no-nested-loops-in-critical ESLint rule to prevent O(n²) regressions
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint Rule: no-spread-in-variadic
 
@@ -1605,9 +1596,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag Math.min(...arr) and Math.max(...arr) patterns that throw RangeError when arrays exceed the JS engine call stack argument limit (~65K). 10 instances in codebase. Suggest reduce-based alternatives.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint Rule: no-process-env-in-spawn
 
@@ -1616,9 +1604,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag spawn/execFile/fork calls that pass process.env directly, which leaks all server-side secrets to subprocesses. 5 instances in codebase. Require explicit env allowlist construction.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint Rule: prefer-execfile-over-exec
 
@@ -1627,9 +1612,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint Rule: no-undefined-optional-assignment
 
@@ -1638,9 +1620,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`. 5 recurring gotchas in learnings. Suggest conditional spread `...(val !== undefined && { field: val })` instead.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ### ESLint Rule: no-hardcoded-test-count
 
@@ -1649,9 +1628,6 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size. Fragile to additions — 2 recurring gotchas in learnings where tool count assertions broke on every new tool. Suggest dynamic `TOOL_DEFINITIONS.length` references.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ## Assignment History
 
