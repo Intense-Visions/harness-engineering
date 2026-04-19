@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import * as path from 'path';
 
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
@@ -142,9 +143,12 @@ describe('validate command', () => {
     });
 
     it('derives cwd from configPath when cwd not provided', async () => {
-      const result = await runValidate({ configPath: '/tmp/project/harness.config.json' });
+      const configPath = path.join('/tmp', 'project', 'harness.config.json');
+      const result = await runValidate({ configPath });
       expect(result.ok).toBe(true);
-      expect(validateAgentsMap).toHaveBeenCalledWith(expect.stringContaining('/tmp/project'));
+      // path.dirname + path.resolve produces OS-native separators, so match accordingly
+      const expectedDir = path.dirname(path.resolve(configPath));
+      expect(validateAgentsMap).toHaveBeenCalledWith(expect.stringContaining(expectedDir));
     });
 
     it('uses process.cwd() when neither cwd nor configPath provided', async () => {

@@ -87,6 +87,18 @@ export function contextBudget(
   overrides?: TokenBudgetOverrides,
   graphDensity?: Record<string, number>
 ): TokenBudget {
+  if (totalTokens <= 0) {
+    return {
+      total: 0,
+      systemPrompt: 0,
+      projectManifest: 0,
+      taskSpec: 0,
+      activeCode: 0,
+      interfaces: 0,
+      reserve: 0,
+    };
+  }
+
   const ratios: Record<RatioKey, number> = {
     systemPrompt: DEFAULT_RATIOS.systemPrompt,
     projectManifest: DEFAULT_RATIOS.projectManifest,
@@ -116,15 +128,18 @@ export function contextBudget(
     // Redistribute remaining budget proportionally among non-overridden categories
     // Use current ratios (which may have been modified by graphDensity) instead of DEFAULT_RATIOS
     if (overrideKeys.length > 0 && overrideKeys.length < 6) {
-      const remaining = 1 - overrideSum;
       const nonOverridden = Object.keys(ratios).filter(
         (k) => !overrideKeys.includes(k as keyof typeof DEFAULT_RATIOS)
       ) as (keyof typeof DEFAULT_RATIOS)[];
 
+      const remaining = Math.max(0, 1 - overrideSum);
       const originalSum = nonOverridden.reduce((sum, k) => sum + ratios[k], 0);
 
       for (const k of nonOverridden) {
-        ratios[k] = remaining * (ratios[k] / originalSum);
+        ratios[k] =
+          originalSum > 0
+            ? remaining * (ratios[k] / originalSum)
+            : remaining / nonOverridden.length;
       }
     }
   }

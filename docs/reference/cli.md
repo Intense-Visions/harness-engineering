@@ -2066,6 +2066,294 @@ harness hooks remove --json
 
 ---
 
+## Adoption Commands
+
+### harness adoption skills
+
+Show top skills by invocation count from local adoption telemetry.
+
+```
+harness adoption skills [options]
+```
+
+**Options:**
+
+```
+--limit <n>             Number of skills to show (default: 20)
+```
+
+**Examples:**
+
+```bash
+# Show top skills by invocation count
+harness adoption skills
+
+# Show top 10 skills
+harness adoption skills --limit 10
+
+# Output as JSON
+harness adoption skills --json
+```
+
+---
+
+### harness adoption recent
+
+Show recent skill invocations sorted by date.
+
+```
+harness adoption recent [options]
+```
+
+**Options:**
+
+```
+--limit <n>             Number of invocations to show (default: 20)
+```
+
+**Examples:**
+
+```bash
+# Show recent skill invocations
+harness adoption recent
+
+# Show last 50 invocations
+harness adoption recent --limit 50
+
+# Output as JSON
+harness adoption recent --json
+```
+
+---
+
+### harness adoption skill
+
+Show detailed adoption data for a specific skill, including phase completion rates and outcome breakdown.
+
+```
+harness adoption skill <name>
+```
+
+**Arguments:**
+
+```
+<name>                  Skill name to inspect
+```
+
+**Examples:**
+
+```bash
+# Show detail for a specific skill
+harness adoption skill code-review
+
+# Output as JSON
+harness adoption skill code-review --json
+```
+
+---
+
+## Protected Region Commands
+
+### harness audit-protected
+
+Report all `harness-ignore` protected code regions across the project. Scans source files for protection annotations and reports any annotation issues.
+
+```
+harness audit-protected
+```
+
+**Examples:**
+
+```bash
+# Audit all protected regions
+harness audit-protected
+
+# Output as JSON
+harness audit-protected --json
+```
+
+---
+
+## Session Management Commands
+
+### harness cleanup-sessions
+
+Remove stale session directories from `.harness/sessions/` that have had no writes in the last 24 hours.
+
+```
+harness cleanup-sessions [options]
+```
+
+**Options:**
+
+```
+--dry-run               List stale sessions without deleting them
+--path <path>           Project root path (default: .)
+```
+
+**Examples:**
+
+```bash
+# Remove stale sessions
+harness cleanup-sessions
+
+# Preview which sessions would be removed
+harness cleanup-sessions --dry-run
+
+# Clean sessions for a specific project
+harness cleanup-sessions --path /path/to/project
+
+# Output as JSON
+harness cleanup-sessions --json
+```
+
+---
+
+## Analysis Sync Commands
+
+### harness publish-analyses
+
+Publish locally generated intelligence analyses to the external issue tracker (e.g., GitHub). Reads analyses from `.harness/analyses/` and posts them as comments on matching roadmap issues.
+
+```
+harness publish-analyses [options]
+```
+
+**Options:**
+
+```
+-d, --dir <path>        Workspace directory (default: cwd)
+```
+
+**Requires:**
+
+- `GITHUB_TOKEN` environment variable (or `.env` file in project root)
+- `tracker` configuration in `harness.config.json`
+- `docs/roadmap.md` with `externalId` fields on features
+
+**Examples:**
+
+```bash
+# Publish analyses to GitHub issues
+harness publish-analyses
+
+# Publish from a specific workspace
+harness publish-analyses --dir /path/to/project
+```
+
+---
+
+### harness sync-analyses
+
+Pull published intelligence analyses from the external issue tracker into the local `.harness/analyses/` directory. Scans issue comments for embedded analysis records.
+
+```
+harness sync-analyses [options]
+```
+
+**Options:**
+
+```
+-d, --dir <path>        Workspace directory (default: cwd)
+```
+
+**Requires:**
+
+- `GITHUB_TOKEN` environment variable (or `.env` file in project root)
+- `tracker` configuration in `harness.config.json`
+- `docs/roadmap.md` with `externalId` fields on features
+
+**Examples:**
+
+```bash
+# Sync analyses from GitHub issues
+harness sync-analyses
+
+# Sync from a specific workspace
+harness sync-analyses --dir /path/to/project
+```
+
+---
+
+## Telemetry Commands
+
+### harness telemetry identify
+
+Set or clear telemetry identity fields in `.harness/telemetry.json`. Identity fields tag telemetry data with project, team, or alias for filtering.
+
+```
+harness telemetry identify [options]
+```
+
+**Options:**
+
+```
+--project <name>        Project name
+--team <name>           Team name
+--alias <name>          User alias
+--clear                 Remove all identity fields
+```
+
+**Examples:**
+
+```bash
+# Set project and team identity
+harness telemetry identify --project my-app --team platform
+
+# Set alias
+harness telemetry identify --alias jdoe
+
+# Clear all identity fields
+harness telemetry identify --clear
+```
+
+---
+
+### harness telemetry status
+
+Show current telemetry consent state, install ID, identity, and environment variable overrides.
+
+```
+harness telemetry status [options]
+```
+
+**Options:**
+
+```
+--json                  Output as JSON
+```
+
+**Examples:**
+
+```bash
+# Show telemetry status
+harness telemetry status
+
+# Output as JSON
+harness telemetry status --json
+```
+
+---
+
+### harness telemetry-wizard
+
+Interactive wizard that walks through telemetry configuration: anonymous telemetry opt-in, local adoption tracking opt-in, and optional identity fields. Writes results to `harness.config.json` and `.harness/telemetry.json`.
+
+```
+harness telemetry-wizard
+```
+
+**Note:** This wizard runs automatically during `harness setup` if telemetry is not yet configured. It requires an interactive TTY session.
+
+**Examples:**
+
+```bash
+# Run the telemetry configuration wizard
+harness telemetry-wizard
+```
+
+---
+
 ## Exit Codes
 
 The CLI uses the following exit codes:
@@ -2114,4 +2402,4 @@ harness validate --config=/path/to/harness.config.json
 
 ---
 
-_Last Updated: 2026-04-06_
+_Last Updated: 2026-04-18_

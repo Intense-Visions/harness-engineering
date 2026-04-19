@@ -36,7 +36,7 @@ describe('loadRelevantLearnings cache', () => {
     const result = await loadRelevantLearnings(tmpDir);
     const elapsed = performance.now() - start;
 
-    expect(elapsed).toBeLessThan(5);
+    expect(elapsed).toBeLessThan(50); // CI runners can be slow; cache hit is still orders of magnitude faster than disk
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBe(2);

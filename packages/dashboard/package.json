@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/dashboard",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
   "exports": {
@@ -30,7 +30,6 @@
     "@harness-engineering/types": "workspace:*",
     "@hono/node-server": "^1.19.13",
     "@tailwindcss/typography": "^0.5.19",
-    "@tremor/react": "^3.18.0",
     "framer-motion": "^12.38.0",
     "glob": "^13.0.6",
     "hono": "^4.12.12",

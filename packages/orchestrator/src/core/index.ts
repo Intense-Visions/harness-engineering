@@ -25,4 +25,6 @@ export type { PublishedIndex } from './published-index';
 export { resolveOrchestratorId, ORCHESTRATOR_IDENTITY_FILE } from './orchestrator-identity';
 export { ClaimManager } from './claim-manager';
 export type { ClaimManagerConfig } from './claim-manager';
+export { PRDetector } from './pr-detector';
+export type { PRDetectorLogger, ExecFileFn } from './pr-detector';
 // loadTrackerSyncConfig consolidated to @harness-engineering/core

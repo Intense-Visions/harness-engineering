@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 let tmpDir: string;
 
@@ -65,7 +66,10 @@ describe('Orchestrator Integration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
     // Ensure workspace root exists so WorkspaceManager can run git commands in it
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
 
@@ -94,12 +98,21 @@ describe('Orchestrator Integration', () => {
     orchestrator = new Orchestrator(createMockConfig(), 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
   });
 
   afterEach(async () => {
     if (orchestrator) await orchestrator.stop();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly after stop.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('should poll, dispatch, and run an agent session', { timeout: 15000 }, async () => {

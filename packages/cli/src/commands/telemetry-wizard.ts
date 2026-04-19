@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import readline from 'node:readline';
 import chalk from 'chalk';
-import type { StepResult } from './setup';
+import type { StepResult } from './setup-types';
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({

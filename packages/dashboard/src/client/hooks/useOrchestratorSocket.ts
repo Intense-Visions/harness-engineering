@@ -114,6 +114,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
       ws.onmessage = (event: MessageEvent<string>) => {
         if (!mounted) return;
         try {
+          // harness-ignore SEC-DES-001: parsing own orchestrator server WebSocket messages — trusted internal source, wrapped in try-catch
           const msg = JSON.parse(event.data) as WebSocketMessage;
           handleMessage(msg, setSnapshot, setInteractions, setAgentEvents);
         } catch {

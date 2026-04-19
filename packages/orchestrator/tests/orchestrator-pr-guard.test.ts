@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Orchestrator } from '../src/orchestrator';
+import { PRDetector } from '../src/core/pr-detector';
 import type { Issue, WorkflowConfig, Ok } from '@harness-engineering/types';
 
 // Mock child_process.execFile
@@ -72,16 +73,28 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
   };
 }
 
+function makeMockLogger() {
+  return {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  };
+}
+
 describe('hasOpenPRForIdentifier', () => {
-  let orchestrator: Orchestrator;
+  let detector: PRDetector;
   let mockExecFile: ReturnType<typeof vi.fn>;
+  let mockLogger: ReturnType<typeof makeMockLogger>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestrator = new Orchestrator(makeConfig(), 'test prompt', {
-      tracker: makeMockTracker() as any,
-    });
+    mockLogger = makeMockLogger();
     mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    detector = new PRDetector({
+      logger: mockLogger,
+      execFileFn: execFile,
+      projectRoot: '/tmp',
+    });
   });
 
   it('returns true when an open PR exists for the identifier branch', async () => {
@@ -91,7 +104,7 @@ describe('hasOpenPRForIdentifier', () => {
       }
     );
 
-    const result = await (orchestrator as any).hasOpenPRForIdentifier('my-feature-abc12345');
+    const result = await detector.hasOpenPRForIdentifier('my-feature-abc12345');
     expect(result).toBe(true);
     expect(mockExecFile).toHaveBeenCalledWith(
       'gh',
@@ -119,21 +132,20 @@ describe('hasOpenPRForIdentifier', () => {
       }
     );
 
-    const result = await (orchestrator as any).hasOpenPRForIdentifier('no-pr-feature-def45678');
+    const result = await detector.hasOpenPRForIdentifier('no-pr-feature-def45678');
     expect(result).toBe(false);
   });
 
-  it('returns false and logs warning when gh command fails', async () => {
+  it('returns false and logs debug when gh command fails', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
         cb(new Error('gh: not found'), { stdout: '', stderr: '' });
       }
     );
 
-    const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
-    const result = await (orchestrator as any).hasOpenPRForIdentifier('failing-check-ghi78901');
+    const result = await detector.hasOpenPRForIdentifier('failing-check-ghi78901');
     expect(result).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(mockLogger.debug).toHaveBeenCalledWith(
       expect.stringContaining('Failed to check open PRs'),
       expect.any(Object)
     );
@@ -141,15 +153,19 @@ describe('hasOpenPRForIdentifier', () => {
 });
 
 describe('hasOpenPRForExternalId', () => {
-  let orchestrator: Orchestrator;
+  let detector: PRDetector;
   let mockExecFile: ReturnType<typeof vi.fn>;
+  let mockLogger: ReturnType<typeof makeMockLogger>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestrator = new Orchestrator(makeConfig(), 'test prompt', {
-      tracker: makeMockTracker() as any,
-    });
+    mockLogger = makeMockLogger();
     mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    detector = new PRDetector({
+      logger: mockLogger,
+      execFileFn: execFile,
+      projectRoot: '/tmp',
+    });
   });
 
   it('returns true when an open PR is linked to the GitHub issue', async () => {
@@ -159,7 +175,7 @@ describe('hasOpenPRForExternalId', () => {
       }
     );
 
-    const result = await (orchestrator as any).hasOpenPRForExternalId('github:acme/repo#42');
+    const result = await detector.hasOpenPRForExternalId('github:acme/repo#42');
     expect(result).toBe(true);
     expect(mockExecFile).toHaveBeenCalledWith(
       'gh',
@@ -189,33 +205,32 @@ describe('hasOpenPRForExternalId', () => {
       }
     );
 
-    const result = await (orchestrator as any).hasOpenPRForExternalId('github:acme/repo#99');
+    const result = await detector.hasOpenPRForExternalId('github:acme/repo#99');
     expect(result).toBe(false);
   });
 
   it('returns false for non-GitHub externalId format', async () => {
-    const result = await (orchestrator as any).hasOpenPRForExternalId('linear:TEAM-123');
+    const result = await detector.hasOpenPRForExternalId('linear:TEAM-123');
     expect(result).toBe(false);
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
   it('returns false for malformed externalId', async () => {
-    const result = await (orchestrator as any).hasOpenPRForExternalId('github:invalid');
+    const result = await detector.hasOpenPRForExternalId('github:invalid');
     expect(result).toBe(false);
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
-  it('returns false and logs warning when gh command fails (fail-open)', async () => {
+  it('returns false and logs debug when gh command fails (fail-open)', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
         cb(new Error('network timeout'), { stdout: '', stderr: '' });
       }
     );
 
-    const warnSpy = vi.spyOn((orchestrator as any).logger, 'warn');
-    const result = await (orchestrator as any).hasOpenPRForExternalId('github:acme/repo#42');
+    const result = await detector.hasOpenPRForExternalId('github:acme/repo#42');
     expect(result).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(mockLogger.debug).toHaveBeenCalledWith(
       expect.stringContaining('Failed to check open PRs for externalId'),
       expect.any(Object)
     );
@@ -223,41 +238,46 @@ describe('hasOpenPRForExternalId', () => {
 });
 
 describe('parseExternalId', () => {
-  let orchestrator: Orchestrator;
+  let detector: PRDetector;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestrator = new Orchestrator(makeConfig(), 'test prompt', {
-      tracker: makeMockTracker() as any,
+    detector = new PRDetector({
+      logger: makeMockLogger(),
+      projectRoot: '/tmp',
     });
   });
 
   it('parses valid github externalId', () => {
-    const result = (orchestrator as any).parseExternalId('github:acme/repo#42');
+    const result = detector.parseExternalId('github:acme/repo#42');
     expect(result).toEqual({ owner: 'acme', repo: 'repo', number: 42 });
   });
 
   it('returns null for non-github format', () => {
-    expect((orchestrator as any).parseExternalId('linear:TEAM-123')).toBeNull();
+    expect(detector.parseExternalId('linear:TEAM-123')).toBeNull();
   });
 
   it('returns null for malformed github format', () => {
-    expect((orchestrator as any).parseExternalId('github:invalid')).toBeNull();
-    expect((orchestrator as any).parseExternalId('github:owner/repo')).toBeNull();
-    expect((orchestrator as any).parseExternalId('github:owner/repo#abc')).toBeNull();
+    expect(detector.parseExternalId('github:invalid')).toBeNull();
+    expect(detector.parseExternalId('github:owner/repo')).toBeNull();
+    expect(detector.parseExternalId('github:owner/repo#abc')).toBeNull();
   });
 });
 
 describe('filterCandidatesWithOpenPRs', () => {
-  let orchestrator: Orchestrator;
+  let detector: PRDetector;
   let mockExecFile: ReturnType<typeof vi.fn>;
+  let mockLogger: ReturnType<typeof makeMockLogger>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestrator = new Orchestrator(makeConfig(), 'test prompt', {
-      tracker: makeMockTracker() as any,
-    });
+    mockLogger = makeMockLogger();
     mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    detector = new PRDetector({
+      logger: mockLogger,
+      execFileFn: execFile,
+      projectRoot: '/tmp',
+    });
   });
 
   it('uses externalId check when candidate has externalId', async () => {
@@ -281,7 +301,7 @@ describe('filterCandidatesWithOpenPRs', () => {
       }),
     ];
 
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(0);
     // Should use --search "closes #42", not --head "feat/..."
     expect(mockExecFile).toHaveBeenCalledWith(
@@ -312,7 +332,7 @@ describe('filterCandidatesWithOpenPRs', () => {
       }),
     ];
 
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(0);
     // Should use --head "feat/...", not --search
     expect(mockExecFile).toHaveBeenCalledWith(
@@ -339,15 +359,14 @@ describe('filterCandidatesWithOpenPRs', () => {
       makeIssue({ id: '2', identifier: 'no-open-pr-bbb22222', title: 'No PR' }),
     ];
 
-    const infoSpy = vi.spyOn((orchestrator as any).logger, 'info');
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('2');
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping Open PR'));
+    expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Skipping Open PR'));
   });
 
   it('returns empty array for empty candidates', async () => {
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs([]);
+    const result = await detector.filterCandidatesWithOpenPRs([]);
     expect(result).toHaveLength(0);
     expect(mockExecFile).not.toHaveBeenCalled();
   });
@@ -363,7 +382,7 @@ describe('filterCandidatesWithOpenPRs', () => {
       makeIssue({ id: '1', identifier: 'failing-check-ccc33333', title: 'Failing check' }),
     ];
 
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('1');
   });
@@ -407,7 +426,7 @@ describe('filterCandidatesWithOpenPRs', () => {
       }),
     ];
 
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     // Candidate 1: excluded (open PR via externalId)
     // Candidate 2: included (no open PR via identifier)
     // Candidate 3: included (fail-open on API error)
@@ -438,7 +457,7 @@ describe('filterCandidatesWithOpenPRs', () => {
     // parseExternalId returns null for non-GitHub, so hasOpenPRForExternalId returns false
     // But the candidate still has a non-null externalId, so it uses externalId path
     // which returns false (non-GitHub format), meaning candidate passes through
-    const result = await (orchestrator as any).filterCandidatesWithOpenPRs(candidates);
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(1);
   });
 });

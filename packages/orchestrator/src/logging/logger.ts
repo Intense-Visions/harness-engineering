@@ -1,11 +1,15 @@
 export interface LogEntry {
-  level: 'info' | 'warn' | 'error';
+  level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   timestamp?: string;
   context?: Record<string, unknown>;
 }
 
 export class StructuredLogger {
+  public debug(message: string, context?: Record<string, unknown>): void {
+    this.log('debug', message, context);
+  }
+
   public info(message: string, context?: Record<string, unknown>): void {
     this.log('info', message, context);
   }

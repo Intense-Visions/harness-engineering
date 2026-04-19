@@ -27,6 +27,19 @@ Complete reference for configuring Harness Engineering projects:
 
 Use this when setting up or modifying your project configuration.
 
+### [ESLint Rules Reference](./eslint-rules.md)
+
+Complete reference for all 11 rules in `@harness-engineering/eslint-plugin`:
+
+- Architecture rules (layer violations, circular deps, forbidden imports)
+- Boundary rules (Zod schema validation at API boundaries)
+- Documentation rules (JSDoc on exports)
+- Performance rules (nested loops, sync I/O, unbounded array chains)
+- Cross-platform rules (shell commands, path separators, path normalization)
+- Configuration examples, inline suppression, and violation/correct code pairs
+
+Use this when configuring or troubleshooting ESLint rules from the harness plugin.
+
 ## How to Use This Reference
 
 1. **Look up CLI commands** - See [CLI Reference](./cli.md)

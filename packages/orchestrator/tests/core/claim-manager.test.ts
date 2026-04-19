@@ -152,9 +152,9 @@ describe('ClaimManager', () => {
       expect(manager.isStale(issue, 600_000)).toBe(true);
     });
 
-    it('returns false when updatedAt is null (unknown freshness is conservative)', () => {
+    it('returns true when updatedAt is null (missing timestamp = likely never heartbeated)', () => {
       const issue = makeIssue({ updatedAt: null });
-      expect(manager.isStale(issue, 600_000)).toBe(false);
+      expect(manager.isStale(issue, 600_000)).toBe(true);
     });
   });
 

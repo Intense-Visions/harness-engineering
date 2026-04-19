@@ -13,9 +13,10 @@ vi.mock('fs', async (importOriginal) => {
   return {
     ...actual,
     readFileSync: vi.fn().mockImplementation((filePath: string) => {
-      // Resolve the file path to just the relative part for lookup
+      // Normalize to forward slashes so lookups work on Windows too
+      const normalized = (filePath as string).replaceAll('\\', '/');
       for (const [key, content] of Object.entries(mockFileContents)) {
-        if ((filePath as string).endsWith(key)) {
+        if (normalized.endsWith(key)) {
           return content;
         }
       }

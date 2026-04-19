@@ -7,6 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 let tmpDir: string;
 
@@ -113,12 +114,24 @@ function createRacingTracker(candidates: Issue[]) {
 describe('Multi-Orchestrator Claim Coordination', () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-coord-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
   });
 
   afterEach(async () => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly.
+    // Retry cleanup to avoid EBUSY failures in CI.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   // ClaimManager.claimAndVerify has a 2s default verify delay, so each
@@ -139,12 +152,12 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         const orchA = new Orchestrator(
           createMockConfig({ orchestratorId: 'orch-alpha' }),
           'Prompt',
-          { tracker: trackerA, backend: new MockBackend() }
+          { tracker: trackerA, backend: new MockBackend(), execFileFn: noopExecFile }
         );
         const orchB = new Orchestrator(
           createMockConfig({ orchestratorId: 'orch-beta' }),
           'Prompt',
-          { tracker: trackerB, backend: new MockBackend() }
+          { tracker: trackerB, backend: new MockBackend(), execFileFn: noopExecFile }
         );
 
         try {
@@ -235,6 +248,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-live' }), 'Prompt', {
           tracker,
           backend: new MockBackend(),
+          execFileFn: noopExecFile,
         });
 
         try {
@@ -294,6 +308,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-loser' }), 'Prompt', {
         tracker,
         backend: new MockBackend(),
+        execFileFn: noopExecFile,
       });
 
       try {
@@ -335,6 +350,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-err' }), 'Prompt', {
         tracker,
         backend: new MockBackend(),
+        execFileFn: noopExecFile,
       });
 
       try {

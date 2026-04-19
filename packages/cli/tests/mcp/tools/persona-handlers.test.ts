@@ -37,9 +37,10 @@ vi.mock('../../../src/persona/constants', () => ({
   ALLOWED_PERSONA_COMMANDS: new Set(['validate', 'check-arch']),
 }));
 
-// Mock paths
+// Mock paths — use path.join so separators are correct on Windows
+import * as path from 'path';
 vi.mock('../../../src/utils/paths', () => ({
-  resolvePersonasDir: vi.fn(() => '/mock/personas'),
+  resolvePersonasDir: vi.fn(() => path.join('/mock', 'personas')),
 }));
 
 import { listPersonas, loadPersona } from '../../../src/persona/loader';

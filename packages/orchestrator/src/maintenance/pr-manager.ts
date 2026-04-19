@@ -101,7 +101,16 @@ export class PRManager {
 
     // Rebase failed -- recreate branch
     this.logger.warn('Rebase failed, recreating branch from base', { branchName, baseBranch });
-    await this.git.run(['rebase', '--abort'], this.cwd);
+    try {
+      await this.git.run(['rebase', '--abort'], this.cwd);
+    } catch {
+      // rebase --abort can fail if no rebase in progress; recover via reset
+      try {
+        await this.git.run(['reset', '--hard'], this.cwd);
+      } catch {
+        // best-effort recovery
+      }
+    }
     await this.git.run(['checkout', `origin/${baseBranch}`], this.cwd);
     await this.git.run(['branch', '-D', branchName], this.cwd);
     // Also delete the remote branch so we start fresh

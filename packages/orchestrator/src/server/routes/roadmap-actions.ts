@@ -1,21 +1,24 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as fs from 'node:fs/promises';
 import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import { z } from 'zod';
 import { readBody } from '../utils.js';
 
-interface AppendRoadmapRequest {
-  title: string;
-  summary?: string;
-  labels?: string[];
-  enrichedSpec?: {
-    intent: string;
-    unknowns: string[];
-    ambiguities: string[];
-    riskSignals: string[];
-    affectedSystems: Array<{ name: string }>;
-  };
-  cmlRecommendedRoute?: 'local' | 'human' | 'simulation-required';
-}
+const AppendRoadmapRequestSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  enrichedSpec: z
+    .object({
+      intent: z.string(),
+      unknowns: z.array(z.string()),
+      ambiguities: z.array(z.string()),
+      riskSignals: z.array(z.string()),
+      affectedSystems: z.array(z.object({ name: z.string() })),
+    })
+    .optional(),
+  cmlRecommendedRoute: z.enum(['local', 'human', 'simulation-required']).optional(),
+});
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -41,12 +44,13 @@ export function handleRoadmapActionsRoute(
       }
 
       const body = await readBody(req);
-      const parsed = JSON.parse(body) as AppendRoadmapRequest;
-
-      if (!parsed.title || typeof parsed.title !== 'string') {
-        sendJSON(res, 400, { error: 'Missing title string' });
+      // harness-ignore SEC-DES-001: input validated by Zod schema (AppendRoadmapRequestSchema)
+      const result = AppendRoadmapRequestSchema.safeParse(JSON.parse(body));
+      if (!result.success) {
+        sendJSON(res, 400, { error: result.error.issues[0]?.message ?? 'Invalid request body' });
         return;
       }
+      const parsed = result.data;
 
       // Sanitize title — reject newlines or markdown headings
       if (parsed.title.includes('\n') || parsed.title.includes('###')) {

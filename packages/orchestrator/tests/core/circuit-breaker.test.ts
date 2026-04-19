@@ -7,6 +7,7 @@ import { Orchestrator } from '../../src/orchestrator';
 import { MockBackend } from '../../src/agent/backends/mock';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 describe('Intelligence Pipeline Circuit Breaker', () => {
   let tmpDir: string;
@@ -71,13 +72,23 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-cb-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
   });
 
   afterEach(async () => {
     if (orchestrator) await orchestrator.stop();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('should stop calling pipeline after consecutive connection errors hit threshold', async () => {
@@ -95,6 +106,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // Replace the pipeline with a mock that always throws connection errors
@@ -136,6 +148,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // Fail, succeed, fail, fail → should trip on the last two
@@ -173,6 +186,7 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: new MockBackend(),
+      execFileFn: noopExecFile,
     });
 
     // All fail with a non-connection error (e.g., LLM returned invalid JSON)

@@ -163,8 +163,28 @@ export class OrchestratorServer {
     return false;
   }
 
+  /**
+   * Check bearer token auth for mutating API routes.
+   * When HARNESS_API_TOKEN is set, all API requests must include it.
+   * Read-only endpoints (state, static) are exempt.
+   */
+  private checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    const token = process.env['HARNESS_API_TOKEN'];
+    if (!token) return true; // Auth not configured — allow (localhost-only)
+
+    const authHeader = req.headers['authorization'];
+    if (authHeader === `Bearer ${token}`) return true;
+
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <HARNESS_API_TOKEN>' })
+    );
+    return false;
+  }
+
   /** Dispatch to API route handlers. Returns true if a route matched. */
   private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    if (!this.checkAuth(req, res)) return true;
     // Interactions routes
     if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
       return true;

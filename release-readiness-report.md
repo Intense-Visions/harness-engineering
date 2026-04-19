@@ -1,6 +1,6 @@
 # Release Readiness Report
 
-**Date:** 2026-04-09
+**Date:** 2026-04-18
 **Project:** harness-engineering
 **Flags:** standard
 
@@ -8,38 +8,44 @@
 
 **Result: PASS**
 
-| Category                   | Passed       | Warnings | Failures |
-| -------------------------- | ------------ | -------- | -------- |
-| Packaging                  | 77/77        | 0        | 0        |
-| Documentation              | 6/6          | 0        | 0        |
-| Repo Hygiene               | 5/5          | 0        | 0        |
-| CI/CD                      | 6/6          | 3        | 0        |
-| Tests                      | 18/18        | 0        | 0        |
-| Maintenance — Doc Drift    | 0 issues     | —        | —        |
-| Maintenance — Dead Code    | 1 issue      | —        | —        |
-| Maintenance — Architecture | 0 violations | —        | —        |
-| Maintenance — Diagnostics  | 9 warnings   | —        | —        |
+| Category                   | Passed             | Warnings | Failures |
+| -------------------------- | ------------------ | -------- | -------- |
+| Packaging                  | 14/14              | 0        | 0        |
+| Documentation              | 6/6                | 0        | 0        |
+| Repo Hygiene               | 5/5                | 0        | 0        |
+| CI/CD                      | 6/6                | 0        | 0        |
+| i18n                       | N/A                | —        | —        |
+| Maintenance — Doc Drift    | 6 issues (5 fixed) | —        | —        |
+| Maintenance — Dead Code    | 4 issues           | —        | —        |
+| Maintenance — Architecture | 1 violation        | —        | —        |
+| Maintenance — Diagnostics  | 6 findings         | —        | —        |
 
 ## Packaging
 
-All 7 public packages pass all checks (name, version, license, exports, main, files, publishConfig, repository, bugs, homepage, description).
+### All 9 packages (@harness-engineering/\*)
 
-- @harness-engineering/types (0.9.1) — all fields present
-- @harness-engineering/core (0.21.2) — all fields present
-- @harness-engineering/cli (1.24.0) — all fields present
-- @harness-engineering/graph (0.4.2) — all fields present
-- @harness-engineering/eslint-plugin (0.2.4) — all fields present
-- @harness-engineering/linter-gen (0.1.6) — all fields present
-- @harness-engineering/orchestrator (0.2.6) — all fields present
-- @harness-engineering/dashboard (0.1.1) — private, skipped
+- [x] name: scoped `@harness-engineering/*`
+- [x] version: valid semver (0.1.0–1.24.3)
+- [x] license: MIT
+- [x] exports/main entry point defined
+- [x] files field defined
+- [x] publishConfig: access public
+- [x] repository field
+- [x] bugs field
+- [x] homepage field
+- [x] description field
+- [x] Build succeeds (10/10 turbo tasks)
+- [x] Typecheck passes (16/16 turbo tasks)
+- [x] Tests pass (20/20 turbo tasks, gate.test.ts timeout fixed)
+- [x] No TODO/FIXME in published dist files
 
 ## Documentation
 
 - [x] README.md exists
 - [x] README has install/quickstart section
 - [x] README has usage/API section
-- [x] CHANGELOG.md exists with 17 versioned entries
-- [x] LICENSE exists (MIT)
+- [x] CHANGELOG.md exists with 14 version entries
+- [x] LICENSE file exists (MIT)
 
 ## Repo Hygiene
 
@@ -47,74 +53,78 @@ All 7 public packages pass all checks (name, version, license, exports, main, fi
 - [x] CODE_OF_CONDUCT.md exists
 - [x] SECURITY.md exists
 - [x] .gitignore covers node_modules, dist, .env
+- [x] No TODO/FIXME in published source files
 
 ## CI/CD
 
-- [x] CI workflow: .github/workflows/ci.yml
-- [x] Release workflow: .github/workflows/release.yml
-- [x] test, lint, typecheck scripts present
-- [x] assess_project passes (validate, deps, docs, entropy, perf, lint)
-- [x] 3 security warnings from assess_project (non-blocking)
-
-## Tests
-
-- [x] Build succeeds (all 9 packages)
-- [x] Typecheck passes (all 13 tasks)
-- [x] Lint passes (all 8 tasks)
-- [x] Platform parity — codex skill variants generated (540 skills across 4 platforms)
-- [x] CLI function coverage: 68.97% (above 68.48% baseline)
+- [x] CI workflow: `.github/workflows/ci.yml`
+- [x] Release workflow: `.github/workflows/release.yml`
+- [x] `test` script exists in root package.json
+- [x] `lint` script exists in root package.json
+- [x] `typecheck` script exists in root package.json
+- [x] `assess_project` passes (healthy: true)
 
 ## Maintenance Results
 
 ### Doc Drift
 
-Clean. All API doc versions synced to source:
+6 issues found (5 fixed this session):
 
-| Doc                       | Before          | After  |
-| ------------------------- | --------------- | ------ |
-| docs/api/orchestrator.md  | missing version | 0.2.6  |
-| docs/api/cli.md           | 1.23.2          | 1.24.0 |
-| docs/api/graph.md         | 0.4.1           | 0.4.2  |
-| docs/api/eslint-plugin.md | 0.2.3           | 0.2.4  |
-| docs/api/core.md          | 0.21.1          | 0.21.2 |
-| docs/api/types.md         | 0.9.0           | 0.9.1  |
-| docs/api/linter-gen.md    | 0.1.5           | 0.1.6  |
+- [x] ~~README.md:248 skill count stale (485 → 736)~~ — fixed
+- [x] ~~README.md:171 MCP tools count stale (55 → 58)~~ — fixed
+- [x] ~~README.md packages table missing intelligence package~~ — fixed
+- [x] ~~docs/api/cli.md:6 version stale (1.24.0 → 1.24.3)~~ — fixed
+- [x] ~~packages/intelligence/README.md missing openai dependency~~ — fixed
+- [ ] packages/dashboard/README.md does not exist — needs human-authored content
 
 ### Dead Code
 
-1 remaining issue:
+4 categories found:
 
-- `packages/core/scripts/backfill-learnings-frontmatter.ts` — one-shot migration script, needs human review
+- 28 unused type exports across types/intelligence/linter-gen (low — may be intentional public API)
+- 1 unused value export: `scoreCML` in packages/intelligence/src/cml/scorer.ts (medium)
+- 1 unused dependency: `@tremor/react` in packages/dashboard (medium)
+- 2 commented-out code blocks: core/src/entropy/snapshot.ts, core/src/context/doc-coverage.ts (low)
 
 ### Architecture
 
-Clean. All layer boundaries enforced.
+1 violation:
+
+- Circular dependency: `packages/cli/src/commands/setup.ts` ↔ `telemetry-wizard.ts` (type-only import cycle). Fix: extract `StepResult` into shared types file.
+- Baseline regressions: module-size +1550, dependency-depth +14 (may need `harness check-arch --update-baseline`)
 
 ### Diagnostics
 
-9 warnings (non-blocking):
+2 errors, 4 warnings:
 
-- 1 build warning: import.meta CJS fallback in parser.ts (has runtime fallback)
-- 8 moderate npm audit vulnerabilities: hono x5 and @hono/node-server x1 (transitive via @modelcontextprotocol/sdk), esbuild + vite (dev-only)
+- **E1:** Circular dependency setup.ts ↔ telemetry-wizard.ts (same as architecture finding)
+- **E2:** `harness check-perf` cannot resolve entry points — add entry point config to harness.config.json
+- **W1:** ~~intelligence missing from root tsconfig.json references~~ — fixed
+- **W2:** eslint-plugin extends `../../tsconfig.json` instead of `../../tsconfig.base.json`
+- **W3:** Inconsistent `"type"` field across packages (4 ESM, 5 CJS-default)
+- **W4:** Dashboard client bundle 1.3MB — consider code-splitting
 
-## Fixes Applied This Session (Wave 2)
+## Fixes Applied
 
-1. `docs/api/orchestrator.md` — added missing version 0.2.6
-2. `docs/api/cli.md` — version 1.23.2 → 1.24.0
-3. `docs/api/graph.md` — version 0.4.1 → 0.4.2; VERSION constant example updated
-4. `docs/api/eslint-plugin.md` — version 0.2.3 → 0.2.4; strict config description corrected
-5. `docs/api/core.md` — version 0.21.1 → 0.21.2
-6. `docs/api/types.md` — version 0.9.0 → 0.9.1
-7. `docs/api/linter-gen.md` — version 0.1.5 → 0.1.6
-8. `packages/eslint-plugin/src/index.ts` — meta.version 0.2.3 → 0.2.4
-9. `packages/core/src/state/session-sections.ts` — Math.random() → crypto.getRandomValues() (CWE-338)
-10. `agents/skills/README.md` — skill count updated to 540 across 4 platforms
+1. Updated package count in README.md (8 → 9)
+2. Updated skill count in README.md (485 → 736)
+3. Updated MCP tools count in README.md (55 → 58)
+4. Added intelligence package row to README.md packages table
+5. Updated CLI version in docs/api/cli.md (1.24.0 → 1.24.3)
+6. Added openai to intelligence README dependency list
+7. Added intelligence to root tsconfig.json project references
 
-## Remaining Items (Human Decision Required)
+## Remaining Items
 
-- [ ] `eslint-plugin/src/utils/schema.ts` — HarnessConfigSchema diverged from CLI source; recommend moving canonical schema to packages/types
-- [ ] `check-orchestrator.ts:376` `runSingleCheck` complexity >10; refactor to extract sub-functions
-- [ ] Skill subdirectory test-driven over-exports — decide to un-export or accept pattern
-- [ ] `graph/CIConnector.ts` — local `emptyResult` shadows canonical shared utility
-- [ ] Bump hono ≥4.12.12 / @hono/node-server ≥1.19.13 when upstream releases available
-- [ ] Review `backfill-learnings-frontmatter.ts` — keep or delete
+**Should fix (maintenance findings):**
+
+- [ ] Write dashboard README.md
+- [ ] Extract `StepResult` from setup.ts to break circular dep with telemetry-wizard.ts
+- [ ] Add entry point config to harness.config.json for check-perf
+- [ ] Change eslint-plugin tsconfig to extend `../../tsconfig.base.json`
+- [ ] Verify and remove unused `@tremor/react` from dashboard
+- [ ] Remove unused `scoreCML` export from intelligence
+- [ ] Remove commented-out code from core/src/entropy/snapshot.ts and core/src/context/doc-coverage.ts
+- [ ] Unify `"type"` field across packages
+- [ ] Add code-splitting to dashboard build
+- [ ] Update arch baselines: `harness check-arch --update-baseline`

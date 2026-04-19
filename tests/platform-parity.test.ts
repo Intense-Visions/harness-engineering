@@ -2,6 +2,11 @@
 //
 // Root-level platform parity test suite. Scans the repo for structural
 // anti-patterns that break cross-platform compatibility.
+//
+// NOTE: Code-level checks (hardcoded path separators, exec with unix commands,
+// unnormalized relative() calls) are enforced by ESLint rules that run on every
+// commit via lint-staged. This file only covers structural/JSON checks that
+// ESLint cannot handle.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, globSync } from 'node:fs';
@@ -19,6 +24,7 @@ function findFiles(pattern: string): string[] {
 }
 
 // -- Anti-pattern 1: Unix commands in package.json scripts --------------------
+// ESLint can't check JSON files, so this stays as a test.
 describe('no unix commands in package.json scripts', () => {
   const UNIX_SCRIPT_PATTERNS = [/\brm -rf\b/, /\bcp -r\b/, /\bmv /, /\bmkdir -p\b/, /\bchmod\b/];
 
@@ -50,8 +56,11 @@ describe('no unix commands in package.json scripts', () => {
 });
 
 // -- Anti-pattern 2: .sh files without cross-platform equivalents -------------
+// Structural check — ESLint can't verify cross-file equivalents exist.
 describe('shell scripts have cross-platform equivalents', () => {
-  const shFiles = findFiles('**/*.sh').filter((f) => !f.includes('husky'));
+  const shFiles = findFiles('**/*.sh').filter(
+    (f) => !f.includes('husky') && !f.includes('docker-') // Docker scripts are Linux-only by design
+  );
 
   if (shFiles.length === 0) {
     it('no .sh files found (nothing to check)', () => {
@@ -75,42 +84,8 @@ describe('shell scripts have cross-platform equivalents', () => {
   }
 });
 
-// -- Anti-pattern 3: Hardcoded path separators in .ts source files ------------
-describe('no hardcoded path separators in source files', () => {
-  // Pattern: indexOf('/word/') or includes('/word/') with forward slash path segments
-  const SEPARATOR_PATTERN =
-    /\.(indexOf|includes|startsWith|endsWith)\s*\(\s*['"`][^'"`]*\/[a-zA-Z_][a-zA-Z0-9_-]*\/[^'"`]*['"`]\s*\)/g;
-
-  const tsFiles = findFiles('packages/*/src/**/*.ts');
-
-  for (const tsFile of tsFiles) {
-    const relative = tsFile.replace(ROOT + sep, '');
-
-    it(`${relative} has no hardcoded path separators in string methods`, () => {
-      const content = readFileSync(tsFile, 'utf-8');
-      const lines = content.split('\n');
-      const matches: string[] = [];
-
-      let match;
-      SEPARATOR_PATTERN.lastIndex = 0;
-      while ((match = SEPARATOR_PATTERN.exec(content)) !== null) {
-        // Get approximate line number
-        const lineNum = content.substring(0, match.index).split('\n').length;
-        // Skip lines with platform-safe suppression comment
-        const line = lines[lineNum - 1] ?? '';
-        if (line.includes('platform-safe')) continue;
-        matches.push(`Line ${lineNum}: ${match[0]}`);
-      }
-
-      expect(
-        matches,
-        `Hardcoded path separators in ${relative}:\n${matches.join('\n')}`
-      ).toHaveLength(0);
-    });
-  }
-});
-
-// -- Anti-pattern 4: Unguarded fs.chmodSync calls -----------------------------
+// -- Anti-pattern 3: Unguarded fs.chmodSync calls -----------------------------
+// Context-aware check (5-line lookback for platform guard) — too complex for ESLint AST.
 describe('no unguarded fs.chmodSync calls', () => {
   const CHMOD_PATTERN = /\.chmodSync\s*\(/g;
   const PLATFORM_GUARD = /process\.platform\s*(!==|===|!=|==)\s*['"]win32['"]/;
@@ -144,118 +119,10 @@ describe('no unguarded fs.chmodSync calls', () => {
   }
 });
 
-// -- Anti-pattern 5: exec/execSync with shell strings -------------------------
-describe('no exec/execSync with unix shell commands', () => {
-  const EXEC_PATTERN = /\b(exec|execSync)\s*\(\s*['"`]/g;
-  const UNIX_COMMANDS = /['"`]\s*(?:rm|cp|mv|mkdir|chmod|chown)\b/;
-
-  const tsFiles = findFiles('packages/*/src/**/*.ts');
-
-  for (const tsFile of tsFiles) {
-    const relative = tsFile.replace(ROOT + sep, '');
-
-    it(`${relative} does not use exec/execSync with unix commands`, () => {
-      const content = readFileSync(tsFile, 'utf-8');
-      const lines = content.split('\n');
-      const violations: string[] = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]!;
-        EXEC_PATTERN.lastIndex = 0;
-        if (EXEC_PATTERN.test(line) && UNIX_COMMANDS.test(line)) {
-          violations.push(`Line ${i + 1}: ${line.trim()}`);
-        }
-      }
-
-      expect(
-        violations,
-        `exec/execSync with unix commands in ${relative}:\n${violations.join('\n')}`
-      ).toHaveLength(0);
-    });
-  }
-});
-
-// -- Anti-pattern 6: path.relative() without separator normalization ----------
-
-const RELATIVE_START = /\b(?:path\.)?relative\s*\(/g;
-const NORMALIZATION = /^\.(?:replaceAll|replace)\s*\(/;
-const POSIX_HELPER = /\brelativePosix\s*\(/;
-const STRING_RELATIVE = /['"`].*\brelative\b.*['"`]/;
-
-function shouldSkipLine(line: string): boolean {
-  const trimmed = line.trimStart();
-  if (trimmed.startsWith('//') || trimmed.startsWith('*')) return true;
-  if (line.includes("from 'node:path'") || line.includes("from 'path'")) return true;
-  if (POSIX_HELPER.test(line)) return true;
-  if (STRING_RELATIVE.test(line)) return true;
-  return false;
-}
-
-function findClosingParen(
-  lines: string[],
-  startLine: number,
-  startCol: number
-): { line: number; col: number } {
-  let depth = 1;
-  let searchLine = startLine;
-  let col = startCol;
-
-  while (depth > 0 && searchLine < lines.length) {
-    const currentLine = lines[searchLine]!;
-    while (col < currentLine.length && depth > 0) {
-      if (currentLine[col] === '(') depth++;
-      else if (currentLine[col] === ')') depth--;
-      col++;
-    }
-    if (depth > 0) {
-      searchLine++;
-      col = 0;
-    }
-  }
-
-  return { line: searchLine, col };
-}
-
-function findUnnormalizedRelativeCalls(content: string): string[] {
-  const lines = content.split('\n');
-  const violations: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    if (shouldSkipLine(line)) continue;
-
-    RELATIVE_START.lastIndex = 0;
-    let match;
-    while ((match = RELATIVE_START.exec(line)) !== null) {
-      const pos = match.index + match[0].length;
-      const closing = findClosingParen(lines, i, pos);
-      let afterParen = lines[closing.line]!.substring(closing.col).trimStart();
-      if (!afterParen && closing.line + 1 < lines.length) {
-        afterParen = lines[closing.line + 1]!.trimStart();
-      }
-      if (!NORMALIZATION.test(afterParen)) {
-        violations.push(`Line ${i + 1}: ${line.trim()}`);
-      }
-    }
-  }
-
-  return violations;
-}
-
-describe('relative() calls are normalized for cross-platform paths', () => {
-  const tsFiles = findFiles('packages/*/src/**/*.ts');
-
-  for (const tsFile of tsFiles) {
-    const relative = tsFile.replace(ROOT + sep, '');
-
-    it(`${relative} normalizes relative() results`, () => {
-      const content = readFileSync(tsFile, 'utf-8');
-      const violations = findUnnormalizedRelativeCalls(content);
-
-      expect(
-        violations,
-        `Un-normalized relative() calls in ${relative}. Use relativePosix() or add .replaceAll('\\\\', '/'):\n${violations.join('\n')}`
-      ).toHaveLength(0);
-    });
-  }
-});
+// Anti-patterns 4-6 (hardcoded path separators, exec with unix commands,
+// unnormalized relative() calls) are enforced by ESLint rules:
+//   - @harness-engineering/no-hardcoded-path-separator
+//   - @harness-engineering/no-unix-shell-command
+//   - @harness-engineering/require-path-normalization
+// These run per-file on every commit via lint-staged, catching issues faster
+// than this test suite which scans the entire repo.

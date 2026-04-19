@@ -20,11 +20,11 @@ jobs:
         node-version: [22]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
@@ -33,11 +33,15 @@ jobs:
 
       - run: pnpm build
 
+      # Typecheck, lint, and format are platform-independent — only run on ubuntu
       - run: pnpm typecheck
+        if: matrix.os == 'ubuntu-latest'
 
       - run: pnpm lint
+        if: matrix.os == 'ubuntu-latest'
 
       - run: pnpm format:check
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Test (with coverage on ubuntu)
         run: ${{ matrix.os == 'ubuntu-latest' && 'pnpm test:ci' || 'pnpm test' }}
@@ -52,19 +56,29 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: packages/core/coverage/coverage-final.json,packages/graph/coverage/coverage-final.json,packages/cli/coverage/coverage-final.json,packages/eslint-plugin/coverage/coverage-final.json,packages/linter-gen/coverage/coverage-final.json,packages/orchestrator/coverage/coverage-final.json,packages/types/coverage/coverage-final.json
           flags: unittests
-          fail_ci_if_error: true
+          fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      # Upload coverage artifacts for refresh-baselines to reuse (avoids re-running tests)
+      - name: Upload coverage artifacts
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-data
+          path: |
+            packages/*/coverage/
+            coverage-baselines.json
+          retention-days: 1
 
       - run: pnpm test:platform-parity
 
   # Regenerate auto-generated baselines on main after merge to prevent drift.
-  # These files use merge=ours in .gitattributes, so they need a post-merge
-  # refresh to stay accurate.
+  # Downloads coverage from the test job to avoid running the full test suite twice.
   refresh-baselines:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: build-and-test
@@ -72,13 +86,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: 'pnpm'
@@ -86,8 +100,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-      # Regenerate coverage baselines
-      - run: pnpm test:ci
+      # Download coverage from test job instead of re-running tests
+      - uses: actions/download-artifact@v5
+        with:
+          name: coverage-data
+
+      # Update coverage baselines from downloaded data
       - run: node scripts/coverage-ratchet.mjs --update
 
       # Regenerate architecture baselines

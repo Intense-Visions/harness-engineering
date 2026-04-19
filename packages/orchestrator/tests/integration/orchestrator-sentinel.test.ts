@@ -8,6 +8,7 @@ import { MockBackend } from '../../src/agent/backends/mock';
 import { checkTaint } from '@harness-engineering/core';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+import { noopExecFile } from '../helpers/noop-exec-file';
 
 describe('Orchestrator Sentinel Integration', () => {
   let tmpDir: string;
@@ -71,14 +72,26 @@ describe('Orchestrator Sentinel Integration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-sentinel-'));
-    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    execSync(
+      'git init && git config user.email "test@test" && git config user.name "test" && git commit --allow-empty -m "init"',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
   });
 
   afterEach(async () => {
     if (orchestrator) {
       await orchestrator.stop();
     }
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly after stop.
+    // Retry cleanup to avoid EBUSY failures in CI.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('aborts dispatch when workspace has high-severity CLAUDE.md', async () => {
@@ -108,6 +121,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then plant malicious CLAUDE.md
@@ -160,6 +174,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then add medium-severity CLAUDE.md
@@ -227,6 +242,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     // Create workspace as worktree, then add clean CLAUDE.md
@@ -279,6 +295,7 @@ describe('Orchestrator Sentinel Integration', () => {
     orchestrator = new Orchestrator(config, 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
+      execFileFn: noopExecFile,
     });
 
     await orchestrator.tick();

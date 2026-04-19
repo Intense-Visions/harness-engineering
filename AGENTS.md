@@ -31,6 +31,8 @@ harness-engineering/
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
+│   ├── intelligence/         # Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation
+│   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 736 skills (skill.yaml + SKILL.md each)
@@ -105,7 +107,7 @@ Each package has a clear responsibility:
 - **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
 - **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues (depends on types, core)
-- **dashboard**: Web dashboard — React + Hono full-stack app with 6 pages (Overview, Roadmap, Health, Graph, CI, Impact), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
+- **dashboard**: Web dashboard — React + Hono full-stack app with 10 pages (Overview, Roadmap, Health, Graph, Impact, Adoption, Analyze, Attention, Chat, Orchestrator), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ### Notable Core Modules
@@ -397,7 +399,7 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
 
-**Client** (`src/client/`): React SPA with 6 pages (Overview, Roadmap, Health, Graph, CI, Impact), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
+**Client** (`src/client/`): React SPA with 10 pages (Overview, Roadmap, Health, Graph, Impact, Adoption, Analyze, Attention, Chat, Orchestrator), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
 
 **Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: overview, health, impact, ci, actions, sse, health-check. Data gatherers: health, ci, blast-radius, arch, anomalies.
 

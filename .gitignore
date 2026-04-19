@@ -43,18 +43,19 @@ temp/
 .claude/worktrees/
 
 # Harness runtime artifacts (see .harness/.gitignore)
-.harness/graph/
-.harness/debug/
-.harness/sessions/
-.harness/session-taint-*.json
-.harness/handoff.json
-.harness/state.json
-.harness/state/
-.harness/dispatch-last-head.txt
-.harness/interactions/
-.harness/analyses/
-.harness/workspaces/
-.harness/security/
+# Use **/ prefix so patterns match .harness dirs at any depth (e.g. packages/orchestrator/.harness/)
+**/.harness/graph/
+**/.harness/debug/
+**/.harness/sessions/
+**/.harness/session-taint-*.json
+**/.harness/handoff.json
+**/.harness/state.json
+**/.harness/state/
+**/.harness/dispatch-last-head.txt
+**/.harness/interactions/
+**/.harness/analyses/
+**/.harness/workspaces/
+**/.harness/security/
 **/fixtures/**/.harness/security/
 
 .vitepress

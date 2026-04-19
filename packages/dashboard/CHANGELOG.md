@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [f1bc300]
+- Updated dependencies
+  - @harness-engineering/core@0.22.0
+
 ## 0.1.4
 
 ### Patch Changes

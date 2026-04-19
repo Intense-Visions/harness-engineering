@@ -1,13 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 import { manualToRawWorkItem, scoreToConcernSignals } from '@harness-engineering/intelligence';
+import { z } from 'zod';
 import { readBody } from '../utils.js';
 
-interface AnalyzeRequest {
-  title: string;
-  description?: string;
-  labels?: string[];
-}
+const AnalyzeRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+});
+
+type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;
 
 type AnalyzeSSEEvent =
   | { type: 'status'; text: string }
@@ -130,14 +133,14 @@ export function handleAnalyzeRoute(
       }
 
       const body = await readBody(req);
-      const parsed = JSON.parse(body) as AnalyzeRequest;
-
-      if (!parsed.title || typeof parsed.title !== 'string') {
-        sendError(res, 400, 'Missing title string');
+      // harness-ignore SEC-DES-001: input validated by Zod schema (AnalyzeRequestSchema)
+      const result = AnalyzeRequestSchema.safeParse(JSON.parse(body));
+      if (!result.success) {
+        sendError(res, 400, result.error.issues[0]?.message ?? 'Invalid request body');
         return;
       }
 
-      await runPipeline(res, pipeline, parsed);
+      await runPipeline(res, pipeline, result.data);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Analysis failed';
       if (!res.headersSent) {

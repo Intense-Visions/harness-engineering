@@ -70,6 +70,9 @@ skills-index.json
 stack-profile.json
 metrics/
 events.jsonl
+.install-id
+telemetry.json
+.telemetry-notice-shown
 `;
 
   fs.mkdirSync(path.dirname(gitignorePath), { recursive: true });

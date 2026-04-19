@@ -1,8 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { z } from 'zod';
 import { readBody } from '../utils';
 import type { InteractionQueue } from '../../core/interaction-queue';
 
-const VALID_STATUSES = new Set(['pending', 'claimed', 'resolved']);
+const InteractionUpdateSchema = z.object({
+  status: z.enum(['pending', 'claimed', 'resolved']),
+});
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
 /**
@@ -44,9 +47,9 @@ export function handleInteractionsRoute(
     void (async () => {
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { status?: string };
-
-        if (!parsed.status || !VALID_STATUSES.has(parsed.status)) {
+        // harness-ignore SEC-DES-001: input validated by Zod schema (InteractionUpdateSchema)
+        const result = InteractionUpdateSchema.safeParse(JSON.parse(body));
+        if (!result.success) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(
             JSON.stringify({ error: 'Invalid status. Must be pending, claimed, or resolved.' })
@@ -54,7 +57,7 @@ export function handleInteractionsRoute(
           return;
         }
 
-        await queue.updateStatus(id, parsed.status as 'pending' | 'claimed' | 'resolved');
+        await queue.updateStatus(id, result.data.status);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {

@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.24.0
+**Version:** 1.24.3
 
 ## Installation
 
@@ -183,7 +183,85 @@ Skills installed from npm respect semver — use `--version` to pin a range (e.g
 | `harness integrations` | Manage MCP peer integrations (add, list, remove, dismiss) |
 | `harness hooks`        | Manage Claude Code hook configurations                    |
 | `harness ci`           | CI/CD integration commands                                |
+| `harness ci check`     | Run all harness checks for CI                             |
+| `harness ci init`      | Generate CI configuration for harness checks              |
+| `harness ci notify`    | Post CI check results to GitHub (PR comment or issue)     |
 | `harness dashboard`    | Start the Harness local web dashboard                     |
+
+#### `harness ci check`
+
+Run all harness checks in a single pass, producing a structured report suitable for CI pipelines. Runs the following checks by default: `validate`, `deps`, `docs`, `entropy`, `security`, `perf`, `phase-gate`, `arch`, `traceability`.
+
+```bash
+# Run all checks
+harness ci check
+
+# Output as JSON (for CI artifact collection)
+harness ci check --json
+
+# Skip specific checks
+harness ci check --skip entropy,docs
+
+# Fail on warnings (default: fail on errors only)
+harness ci check --fail-on warning
+```
+
+| Option                 | Description                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `--skip <checks>`      | Comma-separated checks to skip (e.g., `entropy,docs`)  |
+| `--fail-on <severity>` | Fail on severity level: `error` (default) or `warning` |
+
+Exit codes: `0` = all checks passed, `1` = one or more checks failed.
+
+#### `harness ci init`
+
+Generate CI configuration files for running harness checks automatically. Auto-detects the CI platform from the project directory (`.github/` = GitHub Actions, `.gitlab-ci.yml` = GitLab CI), falling back to a generic shell script.
+
+```bash
+# Auto-detect platform and generate config
+harness ci init
+
+# Specify platform explicitly
+harness ci init --platform github
+harness ci init --platform gitlab
+harness ci init --platform generic
+
+# Include only specific checks
+harness ci init --checks validate,deps,docs,arch
+```
+
+| Option              | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `--platform <name>` | CI platform: `github`, `gitlab`, or `generic` (auto-detected)     |
+| `--checks <list>`   | Comma-separated list of checks to include in the generated config |
+
+Generated files:
+
+- **GitHub Actions:** `.github/workflows/harness.yml`
+- **GitLab CI:** `.gitlab-ci-harness.yml`
+- **Generic:** `harness-ci.sh` (executable shell script)
+
+#### `harness ci notify`
+
+Post CI check results to GitHub as a PR comment or a new issue. Requires a `harness ci check --json` report file and a GitHub tracker configured in `harness.config.json` (`roadmap.tracker` with `kind: "github"`).
+
+```bash
+# Post results as a PR comment
+harness ci notify report.json --target pr-comment --pr 42
+
+# Create a GitHub issue on failure
+harness ci notify report.json --target issue --title "CI Failure: main" --labels "ci,harness"
+```
+
+| Option              | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `<report>`          | Path to CI check report JSON file (from `harness ci check --json`) |
+| `--target <target>` | Notification target: `pr-comment` or `issue` (required)            |
+| `--pr <number>`     | PR number (required for `pr-comment` target)                       |
+| `--title <title>`   | Custom issue title (for `issue` target)                            |
+| `--labels <labels>` | Comma-separated labels for created issues                          |
+
+Requires `GITHUB_TOKEN` or `GH_TOKEN` environment variable. When target is `issue` and all checks pass (exit code 0), issue creation is skipped.
 
 #### State and Learnings
 

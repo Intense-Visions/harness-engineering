@@ -165,7 +165,9 @@ export function createInitCommand(): Command {
             `Installed ${result.copiedScripts.length} hook scripts to .harness/hooks/`
           );
           logger.info(`Profile: ${profile}`);
-          logger.info(`Settings: ${path.relative(projectDir, result.settingsPath)}`);
+          logger.info(
+            `Settings: ${path.relative(projectDir, result.settingsPath).replaceAll('\\', '/')}`
+          );
           logger.dim("Run 'harness hooks list' to see installed hooks");
         }
       } catch (err: unknown) {
