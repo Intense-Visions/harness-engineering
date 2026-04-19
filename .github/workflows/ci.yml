@@ -109,8 +109,8 @@ jobs:
       - run: node scripts/coverage-ratchet.mjs --update
 
       # Regenerate architecture baselines
-      - run: npx harness check-arch --update-baseline
-      - run: npx harness check-arch --update-baseline --module packages/cli
+      - run: node packages/cli/dist/bin/harness.js check-arch --update-baseline
+      - run: node packages/cli/dist/bin/harness.js check-arch --update-baseline --module packages/cli
 
       # Regenerate benchmark baselines
       - run: node scripts/benchmark-check.mjs --update

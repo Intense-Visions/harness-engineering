@@ -8,5 +8,5 @@ import { resolve } from 'path';
 // pre-existing, the provider only needs to create .tmp (one level), which
 // resolves before any worker can start.
 export function setup() {
-  mkdirSync(resolve(import.meta.dirname, 'coverage'), { recursive: true });
+  mkdirSync(resolve(import.meta.dirname, 'coverage', '.tmp'), { recursive: true });
 }
