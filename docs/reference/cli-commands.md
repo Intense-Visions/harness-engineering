@@ -114,6 +114,7 @@ Start the Harness local web dashboard
 
 - `--port` — Client dev server port (default: "3700")
 - `--api-port` — API server port (default: "3701")
+- `--orchestrator-url` — Orchestrator URL (default: http://localhost:8080)
 - `--no-open` — Do not automatically open browser
 - `--cwd` — Project directory (defaults to cwd)
 
