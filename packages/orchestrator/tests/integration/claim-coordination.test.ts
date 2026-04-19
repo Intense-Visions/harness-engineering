@@ -122,7 +122,16 @@ describe('Multi-Orchestrator Claim Coordination', () => {
   });
 
   afterEach(async () => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly.
+    // Retry cleanup to avoid EBUSY failures in CI.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   // ClaimManager.claimAndVerify has a 2s default verify delay, so each

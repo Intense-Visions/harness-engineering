@@ -82,7 +82,16 @@ describe('Orchestrator Sentinel Integration', () => {
     if (orchestrator) {
       await orchestrator.stop();
     }
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly after stop.
+    // Retry cleanup to avoid EBUSY failures in CI.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('aborts dispatch when workspace has high-severity CLAUDE.md', async () => {
