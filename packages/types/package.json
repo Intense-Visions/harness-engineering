@@ -20,7 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "node ../../scripts/clean.mjs dist",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "mkdir -p coverage/.tmp && vitest run --coverage"
   },
   "keywords": [
     "harness",
