@@ -272,6 +272,18 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
 | Rationalization                                  | Reality                                                                                                                              |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | "The violation is minor — just one import"       | One violation sets a precedent. Enforce the constraint or document an explicit exception with rationale.                             |
