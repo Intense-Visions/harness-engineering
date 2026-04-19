@@ -1,5 +1,5 @@
 // packages/cli/scripts/copy-assets.mjs — Cross-platform replacement for `cp -r`
-// Copies ../../templates and ../../agents into dist/
+// Copies ../../templates, ../../agents, and src/hooks/*.js into dist/
 
 import { cp, rm, mkdir } from 'node:fs/promises';
 import { resolve, dirname, basename } from 'node:path';
@@ -11,6 +11,7 @@ const root = resolve(__dirname, '..');
 const assets = [
   { src: resolve(root, '../../templates'), dest: resolve(root, 'dist/templates') },
   { src: resolve(root, '../../agents'), dest: resolve(root, 'dist/agents') },
+  { src: resolve(root, 'src/hooks'), dest: resolve(root, 'dist/hooks') },
 ];
 
 await mkdir(resolve(root, 'dist'), { recursive: true });

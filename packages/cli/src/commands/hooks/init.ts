@@ -12,17 +12,26 @@ const VALID_PROFILES: HookProfile[] = ['minimal', 'standard', 'strict'];
 
 /**
  * Resolve the source directory containing hook .js scripts.
- * Works from both src/ (dev/vitest) and dist/ (compiled).
+ * Works from both src/ (dev/vitest) and dist/ (compiled/bundled).
+ *
+ * In dev:  __dirname = src/commands/hooks/ → ../../hooks/ = src/hooks/
+ * In dist: __dirname = dist/ (flat bundle)  → ./hooks/    = dist/hooks/
  */
 function resolveHookSourceDir(): string {
-  // Walk up from this file to find the hooks/ directory containing .js files
-  // In src: ../../hooks/ (from commands/hooks/)
-  // In dist: ../../hooks/ (same relative path after build)
-  const candidate = path.resolve(__dirname, '..', '..', 'hooks');
-  if (fs.existsSync(candidate)) {
-    return candidate;
+  const candidates = [
+    // Dev layout: src/commands/hooks/ → ../../hooks/
+    path.resolve(__dirname, '..', '..', 'hooks'),
+    // Bundled layout: dist/ → ./hooks/ (copied by copy-assets.mjs)
+    path.resolve(__dirname, 'hooks'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
   }
-  throw new Error(`Cannot locate hook scripts directory. Expected at: ${candidate}`);
+  throw new Error(
+    `Cannot locate hook scripts directory. Searched:\n${candidates.map((c) => `  - ${c}`).join('\n')}`
+  );
 }
 
 /**

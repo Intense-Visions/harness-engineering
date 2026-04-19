@@ -16,6 +16,7 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ### Fixed
 
+- **Hook refresh fails after install** — `resolveHookSourceDir()` used a relative path (`../../hooks`) that only worked in the dev source layout; after tsup bundling, `__dirname` points to `dist/` and the path resolved outside the package. Additionally, `copy-assets.mjs` never copied `src/hooks/*.js` scripts into `dist/`. Fixed by adding a bundled-layout candidate path and copying hook scripts during build. (`@harness-engineering/cli@1.25.1`)
 - **Rate-limiter stack overflow** — Replace `Math.min(...spread)` with `reduce` to prevent stack overflow on large timestamp arrays. Ensure delays are always >= 1ms. (`@harness-engineering/orchestrator@0.2.8`)
 - **Container security defaults** — Default container network to `none` instead of `host`; block `--privileged`, `--cap-add`, `--security-opt`, `--pid`, `--ipc`, `--userns` flags. (`@harness-engineering/orchestrator@0.2.8`)
 - **Stale claim detection** — Missing `updatedAt` timestamp now treated as stale (was incorrectly treated as fresh). (`@harness-engineering/orchestrator@0.2.8`)
