@@ -98,6 +98,18 @@ export { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
 
 // Phase 5.5: Trust scoring
 export { computeTrustScores, getTrustLevel } from './trust-score';
+export type { TrustScoreOptions } from './trust-score';
+
+// Trust scoring constants (tunable)
+export {
+  VALIDATION_SCORES,
+  DOMAIN_BASELINES,
+  FACTOR_WEIGHTS,
+  EVIDENCE_SATURATION,
+  CORROBORATED_AGREEMENT,
+  STANDALONE_AGREEMENT,
+  AGREEMENT_LINE_GAP,
+} from './constants';
 
 // Pipeline orchestrator
 export { runReviewPipeline } from './pipeline-orchestrator';
