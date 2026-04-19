@@ -727,14 +727,15 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Skill Discipline Upgrades
 
-- **Status:** done
+- **Status:** in-progress
 - **Spec:** docs/changes/skill-discipline-upgrades/proposal.md
 - **Summary:** Evidence Requirements, Red Flags, and Rationalizations to Reject sections for 8 high-traffic skills (code-review, security-scan, architecture-advisor, enforce-architecture, auth, api-design, database, deployment) via shared discipline template. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#66
+- **Updated-At:** 2026-04-19T19:43:35.830Z
 
 ### Documentation Auto-Generation
 
@@ -949,9 +950,6 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ## v3.0 Graph Intelligence
 
