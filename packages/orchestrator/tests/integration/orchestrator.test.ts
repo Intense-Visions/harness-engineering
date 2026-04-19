@@ -104,7 +104,15 @@ describe('Orchestrator Integration', () => {
 
   afterEach(async () => {
     if (orchestrator) await orchestrator.stop();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // On Windows, git worktree processes may hold file locks briefly after stop.
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('should poll, dispatch, and run an agent session', { timeout: 15000 }, async () => {

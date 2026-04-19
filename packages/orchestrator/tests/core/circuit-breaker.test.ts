@@ -81,7 +81,14 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
 
   afterEach(async () => {
     if (orchestrator) await orchestrator.stop();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    for (let i = 0; i < 3; i++) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        break;
+      } catch {
+        if (i < 2) await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
 
   it('should stop calling pipeline after consecutive connection errors hit threshold', async () => {
