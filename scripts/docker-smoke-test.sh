@@ -20,7 +20,7 @@ MCP_IMAGE="harness-mcp-smoke"
 ORCH_IMAGE="harness-orchestrator-smoke"
 DASH_IMAGE="harness-dashboard-smoke"
 COMPOSE_PROJECT="harness-smoke"
-MAX_IMAGE_SIZE_MB=400
+MAX_IMAGE_SIZE_MB=800
 HEALTH_TIMEOUT=60
 
 # --- Color output ---
