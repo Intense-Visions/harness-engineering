@@ -171,4 +171,17 @@ export function truncateAdoptionFile(cwd: string): void {
   }
 }
 
-export { POSTHOG_API_KEY };
+/** Reset module state between tests. */
+export function _resetForTest(): void {
+  commandName = '';
+  startTime = 0;
+  recorded = false;
+}
+
+export {
+  POSTHOG_API_KEY,
+  findProjectRoot as _findProjectRoot,
+  resolveCommandName as _resolveCommandName,
+  writeCommandRecordSync as _writeCommandRecordSync,
+  flushTelemetryBackground as _flushTelemetryBackground,
+};

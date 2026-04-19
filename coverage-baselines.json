@@ -12,16 +12,16 @@
     "statements": 95.7
   },
   "packages/cli": {
-    "lines": 80.4,
-    "branches": 67.1,
-    "functions": 84.4,
-    "statements": 79.7
+    "lines": 80.96,
+    "branches": 67.46,
+    "functions": 84.79,
+    "statements": 80.28
   },
   "packages/orchestrator": {
-    "lines": 74.9,
-    "branches": 62.9,
-    "functions": 76.5,
-    "statements": 73.9
+    "lines": 75.06,
+    "branches": 63.06,
+    "functions": 76.52,
+    "statements": 74.06
   },
   "packages/eslint-plugin": {
     "lines": 94.67,
