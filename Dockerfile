@@ -74,7 +74,7 @@ COPY --from=build /app/packages/dashboard/dist /app/packages/dashboard/dist
 COPY --from=build /app/packages/intelligence/package.json /app/packages/intelligence/
 COPY --from=build /app/packages/intelligence/dist /app/packages/intelligence/dist
 COPY --from=build /app/packages/eslint-plugin/package.json /app/packages/eslint-plugin/
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 USER node
 
@@ -141,7 +141,7 @@ COPY --from=build /app/packages/graph/package.json /app/packages/graph/
 COPY --from=build /app/packages/graph/dist /app/packages/graph/dist
 COPY --from=build /app/packages/types/package.json /app/packages/types/
 COPY --from=build /app/packages/types/dist /app/packages/types/dist
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 ENV HOST=0.0.0.0
 EXPOSE 3701
