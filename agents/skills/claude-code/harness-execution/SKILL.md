@@ -76,6 +76,18 @@ Fall back to file-based commands if no graph is available.
 
 ---
 
+### Uncertainty Surfacing
+
+When you encounter an unknown during task execution, classify it immediately:
+
+- **Blocking:** Cannot complete the task as written without resolving this (e.g., referenced file doesn't exist, spec behavior undefined for this scenario). STOP. Record as a blocker and report.
+- **Assumption:** Can proceed if assumption is stated (e.g., "the API returns JSON, not XML"). Document the assumption in the commit message. If wrong, the task must be revisited.
+- **Deferrable:** Does not affect the current task (e.g., whether a later task will need a different approach). Note in learnings for future tasks.
+
+Do not improvise past unknowns. An assumption that turns out wrong is cheaper than an improvised solution that hides the unknown.
+
+**Read-only constraint for Phase 1:** Phase 1 PREPARE is research and state loading. Do not write production code, create files, or make commits during PREPARE. If prerequisites fail, report the failure — do not attempt to fix prerequisites yourself.
+
 ### Phase 2: EXECUTE — Implement Tasks Atomically
 
 Report progress with: `**[Phase N/M]** Task N — <description>`
@@ -329,6 +341,15 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - No improvisation: tasks executed as written, or stopped with blocker reported
 - All stopping conditions respected
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "The plan says X but Y would be cleaner — I'll improvise" | STOP. Iron Law: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising introduces untested assumptions. |
+| "I'll skip the test for this task since it's just configuration" | STOP. The TDD rhythm is not optional. Configuration changes need tests too — they prove the config does what the task requires. |
+| "I'll handle this edge case the plan didn't mention" | STOP. Unplanned work is scope creep. If the edge case matters, it's a plan deficiency — record it as a blocker. |
+| `// TODO: come back to this` or `// skipped for now` in committed code | STOP. Every commit must be atomic and complete for its task. TODOs in committed code are incomplete tasks disguised as progress. |
+
 ## Rationalizations to Reject
 
 | Rationalization                                                                                                | Reality                                                                                                                                                   |
@@ -337,6 +358,8 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 | "This task depends on Task 3 which I know is done, so I can skip verifying prerequisites"                      | Prerequisites must be verified mechanically, not from memory. Check that dependency tasks are marked complete in state and that referenced files exist.   |
 | "The checkpoint is just a confirmation step and the output looks correct, so I will auto-continue"             | Checkpoints are non-negotiable pause points. If a task has a checkpoint marker, execution must pause.                                                     |
 | "Harness validate passed on the previous task and nothing changed structurally, so I can skip it for this one" | Validation runs after every task with no exceptions. Each task may introduce subtle architectural drift that only harness validate catches.               |
+| "The task failed but I can see the fix — I'll apply it and move on without recording a blocker"                | A failed task is a blocker. Record it, report it, and stop. Applying unplanned fixes mid-execution makes progress untraceable and may cascade into later tasks. |
+| "Phase 1 prerequisites are missing but I can create them as part of this task"                                 | PREPARE is read-only. Missing prerequisites mean a prior task or the plan is deficient. Report the gap — do not fix prerequisites during execution setup.      |
 
 ## Examples
 
@@ -398,6 +421,7 @@ harness validate — passes. Resume Task 4.
 
 Hard stops. Violating any gate means the process has broken down.
 
+- **Phase 1 PREPARE is read-only.** Do not write production code, create files, or commit during preparation. If prerequisites are missing, report the gap — do not fix it yourself.
 - **No execution without a plan.** If no plan exists, do not start. Use harness-planning.
 - **No improvisation.** Execute as written. Do not add "improvements" not in the plan.
 - **No skipping tasks.** Tasks are dependency-ordered. Execute in order.

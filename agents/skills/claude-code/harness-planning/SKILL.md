@@ -342,6 +342,15 @@ Only apply when modifying existing documented behavior. When `docs/changes/` exi
 - Human has reviewed and approved the plan
 - Rigor level rules followed: fast skips skeleton; thorough always skeletons with approval; standard skeletons at >= 8 tasks
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "I know the implementation well enough to skip reading the spec" | STOP. Phase 1 SCOPE starts by reading the spec. Assumptions about spec content lead to plans that implement the wrong thing. |
+| "This task is self-explanatory, no need for exact file paths and commands" | STOP. Iron Law: every task must contain exact file paths, exact commands, and complete code snippets. "Implement the service" is a wish, not a task. |
+| "I'll plan the happy path now and add error handling tasks later" | STOP. Error handling is not optional. The spec's success criteria include error scenarios. Plan them alongside the happy path. |
+| `// detailed steps TBD` or `// expand during execution` in task descriptions | STOP. A task that defers detail to execution is a vague task. If you cannot write the exact steps now, you do not understand the task well enough to plan it. |
+
 ## Rationalizations to Reject
 
 | Rationalization                                                                                               | Reality                                                                                                                                                                 |
@@ -353,6 +362,8 @@ Only apply when modifying existing documented behavior. When `docs/changes/` exi
 | "I discovered we need an additional file during decomposition, but updating the file map is just bookkeeping" | The file map must be complete. Every file that will be created or modified must appear in the file map before task decomposition.                                       |
 | "There are no real uncertainties — the spec is clear enough"                                                  | Every plan has unknowns. If you listed zero uncertainties, you skipped the step. Re-read the spec and list what is assumed but not stated.                              |
 | "I already know how to structure this, no need to finish scoping"                                             | Premature decomposition anchors on the first approach found. Complete SCOPE (observable truths + uncertainties) before proposing any task structure.                    |
+| "The skeleton pass adds overhead for a plan this size — I will go straight to full tasks"                     | Rigor level rules are not optional. In thorough mode, the skeleton is always required. In standard mode, 8+ tasks require a skeleton. Skipping it risks task-level misalignment with the goal. |
+| "I will write implementation code in the plan to make the tasks more concrete"                                | Planning produces a plan document, not code. Writing code during planning violates the phase boundary — code belongs in execution. Exact snippets in task descriptions are plan content, not executed code. |
 
 ## Examples
 

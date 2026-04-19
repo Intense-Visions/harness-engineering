@@ -16,7 +16,7 @@
 
 ## Process
 
-### Iron Rule
+### Iron Law
 
 **All tests must pass BEFORE you start refactoring and AFTER every single change.**
 
@@ -40,6 +40,16 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 - `query_graph` — find all transitive consumers, not just direct importers
 
 Catches indirect consumers that grep misses. Fall back to file-based commands if no graph is available.
+
+### Uncertainty Surfacing
+
+When you encounter an unknown during refactoring, classify it immediately:
+
+- **Blocking:** Cannot determine if the change is purely structural without resolving this (e.g., unclear whether callers rely on implementation detail). STOP and surface to human.
+- **Assumption:** Can proceed if assumption is stated (e.g., "no external consumers of this internal API"). Document the assumption and continue. If wrong, revert.
+- **Deferrable:** Does not affect the current refactoring step (e.g., whether a further refactoring would be beneficial). Note for future consideration.
+
+Do not guess whether a change is behavioral or structural. If you are unsure, it is blocking.
 
 ### Phase 2: Execute — One Small Change at a Time
 
@@ -134,6 +144,15 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - No behavioral changes were introduced (the test suite is the proof)
 - No dead code was left behind (run `harness cleanup` to verify)
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "This refactoring is safe, I don't need to run tests after this small change" | STOP. The Iron Law is absolute: tests after EVERY change. "Small" and "safe" are the changes that introduce subtle bugs. |
+| "I'll combine these two renames into one commit since they're related" | STOP. One change per commit. Combined changes make it impossible to isolate which change caused a regression. |
+| "The failing test is testing implementation details, so I'll fix the test" | STOP. Changing tests during refactoring is a warning sign. Verify the test is actually testing implementation details — not behavior your refactoring inadvertently changed. |
+| `// removed old implementation` or `// TODO: move back later` replacing functional code | STOP. Either the code lives in its new location or it doesn't. Comments are not migration plans. Keep the code or delete it with a test proving the deletion is safe. |
+
 ## Rationalizations to Reject
 
 | Rationalization                                                                                                     | Reality                                                                                                                                      |
@@ -142,6 +161,8 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 | "This refactoring changes a small amount of behavior, but it is a clear improvement"                                | Refactoring must not change behavior. The test suite is the proof. If the refactoring requires changing tests, you may be changing behavior. |
 | "I will make several changes at once and run tests at the end since each change is small"                           | Tests must run after EVERY single change. If a test breaks, you must undo the LAST change immediately.                                       |
 | "The refactoring did not produce a measurable improvement, but the code is different so it must be somewhat better" | If the refactoring introduced no measurable improvement, revert the entire sequence. Refactoring for its own sake is churn.                  |
+| "I will refactor this and add the new feature in the same pass to be efficient"                                      | Refactoring and feature work are separate tasks. Mixing them means test failures could be from the refactoring OR the new behavior — you cannot tell which. |
+| "The test suite is slow, so I will run tests only at the end of the refactoring sequence"                            | Each step must be independently verified. A slow test suite is a separate problem to solve — it is not a reason to skip the safety net.                     |
 
 ## Examples
 

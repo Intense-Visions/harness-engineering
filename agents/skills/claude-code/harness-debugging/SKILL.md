@@ -15,6 +15,14 @@
 
 ## Process
 
+### Iron Law
+
+**Phase 1 INVESTIGATE before ANY fix. No exceptions.**
+
+If you find yourself writing fix code before completing investigation, STOP. Delete the fix. You are guessing, not debugging. A fix without investigation is a coin flip that creates the illusion of progress.
+
+---
+
 ### Prerequisite: Start a Debug Session
 
 Before beginning, create a persistent debug session. This survives context resets and tracks state across multiple attempts.
@@ -52,6 +60,8 @@ Error: <the error message or symptom>
 ### Phase 1: INVESTIGATE — Understand Before Acting
 
 **You must complete Phase 1 before writing ANY fix code. No exceptions.**
+
+**Read-only constraint:** Phase 1 is investigation only. You may read files, run commands, add log statements, and record observations. You may NOT write production code fixes, modify business logic, or commit changes during investigation. If you find yourself writing a fix, you have jumped to Phase 4.
 
 #### Step 1: Run Entropy Analysis
 
@@ -114,6 +124,16 @@ Read each function in the call chain completely. Do not skim.
 Update the session status to `investigating`.
 
 ---
+
+### Uncertainty Surfacing
+
+When you encounter an unknown during investigation or analysis, classify it immediately:
+
+- **Blocking:** Cannot form a testable hypothesis without resolving this (e.g., cannot reproduce the bug, unclear what "correct" behavior is). STOP and escalate to human.
+- **Assumption:** Can proceed with a stated assumption (e.g., "the database schema has not changed since last deployment"). Document in the session log. If wrong, hypotheses built on it are invalid.
+- **Deferrable:** Does not affect the current investigation (e.g., whether other code paths have similar issues). Note in session log for follow-up.
+
+Do not bury unknowns. An unstated assumption in your investigation leads to fixes that address the wrong root cause.
 
 ### Phase 2: ANALYZE — Find the Pattern
 
@@ -298,6 +318,15 @@ Update the session status to `resolved`.
 - Debug session file is complete with investigation log, hypotheses, and resolution
 - Learnings were captured for future reference
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "It's probably X, let me just fix that" | STOP. "Probably" is a guess, not a diagnosis. Complete Phase 1 INVESTIGATE before writing any fix code. |
+| "I'll change a few things and see if the bug goes away" | STOP. One variable at a time. Multiple simultaneous changes mean you cannot determine which one had the effect — or whether you introduced a new bug. |
+| "One more fix attempt before I escalate" after 2 failed attempts | STOP. Three failed attempts means your mental model is wrong. Step back, re-read the investigation log, and question your assumptions about how the system works. |
+| `// temporary workaround` or `// TODO: real fix later` replacing root-cause fix | STOP. Workarounds are symptom suppression. The root cause remains. Fix it properly or escalate — do not commit workarounds disguised as fixes. |
+
 ## Rationalizations to Reject
 
 | Rationalization                                                                   | Reality                                                                                                                                     |
@@ -306,6 +335,8 @@ Update the session status to `resolved`.
 | "I changed two things and the bug is gone, so the fix must be correct"            | One variable at a time is a gate. Changing multiple things simultaneously means you do not know which change fixed it.                      |
 | "This is my third attempt but I feel close, so one more try before escalating"    | After 3 failed fix attempts, the gate requires you to question the architecture. The problem is likely not where you think it is.           |
 | "A try-catch that swallows the error prevents the crash, so the bug is fixed"     | Symptom suppression is explicitly listed as a bad fix. Wrapping the failure in a try-catch addresses what the bug did, not why it happened. |
+| "The bug only happens in edge cases, so a partial fix is acceptable"               | A partial fix means the bug still exists. Either fix the root cause completely or document the remaining scenarios as known issues with tracked tickets.                |
+| "I can skip the regression test since I understand the root cause well"            | Understanding the root cause and proving the fix catches it are different things. The revert-and-fail test is mandatory — it is the only proof the test actually guards against the bug. |
 
 ## Examples
 
@@ -359,6 +390,7 @@ Revert test: Commenting out the validation check causes the test to fail with 50
 
 ## Gates
 
+- **Investigation phases are read-only.** Phase 1 and Phase 2 produce understanding, not code. Reading files, running commands, and adding diagnostic log statements are allowed. Writing production code fixes is not. If you find yourself writing a fix during investigation, you have skipped ahead.
 - **Phase 1 before ANY fix.** You must complete investigation before writing fix code. Skipping investigation leads to symptom-chasing, which leads to more bugs.
 - **One variable at a time.** Changing multiple things simultaneously is forbidden. If you changed two things and the bug is fixed, you do not know which change fixed it (or if the other change introduced a new bug).
 - **After 3 failed fix attempts, question the architecture.** If three consecutive hypotheses were wrong or three fixes did not resolve the issue, the problem is likely not where you think it is. Step back. Re-read the investigation log. Consider that the bug might be in a different layer entirely.
