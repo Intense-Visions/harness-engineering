@@ -602,7 +602,7 @@ Run the orchestrator daemon
 
 **Options:**
 
-- `-w, --workflow` — Path to WORKFLOW.md (default: "WORKFLOW.md")
+- `-w, --workflow` — Path to harness.orchestrator.md (default: "harness.orchestrator.md")
 - `--headless` — Run without TUI (server-only mode for use with web dashboard)
 
 ## Perf Commands

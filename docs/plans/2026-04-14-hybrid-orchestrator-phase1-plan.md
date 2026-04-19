@@ -1714,7 +1714,7 @@ it('should include needs-human status issues when fetched by state', async () =>
 });
 ```
 
-2. Verify that `WORKFLOW.md` `activeStates` can include `needs-human` by confirming the config loader passes arbitrary strings. (It does -- `activeStates` is `string[]` in `TrackerConfig`.)
+2. Verify that `harness.orchestrator.md` `activeStates` can include `needs-human` by confirming the config loader passes arbitrary strings. (It does -- `activeStates` is `string[]` in `TrackerConfig`.)
 
 3. Run: `npx vitest run --config packages/orchestrator/vitest.config.mts`
 4. Run: `npx harness validate`

@@ -15,7 +15,7 @@ Implement the observability layer (Ink TUI + HTTP API), the `harness orchestrato
 2. **State-driven:** While the orchestrator is running, `GET /api/v1/state` returns the full orchestrator snapshot as JSON.
 3. **Event-driven:** When an agent updates its status, the TUI agents table reflects the change within 500ms.
 4. **Ubiquitous:** The system supports graceful shutdown (terminating agents) on `SIGTERM` or `Ctrl+C`.
-5. **Ubiquitous:** A default `WORKFLOW.md` template is available for new orchestrator setups.
+5. **Ubiquitous:** A default `harness.orchestrator.md` template is available for new orchestrator setups.
 6. **Ubiquitous:** The `linear_graphql` tool extension interface is defined and conditionally loaded.
 
 ## File Map
@@ -30,7 +30,7 @@ Implement the observability layer (Ink TUI + HTTP API), the `harness orchestrato
 - MODIFY `packages/orchestrator/src/orchestrator.ts`
 - CREATE `packages/cli/src/commands/orchestrator.ts`
 - MODIFY `packages/cli/src/index.ts`
-- CREATE `templates/orchestrator/WORKFLOW.md`
+- CREATE `templates/orchestrator/harness.orchestrator.md`
 
 ## Tasks
 
@@ -91,16 +91,16 @@ Implement the observability layer (Ink TUI + HTTP API), the `harness orchestrato
 **Files:** `packages/cli/src/commands/orchestrator.ts`, `packages/cli/src/index.ts`
 
 1. Create `createOrchestratorCommand` in `packages/cli/src/commands/orchestrator.ts` using `commander`.
-2. Load `WORKFLOW.md`, initialize `Orchestrator`, and launch the TUI.
+2. Load `harness.orchestrator.md`, initialize `Orchestrator`, and launch the TUI.
 3. Register the command in `packages/cli/src/index.ts`.
 4. Commit: `feat(cli): add harness orchestrator run command`
 
-### Task 7: Define WORKFLOW.md Template
+### Task 7: Define harness.orchestrator.md Template
 
 **Depends on:** none
-**Files:** `templates/orchestrator/WORKFLOW.md`
+**Files:** `templates/orchestrator/harness.orchestrator.md`
 
-1. Create a default `WORKFLOW.md` with frontmatter and a basic prompt template.
+1. Create a default `harness.orchestrator.md` with frontmatter and a basic prompt template.
 2. Commit: `feat(orchestrator): add default workflow template`
 
 ### Task 8: Wire Linear GraphQL Interface (Stub)

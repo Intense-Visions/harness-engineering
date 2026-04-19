@@ -19,9 +19,9 @@ At the heart of the Orchestrator is a pure-function state machine. It takes the 
 
 This design ensures that the most complex logic is deterministic, easy to test, and completely decoupled from I/O concerns like file systems or network calls.
 
-### 3. Workflows (`WORKFLOW.md`)
+### 3. Workflows (`harness.orchestrator.md`)
 
-The daemon's behavior is governed by a `WORKFLOW.md` file located in the repository root. This file contains:
+The daemon's behavior is governed by a `harness.orchestrator.md` file located in the repository root. This file contains:
 
 - **YAML Frontmatter**: Configuration for polling intervals, concurrency limits, workspace locations, and agent backend settings.
 - **Liquid Template**: A prompt template used to instruct agents when they are dispatched to an issue.
@@ -59,7 +59,7 @@ The daemon hosts a lightweight HTTP API (defaulting to port `8080`) that exposes
 
 ### 1. Initialize a Workflow
 
-Create a `WORKFLOW.md` in your project root. You can use the default template:
+Create a `harness.orchestrator.md` in your project root. You can use the default template:
 
 ```bash
 harness init --template orchestrator

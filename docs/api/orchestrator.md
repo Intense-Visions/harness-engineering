@@ -33,7 +33,7 @@ Handles the creation and sanitization of per-issue workspaces.
 
 ### `WorkflowConfig`
 
-The configuration schema extracted from `WORKFLOW.md`.
+The configuration schema extracted from `harness.orchestrator.md`.
 
 ```typescript
 interface WorkflowConfig {

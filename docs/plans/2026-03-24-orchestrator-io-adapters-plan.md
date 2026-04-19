@@ -12,7 +12,7 @@ Implement the I/O adapters for the `@harness-engineering/orchestrator` package t
 ## Observable Truths (Acceptance Criteria)
 
 1. **Ubiquitous:** All adapters shall implement the interfaces defined in `packages/types/src/orchestrator.ts`.
-2. **Event-driven:** When `loadWorkflow` is called with a valid `WORKFLOW.md`, it shall return a `WorkflowDefinition` with parsed YAML and template.
+2. **Event-driven:** When `loadWorkflow` is called with a valid `harness.orchestrator.md`, it shall return a `WorkflowDefinition` with parsed YAML and template.
 3. **State-driven:** `RoadmapTrackerAdapter` shall correctly identify blocked tasks based on markdown hierarchy.
 4. **Ubiquitous:** `WorkspaceManager` shall prevent path traversal by sanitizing issue identifiers.
 5. **Event-driven:** `PromptRenderer` shall fail if the Liquid template references undefined variables (Strict Mode).
@@ -72,7 +72,7 @@ Implement the I/O adapters for the `@harness-engineering/orchestrator` package t
 **Depends on:** Task 2
 **Files:** `packages/orchestrator/src/workflow/config.ts`, `packages/orchestrator/src/workflow/loader.ts`, `packages/orchestrator/tests/workflow/loader.test.ts`
 
-1. Create tests for parsing `WORKFLOW.md` with frontmatter and template sections.
+1. Create tests for parsing `harness.orchestrator.md` with frontmatter and template sections.
 2. Implement `WorkflowConfig` validation logic in `config.ts`.
 3. Implement `WorkflowLoader` in `loader.ts` using `yaml` and `fs.promises`.
 4. Run tests: `npx vitest packages/orchestrator/tests/workflow/loader.test.ts`

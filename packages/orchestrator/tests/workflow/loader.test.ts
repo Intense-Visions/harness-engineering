@@ -17,8 +17,8 @@ describe('WorkflowLoader', () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('loads and parses a valid WORKFLOW.md', async () => {
-    const workflowPath = path.join(tempDir, 'WORKFLOW.md');
+  it('loads and parses a valid harness.orchestrator.md', async () => {
+    const workflowPath = path.join(tempDir, 'harness.orchestrator.md');
     const content = `---
 tracker:
   kind: roadmap
@@ -59,14 +59,14 @@ Hello {{ issue.title }}
   });
 
   it('returns error for invalid format', async () => {
-    const workflowPath = path.join(tempDir, 'WORKFLOW.md');
+    const workflowPath = path.join(tempDir, 'harness.orchestrator.md');
     const content = 'No frontmatter here';
     await fs.writeFile(workflowPath, content);
 
     const result = await loader.loadWorkflow(workflowPath);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.message).toMatch(/Invalid WORKFLOW.md format/);
+      expect(result.error.message).toMatch(/Invalid harness.orchestrator.md format/);
     }
   });
 });

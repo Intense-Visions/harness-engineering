@@ -257,7 +257,7 @@ interface AgentConfig {
 }
 ```
 
-WORKFLOW.md example:
+harness.orchestrator.md example:
 
 ```yaml
 agent:

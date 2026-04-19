@@ -12,7 +12,7 @@ export class WorkflowLoader {
       if (parts.length < 3) {
         return Err(
           new Error(
-            `Invalid WORKFLOW.md format at ${filePath}. Expected frontmatter surrounded by '---'.`
+            `Invalid harness.orchestrator.md format at ${filePath}. Expected frontmatter surrounded by '---'.`
           )
         );
       }

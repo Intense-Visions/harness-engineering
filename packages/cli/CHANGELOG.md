@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.25.3
+
+### Patch Changes
+
+- Rename orchestrator config file from `WORKFLOW.md` to `harness.orchestrator.md`. The CLI default for `--workflow` now points to `harness.orchestrator.md`.
+
 ## 1.25.2
 
 ### Patch Changes

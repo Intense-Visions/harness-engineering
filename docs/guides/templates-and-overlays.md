@@ -233,7 +233,7 @@ Each framework overlay also appends a conventions section to AGENTS.md with fram
 
 ### Orchestrator Template
 
-A special-purpose template that generates a `WORKFLOW.md` for the Harness Orchestrator daemon. This is not a project scaffold -- it configures autonomous agent orchestration.
+A special-purpose template that generates a `harness.orchestrator.md` for the Harness Orchestrator daemon. This is not a project scaffold -- it configures autonomous agent orchestration.
 
 ```bash
 harness init --template orchestrator

@@ -53,9 +53,9 @@ Any server that implements the OpenAI-compatible chat completions API works. Poi
 - **LM Studio:** `http://localhost:1234/v1`
 - **llama.cpp server:** `http://localhost:8080/v1` (note: conflicts with default orchestrator port)
 
-## 2. Configure WORKFLOW.md
+## 2. Configure harness.orchestrator.md
 
-Add the local backend and escalation config to the `agent:` section in your project's `WORKFLOW.md`:
+Add the local backend and escalation config to the `agent:` section in your project's `harness.orchestrator.md`:
 
 ```yaml
 agent:
@@ -204,7 +204,7 @@ diagnostic  change
  locally
 ```
 
-Routing is fully configurable via the `escalation` block in WORKFLOW.md. Move scope tiers between `autoExecute` (local), `primaryExecute` (Claude), `signalGated`, and `alwaysHuman` to control where each type of work runs.
+Routing is fully configurable via the `escalation` block in harness.orchestrator.md. Move scope tiers between `autoExecute` (local), `primaryExecute` (Claude), `signalGated`, and `alwaysHuman` to control where each type of work runs.
 
 ## Troubleshooting
 
@@ -212,13 +212,13 @@ Routing is fully configurable via the `escalation` block in WORKFLOW.md. Move sc
 Make sure issues have `scope:` labels. Without labels, the default is `full-exploration` which always escalates.
 
 **Local model not connecting:**
-Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama list`). Check that `localEndpoint` in WORKFLOW.md matches your server URL.
+Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama list`). Check that `localEndpoint` in harness.orchestrator.md matches your server URL.
 
 **Chat Pane not responding:**
 Make sure `claude` CLI is installed and authenticated. Run `claude --version` to verify. The chat proxy spawns `claude` as a subprocess — no separate API key is needed.
 
 **Dashboard shows "Connecting..." permanently:**
-The orchestrator server must be running on the configured port (default 8080). Check that `server.port` is set in `WORKFLOW.md`.
+The orchestrator server must be running on the configured port (default 8080). Check that `server.port` is set in `harness.orchestrator.md`.
 
 **Ink raw mode error when using `pnpm orchestrator:dev`:**
 This is expected — the dev script uses `--headless` to avoid this. If running the orchestrator directly through `concurrently` or other non-TTY tools, add the `--headless` flag.

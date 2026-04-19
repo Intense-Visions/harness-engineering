@@ -576,7 +576,7 @@ Run a command directly. No AI, no PRs.
 
 ### Configuration Overrides
 
-Tasks can be customized in the maintenance config section of `WORKFLOW.md`:
+Tasks can be customized in the maintenance config section of `harness.orchestrator.md`:
 
 ```yaml
 maintenance:

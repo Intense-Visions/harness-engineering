@@ -687,7 +687,7 @@ harness agent review --comment
 
 ### harness orchestrator run
 
-Run the orchestrator daemon, which coordinates multi-agent workflows defined in a WORKFLOW.md file.
+Run the orchestrator daemon, which coordinates multi-agent workflows defined in a harness.orchestrator.md file.
 
 ```
 harness orchestrator run [options]
@@ -696,7 +696,7 @@ harness orchestrator run [options]
 **Options:**
 
 ```
--w, --workflow <path>   Path to WORKFLOW.md (default: WORKFLOW.md)
+-w, --workflow <path>   Path to harness.orchestrator.md (default: harness.orchestrator.md)
 ```
 
 **Examples:**

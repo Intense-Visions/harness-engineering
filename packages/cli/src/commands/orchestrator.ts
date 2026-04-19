@@ -10,7 +10,7 @@ export function createOrchestratorCommand(): Command {
   orchestrator
     .command('run')
     .description('Run the orchestrator daemon')
-    .option('-w, --workflow <path>', 'Path to WORKFLOW.md', 'WORKFLOW.md')
+    .option('-w, --workflow <path>', 'Path to harness.orchestrator.md', 'harness.orchestrator.md')
     .option('--headless', 'Run without TUI (server-only mode for use with web dashboard)')
     .action(async (opts) => {
       const workflowPath = path.resolve(process.cwd(), opts.workflow);

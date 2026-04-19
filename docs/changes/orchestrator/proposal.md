@@ -13,7 +13,7 @@ Implement `@harness-engineering/orchestrator` as a new top-layer monorepo packag
 - Create deterministic per-issue workspaces and preserve them across runs
 - Stop active runs when issue state changes make them ineligible
 - Recover from transient failures with exponential backoff
-- Load runtime behavior from a repository-owned `WORKFLOW.md`
+- Load runtime behavior from a repository-owned `harness.orchestrator.md`
 - Expose operator observability via Ink-based TUI and optional HTTP JSON API
 - Support swappable coding agents via the `AgentBackend` interface
 
@@ -29,18 +29,18 @@ Full specification: `.harness/architecture/orchestrator/ADR-001.md`
 
 ## Decisions
 
-| #   | Decision                                                       | Rationale                                                                                                                                                                                                                                                       |
-| --- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Scope: Full required conformance + key extensions**          | HTTP server, Roadmap adapter, and `linear_graphql` tool included from day one. Gives operators both terminal and API observability.                                                                                                                             |
-| 2   | **TUI framework: Ink (React for CLI)**                         | Declarative component model maps naturally to the spec's header/table/queue layout. Modest dependency cost at top layer.                                                                                                                                        |
-| 3   | **Type placement: Split**                                      | Public contracts (`AgentBackend`, `IssueTrackerClient`, `Issue` model, `WorkflowDefinition`) in `packages/types/`. Internal state (RetryEntry, LiveSession, OrchestratorState) co-located in `packages/orchestrator/src/types/`. Matches graph/core convention. |
-| 4   | **Template engine: LiquidJS**                                  | ADR specifies Liquid-compatible semantics. MIT license. Strict mode enforces unknown variable/filter failure. New dependency, justified by spec alignment.                                                                                                      |
-| 5   | **Initial tracker: Roadmap only**                              | Local markdown file adapter. Zero credentials, fully testable. Proves `IssueTrackerClient` interface before adding network-dependent adapters.                                                                                                                  |
-| 6   | **Initial backends: ClaudeBackend (subprocess) + MockBackend** | ClaudeBackend spawns `claude -p --output-format json` using existing machine auth, no API key env var required. MockBackend enables full orchestrator CI testing without LLM cost.                                                                              |
-| 7   | **HTTP server: Node built-in `http`**                          | 4 endpoints don't justify a framework. Minimal dependency footprint. Easy to migrate later if API surface grows.                                                                                                                                                |
-| 8   | **TUI-Core coupling: Snapshot-based**                          | Single `getSnapshot()` method serves TUI, HTTP API, and structured logs. Zero coupling between orchestrator and rendering consumers.                                                                                                                            |
-| 9   | **Implementation approach: Core-Out with Concurrent Tracks**   | Pure-function state machine first, I/O adapters as parallel tracks, wiring phase, then observability layer. Hardest logic is most testable.                                                                                                                     |
-| 10  | **Default WORKFLOW.md template: Harness skill pipeline**       | Default template guides dispatched agents through the harness skill pipeline (brainstorm, plan, execute, verify) per issue. Dogfoods the harness methodology.                                                                                                   |
+| #   | Decision                                                             | Rationale                                                                                                                                                                                                                                                       |
+| --- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Scope: Full required conformance + key extensions**                | HTTP server, Roadmap adapter, and `linear_graphql` tool included from day one. Gives operators both terminal and API observability.                                                                                                                             |
+| 2   | **TUI framework: Ink (React for CLI)**                               | Declarative component model maps naturally to the spec's header/table/queue layout. Modest dependency cost at top layer.                                                                                                                                        |
+| 3   | **Type placement: Split**                                            | Public contracts (`AgentBackend`, `IssueTrackerClient`, `Issue` model, `WorkflowDefinition`) in `packages/types/`. Internal state (RetryEntry, LiveSession, OrchestratorState) co-located in `packages/orchestrator/src/types/`. Matches graph/core convention. |
+| 4   | **Template engine: LiquidJS**                                        | ADR specifies Liquid-compatible semantics. MIT license. Strict mode enforces unknown variable/filter failure. New dependency, justified by spec alignment.                                                                                                      |
+| 5   | **Initial tracker: Roadmap only**                                    | Local markdown file adapter. Zero credentials, fully testable. Proves `IssueTrackerClient` interface before adding network-dependent adapters.                                                                                                                  |
+| 6   | **Initial backends: ClaudeBackend (subprocess) + MockBackend**       | ClaudeBackend spawns `claude -p --output-format json` using existing machine auth, no API key env var required. MockBackend enables full orchestrator CI testing without LLM cost.                                                                              |
+| 7   | **HTTP server: Node built-in `http`**                                | 4 endpoints don't justify a framework. Minimal dependency footprint. Easy to migrate later if API surface grows.                                                                                                                                                |
+| 8   | **TUI-Core coupling: Snapshot-based**                                | Single `getSnapshot()` method serves TUI, HTTP API, and structured logs. Zero coupling between orchestrator and rendering consumers.                                                                                                                            |
+| 9   | **Implementation approach: Core-Out with Concurrent Tracks**         | Pure-function state machine first, I/O adapters as parallel tracks, wiring phase, then observability layer. Hardest logic is most testable.                                                                                                                     |
+| 10  | **Default harness.orchestrator.md template: Harness skill pipeline** | Default template guides dispatched agents through the harness skill pipeline (brainstorm, plan, execute, verify) per issue. Dogfoods the harness methodology.                                                                                                   |
 
 ---
 
@@ -64,7 +64,7 @@ packages/orchestrator/
 │   │   ├── retry.ts                # Backoff calculation, continuation delays
 │   │   └── reconciliation.ts       # Stall detection, state refresh logic
 │   ├── workflow/
-│   │   ├── loader.ts               # WORKFLOW.md discovery, YAML parse, prompt split
+│   │   ├── loader.ts               # harness.orchestrator.md discovery, YAML parse, prompt split
 │   │   ├── config.ts               # Typed getters, defaults, $VAR resolution, ~ expansion
 │   │   └── watcher.ts              # File watch, dynamic reload, last-known-good fallback
 │   ├── tracker/
@@ -102,7 +102,7 @@ packages/orchestrator/
 │   ├── prompt/                     # Template rendering tests
 │   └── integration/                # End-to-end with MockBackend + roadmap fixture
 └── fixtures/
-    ├── workflows/                  # Sample WORKFLOW.md files
+    ├── workflows/                  # Sample harness.orchestrator.md files
     └── roadmaps/                   # Sample roadmap.md files
 ```
 
@@ -116,7 +116,7 @@ New exports added to `packages/types/src/index.ts`:
 - `AgentBackend` — Interface: `startSession()`, `runTurn()`, `stopSession()`, `healthCheck()`
 - `AgentSession`, `SessionStartParams`, `TurnParams`, `AgentEvent`, `TurnResult` — Backend protocol types
 - `AgentError` — Typed error with category enum
-- `WorkflowDefinition` — `{config, promptTemplate}` parsed from WORKFLOW.md
+- `WorkflowDefinition` — `{config, promptTemplate}` parsed from harness.orchestrator.md
 - `WorkflowConfig` — Typed config structure (tracker, polling, workspace, hooks, agent, server)
 - `TokenUsage` — `{inputTokens, outputTokens, totalTokens}`
 
@@ -170,7 +170,7 @@ Three consumers call `getSnapshot()` independently:
 - **HTTP API**: Called per request in route handlers
 - **Structured logs**: Called at configurable intervals for periodic status emission
 
-### Default WORKFLOW.md Template
+### Default harness.orchestrator.md Template
 
 The default template shipped with the orchestrator guides agents through harness skills:
 
@@ -231,7 +231,7 @@ packages/orchestrator
   ├── @harness-engineering/types
   ├── liquidjs          (prompt rendering)
   ├── ink + react       (TUI)
-  ├── yaml              (WORKFLOW.md front matter)
+  ├── yaml              (harness.orchestrator.md front matter)
   ├── chokidar          (file watching)
   └── (node:http — built-in, no dep)
      ↓
@@ -256,7 +256,7 @@ packages/cli
 
 ### Workflow & Config
 
-1. When `WORKFLOW.md` is modified on disk, the orchestrator applies new config to future dispatches without restart.
+1. When `harness.orchestrator.md` is modified on disk, the orchestrator applies new config to future dispatches without restart.
 2. When a reload produces invalid YAML, the orchestrator keeps the last known good config and emits a structured error log.
 3. `$VAR_NAME` tokens in config resolve from environment; missing required vars fail startup validation.
 4. Prompt templates render with `issue` and `attempt` variables; unknown variables cause a render error that fails the run attempt.
@@ -286,7 +286,7 @@ packages/cli
 
 1. `harness orchestrator run` starts the daemon with optional positional workflow path.
 2. `SIGTERM` triggers graceful shutdown: stops dispatching, terminates agents within 30s grace period, preserves workspaces.
-3. Startup with a missing or invalid `WORKFLOW.md` exits nonzero with a clear error.
+3. Startup with a missing or invalid `harness.orchestrator.md` exits nonzero with a clear error.
 
 ### Integration
 
@@ -329,5 +329,5 @@ Each track is independently buildable and testable.
 - HTTP server: 4 endpoints consuming `getSnapshot()`
 - `linear_graphql` tool extension (interface wired, active when tracker.kind=linear)
 - CLI command: `harness orchestrator run` in `packages/cli/`
-- Default WORKFLOW.md template with harness skill pipeline
+- Default harness.orchestrator.md template with harness skill pipeline
 - End-to-end integration test suite

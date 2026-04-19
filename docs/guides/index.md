@@ -49,7 +49,7 @@ Git workflow guidance for agent-driven development:
 Learn how to use the Harness Orchestrator to automate your agent workforce:
 
 - Core concepts (Daemon, State Machine, Workflows)
-- Setting up `WORKFLOW.md`
+- Setting up `harness.orchestrator.md`
 - Monitoring via TUI and HTTP API
 - Graceful shutdown and lifecycle management
 
