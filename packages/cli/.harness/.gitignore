@@ -1,0 +1,22 @@
+# Runtime artifacts (generated, ephemeral, session-scoped)
+graph/
+debug/
+hooks/
+security/
+sessions/
+state.json
+state/
+handoff.json
+handoff-*.json
+autopilot-state.json
+session-taint-*.json
+dispatch-last-head.txt
+health-snapshot.json
+release-readiness.json
+skills-index.json
+stack-profile.json
+metrics/
+events.jsonl
+.install-id
+telemetry.json
+.telemetry-notice-shown

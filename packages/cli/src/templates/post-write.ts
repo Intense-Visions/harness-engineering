@@ -51,7 +51,6 @@ export function persistToolingConfig(
  */
 export function ensureHarnessGitignore(targetDir: string): void {
   const gitignorePath = path.join(targetDir, '.harness', '.gitignore');
-  if (fs.existsSync(gitignorePath)) return;
 
   const content = `# Runtime artifacts (generated, ephemeral, session-scoped)
 graph/

@@ -7,6 +7,7 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { resolveProjectConfig } from './utils/config-resolver.js';
+import { ensureHarnessGitignore } from '../templates/post-write.js';
 import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
@@ -458,6 +459,10 @@ async function handleReadResource(
 
 export function createHarnessServer(projectRoot?: string, toolFilter?: string[]): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
+
+  // Ensure .harness/.gitignore exists for existing projects (not just new ones)
+  ensureHarnessGitignore(resolvedRoot);
+
   const { definitions, handlers } = buildFilteredTools(toolFilter);
 
   // Build set of tools whose output is trusted internal content (skill docs,
