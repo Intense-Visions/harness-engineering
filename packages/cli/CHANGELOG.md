@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.25.1
+
+### Patch Changes
+
+- 370cefb: Fix hook refresh failure after global install. `resolveHookSourceDir()` path resolution failed in bundled dist layout, and `copy-assets.mjs` was not copying hook scripts to `dist/hooks/`.
+
 ## 1.25.0
 
 ### Minor Changes
