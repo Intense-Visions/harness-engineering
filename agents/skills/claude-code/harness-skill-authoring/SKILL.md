@@ -14,6 +14,14 @@
 
 ## Process
 
+### Iron Law
+
+**No skill ships without validation passing and test scenarios exercising every discipline section.**
+
+A skill that passes happy-path execution but has untested discipline sections (Red Flags, Gates, Rationalizations) is a trap — agents activate it but have no guardrails when they encounter edge cases. Phase 5B is not optional.
+
+---
+
 ### Phase 1: DEFINE — Establish the Skill's Purpose
 
 1. **Identify the recurring process.** What does the team do repeatedly? Name it. Describe it in one sentence. This becomes the skill's `description` in `skill.yaml` and the blockquote summary in `SKILL.md`.
@@ -344,16 +352,29 @@ Use this checklist as a final quality gate before declaring a skill complete.
 - Rigid skills include Gates and Escalation sections with specific conditions and consequences
 - The skill can be loaded and run with `harness skill run <name>`
 
+## Red Flags
+
+| Flag                                                                                | Corrective Action                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This skill is simple enough to ship without test scenarios"                        | STOP. Phase 5B exists because untested discipline sections are decoration. If you cannot construct a scenario that triggers each discipline section, the section is too abstract — revise it. |
+| "I'll add the Rationalizations/Gates/Escalation section after the skill is working" | STOP. Discipline sections are required sections. A skill that "works" without guardrails is a trap — agents activate but flounder at edge cases. Write the real content now.                  |
+| "The skill works, I tested it by running it once"                                   | STOP. A single happy-path run does not test discipline sections. Write scenarios that trigger Red Flags, Gates, and Rationalizations.                                                         |
+| `// placeholder for future phases` or `// TODO: add gate conditions` in SKILL.md    | STOP. Placeholder sections are stubs. A skill with stub discipline sections passes validation but fails in practice. Write the real content or remove the section entirely.                   |
+
+**Review-never-fixes:** When reviewing or extending an existing skill, identify issues but do not fix them inline. Document findings, propose fixes, and let the skill author decide. Reviewing and editing are separate roles.
+
 ## Rationalizations to Reject
 
-| Rationalization                                                         | Reality                                                                                                                                                                                                  |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "This skill is too simple to need all required sections"                | Every section exists for a reason. A short section is fine; a missing section means the skill was not fully thought through.                                                                             |
-| "The process section covers it — no need for explicit success criteria" | Process describes what to do. Success criteria describe how to know it worked. They serve different purposes.                                                                                            |
-| "Rationalizations to Reject is meta — this skill does not need it"      | This section is required for all user-facing skills, including this one. No exceptions.                                                                                                                  |
-| "I will add examples later once the skill is proven"                    | Examples are a required section. A skill without examples forces the agent to guess at correct behavior. Write at least one example now.                                                                 |
-| "The When to Use section is obvious from the name"                      | Negative conditions (when NOT to use) prevent misapplication. The skill name conveys nothing about boundary conditions.                                                                                  |
-| "The skill works — I tested it by running it once"                      | A single happy-path run does not test discipline sections. Write scenarios that trigger Red Flags, Gates, and Rationalizations. A skill that passes happy path but fails discipline scenarios is a trap. |
+| Rationalization                                                         | Reality                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This skill is too simple to need all required sections"                | Every section exists for a reason. A short section is fine; a missing section means the skill was not fully thought through.                                                                              |
+| "The process section covers it — no need for explicit success criteria" | Process describes what to do. Success criteria describe how to know it worked. They serve different purposes.                                                                                             |
+| "Rationalizations to Reject is meta — this skill does not need it"      | This section is required for all user-facing skills, including this one. No exceptions.                                                                                                                   |
+| "I will add examples later once the skill is proven"                    | Examples are a required section. A skill without examples forces the agent to guess at correct behavior. Write at least one example now.                                                                  |
+| "The When to Use section is obvious from the name"                      | Negative conditions (when NOT to use) prevent misapplication. The skill name conveys nothing about boundary conditions.                                                                                   |
+| "The skill works — I tested it by running it once"                      | A single happy-path run does not test discipline sections. Write scenarios that trigger Red Flags, Gates, and Rationalizations. A skill that passes happy path but fails discipline scenarios is a trap.  |
+| "This is an internal skill, so discipline sections are unnecessary"     | Agents rationalize skipping steps in internal skills too. Every user-facing skill requires the full discipline stack — no exemptions for internal or simple skills.                                       |
+| "I will copy the Rationalizations from a similar skill and adapt them"  | Domain-specific means domain-specific. Copied rationalizations address the source skill's shortcuts, not this skill's. Write fresh entries based on what an agent executing THIS skill would try to skip. |
 
 ## Examples
 
@@ -471,3 +492,17 @@ Tools: Bash, Read, Glob.
   "Rollback to version [X] failed. Current state: [description].
   Manual intervention required."
 ```
+
+## Gates
+
+- **No shipping without validation.** `harness skill validate` must pass with zero errors before declaring a skill complete. Validation failures are not warnings — they are hard stops.
+- **No shipping without test scenarios.** Phase 5B is mandatory. A skill without test scenarios that exercise its discipline sections (Red Flags, Gates, Rationalizations) is not complete, even if validation passes.
+- **No placeholder sections.** Every required section must contain substantive content. A `## Rationalizations to Reject` section with generic entries or a `## Gates` section with no conditions is a stub, not a section.
+- **No skipping negative conditions.** The `## When to Use` section must include both positive (when TO use) and negative (when NOT to use) conditions. Missing negatives cause misapplication.
+
+## Escalation
+
+- **When you cannot identify domain-specific rationalizations:** The skill's process section is too vague. If you cannot imagine an agent trying to shortcut the process, the process lacks enough prescriptive steps. Revise the process first, then rationalizations will become obvious.
+- **When validation fails on a section you believe is present:** The section heading may not match the expected format exactly. Check for typos, extra whitespace, or wrong heading level.
+- **When the skill spans more than 6 phases:** The skill is doing too much. Propose splitting into two skills with clear handoff points. A skill that tries to cover too many concerns becomes vague in each one.
+- **When you cannot write a test scenario that triggers a Gate:** The Gate condition is too abstract. Revise it to include specific, observable conditions that an agent would encounter.
