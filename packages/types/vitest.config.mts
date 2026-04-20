@@ -10,6 +10,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'json-summary', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/index.ts'],
+      processingConcurrency: 1,
     },
   },
 });

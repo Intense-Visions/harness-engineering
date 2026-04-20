@@ -20,7 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "node ../../scripts/clean.mjs dist",
-    "test:coverage": "node -e \"require('fs').mkdirSync('coverage/.tmp',{recursive:true})\" && vitest run --coverage"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "harness",

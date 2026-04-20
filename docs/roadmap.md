@@ -727,7 +727,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Skill Discipline Upgrades
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/skill-discipline-upgrades/proposal.md
 - **Summary:** Evidence Requirements, Red Flags, and Rationalizations to Reject sections for 8 high-traffic skills (code-review, security-scan, architecture-advisor, enforce-architecture, auth, api-design, database, deployment) via shared discipline template. [ACE-Batch1]
 - **Blockers:** —
@@ -735,7 +735,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#66
-- **Updated-At:** 2026-04-19T11:58:16.170Z
+- **Updated-At:** 2026-04-19T21:38:46.393Z
 
 ### Documentation Auto-Generation
 
@@ -1231,14 +1231,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Trust Scoring for Agent Output
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Explicit confidence model per review finding: validation method (mechanical > graph > heuristic) x evidence quality x cross-agent agreement x historical accuracy. Every finding shows a visible confidence percentage for human triage. [E6]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#90
+- **Updated-At:** 2026-04-19T22:15:02.628Z
 
 ### Skill Effectiveness Tracking
 
@@ -1401,14 +1402,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Skill Discipline Upgrades — ACE Batch 2
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Add Rationalizations to Reject, Iron Laws, Red Flags, review-never-fixes, read-only research, TDD skill authoring, rubric compression, uncertainty surfacing, and comment replacement guards across 8+ discipline-enforcing skills. Inspired by Trail of Bits and Superpowers patterns. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#103
+- **Updated-At:** 2026-04-19T21:47:07.130Z
 
 ### Sentinel: Prompt Injection Defense
 
@@ -1434,14 +1436,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Usage & Cost Tracking: Orchestrator Aggregation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Orchestrator and team-level cost aggregation, cross-project spend comparison, and dashboard export. Builds on the core Usage & Cost Tracking feature (Current Work section). [ACE-B1 phase 2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#106
+- **Updated-At:** 2026-04-20T01:30:14.927Z
 
 ### Agent Config Validation
 
@@ -1501,14 +1504,15 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 
 ### Structured Learnings Enhancement
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Optional root_cause and tried_and_failed fields for learning entries. Semantic overlap check (5-dimension scoring) before creating new entries — prevents near-duplicate learnings with different wording. Active staleness detection auditing learnings against current code state. Learnings-researcher as always-on reviewer in code review pipeline. Inspired by Compound Engineering Plugin. [ACE-C5/C6]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#112
+- **Updated-At:** 2026-04-19T22:08:54.223Z
 
 ### Advanced Review Pipeline
 

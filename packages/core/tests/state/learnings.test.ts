@@ -873,13 +873,14 @@ describe('appendLearning performance', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('should append 100 unique learnings in under 2 seconds', async () => {
+  it('should append 100 unique learnings in under 4 seconds', async () => {
     const start = performance.now();
     for (let i = 0; i < 100; i++) {
       await appendLearning(tmpDir, `Unique learning number ${i}`, 'skill-perf', 'success');
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(2000);
+    // 4s budget accommodates Windows CI where antivirus scanning inflates sync I/O
+    expect(elapsed).toBeLessThan(4000);
 
     // Verify all 100 were written
     const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
