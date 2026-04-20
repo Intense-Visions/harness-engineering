@@ -975,12 +975,12 @@ All checks work from document analysis and codebase reads alone. Graph adds prec
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "The spec looks internally consistent at a high level" | STOP. S1 requires checking each decision against Technical Design line by line. "High level" consistency misses contradictions in the details. |
-| "This assumption is obvious and doesn't need to be stated" | STOP. S3 exists because unstated assumptions cause the most damage when wrong. If it's obvious, writing it down costs nothing. Skipping it costs debugging time later. |
-| "The finding is minor so I'll auto-fix it without surfacing to the user" | STOP. Only inferrable fixes are auto-fixed. If the fix involves a design choice — even one you think is obvious — surface it. You are not the designer. |
-| `// TODO: add traceability` or `// spec gap — fill later` in spec/plan files | STOP. TODOs in specs are unfinished review. The spec is not converged. Fix the gap or surface it as a finding — do not defer it. |
+| Flag                                                                         | Corrective Action                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The spec looks internally consistent at a high level"                       | STOP. S1 requires checking each decision against Technical Design line by line. "High level" consistency misses contradictions in the details.                         |
+| "This assumption is obvious and doesn't need to be stated"                   | STOP. S3 exists because unstated assumptions cause the most damage when wrong. If it's obvious, writing it down costs nothing. Skipping it costs debugging time later. |
+| "The finding is minor so I'll auto-fix it without surfacing to the user"     | STOP. Only inferrable fixes are auto-fixed. If the fix involves a design choice — even one you think is obvious — surface it. You are not the designer.                |
+| `// TODO: add traceability` or `// spec gap — fill later` in spec/plan files | STOP. TODOs in specs are unfinished review. The spec is not converged. Fix the gap or surface it as a finding — do not defer it.                                       |
 
 **Review-never-fixes:** Soundness review identifies structural issues in specs and plans. It applies inferrable fixes (formatting, missing links, obvious gaps) but NEVER makes design decisions. If a finding requires judgment, surface it to the user — even if the "right" answer seems obvious. A reviewer who makes design decisions has stopped reviewing and started designing without the authority to do so.
 
@@ -1025,14 +1025,14 @@ spec|S7|warning|All success criteria are observable and measurable with concrete
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                          | Reality                                                                                                                                       |
-| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The spec looks coherent to me, so I can skip running the S1 internal coherence check"                   | Every check in the mode must run. S1 detects contradictions that human review frequently misses.                                              |
-| "This unstated assumption is obvious, so documenting it would be pedantic"                               | S3 exists because "obvious" assumptions cause the most damage when wrong. Cheapest to document, most expensive to miss.                       |
-| "The success criterion is somewhat vague but the team will know what it means"                           | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming only to fail at verification. |
-| "This auto-fixable finding is minor, so I will just note it rather than applying the fix"                | Auto-fixable findings should be applied silently — that is the design intent. Skipping them ships known inferrable gaps.                      |
-| "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 red flags are always severity "error" and always surfaced. A spec referencing nonexistent modules produces a broken plan.                  |
-| "The convergence loop is taking too long, so I will skip the re-check and declare converged"             | Convergence requires the issue count to stop decreasing. Declaring convergence without a re-check is falsifying the exit condition.            |
+| Rationalization                                                                                          | Reality                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The spec looks coherent to me, so I can skip running the S1 internal coherence check"                   | Every check in the mode must run. S1 detects contradictions that human review frequently misses.                                                 |
+| "This unstated assumption is obvious, so documenting it would be pedantic"                               | S3 exists because "obvious" assumptions cause the most damage when wrong. Cheapest to document, most expensive to miss.                          |
+| "The success criterion is somewhat vague but the team will know what it means"                           | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming only to fail at verification.    |
+| "This auto-fixable finding is minor, so I will just note it rather than applying the fix"                | Auto-fixable findings should be applied silently — that is the design intent. Skipping them ships known inferrable gaps.                         |
+| "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 red flags are always severity "error" and always surfaced. A spec referencing nonexistent modules produces a broken plan.                     |
+| "The convergence loop is taking too long, so I will skip the re-check and declare converged"             | Convergence requires the issue count to stop decreasing. Declaring convergence without a re-check is falsifying the exit condition.              |
 | "This spec is well-written enough that a soundness review would not find anything"                       | Every spec gets a soundness review. Well-written specs still have unstated assumptions (S3) and vague criteria (S7). The review is not optional. |
 
 ## Examples

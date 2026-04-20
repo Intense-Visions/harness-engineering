@@ -300,12 +300,12 @@ L2|real-logic|Functions contain meaningful logic, not just hardcoded returns
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "Tests passed earlier, so I just need to check the files exist" | STOP. Iron Law: fresh evidence in THIS session. "Earlier" is cached — run the checks now. |
-| "The implementation looks substantive at a glance" | STOP. Level 2 requires thorough reading, not glancing. Stubs designed to look real (e.g., functions with only a log statement) are the whole reason L2 exists. |
-| "The artifact is exported so it must be wired" | STOP. Export without import is dead code. Trace the actual usage chain: import, call, test, pass. "Must be" is not evidence. |
-| `// stubbed for now` or `// implementation pending` in production code | STOP. These are Level 2 failures. Do not proceed to Level 3. Do not fix them yourself — record as FAIL and report. |
+| Flag                                                                   | Corrective Action                                                                                                                                              |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Tests passed earlier, so I just need to check the files exist"        | STOP. Iron Law: fresh evidence in THIS session. "Earlier" is cached — run the checks now.                                                                      |
+| "The implementation looks substantive at a glance"                     | STOP. Level 2 requires thorough reading, not glancing. Stubs designed to look real (e.g., functions with only a log statement) are the whole reason L2 exists. |
+| "The artifact is exported so it must be wired"                         | STOP. Export without import is dead code. Trace the actual usage chain: import, call, test, pass. "Must be" is not evidence.                                   |
+| `// stubbed for now` or `// implementation pending` in production code | STOP. These are Level 2 failures. Do not proceed to Level 3. Do not fix them yourself — record as FAIL and report.                                             |
 
 ## Non-Determinism Tolerance
 
@@ -315,14 +315,14 @@ For behavioral verification (convention adherence, style guides), accept thresho
 
 ## Rationalizations to Reject
 
-| Rationalization                                            | Reality                                                                                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| "Tests passed earlier, no need to re-run"                  | Iron Law forbids cached results. All evidence must be fresh in THIS session.                                                   |
-| "File exists and has code, skip thorough read for Level 2" | Level 2 requires thorough reading. Scanning for TODO, throw Error, empty functions catches stubs that look real.               |
-| "Artifact is imported by a test file, so passes Level 3"   | Import is necessary but not sufficient. Test must assert on behavior and not be skipped.                                       |
-| "Verification report probably looks fine from memory"      | "Should", "probably", "seems to", "I believe" are forbidden. Replace with "verified: [evidence]" or "not verified: [missing]." |
+| Rationalization                                                         | Reality                                                                                                                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Tests passed earlier, no need to re-run"                               | Iron Law forbids cached results. All evidence must be fresh in THIS session.                                                                                        |
+| "File exists and has code, skip thorough read for Level 2"              | Level 2 requires thorough reading. Scanning for TODO, throw Error, empty functions catches stubs that look real.                                                    |
+| "Artifact is imported by a test file, so passes Level 3"                | Import is necessary but not sufficient. Test must assert on behavior and not be skipped.                                                                            |
+| "Verification report probably looks fine from memory"                   | "Should", "probably", "seems to", "I believe" are forbidden. Replace with "verified: [evidence]" or "not verified: [missing]."                                      |
 | "I found a stub so I'll quickly implement it to make verification pass" | Verification identifies gaps — verification never fills them. Record the stub as a FAIL. The executor fixes it. A verifier who implements is no longer independent. |
-| "The spec only mentions 3 behaviors but I'll verify 5 to be thorough"  | Verify what the spec requires, not what you think it should require. Extra verification against unstated requirements conflates verification with spec review.      |
+| "The spec only mentions 3 behaviors but I'll verify 5 to be thorough"   | Verify what the spec requires, not what you think it should require. Extra verification against unstated requirements conflates verification with spec review.      |
 
 ## Examples
 

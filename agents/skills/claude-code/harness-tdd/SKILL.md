@@ -180,11 +180,11 @@ git commit -m "feat(cart): calculate total from item price and quantity"
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "I'll write the test after since I know what the code should do" | STOP. Test-after is not TDD. Delete the production code, write the test, watch it fail. |
-| "The test is trivial/obvious so I don't need to watch it fail" | STOP. Observing failure proves the test catches the defect. A test you haven't seen fail might pass for the wrong reason. |
-| "I'll batch these small tests together to save time" | STOP. Each RED-GREEN-REFACTOR cycle is atomic. Batching obscures which behavior broke when a test fails. |
+| Flag                                                                                      | Corrective Action                                                                                                                               |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I'll write the test after since I know what the code should do"                          | STOP. Test-after is not TDD. Delete the production code, write the test, watch it fail.                                                         |
+| "The test is trivial/obvious so I don't need to watch it fail"                            | STOP. Observing failure proves the test catches the defect. A test you haven't seen fail might pass for the wrong reason.                       |
+| "I'll batch these small tests together to save time"                                      | STOP. Each RED-GREEN-REFACTOR cycle is atomic. Batching obscures which behavior broke when a test fails.                                        |
 | `// removed old validation` or `// TODO: re-add error handling` replacing functional code | STOP. Code-to-comment replacement is deletion with a fig leaf. Either keep the code or delete it cleanly with a test proving it is unnecessary. |
 
 ## Gates

@@ -320,23 +320,23 @@ Update the session status to `resolved`.
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "It's probably X, let me just fix that" | STOP. "Probably" is a guess, not a diagnosis. Complete Phase 1 INVESTIGATE before writing any fix code. |
-| "I'll change a few things and see if the bug goes away" | STOP. One variable at a time. Multiple simultaneous changes mean you cannot determine which one had the effect — or whether you introduced a new bug. |
-| "One more fix attempt before I escalate" after 2 failed attempts | STOP. Three failed attempts means your mental model is wrong. Step back, re-read the investigation log, and question your assumptions about how the system works. |
-| `// temporary workaround` or `// TODO: real fix later` replacing root-cause fix | STOP. Workarounds are symptom suppression. The root cause remains. Fix it properly or escalate — do not commit workarounds disguised as fixes. |
+| Flag                                                                            | Corrective Action                                                                                                                                                 |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It's probably X, let me just fix that"                                         | STOP. "Probably" is a guess, not a diagnosis. Complete Phase 1 INVESTIGATE before writing any fix code.                                                           |
+| "I'll change a few things and see if the bug goes away"                         | STOP. One variable at a time. Multiple simultaneous changes mean you cannot determine which one had the effect — or whether you introduced a new bug.             |
+| "One more fix attempt before I escalate" after 2 failed attempts                | STOP. Three failed attempts means your mental model is wrong. Step back, re-read the investigation log, and question your assumptions about how the system works. |
+| `// temporary workaround` or `// TODO: real fix later` replacing root-cause fix | STOP. Workarounds are symptom suppression. The root cause remains. Fix it properly or escalate — do not commit workarounds disguised as fixes.                    |
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                   | Reality                                                                                                                                     |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| "I have a strong hunch about what is wrong, so I will jump straight to fixing it" | Phase 1 INVESTIGATE must be completed before ANY fix code is written. You are guessing, not debugging.                                      |
-| "I changed two things and the bug is gone, so the fix must be correct"            | One variable at a time is a gate. Changing multiple things simultaneously means you do not know which change fixed it.                      |
-| "This is my third attempt but I feel close, so one more try before escalating"    | After 3 failed fix attempts, the gate requires you to question the architecture. The problem is likely not where you think it is.           |
-| "A try-catch that swallows the error prevents the crash, so the bug is fixed"     | Symptom suppression is explicitly listed as a bad fix. Wrapping the failure in a try-catch addresses what the bug did, not why it happened. |
-| "The bug only happens in edge cases, so a partial fix is acceptable"               | A partial fix means the bug still exists. Either fix the root cause completely or document the remaining scenarios as known issues with tracked tickets.                |
-| "I can skip the regression test since I understand the root cause well"            | Understanding the root cause and proving the fix catches it are different things. The revert-and-fail test is mandatory — it is the only proof the test actually guards against the bug. |
+| Rationalization                                                                   | Reality                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I have a strong hunch about what is wrong, so I will jump straight to fixing it" | Phase 1 INVESTIGATE must be completed before ANY fix code is written. You are guessing, not debugging.                                                                                   |
+| "I changed two things and the bug is gone, so the fix must be correct"            | One variable at a time is a gate. Changing multiple things simultaneously means you do not know which change fixed it.                                                                   |
+| "This is my third attempt but I feel close, so one more try before escalating"    | After 3 failed fix attempts, the gate requires you to question the architecture. The problem is likely not where you think it is.                                                        |
+| "A try-catch that swallows the error prevents the crash, so the bug is fixed"     | Symptom suppression is explicitly listed as a bad fix. Wrapping the failure in a try-catch addresses what the bug did, not why it happened.                                              |
+| "The bug only happens in edge cases, so a partial fix is acceptable"              | A partial fix means the bug still exists. Either fix the root cause completely or document the remaining scenarios as known issues with tracked tickets.                                 |
+| "I can skip the regression test since I understand the root cause well"           | Understanding the root cause and proving the fix catches it are different things. The revert-and-fail test is mandatory — it is the only proof the test actually guards against the bug. |
 
 ## Examples
 

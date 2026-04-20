@@ -718,12 +718,12 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 
 ### Domain-Specific
 
-| Rationalization                                     | Reality                                                                                                                      |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| "The tests pass, so the logic must be correct"      | Tests can be incomplete. Review the logic independently of test results.                                                     |
-| "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.                                  |
-| "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.                                      |
-| "The fix is trivial, I'll just apply it inline"     | Trivial fixes still skip review when applied by the reviewer. Suggest the fix; let the author apply and re-review. Iron Law. |
+| Rationalization                                                 | Reality                                                                                                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The tests pass, so the logic must be correct"                  | Tests can be incomplete. Review the logic independently of test results.                                                                               |
+| "This is how it was done elsewhere in the codebase"             | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.                                                            |
+| "It's just a refactor, low risk"                                | Refactors change behavior surfaces. Review them with the same rigor as feature changes.                                                                |
+| "The fix is trivial, I'll just apply it inline"                 | Trivial fixes still skip review when applied by the reviewer. Suggest the fix; let the author apply and re-review. Iron Law.                           |
 | "The diff is small so I can approve without reading every file" | Small diffs can contain critical bugs. Read every changed file completely — size does not correlate with risk. A one-line auth bypass is a small diff. |
 | "The author is experienced, so I can be less thorough"          | Review rigor is based on the code, not the author. Experienced authors make mistakes too. Apply the same checklist regardless of who wrote it.         |
 

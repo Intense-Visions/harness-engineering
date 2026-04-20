@@ -146,23 +146,23 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "This refactoring is safe, I don't need to run tests after this small change" | STOP. The Iron Law is absolute: tests after EVERY change. "Small" and "safe" are the changes that introduce subtle bugs. |
-| "I'll combine these two renames into one commit since they're related" | STOP. One change per commit. Combined changes make it impossible to isolate which change caused a regression. |
-| "The failing test is testing implementation details, so I'll fix the test" | STOP. Changing tests during refactoring is a warning sign. Verify the test is actually testing implementation details — not behavior your refactoring inadvertently changed. |
-| `// removed old implementation` or `// TODO: move back later` replacing functional code | STOP. Either the code lives in its new location or it doesn't. Comments are not migration plans. Keep the code or delete it with a test proving the deletion is safe. |
+| Flag                                                                                    | Corrective Action                                                                                                                                                            |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This refactoring is safe, I don't need to run tests after this small change"           | STOP. The Iron Law is absolute: tests after EVERY change. "Small" and "safe" are the changes that introduce subtle bugs.                                                     |
+| "I'll combine these two renames into one commit since they're related"                  | STOP. One change per commit. Combined changes make it impossible to isolate which change caused a regression.                                                                |
+| "The failing test is testing implementation details, so I'll fix the test"              | STOP. Changing tests during refactoring is a warning sign. Verify the test is actually testing implementation details — not behavior your refactoring inadvertently changed. |
+| `// removed old implementation` or `// TODO: move back later` replacing functional code | STOP. Either the code lives in its new location or it doesn't. Comments are not migration plans. Keep the code or delete it with a test proving the deletion is safe.        |
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                                     | Reality                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The tests are mostly passing, so I can start refactoring and fix the remaining failures as I go"                   | All tests must pass BEFORE refactoring starts. If tests are not green before you start, you are not refactoring -- you are debugging.        |
-| "This refactoring changes a small amount of behavior, but it is a clear improvement"                                | Refactoring must not change behavior. The test suite is the proof. If the refactoring requires changing tests, you may be changing behavior. |
-| "I will make several changes at once and run tests at the end since each change is small"                           | Tests must run after EVERY single change. If a test breaks, you must undo the LAST change immediately.                                       |
-| "The refactoring did not produce a measurable improvement, but the code is different so it must be somewhat better" | If the refactoring introduced no measurable improvement, revert the entire sequence. Refactoring for its own sake is churn.                  |
-| "I will refactor this and add the new feature in the same pass to be efficient"                                      | Refactoring and feature work are separate tasks. Mixing them means test failures could be from the refactoring OR the new behavior — you cannot tell which. |
-| "The test suite is slow, so I will run tests only at the end of the refactoring sequence"                            | Each step must be independently verified. A slow test suite is a separate problem to solve — it is not a reason to skip the safety net.                     |
+| Rationalization                                                                                                     | Reality                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The tests are mostly passing, so I can start refactoring and fix the remaining failures as I go"                   | All tests must pass BEFORE refactoring starts. If tests are not green before you start, you are not refactoring -- you are debugging.                       |
+| "This refactoring changes a small amount of behavior, but it is a clear improvement"                                | Refactoring must not change behavior. The test suite is the proof. If the refactoring requires changing tests, you may be changing behavior.                |
+| "I will make several changes at once and run tests at the end since each change is small"                           | Tests must run after EVERY single change. If a test breaks, you must undo the LAST change immediately.                                                      |
+| "The refactoring did not produce a measurable improvement, but the code is different so it must be somewhat better" | If the refactoring introduced no measurable improvement, revert the entire sequence. Refactoring for its own sake is churn.                                 |
+| "I will refactor this and add the new feature in the same pass to be efficient"                                     | Refactoring and feature work are separate tasks. Mixing them means test failures could be from the refactoring OR the new behavior — you cannot tell which. |
+| "The test suite is slow, so I will run tests only at the end of the refactoring sequence"                           | Each step must be independently verified. A slow test suite is a separate problem to solve — it is not a reason to skip the safety net.                     |
 
 ## Examples
 

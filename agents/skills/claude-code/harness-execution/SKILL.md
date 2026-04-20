@@ -343,23 +343,23 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "The plan says X but Y would be cleaner — I'll improvise" | STOP. Iron Law: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising introduces untested assumptions. |
-| "I'll skip the test for this task since it's just configuration" | STOP. The TDD rhythm is not optional. Configuration changes need tests too — they prove the config does what the task requires. |
-| "I'll handle this edge case the plan didn't mention" | STOP. Unplanned work is scope creep. If the edge case matters, it's a plan deficiency — record it as a blocker. |
-| `// TODO: come back to this` or `// skipped for now` in committed code | STOP. Every commit must be atomic and complete for its task. TODOs in committed code are incomplete tasks disguised as progress. |
+| Flag                                                                   | Corrective Action                                                                                                                      |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| "The plan says X but Y would be cleaner — I'll improvise"              | STOP. Iron Law: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising introduces untested assumptions. |
+| "I'll skip the test for this task since it's just configuration"       | STOP. The TDD rhythm is not optional. Configuration changes need tests too — they prove the config does what the task requires.        |
+| "I'll handle this edge case the plan didn't mention"                   | STOP. Unplanned work is scope creep. If the edge case matters, it's a plan deficiency — record it as a blocker.                        |
+| `// TODO: come back to this` or `// skipped for now` in committed code | STOP. Every commit must be atomic and complete for its task. TODOs in committed code are incomplete tasks disguised as progress.       |
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                                | Reality                                                                                                                                                   |
-| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The plan says to do X, but doing Y would be cleaner -- I will improvise"                                      | The Iron Law states: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising mid-execution introduces untested assumptions. |
-| "This task depends on Task 3 which I know is done, so I can skip verifying prerequisites"                      | Prerequisites must be verified mechanically, not from memory. Check that dependency tasks are marked complete in state and that referenced files exist.   |
-| "The checkpoint is just a confirmation step and the output looks correct, so I will auto-continue"             | Checkpoints are non-negotiable pause points. If a task has a checkpoint marker, execution must pause.                                                     |
-| "Harness validate passed on the previous task and nothing changed structurally, so I can skip it for this one" | Validation runs after every task with no exceptions. Each task may introduce subtle architectural drift that only harness validate catches.               |
+| Rationalization                                                                                                | Reality                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The plan says to do X, but doing Y would be cleaner -- I will improvise"                                      | The Iron Law states: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising mid-execution introduces untested assumptions.       |
+| "This task depends on Task 3 which I know is done, so I can skip verifying prerequisites"                      | Prerequisites must be verified mechanically, not from memory. Check that dependency tasks are marked complete in state and that referenced files exist.         |
+| "The checkpoint is just a confirmation step and the output looks correct, so I will auto-continue"             | Checkpoints are non-negotiable pause points. If a task has a checkpoint marker, execution must pause.                                                           |
+| "Harness validate passed on the previous task and nothing changed structurally, so I can skip it for this one" | Validation runs after every task with no exceptions. Each task may introduce subtle architectural drift that only harness validate catches.                     |
 | "The task failed but I can see the fix — I'll apply it and move on without recording a blocker"                | A failed task is a blocker. Record it, report it, and stop. Applying unplanned fixes mid-execution makes progress untraceable and may cascade into later tasks. |
-| "Phase 1 prerequisites are missing but I can create them as part of this task"                                 | PREPARE is read-only. Missing prerequisites mean a prior task or the plan is deficient. Report the gap — do not fix prerequisites during execution setup.      |
+| "Phase 1 prerequisites are missing but I can create them as part of this task"                                 | PREPARE is read-only. Missing prerequisites mean a prior task or the plan is deficient. Report the gap — do not fix prerequisites during execution setup.       |
 
 ## Examples
 

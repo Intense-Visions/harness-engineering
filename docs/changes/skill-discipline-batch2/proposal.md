@@ -30,16 +30,16 @@ ACE Batch 1 standardized `## Rationalizations to Reject` across all skills. Batc
 
 ## Decisions
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | Red Flags as a dedicated section with quoted trigger phrases | Agents pattern-match quoted phrases more reliably than prose descriptions. Code Review's existing Red Flags section is the model. |
-| D2 | Comment guards as Red Flag entries, not a separate section | Comment replacement is one type of red flag. Adding it as entries within Red Flags keeps the skill structure flat. |
-| D3 | Uncertainty surfacing as a subsection within Process, not standalone | Uncertainty classification (blocking/assumption/deferrable) is a process behavior, not a structural section. Embedding it where decisions happen is more effective. |
-| D4 | Rubric compression follows Code Review/Verification format exactly | `domain\|check-name\|severity\|criterion` pipe-delimited single-line format. Proven to reduce token consumption 2-5x. |
-| D5 | review-never-fixes as both an Iron Law reinforcement and a Rationalization entry | The constraint needs to appear where the agent encounters the temptation (during findings) AND in the rejection table (as a safety net). |
-| D6 | read-only research as a Gate, not just a guideline | Investigation/research phases that produce code violate the skill's phase contract. Hard stop, not suggestion. |
-| D7 | New Rationalizations are additive — existing entries unchanged | Existing entries are proven. New entries fill gaps revealed by production agent behavior. |
-| D8 | Iron Law naming normalized to "Iron Law" (not "Iron Rule") | Consistency across the skill suite. Refactoring's "Iron Rule" becomes "Iron Law" to match the 7 other skills. |
+| #   | Decision                                                                         | Rationale                                                                                                                                                           |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Red Flags as a dedicated section with quoted trigger phrases                     | Agents pattern-match quoted phrases more reliably than prose descriptions. Code Review's existing Red Flags section is the model.                                   |
+| D2  | Comment guards as Red Flag entries, not a separate section                       | Comment replacement is one type of red flag. Adding it as entries within Red Flags keeps the skill structure flat.                                                  |
+| D3  | Uncertainty surfacing as a subsection within Process, not standalone             | Uncertainty classification (blocking/assumption/deferrable) is a process behavior, not a structural section. Embedding it where decisions happen is more effective. |
+| D4  | Rubric compression follows Code Review/Verification format exactly               | `domain\|check-name\|severity\|criterion` pipe-delimited single-line format. Proven to reduce token consumption 2-5x.                                               |
+| D5  | review-never-fixes as both an Iron Law reinforcement and a Rationalization entry | The constraint needs to appear where the agent encounters the temptation (during findings) AND in the rejection table (as a safety net).                            |
+| D6  | read-only research as a Gate, not just a guideline                               | Investigation/research phases that produce code violate the skill's phase contract. Hard stop, not suggestion.                                                      |
+| D7  | New Rationalizations are additive — existing entries unchanged                   | Existing entries are proven. New entries fill gaps revealed by production agent behavior.                                                                           |
+| D8  | Iron Law naming normalized to "Iron Law" (not "Iron Rule")                       | Consistency across the skill suite. Refactoring's "Iron Rule" becomes "Iron Law" to match the 7 other skills.                                                       |
 
 ## Technical Design
 
@@ -52,10 +52,10 @@ Quoted phrases that signal the agent is about to violate discipline. When an age
 ```markdown
 ## Red Flags
 
-| Flag | Corrective Action |
-| ---- | ----------------- |
-| "I'll just..." | STOP. "Just" signals corner-cutting. State what you are skipping and why the skip is safe — if you cannot, do not skip. |
-| "This is similar enough to..." | STOP. Similar is not identical. Verify the assumption before proceeding. |
+| Flag                           | Corrective Action                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| "I'll just..."                 | STOP. "Just" signals corner-cutting. State what you are skipping and why the skip is safe — if you cannot, do not skip. |
+| "This is similar enough to..." | STOP. Similar is not identical. Verify the assumption before proceeding.                                                |
 ```
 
 Format: 2-column table, `Flag` (quoted phrase) and `Corrective Action` (imperative instruction). 3-6 entries per skill, domain-specific.
@@ -130,18 +130,18 @@ For skills with implicit but not explicit Iron Laws:
 
 ### Upgrade Matrix
 
-| Skill | Iron Law | Red Flags | review-never-fixes | read-only | comment guards | uncertainty | rubric | New Rationalizations |
-|-------|----------|-----------|--------------------|-----------| --------------|-------------|--------|---------------------|
-| harness-tdd | — | ADD (4) | — | — | ADD (1 entry) | ADD | — | ADD (2) |
-| harness-refactoring | RENAME | ADD (4) | — | — | ADD (1 entry) | ADD | — | ADD (2) |
-| harness-debugging | ADD | ADD (4) | — | ADD | ADD (1 entry) | ADD | — | ADD (2) |
-| harness-skill-authoring | ADD | ADD (4) | ADD | — | ADD (1 entry) | — | — | ADD (2) |
-| harness-verification | — | ADD (4) | ADD | — | ADD (1 entry) | ADD | — | ADD (2) |
-| harness-soundness-review | — | ADD (4) | ADD | — | ADD (1 entry) | ADD | ADD | ADD (2) |
-| harness-pre-commit-review | ADD | ADD (4) | ADD | — | ADD (1 entry) | — | ADD | ADD (2) |
-| harness-execution | — | ADD (4) | — | ADD | ADD (1 entry) | ADD | — | ADD (2) |
-| harness-planning | — | ADD (4) | — | ADD | ADD (1 entry) | — | — | ADD (2) |
-| harness-code-review | — | — | — | — | — | ADD | — | ADD (2) |
+| Skill                     | Iron Law | Red Flags | review-never-fixes | read-only | comment guards | uncertainty | rubric | New Rationalizations |
+| ------------------------- | -------- | --------- | ------------------ | --------- | -------------- | ----------- | ------ | -------------------- |
+| harness-tdd               | —        | ADD (4)   | —                  | —         | ADD (1 entry)  | ADD         | —      | ADD (2)              |
+| harness-refactoring       | RENAME   | ADD (4)   | —                  | —         | ADD (1 entry)  | ADD         | —      | ADD (2)              |
+| harness-debugging         | ADD      | ADD (4)   | —                  | ADD       | ADD (1 entry)  | ADD         | —      | ADD (2)              |
+| harness-skill-authoring   | ADD      | ADD (4)   | ADD                | —         | ADD (1 entry)  | —           | —      | ADD (2)              |
+| harness-verification      | —        | ADD (4)   | ADD                | —         | ADD (1 entry)  | ADD         | —      | ADD (2)              |
+| harness-soundness-review  | —        | ADD (4)   | ADD                | —         | ADD (1 entry)  | ADD         | ADD    | ADD (2)              |
+| harness-pre-commit-review | ADD      | ADD (4)   | ADD                | —         | ADD (1 entry)  | —           | ADD    | ADD (2)              |
+| harness-execution         | —        | ADD (4)   | —                  | ADD       | ADD (1 entry)  | ADD         | —      | ADD (2)              |
+| harness-planning          | —        | ADD (4)   | —                  | ADD       | ADD (1 entry)  | —           | —      | ADD (2)              |
+| harness-code-review       | —        | —         | —                  | —         | —              | ADD         | —      | ADD (2)              |
 
 **Totals:** 3 Iron Laws added/renamed, 9 Red Flags sections (36 entries), 4 review-never-fixes, 3 read-only research, 9 comment guard entries, 7 uncertainty surfacing, 2 rubric compression, 20 new Rationalizations.
 
@@ -156,18 +156,18 @@ For skills with implicit but not explicit Iron Laws:
 
 ## Success Criteria
 
-| # | Criterion | Observable/Testable |
-|---|-----------|---------------------|
-| 1 | All 9 target skills have `## Red Flags` section | Grep for `## Red Flags` in all 10 SKILL.md files; 10/10 match (Code Review already has it) |
-| 2 | All 10 skills have explicit `## Iron Law` or `### Iron Law` section | Grep for `Iron Law` heading; 10/10 match |
-| 3 | 4 review/verification skills state review-never-fixes constraint | Grep for "Review identifies issues. Review never fixes" in Verification, Soundness, Pre-Commit, Skill Authoring |
-| 4 | 9 skills have comment replacement guard entry in Red Flags | Grep for "replacing functional code" or "comment replacing code" in Red Flags sections |
-| 5 | 7 skills have uncertainty surfacing subsection | Grep for "Uncertainty Surfacing" or "Blocking.*Assumption.*Deferrable" pattern |
-| 6 | Soundness Review and Pre-Commit Review have Rubric Compression sections | Grep for `## Rubric Compression` in both files |
-| 7 | 3 skills have read-only research gate | Grep for "read-only" in Gates of Debugging, Execution, Planning |
-| 8 | All 10 skills have 2+ new Rationalization entries (total entries increased) | Count rows in Rationalizations table before/after |
-| 9 | `harness validate` passes after all changes | Run `harness validate` — exit code 0 |
-| 10 | No existing Rationalization entries were modified or removed | Diff shows only additions to Rationalizations tables |
+| #   | Criterion                                                                   | Observable/Testable                                                                                             |
+| --- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1   | All 9 target skills have `## Red Flags` section                             | Grep for `## Red Flags` in all 10 SKILL.md files; 10/10 match (Code Review already has it)                      |
+| 2   | All 10 skills have explicit `## Iron Law` or `### Iron Law` section         | Grep for `Iron Law` heading; 10/10 match                                                                        |
+| 3   | 4 review/verification skills state review-never-fixes constraint            | Grep for "Review identifies issues. Review never fixes" in Verification, Soundness, Pre-Commit, Skill Authoring |
+| 4   | 9 skills have comment replacement guard entry in Red Flags                  | Grep for "replacing functional code" or "comment replacing code" in Red Flags sections                          |
+| 5   | 7 skills have uncertainty surfacing subsection                              | Grep for "Uncertainty Surfacing" or "Blocking.*Assumption.*Deferrable" pattern                                  |
+| 6   | Soundness Review and Pre-Commit Review have Rubric Compression sections     | Grep for `## Rubric Compression` in both files                                                                  |
+| 7   | 3 skills have read-only research gate                                       | Grep for "read-only" in Gates of Debugging, Execution, Planning                                                 |
+| 8   | All 10 skills have 2+ new Rationalization entries (total entries increased) | Count rows in Rationalizations table before/after                                                               |
+| 9   | `harness validate` passes after all changes                                 | Run `harness validate` — exit code 0                                                                            |
+| 10  | No existing Rationalization entries were modified or removed                | Diff shows only additions to Rationalizations tables                                                            |
 
 ## Implementation Order
 

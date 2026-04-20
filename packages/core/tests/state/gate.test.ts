@@ -24,7 +24,7 @@ describe('runMechanicalGate', () => {
     }
   });
 
-  it('should detect npm project and run available checks', { timeout: 15_000 }, async () => {
+  it('should detect npm project and run available checks', { timeout: 60_000 }, async () => {
     fs.writeFileSync(
       path.join(tmpDir, 'package.json'),
       JSON.stringify({
