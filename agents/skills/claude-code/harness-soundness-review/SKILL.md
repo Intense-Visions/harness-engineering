@@ -973,6 +973,56 @@ All checks work from document analysis and codebase reads alone. Graph adds prec
 7. `harness validate` passes after all files are written
 8. The skill test suite passes (structure, schema, platform-parity, references)
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "The spec looks internally consistent at a high level" | STOP. S1 requires checking each decision against Technical Design line by line. "High level" consistency misses contradictions in the details. |
+| "This assumption is obvious and doesn't need to be stated" | STOP. S3 exists because unstated assumptions cause the most damage when wrong. If it's obvious, writing it down costs nothing. Skipping it costs debugging time later. |
+| "The finding is minor so I'll auto-fix it without surfacing to the user" | STOP. Only inferrable fixes are auto-fixed. If the fix involves a design choice — even one you think is obvious — surface it. You are not the designer. |
+| `// TODO: add traceability` or `// spec gap — fill later` in spec/plan files | STOP. TODOs in specs are unfinished review. The spec is not converged. Fix the gap or surface it as a finding — do not defer it. |
+
+**Review-never-fixes:** Soundness review identifies structural issues in specs and plans. It applies inferrable fixes (formatting, missing links, obvious gaps) but NEVER makes design decisions. If a finding requires judgment, surface it to the user — even if the "right" answer seems obvious. A reviewer who makes design decisions has stopped reviewing and started designing without the authority to do so.
+
+## Uncertainty Surfacing
+
+When a check produces ambiguous results, classify the ambiguity immediately:
+
+- **Blocking:** Cannot determine severity without user input (e.g., S1 finds a potential contradiction that might be intentional). Surface as a finding with `autoFixable: false`.
+- **Assumption:** Can classify if assumption is stated (e.g., "the spec uses 'fast' to mean sub-second, not sub-minute"). Apply the assumption, log it, and continue. If wrong, the convergence loop will catch it.
+- **Deferrable:** Ambiguity does not affect sign-off (e.g., unclear whether a non-goal is worth stating). Note as a suggestion-severity finding.
+
+Do not auto-fix ambiguous findings. Ambiguity means you lack context — applying a "fix" without context is guessing.
+
+## Rubric Compression
+
+Soundness check rubrics used internally MUST use compressed single-line format. Each check is one line with pipe-delimited fields:
+
+```
+mode|check-id|severity|criterion
+```
+
+**Example (Spec Mode rubric):**
+
+```
+spec|S1|error|No contradictions between decisions, technical design, and success criteria
+spec|S2|warning|Every goal has at least one success criterion; no orphan criteria
+spec|S3|warning|All implicit assumptions documented in Assumptions section
+spec|S4|warning|Error/edge cases covered; EARS unwanted-behavior gaps filled
+spec|S5|error|No references to nonexistent codebase capabilities or incompatible patterns
+spec|S6|error|No speculative features without requirement traceability
+spec|S7|warning|All success criteria are observable and measurable with concrete thresholds
+```
+
+**Why:** Verbose check descriptions inflate review context without improving check accuracy. Dense single-line rubrics give the same signal in fewer tokens, leaving more budget for actual document analysis.
+
+**Rules:**
+
+- Mode prefix must be `spec` or `plan`
+- Check ID must match the defined check IDs (S1-S7, P1-P7)
+- Severity must be `error` or `warning`
+- Maximum 80 characters per criterion text
+
 ## Rationalizations to Reject
 
 | Rationalization                                                                                          | Reality                                                                                                                                       |
@@ -982,6 +1032,8 @@ All checks work from document analysis and codebase reads alone. Graph adds prec
 | "The success criterion is somewhat vague but the team will know what it means"                           | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming only to fail at verification. |
 | "This auto-fixable finding is minor, so I will just note it rather than applying the fix"                | Auto-fixable findings should be applied silently — that is the design intent. Skipping them ships known inferrable gaps.                      |
 | "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 red flags are always severity "error" and always surfaced. A spec referencing nonexistent modules produces a broken plan.                  |
+| "The convergence loop is taking too long, so I will skip the re-check and declare converged"             | Convergence requires the issue count to stop decreasing. Declaring convergence without a re-check is falsifying the exit condition.            |
+| "This spec is well-written enough that a soundness review would not find anything"                       | Every spec gets a soundness review. Well-written specs still have unstated assumptions (S3) and vague criteria (S7). The review is not optional. |
 
 ## Examples
 

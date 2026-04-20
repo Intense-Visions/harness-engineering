@@ -85,6 +85,16 @@ harness scan [path]
 
 Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
 
+### Uncertainty Surfacing
+
+When you encounter an unknown during a RED-GREEN-REFACTOR cycle, classify it immediately:
+
+- **Blocking:** Cannot write a meaningful test without resolving this (e.g., unclear expected behavior). STOP and surface to human with options.
+- **Assumption:** Can write the test if assumption is stated explicitly (e.g., "input is always non-null"). Document the assumption in a test comment and continue. If the assumption proves wrong, the test must be revised.
+- **Deferrable:** Does not affect the current cycle (e.g., performance characteristics). Record for a future cycle.
+
+Do not bury unknowns in test code. An unstated assumption in a test is a test that passes for the wrong reason.
+
 ### Cycle Rhythm
 
 Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycles. Each cycle should take 2-15 minutes. If a cycle takes longer than 15 minutes, the step is too large — break it down.
@@ -122,6 +132,8 @@ Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycle
 | "The test passed on the first run, so TDD is working"                                               | If the test passed without implementing the production code, either the behavior already exists or the test is wrong. You must watch the test FAIL for the right reason before proceeding to GREEN. |
 | "I will test multiple behaviors in this one test to be efficient"                                   | One test, one assertion, one behavior. Multi-behavior tests make it impossible to pinpoint which behavior broke when the test fails.                                                                |
 | "Harness validate can wait until the end of the feature since it slows down the cycle"              | No skipping VALIDATE. Every cycle must end with harness check-deps and harness validate. A passing test with a failing validation means the implementation violated a project constraint.           |
+| "This edge case is unlikely, so I will skip writing a test for it"                                  | If the edge case can happen, it needs a test. Unlikely is not impossible. The test is cheap; the production bug is expensive.                                                                       |
+| "The existing tests cover this behavior implicitly, so no new test is needed"                       | Implicit coverage is not TDD. If you cannot point to a specific test that asserts the specific behavior, write one. Implicit coverage breaks silently when the implying test changes.               |
 
 ## Examples
 
@@ -165,6 +177,15 @@ git commit -m "feat(cart): calculate total from item price and quantity"
 ```
 
 **Next cycle (RED):** Write a test for empty array input. Watch it fail (or pass — if it passes, the behavior is already handled). Continue.
+
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "I'll write the test after since I know what the code should do" | STOP. Test-after is not TDD. Delete the production code, write the test, watch it fail. |
+| "The test is trivial/obvious so I don't need to watch it fail" | STOP. Observing failure proves the test catches the defect. A test you haven't seen fail might pass for the wrong reason. |
+| "I'll batch these small tests together to save time" | STOP. Each RED-GREEN-REFACTOR cycle is atomic. Batching obscures which behavior broke when a test fails. |
+| `// removed old validation` or `// TODO: re-add error handling` replacing functional code | STOP. Code-to-comment replacement is deletion with a fig leaf. Either keep the code or delete it cleanly with a test proving it is unnecessary. |
 
 ## Gates
 

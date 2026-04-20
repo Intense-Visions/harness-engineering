@@ -603,6 +603,16 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 - **`filterByRelevance`** — Phase 3 learnings scoring. Threshold 0.7, budget 1000 tokens.
 - **Session directory** — `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec/plan paths, reviewed file list). Write handoff to session scope when slug is known. Global `.harness/handoff.json` is deprecated for session-aware invocations.
 
+## Uncertainty Surfacing
+
+When a review subagent encounters ambiguity during analysis, classify it immediately:
+
+- **Blocking:** Cannot determine severity without more context (e.g., unclear whether a pattern is intentional or accidental). Surface as a finding with severity `suggestion` and rationale explaining the ambiguity. Do not guess.
+- **Assumption:** Can classify if assumption is stated (e.g., "assuming this endpoint is internal-only, the missing auth check is acceptable"). State the assumption in the finding. If wrong, the finding severity changes.
+- **Deferrable:** Ambiguity does not affect the review (e.g., whether a naming choice will cause confusion in the future). Omit from findings — it is noise.
+
+Do not suppress ambiguous findings. An ambiguous finding surfaced as a question is more valuable than a confident finding built on a wrong assumption.
+
 ## Success Criteria
 
 - Pipeline runs all 7 phases in order (skipping GATE without `--ci`)
@@ -714,6 +724,8 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 | "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.                                  |
 | "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.                                      |
 | "The fix is trivial, I'll just apply it inline"     | Trivial fixes still skip review when applied by the reviewer. Suggest the fix; let the author apply and re-review. Iron Law. |
+| "The diff is small so I can approve without reading every file" | Small diffs can contain critical bugs. Read every changed file completely — size does not correlate with risk. A one-line auth bypass is a small diff. |
+| "The author is experienced, so I can be less thorough"          | Review rigor is based on the code, not the author. Experienced authors make mistakes too. Apply the same checklist regardless of who wrote it.         |
 
 ## Escalation
 

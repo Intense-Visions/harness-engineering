@@ -10,6 +10,16 @@
 - NOT as a replacement for full peer review (use `harness-code-review` for that)
 - NOT for commits that only update documentation or configuration (fast path skips AI review)
 
+## Process
+
+### Iron Law
+
+**Mechanical checks gate AI review. No exceptions.**
+
+If lint, typecheck, or tests fail, the pipeline stops. AI review does not run. Observations from AI review are advisory — they never block a commit. Only mechanical failures block. This ordering is non-negotiable.
+
+---
+
 ## Principle: Deterministic First
 
 This skill follows the Deterministic-vs-LLM Responsibility Split principle. Mechanical checks run first and must pass before any AI review occurs. If a linter or type checker can catch the problem, the LLM should not be the one finding it.
@@ -262,6 +272,47 @@ fi
 
 **Note:** AI review observations (WARN) do not block the commit — only mechanical check failures (FAIL) block. The author decides whether to address AI observations.
 
+## Red Flags
+
+| Flag | Corrective Action |
+| ---- | ----------------- |
+| "The lint errors are just warnings, I can proceed to AI review" | STOP. The gate is absolute. Any mechanical check failure means STOP. Warnings configured as errors are failures. |
+| "I'll run the full test suite later in CI" | STOP. Pre-commit checks include tests. The purpose is to catch failures BEFORE they reach CI — not to defer them. |
+| "This is just a config change, skip the security scan" | STOP. Phase 3 runs against all staged source files regardless of change type. Config files can contain hardcoded secrets. |
+| `// quick fix, will clean up before PR` or `// TODO: handle error` in staged code | STOP. Pre-commit is the last line of defense before code enters the repository. Code committed with cleanup TODOs gets merged with cleanup TODOs. Fix it now. |
+
+**Review-never-fixes:** Pre-commit review identifies observations. It never modifies staged code. AI review findings are reported for the author to decide — not applied automatically. A review that silently modifies code is not a review.
+
+## Rubric Compression
+
+Pre-commit review checklists MUST use compressed single-line format. Each check is one line with pipe-delimited fields:
+
+```
+phase|check-name|blocking|criterion
+```
+
+**Example:**
+
+```
+mechanical|lint|yes|Zero lint errors in staged files
+mechanical|typecheck|yes|Zero type errors reported by tsc --noEmit
+mechanical|tests|yes|All tests pass with exit code 0
+mechanical|harness-health|yes|assess_project returns healthy: true
+security|secrets|yes|No hardcoded secrets, API keys, or credentials in staged files
+security|injection|yes|No eval(), exec(), or unparameterized SQL in staged files
+security|advisory|no|CORS wildcards, HTTP URLs, disabled TLS — reported but non-blocking
+ai|obvious-bugs|no|Null dereference, infinite loops, off-by-one, resource leaks
+ai|debug-artifacts|no|No console.log, debugger statements, or TODO without issue ref
+```
+
+**Why:** Dense single-line rubrics minimize token consumption while preserving the same review signal. More budget for actual diff analysis.
+
+**Rules:**
+
+- Phase must be `mechanical`, `security`, or `ai`
+- Blocking must be `yes` or `no`
+- Maximum 80 characters per criterion text
+
 ## Gates
 
 - **Mechanical checks must pass before AI review.** Do not run AI review if lint/typecheck/tests fail.
@@ -292,6 +343,8 @@ fi
 | "This is a docs-only change but let me run AI review anyway for thoroughness" | The fast path is mandatory. If only docs/config files changed, AI review is skipped. Running it anyway wastes tokens.                                         |
 | "The AI found a style issue, so I should block the commit"                    | AI review observations are advisory only. Only mechanical check failures block the commit.                                                                    |
 | "I will skip the security scan since this is an internal endpoint"            | Phase 3 runs the security scanner against all staged source files regardless of exposure. Hardcoded secrets and injection are blocking even in internal code. |
+| "The AI found an issue so I should fix it before reporting"                   | Pre-commit review reports findings — it does not apply fixes. The author decides what to act on. A review that silently modifies code is editing, not reviewing. |
+| "The mechanical checks passed so the code is ready — skip the AI review"     | If source files are staged (not docs/config only), AI review runs. Mechanical checks catch syntax and type errors; AI review catches semantic issues like null dereference and resource leaks. Both layers have value. |
 
 ## Examples
 
