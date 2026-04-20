@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.23.0
+
+### Minor Changes
+
+- feat(review): enhance trust scoring with graph enrichment and exported constants
+- fix(telemetry): use `distinct_id` (snake_case) for PostHog batch API
+
+  PostHog requires `distinct_id` but the code sent `distinctId` (camelCase), causing all telemetry events to be silently rejected with HTTP 400. Added identity fallbacks from `harness.config.json` name and `git config user.name`. Added `harness telemetry test` command for verifying PostHog connectivity.
+
+### Patch Changes
+
+- fix(ci): cross-platform CI fixes for Windows test timeouts and coverage scripts
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/types@0.10.0
+
 ## 0.22.0
 
 ### Minor Changes

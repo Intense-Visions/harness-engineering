@@ -1,5 +1,17 @@
 # @harness-engineering/orchestrator
 
+## 0.2.11
+
+### Patch Changes
+
+- fix(ci): cross-platform CI fixes for Windows test timeouts and coverage scripts
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/core@0.23.0
+  - @harness-engineering/types@0.10.0
+  - @harness-engineering/intelligence@0.1.1
+
 ## 0.2.10
 
 ### Patch Changes

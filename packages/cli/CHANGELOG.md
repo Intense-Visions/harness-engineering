@@ -1,5 +1,26 @@
 # @harness-engineering/cli
 
+## 1.25.5
+
+### Patch Changes
+
+- fix(ci): cross-platform CI fixes for Windows test timeouts and coverage scripts
+- fix(cli): prevent `--global` from orphaning core harness slash commands
+
+  `harness generate-slash-commands --global` and `harness update` (global) no longer remove core harness commands when run from a project with installed third-party skills.
+
+- fix(telemetry): use `distinct_id` (snake_case) for PostHog batch API
+
+  PostHog requires `distinct_id` but the code sent `distinctId` (camelCase), causing all telemetry events to be silently rejected with HTTP 400. Added identity fallbacks from `harness.config.json` name and `git config user.name`. Added `harness telemetry test` command for verifying PostHog connectivity.
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/core@0.23.0
+  - @harness-engineering/types@0.10.0
+  - @harness-engineering/orchestrator@0.2.11
+  - @harness-engineering/dashboard@0.1.7
+
 ## 1.25.4
 
 ### Patch Changes

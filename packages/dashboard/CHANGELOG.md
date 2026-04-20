@@ -1,5 +1,15 @@
 # @harness-engineering/dashboard
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/core@0.23.0
+  - @harness-engineering/types@0.10.0
+
 ## 0.1.6
 
 ### Patch Changes
