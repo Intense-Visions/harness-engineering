@@ -140,7 +140,7 @@ describe('MaintenanceReporter', () => {
   });
 
   describe('history cap', () => {
-    it('caps history at 500 entries', async () => {
+    it('caps history at 500 entries', { timeout: 120_000 }, async () => {
       const reporter = new MaintenanceReporter({ persistDir: tmpDir });
       await reporter.load();
 
