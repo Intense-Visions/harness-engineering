@@ -128,6 +128,35 @@ describe('computeTrustScores()', () => {
     computeTrustScores([original]);
     expect(original).toEqual(originalCopy);
   });
+
+  it('uses domainAccuracy overrides for historical factor when provided', () => {
+    const finding = makeFinding({ domain: 'bug' });
+    const baseline = computeTrustScores([finding]);
+    const enriched = computeTrustScores([finding], {
+      domainAccuracy: { bug: 0.95 },
+    });
+    expect(enriched[0]!.trustScore).toBeGreaterThan(baseline[0]!.trustScore!);
+  });
+
+  it('falls back to DOMAIN_BASELINES for domains not in domainAccuracy', () => {
+    const finding = makeFinding({ domain: 'security' });
+    const baseline = computeTrustScores([finding]);
+    const withUnrelatedOverride = computeTrustScores([finding], {
+      domainAccuracy: { bug: 0.95 },
+    });
+    expect(withUnrelatedOverride[0]!.trustScore).toBe(baseline[0]!.trustScore);
+  });
+
+  it('lower domainAccuracy produces lower score', () => {
+    const finding = makeFinding({ domain: 'compliance' });
+    const low = computeTrustScores([finding], {
+      domainAccuracy: { compliance: 0.1 },
+    });
+    const high = computeTrustScores([finding], {
+      domainAccuracy: { compliance: 0.95 },
+    });
+    expect(high[0]!.trustScore).toBeGreaterThan(low[0]!.trustScore!);
+  });
 });
 
 describe('getTrustLevel()', () => {

@@ -13,6 +13,7 @@ import type {
   EvidenceCoverageReport,
   ContextBundle,
   Rubric,
+  ReviewDomain,
 } from './types';
 import { checkEligibility } from './eligibility-gate';
 import { runMechanicalChecks } from './mechanical-checks';
@@ -53,6 +54,13 @@ export interface RunPipelineOptions {
   commitHistory?: CommitHistoryEntry[];
   /** Session slug for loading evidence entries (optional) */
   sessionSlug?: string;
+  /**
+   * Per-domain accuracy overrides for trust scoring (optional).
+   * When provided, replaces the static DOMAIN_BASELINES for the historical
+   * accuracy factor. Callers can derive these from PersonaEffectiveness
+   * scores in the intelligence package.
+   */
+  domainAccuracy?: Partial<Record<ReviewDomain, number>>;
 }
 
 /**
@@ -81,6 +89,7 @@ export async function runReviewPipeline(
     config = {},
     commitHistory,
     sessionSlug,
+    domainAccuracy,
   } = options;
 
   // --- Phase 1: GATE ---
@@ -235,7 +244,10 @@ export async function runReviewPipeline(
   });
 
   // --- Phase 5.5: TRUST SCORING ---
-  const scoredFindings = computeTrustScores(validatedFindings);
+  const scoredFindings = computeTrustScores(
+    validatedFindings,
+    domainAccuracy ? { domainAccuracy } : undefined
+  );
 
   // --- Evidence Check (between Phase 5.5 and Phase 6) ---
   let evidenceCoverage: EvidenceCoverageReport | undefined;

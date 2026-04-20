@@ -1,41 +1,29 @@
 import type { ReviewFinding } from './types';
 import type { ReviewDomain } from './types/context';
+import {
+  VALIDATION_SCORES,
+  DOMAIN_BASELINES,
+  FACTOR_WEIGHTS,
+  EVIDENCE_SATURATION,
+  CORROBORATED_AGREEMENT,
+  STANDALONE_AGREEMENT,
+  AGREEMENT_LINE_GAP,
+} from './constants';
 
-/** Validation method → trust factor. Mechanical is authoritative, heuristic is weakest. */
-const VALIDATION_SCORES: Record<ReviewFinding['validatedBy'], number> = {
-  mechanical: 1.0,
-  graph: 0.8,
-  heuristic: 0.5,
-};
-
-/** Per-domain historical accuracy baselines (used when graph is unavailable). */
-const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
-  security: 0.7,
-  bug: 0.6,
-  architecture: 0.65,
-  compliance: 0.75,
-  learnings: 0.5,
-};
-
-/** Weight of each factor in the final score. Sums to 1.0. */
-const FACTOR_WEIGHTS = {
-  validation: 0.35,
-  evidence: 0.3,
-  agreement: 0.15,
-  historical: 0.2,
-} as const;
-
-/** Evidence items needed for maximum evidence factor. */
-const EVIDENCE_SATURATION = 3;
-
-/** Agreement factor when corroborated by another domain. */
-const CORROBORATED_AGREEMENT = 1.0;
-
-/** Agreement factor when only one agent flagged this location. */
-const STANDALONE_AGREEMENT = 0.5;
-
-/** Line gap for agreement detection (same as dedup). */
-const AGREEMENT_LINE_GAP = 3;
+/**
+ * Options for trust score computation.
+ */
+export interface TrustScoreOptions {
+  /**
+   * Per-domain accuracy overrides from graph-based effectiveness data.
+   * When provided, these replace the corresponding DOMAIN_BASELINES values
+   * for the historical accuracy factor. Callers can populate this from
+   * PersonaEffectiveness scores in the intelligence package.
+   *
+   * Values should be in [0, 1].
+   */
+  domainAccuracy?: Partial<Record<ReviewDomain, number>>;
+}
 
 function rangesOverlap(a: [number, number], b: [number, number], gap: number): boolean {
   return a[0] <= b[1] + gap && b[0] <= a[1] + gap;
@@ -69,12 +57,20 @@ function findCorroboratedIds(findings: ReviewFinding[]): Set<string> {
 /**
  * Compute trust scores for all findings. Pure function — same inputs produce same outputs.
  *
- * Score = round((validation * 0.35 + evidence * 0.25 + agreement * 0.20 + historical * 0.20) * 100)
+ * Score = round((validation × 0.35 + evidence × 0.30 + agreement × 0.15 + historical × 0.20) × 100)
+ *
+ * When `options.domainAccuracy` is provided, the historical factor uses graph-derived
+ * effectiveness scores instead of the static DOMAIN_BASELINES. This allows callers
+ * (e.g. the orchestrator) to enrich scoring with PersonaEffectiveness data.
  */
-export function computeTrustScores(findings: ReviewFinding[]): ReviewFinding[] {
+export function computeTrustScores(
+  findings: ReviewFinding[],
+  options?: TrustScoreOptions
+): ReviewFinding[] {
   if (findings.length === 0) return [];
 
   const corroboratedIds = findCorroboratedIds(findings);
+  const domainAccuracy = options?.domainAccuracy;
 
   return findings.map((finding) => {
     const validationFactor = VALIDATION_SCORES[finding.validatedBy];
@@ -82,7 +78,7 @@ export function computeTrustScores(findings: ReviewFinding[]): ReviewFinding[] {
     const agreementFactor = corroboratedIds.has(finding.id)
       ? CORROBORATED_AGREEMENT
       : STANDALONE_AGREEMENT;
-    const historicalFactor = DOMAIN_BASELINES[finding.domain];
+    const historicalFactor = domainAccuracy?.[finding.domain] ?? DOMAIN_BASELINES[finding.domain];
 
     const raw =
       FACTOR_WEIGHTS.validation * validationFactor +
