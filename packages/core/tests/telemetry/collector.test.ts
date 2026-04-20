@@ -38,7 +38,7 @@ describe('collectEvents', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0]!.event).toBe('skill_invocation');
-    expect(events[0]!.distinctId).toBe('test-uuid-1234');
+    expect(events[0]!.distinct_id).toBe('test-uuid-1234');
     expect(events[0]!.timestamp).toBe('2026-04-10T10:00:00.000Z');
     expect(events[0]!.properties.skillName).toBe('harness-brainstorming');
     expect(events[0]!.properties.duration).toBe(5000);
@@ -50,7 +50,7 @@ describe('collectEvents', () => {
     expect(typeof events[0]!.properties.harnessVersion).toBe('string');
   });
 
-  it('uses alias as distinctId when identity has alias', () => {
+  it('uses alias as distinct_id when identity has alias', () => {
     const consent: ConsentState = {
       allowed: true,
       installId: 'test-uuid-1234',
@@ -68,7 +68,7 @@ describe('collectEvents', () => {
 
     const events = collectEvents(tmpDir, consent);
 
-    expect(events[0]!.distinctId).toBe('cwarner');
+    expect(events[0]!.distinct_id).toBe('cwarner');
     expect(events[0]!.properties.project).toBe('myapp');
     expect(events[0]!.properties.team).toBe('platform');
   });
@@ -91,7 +91,7 @@ describe('collectEvents', () => {
 
     const events = collectEvents(tmpDir, consent);
 
-    expect(events[0]!.distinctId).toBe('test-uuid-1234');
+    expect(events[0]!.distinct_id).toBe('test-uuid-1234');
     expect(events[0]!.properties.project).toBe('myapp');
     expect(events[0]!.properties.team).toBe('platform');
   });

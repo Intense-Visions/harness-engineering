@@ -5,7 +5,7 @@ import type { TelemetryEvent } from '@harness-engineering/types';
 function makeEvent(overrides: Partial<TelemetryEvent> = {}): TelemetryEvent {
   return {
     event: 'skill_invocation',
-    distinctId: 'test-uuid',
+    distinct_id: 'test-uuid',
     timestamp: '2026-04-10T10:00:00.000Z',
     properties: {
       installId: 'test-uuid',

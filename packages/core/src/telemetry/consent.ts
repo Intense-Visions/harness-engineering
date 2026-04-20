@@ -1,29 +1,60 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import type { ConsentState, TelemetryConfig, TelemetryIdentity } from '@harness-engineering/types';
 import { getOrCreateInstallId } from './install-id';
 
 /**
- * Reads optional identity fields from `.harness/telemetry.json`.
- * Returns empty object if the file is missing or malformed.
+ * Reads optional identity fields from `.harness/telemetry.json`,
+ * with fallbacks from harness.config.json (project name) and git config (alias).
+ * Returns empty object if no sources are available.
  */
 export function readIdentity(projectRoot: string): TelemetryIdentity {
+  const identity: TelemetryIdentity = {};
+
+  // Primary source: .harness/telemetry.json
   const filePath = path.join(projectRoot, '.harness', 'telemetry.json');
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.identity) {
       const { project, team, alias } = parsed.identity;
-      const identity: TelemetryIdentity = {};
       if (typeof project === 'string') identity.project = project;
       if (typeof team === 'string') identity.team = team;
       if (typeof alias === 'string') identity.alias = alias;
-      return identity;
     }
-    return {};
   } catch {
-    return {};
+    // Missing or malformed — continue with fallbacks
   }
+
+  // Fallback: project name from harness.config.json
+  if (!identity.project) {
+    try {
+      const configPath = path.join(projectRoot, 'harness.config.json');
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(raw);
+      if (typeof config?.name === 'string') identity.project = config.name;
+    } catch {
+      // Missing or malformed — skip
+    }
+  }
+
+  // Fallback: alias from git config user.name
+  if (!identity.alias) {
+    try {
+      const gitName = execFileSync('git', ['config', 'user.name'], {
+        cwd: projectRoot,
+        encoding: 'utf-8',
+        timeout: 2000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+      if (gitName) identity.alias = gitName;
+    } catch {
+      // Git not available or no user.name set — skip
+    }
+  }
+
+  return identity;
 }
 
 /**

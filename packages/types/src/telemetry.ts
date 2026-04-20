@@ -31,8 +31,8 @@ export type ConsentState =
 export interface TelemetryEvent {
   /** Event name, e.g. "skill_invocation", "session_end" */
   event: string;
-  /** installId (anonymous) or alias (identified) */
-  distinctId: string;
+  /** installId (anonymous) or alias (identified) — snake_case required by PostHog batch API */
+  distinct_id: string;
   properties: {
     installId: string;
     os: string;
