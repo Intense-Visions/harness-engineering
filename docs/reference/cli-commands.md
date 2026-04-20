@@ -824,6 +824,10 @@ Show current telemetry consent state, install ID, and identity
 
 - `--json` — Output as JSON
 
+### `harness telemetry test`
+
+Send a test event to PostHog and verify connectivity
+
 ## Usage Commands
 
 Token usage and cost tracking
