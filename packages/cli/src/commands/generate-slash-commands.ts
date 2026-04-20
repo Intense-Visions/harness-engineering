@@ -57,7 +57,7 @@ async function confirmDeletion(files: string[]): Promise<boolean> {
   });
 }
 
-function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
+export function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
   const sources: SkillSource[] = [];
   const seenPaths = new Set<string>();
 
@@ -86,7 +86,7 @@ function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
   const globalCommunityDir = resolveGlobalCommunitySkillsDir();
   addSource(globalCommunityDir, 'community');
 
-  if (opts.includeGlobal || sources.length === 0) {
+  if (opts.includeGlobal || opts.global || sources.length === 0) {
     const globalDir = resolveGlobalSkillsDir();
     addSource(globalDir, 'global');
   }
