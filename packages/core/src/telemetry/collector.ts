@@ -30,7 +30,7 @@ export function collectEvents(
   return records.map(
     (record: SkillInvocationRecord): TelemetryEvent => ({
       event: 'skill_invocation',
-      distinctId,
+      distinct_id: distinctId,
       timestamp: record.startedAt,
       properties: {
         installId,

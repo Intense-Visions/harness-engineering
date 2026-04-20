@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 
 // PostHog project API key — public, write-only (cannot read data)
@@ -51,6 +52,26 @@ function resolveConsent(cwd) {
     if (typeof identityFile.identity.project === 'string') identity.project = identityFile.identity.project;
     if (typeof identityFile.identity.team === 'string') identity.team = identityFile.identity.team;
     if (typeof identityFile.identity.alias === 'string') identity.alias = identityFile.identity.alias;
+  }
+
+  // Fallback: project name from harness.config.json
+  if (!identity.project && typeof config?.name === 'string') {
+    identity.project = config.name;
+  }
+
+  // Fallback: alias from git config user.name
+  if (!identity.alias) {
+    try {
+      const gitName = execFileSync('git', ['config', 'user.name'], {
+        cwd,
+        encoding: 'utf-8',
+        timeout: 2000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+      if (gitName) identity.alias = gitName;
+    } catch {
+      // Git not available or no user.name set
+    }
   }
 
   return { allowed: true, installId, identity };
@@ -119,7 +140,7 @@ function collectEvents(cwd, consent) {
 
   return records.map((record) => ({
     event: 'skill_invocation',
-    distinctId,
+    distinct_id: distinctId,
     timestamp: record.startedAt,
     properties: {
       installId,
