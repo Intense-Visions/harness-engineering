@@ -78,8 +78,7 @@ export function computeTrustScores(
     const agreementFactor = corroboratedIds.has(finding.id)
       ? CORROBORATED_AGREEMENT
       : STANDALONE_AGREEMENT;
-    const historicalFactor =
-      domainAccuracy?.[finding.domain] ?? DOMAIN_BASELINES[finding.domain];
+    const historicalFactor = domainAccuracy?.[finding.domain] ?? DOMAIN_BASELINES[finding.domain];
 
     const raw =
       FACTOR_WEIGHTS.validation * validationFactor +
