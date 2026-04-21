@@ -214,8 +214,8 @@ export class GraphStore {
   // --- Persistence ---
 
   async save(dirPath: string): Promise<void> {
-    const allNodes = Array.from(this.nodeMap.values()).map((n) => ({ ...n }));
-    const allEdges = Array.from(this.edgeMap.values()).map((e) => ({ ...e }));
+    const allNodes = Array.from(this.nodeMap.values());
+    const allEdges = Array.from(this.edgeMap.values());
     await saveGraph(dirPath, allNodes, allEdges);
   }
 

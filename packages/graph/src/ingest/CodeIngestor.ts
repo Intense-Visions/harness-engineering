@@ -133,6 +133,9 @@ export class CodeIngestor {
     // Third pass: extract @req annotations and create verified_by edges
     edgesAdded += this.extractReqAnnotations(fileContents, rootDir);
 
+    // Release source file contents to free memory before graph serialization
+    fileContents.clear();
+
     return {
       nodesAdded,
       nodesUpdated: 0,
