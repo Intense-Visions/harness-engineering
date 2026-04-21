@@ -50,7 +50,7 @@ export function Layout({ children }: Props) {
       <AuraBackground mouseX={mousePos.x} mouseY={mousePos.y} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative transition-all duration-500 ease-in-out">
+      <div className="flex-1 flex flex-col relative">
         {/* Global Neural Progress Bar */}
         <AnimatePresence>
           {isNavigating && (
@@ -111,9 +111,7 @@ export function Layout({ children }: Props) {
           </div>
         </header>
 
-        <main
-          className={`mx-auto w-full max-w-7xl px-6 pt-32 pb-12 flex-1 flex flex-col transition-all duration-500 ${isChatOpen ? 'mr-0 ml-auto' : 'mx-auto'}`}
-        >
+        <main className="mx-auto w-full max-w-7xl px-6 pt-32 pb-12 flex-1 flex flex-col transition-all duration-500">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -132,13 +130,6 @@ export function Layout({ children }: Props) {
       {/* Chat Panel and Trigger */}
       <ChatPanel isOpen={isChatOpen} onClose={toggleChat} />
       <ChatPanelTrigger isOpen={isChatOpen} onClick={toggleChat} />
-
-      {/* Dynamic spacing when panel is open */}
-      <motion.div
-        animate={{ width: isChatOpen ? 420 : 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="flex-shrink-0"
-      />
     </div>
   );
 }
