@@ -79,6 +79,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillEntry | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   // Guards against double-fires (React strict mode, dep changes)
   const autoExecutedRef = useRef(new Set<string>());
@@ -226,6 +227,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
 
       setInput('');
       setStreaming(true);
+      setChatError(null);
 
       const controller = new AbortController();
       await streamChat(
@@ -248,6 +250,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
           },
           onDone: () => setStreaming(false),
           onError: (error) => {
+            setChatError(error);
             updateSession(targetSessionId!, (session) => ({
               messages: session.messages.map((msg, idx, arr) => {
                 if (idx === arr.length - 1 && msg.role === 'assistant') {
@@ -310,13 +313,13 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const handleSkillSelect = useCallback(
     (skill: SkillEntry) => {
       setSelectedSkill(skill);
-      if (!activeSessionId) {
-        createNewSession({ command: skill.id });
-      } else {
-        updateSession(activeSessionId, { command: skill.id });
-      }
+      // Always create a fresh session — activeSessionId may be stale (persisted
+      // in localStorage but no longer present in the sessions array, e.g. after
+      // the orchestrator restarts). Updating a non-existent session is a no-op
+      // which silently prevents skill execution.
+      createNewSession({ command: skill.id });
     },
-    [activeSessionId, createNewSession, updateSession]
+    [createNewSession]
   );
 
   const handleInputChange = (val: string) => {
@@ -447,6 +450,17 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       {saveError && (
         <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 flex-shrink-0">
           <p className="text-[10px] font-mono text-red-400">{saveError}</p>
+        </div>
+      )}
+      {chatError && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 flex-shrink-0 flex items-center justify-between">
+          <p className="text-[10px] font-mono text-red-400">Connection failed: {chatError}</p>
+          <button
+            onClick={() => setChatError(null)}
+            className="text-red-400/60 hover:text-red-400 text-xs ml-4"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

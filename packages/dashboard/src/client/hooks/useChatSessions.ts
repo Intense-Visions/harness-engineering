@@ -40,13 +40,27 @@ function syncActiveSessionToStorage(id: string | null): void {
 }
 
 function fetchSessions(
-  setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>
+  setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>,
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
 ): () => void {
   let mounted = true;
   fetch('/api/sessions')
     .then((res) => (res.ok ? res.json() : []))
-    .then((data) => {
-      if (mounted) setSessions(data);
+    .then((data: ChatSession[]) => {
+      if (!mounted) return;
+      // Merge: keep locally-created sessions that haven't been persisted yet
+      setSessions((prev) => {
+        if (prev.length === 0) return data;
+        const serverIds = new Set(data.map((s) => s.sessionId));
+        const localOnly = prev.filter((s) => !serverIds.has(s.sessionId));
+        return [...data, ...localOnly];
+      });
+      // Clear stale activeSessionId that doesn't match any known session
+      setActiveSessionId((currentId) => {
+        if (!currentId) return currentId;
+        const allIds = new Set(data.map((s) => s.sessionId));
+        return allIds.has(currentId) ? currentId : null;
+      });
     })
     .catch((err) => console.error('Failed to fetch chat sessions:', err));
   return () => {
@@ -59,7 +73,7 @@ export function useChatSessions() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(readActiveSessionId);
 
   useEffect(() => syncActiveSessionToStorage(activeSessionId), [activeSessionId]);
-  useEffect(() => fetchSessions(setSessions), []);
+  useEffect(() => fetchSessions(setSessions, setActiveSessionId), []);
 
   const updateSession = useCallback(
     (
