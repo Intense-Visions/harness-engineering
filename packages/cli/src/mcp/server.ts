@@ -55,6 +55,7 @@ import { getSkillsResource } from './resources/skills.js';
 import { getRulesResource } from './resources/rules.js';
 import { getProjectResource } from './resources/project.js';
 import { getLearningsResource } from './resources/learnings.js';
+import { getBusinessKnowledgeResource } from './resources/business-knowledge.js';
 import {
   manageStateDefinition,
   handleManageState,
@@ -339,6 +340,14 @@ const RESOURCE_DEFINITIONS = [
     mimeType: 'application/json',
     _meta: { stability: 'session' },
   },
+  {
+    uri: 'harness://business-knowledge',
+    name: 'Business Knowledge',
+    description:
+      'Business domain knowledge from docs/knowledge/ organized by domain (rules, processes, concepts, terms, metrics)',
+    mimeType: 'application/json',
+    _meta: { stability: 'session' },
+  },
 ];
 
 type ResourceHandler = (projectRoot: string) => Promise<string>;
@@ -352,6 +361,7 @@ const RESOURCE_HANDLERS: Record<string, ResourceHandler> = {
   'harness://graph': getGraphResource,
   'harness://entities': getEntitiesResource,
   'harness://relationships': getRelationshipsResource,
+  'harness://business-knowledge': getBusinessKnowledgeResource,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {

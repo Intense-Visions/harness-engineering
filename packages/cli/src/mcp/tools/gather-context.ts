@@ -92,7 +92,8 @@ type IncludeKey =
   | 'graph'
   | 'validation'
   | 'sessions'
-  | 'events';
+  | 'events'
+  | 'businessKnowledge';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -118,7 +119,16 @@ export const gatherContextDefinition = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['state', 'learnings', 'handoff', 'graph', 'validation', 'sessions', 'events'],
+          enum: [
+            'state',
+            'learnings',
+            'handoff',
+            'graph',
+            'validation',
+            'sessions',
+            'events',
+            'businessKnowledge',
+          ],
         },
         description: 'Which constituents to include (default: all)',
       },
@@ -313,6 +323,14 @@ export async function handleGatherContext(input: {
       })()
     : Promise.resolve(null);
 
+  const businessKnowledgePromise = includeSet.has('businessKnowledge')
+    ? (async () => {
+        const { getBusinessKnowledgeResource } = await import('../resources/business-knowledge.js');
+        const raw = await getBusinessKnowledgeResource(projectPath);
+        return JSON.parse(raw);
+      })()
+    : Promise.resolve(null);
+
   // Execute all in parallel
   const [
     stateResult,
@@ -322,6 +340,7 @@ export async function handleGatherContext(input: {
     validationResult,
     sessionsResult,
     eventsResult,
+    businessKnowledgeResult,
   ] = await Promise.allSettled([
     statePromise,
     learningsPromise,
@@ -330,6 +349,7 @@ export async function handleGatherContext(input: {
     validationPromise,
     sessionsPromise,
     eventsPromise,
+    businessKnowledgePromise,
   ]);
 
   // Extract results, recording errors
@@ -348,6 +368,7 @@ export async function handleGatherContext(input: {
   const validationRaw = extract(validationResult, 'validation');
   const sessionsRaw = extract(sessionsResult, 'sessions');
   const eventsTimeline = extract(eventsResult, 'events');
+  const businessKnowledgeRaw = extract(businessKnowledgeResult, 'businessKnowledge');
 
   // Unwrap Result types from core functions
   const state =
@@ -435,6 +456,7 @@ export async function handleGatherContext(input: {
     validation: outputValidation,
     sessionSections: sessionSections ?? null,
     events: eventsTimeline || null,
+    businessKnowledge: businessKnowledgeRaw ?? null,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,
