@@ -27,4 +27,7 @@ export { ClaimManager } from './claim-manager';
 export type { ClaimManagerConfig } from './claim-manager';
 export { PRDetector } from './pr-detector';
 export type { PRDetectorLogger, ExecFileFn } from './pr-detector';
+export { StreamRecorder } from './stream-recorder';
+export type { StreamManifest, Highlight, HighlightsInfo, AttemptStats } from './stream-recorder';
+export { extractHighlights, renderPRComment } from './highlight-extractor';
 // loadTrackerSyncConfig consolidated to @harness-engineering/core
