@@ -1,5 +1,20 @@
 # @harness-engineering/cli
 
+## 1.25.6
+
+### Patch Changes
+
+- 528a72f: Fix two root causes preventing PostHog telemetry data collection
+
+  **CLI command telemetry:**
+  Commander.js `preAction` hook used `thisCommand` (root program) instead of `actionCommand` (the actual subcommand). `resolveCommandName` always returned `""`, silently skipping adoption record writes. Fixed by using the correct `actionCommand` parameter.
+
+  **Skill invocation telemetry:**
+  `emitEvent()` was implemented but never called from production code. Wired event emission into MCP tool handlers (`manage_state`, `emit_interaction`, `run_skill`) so the adoption-tracker Stop hook has events to process. Added new `event-emitter.ts` module with `emitSkillEvent` for phase transitions, gate results, handoffs, and errors.
+
+- Updated dependencies
+  - @harness-engineering/dashboard@0.1.8
+
 ## 1.25.5
 
 ### Patch Changes
