@@ -12,7 +12,7 @@ import type {
  * Transforms raw context data into a human-readable summary for the BriefingPanel.
  */
 export function generateBriefingSummary(skill: SkillEntry, data: Record<string, unknown>): string {
-  const checks = data['/api/checks'] as ChecksData | undefined;
+  const checks = (data['/api/checks'] as { data?: ChecksData } | undefined)?.data;
   if (!checks) return 'No specific context data found for this skill.';
 
   switch (skill.category) {
@@ -33,7 +33,7 @@ export function generateBriefingSummary(skill: SkillEntry, data: Record<string, 
  * Transforms raw context data into a detailed system prompt for the AI.
  */
 export function generateSystemPrompt(skill: SkillEntry, data: Record<string, unknown>): string {
-  const checks = data['/api/checks'] as ChecksData | undefined;
+  const checks = (data['/api/checks'] as { data?: ChecksData } | undefined)?.data;
   const parts: string[] = [
     `You are launching the harness skill: ${skill.name} (${skill.id}).`,
     `Goal: ${skill.description}`,

@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-17
-last_synced: 2026-04-17T00:00:00.000Z
-last_manual_edit: 2026-04-18T00:40:24.485Z
+updated: 2026-04-21
+last_synced: 2026-04-21T14:06:41.723Z
+last_manual_edit: 2026-04-21T14:42:29.125Z
 ---
 
 # Roadmap
@@ -732,7 +732,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Evidence Requirements, Red Flags, and Rationalizations to Reject sections for 8 high-traffic skills (code-review, security-scan, architecture-advisor, enforce-architecture, auth, api-design, database, deployment) via shared discipline template. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#66
 - **Updated-At:** 2026-04-19T21:38:46.393Z
@@ -920,7 +920,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#152
 
@@ -975,10 +975,21 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Docker images for CLI, MCP server, orchestrator, and dashboard with multi-stage Dockerfile, docker-compose stack, and CI publishing to ghcr.io
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#216
 - **Updated-At:** 2026-04-18T01:02:20.571Z
+
+### Orchestrator Session Recording
+
+- **Status:** planned
+- **Spec:** docs/changes/orchestrator-session-recording/proposal.md
+- **Summary:** Record full agent event streams as JSONL, persist until PR closed, replay in dashboard, post highlights to PRs
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#231
 
 ## v3.0 Graph Intelligence
 
@@ -1156,7 +1167,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#84
 - **Updated-At:** 2026-04-18T00:44:19.169Z
@@ -1236,7 +1247,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Explicit confidence model per review finding: validation method (mechanical > graph > heuristic) x evidence quality x cross-agent agreement x historical accuracy. Every finding shows a visible confidence percentage for human triage. [E6]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#90
 - **Updated-At:** 2026-04-19T22:15:02.628Z
@@ -1303,7 +1314,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#96
 - **Updated-At:** 2026-04-18T11:43:48.349Z
@@ -1407,7 +1418,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Add Rationalizations to Reject, Iron Laws, Red Flags, review-never-fixes, read-only research, TDD skill authoring, rubric compression, uncertainty surfacing, and comment replacement guards across 8+ discipline-enforcing skills. Inspired by Trail of Bits and Superpowers patterns. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#103
 - **Updated-At:** 2026-04-19T21:47:07.130Z
@@ -1441,7 +1452,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Orchestrator and team-level cost aggregation, cross-project spend comparison, and dashboard export. Builds on the core Usage & Cost Tracking feature (Current Work section). [ACE-B1 phase 2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#106
 - **Updated-At:** 2026-04-20T01:30:14.927Z
@@ -1486,7 +1497,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chads-macbook-pro-8565381d
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#110
 - **Updated-At:** 2026-04-18T00:54:47.848Z
@@ -1509,7 +1520,7 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Optional root_cause and tried_and_failed fields for learning entries. Semantic overlap check (5-dimension scoring) before creating new entries — prevents near-duplicate learnings with different wording. Active staleness detection auditing learnings against current code state. Learnings-researcher as always-on reviewer in code review pipeline. Inspired by Compound Engineering Plugin. [ACE-C5/C6]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#112
 - **Updated-At:** 2026-04-19T22:08:54.223Z
@@ -1576,6 +1587,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Migrate 30+ sync fs calls in async functions to async equivalents, then enable the no-sync-io-in-async ESLint rule to prevent event loop blocking in orchestrator and CLI hot paths
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#217
 
 ### ESLint: Boundary Schema Validation
 
@@ -1584,6 +1598,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Configure API boundary functions and enable the require-boundary-schema ESLint rule to enforce Zod validation at HTTP handlers, MCP tools, and CLI command entry points
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#218
 
 ### ESLint: Performance-Critical Loop Guards
 
@@ -1592,6 +1609,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** Add @perf-critical annotations to hot-path functions (graph traversal, scan pipeline, state machine tick) and enable the no-nested-loops-in-critical ESLint rule to prevent O(n²) regressions
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#219
 
 ### ESLint Rule: no-spread-in-variadic
 
@@ -1600,6 +1620,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag Math.min(...arr) and Math.max(...arr) patterns that throw RangeError when arrays exceed the JS engine call stack argument limit (~65K). 10 instances in codebase. Suggest reduce-based alternatives.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#220
 
 ### ESLint Rule: no-process-env-in-spawn
 
@@ -1608,6 +1631,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag spawn/execFile/fork calls that pass process.env directly, which leaks all server-side secrets to subprocesses. 5 instances in codebase. Require explicit env allowlist construction.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#221
 
 ### ESLint Rule: prefer-execfile-over-exec
 
@@ -1616,6 +1642,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#222
 
 ### ESLint Rule: no-undefined-optional-assignment
 
@@ -1624,6 +1653,9 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`. 5 recurring gotchas in learnings. Suggest conditional spread `...(val !== undefined && { field: val })` instead.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#223
 
 ### ESLint Rule: no-hardcoded-test-count
 
@@ -1632,6 +1664,67 @@ last_manual_edit: 2026-04-18T00:40:24.485Z
 - **Summary:** New ESLint rule to flag magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size. Fragile to additions — 2 recurring gotchas in learnings where tool count assertions broke on every new tool. Suggest dynamic `TOOL_DEFINITIONS.length` references.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#224
+
+## v4.0 Business Knowledge System
+
+### Phase 1: Knowledge Foundation
+
+- **Status:** done
+- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Graph schema extensions (5 node types, 2 edge types), BusinessKnowledgeIngestor reading from docs/knowledge/, harness://business-knowledge MCP resource, gather_context integration, pilot authoring for 1-2 domains
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** @chadjw
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#225
+- **Updated-At:** 2026-04-21T14:12:28.459Z
+
+### Phase 2: Code Signal Extractors
+
+- **Status:** blocked
+- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Test description extractor, enum/constant extractor, validation rule extractor, API path extractor writing to .harness/knowledge/extracted/
+- **Blockers:** Phase 1: Knowledge Foundation
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#226
+
+### Phase 3: Connector Enhancement
+
+- **Status:** blocked
+- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Configurable truncation limits, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
+- **Blockers:** Phase 1: Knowledge Foundation
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#227
+
+### Phase 4: Knowledge Pipeline & Diagrams
+
+- **Status:** blocked
+- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
+- **Blockers:** Phase 2: Code Signal Extractors, Phase 3: Connector Enhancement
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#228
+
+### Phase 5: Visual & Advanced
+
+- **Status:** blocked
+- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Vision model analysis of image attachments, design tool API connectors (Figma, Miro), cross-source contradiction detection, knowledge coverage scoring per domain
+- **Blockers:** Phase 4: Knowledge Pipeline & Diagrams
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#229
 
 ## Assignment History
 

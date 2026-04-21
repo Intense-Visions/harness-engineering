@@ -83,6 +83,14 @@
   scrollbar-color: #27272a #09090b;
 }
 
+/* Hide scrollbar but keep scrolling */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* --- Markdown Table Styling --- */
 
 .prose table {

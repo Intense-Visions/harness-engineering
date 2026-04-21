@@ -128,6 +128,72 @@ function bucketKey(persona: string, systemNodeId: string, taskType: string): Buc
   return `${persona}|${systemNodeId}|${taskType}`;
 }
 
+function matchesFilter(record: OutcomeRecord, opts?: SpecializationOptions): boolean {
+  if (!opts) return true;
+  const filters: [string | undefined, string | undefined][] = [
+    [opts.persona, record.persona],
+    [opts.systemNodeId, record.systemNodeId],
+    [opts.taskType, record.taskType],
+  ];
+  return filters.every(([filter, value]) => !filter || filter === value);
+}
+
+function groupIntoBuckets(
+  records: OutcomeRecord[],
+  opts?: SpecializationOptions
+): Map<BucketKey, OutcomeRecord[]> {
+  const buckets = new Map<BucketKey, OutcomeRecord[]>();
+  for (const record of records) {
+    if (!matchesFilter(record, opts)) continue;
+
+    const key = bucketKey(record.persona, record.systemNodeId, record.taskType);
+    let arr = buckets.get(key);
+    if (!arr) {
+      arr = [];
+      buckets.set(key, arr);
+    }
+    arr.push(record);
+  }
+  return buckets;
+}
+
+function computeEntryFromBucket(
+  records: OutcomeRecord[],
+  temporal: TemporalConfig
+): SpecializationEntry {
+  const first = records[0]!;
+  const { persona, systemNodeId, taskType } = first;
+
+  const sorted = [...records].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+
+  const tsr = temporalSuccessRate(
+    sorted.map((r) => ({ result: r.result, timestamp: r.timestamp })),
+    temporal
+  );
+
+  const consistency = computeConsistency(sorted.map((r) => r.result));
+  const volume = computeVolumeBonus(sorted.length);
+  const composite = W_TEMPORAL * tsr + W_CONSISTENCY * consistency + W_VOLUME * volume;
+
+  const lastOutcome = sorted[sorted.length - 1]!.timestamp;
+  const rawSuccessRate = sorted.filter((r) => r.result === 'success').length / sorted.length;
+
+  return {
+    persona,
+    systemNodeId,
+    taskType,
+    score: {
+      temporalSuccessRate: tsr,
+      consistencyScore: consistency,
+      volumeBonus: volume,
+      composite,
+    },
+    expertiseLevel: computeExpertiseLevel(sorted.length, rawSuccessRate),
+    sampleSize: sorted.length,
+    lastOutcome,
+  };
+}
+
 /**
  * Compute specialization entries for (persona, system, taskType) tuples.
  */
@@ -141,59 +207,12 @@ export function computeSpecialization(
   const temporal: TemporalConfig = opts?.temporal ?? { halfLifeDays: DEFAULT_HALF_LIFE };
   const minSamples = opts?.minSamples ?? DEFAULT_MIN_SAMPLES;
 
-  // Group by (persona, system, taskType)
-  const buckets = new Map<BucketKey, OutcomeRecord[]>();
-  for (const record of records) {
-    if (opts?.persona && record.persona !== opts.persona) continue;
-    if (opts?.systemNodeId && record.systemNodeId !== opts.systemNodeId) continue;
-    if (opts?.taskType && record.taskType !== opts.taskType) continue;
-
-    const key = bucketKey(record.persona, record.systemNodeId, record.taskType);
-    let arr = buckets.get(key);
-    if (!arr) {
-      arr = [];
-      buckets.set(key, arr);
-    }
-    arr.push(record);
-  }
-
+  const buckets = groupIntoBuckets(records, opts);
   const entries: SpecializationEntry[] = [];
 
   for (const [, records] of buckets) {
     if (records.length < minSamples) continue;
-
-    const first = records[0]!;
-    const { persona, systemNodeId, taskType } = first;
-
-    // Sort by timestamp ascending for consistency computation
-    const sorted = [...records].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
-
-    const tsr = temporalSuccessRate(
-      sorted.map((r) => ({ result: r.result, timestamp: r.timestamp })),
-      temporal
-    );
-
-    const consistency = computeConsistency(sorted.map((r) => r.result));
-    const volume = computeVolumeBonus(sorted.length);
-    const composite = W_TEMPORAL * tsr + W_CONSISTENCY * consistency + W_VOLUME * volume;
-
-    const lastOutcome = sorted[sorted.length - 1]!.timestamp;
-    const rawSuccessRate = sorted.filter((r) => r.result === 'success').length / sorted.length;
-
-    entries.push({
-      persona,
-      systemNodeId,
-      taskType,
-      score: {
-        temporalSuccessRate: tsr,
-        consistencyScore: consistency,
-        volumeBonus: volume,
-        composite,
-      },
-      expertiseLevel: computeExpertiseLevel(sorted.length, rawSuccessRate),
-      sampleSize: sorted.length,
-      lastOutcome,
-    });
+    entries.push(computeEntryFromBucket(records, temporal));
   }
 
   // Sort by composite descending for stable output

@@ -23,6 +23,24 @@ function toContextMap(results: { source: string; data: unknown }[]): Record<stri
   return map;
 }
 
+function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error fetching chat context';
+}
+
+function parseSources(key: string): string[] {
+  return key ? key.split('|') : [];
+}
+
+function resetState(
+  setData: (d: Record<string, unknown>) => void,
+  setIsLoading: (v: boolean) => void,
+  setError: (e: string | null) => void
+): void {
+  setData({});
+  setIsLoading(false);
+  setError(null);
+}
+
 /**
  * Hook to fetch contextual data for a skill from specified API endpoints.
  * This is used to populate the BriefingPanel before a skill is executed.
@@ -36,11 +54,9 @@ export function useChatContext(sources?: string[]): ChatContextState {
   const sourcesKey = useMemo(() => (sources ?? []).join('|'), [sources]);
 
   useEffect(() => {
-    const list = sourcesKey ? sourcesKey.split('|') : [];
+    const list = parseSources(sourcesKey);
     if (list.length === 0) {
-      setData({});
-      setIsLoading(false);
-      setError(null);
+      resetState(setData, setIsLoading, setError);
       return;
     }
 
@@ -54,8 +70,7 @@ export function useChatContext(sources?: string[]): ChatContextState {
         if (mounted) setData(toContextMap(results));
       })
       .catch((err) => {
-        if (mounted)
-          setError(err instanceof Error ? err.message : 'Unknown error fetching chat context');
+        if (mounted) setError(toErrorMessage(err));
       })
       .finally(() => {
         if (mounted) setIsLoading(false);

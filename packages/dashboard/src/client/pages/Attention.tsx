@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSearchParams } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useChatPanel } from '../hooks/useChatPanel';
@@ -359,6 +360,7 @@ export function Attention() {
   const [loaded, setLoaded] = useState(false);
   const [allInteractions, setAllInteractions] = useState<PendingInteraction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [, setSearchParams] = useSearchParams();
   const { open: openChat } = useChatPanel();
 
   // Fire browser notifications for new escalations
@@ -411,13 +413,10 @@ export function Attention() {
 
   const handleClaim = useCallback(
     (id: string) => {
-      // We pass interactionId via URL search params to the global panel state
-      const url = new URL(window.location.href);
-      url.searchParams.set('interactionId', id);
-      window.history.pushState({}, '', url);
+      setSearchParams({ interactionId: id });
       openChat();
     },
-    [openChat]
+    [openChat, setSearchParams]
   );
 
   // Filter and sort interactions

@@ -472,6 +472,7 @@ export function Orchestrator() {
 
       <AgentStreamDrawer
         agent={drawerAgent}
+        issueId={drawerAgent?.issueId ?? null}
         blocks={drawerAgent ? (agentEvents[drawerAgent.issueId] ?? []) : []}
         onClose={() => setDrawerAgent(null)}
       />

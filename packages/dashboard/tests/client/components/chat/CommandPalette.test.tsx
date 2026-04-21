@@ -34,7 +34,7 @@ describe('CommandPalette', () => {
 
     fireEvent.change(input, { target: { value: 'nonexistent-skill-name' } });
 
-    expect(screen.getByText('No skills match your search')).toBeDefined();
+    expect(screen.getByText('No skills match')).toBeDefined();
   });
 
   it('calls onSelect when a skill is clicked', () => {

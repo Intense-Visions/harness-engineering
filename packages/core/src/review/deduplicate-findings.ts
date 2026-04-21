@@ -36,6 +36,14 @@ function buildMergedTitle(
   return { title: `[${domainList}] ${cleanTitle}`, primaryFinding };
 }
 
+function setIfDefined<T extends ReviewFinding, K extends keyof T>(
+  target: T,
+  key: K,
+  value: T[K] | undefined
+): void {
+  if (value !== undefined) target[key] = value;
+}
+
 /** Merge security-specific optional fields onto the merged finding. */
 function mergeSecurityFields(
   merged: ReviewFinding,
@@ -43,16 +51,16 @@ function mergeSecurityFields(
   a: ReviewFinding,
   b: ReviewFinding
 ): void {
-  const cweId = primary.cweId ?? a.cweId ?? b.cweId;
-  const owaspCategory = primary.owaspCategory ?? a.owaspCategory ?? b.owaspCategory;
-  const confidence = primary.confidence ?? a.confidence ?? b.confidence;
-  const remediation = pickLongest(a.remediation, b.remediation);
-  const mergedRefs = [...new Set([...(a.references ?? []), ...(b.references ?? [])])];
+  setIfDefined(merged, 'cweId', primary.cweId ?? a.cweId ?? b.cweId);
+  setIfDefined(
+    merged,
+    'owaspCategory',
+    primary.owaspCategory ?? a.owaspCategory ?? b.owaspCategory
+  );
+  setIfDefined(merged, 'confidence', primary.confidence ?? a.confidence ?? b.confidence);
+  setIfDefined(merged, 'remediation', pickLongest(a.remediation, b.remediation));
 
-  if (cweId !== undefined) merged.cweId = cweId;
-  if (owaspCategory !== undefined) merged.owaspCategory = owaspCategory;
-  if (confidence !== undefined) merged.confidence = confidence;
-  if (remediation !== undefined) merged.remediation = remediation;
+  const mergedRefs = [...new Set([...(a.references ?? []), ...(b.references ?? [])])];
   if (mergedRefs.length > 0) merged.references = mergedRefs;
 }
 
@@ -65,50 +73,38 @@ function mergeSecurityFields(
  * - Merges domains in title
  * - Keeps highest-priority validatedBy
  */
+function pickHigherRank<T extends string>(aVal: T, bVal: T, rankMap: Record<string, number>): T {
+  return (rankMap[aVal] ?? 0) >= (rankMap[bVal] ?? 0) ? aVal : bVal;
+}
+
+function mergedLineRange(a: [number, number], b: [number, number]): [number, number] {
+  return [Math.min(a[0], b[0]), Math.max(a[1], b[1])];
+}
+
+function mergeTrustScore(a: ReviewFinding, b: ReviewFinding): number | undefined {
+  const max = Math.max(a.trustScore ?? 0, b.trustScore ?? 0);
+  return max > 0 ? max : undefined;
+}
+
 function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
-  const highestSeverity =
-    SEVERITY_RANK[a.severity] >= SEVERITY_RANK[b.severity] ? a.severity : b.severity;
-
-  const highestValidatedBy =
-    (VALIDATED_BY_RANK[a.validatedBy] ?? 0) >= (VALIDATED_BY_RANK[b.validatedBy] ?? 0)
-      ? a.validatedBy
-      : b.validatedBy;
-
-  const longestRationale = a.rationale.length >= b.rationale.length ? a.rationale : b.rationale;
-  const evidenceSet = new Set([...a.evidence, ...b.evidence]);
-  const lineRange: [number, number] = [
-    Math.min(a.lineRange[0], b.lineRange[0]),
-    Math.max(a.lineRange[1], b.lineRange[1]),
-  ];
-
   const domains = new Set<ReviewDomain>([a.domain, b.domain]);
-  const suggestion = pickLongest(a.suggestion, b.suggestion);
   const { title, primaryFinding } = buildMergedTitle(a, b, domains);
 
   const merged: ReviewFinding = {
     id: primaryFinding.id,
     file: a.file,
-    lineRange,
+    lineRange: mergedLineRange(a.lineRange, b.lineRange),
     domain: primaryFinding.domain,
-    severity: highestSeverity,
+    severity: pickHigherRank(a.severity, b.severity, SEVERITY_RANK),
     title,
-    rationale: longestRationale,
-    evidence: [...evidenceSet],
-    validatedBy: highestValidatedBy,
+    rationale: a.rationale.length >= b.rationale.length ? a.rationale : b.rationale,
+    evidence: [...new Set([...a.evidence, ...b.evidence])],
+    validatedBy: pickHigherRank(a.validatedBy, b.validatedBy, VALIDATED_BY_RANK),
   };
 
-  if (suggestion !== undefined) {
-    merged.suggestion = suggestion;
-  }
-
+  setIfDefined(merged, 'suggestion', pickLongest(a.suggestion, b.suggestion));
+  setIfDefined(merged, 'trustScore', mergeTrustScore(a, b));
   mergeSecurityFields(merged, primaryFinding, a, b);
-
-  // Preserve the higher trust score when merging
-  const trustA = a.trustScore ?? 0;
-  const trustB = b.trustScore ?? 0;
-  if (trustA > 0 || trustB > 0) {
-    merged.trustScore = Math.max(trustA, trustB);
-  }
 
   return merged;
 }

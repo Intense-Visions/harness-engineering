@@ -1,13 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { useChatSessions } from './useChatSessions';
 import type { ChatSession } from '../types/chat-session';
 
 const STORAGE_KEY = 'chat-panel-open';
 
-function readInitialOpen(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(STORAGE_KEY) === 'true';
+/* ── Module-level shared state for isOpen ──────────────────── */
+
+const openListeners = new Set<() => void>();
+let openValue =
+  typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) === 'true' : false;
+
+function subscribeOpen(listener: () => void) {
+  openListeners.add(listener);
+  return () => {
+    openListeners.delete(listener);
+  };
 }
+
+function getOpenSnapshot() {
+  return openValue;
+}
+
+function setOpen(value: boolean) {
+  if (openValue === value) return;
+  openValue = value;
+  localStorage.setItem(STORAGE_KEY, String(value));
+  openListeners.forEach((fn) => fn());
+}
+
+/* ── Session helpers ───────────────────────────────────────── */
 
 function buildNewSession(params: {
   command?: string;
@@ -64,7 +85,6 @@ function removeSession(
 function addSession(
   setSessions: SetSessions,
   setActiveId: SetActiveId,
-  setOpen: (v: boolean) => void,
   params: { command?: string; label?: string; interactionId?: string }
 ): string {
   const s = buildNewSession(params);
@@ -75,8 +95,10 @@ function addSession(
   return s.sessionId;
 }
 
+/* ── Hook ──────────────────────────────────────────────────── */
+
 export function useChatPanel() {
-  const [isOpen, setIsOpen] = useState<boolean>(readInitialOpen);
+  const isOpen = useSyncExternalStore(subscribeOpen, getOpenSnapshot);
   const {
     sessions,
     activeSessionId,
@@ -86,20 +108,16 @@ export function useChatPanel() {
     setSessions,
   } = useChatSessions();
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(isOpen));
-  }, [isOpen]);
-
-  const toggle = useCallback(() => setIsOpen((v) => !v), []);
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const toggle = useCallback(() => setOpen(!openValue), []);
+  const open = useCallback(() => setOpen(true), []);
+  const close = useCallback(() => setOpen(false), []);
   const renameSession = useCallback(
     (id: string, label: string) => patchSession(id, { label }),
     [patchSession]
   );
   const createNewSession = useCallback(
     (params: { command?: string; label?: string; interactionId?: string } = {}) =>
-      addSession(setSessions, setActiveSessionId, setIsOpen, params),
+      addSession(setSessions, setActiveSessionId, params),
     [setSessions, setActiveSessionId]
   );
   const closeSession = useCallback(

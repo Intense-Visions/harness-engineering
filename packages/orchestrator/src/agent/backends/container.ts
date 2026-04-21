@@ -20,6 +20,13 @@ function toAgentError(message: string, details?: unknown): AgentError {
   return { category: 'response_error', message, details };
 }
 
+const BLOCKED_FLAGS = ['--privileged', '--cap-add', '--security-opt', '--pid', '--ipc', '--userns'];
+
+function sanitizeExtraArgs(extraArgs: string[] | undefined): string[] {
+  if (!extraArgs) return [];
+  return extraArgs.filter((arg) => !BLOCKED_FLAGS.some((flag) => arg.startsWith(flag)));
+}
+
 /**
  * Decorator that wraps any AgentBackend, running sessions inside containers.
  *
@@ -53,36 +60,31 @@ export class ContainerBackend implements AgentBackend {
     return { ok: true, value: result.value } as Result<Record<string, string>, AgentError>;
   }
 
-  async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
-    const envResult = await this.resolveEnv();
-    if (!envResult.ok) return envResult as Result<AgentSession, AgentError>;
-
-    const createOpts: import('@harness-engineering/types').ContainerCreateOpts = {
+  private buildCreateOpts(
+    params: SessionStartParams,
+    env: Record<string, string>
+  ): import('@harness-engineering/types').ContainerCreateOpts {
+    const opts: import('@harness-engineering/types').ContainerCreateOpts = {
       image: this.containerConfig.image,
       workspacePath: params.workspacePath,
       readOnly: this.containerConfig.readOnly ?? true,
       user: this.containerConfig.user ?? '1000:1000',
       network: this.containerConfig.network ?? 'none',
-      env: envResult.value,
+      env,
     };
-    if (this.containerConfig.extraArgs) {
-      const BLOCKED_FLAGS = [
-        '--privileged',
-        '--cap-add',
-        '--security-opt',
-        '--pid',
-        '--ipc',
-        '--userns',
-      ];
-      const sanitized = this.containerConfig.extraArgs.filter(
-        (arg) => !BLOCKED_FLAGS.some((flag) => arg.startsWith(flag))
-      );
-      if (sanitized.length > 0) {
-        createOpts.extraArgs = sanitized;
-      }
+    const sanitized = sanitizeExtraArgs(this.containerConfig.extraArgs);
+    if (sanitized.length > 0) {
+      opts.extraArgs = sanitized;
     }
-    const containerResult = await this.runtime.createContainer(createOpts);
+    return opts;
+  }
 
+  async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
+    const envResult = await this.resolveEnv();
+    if (!envResult.ok) return envResult as Result<AgentSession, AgentError>;
+
+    const createOpts = this.buildCreateOpts(params, envResult.value);
+    const containerResult = await this.runtime.createContainer(createOpts);
     if (!containerResult.ok) {
       return Err(
         toAgentError(

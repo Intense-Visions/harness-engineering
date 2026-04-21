@@ -114,33 +114,33 @@ function writeCommandRecordSync(
   }
 }
 
+function isTelemetryDisabledByConfig(cwd: string): boolean {
+  const configPath = join(cwd, 'harness.config.json');
+  if (!existsSync(configPath)) return false;
+  try {
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+    return config?.telemetry?.enabled === false;
+  } catch {
+    return false;
+  }
+}
+
+function isTelemetryOptedOut(cwd: string): boolean {
+  if (isTelemetryDisabledByConfig(cwd)) return true;
+  return process.env.DO_NOT_TRACK === '1' || process.env.HARNESS_TELEMETRY_OPTOUT === '1';
+}
+
 /**
  * Spawn a background process to flush pending adoption records to PostHog.
  * Fire-and-forget — errors are swallowed silently.
  */
 function flushTelemetryBackground(cwd: string): void {
   try {
-    // Skip if no adoption records exist
     const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
     if (!existsSync(adoptionFile)) return;
 
-    // Skip if telemetry is disabled
-    const configPath = join(cwd, 'harness.config.json');
-    if (existsSync(configPath)) {
-      try {
-        const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-        if (config?.telemetry?.enabled === false) return;
-      } catch {
-        // Can't read config — proceed anyway
-      }
-    }
+    if (isTelemetryOptedOut(cwd)) return;
 
-    // Env var opt-out
-    if (process.env.DO_NOT_TRACK === '1') return;
-    if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return;
-
-    // Spawn the telemetry reporter hook script as a detached background process.
-    // It reads adoption.jsonl, resolves consent, sends to PostHog, and truncates.
     const reporterPath = join(cwd, '.harness', 'hooks', 'telemetry-reporter.js');
     if (!existsSync(reporterPath)) return;
 
@@ -149,7 +149,6 @@ function flushTelemetryBackground(cwd: string): void {
       stdio: ['pipe', 'ignore', 'ignore'],
       detached: true,
     });
-    // The reporter expects valid JSON on stdin (hook protocol)
     child.stdin?.write('{}');
     child.stdin?.end();
     child.unref();

@@ -366,6 +366,12 @@ export class SecurityTimelineManager {
     }
   }
 
+  private static readonly SEVERITY_COUNT_KEY: Record<string, keyof SecurityCategorySnapshot> = {
+    error: 'errorCount',
+    warning: 'warningCount',
+    info: 'infoCount',
+  };
+
   private aggregateByCategory(
     findings: SecurityFinding[]
   ): Record<string, SecurityCategorySnapshot> {
@@ -382,9 +388,8 @@ export class SecurityTimelineManager {
       }
       const cat = result[finding.category]!;
       cat.findingCount++;
-      if (finding.severity === 'error') cat.errorCount++;
-      else if (finding.severity === 'warning') cat.warningCount++;
-      else cat.infoCount++;
+      const key = SecurityTimelineManager.SEVERITY_COUNT_KEY[finding.severity] ?? 'infoCount';
+      (cat[key] as number)++;
     }
 
     return result;
@@ -423,32 +428,29 @@ export class SecurityTimelineManager {
     first: SecurityTimelineSnapshot,
     last: SecurityTimelineSnapshot
   ): TrendAttribution[] {
-    const attribution: TrendAttribution[] = [];
-
-    // Collect all categories from both snapshots
     const allCategories = new Set([
       ...Object.keys(first.byCategory),
       ...Object.keys(last.byCategory),
     ]);
 
+    const results: TrendAttribution[] = [];
     for (const category of allCategories) {
-      const prevCount = first.byCategory[category]?.findingCount ?? 0;
-      const currCount = last.byCategory[category]?.findingCount ?? 0;
-      const delta = currCount - prevCount;
-
-      if (delta === 0) continue;
-
-      const direction: Direction = delta < 0 ? 'improving' : 'declining';
-      const sign = delta > 0 ? '+' : '';
-      attribution.push({
-        category,
-        delta,
-        direction,
-        description: `${sign}${delta} ${category} findings`,
-      });
+      const attr = this.categoryAttribution(category, first.byCategory, last.byCategory);
+      if (attr) results.push(attr);
     }
+    return results;
+  }
 
-    return attribution;
+  private categoryAttribution(
+    category: string,
+    prev: Record<string, SecurityCategorySnapshot>,
+    curr: Record<string, SecurityCategorySnapshot>
+  ): TrendAttribution | null {
+    const delta = (curr[category]?.findingCount ?? 0) - (prev[category]?.findingCount ?? 0);
+    if (delta === 0) return null;
+    const direction: Direction = delta < 0 ? 'improving' : 'declining';
+    const sign = delta > 0 ? '+' : '';
+    return { category, delta, direction, description: `${sign}${delta} ${category} findings` };
   }
 
   private computeStats(values: number[]): TimeToFixStats {

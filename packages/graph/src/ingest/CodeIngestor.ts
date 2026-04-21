@@ -133,6 +133,9 @@ export class CodeIngestor {
     // Third pass: extract @req annotations and create verified_by edges
     edgesAdded += this.extractReqAnnotations(fileContents, rootDir);
 
+    // Release source file contents to free memory before graph serialization
+    fileContents.clear();
+
     return {
       nodesAdded,
       nodesUpdated: 0,
@@ -231,25 +234,34 @@ export class CodeIngestor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-
-      // For Python, update class context first (indentation-based scope tracking)
-      if (lang === 'python') {
-        this.updatePythonClassContext(lines, i, ctx);
-      }
-
-      if (this.tryExtractFunction(line, lines, i, fileId, relativePath, ctx, results, lang))
-        continue;
-      if (this.tryExtractClass(line, lines, i, fileId, relativePath, ctx, results, lang)) continue;
-      if (this.tryExtractInterface(line, lines, i, fileId, relativePath, ctx, results, lang))
-        continue;
-      if (this.tryEnterImplBlock(line, lang, relativePath, ctx)) continue;
-      if (lang !== 'python' && this.updateClassContext(line, ctx)) continue;
-      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results, lang)) continue;
-      if (ctx.insideClass) continue;
-      this.tryExtractVariable(line, i, fileId, relativePath, results, lang);
+      this.processSymbolLine(line, lines, i, fileId, relativePath, ctx, results, lang);
     }
 
     return results;
+  }
+
+  private processSymbolLine(
+    line: string,
+    lines: string[],
+    i: number,
+    fileId: string,
+    relativePath: string,
+    ctx: ClassContext,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
+  ): void {
+    if (lang === 'python') {
+      this.updatePythonClassContext(lines, i, ctx);
+    }
+
+    if (this.tryExtractFunction(line, lines, i, fileId, relativePath, ctx, results, lang)) return;
+    if (this.tryExtractClass(line, lines, i, fileId, relativePath, ctx, results, lang)) return;
+    if (this.tryExtractInterface(line, lines, i, fileId, relativePath, ctx, results, lang)) return;
+    if (this.tryEnterImplBlock(line, lang, relativePath, ctx)) return;
+    if (lang !== 'python' && this.updateClassContext(line, ctx)) return;
+    if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results, lang)) return;
+    if (ctx.insideClass) return;
+    this.tryExtractVariable(line, i, fileId, relativePath, results, lang);
   }
 
   private matchFunction(line: string, lang: string): RegExpMatchArray | null {

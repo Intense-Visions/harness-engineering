@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Sparkles, X, Save, ArrowLeft } from 'lucide-react';
+import { Cpu, Loader2, Sparkles, X, Save, ArrowLeft } from 'lucide-react';
 import { MessageStream } from './MessageStream';
 import { ChatInput } from './ChatInput';
 import { CommandPalette } from './CommandPalette';
-import { BriefingPanel } from './BriefingPanel';
+import { ChatContextPane } from './ChatContextPane';
 import { SessionTabBar } from './SessionTabBar';
 import { streamChat, applyChunk } from '../../utils/chat-stream';
 import { useChatContext } from '../../hooks/useChatContext';
@@ -80,6 +80,11 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const [streaming, setStreaming] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillEntry | null>(null);
 
+  // Guards against double-fires (React strict mode, dep changes)
+  const autoExecutedRef = useRef(new Set<string>());
+  const processedCommandRef = useRef<string | null>(null);
+  const processedInteractionRef = useRef<string | null>(null);
+
   // Interaction state
   const [interaction, setInteraction] = useState<PendingInteraction | null>(null);
   const [savingPlan, setSavingPlan] = useState(false);
@@ -97,70 +102,58 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
 
   // Handle deep-links: ?command=harness:security-scan
   useEffect(() => {
-    if (isOpen && commandParam) {
-      const skill = SKILL_REGISTRY.find(
-        (s) => s.id === commandParam || s.slashCommand === commandParam
-      );
-      if (skill) {
-        if (sessions.length === 0 || (activeSession && activeSession.messages.length === 0)) {
-          if (sessions.length === 0) {
-            createNewSession({ command: skill.id });
-          }
-          setSelectedSkill(skill);
-        } else {
-          createNewSession({ command: skill.id });
-        }
-        const next = new URLSearchParams(searchParams);
-        next.delete('command');
-        setSearchParams(next, { replace: true });
-      }
-    }
-  }, [
-    isOpen,
-    commandParam,
-    sessions.length,
-    activeSession,
-    createNewSession,
-    searchParams,
-    setSearchParams,
-  ]);
+    if (!isOpen || !commandParam) return;
+    if (commandParam === processedCommandRef.current) return;
+
+    const skill = SKILL_REGISTRY.find(
+      (s) => s.id === commandParam || s.slashCommand === commandParam
+    );
+    if (!skill) return;
+
+    processedCommandRef.current = commandParam;
+    createNewSession({ command: skill.id });
+    setSelectedSkill(skill);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('command');
+    setSearchParams(next, { replace: true });
+  }, [isOpen, commandParam, createNewSession, searchParams, setSearchParams]);
 
   // Handle interactionId Param
   useEffect(() => {
-    if (isOpen && interactionIdParam) {
-      // Find if we already have a session for this interaction
-      const existing = sessions.find((s) => s.interactionId === interactionIdParam);
-      if (existing) {
-        setActiveSessionId(existing.sessionId);
-      } else {
-        // Fetch interaction details to seed new session
-        fetch('/api/interactions')
-          .then((res) => res.json())
-          .then((all: PendingInteraction[]) => {
-            const found = all.find((i) => i.id === interactionIdParam);
-            if (found) {
-              createNewSession({
-                interactionId: found.id,
-                label: found.context.issueTitle,
-                command: 'harness:interaction',
+    if (!isOpen || !interactionIdParam) return;
+    if (interactionIdParam === processedInteractionRef.current) return;
+    processedInteractionRef.current = interactionIdParam;
+
+    const existing = sessions.find((s) => s.interactionId === interactionIdParam);
+    if (existing) {
+      setActiveSessionId(existing.sessionId);
+    } else {
+      fetch('/api/interactions')
+        .then((res) => res.json())
+        .then((all: PendingInteraction[]) => {
+          const found = all.find((i) => i.id === interactionIdParam);
+          if (found) {
+            createNewSession({
+              interactionId: found.id,
+              label: found.context.issueTitle,
+              command: 'harness:interaction',
+            });
+
+            if (found.status === 'pending') {
+              fetch(`/api/interactions/${found.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'claimed' }),
               });
-
-              // Claim it if pending
-              if (found.status === 'pending') {
-                fetch(`/api/interactions/${found.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ status: 'claimed' }),
-                });
-              }
             }
-          });
-      }
-
-      const next = new URLSearchParams(searchParams);
-      next.delete('interactionId');
-      setSearchParams(next, { replace: true });
+          }
+        });
     }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('interactionId');
+    setSearchParams(next, { replace: true });
   }, [
     isOpen,
     interactionIdParam,
@@ -195,6 +188,17 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       : undefined
   );
 
+  // Resolve the skill to display in context pane (persists after execution)
+  const displayedSkill = useMemo(() => {
+    if (selectedSkill) return selectedSkill;
+    if (activeSession?.command && activeSession.command !== 'harness:interaction') {
+      return SKILL_REGISTRY.find((s) => s.id === activeSession.command) ?? null;
+    }
+    return null;
+  }, [selectedSkill, activeSession?.command]);
+
+  const hasContextPane = interaction != null || displayedSkill != null;
+
   const handleSend = useCallback(
     async (overridePrompt?: string, overrideSystemPrompt?: string) => {
       const promptText = (overridePrompt ?? input).trim();
@@ -208,7 +212,6 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       const currentMessages = sessions.find((s) => s.sessionId === targetSessionId)?.messages || [];
       const isFirstTurn = currentMessages.length === 0;
 
-      // If it's an interaction and first turn, build its system prompt
       let systemPrompt = overrideSystemPrompt;
       if (isFirstTurn && !systemPrompt && interaction) {
         systemPrompt = buildInteractionSystemPrompt(interaction);
@@ -232,34 +235,30 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
         {
           onSession: () => {},
           onChunk: (event) => {
-            updateSession(targetSessionId!, {
-              messages: (sessions.find((s) => s.sessionId === targetSessionId)?.messages || []).map(
-                (msg, idx, arr) => {
-                  if (idx === arr.length - 1 && msg.role === 'assistant') {
-                    const blocks = [...msg.blocks];
-                    applyChunk(blocks, event);
-                    return { ...msg, blocks };
-                  }
-                  return msg;
+            updateSession(targetSessionId!, (session) => ({
+              messages: session.messages.map((msg, idx, arr) => {
+                if (idx === arr.length - 1 && msg.role === 'assistant') {
+                  const blocks = [...msg.blocks];
+                  applyChunk(blocks, event);
+                  return { ...msg, blocks };
                 }
-              ),
-            });
+                return msg;
+              }),
+            }));
           },
           onDone: () => setStreaming(false),
           onError: (error) => {
-            updateSession(targetSessionId!, {
-              messages: (sessions.find((s) => s.sessionId === targetSessionId)?.messages || []).map(
-                (msg, idx, arr) => {
-                  if (idx === arr.length - 1 && msg.role === 'assistant') {
-                    return {
-                      ...msg,
-                      blocks: [...msg.blocks, { kind: 'text', text: `**Error:** ${error}` }],
-                    };
-                  }
-                  return msg;
+            updateSession(targetSessionId!, (session) => ({
+              messages: session.messages.map((msg, idx, arr) => {
+                if (idx === arr.length - 1 && msg.role === 'assistant') {
+                  return {
+                    ...msg,
+                    blocks: [...msg.blocks, { kind: 'text', text: `**Error:** ${error}` }],
+                  };
                 }
-              ),
-            });
+                return msg;
+              }),
+            }));
             setStreaming(false);
           },
         },
@@ -275,6 +274,38 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     void handleSend(selectedSkill.slashCommand, systemPrompt);
     setSelectedSkill(null);
   }, [selectedSkill, context.data, handleSend]);
+
+  // Auto-start brainstorm for claimed interaction sessions
+  useEffect(() => {
+    if (
+      interaction &&
+      activeSession?.interactionId &&
+      activeSession.messages.length === 0 &&
+      !streaming &&
+      !autoExecutedRef.current.has(activeSession.sessionId)
+    ) {
+      autoExecutedRef.current.add(activeSession.sessionId);
+      void handleSend(
+        'Analyze this escalated issue and help me brainstorm an implementation approach.',
+        buildInteractionSystemPrompt(interaction)
+      );
+    }
+  }, [interaction, activeSession, streaming, handleSend]);
+
+  // Auto-execute skill for command deep-links (e.g. Health "Fix It")
+  useEffect(() => {
+    if (
+      selectedSkill &&
+      activeSession &&
+      activeSession.messages.length === 0 &&
+      !streaming &&
+      !context.isLoading &&
+      !autoExecutedRef.current.has(activeSession.sessionId)
+    ) {
+      autoExecutedRef.current.add(activeSession.sessionId);
+      handleExecuteSkill();
+    }
+  }, [selectedSkill, activeSession, streaming, context.isLoading, handleExecuteSkill]);
 
   const handleSkillSelect = useCallback(
     (skill: SkillEntry) => {
@@ -341,110 +372,111 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     }
   }, [interaction, activeSession]);
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={maximized ? { opacity: 0 } : { x: '100%' }}
-          animate={maximized ? { opacity: 1 } : { x: 0 }}
-          exit={maximized ? { opacity: 0 } : { x: '100%' }}
-          transition={
-            maximized ? { duration: 0.2 } : { type: 'spring', damping: 25, stiffness: 200 }
-          }
-          className={[
-            'fixed inset-y-0 right-0 z-50 flex flex-col border-white/10 bg-neutral-bg/60 backdrop-blur-3xl shadow-2xl transition-all duration-300',
-            maximized ? 'left-0 w-full' : 'w-full sm:w-[420px] border-l',
-          ].join(' ')}
-        >
-          {/* Header */}
-          <div className="flex flex-col border-b border-white/10">
-            <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3">
-                {maximized && (
-                  <button
-                    onClick={() => navigate('/orchestrator/attention')}
-                    className="mr-2 rounded-full p-2 text-neutral-muted hover:bg-white/5 hover:text-white transition-colors"
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-                )}
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500 shadow-[0_0_15px_rgba(79,70,229,0.2)]">
-                  <Cpu size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight text-white">
-                    {interaction ? interaction.context.issueTitle : 'Neural Uplink'}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-neutral-muted">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {activeSessionId ? 'Direct Connection Active' : 'Standby Mode'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {interaction && activeSession && activeSession.messages.length > 0 && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleSavePlan}
-                    disabled={savingPlan || streaming}
-                    className={[
-                      'flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all',
-                      saveSuccess
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-primary-500 text-white shadow-[0_0_10px_rgba(79,70,229,0.3)]',
-                      (savingPlan || streaming) && !saveSuccess
-                        ? 'opacity-50 cursor-not-allowed'
-                        : '',
-                    ].join(' ')}
-                  >
-                    {saveSuccess ? <Sparkles size={12} /> : <Save size={12} />}
-                    {savingPlan ? 'Saving...' : saveSuccess ? 'Plan Saved' : 'Save Plan'}
-                  </motion.button>
-                )}
-                {onClose && (
-                  <button
-                    onClick={onClose}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-muted hover:bg-white/5 hover:text-white transition-all"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
+  /* ── Shared dialog content ─────────────────────────────────── */
+
+  const dialogContent = (
+    <>
+      {/* Header */}
+      <div className="flex flex-col border-b border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            {maximized && (
+              <button
+                onClick={() => navigate('/orchestrator/attention')}
+                className="mr-2 rounded-full p-2 text-neutral-muted hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500 shadow-[0_0_15px_rgba(79,70,229,0.2)]">
+              <Cpu size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-tight text-white">
+                {interaction ? interaction.context.issueTitle : 'Neural Uplink'}
+              </h3>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-neutral-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {activeSessionId ? 'Direct Connection Active' : 'Standby Mode'}
               </div>
             </div>
-
-            <SessionTabBar
-              sessions={sessions}
-              activeSessionId={activeSessionId}
-              onSelect={setActiveSessionId}
-              onNew={() => {
-                setSelectedSkill(null);
-                createNewSession();
-              }}
-              onClose={closeSession}
-              onRename={renameSession}
-            />
           </div>
+          <div className="flex items-center gap-3">
+            {interaction && activeSession && activeSession.messages.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSavePlan}
+                disabled={savingPlan || streaming}
+                className={[
+                  'flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all',
+                  saveSuccess
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-primary-500 text-white shadow-[0_0_10px_rgba(79,70,229,0.3)]',
+                  (savingPlan || streaming) && !saveSuccess ? 'opacity-50 cursor-not-allowed' : '',
+                ].join(' ')}
+              >
+                {saveSuccess ? <Sparkles size={12} /> : <Save size={12} />}
+                {savingPlan ? 'Saving...' : saveSuccess ? 'Plan Saved' : 'Save Plan'}
+              </motion.button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-muted hover:bg-white/5 hover:text-white transition-all"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+        </div>
 
-          {saveError && (
-            <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2">
-              <p className="text-[10px] font-mono text-red-400">{saveError}</p>
+        <SessionTabBar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelect={setActiveSessionId}
+          onNew={() => {
+            setSelectedSkill(null);
+            createNewSession();
+          }}
+          onClose={closeSession}
+          onRename={renameSession}
+        />
+      </div>
+
+      {saveError && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 flex-shrink-0">
+          <p className="text-[10px] font-mono text-red-400">{saveError}</p>
+        </div>
+      )}
+
+      {/* Content: context pane (left) + chat (right) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Context Pane */}
+        {hasContextPane && (
+          <div className="w-[400px] flex-shrink-0 border-r border-white/10 bg-black/20">
+            <ChatContextPane interaction={interaction} skill={displayedSkill} context={context} />
+          </div>
+        )}
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Loading indicator while auto-execute prepares */}
+          {selectedSkill && (!activeSession || activeSession.messages.length === 0) && (
+            <div className="border-b border-white/10 px-6 py-3 flex items-center gap-3 bg-primary-500/5 flex-shrink-0">
+              <Loader2 size={14} className="animate-spin text-primary-400" />
+              <p className="text-sm text-gray-400">
+                Starting <span className="text-white font-medium">{selectedSkill.name}</span>...
+              </p>
             </div>
           )}
 
-          {/* Session Content */}
+          {/* Messages / Command Palette */}
           <div className="flex-1 overflow-hidden">
             {(!activeSession || activeSession.messages.length === 0) && !selectedSkill ? (
               <div className="p-4 h-full">
                 <CommandPalette onSelect={handleSkillSelect} />
               </div>
-            ) : selectedSkill ? (
-              <BriefingPanel
-                skill={selectedSkill}
-                context={context}
-                onExecute={handleExecuteSkill}
-                onCancel={() => setSelectedSkill(null)}
-              />
             ) : (
               <div className="p-4 h-full">
                 <MessageStream
@@ -457,7 +489,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
           </div>
 
           {/* Input */}
-          <div className="border-t border-white/10 p-4 pb-8">
+          <div className="border-t border-white/10 p-4 flex-shrink-0">
             <ChatInput
               value={input}
               onChange={handleInputChange}
@@ -465,14 +497,50 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
               disabled={streaming}
               placeholder={activeSessionId ? 'Ask anything...' : 'Select a skill to begin...'}
             />
-            <div className="mt-3 flex items-center justify-center gap-4 text-[9px] font-bold uppercase tracking-widest text-neutral-muted/50">
-              <span className="flex items-center gap-1">
-                <Sparkles size={10} />
-                AI Augmented
-              </span>
-              <span>•</span>
-              <span>v1.0.0-neural</span>
-            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  /* ── Maximized: full-screen (from /orchestrator/chat route) ── */
+
+  if (maximized) {
+    return (
+      <div className="flex flex-col h-full w-full border border-white/[0.12] bg-[#1a1a1f]/95 backdrop-blur-3xl">
+        {dialogContent}
+      </div>
+    );
+  }
+
+  /* ── Standard: centered dialog overlay ──────────────────────── */
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="chat-dialog"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50"
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+          {/* Centered dialog */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-8">
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={(e) => e.stopPropagation()}
+              className="pointer-events-auto flex flex-col w-full max-w-[1400px] h-full max-h-[85vh] rounded-2xl border border-white/[0.12] bg-[#1a1a1f]/95 backdrop-blur-3xl shadow-[0_25px_80px_-12px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(79,70,229,0.12)] ring-1 ring-white/[0.06] overflow-hidden"
+            >
+              {dialogContent}
+            </motion.div>
           </div>
         </motion.div>
       )}

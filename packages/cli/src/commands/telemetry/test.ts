@@ -5,6 +5,37 @@ import { logger } from '../../output/logger';
 
 const POSTHOG_BATCH_URL = 'https://app.posthog.com/batch';
 
+function buildTestEvent(
+  distinctId: string,
+  installId: string,
+  identity: { project?: string; team?: string }
+) {
+  return {
+    event: 'telemetry_test',
+    distinct_id: distinctId,
+    timestamp: new Date().toISOString(),
+    properties: {
+      installId,
+      os: process.platform,
+      nodeVersion: process.version,
+      test: true,
+      ...(identity.project ? { project: identity.project } : {}),
+      ...(identity.team ? { team: identity.team } : {}),
+    },
+  };
+}
+
+function reportTestSuccess(
+  status: number,
+  distinctId: string,
+  identity: { project?: string; team?: string }
+): void {
+  logger.success(`PostHog responded ${status} OK — telemetry is working`);
+  logger.info(`  distinct_id: ${distinctId}`);
+  if (identity.project) logger.info(`  project:     ${identity.project}`);
+  if (identity.team) logger.info(`  team:        ${identity.team}`);
+}
+
 export function createTestCommand(): Command {
   return new Command('test')
     .description('Send a test event to PostHog and verify connectivity')
@@ -20,21 +51,7 @@ export function createTestCommand(): Command {
 
       const { installId, identity } = consent;
       const distinctId = identity.alias ?? installId;
-
-      const event = {
-        event: 'telemetry_test',
-        distinct_id: distinctId,
-        timestamp: new Date().toISOString(),
-        properties: {
-          installId,
-          os: process.platform,
-          nodeVersion: process.version,
-          test: true,
-          ...(identity.project ? { project: identity.project } : {}),
-          ...(identity.team ? { team: identity.team } : {}),
-        },
-      };
-
+      const event = buildTestEvent(distinctId, installId, identity);
       const payload = JSON.stringify({ api_key: POSTHOG_API_KEY, batch: [event] });
 
       logger.info(`Sending test event as "${distinctId}"...`);
@@ -50,10 +67,7 @@ export function createTestCommand(): Command {
         const body = await res.text();
 
         if (res.ok) {
-          logger.success(`PostHog responded ${res.status} OK — telemetry is working`);
-          logger.info(`  distinct_id: ${distinctId}`);
-          if (identity.project) logger.info(`  project:     ${identity.project}`);
-          if (identity.team) logger.info(`  team:        ${identity.team}`);
+          reportTestSuccess(res.status, distinctId, identity);
         } else {
           logger.error(`PostHog responded ${res.status}: ${body}`);
           process.exitCode = 1;

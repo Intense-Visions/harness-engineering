@@ -15,9 +15,13 @@ const mockSkill: SkillEntry = {
 const mockContext = {
   data: {
     '/api/checks': {
-      security: {
-        stats: { filesScanned: 5, errorCount: 1, warningCount: 0 },
-        findings: [],
+      data: {
+        security: {
+          stats: { filesScanned: 5, errorCount: 1, warningCount: 0 },
+          findings: [],
+        },
+        perf: { stats: { violationCount: 0, filesAnalyzed: 0 }, violations: [] },
+        arch: { totalViolations: 0, newViolations: [] },
       },
     },
   },

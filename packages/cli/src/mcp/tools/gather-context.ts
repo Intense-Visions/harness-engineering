@@ -40,16 +40,27 @@ function flattenSessionSections(
   );
 }
 
-function sectionItems(input: SectionPaginationInput): unknown[] {
-  if (input.section === 'graphContext') {
-    const blocks = input.graphContext?.context ?? [];
-    return [...blocks].sort((a, b) => b.score - a.score);
-  }
-  if (input.section === 'learnings') {
-    return Array.isArray(input.learnings) ? input.learnings : [];
-  }
+function graphContextItems(input: SectionPaginationInput): unknown[] {
+  const blocks = input.graphContext?.context ?? [];
+  return [...blocks].sort((a, b) => b.score - a.score);
+}
+
+function sessionSectionItems(input: SectionPaginationInput): unknown[] {
   const flat = flattenSessionSections(input.sessionSections);
   return flat.sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''));
+}
+
+const sectionResolvers: Record<
+  SectionPaginationInput['section'],
+  (input: SectionPaginationInput) => unknown[]
+> = {
+  graphContext: graphContextItems,
+  learnings: (input) => (Array.isArray(input.learnings) ? input.learnings : []),
+  sessionSections: sessionSectionItems,
+};
+
+function sectionItems(input: SectionPaginationInput): unknown[] {
+  return sectionResolvers[input.section](input);
 }
 
 function checkSectionGuards(

@@ -78,11 +78,32 @@ function spawnDashboardServer(
   return child;
 }
 
+function buildDashboardEnv(
+  opts: DashboardOptions,
+  clientPort: number,
+  apiPort: number,
+  projectPath: string
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    DASHBOARD_API_PORT: String(apiPort),
+    DASHBOARD_CLIENT_PORT: String(clientPort),
+    HARNESS_PROJECT_PATH: projectPath,
+  };
+
+  if (opts.orchestratorUrl) {
+    env['ORCHESTRATOR_URL'] = opts.orchestratorUrl;
+  } else if (!env['ORCHESTRATOR_URL'] && !env['ORCHESTRATOR_PORT']) {
+    env['ORCHESTRATOR_PORT'] = '8080';
+  }
+
+  return env;
+}
+
 function runDashboard(opts: DashboardOptions): void {
   const clientPort = Number(opts.port ?? DEFAULT_CLIENT_PORT);
   const apiPort = Number(opts.apiPort ?? DEFAULT_API_PORT);
   const projectPath = resolve(opts.cwd ?? process.cwd());
-  // The Hono server serves both API and built client from the API port
   const url = `http://localhost:${apiPort}`;
   const server = resolveServerScript();
 
@@ -91,21 +112,7 @@ function runDashboard(opts: DashboardOptions): void {
     process.exit(1);
   }
 
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    DASHBOARD_API_PORT: String(apiPort),
-    DASHBOARD_CLIENT_PORT: String(clientPort),
-    HARNESS_PROJECT_PATH: projectPath,
-  };
-
-  // Forward orchestrator connection info
-  if (opts.orchestratorUrl) {
-    env['ORCHESTRATOR_URL'] = opts.orchestratorUrl;
-  } else if (!env['ORCHESTRATOR_URL'] && !env['ORCHESTRATOR_PORT']) {
-    // Default: assume orchestrator is on localhost:8080
-    env['ORCHESTRATOR_PORT'] = '8080';
-  }
-
+  const env = buildDashboardEnv(opts, clientPort, apiPort, projectPath);
   spawnDashboardServer(server, env);
 
   console.log(`Dashboard API starting on http://localhost:${apiPort}`);
