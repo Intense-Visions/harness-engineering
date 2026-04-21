@@ -16,6 +16,7 @@ import { ORCHESTRATOR_PORT } from '../shared/constants';
  * Order matches vite.config.ts — more-specific prefixes first.
  */
 const ORCHESTRATOR_PREFIXES = [
+  '/ws',
   '/api/v1',
   '/api/state',
   '/api/interactions',

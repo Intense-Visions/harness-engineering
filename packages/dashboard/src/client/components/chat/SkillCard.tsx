@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Heart,
   Shield,
@@ -9,14 +8,11 @@ import {
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { GlowCard } from '../NeonAI/GlowCard';
 import type { SkillEntry, SkillCategory } from '../../types/skills';
 
 interface Props {
   skill: SkillEntry;
   onClick: () => void;
-  delay?: number;
 }
 
 const CATEGORY_ICONS: Record<SkillCategory, LucideIcon> = {
@@ -37,44 +33,33 @@ const CATEGORY_COLORS: Record<SkillCategory, string> = {
   workflow: 'text-secondary-400 bg-secondary-400/10 border-secondary-400/20',
 };
 
-export function SkillCard({ skill, onClick, delay = 0 }: Props) {
+export function SkillCard({ skill, onClick }: Props) {
   const Icon = CATEGORY_ICONS[skill.category];
   const colorClass = CATEGORY_COLORS[skill.category];
 
   return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+    <button
       onClick={onClick}
-      className="text-left w-full h-full"
+      className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/10 transition-all text-left"
     >
-      <GlowCard
-        delay={delay}
-        uid={skill.id.toUpperCase().replace('HARNESS:', '')}
-        className="h-full"
-      >
-        <div className="flex flex-col h-full gap-4">
-          <div className="flex items-start justify-between">
-            <div className={`p-2 rounded-lg border ${colorClass}`}>
-              <Icon size={20} />
-            </div>
-            <div className="text-neutral-muted group-hover:text-primary-400 transition-colors">
-              <ChevronRight size={16} />
-            </div>
-          </div>
-
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-white mb-1 group-hover:text-glow-primary transition-all">
-              {skill.name}
-            </h4>
-            <p className="text-[11px] leading-relaxed text-neutral-muted">{skill.description}</p>
-          </div>
-
-          <div className="flex items-center gap-2 mt-auto pt-2 border-t border-white/5 font-mono text-[9px] uppercase tracking-widest text-neutral-muted/50 group-hover:text-neutral-muted transition-colors">
-            <span>{skill.slashCommand}</span>
-          </div>
+      <div className={`flex-shrink-0 p-1.5 rounded-md border ${colorClass}`}>
+        <Icon size={14} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <h4 className="text-xs font-semibold text-white group-hover:text-primary-300 transition-colors">
+            {skill.name}
+          </h4>
+          <span className="text-[9px] font-mono text-neutral-muted/30 hidden sm:inline">
+            {skill.slashCommand}
+          </span>
         </div>
-      </GlowCard>
-    </motion.button>
+        <p className="text-[10px] leading-snug text-neutral-muted truncate">{skill.description}</p>
+      </div>
+      <ChevronRight
+        size={14}
+        className="flex-shrink-0 text-neutral-muted/20 group-hover:text-primary-400 transition-colors"
+      />
+    </button>
   );
 }

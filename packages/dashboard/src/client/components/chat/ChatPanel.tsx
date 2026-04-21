@@ -507,7 +507,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
 
   if (maximized) {
     return (
-      <div className="flex flex-col h-full w-full border border-white/15 bg-[#111113] backdrop-blur-3xl">
+      <div className="flex flex-col h-full w-full border border-white/[0.12] bg-[#1a1a1f]/95 backdrop-blur-3xl">
         {dialogContent}
       </div>
     );
@@ -537,7 +537,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               onClick={(e) => e.stopPropagation()}
-              className="pointer-events-auto flex flex-col w-full max-w-[1400px] h-full max-h-[85vh] rounded-2xl border border-white/15 bg-[#111113] backdrop-blur-3xl shadow-[0_25px_80px_-12px_rgba(0,0,0,0.8),0_0_40px_-8px_rgba(79,70,229,0.15)] ring-1 ring-white/5 overflow-hidden"
+              className="pointer-events-auto flex flex-col w-full max-w-[1400px] h-full max-h-[85vh] rounded-2xl border border-white/[0.12] bg-[#1a1a1f]/95 backdrop-blur-3xl shadow-[0_25px_80px_-12px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(79,70,229,0.12)] ring-1 ring-white/[0.06] overflow-hidden"
             >
               {dialogContent}
             </motion.div>
