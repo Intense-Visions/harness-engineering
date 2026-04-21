@@ -15,19 +15,21 @@ const mockSecuritySkill: SkillEntry = {
 
 const mockData = {
   '/api/checks': {
-    security: {
-      stats: {
-        filesScanned: 10,
-        errorCount: 2,
-        warningCount: 1,
+    data: {
+      security: {
+        stats: {
+          filesScanned: 10,
+          errorCount: 2,
+          warningCount: 1,
+        },
+        findings: [
+          { severity: 'high', ruleId: 'rule-1', file: 'file1.ts', line: 10, message: 'Broken' },
+          { severity: 'medium', ruleId: 'rule-2', file: 'file2.ts', line: 20, message: 'Weak' },
+        ],
       },
-      findings: [
-        { severity: 'high', ruleId: 'rule-1', file: 'file1.ts', line: 10, message: 'Broken' },
-        { severity: 'medium', ruleId: 'rule-2', file: 'file2.ts', line: 20, message: 'Weak' },
-      ],
+      perf: { stats: { violationCount: 0, filesAnalyzed: 10 }, violations: [] },
+      arch: { totalViolations: 0, newViolations: [] },
     },
-    perf: { stats: { violationCount: 0, filesAnalyzed: 10 }, violations: [] },
-    arch: { totalViolations: 0, newViolations: [] },
   },
 };
 
