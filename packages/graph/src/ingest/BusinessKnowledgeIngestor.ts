@@ -102,7 +102,7 @@ export class BusinessKnowledgeIngestor {
       id: nodeId,
       type: frontmatter.type as NodeType,
       name,
-      path: filePath,
+      path: relPath,
       content: body.trim(),
       metadata: {
         domain,
