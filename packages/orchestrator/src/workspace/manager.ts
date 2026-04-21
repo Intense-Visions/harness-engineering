@@ -197,24 +197,32 @@ export class WorkspaceManager {
 
       // In detached HEAD worktrees the agent creates and pushes a branch.
       // Detect it by looking for remote branches whose tip matches HEAD.
+      // We use %(refname) (full) instead of %(refname:short) because the short
+      // form of refs/remotes/origin/HEAD is "origin" — not "origin/HEAD" — which
+      // defeats the skip check and can be mistaken for a real branch.
       const head = (await this.git(['rev-parse', 'HEAD'], workspacePath)).trim();
       const refs = (
         await this.git(
-          ['for-each-ref', '--format=%(refname:short) %(objectname)', 'refs/remotes/origin/'],
+          ['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes/origin/'],
           workspacePath
         )
       ).trim();
 
       if (!refs) return null;
 
+      const PREFIX = 'refs/remotes/origin/';
       for (const line of refs.split('\n')) {
-        const [refName, sha] = line.split(' ');
+        const spaceIdx = line.indexOf(' ');
+        if (spaceIdx < 0) continue;
+        const refName = line.slice(0, spaceIdx);
+        const sha = line.slice(spaceIdx + 1);
         if (!refName || !sha) continue;
-        // Skip the default branch pointer
-        if (refName === 'origin/HEAD') continue;
+        // Skip the symbolic HEAD pointer and default branches — these match
+        // HEAD on freshly-created worktrees and are never agent-pushed branches.
+        const short = refName.startsWith(PREFIX) ? refName.slice(PREFIX.length) : refName;
+        if (short === 'HEAD' || short === 'main' || short === 'master') continue;
         if (sha === head) {
-          // Strip the 'origin/' prefix to get the branch name
-          return refName.replace(/^origin\//, '');
+          return short;
         }
       }
 

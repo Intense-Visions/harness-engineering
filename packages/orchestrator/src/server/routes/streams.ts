@@ -67,7 +67,8 @@ export function handleStreamsRoute(
 
   const parsed = parseStreamUrl(url);
   if (!parsed) {
-    jsonResponse(res, 400, { error: 'Missing issueId' });
+    // GET /api/streams with no issueId — list all sessions
+    jsonResponse(res, 200, recorder.listSessions());
     return true;
   }
 

@@ -60,6 +60,7 @@ hooks/
 interactions/
 security/
 sessions/
+streams/
 workspaces/
 state.json
 state/

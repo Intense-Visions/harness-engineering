@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
+import { useRecentSessions } from '../hooks/useRecentSessions';
 import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
 import type { ContentBlock } from '../types/chat';
+import type { StreamManifest } from '../hooks/useStreamReplay';
 import type { OrchestratorSnapshot, RunningAgent, TickActivity } from '../types/orchestrator';
 
 function SectionHeader({ title }: { title: string }) {
@@ -421,9 +423,156 @@ function RetryQueue({ snapshot }: { snapshot: OrchestratorSnapshot }) {
   );
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${secs}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function OutcomeBadge({ outcome }: { outcome: string | null }) {
+  if (!outcome) return <span className="text-xs text-gray-600">in progress</span>;
+  const colorMap: Record<string, string> = {
+    normal: 'bg-emerald-900/50 text-emerald-400',
+    error: 'bg-red-900/50 text-red-400',
+  };
+  const color = colorMap[outcome] ?? 'bg-gray-800 text-gray-400';
+  return (
+    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${color}`}>
+      {outcome}
+    </span>
+  );
+}
+
+function SessionRow({
+  session,
+  onViewStream,
+}: {
+  session: StreamManifest;
+  onViewStream: (issueId: string) => void;
+}) {
+  const lastAttempt = session.attempts.at(-1);
+  const startedAt = lastAttempt?.startedAt;
+  const outcome = lastAttempt?.outcome ?? null;
+  const stats = lastAttempt?.stats;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onViewStream(session.issueId)}
+      className="flex w-full items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/60 px-4 py-3 text-left transition-colors hover:bg-gray-800/40"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium text-white">{session.identifier}</span>
+          <OutcomeBadge outcome={outcome} />
+          {session.pr && <span className="text-xs text-blue-400">PR #{session.pr.number}</span>}
+        </div>
+        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+          {startedAt && <span>{formatTimeAgo(startedAt)}</span>}
+          {stats && stats.durationMs > 0 && (
+            <>
+              <span className="text-gray-600">|</span>
+              <span>{formatDuration(stats.durationMs)}</span>
+            </>
+          )}
+          {stats && (
+            <>
+              <span className="text-gray-600">|</span>
+              <span>
+                T{stats.turnCount} &middot; {formatNumber(stats.inputTokens + stats.outputTokens)}{' '}
+                tok
+              </span>
+            </>
+          )}
+          {session.attempts.length > 1 && (
+            <>
+              <span className="text-gray-600">|</span>
+              <span>{session.attempts.length} attempts</span>
+            </>
+          )}
+        </div>
+      </div>
+      <span className="flex-shrink-0 text-gray-600">&rsaquo;</span>
+    </button>
+  );
+}
+
+function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => void }) {
+  const { sessions, loading, error } = useRecentSessions();
+
+  if (loading) {
+    return (
+      <section className="mt-6">
+        <SectionHeader title="Recent Sessions" />
+        <p className="text-sm text-gray-500">Loading sessions...</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="mt-6">
+        <SectionHeader title="Recent Sessions" />
+        <p className="text-sm text-red-400">{error}</p>
+      </section>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <section className="mt-6">
+        <SectionHeader title="Recent Sessions" />
+        <p className="text-sm italic text-gray-500">No recorded sessions yet.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-6">
+      <SectionHeader title="Recent Sessions" />
+      <div className="space-y-2">
+        {sessions.map((session) => (
+          <SessionRow key={session.issueId} session={session} onViewStream={onViewStream} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Orchestrator() {
   const { snapshot, agentEvents, connected } = useOrchestratorSocket();
   const [drawerAgent, setDrawerAgent] = useState<RunningAgent | null>(null);
+  const [drawerIssueId, setDrawerIssueId] = useState<string | null>(null);
+
+  const openDrawerForAgent = (agent: RunningAgent) => {
+    setDrawerAgent(agent);
+    setDrawerIssueId(agent.issueId);
+  };
+
+  const openDrawerForSession = (issueId: string) => {
+    setDrawerAgent(null);
+    setDrawerIssueId(issueId);
+  };
+
+  const closeDrawer = () => {
+    setDrawerAgent(null);
+    setDrawerIssueId(null);
+  };
 
   if (!snapshot) {
     return (
@@ -432,6 +581,8 @@ export function Orchestrator() {
         <p className="text-sm text-gray-500">
           {connected ? 'Waiting for first state update...' : 'Connecting to orchestrator...'}
         </p>
+        <RecentSessions onViewStream={openDrawerForSession} />
+        <AgentStreamDrawer agent={null} issueId={drawerIssueId} blocks={[]} onClose={closeDrawer} />
       </div>
     );
   }
@@ -465,16 +616,18 @@ export function Orchestrator() {
 
       <section>
         <SectionHeader title="Active Agents" />
-        <AgentsList agents={agents} agentEvents={agentEvents} onViewStream={setDrawerAgent} />
+        <AgentsList agents={agents} agentEvents={agentEvents} onViewStream={openDrawerForAgent} />
       </section>
 
       <RetryQueue snapshot={snapshot} />
 
+      <RecentSessions onViewStream={openDrawerForSession} />
+
       <AgentStreamDrawer
         agent={drawerAgent}
-        issueId={drawerAgent?.issueId ?? null}
+        issueId={drawerIssueId}
         blocks={drawerAgent ? (agentEvents[drawerAgent.issueId] ?? []) : []}
-        onClose={() => setDrawerAgent(null)}
+        onClose={closeDrawer}
       />
     </div>
   );

@@ -40,6 +40,7 @@ function mockRecorder(overrides?: Partial<StreamRecorder>): StreamRecorder {
     extractHighlights: vi.fn(),
     pruneOrphans: vi.fn(),
     listIssues: vi.fn().mockReturnValue([]),
+    listSessions: vi.fn().mockReturnValue([]),
     ...overrides,
   } as unknown as StreamRecorder;
 }
@@ -116,12 +117,15 @@ describe('streams routes', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('returns 400 when issueId is missing', async () => {
-    const recorder = mockRecorder();
+  it('returns session list when no issueId specified', async () => {
+    const recorder = mockRecorder({
+      listSessions: vi.fn().mockReturnValue([sampleManifest]),
+    });
     await start(recorder);
     const res = await request(server, port, 'GET', '/api/streams');
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toEqual({ error: 'Missing issueId' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual([sampleManifest]);
+    expect(recorder.listSessions).toHaveBeenCalled();
   });
 
   it('returns 400 for unsafe issueId', async () => {

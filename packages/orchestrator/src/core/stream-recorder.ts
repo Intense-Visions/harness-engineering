@@ -248,6 +248,32 @@ export class StreamRecorder {
     return this.readManifest(issueId);
   }
 
+  /** Lists all session manifests, sorted by most recent attempt start (newest first). */
+  listSessions(): StreamManifest[] {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(this.streamsDir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+
+    const manifests: StreamManifest[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const manifest = this.readManifest(entry.name);
+      if (manifest) manifests.push(manifest);
+    }
+
+    // Sort by latest attempt startedAt descending
+    manifests.sort((a, b) => {
+      const aTime = a.attempts.at(-1)?.startedAt ?? '';
+      const bTime = b.attempts.at(-1)?.startedAt ?? '';
+      return bTime.localeCompare(aTime);
+    });
+
+    return manifests;
+  }
+
   getStream(issueId: string, attempt?: number): string | null {
     if (attempt != null) {
       return this.readStreamFile(issueId, attempt);

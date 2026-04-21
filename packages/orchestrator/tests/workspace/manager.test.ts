@@ -299,7 +299,7 @@ describe('WorkspaceManager', () => {
         if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
         if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
         if (args[0] === 'for-each-ref') {
-          return 'origin/HEAD abc999\norigin/main def456\norigin/feat/my-feature abc123\n';
+          return 'refs/remotes/origin/HEAD abc999\nrefs/remotes/origin/main def456\nrefs/remotes/origin/feat/my-feature abc123\n';
         }
         return '';
       });
@@ -314,7 +314,7 @@ describe('WorkspaceManager', () => {
         if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
         if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
         if (args[0] === 'for-each-ref') {
-          return 'origin/main def456\n';
+          return 'refs/remotes/origin/main def456\n';
         }
         return '';
       });
@@ -330,13 +330,28 @@ describe('WorkspaceManager', () => {
       expect(branch).toBeNull();
     });
 
-    it('skips origin/HEAD when matching', async () => {
+    it('skips refs/remotes/origin/HEAD when matching', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
       manager.setGitImpl((args) => {
         if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
         if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
         if (args[0] === 'for-each-ref') {
-          return 'origin/HEAD abc123\n';
+          return 'refs/remotes/origin/HEAD abc123\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBeNull();
+    });
+
+    it('skips origin/main and origin/master to avoid false positives on fresh worktrees', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          return 'refs/remotes/origin/HEAD abc123\nrefs/remotes/origin/main abc123\nrefs/remotes/origin/master abc123\n';
         }
         return '';
       });
