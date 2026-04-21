@@ -1,5 +1,23 @@
 # @harness-engineering/dashboard
 
+## 0.1.8
+
+### Patch Changes
+
+- 69624ba: Fix Neural Uplink chat not rendering messages or responding to skill execution
+
+  **Root causes (3 compounding issues):**
+  1. **MessageStream invisible due to zero height** — The Virtuoso virtual list container used `flex-1` but its parent was not a flex container, so the list collapsed to 0px height. Messages existed in state but had no pixels to render into. Fixed by switching to `h-full`.
+
+  2. **First chat turn sent unrecognized sessionId** — The dashboard sent its locally-generated UUID as `sessionId` on every turn. The orchestrator interpreted this as a `--resume` request for a non-existent Claude CLI session, which exited immediately with no output. Fixed by omitting `sessionId` on first turn and capturing the orchestrator's returned session ID via the `onSession` SSE callback for subsequent turns.
+
+  3. **Stale activeSessionId from localStorage** — `handleSkillSelect` checked `activeSessionId` (persisted in localStorage) to decide between creating or updating a session. When the ID pointed to a session no longer in the array, `updateSession` was a silent no-op. Fixed by always creating a fresh session on skill selection, and cleaning up stale IDs on session fetch.
+
+  **Additional improvements:**
+  - Added `orchestratorSessionId` field to `ChatSession` for proper multi-turn conversation support
+  - Added visible error banner when `/api/chat` stream fails
+  - Session fetch now merges server data with locally-created sessions to prevent race conditions
+
 ## 0.1.7
 
 ### Patch Changes
