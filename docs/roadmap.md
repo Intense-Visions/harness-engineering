@@ -1661,14 +1661,15 @@ last_manual_edit: 2026-04-21T00:00:00.000Z
 
 ### Phase 1: Knowledge Foundation
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** Graph schema extensions (5 node types, 2 edge types), BusinessKnowledgeIngestor reading from docs/knowledge/, harness://business-knowledge MCP resource, gather_context integration, pilot authoring for 1-2 domains
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#225
+- **Updated-At:** 2026-04-21T14:12:28.459Z
 
 ### Phase 2: Code Signal Extractors
 
