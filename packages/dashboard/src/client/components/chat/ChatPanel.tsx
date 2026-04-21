@@ -210,7 +210,8 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
         targetSessionId = createNewSession();
       }
 
-      const currentMessages = sessions.find((s) => s.sessionId === targetSessionId)?.messages || [];
+      const targetSession = sessions.find((s) => s.sessionId === targetSessionId);
+      const currentMessages = targetSession?.messages || [];
       const isFirstTurn = currentMessages.length === 0;
 
       let systemPrompt = overrideSystemPrompt;
@@ -229,13 +230,20 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       setStreaming(true);
       setChatError(null);
 
+      // On first turn, omit sessionId so the orchestrator creates a new Claude
+      // Code session (--session-id <new>). Sending a local UUID would cause it
+      // to --resume a non-existent session, producing an empty response.
+      const orchestratorSid = isFirstTurn ? undefined : targetSession?.orchestratorSessionId;
+
       const controller = new AbortController();
       await streamChat(
         promptText,
         systemPrompt,
-        targetSessionId,
+        orchestratorSid,
         {
-          onSession: () => {},
+          onSession: (sid) => {
+            updateSession(targetSessionId!, { orchestratorSessionId: sid });
+          },
           onChunk: (event) => {
             updateSession(targetSessionId!, (session) => ({
               messages: session.messages.map((msg, idx, arr) => {

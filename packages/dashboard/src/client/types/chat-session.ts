@@ -1,7 +1,8 @@
 import type { ChatMessage } from './chat';
 
 export interface ChatSession {
-  sessionId: string; // Claude Code session ID
+  sessionId: string; // Local UI session ID
+  orchestratorSessionId?: string; // Claude Code session ID returned by orchestrator (set after first turn)
   command: string | null; // Skill that seeded it, e.g. "harness:security-scan"
   interactionId: string | null; // Link to escalated interaction if applicable
   label: string; // User-visible name
