@@ -9,49 +9,58 @@ import { getOrCreateInstallId } from './install-id';
  * with fallbacks from harness.config.json (project name) and git config (alias).
  * Returns empty object if no sources are available.
  */
-export function readIdentity(projectRoot: string): TelemetryIdentity {
+function parseIdentityFromTelemetryFile(filePath: string): TelemetryIdentity {
   const identity: TelemetryIdentity = {};
-
-  // Primary source: .harness/telemetry.json
-  const filePath = path.join(projectRoot, '.harness', 'telemetry.json');
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && parsed.identity) {
-      const { project, team, alias } = parsed.identity;
-      if (typeof project === 'string') identity.project = project;
-      if (typeof team === 'string') identity.team = team;
-      if (typeof alias === 'string') identity.alias = alias;
-    }
+    const src = parsed?.identity;
+    if (!src || typeof src !== 'object') return identity;
+    if (typeof src.project === 'string') identity.project = src.project;
+    if (typeof src.team === 'string') identity.team = src.team;
+    if (typeof src.alias === 'string') identity.alias = src.alias;
   } catch {
     // Missing or malformed — continue with fallbacks
   }
+  return identity;
+}
 
-  // Fallback: project name from harness.config.json
+function readProjectNameFallback(configPath: string): string | undefined {
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+    return typeof config?.name === 'string' ? config.name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readGitAliasFallback(cwd: string): string | undefined {
+  try {
+    const gitName = execFileSync('git', ['config', 'user.name'], {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 2000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    return gitName || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readIdentity(projectRoot: string): TelemetryIdentity {
+  const filePath = path.join(projectRoot, '.harness', 'telemetry.json');
+  const identity = parseIdentityFromTelemetryFile(filePath);
+
   if (!identity.project) {
-    try {
-      const configPath = path.join(projectRoot, 'harness.config.json');
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      const config = JSON.parse(raw);
-      if (typeof config?.name === 'string') identity.project = config.name;
-    } catch {
-      // Missing or malformed — skip
-    }
+    const fallbackProject = readProjectNameFallback(path.join(projectRoot, 'harness.config.json'));
+    if (fallbackProject) identity.project = fallbackProject;
   }
 
-  // Fallback: alias from git config user.name
   if (!identity.alias) {
-    try {
-      const gitName = execFileSync('git', ['config', 'user.name'], {
-        cwd: projectRoot,
-        encoding: 'utf-8',
-        timeout: 2000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
-      if (gitName) identity.alias = gitName;
-    } catch {
-      // Git not available or no user.name set — skip
-    }
+    const fallbackAlias = readGitAliasFallback(projectRoot);
+    if (fallbackAlias) identity.alias = fallbackAlias;
   }
 
   return identity;

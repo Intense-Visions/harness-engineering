@@ -92,6 +92,12 @@ export async function runCleanupSessions(
   return Ok(result);
 }
 
+function printSessionList(label: string, sessions: string[]): void {
+  if (sessions.length === 0) return;
+  console.log(`\n${label} (${sessions.length}):`);
+  for (const s of sessions) console.log(`  - ${s}`);
+}
+
 function printResult(result: CleanupSessionsResult, dryRun: boolean, asJson: boolean): void {
   const { removed, kept } = result;
   if (asJson) {
@@ -102,15 +108,9 @@ function printResult(result: CleanupSessionsResult, dryRun: boolean, asJson: boo
     console.log('No sessions found.');
     return;
   }
-  if (removed.length > 0) {
-    const label = dryRun ? 'Stale (would remove)' : 'Removed';
-    console.log(`\n${label} (${removed.length}):`);
-    for (const s of removed) console.log(`  - ${s}`);
-  }
-  if (kept.length > 0) {
-    console.log(`\nKept (${kept.length}):`);
-    for (const s of kept) console.log(`  - ${s}`);
-  }
+  const removeLabel = dryRun ? 'Stale (would remove)' : 'Removed';
+  printSessionList(removeLabel, removed);
+  printSessionList('Kept', kept);
   if (!dryRun && removed.length > 0) {
     console.log(`\nCleaned up ${removed.length} stale session(s).`);
   }

@@ -23,31 +23,35 @@ function resolveDisabledReason(): string {
   return 'telemetry.enabled is false in config';
 }
 
+function printIdentity(identity: StatusResult['identity']): void {
+  const hasIdentity = identity.project || identity.team || identity.alias;
+  if (!hasIdentity) {
+    logger.info('Identity: not configured');
+    return;
+  }
+  logger.info('Identity:');
+  for (const [key, value] of Object.entries(identity)) {
+    if (value) logger.info(`  ${key.padEnd(7)}: ${value}`);
+  }
+}
+
+function printEnvOverrides(overrides: StatusResult['envOverrides']): void {
+  const keys = Object.keys(overrides);
+  if (keys.length === 0) return;
+  logger.info('Env overrides:');
+  for (const key of keys) {
+    logger.info(`  ${key}=${overrides[key as keyof typeof overrides]}`);
+  }
+}
+
 function printHumanStatus(result: StatusResult): void {
   logger.info(`Telemetry: ${result.consent.allowed ? 'enabled' : 'disabled'}`);
   if (!result.consent.allowed && result.consent.reason) {
     logger.info(`  Reason:  ${result.consent.reason}`);
   }
   logger.info(`Install ID: ${result.installId ?? 'not yet created'}`);
-
-  const { identity } = result;
-  const hasIdentity = identity.project || identity.team || identity.alias;
-  if (hasIdentity) {
-    logger.info('Identity:');
-    for (const [key, value] of Object.entries(identity)) {
-      if (value) logger.info(`  ${key.padEnd(7)}: ${value}`);
-    }
-  } else {
-    logger.info('Identity: not configured');
-  }
-
-  const overrideKeys = Object.keys(result.envOverrides);
-  if (overrideKeys.length > 0) {
-    logger.info('Env overrides:');
-    for (const key of overrideKeys) {
-      logger.info(`  ${key}=${result.envOverrides[key as keyof typeof result.envOverrides]}`);
-    }
-  }
+  printIdentity(result.identity);
+  printEnvOverrides(result.envOverrides);
 }
 
 export function createStatusCommand(): Command {

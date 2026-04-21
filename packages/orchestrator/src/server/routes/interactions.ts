@@ -8,6 +8,36 @@ const InteractionUpdateSchema = z.object({
 });
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+async function handlePatchInteraction(
+  req: IncomingMessage,
+  res: ServerResponse,
+  queue: InteractionQueue,
+  id: string
+): Promise<void> {
+  try {
+    const body = await readBody(req);
+    // harness-ignore SEC-DES-001: input validated by Zod schema (InteractionUpdateSchema)
+    const result = InteractionUpdateSchema.safeParse(JSON.parse(body));
+    if (!result.success) {
+      sendJson(res, 400, { error: 'Invalid status. Must be pending, claimed, or resolved.' });
+      return;
+    }
+
+    await queue.updateStatus(id, result.data.status);
+    sendJson(res, 200, { ok: true });
+  } catch (err) {
+    const isNotFound = err instanceof Error && err.message.includes('not found');
+    sendJson(res, isNotFound ? 404 : 500, {
+      error: isNotFound ? `Interaction ${id} not found` : 'Failed to update interaction',
+    });
+  }
+}
+
 /**
  * Handle interactions API routes.
  *
@@ -25,11 +55,9 @@ export function handleInteractionsRoute(
     void (async () => {
       try {
         const interactions = await queue.list();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(interactions));
+        sendJson(res, 200, interactions);
       } catch {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to list interactions' }));
+        sendJson(res, 500, { error: 'Failed to list interactions' });
       }
     })();
     return true;
@@ -40,36 +68,10 @@ export function handleInteractionsRoute(
   if (patchMatch && patchMatch[1]) {
     const id = patchMatch[1];
     if (!SAFE_ID_RE.test(id)) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid interaction id' }));
+      sendJson(res, 400, { error: 'Invalid interaction id' });
       return true;
     }
-    void (async () => {
-      try {
-        const body = await readBody(req);
-        // harness-ignore SEC-DES-001: input validated by Zod schema (InteractionUpdateSchema)
-        const result = InteractionUpdateSchema.safeParse(JSON.parse(body));
-        if (!result.success) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({ error: 'Invalid status. Must be pending, claimed, or resolved.' })
-          );
-          return;
-        }
-
-        await queue.updateStatus(id, result.data.status);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('not found')) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: `Interaction ${id} not found` }));
-        } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to update interaction' }));
-        }
-      }
-    })();
+    void handlePatchInteraction(req, res, queue, id);
     return true;
   }
 

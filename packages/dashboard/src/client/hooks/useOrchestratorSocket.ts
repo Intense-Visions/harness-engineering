@@ -84,6 +84,55 @@ function handleMessage(
   }
 }
 
+function createSocket(
+  mounted: { current: boolean },
+  reconnectTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+  setConnected: (v: boolean) => void,
+  setSnapshot: (s: OrchestratorSnapshot) => void,
+  setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>,
+  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>
+): WebSocket {
+  const ws = new WebSocket(getWsUrl());
+
+  ws.onopen = () => {
+    if (mounted.current) setConnected(true);
+  };
+
+  ws.onmessage = (event: MessageEvent<string>) => {
+    if (!mounted.current) return;
+    try {
+      // harness-ignore SEC-DES-001: parsing own orchestrator server WebSocket messages — trusted internal source, wrapped in try-catch
+      const msg = JSON.parse(event.data) as WebSocketMessage;
+      handleMessage(msg, setSnapshot, setInteractions, setAgentEvents);
+    } catch {
+      // ignore malformed messages
+    }
+  };
+
+  ws.onclose = () => {
+    if (!mounted.current) return;
+    setConnected(false);
+    reconnectTimer.current = setTimeout(
+      () =>
+        createSocket(
+          mounted,
+          reconnectTimer,
+          setConnected,
+          setSnapshot,
+          setInteractions,
+          setAgentEvents
+        ),
+      RECONNECT_DELAY_MS
+    );
+  };
+
+  ws.onerror = () => {
+    // onclose fires after onerror, so reconnect is handled there
+  };
+
+  return ws;
+}
+
 /**
  * Manages a WebSocket connection to the orchestrator server.
  * Exposes real-time state snapshots and interaction notifications.
@@ -101,46 +150,20 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
   }, []);
 
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let mounted = true;
-
-    function connect() {
-      ws = new WebSocket(getWsUrl());
-
-      ws.onopen = () => {
-        if (mounted) setConnected(true);
-      };
-
-      ws.onmessage = (event: MessageEvent<string>) => {
-        if (!mounted) return;
-        try {
-          // harness-ignore SEC-DES-001: parsing own orchestrator server WebSocket messages — trusted internal source, wrapped in try-catch
-          const msg = JSON.parse(event.data) as WebSocketMessage;
-          handleMessage(msg, setSnapshot, setInteractions, setAgentEvents);
-        } catch {
-          // ignore malformed messages
-        }
-      };
-
-      ws.onclose = () => {
-        if (!mounted) return;
-        setConnected(false);
-        reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
-      };
-
-      ws.onerror = () => {
-        // onclose fires after onerror, so reconnect is handled there
-      };
-    }
-
-    connect();
+    const mounted = { current: true };
+    const ws = createSocket(
+      mounted,
+      reconnectTimer,
+      setConnected,
+      setSnapshot,
+      setInteractions,
+      setAgentEvents
+    );
 
     return () => {
-      mounted = false;
-      ws?.close();
-      if (reconnectTimer.current) {
-        clearTimeout(reconnectTimer.current);
-      }
+      mounted.current = false;
+      ws.close();
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
   }, []);
 

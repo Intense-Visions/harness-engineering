@@ -93,6 +93,57 @@ export function orchestratorProxyMiddleware() {
   };
 }
 
+function handleWsUpgrade(
+  target: URL,
+  req: http.IncomingMessage,
+  socket: import('node:stream').Duplex
+): void {
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  if (url.pathname !== '/ws') {
+    // Not our route — let it fall through (Hono doesn't use upgrades, so just destroy)
+    socket.destroy();
+    return;
+  }
+
+  const proxyReq = http.request({
+    hostname: target.hostname,
+    port: Number(target.port) || ORCHESTRATOR_PORT,
+    path: '/ws',
+    method: 'GET',
+    headers: {
+      ...req.headers,
+      host: `${target.hostname}:${target.port}`,
+    },
+  });
+
+  proxyReq.on('upgrade', (_proxyRes, proxySocket, proxyHead) => {
+    // Forward the 101 response headers back to the client
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\n' +
+        Object.entries(_proxyRes.headers)
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => `${k}: ${String(v)}`)
+          .join('\r\n') +
+        '\r\n\r\n'
+    );
+    if (proxyHead.length) socket.write(proxyHead);
+
+    // Bidirectional pipe
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+
+    proxySocket.on('error', () => socket.destroy());
+    socket.on('error', () => proxySocket.destroy());
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error(`WebSocket proxy error: ${err.message}`);
+    socket.destroy();
+  });
+
+  proxyReq.end();
+}
+
 /**
  * Attach a WebSocket upgrade handler to the given HTTP server.
  * Proxies `/ws` connections to the orchestrator using raw TCP piping.
@@ -102,50 +153,7 @@ export function attachWsProxy(server: http.Server): void {
   if (!target) return;
 
   server.on('upgrade', (req, socket, _head) => {
-    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-    if (url.pathname !== '/ws') {
-      // Not our route — let it fall through (Hono doesn't use upgrades, so just destroy)
-      socket.destroy();
-      return;
-    }
-
-    const proxyReq = http.request({
-      hostname: target.hostname,
-      port: Number(target.port) || ORCHESTRATOR_PORT,
-      path: '/ws',
-      method: 'GET',
-      headers: {
-        ...req.headers,
-        host: `${target.hostname}:${target.port}`,
-      },
-    });
-
-    proxyReq.on('upgrade', (_proxyRes, proxySocket, proxyHead) => {
-      // Forward the 101 response headers back to the client
-      socket.write(
-        'HTTP/1.1 101 Switching Protocols\r\n' +
-          Object.entries(_proxyRes.headers)
-            .filter(([, v]) => v != null)
-            .map(([k, v]) => `${k}: ${String(v)}`)
-            .join('\r\n') +
-          '\r\n\r\n'
-      );
-      if (proxyHead.length) socket.write(proxyHead);
-
-      // Bidirectional pipe
-      proxySocket.pipe(socket);
-      socket.pipe(proxySocket);
-
-      proxySocket.on('error', () => socket.destroy());
-      socket.on('error', () => proxySocket.destroy());
-    });
-
-    proxyReq.on('error', (err) => {
-      console.error(`WebSocket proxy error: ${err.message}`);
-      socket.destroy();
-    });
-
-    proxyReq.end();
+    handleWsUpgrade(target, req, socket);
   });
 
   console.log(`WebSocket proxy enabled → ${target.origin}/ws`);

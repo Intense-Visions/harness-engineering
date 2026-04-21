@@ -268,6 +268,29 @@ export async function loadBudgetedLearnings(
  *
  * This is Layer 1 of the progressive disclosure pipeline.
  */
+function buildEntryFromFrontmatter(line: string, fm: LearningsFrontmatter): LearningsIndexEntry {
+  const rootCauseMatch = line.match(/\[root_cause:([^\]]+)\]/);
+  const triedMatch = line.match(/\[tried:([^\]]+)\]/);
+  return {
+    hash: fm.hash,
+    tags: fm.tags,
+    summary: line,
+    fullText: '',
+    ...(rootCauseMatch?.[1] ? { rootCause: rootCauseMatch[1] } : {}),
+    ...(triedMatch?.[1] ? { triedAndFailed: triedMatch[1].split(',').map((s) => s.trim()) } : {}),
+  };
+}
+
+function buildEntryFromLine(line: string): LearningsIndexEntry {
+  const idx = extractIndexEntry(line);
+  return {
+    hash: idx.hash,
+    tags: idx.tags,
+    summary: line,
+    fullText: '',
+  };
+}
+
 export async function loadIndexEntries(
   projectPath: string,
   skillName?: string,
@@ -299,35 +322,15 @@ export async function loadIndexEntries(
         continue;
       }
 
-      const isDatedBullet = /^- \*\*\d{4}-\d{2}-\d{2}/.test(line);
-      const isHeading = /^## \d{4}-\d{2}-\d{2}/.test(line);
+      const isEntryStart =
+        /^- \*\*\d{4}-\d{2}-\d{2}/.test(line) || /^## \d{4}-\d{2}-\d{2}/.test(line);
 
-      if (isDatedBullet || isHeading) {
-        // Start new entry
-        if (pendingFrontmatter) {
-          // Extract structured fields from the entry line even when frontmatter is present
-          const rootCauseMatch = line.match(/\[root_cause:([^\]]+)\]/);
-          const triedMatch = line.match(/\[tried:([^\]]+)\]/);
-          indexEntries.push({
-            hash: pendingFrontmatter.hash,
-            tags: pendingFrontmatter.tags,
-            summary: line,
-            fullText: '', // Placeholder — full text not loaded in index mode
-            ...(rootCauseMatch?.[1] ? { rootCause: rootCauseMatch[1] } : {}),
-            ...(triedMatch?.[1]
-              ? { triedAndFailed: triedMatch[1].split(',').map((s) => s.trim()) }
-              : {}),
-          });
-          pendingFrontmatter = null;
-        } else {
-          const idx = extractIndexEntry(line);
-          indexEntries.push({
-            hash: idx.hash,
-            tags: idx.tags,
-            summary: line,
-            fullText: '',
-          });
-        }
+      if (isEntryStart) {
+        const entry = pendingFrontmatter
+          ? buildEntryFromFrontmatter(line, pendingFrontmatter)
+          : buildEntryFromLine(line);
+        indexEntries.push(entry);
+        pendingFrontmatter = null;
         currentBlock = [line];
       } else if (line.trim() !== '' && currentBlock.length > 0) {
         currentBlock.push(line);

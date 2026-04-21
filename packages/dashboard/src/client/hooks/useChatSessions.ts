@@ -31,36 +31,51 @@ function readActiveSessionId(): string | null {
   return localStorage.getItem(ACTIVE_SESSION_KEY);
 }
 
+function syncActiveSessionToStorage(id: string | null): void {
+  if (id) {
+    localStorage.setItem(ACTIVE_SESSION_KEY, id);
+  } else {
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+  }
+}
+
+function fetchSessions(
+  setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>
+): () => void {
+  let mounted = true;
+  fetch('/api/sessions')
+    .then((res) => (res.ok ? res.json() : []))
+    .then((data) => {
+      if (mounted) setSessions(data);
+    })
+    .catch((err) => console.error('Failed to fetch chat sessions:', err));
+  return () => {
+    mounted = false;
+  };
+}
+
 export function useChatSessions() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(readActiveSessionId);
 
-  useEffect(() => {
-    if (activeSessionId) {
-      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
-    } else {
-      localStorage.removeItem(ACTIVE_SESSION_KEY);
-    }
-  }, [activeSessionId]);
+  useEffect(() => syncActiveSessionToStorage(activeSessionId), [activeSessionId]);
+  useEffect(() => fetchSessions(setSessions), []);
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/sessions')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (mounted) setSessions(data);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch chat sessions:', err);
+  const updateSession = useCallback(
+    (
+      id: string,
+      dataOrFn: Partial<ChatSession> | ((session: ChatSession) => Partial<ChatSession>)
+    ) => {
+      setSessions((prev) => {
+        const data =
+          typeof dataOrFn === 'function'
+            ? dataOrFn(prev.find((s) => s.sessionId === id) ?? ({} as ChatSession))
+            : dataOrFn;
+        return applyUpdate(prev, id, data);
       });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const updateSession = useCallback(async (id: string, data: Partial<ChatSession>) => {
-    setSessions((prev) => applyUpdate(prev, id, data));
-  }, []);
+    },
+    []
+  );
 
   const patchSession = useCallback(async (id: string, data: Partial<ChatSession>) => {
     setSessions((prev) => prev.map((s) => (s.sessionId === id ? { ...s, ...data } : s)));

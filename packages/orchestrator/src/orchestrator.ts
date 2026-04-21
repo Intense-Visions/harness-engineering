@@ -556,26 +556,35 @@ export class Orchestrator extends EventEmitter {
     simulationResults: Map<string, SimulationResult>
   ): Promise<void> {
     for (const issue of candidates) {
-      const spec = enrichedSpecs.get(issue.id) ?? null;
-      const score = complexityScores.get(issue.id) ?? null;
-      const simulation = simulationResults.get(issue.id) ?? null;
-      if (!spec && !score && !simulation) continue;
-      try {
-        await this.analysisArchive.save({
-          issueId: issue.id,
-          identifier: issue.identifier,
-          spec,
-          score,
-          simulation,
-          analyzedAt: new Date().toISOString(),
-          externalId: issue.externalId ?? null,
-        });
-      } catch (err) {
-        this.logger.warn(`Failed to archive analysis for ${issue.identifier}`, {
-          issueId: issue.id,
-          error: String(err),
-        });
-      }
+      await this.archiveSingleAnalysis(issue, enrichedSpecs, complexityScores, simulationResults);
+    }
+  }
+
+  private async archiveSingleAnalysis(
+    issue: Issue,
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>,
+    simulationResults: Map<string, SimulationResult>
+  ): Promise<void> {
+    const spec = enrichedSpecs.get(issue.id) ?? null;
+    const score = complexityScores.get(issue.id) ?? null;
+    const simulation = simulationResults.get(issue.id) ?? null;
+    if (!spec && !score && !simulation) return;
+    try {
+      await this.analysisArchive.save({
+        issueId: issue.id,
+        identifier: issue.identifier,
+        spec,
+        score,
+        simulation,
+        analyzedAt: new Date().toISOString(),
+        externalId: issue.externalId ?? null,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to archive analysis for ${issue.identifier}`, {
+        issueId: issue.id,
+        error: String(err),
+      });
     }
   }
 
@@ -1420,6 +1429,36 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
+  private async processAgentEvent(
+    issue: Issue,
+    event: import('@harness-engineering/types').AgentEvent
+  ): Promise<void> {
+    this.logger.info(`Received event from ${issue.identifier}: ${event.type}`);
+    const updateEvent: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: issue.id,
+      event,
+    };
+    const { nextState, effects } = applyEvent(this.state, updateEvent, this.config);
+    this.state = nextState;
+
+    for (const effect of effects) {
+      await this.handleEffect(effect);
+    }
+
+    this.emit('agent_event', { issueId: issue.id, event });
+    this.emit('state_change', this.getSnapshot());
+  }
+
+  private async awaitRateLimitClearance(identifier: string): Promise<void> {
+    while (true) {
+      const waitTime = computeRateLimitDelay(this.state, this.state);
+      if (waitTime <= 0) return;
+      this.logger.info(`Rate limit throttling active, pausing ${identifier} for ${waitTime}ms`);
+      await new Promise((r) => setTimeout(r, waitTime));
+    }
+  }
+
   private runAgentInBackgroundTask(
     issue: Issue,
     workspacePath: string,
@@ -1434,42 +1473,12 @@ export class Orchestrator extends EventEmitter {
         this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
         const sessionGen = activeRunner.runSession(issue, workspacePath, prompt);
         for await (const event of sessionGen) {
-          this.logger.info(`Received event from ${issue.identifier}: ${event.type}`);
-          // 1. Update internal state machine
-          const updateEvent: OrchestratorEvent = {
-            type: 'agent_update',
-            issueId: issue.id,
-            event,
-          };
-          const { nextState, effects } = applyEvent(this.state, updateEvent, this.config);
-          this.state = nextState;
-
-          // 2. Handle side effects (like updating token totals)
-          for (const effect of effects) {
-            await this.handleEffect(effect);
-          }
-
-          // 3. Emit events for TUI/Observability
-          this.emit('agent_event', { issueId: issue.id, event });
-          this.emit('state_change', this.getSnapshot());
-
-          // 4. Pause if we need to before starting a new turn
+          await this.processAgentEvent(issue, event);
           if (event.type === 'turn_start') {
-            while (true) {
-              const waitTime = computeRateLimitDelay(this.state, this.state);
-              if (waitTime > 0) {
-                this.logger.info(
-                  `Rate limit throttling active, pausing ${issue.identifier} for ${waitTime}ms`
-                );
-                await new Promise((r) => setTimeout(r, waitTime));
-              } else {
-                break;
-              }
-            }
+            await this.awaitRateLimitClearance(issue.identifier);
           }
         }
         this.logger.info(`Session generator finished for ${issue.identifier}`);
-        // When finished, emit success to state machine
         await this.emitWorkerExit(issue.id, 'normal', attempt);
       } catch (error) {
         this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });

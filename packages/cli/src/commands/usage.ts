@@ -82,6 +82,54 @@ function formatModels(models: string[]): string {
   return `${models[0] ?? 'unknown'} and ${models.length - 1} other${models.length - 1 > 1 ? 's' : ''}`;
 }
 
+type DayRecord = Awaited<
+  ReturnType<typeof import('@harness-engineering/core').aggregateByDay>
+>[number];
+
+function enrichDayForJson(day: DayRecord, pricingData: PricingDataset | null) {
+  const hitRate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+  const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
+  return {
+    ...day,
+    ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+    ...(savings != null ? { cacheSavingsMicroUSD: savings } : {}),
+  };
+}
+
+function formatDayCacheColumns(day: DayRecord, pricingData: PricingDataset | null): string {
+  const rate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+  const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
+  const rateStr = rate != null ? formatPercent(rate).padStart(5) : '    -';
+  const savingsStr = savings != null ? formatMicroUSD(savings).padStart(7) : '    N/A';
+  return ' | ' + rateStr + ' | ' + savingsStr;
+}
+
+function printDailyTable(limited: DayRecord[], pricingData: PricingDataset | null): void {
+  const hasCacheData = limited.some((d) => d.cacheReadTokens != null && d.cacheReadTokens > 0);
+
+  const cacheHeader = hasCacheData ? ' | Cache  | Saved  ' : '';
+  const cacheDivider = hasCacheData ? ' | ------ | -------' : '';
+  const header =
+    'Date         | Sessions | Input     | Output    | Model(s)                     | Cost  ' +
+    cacheHeader;
+  const divider =
+    '-------------|----------|-----------|-----------|------------------------------|-------' +
+    cacheDivider;
+  logger.info(header);
+  logger.info(divider);
+
+  for (const day of limited) {
+    const date = day.date.padEnd(12);
+    const sessions = String(day.sessionCount).padStart(8);
+    const input = formatTokenCount(day.tokens.inputTokens).padStart(9);
+    const output = formatTokenCount(day.tokens.outputTokens).padStart(9);
+    const models = formatModels(day.models).padEnd(28);
+    const cost = formatMicroUSD(day.costMicroUSD);
+    const cacheCol = hasCacheData ? formatDayCacheColumns(day, pricingData) : '';
+    logger.info(`${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`);
+  }
+}
+
 function registerDailyCommand(usage: Command): void {
   usage
     .command('daily')
@@ -97,66 +145,26 @@ function registerDailyCommand(usage: Command): void {
         globalOpts.includeClaudeSessions
       );
       if (records.length === 0) {
-        if (globalOpts.json) {
-          console.log(JSON.stringify([]));
-        } else {
-          logger.info('No usage data found. Run some harness sessions first.');
-        }
+        if (globalOpts.json) console.log(JSON.stringify([]));
+        else logger.info('No usage data found. Run some harness sessions first.');
         return;
       }
 
       const { aggregateByDay } = await import('@harness-engineering/core');
-      const dailyData = aggregateByDay(records);
-      const limited = dailyData.slice(0, days);
+      const limited = aggregateByDay(records).slice(0, days);
 
       if (globalOpts.json) {
-        const enriched = limited.map((day) => {
-          const hitRate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
-          const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
-          return {
-            ...day,
-            ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
-            ...(savings != null ? { cacheSavingsMicroUSD: savings } : {}),
-          };
-        });
-        console.log(JSON.stringify(enriched, null, 2));
+        console.log(
+          JSON.stringify(
+            limited.map((d) => enrichDayForJson(d, pricingData)),
+            null,
+            2
+          )
+        );
         return;
       }
 
-      const hasCacheData = limited.some((d) => d.cacheReadTokens != null && d.cacheReadTokens > 0);
-
-      // Table header
-      const cacheHeader = hasCacheData ? ' | Cache  | Saved  ' : '';
-      const cacheDivider = hasCacheData ? ' | ------ | -------' : '';
-      const header =
-        'Date         | Sessions | Input     | Output    | Model(s)                     | Cost  ' +
-        cacheHeader;
-      const divider =
-        '-------------|----------|-----------|-----------|------------------------------|-------' +
-        cacheDivider;
-      logger.info(header);
-      logger.info(divider);
-
-      for (const day of limited) {
-        const date = day.date.padEnd(12);
-        const sessions = String(day.sessionCount).padStart(8);
-        const input = formatTokenCount(day.tokens.inputTokens).padStart(9);
-        const output = formatTokenCount(day.tokens.outputTokens).padStart(9);
-        const models = formatModels(day.models).padEnd(28);
-        const cost = formatMicroUSD(day.costMicroUSD);
-        const cacheCol = hasCacheData
-          ? (() => {
-              const rate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
-              const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
-              const rateStr = rate != null ? formatPercent(rate).padStart(5) : '    -';
-              const savingsStr = savings != null ? formatMicroUSD(savings).padStart(7) : '    N/A';
-              return ' | ' + rateStr + ' | ' + savingsStr;
-            })()
-          : '';
-        logger.info(
-          `${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`
-        );
-      }
+      printDailyTable(limited, pricingData);
     });
 }
 

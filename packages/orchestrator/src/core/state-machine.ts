@@ -58,13 +58,17 @@ export function resolveEscalationConfig(config: WorkflowConfig): EscalationConfi
   const partial = config.agent.escalation;
   if (!partial) return { ...ESCALATION_DEFAULTS };
   return {
-    alwaysHuman: partial.alwaysHuman ?? ESCALATION_DEFAULTS.alwaysHuman,
-    autoExecute: partial.autoExecute ?? ESCALATION_DEFAULTS.autoExecute,
-    primaryExecute: partial.primaryExecute ?? ESCALATION_DEFAULTS.primaryExecute,
-    signalGated: partial.signalGated ?? ESCALATION_DEFAULTS.signalGated,
-    diagnosticRetryBudget:
-      partial.diagnosticRetryBudget ?? ESCALATION_DEFAULTS.diagnosticRetryBudget,
+    ...ESCALATION_DEFAULTS,
+    ...stripUndefinedFields(partial),
   };
+}
+
+function stripUndefinedFields<T extends Record<string, unknown>>(obj: Partial<T>): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) result[key] = val;
+  }
+  return result as Partial<T>;
 }
 
 /** Optional fields carried on an escalation effect. */
@@ -98,9 +102,27 @@ function buildEscalateEffect(
   return effect;
 }
 
-/**
- * Resolve the identifier for a running entry, falling back to the issueId.
- */
+function claimAndDispatch(
+  next: OrchestratorState,
+  issue: Issue,
+  backend: 'local' | 'primary',
+  nowMs: number,
+  effects: SideEffect[]
+): void {
+  next.claimed.add(issue.id);
+  next.running.set(issue.id, {
+    issueId: issue.id,
+    identifier: issue.identifier,
+    issue,
+    attempt: null,
+    workspacePath: '',
+    startedAt: new Date(nowMs).toISOString(),
+    phase: 'PreparingWorkspace',
+    session: null,
+  });
+  effects.push({ type: 'claim', issue, backend, attempt: null });
+}
+
 function entryIdentifier(entry: { identifier: string } | undefined, issueId: string): string {
   return entry?.identifier ?? issueId;
 }
@@ -340,25 +362,7 @@ function handleTick(
     }
 
     const backend = resolveBackend(decision.action, !!config.agent.localBackend);
-
-    next.claimed.add(issue.id);
-    // Add a placeholder RunningEntry so canDispatch sees the correct count
-    next.running.set(issue.id, {
-      issueId: issue.id,
-      identifier: issue.identifier,
-      issue,
-      attempt: null,
-      workspacePath: '',
-      startedAt: new Date(nowMs).toISOString(),
-      phase: 'PreparingWorkspace',
-      session: null,
-    });
-    effects.push({
-      type: 'claim',
-      issue,
-      backend,
-      attempt: null,
-    });
+    claimAndDispatch(next, issue, backend, nowMs, effects);
   }
 
   pruneCompleted(next);

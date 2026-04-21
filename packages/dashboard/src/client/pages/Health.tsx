@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
+import { useChatPanel } from '../hooks/useChatPanel';
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
@@ -49,9 +50,13 @@ function CollapsibleSection({
 
 function FixButton({ command }: { command: string }) {
   const [, setSearchParams] = useSearchParams();
+  const { open: openChat } = useChatPanel();
   return (
     <button
-      onClick={() => setSearchParams({ command })}
+      onClick={() => {
+        setSearchParams({ command });
+        openChat();
+      }}
       className="rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all"
     >
       Fix It
@@ -355,19 +360,13 @@ function resolveHealthData(data: OverviewData | null): {
   return { health, healthData };
 }
 
-function resolveChecksData(checksData: ChecksData | null): {
-  security: ChecksData['security'] | null;
-  perf: ChecksData['perf'] | null;
-  arch: ChecksData['arch'] | null;
-} {
+function resolveChecksData(checksData: ChecksData | null) {
   return {
-    security: checksData ? checksData.security : null,
-    perf: checksData ? checksData.perf : null,
-    arch: checksData ? checksData.arch : null,
+    security: checksData?.security ?? null,
+    perf: checksData?.perf ?? null,
+    arch: checksData?.arch ?? null,
   };
 }
-
-// --- CI section ---
 
 const CHECK_NAMES = [
   'validate',
