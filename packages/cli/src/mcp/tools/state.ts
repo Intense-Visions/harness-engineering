@@ -2,6 +2,7 @@ import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { autoSyncRoadmap } from './roadmap-auto-sync.js';
+import { emitSkillEvent } from './event-emitter.js';
 
 // ── manage_state ──────────────────────────────────────────────────────
 
@@ -133,6 +134,14 @@ async function handleFailure(projectPath: string, input: StateInput) {
     input.session
   );
   if (!result.ok) return resultToMcpResponse(result);
+
+  await emitSkillEvent(projectPath, {
+    skill: input.skillName ?? 'unknown',
+    type: 'error',
+    summary: input.description,
+    data: { failureType: input.failureType },
+  });
+
   return resultToMcpResponse(Ok({ recorded: true }));
 }
 
@@ -150,9 +159,26 @@ async function handleReset(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ reset: true }));
 }
 
-async function handleGate(projectPath: string, _input: StateInput) {
+async function handleGate(projectPath: string, input: StateInput) {
   const { runMechanicalGate } = await import('@harness-engineering/core');
-  return resultToMcpResponse(await runMechanicalGate(projectPath));
+  const result = await runMechanicalGate(projectPath);
+
+  if (result.ok) {
+    await emitSkillEvent(projectPath, {
+      skill: input.skillName ?? 'unknown',
+      type: 'gate_result',
+      summary: result.value.passed ? 'gate passed' : 'gate failed',
+      data: {
+        passed: result.value.passed,
+        checks: result.value.checks?.map((c: { name: string; passed: boolean }) => ({
+          name: c.name,
+          passed: c.passed,
+        })),
+      },
+    });
+  }
+
+  return resultToMcpResponse(result);
 }
 
 async function handleSaveHandoff(projectPath: string, input: StateInput) {
@@ -165,6 +191,17 @@ async function handleSaveHandoff(projectPath: string, input: StateInput) {
     input.session
   );
   if (!result.ok) return resultToMcpResponse(result);
+
+  const handoffData = input.handoff as Record<string, unknown>;
+  await emitSkillEvent(projectPath, {
+    skill: input.skillName ?? (handoffData.fromSkill as string) ?? 'unknown',
+    type: 'handoff',
+    summary: (handoffData.summary as string) ?? 'session handoff',
+    data: {
+      fromSkill: handoffData.fromSkill,
+      toSkill: handoffData.toSkill,
+    },
+  });
 
   // Auto-sync roadmap after saving handoff (mechanical enforcement)
   await autoSyncRoadmap(projectPath);
@@ -270,13 +307,33 @@ async function handleTaskComplete(projectPath: string, _input: StateInput) {
   return resultToMcpResponse(Ok({ synced: true, trigger: 'task-complete' }));
 }
 
-async function handlePhaseStart(projectPath: string, _input: StateInput) {
+async function handlePhaseStart(projectPath: string, input: StateInput) {
   await autoSyncRoadmap(projectPath);
+
+  if (input.skillName) {
+    await emitSkillEvent(projectPath, {
+      skill: input.skillName,
+      type: 'phase_transition',
+      summary: `entering phase: ${input.description ?? 'unknown'}`,
+      data: { from: '', to: input.description ?? 'unknown' },
+    });
+  }
+
   return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-start' }));
 }
 
-async function handlePhaseComplete(projectPath: string, _input: StateInput) {
+async function handlePhaseComplete(projectPath: string, input: StateInput) {
   await autoSyncRoadmap(projectPath);
+
+  if (input.skillName) {
+    await emitSkillEvent(projectPath, {
+      skill: input.skillName,
+      type: 'phase_transition',
+      summary: `completed phase: ${input.description ?? 'unknown'}`,
+      data: { from: input.description ?? 'unknown', to: '' },
+    });
+  }
+
   return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-complete' }));
 }
 

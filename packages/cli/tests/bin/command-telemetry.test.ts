@@ -249,5 +249,52 @@ describe('command-telemetry', () => {
 
       expect(hookSpy).toHaveBeenCalledWith('preAction', expect.any(Function));
     });
+
+    it('preAction resolves actionCommand name, not thisCommand', async () => {
+      const projectDir = path.join(TEST_ROOT, 'preaction-resolve');
+      fs.mkdirSync(projectDir, { recursive: true });
+      fs.writeFileSync(path.join(projectDir, 'harness.config.json'), '{}');
+
+      const program = new Command('harness');
+      program.command('validate').action(() => {});
+      program.exitOverride(); // prevent process.exit in tests
+
+      installCommandTelemetry(program, projectDir);
+
+      await program.parseAsync(['node', 'harness', 'validate']);
+
+      // Simulate process exit — call writeCommandRecordSync directly
+      // (process.on('exit') can't be triggered directly in tests)
+      _writeCommandRecordSync(projectDir, 'cli/validate', 100, 'completed');
+
+      const adoptionFile = path.join(projectDir, '.harness', 'metrics', 'adoption.jsonl');
+      expect(fs.existsSync(adoptionFile)).toBe(true);
+
+      const record = JSON.parse(fs.readFileSync(adoptionFile, 'utf-8').trim());
+      // The bug was: preAction used thisCommand (root "harness") → resolveCommandName
+      // returned "" → no record written. Fix: use actionCommand (the subcommand).
+      expect(record.skill).toBe('cli/validate');
+    });
+
+    it('preAction resolves nested subcommand names correctly', async () => {
+      const projectDir = path.join(TEST_ROOT, 'preaction-nested');
+      fs.mkdirSync(projectDir, { recursive: true });
+      fs.writeFileSync(path.join(projectDir, 'harness.config.json'), '{}');
+
+      const program = new Command('harness');
+      const telemetry = program.command('telemetry');
+      telemetry.command('status').action(() => {});
+      program.exitOverride();
+
+      installCommandTelemetry(program, projectDir);
+
+      await program.parseAsync(['node', 'harness', 'telemetry', 'status']);
+
+      _writeCommandRecordSync(projectDir, 'cli/telemetry.status', 50, 'completed');
+
+      const adoptionFile = path.join(projectDir, '.harness', 'metrics', 'adoption.jsonl');
+      const record = JSON.parse(fs.readFileSync(adoptionFile, 'utf-8').trim());
+      expect(record.skill).toBe('cli/telemetry.status');
+    });
   });
 });

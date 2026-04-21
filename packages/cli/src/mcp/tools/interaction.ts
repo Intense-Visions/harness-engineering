@@ -14,6 +14,7 @@ import {
   renderTransition,
   renderBatch,
 } from './interaction-renderer.js';
+import { emitSkillEvent } from './event-emitter.js';
 
 export const emitInteractionDefinition = {
   name: 'emit_interaction',
@@ -284,6 +285,21 @@ async function handleTransition(
     `${transition.completedPhase} -> ${transition.suggestedNext}`,
     validInput.stream
   );
+
+  // Emit phase transition and handoff events for telemetry
+  const skillName = 'emit_interaction';
+  await emitSkillEvent(projectPath, {
+    skill: skillName,
+    type: 'phase_transition',
+    summary: `${transition.completedPhase} -> ${transition.suggestedNext}`,
+    data: { from: transition.completedPhase, to: transition.suggestedNext },
+  });
+  await emitSkillEvent(projectPath, {
+    skill: skillName,
+    type: 'handoff',
+    summary: transition.reason,
+    data: { fromSkill: skillName, toSkill: transition.suggestedNext },
+  });
 
   const metadata: Record<string, unknown> = { id, handoffWritten: true };
   if (!transition.requiresConfirmation) {

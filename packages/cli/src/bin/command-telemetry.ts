@@ -52,8 +52,11 @@ export function installCommandTelemetry(program: Command, cwd: string): void {
   flushTelemetryBackground(projectRoot);
 
   // Capture command name and start time
-  program.hook('preAction', (thisCommand) => {
-    commandName = resolveCommandName(thisCommand);
+  // Commander.js preAction passes (thisCommand, actionCommand):
+  //   thisCommand = command with the hook (root program)
+  //   actionCommand = command being executed (the actual subcommand)
+  program.hook('preAction', (_thisCommand, actionCommand) => {
+    commandName = resolveCommandName(actionCommand);
     startTime = Date.now();
   });
 

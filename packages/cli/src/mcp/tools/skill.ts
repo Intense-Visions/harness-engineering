@@ -10,6 +10,7 @@ import { isTier1Skill, suggest, formatSuggestions } from '../../skill/dispatcher
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js';
 import { resolveConfig } from '../../config/loader.js';
+import { emitSkillEvent } from './event-emitter.js';
 
 export const runSkillDefinition = {
   name: 'run_skill',
@@ -139,6 +140,16 @@ export async function handleRunSkill(input: {
     } catch {
       // Dispatcher failure must never block skill loading
     }
+  }
+
+  // Emit skill invocation event for telemetry pipeline
+  if (input.path) {
+    await emitSkillEvent(projectRoot, {
+      skill: input.skill,
+      type: 'phase_transition',
+      summary: `skill invoked: ${input.skill}`,
+      data: { from: '', to: input.phase ?? 'start' },
+    });
   }
 
   return resultToMcpResponse(Ok(content));
