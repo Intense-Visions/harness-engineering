@@ -41,6 +41,12 @@ export const NODE_TYPES = [
   'design_constraint',
   // Traceability
   'requirement',
+  // Business Knowledge
+  'business_rule',
+  'business_process',
+  'business_concept',
+  'business_term',
+  'business_metric',
   // Cache
   'packed_summary',
 ] as const;
@@ -82,6 +88,9 @@ export const EDGE_TYPES = [
   'requires',
   'verified_by',
   'tested_by',
+  // Business Knowledge relationships
+  'governs',
+  'measures',
   // Cache relationships
   'caches',
 ] as const;

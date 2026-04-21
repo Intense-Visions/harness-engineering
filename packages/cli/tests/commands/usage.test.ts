@@ -76,6 +76,25 @@ describe('harness usage', () => {
     originalCwd = process.cwd();
     fs.mkdirSync(path.dirname(costsFile), { recursive: true });
     fs.writeFileSync(costsFile, sampleData);
+    // Seed a fresh pricing cache so loadPricingData skips the network fetch entirely.
+    // This avoids flaky timeouts on CI runners where the fetch mock may not fully intercept.
+    const pricingCacheDir = path.join(tmpDir, '.harness', 'cache');
+    fs.mkdirSync(pricingCacheDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pricingCacheDir, 'pricing.json'),
+      JSON.stringify({
+        fetchedAt: new Date().toISOString(),
+        data: {
+          'claude-sonnet-4-20250514': {
+            input_cost_per_token: 0.000003,
+            output_cost_per_token: 0.000015,
+            cache_read_input_token_cost: 0.0000003,
+            cache_creation_input_token_cost: 0.00000375,
+            mode: 'chat',
+          },
+        },
+      })
+    );
     process.chdir(tmpDir);
     logOutput = [];
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {

@@ -45,6 +45,7 @@ export type { GitRunner } from './ingest/GitIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
+export { BusinessKnowledgeIngestor } from './ingest/BusinessKnowledgeIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 
 // Connectors
