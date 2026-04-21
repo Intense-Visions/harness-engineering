@@ -12,10 +12,12 @@ import { handleAnalysesRoute } from './routes/analyses';
 import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
+import { handleStreamsRoute } from './routes/streams';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
 import type { AnalysisArchive } from '../core/analysis-archive';
+import type { StreamRecorder } from '../core/stream-recorder';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 
 /**
@@ -69,6 +71,7 @@ export class OrchestratorServer {
   private dispatchAdHoc!: DispatchAdHocFn | null;
   private sessionsDir!: string;
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
+  private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
@@ -132,6 +135,13 @@ export class OrchestratorServer {
    */
   public setMaintenanceDeps(deps: MaintenanceRouteDeps): void {
     this.maintenanceDeps = deps;
+  }
+
+  /**
+   * Set the stream recorder for serving recorded session streams.
+   */
+  public setRecorder(recorder: StreamRecorder): void {
+    this.recorder = recorder;
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -217,6 +227,11 @@ export class OrchestratorServer {
 
     // Maintenance dashboard routes
     if (handleMaintenanceRoute(req, res, this.maintenanceDeps)) {
+      return true;
+    }
+
+    // Stream recording route
+    if (this.recorder && handleStreamsRoute(req, res, this.recorder)) {
       return true;
     }
 

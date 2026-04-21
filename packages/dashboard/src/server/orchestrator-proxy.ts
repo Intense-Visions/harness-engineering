@@ -26,6 +26,7 @@ const ORCHESTRATOR_PREFIXES = [
   '/api/roadmap',
   '/api/dispatch',
   '/api/sessions',
+  '/api/streams',
   '/api/analyses',
   '/api/maintenance',
 ];

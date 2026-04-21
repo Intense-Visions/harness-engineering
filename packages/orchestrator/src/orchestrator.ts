@@ -75,6 +75,8 @@ import type {
   CommandExecutor,
 } from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
+import { StreamRecorder } from './core/stream-recorder';
+import { extractHighlights, renderPRComment } from './core/highlight-extractor';
 
 const CONNECTION_ERROR_PATTERNS = [
   'Connection error',
@@ -121,6 +123,7 @@ export class Orchestrator extends EventEmitter {
   private maintenanceScheduler: MaintenanceScheduler | null = null;
   private maintenanceReporter: MaintenanceReporter | null = null;
   private orchestratorIdPromise: Promise<string>;
+  private recorder: StreamRecorder;
 
   /** Project root directory, derived from workspace root. */
   private get projectRoot(): string {
@@ -187,6 +190,11 @@ export class Orchestrator extends EventEmitter {
       ...(overrides?.execFileFn ? { execFileFn: overrides.execFileFn } : {}),
     });
 
+    this.recorder = new StreamRecorder(
+      path.resolve(config.workspace.root, '..', 'streams'),
+      this.logger
+    );
+
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
@@ -196,6 +204,8 @@ export class Orchestrator extends EventEmitter {
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
       });
+
+      this.server.setRecorder(this.recorder);
 
       // Wire interaction push -> WebSocket broadcast
       this.interactionQueue.onPush((interaction) => {
@@ -1019,6 +1029,18 @@ export class Orchestrator extends EventEmitter {
       await this.handleEffect(effect);
     }
 
+    // 7. Sweep expired stream recordings
+    // Collect open PR numbers from currently running issues (best-effort)
+    const openPrNumbers: number[] = [];
+    for (const [, runEntry] of this.state.running) {
+      const externalId = runEntry.issue.externalId;
+      if (externalId) {
+        const match = String(externalId).match(/#(\d+)$/);
+        if (match?.[1]) openPrNumbers.push(parseInt(match[1], 10));
+      }
+    }
+    this.recorder.sweepExpired(openPrNumbers);
+
     this.setTickActivity('idle');
   }
 
@@ -1421,6 +1443,15 @@ export class Orchestrator extends EventEmitter {
         });
       }
 
+      // Record session start
+      this.recorder.startRecording(
+        issue.id,
+        issue.externalId ?? null,
+        issue.identifier,
+        this.config.agent.backend,
+        attempt ?? 1
+      );
+
       const activeRunner = backend === 'local' && this.localRunner ? this.localRunner : this.runner;
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
@@ -1434,6 +1465,11 @@ export class Orchestrator extends EventEmitter {
     event: import('@harness-engineering/types').AgentEvent
   ): Promise<void> {
     this.logger.info(`Received event from ${issue.identifier}: ${event.type}`);
+
+    // Record event to JSONL stream
+    const runEntry = this.state.running.get(issue.id);
+    this.recorder.recordEvent(issue.id, runEntry?.attempt ?? 1, event);
+
     const updateEvent: OrchestratorEvent = {
       type: 'agent_update',
       issueId: issue.id,
@@ -1554,6 +1590,9 @@ export class Orchestrator extends EventEmitter {
       );
     }
 
+    // Extract highlights and post session summary to PR
+    await this.postSessionHighlights(issueId, entry);
+
     try {
       const result = await this.tracker.markIssueComplete(issueId);
       if (!result.ok) {
@@ -1570,6 +1609,66 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Extract session highlights from the recorded stream and post them as a PR comment.
+   * Also attempts to detect and link an associated PR.
+   */
+  private async postSessionHighlights(
+    issueId: string,
+    entry?: { identifier: string; issue: { externalId?: string | null } }
+  ): Promise<void> {
+    try {
+      const manifest = this.recorder.getManifest(issueId);
+      if (!manifest) return;
+
+      // Try to detect and link PR
+      if (entry) {
+        const hasPR = await this.prDetector.branchHasPullRequest(entry.identifier);
+        if (hasPR) {
+          // We don't have the PR number directly from branchHasPullRequest, so
+          // the linkage will happen when the sweep detects PR status. For now,
+          // focus on highlight extraction and comment posting.
+        }
+      }
+
+      const latestAttempt = manifest.attempts[manifest.attempts.length - 1];
+      if (!latestAttempt) return;
+
+      const streamContent = this.recorder.getStream(issueId, latestAttempt.attempt);
+      if (!streamContent) return;
+
+      const highlights = extractHighlights(streamContent);
+      this.recorder.updateHighlights(issueId, highlights);
+
+      // Post highlights comment to PR if we have an external ID
+      if (entry?.issue.externalId && highlights.length > 0) {
+        const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
+        if (!trackerConfig) return;
+
+        const token = process.env.GITHUB_TOKEN;
+        if (!token) return;
+
+        const orchestratorId = await this.orchestratorIdPromise;
+        const adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
+        const comment = renderPRComment(latestAttempt.stats, highlights, orchestratorId);
+
+        const result = await adapter.addComment(entry.issue.externalId, comment);
+        if (result.ok) {
+          this.recorder.markHighlightsPosted(issueId);
+        } else {
+          this.logger.warn(
+            `Session highlight comment failed for ${issueId}: ${result.error.message}`
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Highlight extraction/posting failed for ${issueId}`, {
+        issueId,
+        error: String(err),
+      });
+    }
+  }
+
+  /**
    * Informs the state machine that an agent worker has exited.
    */
   private async emitWorkerExit(
@@ -1579,6 +1678,15 @@ export class Orchestrator extends EventEmitter {
     error?: string
   ): Promise<void> {
     const entry = this.state.running.get(issueId);
+
+    // Finish stream recording with session stats
+    if (entry?.session) {
+      this.recorder.finishRecording(issueId, attempt ?? 1, reason, {
+        inputTokens: entry.session.inputTokens,
+        outputTokens: entry.session.outputTokens,
+        turnCount: entry.session.turnCount,
+      });
+    }
 
     await this.recordOutcomeIfPipelineEnabled(issueId, reason, attempt, error, entry);
     await this.handleCompletionSideEffects(issueId, reason, entry);

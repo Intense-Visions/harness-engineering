@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useSearchParams } from 'react-router';
 import { Attention } from '../../../src/client/pages/Attention';
 import type { PendingInteraction } from '../../../src/client/types/orchestrator';
 
@@ -174,9 +174,18 @@ describe('Attention (Needs Attention) page', () => {
       json: async () => [interaction],
     });
 
+    let testLocation: { search: string } = { search: '' };
+
+    function LocationCapture() {
+      const [params] = useSearchParams();
+      testLocation = { search: params.toString() };
+      return null;
+    }
+
     render(
       <MemoryRouter>
         <Attention />
+        <LocationCapture />
       </MemoryRouter>
     );
 
@@ -187,7 +196,7 @@ describe('Attention (Needs Attention) page', () => {
     fireEvent.click(screen.getByText('Claim'));
 
     await waitFor(() => {
-      expect(window.location.search).toContain('interactionId=int-1');
+      expect(testLocation.search).toContain('interactionId=int-1');
     });
   });
 });

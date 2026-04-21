@@ -46,6 +46,10 @@ export default defineConfig({
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         changeOrigin: true,
       },
+      '/api/streams': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
       '/api/analyses': {
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         changeOrigin: true,

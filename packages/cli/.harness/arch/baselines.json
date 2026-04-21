@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-21T14:06:54.591Z",
-  "updatedFrom": "79eca16b",
+  "updatedAt": "2026-04-21T17:08:04.620Z",
+  "updatedFrom": "123d0079",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -12,10 +12,22 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 2,
+      "value": 14,
       "violationIds": [
         "39e8004af4f9abbff2d010731dc511fa5528c38d9d7c0b6baa5d4ecfcfb030a8",
-        "482d0366444a7392a74e3971fd51c7e6e58895e42aaf96c3278cafb49815a879"
+        "b37edcfd974c52404ac1d55f71eb9a1d67fe4fc20a18cb4d3f6ed9bd4a679a1e",
+        "e68f61ff42c83a4d05b76c3decdf82e87d1342888c3a00b344e846f5a61a237a",
+        "56ed30114fc75ea53f3d6d8bcec62360207b771d92cd3ec41b8747fd68ccfbbd",
+        "d4ec740f23a61f0706b5f67aeed0ada23ea0570c711ceb92d7822f25d91e3b8f",
+        "8e2889d24cfaee4df50b26285ad668acddd7d97bfd0da240aaee8c1221a60295",
+        "3134bf55d29a64d55636e6b6b3eaf5b5edc11bbbd07f56bce0b46e4e3f6af6a1",
+        "0f5f3b45355e915c87896c1e259108826fb0d392636db20558e15f3a06605033",
+        "7bd411727604fed60bdb72ef0df2d82b5e596bf22323caba71b4a09dffccbdaa",
+        "482d0366444a7392a74e3971fd51c7e6e58895e42aaf96c3278cafb49815a879",
+        "fb8d27639f687cd5d7f994da63b09d767ab6c86dac0f6901bc18d7de95457dab",
+        "a0eb4b143eaccad7d9d37559d47f1dfad0c2655fd08363cad4ee148d89efb117",
+        "f685f2882a0af0a5ea9370005bff93b7333fece6e7d171581d4127c62c6e25f8",
+        "b966e8d3abfeee3427bfe8a948d1d83ce1e6bffe473e72edb57aab9c0bb95c69"
       ]
     },
     "coupling": {
@@ -27,7 +39,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 26880,
+      "value": 26955,
       "violationIds": []
     },
     "dependency-depth": {

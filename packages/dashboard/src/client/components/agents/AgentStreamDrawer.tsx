@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Radio, Cpu, GitBranch, Clock, Zap } from 'lucide-react';
+import { X, Radio, Cpu, Clock, Zap, History } from 'lucide-react';
 import { AssistantBlocks } from '../chat/AssistantBlocks';
+import { useStreamReplay } from '../../hooks/useStreamReplay';
 import type { ContentBlock } from '../../types/chat';
 import type { RunningAgent } from '../../types/orchestrator';
 
 interface Props {
   agent: RunningAgent | null;
+  issueId: string | null;
   blocks: ContentBlock[];
   onClose: () => void;
 }
@@ -26,16 +28,28 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
+export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { manifest, recordedBlocks, loading } = useStreamReplay(issueId);
+
+  // Merge recorded history with live blocks, avoiding duplicates at the join
+  const mergedBlocks = useMemo(() => {
+    if (recordedBlocks.length === 0) return blocks;
+    if (blocks.length === 0) return recordedBlocks;
+    // Use recorded as base, append live blocks (live events start after recording)
+    return [...recordedBlocks, ...blocks];
+  }, [recordedBlocks, blocks]);
+
+  const isLive = agent != null;
+  const attemptStats = manifest?.attempts[manifest.attempts.length - 1]?.stats;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [blocks.length]);
+  }, [mergedBlocks.length]);
 
   return (
     <AnimatePresence>
-      {agent && (
+      {(agent || issueId) && (
         <motion.div
           key="agent-stream"
           initial={{ opacity: 0 }}
@@ -60,16 +74,30 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 flex-shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                    <Radio size={18} />
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.2)] ${isLive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}
+                  >
+                    {isLive ? <Radio size={18} /> : <History size={18} />}
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-sm font-bold tracking-tight text-white truncate">
-                      {agent.issue?.title ?? agent.identifier}
+                      {agent?.issue?.title ??
+                        agent?.identifier ??
+                        manifest?.identifier ??
+                        'Session'}
                     </h2>
                     <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-neutral-muted">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Live Stream
+                      {isLive ? (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live Stream
+                        </>
+                      ) : (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                          Recorded Stream
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -95,21 +123,25 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                         <div className="flex justify-between text-xs">
                           <span className="text-gray-500">Identifier</span>
                           <span className="font-mono text-gray-300 truncate ml-3 text-right">
-                            {agent.identifier}
+                            {agent?.identifier ?? manifest?.identifier ?? '-'}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-gray-500">Phase</span>
-                          <span className="text-emerald-400 font-medium">{agent.phase}</span>
+                          <span className="text-emerald-400 font-medium">
+                            {agent?.phase ?? (attemptStats ? 'Completed' : '-')}
+                          </span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-gray-500">Backend</span>
-                          <span className="text-blue-400">{agent.session?.backendName ?? '-'}</span>
+                          <span className="text-blue-400">
+                            {agent?.session?.backendName ?? '-'}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {agent.issue?.description && (
+                    {agent?.issue?.description && (
                       <div>
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-2">
                           Description
@@ -120,7 +152,7 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                       </div>
                     )}
 
-                    {agent.session && (
+                    {(agent?.session || attemptStats) && (
                       <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 flex items-center gap-1.5">
                           <Zap size={12} />
@@ -129,7 +161,7 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                         <div className="grid grid-cols-2 gap-3">
                           <div className="text-center">
                             <span className="block text-lg font-bold text-white">
-                              {agent.session.turnCount}
+                              {agent?.session?.turnCount ?? attemptStats?.turnCount ?? 0}
                             </span>
                             <span className="text-[9px] uppercase tracking-widest text-gray-500">
                               Turns
@@ -137,7 +169,11 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                           </div>
                           <div className="text-center">
                             <span className="block text-lg font-bold text-white">
-                              {formatTokens(agent.session.totalTokens)}
+                              {formatTokens(
+                                agent?.session?.totalTokens ??
+                                  (attemptStats?.inputTokens ?? 0) +
+                                    (attemptStats?.outputTokens ?? 0)
+                              )}
                             </span>
                             <span className="text-[9px] uppercase tracking-widest text-gray-500">
                               Tokens
@@ -145,7 +181,9 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                           </div>
                           <div className="text-center">
                             <span className="block text-lg font-bold text-emerald-400">
-                              {formatTokens(agent.session.inputTokens)}
+                              {formatTokens(
+                                agent?.session?.inputTokens ?? attemptStats?.inputTokens ?? 0
+                              )}
                             </span>
                             <span className="text-[9px] uppercase tracking-widest text-gray-500">
                               Input
@@ -153,7 +191,9 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                           </div>
                           <div className="text-center">
                             <span className="block text-lg font-bold text-blue-400">
-                              {formatTokens(agent.session.outputTokens)}
+                              {formatTokens(
+                                agent?.session?.outputTokens ?? attemptStats?.outputTokens ?? 0
+                              )}
                             </span>
                             <span className="text-[9px] uppercase tracking-widest text-gray-500">
                               Output
@@ -165,14 +205,31 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
 
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <Clock size={12} />
-                      <span>Running for {formatDuration(agent.startedAt)}</span>
+                      {isLive ? (
+                        <span>Running for {formatDuration(agent!.startedAt)}</span>
+                      ) : attemptStats?.durationMs ? (
+                        <span>Duration: {Math.round(attemptStats.durationMs / 1000)}s</span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
 
                 {/* Stream body */}
                 <div className="flex-1 overflow-y-auto px-6 py-4">
-                  {blocks.length === 0 ? (
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <motion.div
+                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="mb-3 flex gap-1"
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                      </motion.div>
+                      <p className="text-xs text-gray-500">Loading recorded stream...</p>
+                    </div>
+                  ) : mergedBlocks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                       <motion.div
                         animate={{ opacity: [0.4, 1, 0.4] }}
@@ -187,7 +244,7 @@ export function AgentStreamDrawer({ agent, blocks, onClose }: Props) {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-gray-800 bg-gray-900/40 px-5 py-4">
-                      <AssistantBlocks blocks={blocks} isStreaming={true} />
+                      <AssistantBlocks blocks={mergedBlocks} isStreaming={isLive} />
                       <div ref={bottomRef} />
                     </div>
                   )}
