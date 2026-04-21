@@ -982,14 +982,15 @@ last_manual_edit: 2026-04-21T14:42:29.125Z
 
 ### Orchestrator Session Recording
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/orchestrator-session-recording/proposal.md
 - **Summary:** Record full agent event streams as JSONL, persist until PR closed, replay in dashboard, post highlights to PRs
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#231
+- **Updated-At:** 2026-04-21T17:39:54.491Z
 
 ## v3.0 Graph Intelligence
 
