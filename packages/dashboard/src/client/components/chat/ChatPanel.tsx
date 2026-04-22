@@ -284,6 +284,15 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     [input, streaming, activeSessionId, createNewSession, updateSession, sessions, interaction]
   );
 
+  useEffect(() => {
+    const handleActionSend = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      void handleSend(customEvent.detail);
+    };
+    window.addEventListener('chat-action-send', handleActionSend);
+    return () => window.removeEventListener('chat-action-send', handleActionSend);
+  }, [handleSend]);
+
   const handleExecuteSkill = useCallback(() => {
     if (!selectedSkill) return;
     const systemPrompt = generateSystemPrompt(selectedSkill, context.data);

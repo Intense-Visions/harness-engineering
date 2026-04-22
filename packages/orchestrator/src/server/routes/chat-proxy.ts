@@ -189,7 +189,7 @@ function mapContentBlock(block: any): SSEEvent | null {
   }
   if (block.type === 'tool_use' && block.name) {
     const result: SSEEvent = { type: 'tool_use', tool: block.name };
-    if (block.input) result.args = JSON.stringify(block.input).slice(0, 500);
+    if (block.input) result.args = JSON.stringify(block.input);
     return result;
   }
   return null;
@@ -216,7 +216,7 @@ function mapUserBlock(block: any): SSEEvent | null {
   if (block.type !== 'tool_result') return null;
   return {
     type: 'tool_result',
-    content: normalizeToolResultContent(block.content).slice(0, 1000),
+    content: normalizeToolResultContent(block.content).slice(0, 50000),
     isError: block.is_error ?? false,
   };
 }

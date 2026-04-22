@@ -50,7 +50,12 @@ export function renderQuestion(question: InteractionQuestion): string {
     if (opt) {
       const recLabel = `${columnLabel(recommendation.optionIndex)}) ${opt.label}`;
       prompt += `\n\n**Recommendation:** ${recLabel} (confidence: ${recommendation.confidence})`;
-      prompt += `\n> ${recommendation.reason}`;
+      
+      const cleanReason = recommendation.reason.trim();
+      const cleanText = text.trim();
+      if (cleanReason && cleanReason !== cleanText && !cleanReason.startsWith(cleanText)) {
+        prompt += `\n> ${cleanReason}`;
+      }
     }
   }
 

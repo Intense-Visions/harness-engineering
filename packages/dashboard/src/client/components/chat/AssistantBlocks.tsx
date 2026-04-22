@@ -69,7 +69,10 @@ function ToolUseBlockView({
   forceResult?: string;
   isPending?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(() => {
+    const t = block.tool.toLowerCase();
+    return t.includes('interaction') || t.includes('question') || t.includes('ask') || t.includes('human');
+  });
   const result = block.result || forceResult;
   const hasResult = result !== undefined;
 
@@ -144,6 +147,123 @@ function ToolUseBlockView({
             }`}
           >
             <Markdown remarkPlugins={[remarkGfm]}>{result}</Markdown>
+
+            {hasResult && !isPending && block.tool.toLowerCase().includes('emit_interaction') && (
+               <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-border/50 pt-3 not-prose">
+                 {(() => {
+                   try {
+                     const payload = JSON.parse(block.args || '{}');
+                     const dispatchSend = (text: string) => {
+                       window.dispatchEvent(new CustomEvent('chat-action-send', { detail: text }));
+                     };
+
+                     if (payload.type === 'question') {
+                       const els = [];
+
+                       if (payload.question?.options && payload.question.options.length > 0) {
+                         const { options, recommendation } = payload.question;
+                         if (recommendation !== undefined && options[recommendation.optionIndex]) {
+                           els.push(
+                             <button
+                               key="approve-rec"
+                               onClick={() => dispatchSend(`Approve recommendation: ${options[recommendation.optionIndex].label}`)}
+                               className="rounded bg-primary-500 px-3 py-1.5 text-xs font-bold text-white shadow hover:bg-primary-400 transition-colors"
+                             >
+                               Approve Recommendation ({String.fromCharCode(65 + recommendation.optionIndex)})
+                             </button>
+                           );
+                         }
+                         options.forEach((opt: any, i: number) => {
+                           if (recommendation?.optionIndex === i) return;
+                           const label = typeof opt === 'string' ? opt : opt.label;
+                           els.push(
+                             <button
+                               key={`opt-${i}`}
+                               onClick={() => dispatchSend(`Approve option ${String.fromCharCode(65 + i)}: ${label}`)}
+                               className="rounded bg-neutral-surface/60 border border-neutral-border hover:bg-white/5 px-3 py-1.5 text-[10px] font-medium text-neutral-text transition-colors"
+                             >
+                               Option {String.fromCharCode(65 + i)}
+                             </button>
+                           );
+                         });
+                       }
+
+                       els.push(
+                         <button
+                           key="continue-btn"
+                           onClick={() => dispatchSend('Continue')}
+                           className="rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 text-[10px] font-bold hover:bg-emerald-500/30 transition-colors"
+                         >
+                           Continue
+                         </button>
+                       );
+
+                       return els;
+                     }
+
+                     if (payload.type === 'confirmation') {
+                       return (
+                         <>
+                           <button
+                             onClick={() => dispatchSend('Yes, proceed')}
+                             className="rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+                           >
+                             Confirm & Proceed
+                           </button>
+                           <button
+                             onClick={() => dispatchSend('No, stop')}
+                             className="rounded bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-1.5 text-xs font-bold hover:bg-red-500/30 transition-colors"
+                           >
+                             Cancel
+                           </button>
+                         </>
+                       );
+                     }
+
+                     if (payload.type === 'transition' && payload.transition?.requiresConfirmation) {
+                       return (
+                         <>
+                           <button
+                             onClick={() => dispatchSend(`Yes, proceed to ${payload.transition.suggestedNext}`)}
+                             className="rounded bg-primary-500 px-4 py-1.5 text-xs font-bold text-white shadow hover:bg-primary-400 transition-colors"
+                           >
+                             Proceed to {payload.transition.suggestedNext}
+                           </button>
+                           <button
+                             onClick={() => dispatchSend('No, stay here')}
+                             className="rounded bg-neutral-surface/60 border border-neutral-border hover:bg-white/5 px-4 py-1.5 text-[10px] font-medium text-neutral-text transition-colors"
+                           >
+                             Stay in {payload.transition.completedPhase}
+                           </button>
+                         </>
+                       );
+                     }
+
+                     if (payload.type === 'batch') {
+                       return (
+                         <>
+                           <button
+                             onClick={() => dispatchSend('Approve all decisions')}
+                             className="rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+                           >
+                             Approve All
+                           </button>
+                           <button
+                             onClick={() => dispatchSend('Reject batch')}
+                             className="rounded bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-1.5 text-xs font-bold hover:bg-red-500/30 transition-colors"
+                           >
+                             Reject
+                           </button>
+                         </>
+                       );
+                     }
+                   } catch {
+                     // Parse failed, UI untouched
+                   }
+                   return null;
+                 })()}
+               </div>
+            )}
           </div>
         </motion.div>
       )}
@@ -397,9 +517,31 @@ function TextBlockView({ block }: { block: TextBlock }) {
   if (isLogOutput(block.text)) {
     return <LogOutputView text={block.text} />;
   }
+
+  const packedMatches = [...block.text.matchAll(/<?!--\s*packed:\s*(.*?)\s*-->?/g)];
+  const cleanText = block.text.replace(/<?!--\s*packed:\s*(.*?)\s*-->?/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
   return (
-    <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30 whitespace-pre-wrap">
-      <Markdown
+    <div className="flex flex-col gap-2 relative">
+      {packedMatches.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {packedMatches.map((m, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-full bg-secondary-500/10 px-2.5 py-0.5 text-[10px] font-medium text-secondary-300 border border-secondary-500/20"
+              title="Graph context packing applied"
+            >
+              <svg className="w-3 h-3 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              <span>Packed: {m[1]}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {cleanText.length > 0 && (
+        <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30">
+          <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
           code(props) {
@@ -451,8 +593,10 @@ function TextBlockView({ block }: { block: TextBlock }) {
           },
         }}
       >
-        {block.text}
+        {cleanText}
       </Markdown>
+        </div>
+      )}
     </div>
   );
 }
@@ -682,7 +826,12 @@ export function AssistantBlocks({
       const isAgent =
         block.tool.toLowerCase() === 'agent' || block.tool.toLowerCase() === 'subagent';
       const isSkill = block.tool.toLowerCase() === 'skill';
-      if (isTodoWrite || isAgent || isSkill) {
+      const isInteraction =
+        block.tool.toLowerCase().includes('interaction') ||
+        block.tool.toLowerCase().includes('question') ||
+        block.tool.toLowerCase().includes('ask') ||
+        block.tool.toLowerCase().includes('human');
+      if (isTodoWrite || isAgent || isSkill || isInteraction) {
         isActivity = false;
       }
     } else if (block.kind === 'thinking' || block.kind === 'status') {
@@ -723,6 +872,21 @@ export function AssistantBlocks({
         elements.push(
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <AgentBlockView block={block as ToolUseBlock} />
+          </motion.div>
+        );
+      } else if (
+        block.kind === 'tool_use' &&
+        (block.tool.toLowerCase().includes('interaction') ||
+          block.tool.toLowerCase().includes('question') ||
+          block.tool.toLowerCase().includes('ask') ||
+          block.tool.toLowerCase().includes('human'))
+      ) {
+        elements.push(
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <ToolUseBlockView
+              block={block as ToolUseBlock}
+              isPending={isStreaming && i === blocks.length - 1}
+            />
           </motion.div>
         );
       } else {
