@@ -121,5 +121,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .harness/arch/baselines.json packages/cli/.harness/arch/baselines.json coverage-baselines.json benchmark-baselines.json
-          git diff --cached --quiet || git commit -m "chore: refresh baselines after merge [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "No baseline changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: refresh baselines after merge [skip ci]"
+          # Try direct push first; fall back to PR if branch protection blocks it
+          if ! git push 2>&1; then
+            echo "Direct push blocked by branch protection. Creating PR instead."
+            BRANCH="chore/refresh-baselines-$(date +%s)"
+            git checkout -b "$BRANCH"
+            git push -u origin "$BRANCH"
+            gh pr create \
+              --title "chore: refresh baselines after merge" \
+              --body "Auto-generated baseline refresh. This PR was created because direct pushes to main are blocked by branch protection rules." \
+              --base main \
+              --head "$BRANCH"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
