@@ -180,7 +180,23 @@ export class BusinessKnowledgeIngestor {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
+      if (
+        entry.isDirectory() &&
+        entry.name !== 'node_modules' &&
+        entry.name !== 'dist' &&
+        entry.name !== 'target' &&
+        entry.name !== 'build' &&
+        entry.name !== '.git' &&
+        entry.name !== '.gradle' &&
+        entry.name !== '.harness' &&
+        entry.name !== 'vendor' &&
+        entry.name !== 'bin' &&
+        entry.name !== 'obj' &&
+        entry.name !== 'venv' &&
+        entry.name !== '_build' &&
+        entry.name !== 'deps' &&
+        entry.name !== 'coverage'
+      ) {
         results.push(...(await this.findMarkdownFiles(fullPath)));
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         results.push(fullPath);

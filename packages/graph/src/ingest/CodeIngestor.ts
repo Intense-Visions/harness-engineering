@@ -84,7 +84,17 @@ function countBraces(line: string): number {
 /**
  * Supported source file extensions for multi-language ingestion.
  */
-const SUPPORTED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java']);
+const SUPPORTED_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.py',
+  '.go',
+  '.rs',
+  '.java',
+  '.groovy',
+]);
 
 const SKIP_EXTENSIONS = new Set(['.d.ts']);
 
@@ -111,11 +121,10 @@ export class CodeIngestor {
 
     // Track callable names → defining files for the calls-edge pass
     const nameToFiles = new Map<string, Set<string>>();
-    const fileContents: Map<string, string> = new Map();
 
     for (const filePath of files) {
       try {
-        const result = await this.processFile(filePath, rootDir, nameToFiles, fileContents);
+        const result = await this.processFile(filePath, rootDir, nameToFiles);
         nodesAdded += result.nodesAdded;
         edgesAdded += result.edgesAdded;
       } catch (err) {
@@ -124,17 +133,29 @@ export class CodeIngestor {
     }
 
     // Second pass: extract calls edges
-    const callsEdges = this.extractCallsEdges(nameToFiles, fileContents);
-    for (const edge of callsEdges) {
-      this.store.addEdge(edge);
-      edgesAdded++;
+    for (const filePath of files) {
+      try {
+        const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+        const content = await fs.readFile(filePath, 'utf-8');
+        const callsEdges = this.extractCallsEdgesForFile(relativePath, content, nameToFiles);
+        for (const edge of callsEdges) {
+          this.store.addEdge(edge);
+          edgesAdded++;
+        }
+      } catch {
+        // Skip errors in second pass
+      }
     }
 
     // Third pass: extract @req annotations and create verified_by edges
-    edgesAdded += this.extractReqAnnotations(fileContents, rootDir);
-
-    // Release source file contents to free memory before graph serialization
-    fileContents.clear();
+    for (const filePath of files) {
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        edgesAdded += this.extractReqAnnotationsForFile(filePath, content, rootDir);
+      } catch {
+        // Skip errors in third pass
+      }
+    }
 
     return {
       nodesAdded,
@@ -149,8 +170,7 @@ export class CodeIngestor {
   private async processFile(
     filePath: string,
     rootDir: string,
-    nameToFiles: Map<string, Set<string>>,
-    fileContents: Map<string, string>
+    nameToFiles: Map<string, Set<string>>
   ): Promise<{ nodesAdded: number; edgesAdded: number }> {
     let nodesAdded = 0;
     let edgesAdded = 0;
@@ -159,8 +179,6 @@ export class CodeIngestor {
     const content = await fs.readFile(filePath, 'utf-8');
     const stat = await fs.stat(filePath);
     const fileId = `file:${relativePath}`;
-
-    fileContents.set(relativePath, content);
 
     // Add file node
     const fileNode: GraphNode = {
@@ -213,7 +231,32 @@ export class CodeIngestor {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== 'dist') {
+      if (
+        entry.isDirectory() &&
+        entry.name !== 'node_modules' &&
+        entry.name !== 'dist' &&
+        entry.name !== 'target' &&
+        entry.name !== 'build' &&
+        entry.name !== '.git' &&
+        entry.name !== '__pycache__' &&
+        entry.name !== '.venv' &&
+        entry.name !== '.turbo' &&
+        entry.name !== '.harness' &&
+        entry.name !== '.next' &&
+        entry.name !== '.vscode' &&
+        entry.name !== '.idea' &&
+        entry.name !== 'vendor' &&
+        entry.name !== 'out' &&
+        entry.name !== '.gradle' &&
+        entry.name !== '.gradle-home' &&
+        entry.name !== 'bin' &&
+        entry.name !== 'obj' &&
+        entry.name !== 'venv' &&
+        entry.name !== '_build' &&
+        entry.name !== 'deps' &&
+        entry.name !== 'coverage' &&
+        entry.name !== '.nyc_output'
+      ) {
         results.push(...(await this.findSourceFiles(fullPath)));
       } else if (entry.isFile() && isSupportedSourceFile(entry.name)) {
         results.push(fullPath);
@@ -589,39 +632,38 @@ export class CodeIngestor {
   }
 
   /**
-   * Second pass: scan each file for identifiers matching known callable names,
+   * Scan a file for identifiers matching known callable names,
    * then create file-to-file "calls" edges. Uses regex heuristic (not AST).
    */
-  private extractCallsEdges(
-    nameToFiles: ReadonlyMap<string, ReadonlySet<string>>,
-    fileContents: Map<string, string>
+  private extractCallsEdgesForFile(
+    relativePath: string,
+    content: string,
+    nameToFiles: ReadonlyMap<string, ReadonlySet<string>>
   ): GraphEdge[] {
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
 
-    for (const [filePath, content] of fileContents) {
-      const callerFileId = `file:${filePath}`;
-      const callPattern = /\b([a-zA-Z_$][\w$]*)\s*\(/g;
-      let match: RegExpExecArray | null;
+    const callerFileId = `file:${relativePath}`;
+    const callPattern = /\b([a-zA-Z_$][\w$]*)\s*\(/g;
+    let match: RegExpExecArray | null;
 
-      while ((match = callPattern.exec(content)) !== null) {
-        const name = match[1]!;
-        const targetFiles = nameToFiles.get(name);
-        if (!targetFiles) continue;
+    while ((match = callPattern.exec(content)) !== null) {
+      const name = match[1]!;
+      const targetFiles = nameToFiles.get(name);
+      if (!targetFiles) continue;
 
-        for (const targetFile of targetFiles) {
-          if (targetFile === filePath) continue;
-          const targetFileId = `file:${targetFile}`;
-          const key = `${callerFileId}|${targetFileId}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          edges.push({
-            from: callerFileId,
-            to: targetFileId,
-            type: 'calls',
-            metadata: { confidence: 'regex' },
-          });
-        }
+      for (const targetFile of targetFiles) {
+        if (targetFile === relativePath) continue;
+        const targetFileId = `file:${targetFile}`;
+        const key = `${callerFileId}|${targetFileId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        edges.push({
+          from: callerFileId,
+          to: targetFileId,
+          type: 'calls',
+          metadata: { confidence: 'regex' },
+        });
       }
     }
 
@@ -804,6 +846,7 @@ export class CodeIngestor {
     if (/\.go$/.test(filePath)) return 'go';
     if (/\.rs$/.test(filePath)) return 'rust';
     if (/\.java$/.test(filePath)) return 'java';
+    if (/\.groovy$/.test(filePath)) return 'java'; // Use java patterns for groovy
     return 'unknown';
   }
 
@@ -812,49 +855,47 @@ export class CodeIngestor {
    * linking requirement nodes to the annotated files.
    * Format: // @req <feature-name>#<index>
    */
-  private extractReqAnnotations(fileContents: Map<string, string>, rootDir: string): number {
+  private extractReqAnnotationsForFile(filePath: string, content: string, rootDir: string): number {
     // Matches // @req, # @req (Python), and /* @req */ style comments
     const REQ_TAG = /(?:\/\/|#|\/\*)\s*@req\s+([\w-]+)#(\d+)/g;
     const reqNodes = this.store.findNodes({ type: 'requirement' });
     let edgesAdded = 0;
 
-    for (const [filePath, content] of fileContents) {
-      let match: RegExpExecArray | null;
-      REQ_TAG.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    REQ_TAG.lastIndex = 0;
 
-      while ((match = REQ_TAG.exec(content)) !== null) {
-        const featureName = match[1]!;
-        const reqIndex = parseInt(match[2]!, 10);
+    while ((match = REQ_TAG.exec(content)) !== null) {
+      const featureName = match[1]!;
+      const reqIndex = parseInt(match[2]!, 10);
 
-        // Find the matching requirement node by featureName and index
-        const reqNode = reqNodes.find(
-          (n) => n.metadata.featureName === featureName && n.metadata.index === reqIndex
+      // Find the matching requirement node by featureName and index
+      const reqNode = reqNodes.find(
+        (n) => n.metadata.featureName === featureName && n.metadata.index === reqIndex
+      );
+
+      if (!reqNode) {
+        console.warn(
+          `@req annotation references non-existent requirement: ${featureName}#${reqIndex} in ${filePath}`
         );
-
-        if (!reqNode) {
-          console.warn(
-            `@req annotation references non-existent requirement: ${featureName}#${reqIndex} in ${filePath}`
-          );
-          continue;
-        }
-
-        // Create the file node ID matching the convention used by processFile
-        const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
-        const fileNodeId = `file:${relPath}`;
-
-        this.store.addEdge({
-          from: reqNode.id,
-          to: fileNodeId,
-          type: 'verified_by',
-          confidence: 1.0,
-          metadata: {
-            method: 'annotation',
-            tag: `@req ${featureName}#${reqIndex}`,
-            confidence: 1.0,
-          },
-        });
-        edgesAdded++;
+        continue;
       }
+
+      // Create the file node ID matching the convention used by processFile
+      const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+      const fileNodeId = `file:${relPath}`;
+
+      this.store.addEdge({
+        from: reqNode.id,
+        to: fileNodeId,
+        type: 'verified_by',
+        confidence: 1.0,
+        metadata: {
+          method: 'annotation',
+          tag: `@req ${featureName}#${reqIndex}`,
+          confidence: 1.0,
+        },
+      });
+      edgesAdded++;
     }
 
     return edgesAdded;

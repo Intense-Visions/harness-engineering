@@ -175,7 +175,10 @@
       "**/packages/*/coverage/**",
       "**/security/rules/**",
       "**/.vitepress/cache/**",
-      "**/.claude/worktrees/**"
+      "**/.claude/worktrees/**",
+      "**/.gradle/**",
+      "**/.gradle-home/**",
+      "**/bin/**"
     ]
   },
   "entropy": {
@@ -184,7 +187,10 @@
       "**/dist/**",
       "**/*.test.ts",
       "**/tests/fixtures/**",
-      "**/coverage/**"
+      "**/coverage/**",
+      "**/.gradle/**",
+      "**/.gradle-home/**",
+      "**/bin/**"
     ],
     "entryPoints": [
       "packages/types/src/index.ts",
