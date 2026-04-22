@@ -139,7 +139,7 @@ function ToolUseBlockView({
           className="border-t border-neutral-border/50 bg-neutral-bg/50 relative z-20 px-3 py-2"
         >
           <div
-            className={`max-h-[60vh] overflow-auto prose prose-invert prose-xs selection:bg-secondary-400/20 ${
+            className={`max-h-[60vh] overflow-auto prose prose-invert prose-xs selection:bg-secondary-400/20 whitespace-pre-wrap ${
               block.isError ? 'text-red-400' : ''
             }`}
           >
@@ -227,7 +227,7 @@ function AgentBlockView({ block }: { block: ToolUseBlock }) {
         )}
         {block.result && (
           <div
-            className={`mt-2 pt-2 border-t ${borderDescClasses} text-xs text-neutral-muted prose prose-invert prose-xs max-h-[40vh] overflow-auto`}
+            className={`mt-2 pt-2 border-t ${borderDescClasses} text-xs text-neutral-muted prose prose-invert prose-xs max-h-[40vh] overflow-auto whitespace-pre-wrap`}
           >
             <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
           </div>
@@ -323,7 +323,7 @@ function TodoBlockView({ block }: { block: ToolUseBlock }) {
           );
         })}
         {block.result && (
-          <div className="mt-2 pt-2 border-t border-primary-500/10 text-xs text-neutral-muted">
+          <div className="mt-2 pt-2 border-t border-primary-500/10 text-xs text-neutral-muted prose prose-invert prose-xs whitespace-pre-wrap">
             <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
           </div>
         )}
@@ -398,7 +398,7 @@ function TextBlockView({ block }: { block: TextBlock }) {
     return <LogOutputView text={block.text} />;
   }
   return (
-    <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30">
+    <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30 whitespace-pre-wrap">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
