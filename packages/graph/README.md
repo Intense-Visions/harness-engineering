@@ -169,17 +169,8 @@ await loadGraph(restored, '/path/to/graph.json');
 
 | Package     | Purpose                                                   |
 | ----------- | --------------------------------------------------------- |
-| `lokijs`    | In-memory document database backing the graph store       |
 | `minimatch` | Glob pattern matching for file filtering during ingestion |
 | `zod`       | Runtime schema validation for graph nodes and edges       |
-
-Optional peer dependencies:
-
-| Package                  | Purpose                                                       |
-| ------------------------ | ------------------------------------------------------------- |
-| `hnswlib-node`           | HNSW vector index for semantic search in VectorStore          |
-| `tree-sitter`            | AST-based code parsing (future upgrade path for CodeIngestor) |
-| `tree-sitter-typescript` | TypeScript grammar for tree-sitter                            |
 
 ## License
 

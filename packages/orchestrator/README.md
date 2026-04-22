@@ -40,21 +40,17 @@ Orchestrator daemon for dispatching coding agents to issues. Polls an issue trac
 ## Quick Start
 
 ```ts
-import {
-  Orchestrator,
-  loadWorkflowConfig,
-  WorkspaceManager,
-  WorkspaceHooks,
-  ClaudeBackend,
-  PromptRenderer,
-  RoadmapTrackerAdapter,
-} from '@harness-engineering/orchestrator';
+import { Orchestrator, WorkflowLoader } from '@harness-engineering/orchestrator';
 
-// Load workflow configuration
-const config = loadWorkflowConfig('./workflow.yaml');
+// Load workflow definition (config + prompt template) from a harness.orchestrator.md file
+const loader = new WorkflowLoader();
+const result = await loader.loadWorkflow('./harness.orchestrator.md');
+if (!result.ok) throw result.error;
+
+const { config, promptTemplate } = result.value;
 
 // Create and start the orchestrator
-const orchestrator = new Orchestrator(config);
+const orchestrator = new Orchestrator(config, promptTemplate);
 await orchestrator.start();
 ```
 
@@ -66,8 +62,9 @@ The orchestrator uses an event-sourced architecture. All state transitions are m
 
 ```ts
 import { applyEvent, createEmptyState } from '@harness-engineering/orchestrator';
+import type { WorkflowConfig } from '@harness-engineering/types';
 
-const state = createEmptyState();
+const state = createEmptyState(config); // config: WorkflowConfig
 const { state: next, effects } = applyEvent(state, event);
 // effects: DispatchEffect, StopEffect, ScheduleRetryEffect, etc.
 ```

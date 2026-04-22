@@ -20,7 +20,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ['**/*.ts', '**/*.mts'],
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -60,13 +60,13 @@ export default [
     },
   },
   {
-    files: ['**/tests/**/*.ts', '**/*.test.ts'],
+    files: ['**/tests/**/*.ts', '**/tests/**/*.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
     },
   },
   {
-    files: ['packages/*/src/**/*.ts'],
+    files: ['packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
@@ -82,7 +82,7 @@ export default [
     },
   },
   {
-    files: ['packages/*/src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
+    files: ['packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx', 'tests/**/*.ts', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
     plugins: {
       '@harness-engineering': harnessPlugin,
     },
