@@ -55,7 +55,7 @@ function formatToolArgs(tool: string, args?: string) {
       return p.split('/').slice(-2).join('/');
     }
     return JSON.stringify(parsed).slice(0, 100);
-  } catch (e) {
+  } catch {
     return args.slice(0, 100);
   }
 }
@@ -86,7 +86,7 @@ function ToolUseBlockView({
     }
   }
 
-  const hasExpandedContent = hasResult || todos !== null;
+  const _hasExpandedContent = hasResult || todos !== null;
 
   return (
     <div className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm transition-all duration-200">
@@ -152,7 +152,7 @@ function ToolUseBlockView({
 }
 
 function AgentBlockView({ block }: { block: ToolUseBlock }) {
-  let parsedArgs: any = {};
+  let parsedArgs: Record<string, string | undefined> = {};
   if (block.args) {
     try {
       parsedArgs = JSON.parse(block.args);
@@ -418,8 +418,15 @@ function TextBlockView({ block }: { block: TextBlock }) {
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '');
+          code(props) {
+            const {
+              node: _node,
+              className,
+              children,
+              ...rest
+            } = props as React.HTMLAttributes<HTMLElement> & { node?: unknown };
+            const inline = !(className && /language-(\w+)/.test(className));
+            const match = /language-(\w+)/.exec(className ?? '');
             return !inline && match ? (
               <div className="relative group my-4">
                 <div className="absolute -inset-2 bg-gradient-to-r from-primary-500/10 to-secondary-400/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -434,20 +441,25 @@ function TextBlockView({ block }: { block: TextBlock }) {
                     </div>
                   </div>
                   <SyntaxHighlighter
-                    {...props}
+                    {...rest}
                     style={vscDarkPlus}
                     language={match[1]}
                     PreTag="div"
                     className="!bg-neutral-surface/40 !m-0 !p-4 !text-[11px] font-mono leading-relaxed"
                   >
-                    {String(children).replace(/\n$/, '')}
+                    {(Array.isArray(children)
+                      ? children.join('')
+                      : typeof children === 'string'
+                        ? children
+                        : ''
+                    ).replace(/\n$/, '')}
                   </SyntaxHighlighter>
                 </div>
               </div>
             ) : (
               <code
                 className={`${className} bg-neutral-surface/60 px-1.5 py-0.5 rounded text-secondary-400 font-mono text-[11px] border border-neutral-border`}
-                {...props}
+                {...rest}
               >
                 {children}
               </code>
@@ -472,7 +484,7 @@ function ActivityGroup({
   isStreaming: boolean;
   isLastGroup: boolean;
 }) {
-  const toolCount = blocks.filter((b) => b.kind === 'tool_use').length;
+  const _toolCount = blocks.filter((b) => b.kind === 'tool_use').length;
 
   if (blocks.length === 0) return null;
 

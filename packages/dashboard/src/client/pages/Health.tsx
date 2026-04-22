@@ -278,12 +278,16 @@ function CheckSection<T>({
     );
   }
 
+  const rec = raw as Record<string, unknown>;
+  const stats =
+    typeof rec === 'object' && rec !== null && 'stats' in rec
+      ? (rec.stats as Record<string, number> | undefined)
+      : undefined;
   const hasIssues =
     guard(raw) &&
-    (('stats' in (raw as any) &&
-      (raw as any).stats.errorCount + (raw as any).stats.warningCount > 0) ||
-      ('totalViolations' in (raw as any) && (raw as any).totalViolations > 0) ||
-      ('stats' in (raw as any) && (raw as any).stats.violationCount > 0));
+    ((stats != null && (stats.errorCount ?? 0) + (stats.warningCount ?? 0) > 0) ||
+      ('totalViolations' in rec && (rec.totalViolations as number) > 0) ||
+      (stats != null && (stats.violationCount ?? 0) > 0));
 
   const action = hasIssues && fixCommand ? <FixButton command={fixCommand} /> : undefined;
 
@@ -504,7 +508,11 @@ function CISection() {
   const toggleExpanded = (name: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
       return next;
     });
   };

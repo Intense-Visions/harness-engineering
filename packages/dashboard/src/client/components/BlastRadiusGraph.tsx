@@ -202,7 +202,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
           })}
 
           {/* Edges with Path Drawing and Hover Surge */}
-          {layout.edges.map((edge, i) => {
+          {layout.edges.map((edge, _i) => {
             const from = nodeMap.get(edge.fromId);
             const to = nodeMap.get(edge.toId);
             if (!from || !to) return null;

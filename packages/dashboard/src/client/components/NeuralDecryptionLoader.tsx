@@ -1,5 +1,4 @@
-import { motion, useAnimation } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export function NeuralDecryptionLoader() {
   // Enhanced lattice points (Central focus)

@@ -4,15 +4,15 @@ import { Orchestrator } from '../orchestrator';
 import { Header } from './components/Header';
 import { Stats } from './components/Stats';
 import { AgentsTable } from './components/AgentsTable';
-import { TokenTotals } from '../types/internal';
+import { TokenTotals, RunningEntry, RetryEntry } from '../types/internal';
 
 export interface DashboardProps {
   orchestrator: Orchestrator;
 }
 
 interface DashboardState {
-  running: [string, any][];
-  retryAttempts: [string, any][];
+  running: [string, RunningEntry][];
+  retryAttempts: [string, RetryEntry][];
   claimed: string[];
   tokenTotals: TokenTotals;
   maxConcurrentAgents: number;
@@ -27,11 +27,13 @@ interface DashboardState {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ orchestrator }) => {
-  const [state, setState] = useState<DashboardState>(orchestrator.getSnapshot() as any);
+  const [state, setState] = useState<DashboardState>(
+    orchestrator.getSnapshot() as unknown as DashboardState
+  );
   const { exit } = useApp();
 
   useEffect(() => {
-    const handleStateChange = (newState: any) => {
+    const handleStateChange = (newState: DashboardState) => {
       setState(newState);
     };
 
@@ -49,7 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orchestrator }) => {
     }
   });
 
-  const runningAgents = state.running.map(([_, entry]: [string, any]) => entry);
+  const runningAgents = state.running.map(([_, entry]: [string, RunningEntry]) => entry);
 
   return (
     <Box flexDirection="column" padding={1}>

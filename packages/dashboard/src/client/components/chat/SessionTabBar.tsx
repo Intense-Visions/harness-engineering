@@ -15,7 +15,7 @@ interface Props {
 function EditableLabel({
   label,
   onRename,
-  isActive,
+  isActive: _isActive,
 }: {
   label: string;
   onRename: (val: string) => void;

@@ -5,7 +5,7 @@ import { StaleIndicator } from '../components/StaleIndicator';
 import { ActionButton } from '../components/ActionButton';
 import { motion, animate } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { Activity, ShieldCheck, Zap, Share2, Compass } from 'lucide-react';
+import { Activity, ShieldCheck, Zap, Share2, Compass, type LucideIcon } from 'lucide-react';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { useProjectPulse } from '../hooks/useProjectPulse';
 import { NeuralDecryptionLoader } from '../components/NeuralDecryptionLoader';
@@ -17,7 +17,7 @@ import {
   isPerfData,
 } from '../utils/typeGuards';
 
-function SectionHeader({ title, icon: Icon }: { title: string; icon: any }) {
+function SectionHeader({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
   return (
     <div className="mb-4 flex items-center gap-2">
       <div className="rounded-lg bg-primary-500/10 p-1.5 text-primary-500 shadow-[0_0_10px_var(--color-primary-500)]">

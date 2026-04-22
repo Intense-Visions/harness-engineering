@@ -12,7 +12,7 @@ import { useChatContext } from '../../hooks/useChatContext';
 import { useChatPanel } from '../../hooks/useChatPanel';
 import { generateSystemPrompt } from '../../utils/context-to-prompt';
 import { SKILL_REGISTRY } from '../../constants/skills';
-import type { ChatMessage, UserMessage, AssistantMessage, TextBlock } from '../../types/chat';
+import type { UserMessage, AssistantMessage, TextBlock } from '../../types/chat';
 import type { SkillEntry } from '../../types/skills';
 import type { PendingInteraction } from '../../types/orchestrator';
 
@@ -393,7 +393,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
           <div className="flex items-center gap-3">
             {maximized && (
               <button
-                onClick={() => navigate('/orchestrator/attention')}
+                onClick={() => void navigate('/orchestrator/attention')}
                 className="mr-2 rounded-full p-2 text-neutral-muted hover:bg-white/5 hover:text-white transition-colors"
               >
                 <ArrowLeft size={20} />
@@ -417,7 +417,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={handleSavePlan}
+                onClick={() => void handleSavePlan()}
                 disabled={savingPlan || streaming}
                 className={[
                   'flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all',
@@ -450,8 +450,8 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
             setSelectedSkill(null);
             createNewSession();
           }}
-          onClose={closeSession}
-          onRename={renameSession}
+          onClose={(id: string) => void closeSession(id)}
+          onRename={(id: string, label: string) => void renameSession(id, label)}
         />
       </div>
 
@@ -515,7 +515,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
             <ChatInput
               value={input}
               onChange={handleInputChange}
-              onSend={() => handleSend()}
+              onSend={() => void handleSend()}
               disabled={streaming}
               placeholder={activeSessionId ? 'Ask anything...' : 'Select a skill to begin...'}
             />

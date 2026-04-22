@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Heart, Shield, Activity, Layers, Code, Zap, type LucideIcon } from 'lucide-react';
 import { SKILL_REGISTRY } from '../../constants/skills';
 import type { SkillEntry, SkillCategory } from '../../types/skills';
