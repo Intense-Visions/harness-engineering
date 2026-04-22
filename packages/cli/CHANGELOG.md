@@ -1,5 +1,13 @@
 # @harness-engineering/cli
 
+## Unreleased
+
+### Fixed
+
+- fix(init): skip project scaffolding for pre-existing projects ([#235](https://github.com/Intense-Visions/harness-engineering/issues/235))
+
+  `harness init --language java` (and the MCP `init_project` tool) no longer creates scaffold files (pom.xml, App.java, checkstyle.xml, etc.) when the target directory already contains a project. Added `isExistingProject()` detection that checks for 13 common build/config markers (build.gradle, package.json, go.mod, pyproject.toml, Cargo.toml, etc.). When an existing project is detected, only harness infrastructure files (harness.config.json, AGENTS.md) are written. Also added build.gradle/build.gradle.kts to `NON_JSON_PACKAGE_CONFIGS`. Use `--force` to override.
+
 ## 1.25.6
 
 ### Patch Changes

@@ -16,6 +16,7 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ### Fixed
 
+- **Init scaffolds into existing projects** — `harness init` no longer creates project scaffold files (pom.xml, App.java, etc.) when the target directory already contains a project. Detects pre-existing projects by checking for common build/config files (build.gradle, package.json, go.mod, etc.) and only writes harness config files (harness.config.json, AGENTS.md). Also adds build.gradle/build.gradle.kts to the package config skip set. (`@harness-engineering/cli`) ([#235](https://github.com/Intense-Visions/harness-engineering/issues/235))
 - **Hook refresh fails after install** — `resolveHookSourceDir()` used a relative path (`../../hooks`) that only worked in the dev source layout; after tsup bundling, `__dirname` points to `dist/` and the path resolved outside the package. Additionally, `copy-assets.mjs` never copied `src/hooks/*.js` scripts into `dist/`. Fixed by adding a bundled-layout candidate path and copying hook scripts during build. (`@harness-engineering/cli@1.25.1`)
 - **Rate-limiter stack overflow** — Replace `Math.min(...spread)` with `reduce` to prevent stack overflow on large timestamp arrays. Ensure delays are always >= 1ms. (`@harness-engineering/orchestrator@0.2.8`)
 - **Container security defaults** — Default container network to `none` instead of `host`; block `--privileged`, `--cap-add`, `--security-opt`, `--pid`, `--ipc`, `--userns` flags. (`@harness-engineering/orchestrator@0.2.8`)
