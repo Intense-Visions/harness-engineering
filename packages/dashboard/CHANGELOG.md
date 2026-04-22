@@ -1,5 +1,11 @@
 # @harness-engineering/dashboard
 
+## 0.1.9
+
+### Patch Changes
+
+- fix: guard `localStorage.getItem()` in `useChatPanel` module-level init to prevent crash in test environments where `window` exists but `localStorage` is not a function
+
 ## 0.1.8
 
 ### Patch Changes

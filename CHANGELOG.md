@@ -26,9 +26,12 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 - **contextBudget edge cases** — Handle zero total tokens and zero `originalSum` during ratio redistribution. (`@harness-engineering/core@0.22.0`)
 - **npm audit parsing** — Parse `npm audit` stdout on non-zero exit (audit exits non-zero when vulnerabilities exist). (`@harness-engineering/core@0.22.0`)
 - **StepResult type cycle** — Break circular import between `setup.ts` and `telemetry-wizard.ts` via `setup-types.ts`. (`@harness-engineering/cli@1.25.0`)
+- **Dashboard localStorage crash** — Guard `localStorage.getItem()` in `useChatPanel` module init to prevent crash in test environments where `window` exists but `localStorage` is not a function. (`@harness-engineering/dashboard`)
 
 ### Changed
 
+- **Orchestrator decomposition** — Extract intelligence pipeline runner (461 lines) and completion handler (218 lines) from the 1,882-line `orchestrator.ts` into dedicated modules, reducing it to 1,313 lines. Replace hidden barrel imports with direct module imports for explicit dependency chains. (`@harness-engineering/orchestrator`)
+- **Core barrel auto-generation** — Add `scripts/generate-core-barrel.mjs` to auto-generate `packages/core/src/index.ts` from directory structure, with `--check` mode for CI. Wired into `pnpm run generate:barrels`. (`@harness-engineering/core`)
 - **PRDetector extraction** — PR detection logic extracted from `Orchestrator` into standalone `PRDetector` module with throttled concurrency. (`@harness-engineering/orchestrator@0.2.8`)
 
 ## 0.14.1 — 2026-04-07

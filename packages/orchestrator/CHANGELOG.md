@@ -1,5 +1,13 @@
 # @harness-engineering/orchestrator
 
+## 0.2.12
+
+### Patch Changes
+
+- refactor: decompose `orchestrator.ts` (1,882 → 1,313 lines) by extracting intelligence pipeline runner and completion handler into dedicated modules (`intelligence/pipeline-runner.ts`, `completion/handler.ts`)
+- refactor: replace barrel imports from `./core/index` with direct imports from source modules (`state-machine`, `state-helpers`, `model-router`, `analysis-archive`, `analysis-comment`, `published-index`) to make dependency chains explicit
+- refactor: introduce `OrchestratorContext` interface for shared dependency injection into extracted sub-services
+
 ## 0.2.11
 
 ### Patch Changes

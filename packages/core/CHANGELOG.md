@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1
+
+### Patch Changes
+
+- chore: auto-generate `src/index.ts` barrel via `scripts/generate-core-barrel.mjs` with `--check` mode for CI staleness detection. New modules with `index.ts` are auto-discovered; selective exports are maintained inline in the script.
+
 ## 0.23.0
 
 ### Minor Changes
