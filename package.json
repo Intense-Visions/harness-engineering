@@ -29,6 +29,8 @@
     "docs:preview": "pnpm --filter docs preview",
     "generate-docs": "node scripts/generate-docs.mjs",
     "generate-barrel-exports": "node scripts/generate-barrel-exports.mjs",
+    "generate:barrels": "node scripts/generate-barrel-exports.mjs && node scripts/generate-core-barrel.mjs",
+    "generate:barrels:check": "node scripts/generate-barrel-exports.mjs --check && node scripts/generate-core-barrel.mjs --check",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",

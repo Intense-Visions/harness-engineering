@@ -8,6 +8,8 @@ export type {
   OrchestratorState,
 } from './internal';
 
+export type { OrchestratorContext } from './orchestrator-context';
+
 export type {
   OrchestratorEvent,
   TickEvent,

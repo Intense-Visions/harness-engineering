@@ -6,7 +6,6 @@ import {
   Issue,
   IssueTrackerClient,
   AgentBackend,
-  ConcernSignal,
 } from '@harness-engineering/types';
 import { writeTaint } from '@harness-engineering/core';
 import {
@@ -16,33 +15,17 @@ import {
   ClaudeCliAnalysisProvider,
 } from '@harness-engineering/intelligence';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
-import type {
-  EnrichedSpec,
-  SimulationResult,
-  ComplexityScore,
-  ExecutionOutcome,
-} from '@harness-engineering/intelligence';
+import type { EnrichedSpec } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession } from './types/internal';
-import {
-  OrchestratorEvent,
-  SideEffect,
-  applyEvent,
-  createEmptyState,
-  detectScopeTier,
-  artifactPresenceFromIssue,
-  resolveEscalationConfig,
-  AnalysisArchive,
-  renderAnalysisComment,
-  loadPublishedIndex,
-  savePublishedIndex,
-} from './core/index';
-import type { AnalysisRecord } from './core/index';
-import {
-  GitHubIssuesSyncAdapter,
-  loadTrackerSyncConfig,
-  type TrackerSyncAdapter,
-} from '@harness-engineering/core';
+import type { OrchestratorEvent, SideEffect } from './types/events';
+import { applyEvent } from './core/state-machine';
+import { createEmptyState } from './core/state-helpers';
+import { AnalysisArchive } from './core/analysis-archive';
+import { IntelligencePipelineRunner } from './intelligence/pipeline-runner';
+import { CompletionHandler } from './completion/handler';
+import type { OrchestratorContext } from './types/orchestrator-context';
+import { GitHubIssuesSyncAdapter, loadTrackerSyncConfig } from '@harness-engineering/core';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
@@ -76,20 +59,6 @@ import type {
 } from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 import { StreamRecorder } from './core/stream-recorder';
-import { extractHighlights, renderPRComment } from './core/highlight-extractor';
-
-const CONNECTION_ERROR_PATTERNS = [
-  'Connection error',
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'ETIMEDOUT',
-  'fetch failed',
-];
-
-function isConnectionError(err: unknown): boolean {
-  const msg = String(err);
-  return CONNECTION_ERROR_PATTERNS.some((p) => msg.includes(p));
-}
 
 /**
  * The central orchestrator that manages the lifecycle of coding agents.
@@ -124,12 +93,13 @@ export class Orchestrator extends EventEmitter {
   private maintenanceReporter: MaintenanceReporter | null = null;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
+  private intelligenceRunner: IntelligencePipelineRunner;
+  private completionHandler: CompletionHandler;
 
   /** Project root directory, derived from workspace root. */
   private get projectRoot(): string {
     return path.resolve(this.config.workspace.root, '..', '..');
   }
-  private graphLoaded = false;
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
   /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
   private analysisFailureCache: Map<string, number> = new Map();
@@ -194,6 +164,36 @@ export class Orchestrator extends EventEmitter {
       path.resolve(config.workspace.root, '..', 'streams'),
       this.logger
     );
+
+    // Use getters for pipeline/graphStore so test overrides are reflected
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    const ctx: OrchestratorContext = {
+      config: this.config,
+      projectRoot: this.projectRoot,
+      logger: this.logger,
+      tracker: this.tracker,
+      recorder: this.recorder,
+      prDetector: this.prDetector,
+      orchestratorIdPromise: this.orchestratorIdPromise,
+      get pipeline() {
+        return self.pipeline;
+      },
+      get graphStore() {
+        return self.graphStore;
+      },
+      analysisArchive: this.analysisArchive,
+      enrichedSpecsByIssue: this.enrichedSpecsByIssue,
+      analysisFailureCache: this.analysisFailureCache,
+      getState: () => this.state,
+      setState: (s) => {
+        this.state = s;
+      },
+      emit: this.emit.bind(this),
+    };
+
+    this.intelligenceRunner = new IntelligencePipelineRunner(ctx);
+    this.completionHandler = new CompletionHandler(ctx, this.postLifecycleComment.bind(this));
 
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port, {
@@ -532,365 +532,6 @@ export class Orchestrator extends EventEmitter {
     });
   }
 
-  private async runPeslSimulations(
-    candidates: Issue[],
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>
-  ): Promise<Map<string, SimulationResult>> {
-    if (!this.pipeline) return new Map();
-    const results = new Map<string, SimulationResult>();
-    for (const issue of candidates) {
-      const spec = enrichedSpecs.get(issue.id);
-      const score = complexityScores.get(issue.id);
-      if (!spec || !score) continue;
-
-      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-      try {
-        const simResult = await this.pipeline.simulate(spec, score, scopeTier);
-        results.set(issue.id, simResult);
-      } catch (err) {
-        this.logger.error(`PESL simulation failed for ${issue.identifier}`, {
-          issueId: issue.id,
-          error: String(err),
-        });
-        // Simulation failure is non-fatal — issue proceeds without simulation
-      }
-    }
-    return results;
-  }
-
-  private async archiveAnalysisResults(
-    candidates: Issue[],
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>,
-    simulationResults: Map<string, SimulationResult>
-  ): Promise<void> {
-    for (const issue of candidates) {
-      await this.archiveSingleAnalysis(issue, enrichedSpecs, complexityScores, simulationResults);
-    }
-  }
-
-  private async archiveSingleAnalysis(
-    issue: Issue,
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>,
-    simulationResults: Map<string, SimulationResult>
-  ): Promise<void> {
-    const spec = enrichedSpecs.get(issue.id) ?? null;
-    const score = complexityScores.get(issue.id) ?? null;
-    const simulation = simulationResults.get(issue.id) ?? null;
-    if (!spec && !score && !simulation) return;
-    try {
-      await this.analysisArchive.save({
-        issueId: issue.id,
-        identifier: issue.identifier,
-        spec,
-        score,
-        simulation,
-        analyzedAt: new Date().toISOString(),
-        externalId: issue.externalId ?? null,
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to archive analysis for ${issue.identifier}`, {
-        issueId: issue.id,
-        error: String(err),
-      });
-    }
-  }
-
-  /**
-   * Auto-publish analysis results to the external tracker as structured comments.
-   * Fires only when:
-   * - A tracker is configured in harness.config.json (roadmap.tracker)
-   * - GITHUB_TOKEN env var is available
-   * - The record has a non-null externalId
-   * - The record has not already been published (per the published index)
-   *
-   * Errors are non-fatal: a failed publish logs a warning but does not block
-   * the orchestrator tick.
-   */
-  private async autoPublishAnalyses(
-    candidates: Issue[],
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>,
-    simulationResults: Map<string, SimulationResult>
-  ): Promise<void> {
-    const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
-    if (!trackerConfig) return;
-
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) return;
-
-    let adapter: TrackerSyncAdapter;
-    try {
-      adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
-    } catch (err) {
-      this.logger.warn('Failed to create tracker adapter for auto-publish', {
-        error: String(err),
-      });
-      return;
-    }
-
-    const publishedIndex = loadPublishedIndex(this.projectRoot);
-    let publishedCount = 0;
-
-    for (const issue of candidates) {
-      const published = await this.publishAnalysisForIssue(
-        issue,
-        enrichedSpecs,
-        complexityScores,
-        simulationResults,
-        publishedIndex,
-        adapter
-      );
-      if (published) publishedCount++;
-    }
-
-    if (publishedCount > 0) {
-      try {
-        savePublishedIndex(this.projectRoot, publishedIndex);
-      } catch (err) {
-        this.logger.warn('Failed to persist published index after auto-publish', {
-          error: String(err),
-        });
-      }
-    }
-  }
-
-  private async publishAnalysisForIssue(
-    issue: Issue,
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>,
-    simulationResults: Map<string, SimulationResult>,
-    publishedIndex: Record<string, string>,
-    adapter: TrackerSyncAdapter
-  ): Promise<boolean> {
-    const spec = enrichedSpecs.get(issue.id) ?? null;
-    const score = complexityScores.get(issue.id) ?? null;
-    const simulation = simulationResults.get(issue.id) ?? null;
-    if (!spec && !score && !simulation) return false;
-
-    const externalId = issue.externalId ?? null;
-    if (!externalId) return false;
-    if (publishedIndex[issue.id]) return false;
-
-    const record: AnalysisRecord = {
-      issueId: issue.id,
-      identifier: issue.identifier,
-      spec,
-      score,
-      simulation,
-      analyzedAt: new Date().toISOString(),
-      externalId,
-    };
-
-    try {
-      const commentBody = renderAnalysisComment(record);
-      const result = await adapter.addComment(externalId, commentBody);
-      if (result.ok) {
-        publishedIndex[issue.id] = new Date().toISOString();
-        this.logger.info(`Auto-published analysis for ${issue.identifier} to ${externalId}`);
-        return true;
-      }
-      this.logger.warn(`Auto-publish failed for ${issue.identifier}: ${result.error.message}`, {
-        issueId: issue.id,
-      });
-    } catch (err) {
-      this.logger.warn(`Auto-publish error for ${issue.identifier}`, {
-        issueId: issue.id,
-        error: String(err),
-      });
-    }
-    return false;
-  }
-
-  private async runIntelligencePipeline(candidates: Issue[]): Promise<{
-    concernSignals: Map<string, ConcernSignal[]>;
-    enrichedSpecs: Map<string, EnrichedSpec>;
-    complexityScores: Map<string, ComplexityScore>;
-    simulationResults: Map<string, SimulationResult>;
-  }> {
-    const concernSignals = new Map<string, ConcernSignal[]>();
-    const enrichedSpecs = new Map<string, EnrichedSpec>();
-    const complexityScores = new Map<string, ComplexityScore>();
-
-    // Seed with previously-cached specs so routing still has enrichment context
-    for (const [id, spec] of this.enrichedSpecsByIssue) {
-      enrichedSpecs.set(id, spec);
-    }
-    const escalationConfig = resolveEscalationConfig(this.config);
-    const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
-    const nowForCache = Date.now();
-
-    this.evictExpiredFailures(nowForCache, failureTtl);
-
-    const eligibleCandidates = this.filterEligibleForAnalysis(candidates, escalationConfig);
-    const circuitBreakerThreshold = this.config.intelligence?.circuitBreakerThreshold ?? 2;
-
-    await this.analyzeCandidates(
-      eligibleCandidates,
-      escalationConfig,
-      nowForCache,
-      failureTtl,
-      circuitBreakerThreshold,
-      concernSignals,
-      enrichedSpecs,
-      complexityScores
-    );
-
-    this.setTickActivity('analyzing', 'PESL: Running simulations');
-    const simulationResults = await this.runPeslSimulations(
-      candidates,
-      enrichedSpecs,
-      complexityScores
-    );
-
-    this.setTickActivity('analyzing', 'Archiving analysis results');
-    await this.archiveAnalysisResults(
-      candidates,
-      enrichedSpecs,
-      complexityScores,
-      simulationResults
-    );
-
-    // Auto-publish to external tracker (non-fatal)
-    try {
-      this.setTickActivity('analyzing', 'Publishing to tracker');
-      await this.autoPublishAnalyses(
-        candidates,
-        enrichedSpecs,
-        complexityScores,
-        simulationResults
-      );
-    } catch (err) {
-      this.logger.warn('Auto-publish analyses failed', { error: String(err) });
-    }
-
-    return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
-  }
-
-  /**
-   * Analyzes a single candidate issue through the intelligence pipeline.
-   * Returns connection error state and whether the circuit breaker tripped.
-   */
-  private async analyzeCandidate(
-    issue: Issue,
-    escalationConfig: ReturnType<typeof resolveEscalationConfig>,
-    nowForCache: number,
-    failureTtl: number,
-    consecutiveConnectionErrors: number,
-    circuitBreakerThreshold: number,
-    concernSignals: Map<string, ConcernSignal[]>,
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>
-  ): Promise<{
-    consecutiveConnectionErrors: number;
-    circuitBroken: boolean;
-    breakError: string | null;
-  }> {
-    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-    try {
-      const result = await this.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
-      if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
-      if (result.spec) {
-        enrichedSpecs.set(issue.id, result.spec);
-        this.enrichedSpecsByIssue.set(issue.id, result.spec);
-      }
-      if (result.score) complexityScores.set(issue.id, result.score);
-      return { consecutiveConnectionErrors: 0, circuitBroken: false, breakError: null };
-    } catch (err) {
-      this.analysisFailureCache.set(issue.id, nowForCache);
-
-      if (isConnectionError(err)) {
-        const newCount = consecutiveConnectionErrors + 1;
-        if (newCount >= circuitBreakerThreshold) {
-          return {
-            consecutiveConnectionErrors: newCount,
-            circuitBroken: true,
-            breakError: String(err),
-          };
-        }
-        this.logger.error(
-          `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
-          { issueId: issue.id, error: String(err) }
-        );
-        return { consecutiveConnectionErrors: newCount, circuitBroken: false, breakError: null };
-      }
-
-      this.logger.error(
-        `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
-        { issueId: issue.id, error: String(err) }
-      );
-      return { consecutiveConnectionErrors, circuitBroken: false, breakError: null };
-    }
-  }
-
-  private evictExpiredFailures(nowForCache: number, failureTtl: number): void {
-    for (const [id, failedAt] of this.analysisFailureCache) {
-      if (nowForCache - failedAt >= failureTtl) {
-        this.analysisFailureCache.delete(id);
-      }
-    }
-  }
-
-  private filterEligibleForAnalysis(
-    candidates: Issue[],
-    escalationConfig: ReturnType<typeof resolveEscalationConfig>
-  ): Issue[] {
-    return candidates.filter((issue) => {
-      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-      if (escalationConfig.autoExecute.includes(scopeTier)) return false;
-      if (this.analysisFailureCache.has(issue.id)) return false;
-      if (this.enrichedSpecsByIssue.has(issue.id)) return false;
-      return true;
-    });
-  }
-
-  private async analyzeCandidates(
-    eligibleCandidates: Issue[],
-    escalationConfig: ReturnType<typeof resolveEscalationConfig>,
-    nowForCache: number,
-    failureTtl: number,
-    circuitBreakerThreshold: number,
-    concernSignals: Map<string, ConcernSignal[]>,
-    enrichedSpecs: Map<string, EnrichedSpec>,
-    complexityScores: Map<string, ComplexityScore>
-  ): Promise<void> {
-    let processed = 0;
-    let consecutiveConnErrors = 0;
-    for (const issue of eligibleCandidates) {
-      processed++;
-      this.setTickActivity('analyzing', `SEL/CML: ${issue.identifier} — ${issue.title}`, {
-        current: processed,
-        total: eligibleCandidates.length,
-      });
-
-      const loopResult = await this.analyzeCandidate(
-        issue,
-        escalationConfig,
-        nowForCache,
-        failureTtl,
-        consecutiveConnErrors,
-        circuitBreakerThreshold,
-        concernSignals,
-        enrichedSpecs,
-        complexityScores
-      );
-      consecutiveConnErrors = loopResult.consecutiveConnectionErrors;
-
-      if (loopResult.circuitBroken) {
-        for (const skipped of eligibleCandidates.slice(processed)) {
-          this.analysisFailureCache.set(skipped.id, nowForCache);
-        }
-        this.logger.warn(
-          `Intelligence pipeline unreachable, skipping remaining ${eligibleCandidates.length - processed} issues`,
-          { error: loopResult.breakError!, cachedForMs: failureTtl }
-        );
-        break;
-      }
-    }
-  }
-
   /**
    * Lazily initializes the ClaimManager if it hasn't been created yet.
    * Called from both start() and asyncTick() to avoid duplicating the init block.
@@ -903,59 +544,12 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
-  /**
-   * Loads the graph store and hydrates the enriched spec cache from the analysis
-   * archive on the first tick. Subsequent calls are no-ops. All failures are
-   * non-fatal — empty graph / empty cache are valid fallbacks.
-   */
-  private async loadPersistedData(): Promise<void> {
-    if (!this.pipeline || !this.graphStore || this.graphLoaded) return;
-    this.graphLoaded = true;
-
-    await this.loadGraphStore();
-    await this.hydrateSpecCache();
-  }
-
-  private async loadGraphStore(): Promise<void> {
-    try {
-      const graphDir = path.join(this.config.workspace.root, '..', 'graph');
-      const loaded = await this.graphStore!.load(graphDir);
-      if (loaded) {
-        this.logger.info('Graph store loaded from disk');
-      } else {
-        this.logger.info('No persisted graph data found, starting with empty graph');
-      }
-    } catch (err) {
-      this.logger.warn('Failed to load graph store, starting with empty graph', {
-        error: String(err),
-      });
-    }
-  }
-
-  private async hydrateSpecCache(): Promise<void> {
-    try {
-      const archived = await this.analysisArchive.list();
-      for (const record of archived) {
-        if (record.spec && !this.enrichedSpecsByIssue.has(record.issueId)) {
-          this.enrichedSpecsByIssue.set(record.issueId, record.spec);
-        }
-      }
-      if (archived.length > 0) {
-        this.logger.info(`Loaded ${this.enrichedSpecsByIssue.size} cached analyses from archive`);
-      }
-    } catch (err) {
-      this.logger.warn('Failed to load analysis archive, will re-analyze on demand', {
-        error: String(err),
-      });
-    }
-  }
-
   public async asyncTick(): Promise<void> {
     // Ensure ClaimManager is initialized (no-op if start() already ran)
     await this.ensureClaimManager();
 
     // Load persisted data on first tick (can't await in constructor)
-    await this.loadPersistedData();
+    await this.intelligenceRunner.loadPersistedData();
 
     const nowMs = Date.now();
 
@@ -987,7 +581,9 @@ export class Orchestrator extends EventEmitter {
 
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
     const pipelineResult = this.pipeline
-      ? await this.runIntelligencePipeline(candidates)
+      ? await this.intelligenceRunner.run(candidates, (phase, detail, progress) =>
+          this.setTickActivity(phase, detail, progress)
+        )
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
     const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
@@ -1525,149 +1121,6 @@ export class Orchestrator extends EventEmitter {
     });
   }
 
-  private async recordOutcomeIfPipelineEnabled(
-    issueId: string,
-    reason: 'normal' | 'error',
-    attempt: number | null,
-    error: string | undefined,
-    entry: { identifier: string; startedAt: string } | undefined
-  ): Promise<void> {
-    if (!this.pipeline) return;
-
-    const enrichedSpec = this.enrichedSpecsByIssue.get(issueId);
-    const affectedSystemNodeIds = enrichedSpec
-      ? enrichedSpec.affectedSystems
-          .filter((s) => s.graphNodeId !== null)
-          .map((s) => s.graphNodeId!)
-      : [];
-
-    const outcome: ExecutionOutcome = {
-      id: `outcome:${issueId}:${attempt ?? 0}`,
-      issueId,
-      identifier: entry?.identifier ?? issueId,
-      result: reason === 'normal' ? 'success' : 'failure',
-      retryCount: attempt ?? 0,
-      failureReasons: error ? [error] : [],
-      durationMs: entry ? Date.now() - new Date(entry.startedAt).getTime() : 0,
-      linkedSpecId: enrichedSpec?.id ?? null,
-      affectedSystemNodeIds,
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      this.pipeline.recordOutcome(outcome);
-      this.logger.info(`Recorded execution outcome for ${issueId}: ${reason}`, {
-        issueId,
-        result: outcome.result,
-      });
-      if (this.graphStore) {
-        const graphDir = path.join(this.config.workspace.root, '..', 'graph');
-        await this.graphStore.save(graphDir);
-      }
-    } catch (err) {
-      this.logger.warn(`Failed to record execution outcome for ${issueId}`, {
-        error: String(err),
-      });
-    }
-
-    if (reason === 'normal') {
-      this.enrichedSpecsByIssue.delete(issueId);
-    }
-  }
-
-  private async handleCompletionSideEffects(
-    issueId: string,
-    reason: 'normal' | 'error',
-    entry?: { identifier: string; issue: { externalId?: string | null } }
-  ): Promise<void> {
-    if (reason !== 'normal') return;
-
-    if (entry) {
-      await this.postLifecycleComment(
-        entry.identifier,
-        entry.issue.externalId ?? null,
-        'completed'
-      );
-    }
-
-    // Extract highlights and post session summary to PR
-    await this.postSessionHighlights(issueId, entry);
-
-    try {
-      const result = await this.tracker.markIssueComplete(issueId);
-      if (!result.ok) {
-        this.logger.warn(`Tracker write-back failed for ${issueId}: ${String(result.error)}`, {
-          issueId,
-        });
-      }
-    } catch (err) {
-      this.logger.warn(`Tracker write-back threw for ${issueId}`, {
-        issueId,
-        error: String(err),
-      });
-    }
-  }
-
-  /**
-   * Extract session highlights from the recorded stream and post them as a PR comment.
-   * Also attempts to detect and link an associated PR.
-   */
-  private async postSessionHighlights(
-    issueId: string,
-    entry?: { identifier: string; issue: { externalId?: string | null } }
-  ): Promise<void> {
-    try {
-      const manifest = this.recorder.getManifest(issueId);
-      if (!manifest) return;
-
-      // Try to detect and link PR
-      if (entry) {
-        const hasPR = await this.prDetector.branchHasPullRequest(entry.identifier);
-        if (hasPR) {
-          // We don't have the PR number directly from branchHasPullRequest, so
-          // the linkage will happen when the sweep detects PR status. For now,
-          // focus on highlight extraction and comment posting.
-        }
-      }
-
-      const latestAttempt = manifest.attempts[manifest.attempts.length - 1];
-      if (!latestAttempt) return;
-
-      const streamContent = this.recorder.getStream(issueId, latestAttempt.attempt);
-      if (!streamContent) return;
-
-      const highlights = extractHighlights(streamContent);
-      this.recorder.updateHighlights(issueId, highlights);
-
-      // Post highlights comment to PR if we have an external ID
-      if (entry?.issue.externalId && highlights.length > 0) {
-        const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
-        if (!trackerConfig) return;
-
-        const token = process.env.GITHUB_TOKEN;
-        if (!token) return;
-
-        const orchestratorId = await this.orchestratorIdPromise;
-        const adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
-        const comment = renderPRComment(latestAttempt.stats, highlights, orchestratorId);
-
-        const result = await adapter.addComment(entry.issue.externalId, comment);
-        if (result.ok) {
-          this.recorder.markHighlightsPosted(issueId);
-        } else {
-          this.logger.warn(
-            `Session highlight comment failed for ${issueId}: ${result.error.message}`
-          );
-        }
-      }
-    } catch (err) {
-      this.logger.warn(`Highlight extraction/posting failed for ${issueId}`, {
-        issueId,
-        error: String(err),
-      });
-    }
-  }
-
   /**
    * Informs the state machine that an agent worker has exited.
    */
@@ -1677,34 +1130,9 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     error?: string
   ): Promise<void> {
-    const entry = this.state.running.get(issueId);
-
-    // Finish stream recording with session stats
-    if (entry?.session) {
-      this.recorder.finishRecording(issueId, attempt ?? 1, reason, {
-        inputTokens: entry.session.inputTokens,
-        outputTokens: entry.session.outputTokens,
-        turnCount: entry.session.turnCount,
-      });
-    }
-
-    await this.recordOutcomeIfPipelineEnabled(issueId, reason, attempt, error, entry);
-    await this.handleCompletionSideEffects(issueId, reason, entry);
-
-    const event: OrchestratorEvent = {
-      type: 'worker_exit',
-      issueId,
-      reason,
-      error,
-      attempt,
-    };
-    const { nextState, effects } = applyEvent(this.state, event, this.config);
-    this.state = nextState;
-
-    // Process side effects immediately and await them
-    for (const effect of effects) {
-      await this.handleEffect(effect);
-    }
+    await this.completionHandler.handleWorkerExit(issueId, reason, attempt, error, (effect) =>
+      this.handleEffect(effect)
+    );
     this.emit('state_change', this.getSnapshot());
   }
 

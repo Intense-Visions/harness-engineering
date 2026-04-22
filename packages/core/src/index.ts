@@ -1,3 +1,5 @@
+// AUTO-GENERATED — do not edit. Run `pnpm run generate:barrels` to regenerate.
+
 /**
  * @harness-engineering/core
  *
@@ -23,6 +25,20 @@ export type {
   FeedbackError,
 } from './shared/errors';
 export { createError } from './shared/errors';
+
+/**
+ * Language parsers and AST utilities.
+ */
+export { TypeScriptParser } from './shared/parsers';
+export type {
+  LanguageParser,
+  AST,
+  Import,
+  Export,
+  ParseError,
+  HealthCheckResult,
+} from './shared/parsers';
+export { createParseError } from './shared/parsers';
 
 /**
  * Validation module for verifying project structure, configuration, and conventions.
@@ -63,20 +79,6 @@ export * from './feedback';
  * Architecture module for analyzing and visualizing codebase structure.
  */
 export * from './architecture';
-
-/**
- * Language parsers and AST utilities.
- */
-export { TypeScriptParser } from './shared/parsers';
-export type {
-  LanguageParser,
-  AST,
-  Import,
-  Export,
-  ParseError,
-  HealthCheckResult,
-} from './shared/parsers';
-export { createParseError } from './shared/parsers';
 
 /**
  * State management module for tracking project health, learnings, and transitions.
