@@ -363,39 +363,23 @@ function isLogOutput(text: string, tool?: string) {
 }
 
 function LogOutputView({ text }: { text: string }) {
-  const [isOpen, setIsOpen] = useState(false);
   return (
-    <div className="my-1 rounded border border-neutral-border/30 bg-neutral-surface/30 backdrop-blur-sm overflow-hidden transition-all duration-200">
-      <div
-        className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-neutral-surface/50 active:bg-neutral-surface transition-colors select-none"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <motion.span
-          animate={{ rotate: isOpen ? 90 : 0 }}
-          className="text-[9px] text-neutral-muted"
-        >
-          &#9654;
-        </motion.span>
-        <span className="text-[10px] font-black tracking-[0.2em] text-neutral-muted/60">
+    <div className="my-2 rounded border border-neutral-border/30 bg-neutral-surface/20 backdrop-blur-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-neutral-border/10 bg-neutral-surface/40 select-none">
+        <div className="flex gap-1 mr-1">
+          <div className="h-1.5 w-1.5 rounded-full bg-neutral-border/30" />
+          <div className="h-1.5 w-1.5 rounded-full bg-neutral-border/30" />
+          <div className="h-1.5 w-1.5 rounded-full bg-neutral-border/30" />
+        </div>
+        <span className="text-[10px] font-black tracking-[0.2em] text-neutral-muted/60 uppercase">
           Terminal Output
         </span>
-        {!isOpen && (
-          <span className="truncate text-[9px] text-neutral-muted/50 italic ml-2">
-            {text.trim().slice(0, 60)}...
-          </span>
-        )}
       </div>
-      {isOpen && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          className="border-t border-neutral-border/20 bg-neutral-bg/30 px-3 py-2"
-        >
-          <div className="max-h-[50vh] overflow-auto prose prose-invert prose-xs selection:bg-secondary-400/20">
-            <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
-          </div>
-        </motion.div>
-      )}
+      <div className="px-3 py-3 bg-neutral-bg/20">
+        <div className="prose prose-invert prose-xs selection:bg-secondary-400/20 whitespace-pre-wrap">
+          <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+        </div>
+      </div>
     </div>
   );
 }
