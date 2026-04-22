@@ -8,7 +8,9 @@ const STORAGE_KEY = 'chat-panel-open';
 
 const openListeners = new Set<() => void>();
 let openValue =
-  typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) === 'true' : false;
+  typeof window !== 'undefined' && typeof localStorage?.getItem === 'function'
+    ? localStorage.getItem(STORAGE_KEY) === 'true'
+    : false;
 
 function subscribeOpen(listener: () => void) {
   openListeners.add(listener);
