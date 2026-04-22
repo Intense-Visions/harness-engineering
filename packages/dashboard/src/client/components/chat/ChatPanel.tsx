@@ -215,7 +215,12 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       const isFirstTurn = currentMessages.length === 0;
 
       let systemPrompt = overrideSystemPrompt;
-      if (isFirstTurn && !systemPrompt && interaction) {
+      if (
+        isFirstTurn &&
+        !systemPrompt &&
+        interaction &&
+        interaction.id === targetSession?.interactionId
+      ) {
         systemPrompt = buildInteractionSystemPrompt(interaction);
       }
 
@@ -291,6 +296,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     if (
       interaction &&
       activeSession?.interactionId &&
+      interaction.id === activeSession.interactionId &&
       activeSession.messages.length === 0 &&
       !streaming &&
       !autoExecutedRef.current.has(activeSession.sessionId)
@@ -321,13 +327,18 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const handleSkillSelect = useCallback(
     (skill: SkillEntry) => {
       setSelectedSkill(skill);
-      // Always create a fresh session — activeSessionId may be stale (persisted
-      // in localStorage but no longer present in the sessions array, e.g. after
-      // the orchestrator restarts). Updating a non-existent session is a no-op
-      // which silently prevents skill execution.
-      createNewSession({ command: skill.id });
+      // Reuse the current session if it exists and has no messages yet (the user
+      // just opened a tab and is picking a skill from the palette). Only create a
+      // new session when there is no valid active session — e.g. stale ID after
+      // an orchestrator restart.
+      if (activeSession && activeSession.messages.length === 0) {
+        const label = skill.id.split(':').pop() || 'New Session';
+        updateSession(activeSession.sessionId, { command: skill.id, label });
+      } else {
+        createNewSession({ command: skill.id });
+      }
     },
-    [createNewSession]
+    [activeSession, createNewSession, updateSession]
   );
 
   const handleInputChange = (val: string) => {

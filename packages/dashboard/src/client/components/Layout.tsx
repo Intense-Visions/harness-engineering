@@ -28,6 +28,7 @@ export function Layout({ children }: Props) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isNavigating, setIsNavigating] = useState(false);
   const { isOpen: isChatOpen, toggle: toggleChat } = useChatPanel();
+  const isChatPage = location.pathname === '/orchestrator/chat';
 
   useKeyboardShortcut('j', toggleChat, { meta: true, ctrl: true });
 
@@ -127,9 +128,9 @@ export function Layout({ children }: Props) {
         </main>
       </div>
 
-      {/* Chat Panel and Trigger */}
-      <ChatPanel isOpen={isChatOpen} onClose={toggleChat} />
-      <ChatPanelTrigger isOpen={isChatOpen} onClick={toggleChat} />
+      {/* Chat Panel and Trigger — suppressed on /orchestrator/chat to avoid dual instances */}
+      {!isChatPage && <ChatPanel isOpen={isChatOpen} onClose={toggleChat} />}
+      {!isChatPage && <ChatPanelTrigger isOpen={isChatOpen} onClick={toggleChat} />}
     </div>
   );
 }
