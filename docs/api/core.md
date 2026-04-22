@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.23.0
+**Version:** 0.21.3
 
 ## Installation
 
@@ -20,10 +20,12 @@ import { validateFileStructure, Ok, Err } from '@harness-engineering/core';
 
 ## Constants
 
-### `VERSION`
+### `VERSION` _(deprecated)_
+
+> **Deprecated:** Read the CLI version from `@harness-engineering/cli/package.json` instead.
 
 ```typescript
-const VERSION: string; // "0.23.0"
+const VERSION: string; // "0.21.3"
 ```
 
 ## Error Types
@@ -84,6 +86,16 @@ Validates a commit message against a format specification.
 
 **Types:** `CommitFormat`, `CommitValidation`
 
+### `validateAgentConfigs(rootDir, options?)`
+
+Validates agent configuration files (CLAUDE.md, .cursorrules, etc.) using a hybrid approach: agnix binary for fast structural checks with TypeScript fallback rules.
+
+### `runAgentConfigFallbackRules(rootDir, options?)`
+
+Runs the TypeScript-only fallback rules for agent config validation.
+
+**Types:** `AgentConfigFinding`, `AgentConfigValidation`, `AgentConfigOptions`, `AgentConfigSeverity`, `AgentConfigFallbackReason`
+
 ---
 
 ## Context Module
@@ -140,6 +152,35 @@ Returns the file categories relevant to a given workflow phase.
 
 Constant array of required AGENTS.md sections.
 
+### Progressive Loading
+
+| Function / Export                | Description                                                         |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `parseSections(content)`         | Parses skill content into sections with heading hierarchy           |
+| `extractLevel(line)`             | Extracts the heading level from a markdown heading line             |
+| `computeLoadPlan(skill, budget)` | Computes a progressive loading plan that fits within a token budget |
+| `DEFAULT_LOADER_CONFIG`          | Default configuration for the progressive loader                    |
+
+**Types:** `ParsedSection`, `LoaderConfig`, `SkillLoadPlan`
+
+---
+
+## Annotations Module
+
+Protected region annotation parsing for `@harness-ignore` directives. Source: [`packages/core/src/annotations/`](../../packages/core/src/annotations/)
+
+| Function                         | Description                                            |
+| -------------------------------- | ------------------------------------------------------ |
+| `parseProtectedRegions(content)` | Parses `@harness-ignore` annotations from file content |
+| `parseFileRegions(filePath)`     | Reads a file and parses its protected regions          |
+| `createRegionMap(files)`         | Creates a map of file paths to their protected regions |
+
+**Types:** `ProtectionScope`, `ProtectedRegion`, `ProtectedRegionMap`, `AnnotationIssue`, `AnnotationIssueType`
+
+**Constants:** `VALID_SCOPES`
+
+> Note: These are also re-exported from the Entropy module for convenience.
+
 ---
 
 ## Constraints Module
@@ -156,7 +197,7 @@ Validates dependency edges against layer rules.
 
 Builds a dependency graph from source files.
 
-**Types:** `Layer`, `LayerConfig`, `DependencyEdge`, `DependencyGraph`, `DependencyViolation`, `DependencyValidation`
+**Types:** `Layer`, `LayerConfig`, `DependencyEdge`, `DependencyGraph`, `DependencyViolation`, `DependencyValidation`, `ParserLookup`, `GraphDependencyData`
 
 ### `resolveFileToLayer(filePath, layers)`
 
@@ -164,9 +205,19 @@ Maps a file path to its architectural layer.
 
 ### Constraint Sharing
 
-| Function                           | Description                                                                                                                            |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `removeSharedConstraints(rootDir)` | Removes shared constraint symlinks/copies from a project. Source: [`remove.ts`](../../packages/core/src/constraints/sharing/remove.ts) |
+| Function / Export                         | Description                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `removeContributions(rootDir)`            | Removes shared constraint contributions from a project. Source: [`remove.ts`](../../packages/core/src/constraints/sharing/remove.ts) |
+| `writeConfig(rootDir, config)`            | Writes merged constraint configuration                                                                                               |
+| `parseManifest(content)`                  | Parses a constraint sharing manifest                                                                                                 |
+| `extractBundle(rootDir)`                  | Extracts a shareable constraint bundle from a project                                                                                |
+| `deepMergeConstraints(a, b)`              | Deep merges two constraint configurations                                                                                            |
+| `readLockfile(rootDir)` / `writeLockfile` | Reads/writes the constraint sharing lockfile                                                                                         |
+| `addProvenance` / `removeProvenance`      | Manages provenance tracking in the lockfile                                                                                          |
+
+**Types:** `Manifest`, `Bundle`, `BundleConstraints`, `Lockfile`, `LockfilePackage`, `Contributions`, `ConflictReport`, `MergeResult`
+
+**Schemas:** `ManifestSchema`, `BundleSchema`, `BundleConstraintsSchema`, `LockfileSchema`, `LockfilePackageSchema`, `ContributionsSchema`, `SharableLayerSchema`, `SharableForbiddenImportSchema`, `SharableBoundaryConfigSchema`, `SharableSecurityRulesSchema`
 
 ### `detectCircularDeps(graph)` / `detectCircularDepsInFiles(files)`
 
@@ -207,18 +258,19 @@ Builds a codebase snapshot for entropy detection.
 
 ### Fixers
 
-| Function                                  | Description                                        |
-| ----------------------------------------- | -------------------------------------------------- |
-| `createFixes(report)`                     | Creates fix objects from an entropy report         |
-| `applyFixes(fixes)`                       | Applies fixes to the filesystem                    |
-| `previewFix(fix)`                         | Returns a preview of what a fix would change       |
-| `createCommentedCodeFixes(blocks)`        | Creates fixes for removing commented-out code      |
-| `createOrphanedDepFixes(deps)`            | Creates fixes for removing orphaned dependencies   |
-| `createForbiddenImportFixes(violations)`  | Creates fixes for forbidden import violations      |
-| `generateSuggestions(report)`             | Generates human-readable suggestions from a report |
-| `classifyFinding(finding)`                | Classifies a cleanup finding by safety level       |
-| `applyHotspotDowngrade(finding, context)` | Downgrades finding severity in hotspot areas       |
-| `deduplicateCleanupFindings(findings)`    | Removes duplicate cleanup findings                 |
+| Function                                   | Description                                        |
+| ------------------------------------------ | -------------------------------------------------- |
+| `createFixes(report)`                      | Creates fix objects from an entropy report         |
+| `applyFixes(fixes)`                        | Applies fixes to the filesystem                    |
+| `previewFix(fix)`                          | Returns a preview of what a fix would change       |
+| `createCommentedCodeFixes(blocks)`         | Creates fixes for removing commented-out code      |
+| `createOrphanedDepFixes(deps)`             | Creates fixes for removing orphaned dependencies   |
+| `createForbiddenImportFixes(violations)`   | Creates fixes for forbidden import violations      |
+| `generateSuggestions(report)`              | Generates human-readable suggestions from a report |
+| `classifyFinding(finding)`                 | Classifies a cleanup finding by safety level       |
+| `applyHotspotDowngrade(finding, context)`  | Downgrades finding severity in hotspot areas       |
+| `markProtectedFindings(findings, regions)` | Marks findings that fall within protected regions  |
+| `deduplicateCleanupFindings(findings)`     | Removes duplicate cleanup findings                 |
 
 ### Configuration
 
@@ -347,7 +399,69 @@ Identifies critical execution paths.
 | `loadSessionSummary(rootDir, slug)`        | Loads a session's `summary.md` contents, or null if missing                                                            |
 | `listActiveSessions(rootDir)`              | Reads `.harness/sessions/index.md` contents, or null if missing                                                        |
 
-**Types:** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`, `BudgetedLearningsOptions`, `LearningPattern`, `PruneResult`, `SessionSummaryData`
+### Learnings Content Analysis
+
+| Function                            | Description                                       |
+| ----------------------------------- | ------------------------------------------------- |
+| `parseFrontmatter(content)`         | Parses YAML frontmatter from learning entries     |
+| `extractIndexEntry(entry)`          | Extracts a structured index entry from a learning |
+| `normalizeLearningContent(content)` | Normalizes learning content for deduplication     |
+| `computeContentHash(content)`       | Computes a hash of learning content               |
+| `loadIndexEntries(rootDir)`         | Loads structured index entries from learnings     |
+
+**Types:** `LearningsFrontmatter`, `LearningsIndexEntry`, `AppendLearningResult`
+
+### Learnings Lifecycle
+
+| Function                                 | Description                                    |
+| ---------------------------------------- | ---------------------------------------------- |
+| `promoteSessionLearnings(rootDir, slug)` | Promotes session learnings to global learnings |
+| `countLearningEntries(rootDir)`          | Counts the number of learning entries          |
+
+**Types:** `PromoteResult`
+
+### Learnings Overlap Detection
+
+| Function                         | Description                                         |
+| -------------------------------- | --------------------------------------------------- |
+| `checkOverlap(a, b)`             | Checks two learnings for content overlap            |
+| `computeLexicalSimilarity(a, b)` | Computes lexical similarity between two strings     |
+| `extractFileReferences(content)` | Extracts file path references from learning content |
+
+**Types:** `OverlapResult`, `OverlapDimensions`
+
+### Learnings Staleness Detection
+
+| Function                        | Description                                            |
+| ------------------------------- | ------------------------------------------------------ |
+| `detectStaleLearnings(rootDir)` | Detects learnings that reference renamed/deleted files |
+
+**Types:** `StalenessReport`, `StalenessEntry`
+
+### Session Sections
+
+| Function                                   | Description                           |
+| ------------------------------------------ | ------------------------------------- |
+| `readSessionSections(rootDir, slug)`       | Reads all sections of a session       |
+| `readSessionSection(rootDir, slug, name)`  | Reads a specific section of a session |
+| `appendSessionEntry(rootDir, slug, entry)` | Appends an entry to a session section |
+| `updateSessionEntryStatus(rootDir, ...)`   | Updates the status of a session entry |
+| `archiveSession(rootDir, slug)`            | Archives a session and its artifacts  |
+
+### Events
+
+| Function                              | Description                                   |
+| ------------------------------------- | --------------------------------------------- |
+| `emitEvent(rootDir, event, options?)` | Emits a skill/workflow event to the event log |
+| `loadEvents(rootDir, options?)`       | Loads events from the event log               |
+| `formatEventTimeline(events)`         | Formats events as a human-readable timeline   |
+| `clearEventHashCache()`               | Clears the in-memory event hash cache         |
+
+**Types:** `SkillEvent`, `EventType`, `EmitEventInput`, `EmitEventOptions`, `EmitEventResult`, `LoadEventsOptions`
+
+**Schemas:** `SkillEventSchema`
+
+**Types (all sections):** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`, `BudgetedLearningsOptions`, `LearningPattern`, `PruneResult`, `SessionSummaryData`
 
 **Schemas:** `HarnessStateSchema`, `FailureEntrySchema`, `HandoffSchema`, `GateResultSchema`, `GateConfigSchema`
 
@@ -439,21 +553,74 @@ Detects the technology stack of a project (Node, React, Go, etc.).
 
 ### Built-in Rule Sets
 
-| Export                 | Category                        |
-| ---------------------- | ------------------------------- |
-| `secretRules`          | Hard-coded secrets and API keys |
-| `injectionRules`       | SQL/command injection           |
-| `xssRules`             | Cross-site scripting            |
-| `cryptoRules`          | Weak cryptography               |
-| `pathTraversalRules`   | Path traversal                  |
-| `networkRules`         | Insecure network usage          |
-| `deserializationRules` | Unsafe deserialization          |
-| `nodeRules`            | Node.js-specific                |
-| `expressRules`         | Express.js-specific             |
-| `reactRules`           | React-specific                  |
-| `goRules`              | Go-specific                     |
+| Export                  | Category                        |
+| ----------------------- | ------------------------------- |
+| `secretRules`           | Hard-coded secrets and API keys |
+| `injectionRules`        | SQL/command injection           |
+| `xssRules`              | Cross-site scripting            |
+| `cryptoRules`           | Weak cryptography               |
+| `pathTraversalRules`    | Path traversal                  |
+| `networkRules`          | Insecure network usage          |
+| `deserializationRules`  | Unsafe deserialization          |
+| `nodeRules`             | Node.js-specific                |
+| `expressRules`          | Express.js-specific             |
+| `reactRules`            | React-specific                  |
+| `goRules`               | Go-specific                     |
+| `agentConfigRules`      | Agent configuration security    |
+| `mcpRules`              | MCP server/tool security        |
+| `insecureDefaultsRules` | Insecure default values         |
+| `sharpEdgesRules`       | Dangerous API usage patterns    |
 
-**Types:** `SecurityCategory`, `SecuritySeverity`, `SecurityConfidence`, `SecurityRule`, `SecurityFinding`, `ScanResult`, `SecurityConfig`, `RuleOverride`
+### Injection Pattern Detection
+
+| Function / Export           | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| `scanForInjection(content)` | Scans content for prompt injection patterns        |
+| `getInjectionPatterns()`    | Returns the set of injection detection patterns    |
+| `DESTRUCTIVE_BASH`          | Pattern set for destructive bash command detection |
+
+**Types:** `InjectionFinding`, `InjectionSeverity`, `InjectionPattern`
+
+### Taint State Management
+
+| Function                        | Description                              |
+| ------------------------------- | ---------------------------------------- |
+| `readTaint(sessionDir)`         | Reads the taint state for a session      |
+| `checkTaint(sessionDir)`        | Checks if a session is tainted           |
+| `writeTaint(sessionDir, state)` | Writes taint state for a session         |
+| `clearTaint(sessionDir)`        | Clears taint state for a session         |
+| `listTaintedSessions(rootDir)`  | Lists all tainted sessions               |
+| `getTaintFilePath(sessionDir)`  | Returns the path to the taint state file |
+
+**Types:** `TaintState`, `TaintFinding`, `TaintCheckResult`
+
+### Scan Config Utilities
+
+| Function                           | Description                                      |
+| ---------------------------------- | ------------------------------------------------ |
+| `mapSecuritySeverity(severity)`    | Maps security severity to scan config severity   |
+| `computeOverallSeverity(findings)` | Computes overall severity from a set of findings |
+| `computeScanExitCode(result)`      | Computes process exit code from scan results     |
+| `mapInjectionFindings(findings)`   | Maps injection findings to scan config format    |
+| `isDuplicateFinding(a, b)`         | Checks if two findings are duplicates            |
+| `mapSecurityFindings(findings)`    | Maps security findings to scan config format     |
+| `parseHarnessIgnore(content)`      | Parses `.harnessignore` file content             |
+
+**Types:** `ScanConfigFinding`, `ScanConfigFileResult`, `ScanConfigResult`, `SuppressionRecord`
+
+### Security Timeline
+
+| Export                       | Description                                          |
+| ---------------------------- | ---------------------------------------------------- |
+| `SecurityTimelineManager`    | Manages security metric timelines and trend analysis |
+| `securityFindingId(finding)` | Deterministic hash ID for a security finding         |
+| `EMPTY_SUPPLY_CHAIN`         | Empty supply chain snapshot constant                 |
+
+**Types:** `SecurityCategorySnapshot`, `SupplyChainSnapshot`, `SecurityTimelineSnapshot`, `FindingLifecycle`, `SecurityTimelineFile`, `SecurityDirection`, `SecurityTrendLine`, `TrendAttribution`, `SecurityTrendResult`, `TimeToFixStats`, `TimeToFixResult`
+
+**Schemas:** `SecurityConfigSchema`, `SecurityCategorySnapshotSchema`, `SupplyChainSnapshotSchema`, `SecurityTimelineSnapshotSchema`, `FindingLifecycleSchema`, `SecurityTimelineFileSchema`, `SecurityTrendLineSchema`, `TrendAttributionSchema`, `SecurityTrendResultSchema`, `TimeToFixStatsSchema`, `TimeToFixResultSchema`
+
+**Types (core):** `SecurityCategory`, `SecuritySeverity`, `SecurityConfidence`, `SecurityRule`, `SecurityFinding`, `ScanResult`, `SecurityConfig`, `RuleOverride`
 
 **Constants:** `DEFAULT_SECURITY_CONFIG`
 
@@ -468,6 +635,14 @@ function runCIChecks(input: RunCIChecksInput): Promise<CICheckReport>;
 ```
 
 Orchestrates all CI checks and returns a unified report.
+
+### `formatCIReportAsMarkdown(report)`
+
+Formats a CI check report as a markdown string for GitHub comments or terminal output.
+
+### `CINotifier`
+
+Class for sending CI check notifications to configured targets (e.g., Slack, GitHub).
 
 **Types:** `RunCIChecksInput`
 
@@ -511,6 +686,57 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 | `getExitCode(assessment)`                  | Maps assessment to process exit code             |
 | `isSmallSuggestion(finding)`               | Checks if a finding is a small inline suggestion |
 
+### Evidence Gate
+
+| Function                                  | Description                                        |
+| ----------------------------------------- | -------------------------------------------------- |
+| `checkEvidenceCoverage(findings, bundle)` | Checks that findings cite sufficient code evidence |
+| `tagUncitedFindings(findings)`            | Tags findings that lack source code citations      |
+
+**Types:** `EvidenceCoverageReport`
+
+### Trust Scoring
+
+| Function                                 | Description                                |
+| ---------------------------------------- | ------------------------------------------ |
+| `computeTrustScores(findings, options?)` | Computes trust scores for review findings  |
+| `getTrustLevel(score)`                   | Maps a numeric trust score to a tier label |
+
+**Types:** `TrustScoreOptions`
+
+**Constants:** `VALIDATION_SCORES`, `DOMAIN_BASELINES`, `FACTOR_WEIGHTS`, `EVIDENCE_SATURATION`, `CORROBORATED_AGREEMENT`, `STANDALONE_AGREEMENT`, `AGREEMENT_LINE_GAP`
+
+### Pipeline Orchestrator
+
+| Function                     | Description                              |
+| ---------------------------- | ---------------------------------------- |
+| `runReviewPipeline(options)` | Runs the full end-to-end review pipeline |
+
+**Types:** `RunPipelineOptions`, `PipelineFlags`, `PipelineContext`, `ReviewPipelineResult`
+
+### Parallel Groups
+
+| Function                    | Description                                                 |
+| --------------------------- | ----------------------------------------------------------- |
+| `findParallelGroups(graph)` | Identifies independent review groups for parallel execution |
+
+**Types:** `GraphNode`, `ParallelGroups`
+
+### Meta-Judge
+
+| Function                  | Description                                        |
+| ------------------------- | -------------------------------------------------- |
+| `generateRubric(options)` | Generates a review rubric for the meta-judge stage |
+
+**Types:** `GenerateRubricOptions`, `Rubric`, `RubricItem`, `ReviewStage`
+
+### Two-Stage Isolation
+
+| Function                      | Description                                   |
+| ----------------------------- | --------------------------------------------- |
+| `splitBundlesByStage(bundle)` | Splits review bundles for two-stage isolation |
+| `stageDomains`                | Maps review stages to their domain sets       |
+
 ### Other
 
 | Function                                       | Description                                          |
@@ -519,6 +745,9 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 | `detectChangeType(diff)`                       | Classifies a diff as refactor, feature, bugfix, etc. |
 | `scopeContext(bundle, options?)`               | Scopes context to relevant files                     |
 | `resolveModelTier(config)`                     | Resolves which model tier to use                     |
+| `DEFAULT_PROVIDER_TIERS`                       | Default model provider tier configuration            |
+
+**Types:** `ValidateFindingsOptions`, `DeduplicateFindingsOptions`, `ModelTierConfig`, `ModelProvider`, `ProviderDefaults`
 
 #### Review Type Definitions
 
@@ -544,6 +773,14 @@ Serializes a `Roadmap` back to markdown. Extended fields (`Assignee`, `Priority`
 ### `syncRoadmap(roadmap, options)`
 
 Synchronizes a roadmap with the current state of specs and plans on disk.
+
+### `applySyncChanges(roadmap, changes)`
+
+Applies sync changes to a roadmap object in-place.
+
+### `loadTrackerSyncConfig(rootDir)`
+
+Loads external tracker sync configuration from the project.
 
 **Types:** `SyncChange`, `SyncOptions`
 
@@ -714,7 +951,11 @@ Estimates token count for a string using a character-based heuristic.
 
 Default token budget constant.
 
-**Types:** `CompactionStrategy`, `PackedEnvelope`
+### `paginate(items, options)`
+
+Paginates an array of items with offset/limit support and metadata.
+
+**Types:** `CompactionStrategy`, `PackedEnvelope`, `PaginationMeta`, `PaginatedSlice`
 
 ---
 
@@ -900,6 +1141,14 @@ function calculateCost(record: UsageRecord, dataset: PricingDataset): number | n
 
 Calculates the cost of a usage record in integer microdollars. Includes input, output, cache read, and cache write token costs. Returns `null` if the model is unknown.
 
+### `calculateCacheSavings(record, dataset)`
+
+```typescript
+function calculateCacheSavings(record: UsageRecord, dataset: PricingDataset): number | null;
+```
+
+Calculates the cost savings from prompt caching in integer microdollars.
+
 ### Constants
 
 | Export                   | Description                                                  |
@@ -975,17 +1224,9 @@ class BlueprintGenerator {
 
 Generates an HTML blueprint from `BlueprintData`. Runs each module through the `ContentPipeline` for LLM-powered code translation, then renders the final HTML using EJS templates. Writes `index.html` to the specified output directory.
 
-### `ContentPipeline`
-
-```typescript
-class ContentPipeline {
-  generateModuleContent(module: BlueprintModule): Promise<Content>;
-}
-```
-
-Generates human-readable code explanations for a blueprint module using the LLM service.
-
 **Types:** `BlueprintData`, `BlueprintModule`, `BlueprintOptions`, `Content`, `Hotspot`, `ModuleDependency`
+
+> Note: `ContentPipeline` is an internal class used by `BlueprintGenerator` and is not exported from the package entry point.
 
 ---
 
@@ -1169,6 +1410,36 @@ function archModule(modulePath: string, options?: ArchitectureOptions): ArchHand
 Factory functions for creating architecture handles consumed by the Vitest matchers. `architecture()` creates a project-wide handle; `archModule()` creates a module-scoped handle.
 
 **Types:** `ArchHandle`, `ArchitectureOptions`
+
+### Violation History
+
+| Export                                 | Description                                              |
+| -------------------------------------- | -------------------------------------------------------- |
+| `ViolationHistoryManager`              | Manages violation snapshots over time for trend tracking |
+| `normalizeViolationPattern(violation)` | Normalizes a violation into a stable pattern key         |
+| `extractDirectoryScope(filePath)`      | Extracts the directory scope from a file path            |
+
+**Types:** `ViolationSnapshot`, `ViolationHistory`
+
+**Schemas:** `ViolationSnapshotSchema`, `ViolationHistorySchema`
+
+### Violation Clustering
+
+| Function                        | Description                                              |
+| ------------------------------- | -------------------------------------------------------- |
+| `clusterViolations(violations)` | Groups violations by structural similarity into clusters |
+
+**Types:** `ViolationCluster`
+
+### Emergent Constraint Detection
+
+| Function                             | Description                                                        |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `detectEmergentConstraints(history)` | Detects patterns in violation history that suggest new constraints |
+
+**Types:** `EmergenceConfidence`, `EmergentConstraintSuggestion`, `EmergenceResult`
+
+**Schemas:** `EmergenceConfidenceSchema`, `EmergentConstraintSuggestionSchema`, `EmergenceResultSchema`
 
 ### Hashing Utilities
 

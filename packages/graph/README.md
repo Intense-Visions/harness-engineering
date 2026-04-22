@@ -66,9 +66,9 @@ const context = cql.execute({
 });
 
 // 4. Search with FusionLayer (keyword + optional semantic)
-const vectorStore = new VectorStore();
+const vectorStore = new VectorStore(1536);
 const fusion = new FusionLayer(store, vectorStore);
-const results = fusion.search('authentication handler', { topK: 10 });
+const results = fusion.search('authentication handler', 10);
 ```
 
 ## Key Classes
@@ -76,9 +76,9 @@ const results = fusion.search('authentication handler', { topK: 10 });
 | Class                          | Description                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------------ |
 | `GraphStore`                   | In-memory graph backed by LokiJS with indexed node/edge collections                  |
-| `VectorStore`                  | Optional vector index for semantic similarity search (hnswlib)                       |
+| `VectorStore`                  | In-memory brute-force cosine similarity vector store                                 |
 | `ContextQL`                    | BFS-based graph traversal engine with type filtering and observability pruning       |
-| `project`                      | Projection utility to select specific fields from query results                      |
+| `project` (function)           | Projection utility to select specific fields from query results                      |
 | `CodeIngestor`                 | Parses TypeScript/JavaScript files into file, class, function, and method nodes      |
 | `GitIngestor`                  | Extracts commit history and co-change relationships from git                         |
 | `KnowledgeIngestor`            | Ingests ADRs, learnings, and markdown knowledge artifacts                            |
@@ -92,35 +92,56 @@ const results = fusion.search('authentication handler', { topK: 10 });
 | `CascadeSimulator`             | Probability-weighted BFS for cascading failure simulation (`compute_blast_radius`)   |
 | `CompositeProbabilityStrategy` | Default edge probability strategy blending edge type, change frequency, and coupling |
 | `saveGraph` / `loadGraph`      | Serializes and deserializes the graph store to/from disk                             |
+| `BusinessKnowledgeIngestor`    | Ingests business rules, processes, concepts, terms, and metrics as graph nodes       |
+| `RequirementIngestor`          | Ingests requirement specifications as traceability nodes                             |
+| `DesignIngestor`               | Ingests design tokens and aesthetic intents                                          |
+| `DesignConstraintAdapter`      | Validates design constraints against graph state                                     |
+| `GraphComplexityAdapter`       | Computes complexity metrics from graph structure                                     |
+| `GraphCouplingAdapter`         | Measures coupling between modules via graph edges                                    |
+| `GraphAnomalyAdapter`          | Detects structural anomalies in the graph                                            |
+| `TaskIndependenceAnalyzer`     | Determines if tasks can be executed in parallel                                      |
+| `ConflictPredictor`            | Predicts merge conflicts from co-change patterns                                     |
+| `askGraph`                     | Natural language query interface for the knowledge graph                             |
+| `IntentClassifier`             | Classifies natural language query intent for NLQ                                     |
+| `EntityExtractor`              | Extracts entity references from natural language queries                             |
+| `EntityResolver`               | Resolves extracted entities to graph nodes                                           |
+| `ResponseFormatter`            | Formats NLQ results for display                                                      |
+| `queryTraceability`            | Queries requirement-to-test traceability chains                                      |
+| `PackedSummaryCache`           | Caches packed context summaries as graph nodes                                       |
+| `groupNodesByImpact`           | Groups nodes by cascading impact for blast radius analysis                           |
 
 ## Node Types
 
-28 node types organized by category:
+37 node types organized by category:
 
-| Category          | Types                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| **Code**          | `repository`, `module`, `file`, `class`, `interface`, `function`, `method`, `variable` |
-| **Knowledge**     | `adr`, `decision`, `learning`, `failure`, `issue`, `document`, `skill`, `conversation` |
-| **VCS**           | `commit`, `build`, `test_result`                                                       |
-| **Observability** | `span`, `metric`, `log`                                                                |
-| **Structural**    | `layer`, `pattern`, `constraint`, `violation`                                          |
-| **Design**        | `design_token`, `aesthetic_intent`, `design_constraint`                                |
-| **Traceability**  | `requirement`                                                                          |
+| Category               | Types                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| **Code**               | `repository`, `module`, `file`, `class`, `interface`, `function`, `method`, `variable`      |
+| **Knowledge**          | `adr`, `decision`, `learning`, `failure`, `issue`, `document`, `skill`, `conversation`      |
+| **VCS**                | `commit`, `build`, `test_result`, `execution_outcome`                                       |
+| **Observability**      | `span`, `metric`, `log`                                                                     |
+| **Structural**         | `layer`, `pattern`, `constraint`, `violation`                                               |
+| **Design**             | `design_token`, `aesthetic_intent`, `design_constraint`                                     |
+| **Traceability**       | `requirement`                                                                               |
+| **Business Knowledge** | `business_rule`, `business_process`, `business_concept`, `business_term`, `business_metric` |
+| **Cache**              | `packed_summary`                                                                            |
 
 Observability types (`span`, `metric`, `log`) are pruned by default in ContextQL queries to reduce noise.
 
 ## Edge Types
 
-24 edge types organized by category:
+29 edge types organized by category:
 
-| Category         | Types                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| **Code**         | `contains`, `imports`, `calls`, `implements`, `inherits`, `references`                    |
-| **Knowledge**    | `applies_to`, `caused_by`, `resolved_by`, `documents`, `violates`, `specifies`, `decided` |
-| **VCS**          | `co_changes_with`, `triggered_by`, `failed_in`                                            |
-| **Execution**    | `executed_by`, `measured_by`                                                              |
-| **Design**       | `uses_token`, `declares_intent`, `violates_design`, `platform_binding`                    |
-| **Traceability** | `requires`, `verified_by`, `tested_by`                                                    |
+| Category               | Types                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| **Code**               | `contains`, `imports`, `calls`, `implements`, `inherits`, `references`                    |
+| **Knowledge**          | `applies_to`, `caused_by`, `resolved_by`, `documents`, `violates`, `specifies`, `decided` |
+| **VCS**                | `co_changes_with`, `triggered_by`, `failed_in`, `outcome_of`                              |
+| **Execution**          | `executed_by`, `measured_by`                                                              |
+| **Design**             | `uses_token`, `declares_intent`, `violates_design`, `platform_binding`                    |
+| **Traceability**       | `requires`, `verified_by`, `tested_by`                                                    |
+| **Business Knowledge** | `governs`, `measures`                                                                     |
+| **Cache**              | `caches`                                                                                  |
 
 Edges carry an optional `confidence` score (0-1) used by the FusionLayer for ranking.
 
@@ -167,10 +188,12 @@ await loadGraph(restored, '/path/to/graph.json');
 
 ## Dependencies
 
-| Package     | Purpose                                                   |
-| ----------- | --------------------------------------------------------- |
-| `minimatch` | Glob pattern matching for file filtering during ingestion |
-| `zod`       | Runtime schema validation for graph nodes and edges       |
+| Package                             | Purpose                                                   |
+| ----------------------------------- | --------------------------------------------------------- |
+| `minimatch`                         | Glob pattern matching for file filtering during ingestion |
+| `zod`                               | Runtime schema validation for graph nodes and edges       |
+| `tree-sitter` (optional)            | Enhanced TypeScript AST parsing for code ingestion        |
+| `tree-sitter-typescript` (optional) | TypeScript grammar for tree-sitter                        |
 
 ## License
 

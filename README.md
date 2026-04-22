@@ -88,10 +88,9 @@ npm install && harness validate
 ## Usage
 
 ```typescript
-import { validateConfig } from '@harness-engineering/core';
-import { HarnessConfigSchema } from '@harness-engineering/cli';
+import { validateFileStructure } from '@harness-engineering/core';
 
-const result = validateConfig(configData, HarnessConfigSchema);
+const result = await validateFileStructure('/path/to/project');
 if (!result.ok) {
   console.error('Validation failed:', result.error.message);
   process.exit(1);
@@ -169,7 +168,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 58 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 9 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships, business-knowledge).
+This gives your AI agent access to 59 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 9 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships, business-knowledge).
 
 <details>
 <summary>Manual MCP setup</summary>

@@ -36,16 +36,16 @@ The `harness` binary supports these global options:
 
 #### Validation
 
-| Command                    | Description                                                                                    |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `harness validate`         | Run all validation checks                                                                      |
-| `harness check-arch`       | Check architecture assertions against baseline and thresholds                                  |
-| `harness check-deps`       | Validate dependency layers and detect circular dependencies                                    |
-| `harness check-docs`       | Check documentation coverage                                                                   |
-| `harness check-perf`       | Run performance checks: structural complexity, coupling, and size budgets                      |
-| `harness check-phase-gate` | Verify that implementation files have matching spec documents                                  |
-| `harness check-security`   | Run lightweight security scan: secrets, injection, XSS, weak crypto                            |
-| `harness scan-config`      | Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns |
+| Command                    | Description                                                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `harness validate`         | Run all validation checks                                                                                                                                                |
+| `harness check-arch`       | Check architecture assertions against baseline and thresholds                                                                                                            |
+| `harness check-deps`       | Validate dependency layers and detect circular dependencies                                                                                                              |
+| `harness check-docs`       | Check documentation coverage                                                                                                                                             |
+| `harness check-perf`       | Run performance checks: structural complexity, coupling, and size budgets                                                                                                |
+| `harness check-phase-gate` | Verify that implementation files have matching spec documents                                                                                                            |
+| `harness check-security`   | Run lightweight security scan: secrets, injection, XSS, weak crypto. Options: `--severity <level>` (default: warning), `--changed-only` (scan only git-changed files)    |
+| `harness scan-config`      | Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns. Options: `--fix` (strip high-severity patterns in-place), `--path <dir>` |
 
 #### Entropy and Drift
 
@@ -265,11 +265,27 @@ Requires `GITHUB_TOKEN` or `GH_TOKEN` environment variable. When target is `issu
 
 #### State and Learnings
 
-| Command             | Description                       |
-| ------------------- | --------------------------------- |
-| `harness state`     | Project state management commands |
-| `harness learnings` | Learnings management commands     |
-| `harness usage`     | Token usage and cost tracking     |
+| Command             | Description                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `harness state`     | Project state management. Subcommands: `show`, `reset`, `learn`, `streams` (`list`, `create`, `archive`, `set`) |
+| `harness learnings` | Learnings management commands                                                                                   |
+| `harness usage`     | Token usage and cost tracking                                                                                   |
+
+#### Telemetry and Adoption
+
+| Command             | Description                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `harness telemetry` | Telemetry identity and status management. Subcommands: `identify`, `status`, `test`                          |
+| `harness adoption`  | View skill adoption telemetry. Subcommands: `skills`, `recent`, `skill <name>`. Options: `--json`, `--limit` |
+
+#### Analysis and Maintenance
+
+| Command                    | Description                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `harness publish-analyses` | Publish locally generated intelligence analyses to external issue tracker. Options: `-d, --dir <path>`         |
+| `harness sync-analyses`    | Pull published analyses from external issue tracker to local `.harness/analyses/`. Options: `-d, --dir <path>` |
+| `harness audit-protected`  | Report all `@harness-ignore` protected code regions                                                            |
+| `harness cleanup-sessions` | Remove stale session directories (no writes in 24h). Options: `--dry-run`, `--path <path>`                     |
 
 ## Programmatic API
 
@@ -435,46 +451,155 @@ Handlebars-based template engine for code generation.
 
 ## MCP Tools
 
-### Skill Search
+The MCP server registers **59 tools** organized by category. Source: [`packages/cli/src/mcp/server.ts`](../../packages/cli/src/mcp/server.ts)
 
-| File                                                                    | Description                                                          |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`search-skills.ts`](../../packages/cli/src/mcp/tools/search-skills.ts) | MCP tool for searching available skills by name, tag, or description |
+### Validation & Project Setup
+
+| Tool                     | Description                                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `validate_project`       | Run all validation checks                                                                          |
+| `check_dependencies`     | Validate dependency layers and detect circular deps                                                |
+| `check_docs`             | Check documentation coverage. Params: `path`, `scope` (`coverage` / `integrity` / `all`), `domain` |
+| `detect_entropy`         | Detect entropy issues (drift, dead code, patterns). Params: `path`, `type`, `autoFix`              |
+| `generate_linter`        | Generate custom ESLint rules from YAML config                                                      |
+| `validate_linter_config` | Validate a linter configuration                                                                    |
+| `init_project`           | Initialize a new harness project                                                                   |
+| `add_component`          | Add a component to an existing project                                                             |
+| `assess_project`         | Comprehensive project health assessment                                                            |
+
+### Skill & Agent Tools
+
+| Tool                         | Description                                          |
+| ---------------------------- | ---------------------------------------------------- |
+| `search_skills`              | Search available skills by name, tag, or description |
+| `run_skill`                  | Execute a skill                                      |
+| `create_skill`               | Create a new skill definition                        |
+| `recommend_skills`           | Recommend skills based on current context            |
+| `dispatch_skills`            | Dispatch skills for changed files                    |
+| `run_agent_task`             | Run an agent task definition                         |
+| `generate_agent_definitions` | Generate agent definitions from project config       |
+| `generate_slash_commands`    | Generate slash command definitions                   |
+
+### Persona Tools
+
+| Tool                         | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `list_personas`              | List available personas             |
+| `generate_persona_artifacts` | Generate persona-specific artifacts |
+| `run_persona`                | Execute a persona                   |
 
 ### Graph Tools
 
-| File                                                                                  | Description                                                               |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`shared.ts`](../../packages/cli/src/mcp/tools/graph/shared.ts)                       | Shared utilities for graph MCP tools (store loading, response formatting) |
-| [`ask-graph.ts`](../../packages/cli/src/mcp/tools/graph/ask-graph.ts)                 | Natural language queries against the knowledge graph                      |
-| [`query-graph.ts`](../../packages/cli/src/mcp/tools/graph/query-graph.ts)             | Structured graph queries (node/edge lookups, traversals)                  |
-| [`search-similar.ts`](../../packages/cli/src/mcp/tools/graph/search-similar.ts)       | Semantic similarity search across graph nodes                             |
-| [`ingest-source.ts`](../../packages/cli/src/mcp/tools/graph/ingest-source.ts)         | Ingests source files into the knowledge graph                             |
-| [`get-relationships.ts`](../../packages/cli/src/mcp/tools/graph/get-relationships.ts) | Retrieves relationships for a given graph node                            |
-| [`get-impact.ts`](../../packages/cli/src/mcp/tools/graph/get-impact.ts)               | Impact analysis — determines what is affected by changing a node          |
-| [`find-context-for.ts`](../../packages/cli/src/mcp/tools/graph/find-context-for.ts)   | Finds relevant context for a given file or symbol                         |
-| [`detect-anomalies.ts`](../../packages/cli/src/mcp/tools/graph/detect-anomalies.ts)   | Detects structural anomalies in the knowledge graph                       |
+| Tool                   | Description                                                           |
+| ---------------------- | --------------------------------------------------------------------- |
+| `ask_graph`            | Natural language queries against the knowledge graph                  |
+| `query_graph`          | Structured graph queries (node/edge lookups, traversals)              |
+| `search_similar`       | Semantic similarity search across graph nodes                         |
+| `ingest_source`        | Ingest source files into the knowledge graph                          |
+| `get_relationships`    | Retrieve relationships for a given graph node                         |
+| `get_impact`           | Impact analysis — what is affected by changing a node                 |
+| `find_context_for`     | Find relevant context for a given file or symbol                      |
+| `detect_anomalies`     | Detect structural anomalies in the knowledge graph                    |
+| `compute_blast_radius` | Simulate cascading failure propagation using probability-weighted BFS |
 
-### Roadmap & State Tools
+### Review & Code Quality Tools
 
-| File                                                                            | Description                                                                |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [`roadmap.ts`](../../packages/cli/src/mcp/tools/roadmap.ts)                     | `manage_roadmap` — CRUD operations for `docs/roadmap.md`                   |
-| [`roadmap-auto-sync.ts`](../../packages/cli/src/mcp/tools/roadmap-auto-sync.ts) | Auto-sync engine — local sync + external tracker sync on state transitions |
-| [`state.ts`](../../packages/cli/src/mcp/tools/state.ts)                         | `manage_state` — session lifecycle actions with auto-sync triggers         |
+| Tool                      | Description                                                        |
+| ------------------------- | ------------------------------------------------------------------ |
+| `run_code_review`         | Run the full code review pipeline                                  |
+| `create_self_review`      | Create a self-review for changes                                   |
+| `analyze_diff`            | Analyze a diff for change type and impact                          |
+| `request_peer_review`     | Request a peer review from a specialized agent                     |
+| `review_changes`          | Review changes with configurable depth (`quick`/`standard`/`deep`) |
+| `validate_cross_check`    | Cross-check validation between spec and implementation             |
+| `check_phase_gate`        | Verify spec documents exist for implementation files               |
+| `check_task_independence` | Determine if tasks can be executed in parallel                     |
+| `predict_conflicts`       | Predict merge conflicts from co-change patterns                    |
+
+### Security Tools
+
+| Tool                  | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| `run_security_scan`   | Run a security scan with configurable severity |
+| `get_security_trends` | Get security finding trends over time          |
+
+### Performance Tools
+
+| Tool                    | Description                                                 |
+| ----------------------- | ----------------------------------------------------------- |
+| `check_performance`     | Run performance checks (complexity, coupling, size budgets) |
+| `get_perf_baselines`    | Read current performance baselines                          |
+| `update_perf_baselines` | Update performance baselines                                |
+| `get_critical_paths`    | Identify critical execution paths                           |
+
+### Architecture & Prediction Tools
+
+| Tool                          | Description                                                 |
+| ----------------------------- | ----------------------------------------------------------- |
+| `detect_stale_constraints`    | Detect constraint rules that haven't been violated recently |
+| `detect_constraint_emergence` | Detect emergent constraints from violation history          |
+| `predict_failures`            | Predict likely failure points from graph and timeline data  |
+| `get_decay_trends`            | Get architecture decay trends over time                     |
+| `check_traceability`          | Check spec-to-implementation traceability                   |
+
+### Code Navigation Tools
+
+| Tool           | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `code_outline` | Get a structural outline of a source file (classes, functions, etc.) |
+| `code_search`  | Search for symbols across the codebase                               |
+| `code_unfold`  | Expand a symbol to see its full implementation                       |
+
+### Context & State Tools
+
+| Tool               | Description                                                          |
+| ------------------ | -------------------------------------------------------------------- |
+| `gather_context`   | Assemble context for a skill invocation with token budget management |
+| `compact`          | Compact content to fit within a token budget                         |
+| `emit_interaction` | Emit a skill interaction event                                       |
+| `manage_state`     | Session lifecycle actions (see below)                                |
+| `list_streams`     | List all state streams                                               |
+| `manage_roadmap`   | CRUD operations for `docs/roadmap.md`                                |
 
 #### `manage_state` Actions
 
-| Action            | Description                                                         |
-| ----------------- | ------------------------------------------------------------------- |
-| `save-handoff`    | Save session handoff (existing). Triggers `autoSyncRoadmap`.        |
-| `archive_session` | Archive a completed session (existing). Triggers `autoSyncRoadmap`. |
-| `task-start`      | Signal a task has started. Triggers `autoSyncRoadmap`.              |
-| `task-complete`   | Signal a task has completed. Triggers `autoSyncRoadmap`.            |
-| `phase-start`     | Signal a phase has started. Triggers `autoSyncRoadmap`.             |
-| `phase-complete`  | Signal a phase has completed. Triggers `autoSyncRoadmap`.           |
+| Action                | Description                          | Auto-Sync |
+| --------------------- | ------------------------------------ | --------- |
+| `show`                | Display current project state        | No        |
+| `learn`               | Append a learning entry              | No        |
+| `failure`             | Record a failure entry               | No        |
+| `archive`             | Archive old failures                 | No        |
+| `reset`               | Reset project state                  | No        |
+| `gate`                | Run mechanical quality gate          | No        |
+| `save-handoff`        | Save session handoff                 | Yes       |
+| `load-handoff`        | Load current handoff                 | No        |
+| `append_entry`        | Append an entry to a session section | No        |
+| `update_entry_status` | Update the status of a session entry | No        |
+| `read_section`        | Read a specific session section      | No        |
+| `read_sections`       | Read all session sections            | No        |
+| `archive_session`     | Archive a completed session          | Yes       |
+| `task-start`          | Signal a task has started            | Yes       |
+| `task-complete`       | Signal a task has completed          | Yes       |
+| `phase-start`         | Signal a phase has started           | Yes       |
+| `phase-complete`      | Signal a phase has completed         | Yes       |
 
-All 6 actions fire `autoSyncRoadmap` which performs local roadmap sync, then (if tracker config is present) fires `fullSync` to push/pull from the external tracker.
+Actions marked "Yes" in Auto-Sync fire `autoSyncRoadmap` which performs local roadmap sync, then (if tracker config is present) fires `fullSync` to push/pull from the external tracker.
+
+### MCP Resources
+
+The MCP server exposes 9 resources:
+
+| URI                            | Description                                                   |
+| ------------------------------ | ------------------------------------------------------------- |
+| `harness://skills`             | Available skills with metadata (application/json)             |
+| `harness://rules`              | Active linter rules and constraints (application/json)        |
+| `harness://project`            | Project structure and AGENTS.md content (text/markdown)       |
+| `harness://learnings`          | Review learnings and anti-pattern log (text/markdown)         |
+| `harness://state`              | Current harness state (application/json)                      |
+| `harness://graph`              | Knowledge graph statistics (application/json)                 |
+| `harness://entities`           | All entity nodes with types (application/json)                |
+| `harness://relationships`      | All edges with types and confidence scores (application/json) |
+| `harness://business-knowledge` | Business domain knowledge (application/json)                  |
 
 #### `autoSyncRoadmap(projectPath)`
 

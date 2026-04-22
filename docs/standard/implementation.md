@@ -183,7 +183,7 @@ Types Layer (shared types, interfaces)
 ## Enforcement
 
 All layers are enforced:
-- ESLint rule: `@harness/no-layer-violations`
+- ESLint rule: `@harness-engineering/no-layer-violation`
 - Structural test: `tests/architecture/layers.test.ts`
 - Build will fail if violated
 ```
@@ -599,7 +599,7 @@ Create `.eslintrc.json`:
     {
       "files": ["src/services/**/*.ts"],
       "rules": {
-        "@harness/no-ui-imports-in-service": "error"
+        "@harness-engineering/no-forbidden-imports": "error"
       }
     }
   ]
@@ -667,17 +667,20 @@ module.exports = {
 Create `tests/architecture/circular-deps.test.ts`:
 
 ```typescript
-import { buildDependencyGraph, detectCycles } from '@harness-engineering/core';
-import { readdir, readFile } from 'fs/promises';
+import { detectCircularDepsInFiles } from '@harness-engineering/core';
+import { glob } from 'glob';
 import * as path from 'path';
 
 describe('Architecture: Circular Dependencies', () => {
   it('should have no circular dependencies', async () => {
     const srcDir = path.join(__dirname, '../../src');
-    const graph = await buildDependencyGraph(srcDir);
-    const cycles = detectCycles(graph);
+    const files = await glob('**/*.ts', { cwd: srcDir, absolute: true });
+    const result = await detectCircularDepsInFiles(files, parser);
 
-    expect(cycles).toEqual([]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.cycles).toEqual([]);
+    }
   });
 });
 ```
@@ -687,25 +690,26 @@ describe('Architecture: Circular Dependencies', () => {
 Create `tests/architecture/layers.test.ts`:
 
 ```typescript
-import { checkLayerViolations } from '@harness-engineering/core';
+import { defineLayer, validateDependencies } from '@harness-engineering/core';
 
 describe('Architecture: Layers', () => {
-  it('services should not import from ui', async () => {
-    const violations = await checkLayerViolations({
-      sourceLayer: 'services',
-      forbiddenImports: ['ui'],
+  const layers = [
+    defineLayer({ name: 'ui', path: 'src/ui', allowedDependencies: ['services', 'types'] }),
+    defineLayer({ name: 'services', path: 'src/services', allowedDependencies: ['types'] }),
+    defineLayer({ name: 'types', path: 'src/types', allowedDependencies: [] }),
+  ];
+
+  it('should have no layer violations', async () => {
+    const result = await validateDependencies({
+      layers,
+      rootDir: path.join(__dirname, '../../'),
+      parser,
     });
 
-    expect(violations).toHaveLength(0);
-  });
-
-  it('repository should not import from services', async () => {
-    const violations = await checkLayerViolations({
-      sourceLayer: 'repository',
-      forbiddenImports: ['services'],
-    });
-
-    expect(violations).toHaveLength(0);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.violations).toHaveLength(0);
+    }
   });
 });
 ```
@@ -904,16 +908,15 @@ Create telemetry configuration:
 
 ```typescript
 // src/telemetry.ts
-import { OpenTelemetryAdapter } from '@harness-engineering/core';
+// Note: harness does not ship an OpenTelemetry adapter.
+// Use the @opentelemetry/sdk-node package directly for OTEL integration.
+import { NodeSDK } from '@opentelemetry/sdk-node';
 
-export const telemetry = new OpenTelemetryAdapter({
+const sdk = new NodeSDK({
   serviceName: 'your-service',
-  endpoint: process.env.OTEL_ENDPOINT || 'http://localhost:4318',
 });
 
-export async function getTelemetry(service: string, timeRange: any) {
-  return telemetry.getMetrics(service, timeRange);
-}
+sdk.start();
 ```
 
 Use telemetry in agent feedback:

@@ -164,6 +164,7 @@ interface SkillMetadata {
   version: string;
   description: string;
   cognitive_mode?: CognitiveMode;
+  stability?: StabilityTier;
 }
 ```
 
@@ -441,7 +442,7 @@ Configuration for external tracker sync.
 ### `FeatureStatus`
 
 ```typescript
-type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
+type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked' | 'needs-human';
 ```
 
 ### `RoadmapFeature`
@@ -459,6 +460,7 @@ interface RoadmapFeature {
   assignee: string | null;
   priority: Priority | null;
   externalId: string | null;
+  updatedAt: string | null;
 }
 ```
 
@@ -503,5 +505,123 @@ interface Roadmap {
   frontmatter: RoadmapFrontmatter;
   milestones: RoadmapMilestone[];
   assignmentHistory: AssignmentRecord[];
+}
+```
+
+### `TrackerComment`
+
+```typescript
+interface TrackerComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: string;
+  updatedAt: string | null;
+}
+```
+
+## Caching / Stability Types
+
+```typescript
+type StabilityTier = 'static' | 'stable' | 'volatile' | 'experimental';
+
+interface StabilityMetadata {
+  tier: StabilityTier;
+  ttlMs: number;
+}
+```
+
+## Session State Types
+
+```typescript
+const SESSION_SECTION_NAMES = ['tasks', 'decisions', 'blockers', 'notes'] as const;
+type SessionSectionName = (typeof SESSION_SECTION_NAMES)[number];
+type SessionEntryStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'skipped';
+
+interface SessionEntry {
+  id: string;
+  content: string;
+  status: SessionEntryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type SessionSections = Record<SessionSectionName, SessionEntry[]>;
+```
+
+## Adoption Telemetry Types
+
+```typescript
+interface SkillInvocationRecord {
+  skill: string;
+  timestamp: string;
+  duration?: number;
+  outcome?: string;
+}
+
+interface SkillAdoptionSummary {
+  skill: string;
+  count: number;
+  lastUsed: string;
+}
+
+interface AdoptionSnapshot {
+  records: SkillInvocationRecord[];
+  period: { start: string; end: string };
+}
+```
+
+## Telemetry Types
+
+```typescript
+interface TelemetryConfig {
+  enabled: boolean;
+  endpoint?: string;
+}
+
+interface TelemetryIdentity {
+  installId: string;
+  userId?: string;
+}
+
+type ConsentState = 'granted' | 'denied' | 'unknown';
+
+interface TelemetryEvent {
+  name: string;
+  properties?: Record<string, unknown>;
+  timestamp: string;
+}
+```
+
+## Orchestrator Types
+
+See [Orchestrator API Reference](orchestrator.md) for the full set of orchestrator types including `AgentSession`, `AgentEvent`, `TurnResult`, `AgentBackend`, `TrackerConfig`, `PollingConfig`, `WorkspaceConfig`, `HooksConfig`, `AgentConfig`, `ServerConfig`, `WorkflowConfig`, `IntelligenceConfig`, `EscalationConfig`, `ScopeTier`, `ConcernSignal`, `RoutingDecision`, and more.
+
+## Container & Secrets Types
+
+```typescript
+interface ContainerCreateOpts {
+  image: string;
+  workDir: string;
+  env?: Record<string, string>;
+}
+
+interface ContainerExecOpts {
+  command: string[];
+  timeout?: number;
+}
+
+interface ContainerHandle {
+  id: string;
+  exec(opts: ContainerExecOpts): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  destroy(): Promise<void>;
+}
+
+interface ContainerRuntime {
+  create(opts: ContainerCreateOpts): Promise<ContainerHandle>;
+}
+
+interface SecretBackend {
+  resolve(key: string): Promise<string>;
 }
 ```
