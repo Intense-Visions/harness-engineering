@@ -133,9 +133,12 @@ function scaffoldProject(
   });
   if (!renderResult.ok) return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
 
+  const existingProject = !force && engine.isExistingProject(cwd);
+
   const writeResult = engine.write(renderResult.value, cwd, {
     overwrite: force,
     ...(language !== undefined && { language }),
+    existingProject,
   });
   if (!writeResult.ok) return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
 

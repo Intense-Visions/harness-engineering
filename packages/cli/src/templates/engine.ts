@@ -49,6 +49,7 @@ export interface DetectedFramework {
 interface WriteOptions {
   overwrite: boolean;
   language?: string;
+  existingProject?: boolean;
 }
 
 export interface WriteResult {
@@ -56,7 +57,42 @@ export interface WriteResult {
   skippedConfigs: string[];
 }
 
-const NON_JSON_PACKAGE_CONFIGS = new Set(['pyproject.toml', 'go.mod', 'Cargo.toml', 'pom.xml']);
+const NON_JSON_PACKAGE_CONFIGS = new Set([
+  'pyproject.toml',
+  'go.mod',
+  'Cargo.toml',
+  'pom.xml',
+  'build.gradle',
+  'build.gradle.kts',
+]);
+
+/** Files that are part of harness infrastructure, not project scaffolding. */
+const HARNESS_CONFIG_FILES = new Set(['harness.config.json', 'AGENTS.md', '.harness/.gitignore']);
+
+function isHarnessConfigFile(relativePath: string): boolean {
+  return HARNESS_CONFIG_FILES.has(relativePath);
+}
+
+/**
+ * Known build/package configuration files that indicate a pre-existing project.
+ * If any of these exist in the target directory, the project is considered existing
+ * and only harness config files should be written (no scaffold files).
+ */
+const PROJECT_MARKERS = [
+  'package.json',
+  'pom.xml',
+  'build.gradle',
+  'build.gradle.kts',
+  'pyproject.toml',
+  'setup.py',
+  'requirements.txt',
+  'Pipfile',
+  'go.mod',
+  'Cargo.toml',
+  'Makefile',
+  'CMakeLists.txt',
+  'meson.build',
+];
 
 function scoreDetectPatterns(
   targetDir: string,
@@ -261,6 +297,15 @@ export class TemplateEngine {
         const targetPath = path.join(targetDir, file.relativePath);
         const dir = path.dirname(targetPath);
 
+        // Existing project: only write harness config files, skip project scaffold
+        if (
+          !options.overwrite &&
+          options.existingProject &&
+          !isHarnessConfigFile(file.relativePath)
+        ) {
+          continue;
+        }
+
         // Skip non-JSON package configs for non-JS languages when file already exists
         if (
           !options.overwrite &&
@@ -285,6 +330,14 @@ export class TemplateEngine {
         )
       );
     }
+  }
+
+  /**
+   * Check whether the target directory already contains a project by looking for
+   * common build/package configuration files. Returns true if any marker is found.
+   */
+  isExistingProject(targetDir: string): boolean {
+    return PROJECT_MARKERS.some((marker) => fs.existsSync(path.join(targetDir, marker)));
   }
 
   detectFramework(targetDir: string): Result<DetectedFramework[], Error> {

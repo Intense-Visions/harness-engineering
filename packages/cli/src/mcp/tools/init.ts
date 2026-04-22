@@ -117,9 +117,12 @@ function scaffoldMcp(
   });
   if (!renderResult.ok) return resultToMcpResponse(renderResult);
 
+  const existingProject = engine.isExistingProject(safePath);
+
   const writeResult = engine.write(renderResult.value, safePath, {
     overwrite: false,
     ...(language !== undefined && { language }),
+    existingProject,
   });
 
   if (writeResult.ok) {

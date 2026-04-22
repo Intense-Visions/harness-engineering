@@ -234,5 +234,90 @@ describe('harness init integration', () => {
 
       fs.rmSync(tmpDir, { recursive: true });
     });
+
+    it('does not scaffold Maven files into existing Gradle project (#235)', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-e2e-gradle-'));
+      // Simulate existing Gradle-based Java project
+      fs.writeFileSync(
+        path.join(tmpDir, 'build.gradle'),
+        'plugins { id "java" }\ngroup = "com.example"\n'
+      );
+      fs.mkdirSync(path.join(tmpDir, 'src', 'main', 'java', 'com', 'example'), {
+        recursive: true,
+      });
+      fs.writeFileSync(
+        path.join(tmpDir, 'src', 'main', 'java', 'com', 'example', 'Main.java'),
+        'package com.example;\npublic class Main {}\n'
+      );
+
+      const result = await runInit({
+        cwd: tmpDir,
+        name: 'my-gradle-project',
+        language: 'java',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // harness.config.json SHOULD be created
+      expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+
+      // pom.xml SHOULD NOT be created — project already has build.gradle
+      expect(fs.existsSync(path.join(tmpDir, 'pom.xml'))).toBe(false);
+
+      // Scaffold source files SHOULD NOT be created — project already has source code
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'App.java'))).toBe(false);
+
+      // Existing files SHOULD be preserved
+      const buildGradle = fs.readFileSync(path.join(tmpDir, 'build.gradle'), 'utf-8');
+      expect(buildGradle).toContain('com.example');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('does not scaffold source files into existing Go project with go.mod', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-e2e-existing-go-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'go.mod'),
+        'module github.com/example/myproject\n\ngo 1.21\n'
+      );
+      fs.writeFileSync(path.join(tmpDir, 'main.go'), 'package main\nfunc main() {}\n');
+
+      const result = await runInit({
+        cwd: tmpDir,
+        name: 'my-go-project',
+        language: 'go',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // harness.config.json SHOULD be created
+      expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+
+      // Existing go.mod SHOULD be preserved (not overwritten)
+      const goMod = fs.readFileSync(path.join(tmpDir, 'go.mod'), 'utf-8');
+      expect(goMod).toContain('github.com/example/myproject');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('scaffolds everything into a brand new empty directory', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-e2e-new-java-'));
+
+      const result = await runInit({
+        cwd: tmpDir,
+        name: 'new-java-project',
+        language: 'java',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // Brand new project — ALL template files should be created
+      expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'pom.xml'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'App.java'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'checkstyle.xml'))).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
   });
 });
