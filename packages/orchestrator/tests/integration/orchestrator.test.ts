@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Orchestrator } from '../../src/orchestrator';
 import { WorkflowConfig, Issue, Ok } from '@harness-engineering/types';
 import { MockBackend } from '../../src/agent/backends/mock';
+import { WorkspaceManager } from '../../src/workspace/manager';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -73,6 +74,19 @@ describe('Orchestrator Integration', () => {
     // Ensure workspace root exists so WorkspaceManager can run git commands in it
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
 
+    // Mock WorkspaceManager methods that shell out to git for worktree operations.
+    // These fail on Windows CI due to path and file-locking differences. The
+    // orchestrator integration test validates dispatch logic, not git worktree
+    // management — the workspace manager has its own unit tests.
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'h-1');
+    vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
+      fs.mkdirSync(workspacePath, { recursive: true });
+      return Ok(workspacePath);
+    });
+    vi.spyOn(WorkspaceManager.prototype, 'removeWorkspace').mockResolvedValue(Ok(undefined));
+    vi.spyOn(WorkspaceManager.prototype, 'sweepStaleBranches').mockResolvedValue([]);
+    vi.spyOn(WorkspaceManager.prototype, 'findPushedBranch').mockResolvedValue(null);
+
     // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
     let lastClaimedAssignee: string | null = null;
     mockTracker = {
@@ -104,6 +118,7 @@ describe('Orchestrator Integration', () => {
 
   afterEach(async () => {
     if (orchestrator) await orchestrator.stop();
+    vi.restoreAllMocks();
     // On Windows, git worktree processes may hold file locks briefly after stop.
     for (let i = 0; i < 3; i++) {
       try {

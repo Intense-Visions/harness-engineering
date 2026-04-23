@@ -184,7 +184,7 @@ Ingest data into the knowledge graph
 
 **Options:**
 
-- `--source` — Source to ingest (code, knowledge, git, jira, slack, ci, confluence)
+- `--source` — Source to ingest (code, knowledge, git, business-signals, jira, slack, ci, confluence)
 - `--all` — Run all sources (code, knowledge, git, and configured connectors)
 - `--full` — Force full re-ingestion
 

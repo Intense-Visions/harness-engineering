@@ -47,26 +47,28 @@ export class PRDetector {
   }
 
   /**
-   * Checks whether a remote branch has an open pull request via `gh`.
-   * Returns true if a PR exists, false otherwise. Failures are treated
-   * as "no PR" to err on the side of preserving work.
+   * Checks whether a remote branch has a pull request (any state) via `gh`.
+   * Returns `{ found: true }` if a PR exists, `{ found: false }` if none,
+   * or `{ found: false, error }` if the check itself failed (gh not installed,
+   * network error, etc.). Callers should distinguish "no PR" from "check failed"
+   * to avoid false escalations.
    */
-  async branchHasPullRequest(branch: string): Promise<boolean> {
+  async branchHasPullRequest(branch: string): Promise<{ found: boolean; error?: string }> {
     try {
       const exec = promisify(this.execFileFn);
       const { stdout } = await exec(
         'gh',
-        ['pr', 'list', '--head', branch, '--json', 'number', '--jq', 'length'],
+        ['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number', '--jq', 'length'],
         {
           cwd: this.projectRoot,
           timeout: 10_000,
         }
       );
-      return parseInt(stdout.trim(), 10) > 0;
-    } catch {
-      // If gh fails (not installed, no auth, network error), assume no PR
-      // so the worktree is preserved rather than lost.
-      return false;
+      return { found: parseInt(stdout.trim(), 10) > 0 };
+    } catch (err) {
+      // If gh fails (not installed, no auth, network error), report the error
+      // so callers can preserve worktrees without raising false escalations.
+      return { found: false, error: String(err) };
     }
   }
 

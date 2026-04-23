@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Loader2, Sparkles, X, Save, ArrowLeft } from 'lucide-react';
+import { Loader2, Sparkles, X, Save, ArrowLeft } from 'lucide-react';
 import { MessageStream } from './MessageStream';
 import { ChatInput } from './ChatInput';
 import { CommandPalette } from './CommandPalette';
 import { ChatContextPane } from './ChatContextPane';
 import { SessionTabBar } from './SessionTabBar';
+import { NeuralOrganism } from './NeuralOrganism';
 import { streamChat, applyChunk } from '../../utils/chat-stream';
 import { useChatContext } from '../../hooks/useChatContext';
 import { useChatPanel } from '../../hooks/useChatPanel';
@@ -408,8 +409,17 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const dialogContent = (
     <>
       {/* Header */}
-      <div className="flex flex-col border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex flex-col border-b border-white/10 flex-shrink-0 relative overflow-hidden">
+        {/* Ambient glow from organism that bleeds into header bg */}
+        <div
+          className="absolute left-6 top-1/2 -translate-y-1/2 w-32 h-32 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(139,92,246,0.08) 0%, rgba(79,70,229,0.03) 50%, transparent 70%)',
+            filter: 'blur(16px)',
+          }}
+        />
+        <div className="relative flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             {maximized && (
               <button
@@ -419,15 +429,15 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
                 <ArrowLeft size={20} />
               </button>
             )}
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500 shadow-[0_0_15px_rgba(79,70,229,0.2)]">
-              <Cpu size={18} />
+            <div className="relative">
+              <NeuralOrganism size={48} />
             </div>
             <div>
               <h3 className="text-sm font-bold tracking-tight text-white">
                 {interaction ? interaction.context.issueTitle : 'Neural Uplink'}
               </h3>
               <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-neutral-muted">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
                 {activeSessionId ? 'Direct Connection Active' : 'Standby Mode'}
               </div>
             </div>

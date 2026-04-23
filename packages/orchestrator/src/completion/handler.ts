@@ -167,8 +167,8 @@ export class CompletionHandler {
 
       // Try to detect and link PR
       if (entry) {
-        const hasPR = await this.ctx.prDetector.branchHasPullRequest(entry.identifier);
-        if (hasPR) {
+        const prResult = await this.ctx.prDetector.branchHasPullRequest(entry.identifier);
+        if (prResult.found) {
           // We don't have the PR number directly from branchHasPullRequest, so
           // the linkage will happen when the sweep detects PR status. For now,
           // focus on highlight extraction and comment posting.

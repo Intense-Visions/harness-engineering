@@ -66,6 +66,11 @@ export async function runIngest(
     const knowledgeResult = await new KnowledgeIngestor(store).ingestAll(projectPath);
     const gitResult = await new GitIngestor(store).ingest(projectPath);
 
+    // Run code signal extractors (business-signals)
+    const { createExtractionRunner } = await import('@harness-engineering/graph');
+    const extractedDir = path.join(projectPath, '.harness', 'knowledge', 'extracted');
+    const signalsResult = await createExtractionRunner().run(projectPath, store, extractedDir);
+
     // Also run configured external connectors via SyncManager
     const syncManager = new SyncManager(store, graphDir);
     const connectorMap: Record<string, () => GraphConnector> = {
@@ -82,7 +87,13 @@ export async function runIngest(
     const connectorResult = await syncManager.syncAll();
 
     await store.save(graphDir);
-    const merged = mergeResults(codeResult, knowledgeResult, gitResult, connectorResult);
+    const merged = mergeResults(
+      codeResult,
+      knowledgeResult,
+      gitResult,
+      signalsResult,
+      connectorResult
+    );
     return { ...merged, durationMs: Date.now() - startMs };
   }
 
@@ -98,12 +109,18 @@ export async function runIngest(
     case 'git':
       result = await new GitIngestor(store).ingest(projectPath);
       break;
+    case 'business-signals': {
+      const { createExtractionRunner } = await import('@harness-engineering/graph');
+      const extractedDir = path.join(projectPath, '.harness', 'knowledge', 'extracted');
+      result = await createExtractionRunner().run(projectPath, store, extractedDir);
+      break;
+    }
     default: {
       // Check if source is a known external connector before trying to instantiate
       const knownConnectors = ['jira', 'slack', 'ci', 'confluence'];
       if (!knownConnectors.includes(source)) {
         throw new Error(
-          `Unknown source: ${source}. Available: code, knowledge, git, jira, slack, ci, confluence`
+          `Unknown source: ${source}. Available: code, knowledge, git, business-signals, jira, slack, ci, confluence`
         );
       }
       if (!SyncManager) {
@@ -136,7 +153,7 @@ export function createIngestCommand(): Command {
     .description('Ingest data into the knowledge graph')
     .option(
       '--source <name>',
-      'Source to ingest (code, knowledge, git, jira, slack, ci, confluence)'
+      'Source to ingest (code, knowledge, git, business-signals, jira, slack, ci, confluence)'
     )
     .option('--all', 'Run all sources (code, knowledge, git, and configured connectors)')
     .option('--full', 'Force full re-ingestion')

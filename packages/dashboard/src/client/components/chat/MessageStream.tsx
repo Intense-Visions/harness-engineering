@@ -1,9 +1,9 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Cpu } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { ChatMessage } from '../../types/chat';
 import { AssistantBlocks } from './AssistantBlocks';
+import { NeuralOrganism } from './NeuralOrganism';
 
 interface Props {
   messages: ChatMessage[];
@@ -22,16 +22,66 @@ export function MessageStream({ messages, streaming, className }: Props) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={{ duration: 1.2, ease: 'easeOut' }}
           className="absolute inset-0 flex flex-col items-center justify-center text-center p-6"
         >
-          <div className="mb-4 rounded-full bg-primary-500/10 p-4 text-primary-500">
-            <Cpu size={32} className="drop-shadow-[0_0_10px_var(--color-primary-500)]" />
+          {/* Atmospheric bioluminescent field behind organism */}
+          <div className="relative mb-6">
+            <motion.div
+              className="absolute inset-0 -m-16 rounded-full"
+              animate={{
+                opacity: [0.04, 0.08, 0.05, 0.07, 0.04],
+                scale: [1, 1.15, 1.05, 1.1, 1],
+              }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(139,92,246,0.3) 0%, rgba(79,70,229,0.1) 40%, transparent 70%)',
+                filter: 'blur(20px)',
+              }}
+            />
+            <motion.div
+              className="absolute inset-0 -m-10 rounded-full"
+              animate={{
+                opacity: [0.06, 0.12, 0.08, 0.1, 0.06],
+                scale: [1, 1.08, 1.02, 1.06, 1],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: 'easeInOut',
+                delay: 0.5,
+              }}
+              style={{
+                background: 'radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 60%)',
+                filter: 'blur(12px)',
+              }}
+            />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            >
+              <NeuralOrganism size={120} />
+            </motion.div>
           </div>
-          <h2 className="mb-1 text-lg font-bold">Neural Engine Ready</h2>
-          <p className="max-w-xs text-xs text-neutral-muted">
-            Initiate prompt sequence. The context from the escalated issue is pre-loaded into
-            working memory.
-          </p>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+            className="mb-2 text-base font-bold tracking-tight text-neutral-text"
+          >
+            Neural Engine Ready
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+            className="max-w-[280px] text-[11px] leading-relaxed text-neutral-muted"
+          >
+            Awaiting prompt sequence. Issue context is pre-loaded into working memory.
+          </motion.p>
         </motion.div>
       )}
       <Virtuoso
@@ -41,44 +91,32 @@ export function MessageStream({ messages, streaming, className }: Props) {
         initialTopMostItemIndex={messages.length - 1}
         itemContent={(i, msg) => (
           <div className="px-6 py-3">
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[85%] ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className="mb-1 flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-neutral-muted">
-                  {msg.role === 'user' ? (
-                    <>
-                      <span>Operator</span>
-                      <div className="h-1.5 w-1.5 rounded-full bg-neutral-muted" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_var(--color-primary-500)]" />
-                      <span>Harness Agent</span>
-                    </>
-                  )}
-                </div>
-                <div
-                  className={[
-                    'rounded-2xl px-5 py-3 text-sm leading-relaxed',
-                    msg.role === 'user'
-                      ? 'bg-primary-500 text-white shadow-lg'
-                      : 'bg-neutral-surface/60 border border-neutral-border backdrop-blur-xl text-neutral-text',
-                  ].join(' ')}
-                >
-                  {msg.role === 'user' ? (
+            {msg.role === 'user' ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="flex justify-end"
+              >
+                <div className="max-w-[85%] text-right">
+                  <div className="mb-1.5 flex items-center justify-end gap-2 text-[9px] font-bold uppercase tracking-widest text-neutral-muted">
+                    <span>Operator</span>
+                    <div className="h-1.5 w-1.5 rounded-full bg-neutral-muted/60" />
+                  </div>
+                  <div className="rounded-2xl px-5 py-3 text-sm leading-relaxed bg-primary-500 text-white shadow-[0_4px_24px_-4px_rgba(79,70,229,0.4)]">
                     <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
-                  ) : (
-                    <AssistantBlocks
-                      blocks={msg.blocks}
-                      isStreaming={streaming && i === messages.length - 1}
-                    />
-                  )}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="px-1 py-1">
+                  <AssistantBlocks
+                    blocks={msg.blocks}
+                    isStreaming={streaming && i === messages.length - 1}
+                  />
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
       />

@@ -359,5 +359,172 @@ describe('WorkspaceManager', () => {
       const branch = await manager.findPushedBranch('test-issue');
       expect(branch).toBeNull();
     });
+
+    it('skips branch names without a slash (positive-pattern validation)', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          // A branch name without a slash — e.g. a symbolic ref that slipped past skip-list
+          return 'refs/remotes/origin/develop abc123\nrefs/remotes/origin/staging abc123\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBeNull();
+    });
+
+    it('accepts branch names with a slash like feat/ or fix/', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          return 'refs/remotes/origin/develop abc999\nrefs/remotes/origin/fix/my-bugfix abc123\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBe('fix/my-bugfix');
+    });
+  });
+
+  describe('branchExistsOnRemote', () => {
+    it('returns true when ls-remote finds the branch', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'ls-remote') {
+          return 'abc123\trefs/heads/feat/my-feature\n';
+        }
+        return '';
+      });
+
+      const exists = await manager.branchExistsOnRemote('feat/my-feature');
+      expect(exists).toBe(true);
+    });
+
+    it('returns false when ls-remote returns empty', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'ls-remote') return '\n';
+        return '';
+      });
+
+      const exists = await manager.branchExistsOnRemote('feat/nonexistent');
+      expect(exists).toBe(false);
+    });
+
+    it('returns false when git command fails', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'ls-remote') throw new Error('network error');
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        return '';
+      });
+
+      const exists = await manager.branchExistsOnRemote('feat/broken');
+      expect(exists).toBe(false);
+    });
+  });
+
+  describe('sweepStaleBranches', () => {
+    it('deletes old branches with merged PRs', async () => {
+      const deletedBranches: string[] = [];
+      const oldUnix = Math.floor(Date.now() / 1000) - 10 * 86400; // 10 days ago
+
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'for-each-ref') {
+          return `refs/remotes/origin/feat/old-feature ${oldUnix}\n`;
+        }
+        if (args[0] === 'push' && args[1] === 'origin' && args[2] === '--delete') {
+          deletedBranches.push(args[3]!);
+          return '';
+        }
+        return '';
+      });
+
+      const result = await manager.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: async () => ({ found: true }),
+      });
+
+      expect(result).toEqual(['feat/old-feature']);
+      expect(deletedBranches).toEqual(['feat/old-feature']);
+    });
+
+    it('preserves recent branches even with merged PRs', async () => {
+      const recentUnix = Math.floor(Date.now() / 1000) - 2 * 86400; // 2 days ago
+
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'for-each-ref') {
+          return `refs/remotes/origin/feat/recent-feature ${recentUnix}\n`;
+        }
+        return '';
+      });
+
+      const result = await manager.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: async () => ({ found: true }),
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('preserves old branches without merged PRs', async () => {
+      const oldUnix = Math.floor(Date.now() / 1000) - 10 * 86400;
+
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'for-each-ref') {
+          return `refs/remotes/origin/feat/no-pr-branch ${oldUnix}\n`;
+        }
+        return '';
+      });
+
+      const result = await manager.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: async () => ({ found: false }),
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('preserves branches when PR check errors', async () => {
+      const oldUnix = Math.floor(Date.now() / 1000) - 10 * 86400;
+
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'for-each-ref') {
+          return `refs/remotes/origin/feat/error-check ${oldUnix}\n`;
+        }
+        return '';
+      });
+
+      const result = await manager.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: async () => ({ found: false, error: 'network timeout' }),
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when no remote branches exist', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'for-each-ref') return '';
+        return '';
+      });
+
+      const result = await manager.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: async () => ({ found: true }),
+      });
+
+      expect(result).toEqual([]);
+    });
   });
 });
