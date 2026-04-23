@@ -256,10 +256,17 @@ function extractCallEvent(event: any): SSEEvent[] | null {
 }
 
 // ── Full message events ─────────────────────────────────────────────
-// `assistant` messages contain complete content blocks. Skipped when
-// real-time events (`text`, `progress`, `call`) already provided the
-// content — re-extracting would duplicate every block.
+// Claude CLI stream-json emits complete `assistant` messages carrying a
+// content array of text/thinking/tool_use blocks — the CLI does not stream
+// per-block `text`/`progress`/`call` deltas. Walk the blocks and emit one
+// SSE event per block, or the client renders nothing.
 // `user` messages contain tool_result blocks that attach to prior tool_use.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractAssistantBlocks(event: any): SSEEvent[] | null {
+  if (!Array.isArray(event.message?.content)) return null;
+  return event.message.content.map(mapContentBlock).filter(Boolean) as SSEEvent[];
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractUserBlocks(event: any): SSEEvent[] | null {
@@ -324,8 +331,8 @@ const chunkExtractors: Record<string, (event: any) => SSEEvent[] | null> = {
   text: extractTextEvent,
   progress: extractProgressEvent,
   call: extractCallEvent,
-  // Full message events (assistant skipped — streaming events cover it)
-  assistant: () => null,
+  // Full message events — CLI batches content blocks here
+  assistant: extractAssistantBlocks,
   user: extractUserBlocks,
   // Anthropic API format fallbacks
   content_block_start: extractContentBlockStart,

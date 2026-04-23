@@ -181,6 +181,36 @@ describe('chat proxy route (Claude Code session mode)', () => {
     expect(res.body).toContain('file contents here');
   });
 
+  it('emits text/thinking/tool_use from CLI assistant message content blocks', async () => {
+    // Claude CLI --print --output-format stream-json emits complete `assistant`
+    // messages (not per-block streaming deltas). Each assistant message carries
+    // a content array of text/thinking/tool_use blocks — the proxy must walk
+    // them and emit SSE events, or the Chat Pane renders nothing.
+    const child = createMockChild([
+      {
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: 'Let me plan the approach...' },
+            { type: 'text', text: "I'll read the config first." },
+            { type: 'tool_use', name: 'Read', input: { file_path: '/config.ts' } },
+          ],
+        },
+      },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    const res = await postRequest(port, '/api/chat', { prompt: 'Help me' });
+
+    expect(res.body).toContain('"type":"thinking"');
+    expect(res.body).toContain('Let me plan the approach');
+    expect(res.body).toContain('"type":"text"');
+    expect(res.body).toContain("I'll read the config first.");
+    expect(res.body).toContain('"type":"tool_use"');
+    expect(res.body).toContain('"tool":"Read"');
+    expect(res.body).toContain('/config.ts');
+  });
+
   it('returns false for non-matching routes', async () => {
     const res = await postRequest(port, '/api/other', {});
     expect(res.statusCode).toBe(404);
