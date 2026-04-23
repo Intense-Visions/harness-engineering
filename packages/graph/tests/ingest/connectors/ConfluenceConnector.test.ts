@@ -106,4 +106,91 @@ describe('ConfluenceConnector', () => {
     expect(result.edgesAdded).toBe(0);
     expect(result.errors).toHaveLength(0);
   });
+
+  it('creates contains edge from parent to child page', async () => {
+    process.env['CONFLUENCE_API_KEY'] = 'test-key';
+    process.env['CONFLUENCE_BASE_URL'] = 'https://confluence.example.com';
+
+    const fixture = {
+      results: [
+        {
+          id: '456',
+          title: 'Child Page',
+          status: 'current',
+          body: { storage: { value: 'child content' } },
+          ancestors: [{ id: '100' }, { id: '200' }],
+          _links: { webui: '/wiki/pages/456' },
+        },
+      ],
+      _links: { next: null },
+    };
+
+    const connector = new ConfluenceConnector(makeMockHttpClient(fixture));
+    const result = await connector.ingest(store, { spaceKey: 'DEV' });
+
+    expect(result.nodesAdded).toBe(1);
+    const edges = store.getEdges({
+      from: 'confluence:200',
+      to: 'confluence:456',
+      type: 'contains',
+    });
+    expect(edges).toHaveLength(1);
+
+    const node = store.getNode('confluence:456');
+    expect(node!.metadata.parentPageId).toBe('200');
+  });
+
+  it('stores page labels in metadata', async () => {
+    process.env['CONFLUENCE_API_KEY'] = 'test-key';
+    process.env['CONFLUENCE_BASE_URL'] = 'https://confluence.example.com';
+
+    const fixture = {
+      results: [
+        {
+          id: '789',
+          title: 'Labeled Page',
+          status: 'current',
+          body: { storage: { value: 'labeled content' } },
+          metadata: {
+            labels: { results: [{ name: 'architecture' }, { name: 'backend' }] },
+          },
+          _links: { webui: '/wiki/pages/789' },
+        },
+      ],
+      _links: { next: null },
+    };
+
+    const connector = new ConfluenceConnector(makeMockHttpClient(fixture));
+    await connector.ingest(store, { spaceKey: 'DEV' });
+
+    const node = store.getNode('confluence:789');
+    expect(node!.metadata.labels).toEqual(['architecture', 'backend']);
+  });
+
+  it('runs body through condenseContent at default 8000 limit', async () => {
+    process.env['CONFLUENCE_API_KEY'] = 'test-key';
+    process.env['CONFLUENCE_BASE_URL'] = 'https://confluence.example.com';
+
+    const longBody = 'a'.repeat(10000);
+    const fixture = {
+      results: [
+        {
+          id: '999',
+          title: 'Long Page',
+          status: 'current',
+          body: { storage: { value: longBody } },
+          _links: { webui: '/wiki/pages/999' },
+        },
+      ],
+      _links: { next: null },
+    };
+
+    const connector = new ConfluenceConnector(makeMockHttpClient(fixture));
+    await connector.ingest(store, { spaceKey: 'DEV' });
+
+    const node = store.getNode('confluence:999');
+    expect(node!.content!.length).toBeLessThanOrEqual(8001);
+    expect(node!.metadata.condensed).toBeDefined();
+    expect(node!.metadata.originalLength).toBeGreaterThan(8000);
+  });
 });
