@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, SyncMetadata } from './ConnectorInterface.js';
+import { KnowledgeLinker } from '../KnowledgeLinker.js';
 
 export class SyncManager {
   private readonly registrations = new Map<
@@ -76,6 +77,18 @@ export class SyncManager {
       combined.edgesUpdated += result.edgesUpdated;
       combined.errors.push(...result.errors);
       combined.durationMs += result.durationMs;
+    }
+
+    // Post-sync: run KnowledgeLinker to extract business knowledge
+    try {
+      const linker = new KnowledgeLinker(this.store);
+      const linkResult = await linker.link();
+      combined.nodesAdded += linkResult.factsCreated + linkResult.conceptsClustered;
+      combined.errors.push(...linkResult.errors);
+    } catch (err) {
+      combined.errors.push(
+        `KnowledgeLinker error: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
     return combined as IngestResult;
