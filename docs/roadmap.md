@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-21
-last_synced: 2026-04-21T14:06:41.723Z
+last_synced: 2026-04-23T21:00:00.000Z
 last_manual_edit: 2026-04-23T02:02:33.199Z
 ---
 
@@ -1381,10 +1381,10 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### Dashboard v2: Orchestrator Observability
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Real-time agent monitoring in the harness dashboard — agent dispatch status, issue progress, resource usage, error rates — via orchestrator HTTP API and WebSocket
-- **Blockers:** Harness Dashboard
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1392,10 +1392,10 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### Dashboard v3: Team & Stakeholder Views
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Persistent hosting option, multi-project aggregation, and presentation polish for the harness dashboard targeting team reviews and stakeholder visibility
-- **Blockers:** Dashboard v2: Orchestrator Observability
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1697,7 +1697,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### Phase 3: Connector Enhancement
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/connector-enhancement/proposal.md
 - **Summary:** Configurable truncation limits with tiered LLM summarization, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
 - **Blockers:** Phase 1: Knowledge Foundation
@@ -1705,14 +1705,14 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 - **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#227
-- **Updated-At:** 2026-04-23T12:00:58.715Z
+- **Updated-At:** 2026-04-23T17:38:57.275Z
 
 ### Phase 4: Knowledge Pipeline & Diagrams
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
-- **Blockers:** Phase 2: Code Signal Extractors, Phase 3: Connector Enhancement
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
