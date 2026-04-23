@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { Activity, ShieldCheck, Zap, Share2, Compass, type LucideIcon } from 'lucide-react';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { useProjectPulse } from '../hooks/useProjectPulse';
-import { NeuralDecryptionLoader } from '../components/NeuralDecryptionLoader';
+import { NeuralOrganism } from '../components/chat/NeuralOrganism';
 import {
   isRoadmapData,
   isHealthData,
@@ -255,11 +255,54 @@ export function Overview() {
 
       {!data && !error && (
         <div className="flex flex-col items-center justify-center py-32 text-neutral-muted relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.1),transparent_50%)] animate-pulse" />
-          <NeuralDecryptionLoader />
-          <p className="text-sm font-mono tracking-widest uppercase relative z-10">
+          {/* Deep atmospheric gradient */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.06),transparent_50%)]" />
+
+          <motion.div
+            className="relative z-10 mb-10"
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Outer violet atmospheric glow */}
+            <motion.div
+              className="absolute inset-0 -m-16 rounded-full pointer-events-none"
+              animate={{
+                opacity: [0.04, 0.09, 0.05, 0.07, 0.04],
+                scale: [1, 1.1, 1.03, 1.07, 1],
+              }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(139,92,246,0.25) 0%, rgba(79,70,229,0.08) 45%, transparent 70%)',
+                filter: 'blur(22px)',
+              }}
+            />
+            {/* Inner cyan accent glow — offset cycle */}
+            <motion.div
+              className="absolute inset-0 -m-8 rounded-full pointer-events-none"
+              animate={{
+                opacity: [0.03, 0.07, 0.04, 0.06, 0.03],
+                scale: [1, 1.06, 1.02, 1.04, 1],
+              }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 60%)',
+                filter: 'blur(14px)',
+              }}
+            />
+            <NeuralOrganism size={120} />
+          </motion.div>
+
+          <motion.p
+            className="text-sm font-mono tracking-widest uppercase relative z-10"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+          >
             <ScrambleText text="Decrypting Telemetry..." />
-          </p>
+          </motion.p>
         </div>
       )}
 

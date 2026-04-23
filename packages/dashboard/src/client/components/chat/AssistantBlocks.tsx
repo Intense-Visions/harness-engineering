@@ -116,22 +116,19 @@ function StreamingIndicator() {
       className="relative flex items-center gap-4 py-5 px-4"
     >
       {/* Ambient glow field behind organism */}
-      <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <motion.div
-          className="w-24 h-24 rounded-full"
-          animate={{
-            opacity: [0.06, 0.12, 0.08, 0.1, 0.06],
-            scale: [0.9, 1.1, 0.95, 1.05, 0.9],
-          }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          style={{
-            background:
-              'radial-gradient(circle, rgba(139,92,246,0.4) 0%, rgba(79,70,229,0.1) 50%, transparent 70%)',
-            filter: 'blur(14px)',
-            transform: 'translate(-30%, -50%)',
-          }}
-        />
-      </div>
+      <motion.div
+        className="absolute left-0 top-1/2 w-20 h-20 -translate-x-1/4 -translate-y-1/2 rounded-full pointer-events-none"
+        animate={{
+          opacity: [0.05, 0.1, 0.07, 0.09, 0.05],
+          scale: [0.95, 1.08, 0.98, 1.04, 0.95],
+        }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          background:
+            'radial-gradient(circle, rgba(139,92,246,0.35) 0%, rgba(79,70,229,0.08) 50%, transparent 70%)',
+          filter: 'blur(12px)',
+        }}
+      />
 
       {/* The creature — gentle hover */}
       <motion.div
