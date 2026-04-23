@@ -19,6 +19,7 @@ type SSEEvent =
   | { type: 'text'; text: string }
   | { type: 'thinking'; text: string }
   | { type: 'tool_use'; tool: string; args?: string }
+  | { type: 'tool_args_delta'; text: string }
   | { type: 'tool_result'; content: string; isError?: boolean }
   | { type: 'status'; text: string }
   | { type: 'error'; error: string };
@@ -180,7 +181,7 @@ function buildArgs(
 
 /** Map a content block from an assistant message to SSE events. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapContentBlock(block: any): SSEEvent | null {
+export function mapContentBlock(block: any): SSEEvent | null {
   if (block.type === 'thinking' && block.thinking) {
     return { type: 'thinking', text: block.thinking };
   }
@@ -226,13 +227,32 @@ function mapUserBlock(block: any): SSEEvent | null {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractMessageBlocks(event: any): SSEEvent[] | null {
   if (!Array.isArray(event.message?.content)) return null;
-  const mapper = event.type === 'assistant' ? mapContentBlock : mapUserBlock;
-  return event.message.content.map(mapper).filter(Boolean) as SSEEvent[];
+
+  // Assistant blocks are fully streamed via content_block_start and content_block_delta.
+  // Re-extracting here causes duplicated text in the UI (e.g. "text" + "text").
+  if (event.type === 'assistant') {
+    return null;
+  }
+
+  return event.message.content.map(mapUserBlock).filter(Boolean) as SSEEvent[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractDelta(event: any): SSEEvent[] | null {
   if (event.delta?.text) return [{ type: 'text', text: event.delta.text }];
+  if (event.delta?.partial_json)
+    return [{ type: 'tool_args_delta', text: event.delta.partial_json }];
+  if (event.delta?.thinking) return [{ type: 'thinking', text: event.delta.thinking }];
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractContentBlockStart(event: any): SSEEvent[] | null {
+  if (event.content_block?.type === 'tool_use' && event.content_block.name) {
+    const result: SSEEvent = { type: 'tool_use', tool: event.content_block.name };
+    if (event.content_block.input) result.args = JSON.stringify(event.content_block.input);
+    return [result];
+  }
   return null;
 }
 
@@ -256,6 +276,7 @@ function extractResultText(event: any): SSEEvent[] | null {
 const chunkExtractors: Record<string, (event: any) => SSEEvent[] | null> = {
   assistant: extractMessageBlocks,
   user: extractMessageBlocks,
+  content_block_start: extractContentBlockStart,
   content_block_delta: extractDelta,
   system: extractSystemStatus,
   result: extractResultText,
