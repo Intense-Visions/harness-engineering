@@ -62,7 +62,7 @@ export function MessageStream({ messages, streaming, className }: Props) {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             >
-              <NeuralOrganism size={80} />
+              <NeuralOrganism size={120} />
             </motion.div>
           </div>
 

@@ -136,7 +136,7 @@ function StreamingIndicator() {
         transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
         className="shrink-0 relative z-10"
       >
-        <NeuralOrganism size={40} />
+        <NeuralOrganism size={56} />
       </motion.div>
 
       {/* Activity bars + text — connected composition */}

@@ -430,7 +430,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
               </button>
             )}
             <div className="relative">
-              <NeuralOrganism size={32} />
+              <NeuralOrganism size={48} />
             </div>
             <div>
               <h3 className="text-sm font-bold tracking-tight text-white">
