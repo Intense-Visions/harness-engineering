@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Send } from 'lucide-react';
 import { SlashAutocomplete } from './SlashAutocomplete';
+import { SKILL_REGISTRY } from '../../constants/skills';
 import type { SkillEntry } from '../../types/skills';
 
 interface Props {
@@ -17,7 +18,14 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
   const handleTextChange = (text: string) => {
     onChange(text);
     if (text.startsWith('/')) {
-      setShowAutocomplete(true);
+      const s = text.toLowerCase().replace(/^\//, '');
+      const hasMatches = SKILL_REGISTRY.some(
+        (skill) =>
+          skill.name.toLowerCase().includes(s) ||
+          skill.id.toLowerCase().includes(s) ||
+          skill.slashCommand.toLowerCase().includes(s)
+      );
+      setShowAutocomplete(hasMatches);
     } else {
       setShowAutocomplete(false);
     }

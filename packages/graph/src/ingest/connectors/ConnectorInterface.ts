@@ -12,6 +12,7 @@ export interface ConnectorConfig {
   schedule?: string;
   lookbackDays?: number;
   filters?: Record<string, unknown>;
+  maxContentLength?: number;
   [key: string]: unknown;
 }
 

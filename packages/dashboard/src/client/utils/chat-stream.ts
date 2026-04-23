@@ -92,7 +92,7 @@ export function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
       });
       break;
     case 'tool_args_delta':
-      handleToolArgsDelta(blocks, event.text);
+      handleToolArgsDeltaBlock(blocks, event.text);
       break;
     case 'tool_result':
       handleToolResultBlock(blocks, event.content, event.isError);
@@ -128,7 +128,7 @@ function handleThinkingBlock(
   }
 }
 
-function handleToolArgsDelta(blocks: ContentBlock[], text: string) {
+function handleToolArgsDeltaBlock(blocks: ContentBlock[], text: string) {
   for (let i = blocks.length - 1; i >= 0; i--) {
     const b = blocks[i]!;
     if (b.kind === 'tool_use' && b.result === undefined) {

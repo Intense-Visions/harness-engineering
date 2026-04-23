@@ -101,4 +101,92 @@ describe('SlackConnector', () => {
 
     expect(result.nodesAdded).toBe(2);
   });
+
+  it('fetches thread replies and concatenates into node content', async () => {
+    process.env['SLACK_API_KEY'] = 'xoxb-test';
+
+    const historyResponse = {
+      ok: true,
+      messages: [
+        {
+          text: 'Should we use Redis or Memcached?',
+          user: 'U100',
+          ts: '1000.000',
+          reply_count: 2,
+          thread_ts: '1000.000',
+        },
+      ],
+    };
+
+    const repliesResponse = {
+      ok: true,
+      messages: [
+        { text: 'Should we use Redis or Memcached?', user: 'U100', ts: '1000.000' },
+        { text: 'Redis - it supports pub/sub', user: 'U200', ts: '1000.001' },
+        { text: 'Agreed, going with Redis', user: 'U100', ts: '1000.002' },
+      ],
+    };
+
+    const httpClient = async (url: string) => ({
+      ok: true as const,
+      json: async () => (url.includes('conversations.replies') ? repliesResponse : historyResponse),
+    });
+
+    const connector = new SlackConnector(httpClient);
+    const result = await connector.ingest(store, { channels: ['C100'] });
+
+    expect(result.nodesAdded).toBe(1);
+    const node = store.getNode('conversation:slack:C100:1000.000');
+    expect(node!.content).toContain('Redis - it supports pub/sub');
+    expect(node!.content).toContain('Agreed, going with Redis');
+    expect(node!.metadata.threadReplyCount).toBe(2);
+  });
+
+  it('stores reaction counts in metadata', async () => {
+    process.env['SLACK_API_KEY'] = 'xoxb-test';
+
+    const fixture = {
+      ok: true,
+      messages: [
+        {
+          text: 'Deploy approved',
+          user: 'U100',
+          ts: '2000.000',
+          reactions: [
+            { name: '+1', count: 5 },
+            { name: 'white_check_mark', count: 3 },
+          ],
+        },
+      ],
+    };
+
+    const connector = new SlackConnector(makeMockHttpClient(fixture));
+    await connector.ingest(store, { channels: ['C200'] });
+
+    const node = store.getNode('conversation:slack:C200:2000.000');
+    expect(node!.metadata.reactions).toEqual({ '+1': 5, white_check_mark: 3 });
+  });
+
+  it('applies condenseContent with maxContentLength', async () => {
+    process.env['SLACK_API_KEY'] = 'xoxb-test';
+
+    const longText = 'decision: '.repeat(500);
+    const fixture = {
+      ok: true,
+      messages: [
+        {
+          text: longText,
+          user: 'U100',
+          ts: '3000.000',
+        },
+      ],
+    };
+
+    const connector = new SlackConnector(makeMockHttpClient(fixture));
+    await connector.ingest(store, { channels: ['C300'], maxContentLength: 100 });
+
+    const node = store.getNode('conversation:slack:C300:3000.000');
+    expect(node!.content!.length).toBeLessThanOrEqual(101);
+    expect(node!.metadata.condensed).toBeDefined();
+  });
 });

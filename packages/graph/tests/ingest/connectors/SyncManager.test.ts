@@ -139,4 +139,39 @@ describe('SyncManager', () => {
     const parsed = JSON.parse(raw);
     expect(parsed.connectors['disk']).toBeDefined();
   });
+
+  it('invokes KnowledgeLinker after syncAll completes', async () => {
+    const result: IngestResult = {
+      nodesAdded: 1,
+      nodesUpdated: 0,
+      edgesAdded: 0,
+      edgesUpdated: 0,
+      errors: [],
+      durationMs: 1,
+    };
+
+    // Create a connector that adds a document node with business content
+    const connector: GraphConnector = {
+      name: 'test-linker',
+      source: 'test',
+      ingest: async (s: GraphStore) => {
+        s.addNode({
+          id: 'doc:sync-test',
+          type: 'document',
+          name: 'Sync Test Doc',
+          content: 'All systems must comply with SOC2 and GDPR requirements',
+          metadata: { source: 'test' },
+        });
+        return result;
+      },
+    };
+
+    manager.registerConnector(connector, {});
+    const combined = await manager.syncAll();
+
+    // KnowledgeLinker should have run and created business_fact nodes
+    const facts = store.findNodes({ type: 'business_fact' });
+    expect(facts.length).toBeGreaterThan(0);
+    expect(combined.nodesAdded).toBeGreaterThan(1); // connector node + linker facts
+  });
 });

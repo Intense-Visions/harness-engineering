@@ -47,6 +47,7 @@ export const NODE_TYPES = [
   'business_concept',
   'business_term',
   'business_metric',
+  'business_fact',
   // Cache
   'packed_summary',
 ] as const;

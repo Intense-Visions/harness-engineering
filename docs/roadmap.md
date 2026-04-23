@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-21
 last_synced: 2026-04-21T14:06:41.723Z
-last_manual_edit: 2026-04-21T14:42:29.125Z
+last_manual_edit: 2026-04-23T02:02:33.199Z
 ---
 
 # Roadmap
@@ -1685,25 +1685,27 @@ last_manual_edit: 2026-04-21T14:42:29.125Z
 
 ### Phase 2: Code Signal Extractors
 
-- **Status:** blocked
-- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/code-signal-extractors/proposal.md
 - **Summary:** Test description extractor, enum/constant extractor, validation rule extractor, API path extractor writing to .harness/knowledge/extracted/
 - **Blockers:** Phase 1: Knowledge Foundation
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#226
+- **Updated-At:** 2026-04-23T02:04:58.806Z
 
 ### Phase 3: Connector Enhancement
 
-- **Status:** blocked
-- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
-- **Summary:** Configurable truncation limits, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
+- **Status:** in-progress
+- **Spec:** docs/changes/connector-enhancement/proposal.md
+- **Summary:** Configurable truncation limits with tiered LLM summarization, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
 - **Blockers:** Phase 1: Knowledge Foundation
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#227
+- **Updated-At:** 2026-04-23T12:00:58.715Z
 
 ### Phase 4: Knowledge Pipeline & Diagrams
 
@@ -1732,3 +1734,5 @@ last_manual_edit: 2026-04-21T14:42:29.125Z
 | Feature                                  | Assignee | Action   | Date       |
 | ---------------------------------------- | -------- | -------- | ---------- |
 | Performance Engineering Knowledge Skills | @chadjw  | assigned | 2026-04-09 |
+| Phase 2: Code Signal Extractors          | @chadjw  | assigned | 2026-04-23 |
+| Phase 3: Connector Enhancement           | @chadjw  | assigned | 2026-04-22 |
