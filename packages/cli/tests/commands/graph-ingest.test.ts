@@ -36,6 +36,15 @@ const mockGitIngest = vi.fn().mockResolvedValue({
   durationMs: 80,
 });
 
+const mockExtractionRun = vi.fn().mockResolvedValue({
+  nodesAdded: 4,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 60,
+});
+
 const mockRegisterConnector = vi.fn();
 const mockSyncAll = vi.fn().mockResolvedValue({
   nodesAdded: 5,
@@ -94,6 +103,7 @@ vi.mock('@harness-engineering/graph', () => ({
   ConfluenceConnector: class {
     name = 'confluence';
   },
+  createExtractionRunner: () => ({ run: mockExtractionRun }),
 }));
 
 // Mock node:fs/promises for loadConnectorConfig
@@ -261,9 +271,9 @@ describe('runIngest', () => {
       // 4 connectors registered
       expect(mockRegisterConnector).toHaveBeenCalledTimes(4);
       expect(mockStore.save).toHaveBeenCalled();
-      // Merged totals: 10+3+20+5 = 38
-      expect(result.nodesAdded).toBe(38);
-      // Merged edges: 5+2+15+3 = 25
+      // Merged totals: 10+3+20+4+5 = 42 (code+knowledge+git+signals+connectors)
+      expect(result.nodesAdded).toBe(42);
+      // Merged edges: 5+2+15+0+3 = 25
       expect(result.edgesAdded).toBe(25);
     });
 

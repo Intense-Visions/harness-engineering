@@ -132,7 +132,7 @@ function handleToolArgsDeltaBlock(blocks: ContentBlock[], text: string) {
   for (let i = blocks.length - 1; i >= 0; i--) {
     const b = blocks[i]!;
     if (b.kind === 'tool_use' && b.result === undefined) {
-      blocks[i] = { ...b, args: (b.args || '') + text };
+      blocks[i] = { ...b, args: (b.args ?? '') + text };
       break;
     }
   }

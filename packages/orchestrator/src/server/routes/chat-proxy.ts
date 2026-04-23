@@ -224,18 +224,52 @@ function mapUserBlock(block: any): SSEEvent | null {
 
 // --- Chunk extraction handlers (one per event type) ---
 
+// ── Claude CLI stream-json real-time events ─────────────────────────
+// The CLI emits `text`, `progress`, and `call` events as content streams
+// in real-time. These are the primary source for rich block rendering.
+
+/** Real-time text output from the CLI. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractMessageBlocks(event: any): SSEEvent[] | null {
-  if (!Array.isArray(event.message?.content)) return null;
+function extractTextEvent(event: any): SSEEvent[] | null {
+  const text = event.content ?? event.text;
+  if (typeof text === 'string' && text) return [{ type: 'text', text }];
+  return null;
+}
 
-  // Assistant blocks are fully streamed via content_block_start and content_block_delta.
-  // Re-extracting here causes duplicated text in the UI (e.g. "text" + "text").
-  if (event.type === 'assistant') {
-    return null;
+/** Real-time thinking/progress output from the CLI. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractProgressEvent(event: any): SSEEvent[] | null {
+  const text = event.content;
+  if (typeof text === 'string' && text) return [{ type: 'thinking', text }];
+  return null;
+}
+
+/** Real-time tool invocation from the CLI. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractCallEvent(event: any): SSEEvent[] | null {
+  if (!event.tool) return null;
+  const result: SSEEvent = { type: 'tool_use', tool: event.tool };
+  if (event.args != null) {
+    result.args = typeof event.args === 'string' ? event.args : JSON.stringify(event.args);
   }
+  return [result];
+}
 
+// ── Full message events ─────────────────────────────────────────────
+// `assistant` messages contain complete content blocks. Skipped when
+// real-time events (`text`, `progress`, `call`) already provided the
+// content — re-extracting would duplicate every block.
+// `user` messages contain tool_result blocks that attach to prior tool_use.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractUserBlocks(event: any): SSEEvent[] | null {
+  if (!Array.isArray(event.message?.content)) return null;
   return event.message.content.map(mapUserBlock).filter(Boolean) as SSEEvent[];
 }
+
+// ── Anthropic API streaming format (fallback) ───────────────────────
+// Some CLI versions may emit raw API-level events. These handlers serve
+// as fallbacks and do not conflict with the CLI-specific handlers above.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractDelta(event: any): SSEEvent[] | null {
@@ -256,6 +290,8 @@ function extractContentBlockStart(event: any): SSEEvent[] | null {
   return null;
 }
 
+// ── System / status events ──────────────────────────────────────────
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractSystemStatus(event: any): SSEEvent[] | null {
   if (event.subtype === 'task_progress' && event.description) {
@@ -271,16 +307,35 @@ function extractResultText(event: any): SSEEvent[] | null {
   return null;
 }
 
-/** Map event type to its chunk extractor. */
+/**
+ * Map event type to its chunk extractor.
+ *
+ * Claude CLI stream-json emits these event types:
+ *   text, progress, call   — real-time streaming (primary)
+ *   assistant, user        — full message batches
+ *   system                 — task progress status
+ *   result, turn_complete  — turn completion
+ *
+ * Anthropic API streaming types (content_block_*) are kept as fallbacks.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const chunkExtractors: Record<string, (event: any) => SSEEvent[] | null> = {
-  assistant: extractMessageBlocks,
-  user: extractMessageBlocks,
+  // CLI real-time streaming events
+  text: extractTextEvent,
+  progress: extractProgressEvent,
+  call: extractCallEvent,
+  // Full message events (assistant skipped — streaming events cover it)
+  assistant: () => null,
+  user: extractUserBlocks,
+  // Anthropic API format fallbacks
   content_block_start: extractContentBlockStart,
   content_block_delta: extractDelta,
+  // Status and completion
   system: extractSystemStatus,
   result: extractResultText,
   turn_complete: extractResultText,
+  // Ignored (no renderable content)
+  message: () => null,
 };
 
 /** Extract SSE events from a Claude Code stream-json line. */
