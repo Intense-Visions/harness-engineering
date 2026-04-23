@@ -148,4 +148,32 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     category: 'workflow',
     slashCommand: '/harness:onboarding',
   },
+  {
+    id: 'harness:autopilot',
+    name: 'Autopilot',
+    description: 'Run an autonomous agent loop to solve a complex issue.',
+    category: 'workflow',
+    slashCommand: '/harness:autopilot',
+  },
+  {
+    id: 'harness:roadmap-pilot',
+    name: 'Roadmap Pilot',
+    description: 'Autonomously execute the next logical item on the roadmap.',
+    category: 'workflow',
+    slashCommand: '/harness:roadmap-pilot',
+  },
+  {
+    id: 'harness:roadmap-sync',
+    name: 'Roadmap Sync',
+    description: 'Update existing roadmap feature statuses based on current codebase state.',
+    category: 'workflow',
+    slashCommand: '/harness:roadmap --sync',
+  },
+  {
+    id: 'harness:roadmap-add',
+    name: 'Add to Roadmap',
+    description: 'Interactively add a new feature to the roadmap.',
+    category: 'workflow',
+    slashCommand: '/harness:roadmap --add',
+  },
 ];
