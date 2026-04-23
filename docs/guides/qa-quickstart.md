@@ -98,7 +98,11 @@ If your project doesn't use harness yet, initialize it:
 /harness:initialize-project
 ```
 
-This walks you through setup interactively and scaffolds everything.
+This walks you through setup interactively and scaffolds everything. For test suites (Playwright API suites, E2E/UI suites, or shared test libraries), use the test-suite variant instead, which adds archetype selection, shared-library-vs-scaffold decision, layer variants, tag taxonomy, reporter stack, and a custom report:
+
+```
+/harness:initialize-test-suite-project
+```
 
 ### Build the Knowledge Graph
 

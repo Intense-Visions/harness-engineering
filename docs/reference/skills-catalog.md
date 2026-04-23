@@ -2,9 +2,9 @@
 
 # Skills Catalog
 
-737 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+738 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
-## Tier 1 — Workflow (12 skills)
+## Tier 1 — Workflow (14 skills)
 
 ### add-harness-component
 
@@ -119,6 +119,16 @@ Scaffold a new harness-compliant project
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
+
+### initialize-test-suite-project
+
+Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with test-suite-specific layer models, tags, reporter stack, and custom report
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** flexible
+- **Cognitive mode:** constructive-architect
+- **Depends on:** initialize-harness-project
 
 ## Tier 2 — Maintenance (22 skills)
 
