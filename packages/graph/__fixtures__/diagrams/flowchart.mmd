@@ -1,0 +1,5 @@
+graph TD
+  A[Auth Service] --> B{Valid Token?}
+  B -->|Yes| C[Grant Access]
+  B -->|No| D[Reject Request]
+  C --> E[Log Event]
