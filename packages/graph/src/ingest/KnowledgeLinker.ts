@@ -80,6 +80,20 @@ const HEURISTIC_PATTERNS: readonly HeuristicPattern[] = [
 /** Node types that KnowledgeLinker scans for business signals. */
 const SCANNABLE_TYPES = ['issue', 'conversation', 'document'] as const;
 
+/** Boost confidence by 0.1 for conversation nodes with reactions. */
+function applyReactionBoost(
+  candidate: Candidate,
+  nodeType: string,
+  metadata: Record<string, unknown>
+): void {
+  if (nodeType !== 'conversation' || !metadata.reactions) return;
+  const reactions = metadata.reactions as Record<string, number>;
+  const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0);
+  if (totalReactions > 0) {
+    candidate.confidence = Math.min(1.0, Math.round((candidate.confidence + 0.1) * 100) / 100);
+  }
+}
+
 /**
  * Post-processing linker that scans connector-ingested nodes for business
  * knowledge signals using heuristic pattern detection with confidence scoring.
@@ -97,12 +111,33 @@ export class KnowledgeLinker {
 
   async link(): Promise<LinkResult> {
     const errors: string[] = [];
-    let factsCreated = 0;
-    let conceptsClustered = 0;
-    let duplicatesMerged = 0;
-    let stagedForReview = 0;
 
-    // Stage 1: Scan
+    // Stage 1: Scan all scannable nodes for business signals
+    const candidates = this.scanAllNodes(errors);
+
+    // Write extraction records to JSONL for audit trail
+    await this.writeJsonl(candidates);
+
+    // Stage 2: Cluster related extractions
+    const conceptsClustered = this.clusterBySource(candidates);
+
+    // Stage 3: Promote high-confidence, stage medium-confidence
+    const promoted = this.promoteAndDeduplicate(candidates);
+
+    // Write staged candidates to separate JSONL
+    await this.writeStagedJsonl(promoted.staged);
+
+    return {
+      factsCreated: promoted.factsCreated,
+      conceptsClustered,
+      duplicatesMerged: promoted.duplicatesMerged,
+      stagedForReview: promoted.staged.length,
+      errors,
+    };
+  }
+
+  /** Stage 1: Scan all scannable node types for heuristic pattern matches. */
+  private scanAllNodes(errors: string[]): Candidate[] {
     const candidates: Candidate[] = [];
     for (const type of SCANNABLE_TYPES) {
       const nodes = this.store.findNodes({ type });
@@ -110,20 +145,8 @@ export class KnowledgeLinker {
         if (!node.content) continue;
         try {
           const matches = this.scanPatterns(node.content, node.id, type);
-
-          // Apply reaction confidence boost for conversation nodes
           for (const match of matches) {
-            if (type === 'conversation' && node.metadata.reactions) {
-              const reactions = node.metadata.reactions as Record<string, number>;
-              const totalReactions = Object.values(reactions).reduce(
-                (sum, count) => sum + count,
-                0
-              );
-              if (totalReactions > 0) {
-                // Round to 2 decimal places to avoid floating point precision issues
-                match.confidence = Math.min(1.0, Math.round((match.confidence + 0.1) * 100) / 100);
-              }
-            }
+            applyReactionBoost(match, type, node.metadata);
             candidates.push(match);
           }
         } catch (err) {
@@ -133,11 +156,11 @@ export class KnowledgeLinker {
         }
       }
     }
+    return candidates;
+  }
 
-    // Write extraction records to JSONL for audit trail
-    await this.writeJsonl(candidates);
-
-    // Stage 2: Cluster -- group by source node, create business_concept for 3+ extractions
+  /** Stage 2: Group candidates by source node and create business_concept for 3+. */
+  private clusterBySource(candidates: readonly Candidate[]): number {
     const sourceGroups = new Map<string, Candidate[]>();
     for (const candidate of candidates) {
       const group = sourceGroups.get(candidate.sourceNodeId) ?? [];
@@ -145,11 +168,11 @@ export class KnowledgeLinker {
       sourceGroups.set(candidate.sourceNodeId, group);
     }
 
+    let clustered = 0;
     for (const [sourceNodeId, group] of sourceGroups) {
       if (group.length >= 3) {
-        const conceptId = `concept:linker:${hash(sourceNodeId)}`;
         this.store.addNode({
-          id: conceptId,
+          id: `concept:linker:${hash(sourceNodeId)}`,
           type: 'business_concept',
           name: `Business concept cluster from ${sourceNodeId}`,
           metadata: {
@@ -158,82 +181,83 @@ export class KnowledgeLinker {
             factCount: group.length,
           },
         });
-        conceptsClustered++;
+        clustered++;
       }
     }
+    return clustered;
+  }
 
-    // Stage 3: Promote
-    const stagedCandidates: Candidate[] = [];
+  /** Stage 3: Promote high-confidence candidates, stage medium, discard low. */
+  private promoteAndDeduplicate(candidates: readonly Candidate[]): {
+    factsCreated: number;
+    duplicatesMerged: number;
+    staged: Candidate[];
+  } {
+    let factsCreated = 0;
+    let duplicatesMerged = 0;
+    const staged: Candidate[] = [];
 
     for (const candidate of candidates) {
       if (candidate.confidence >= 0.8) {
-        // Check for duplicates: look for existing business_fact with same content
-        const existingFacts = this.store.findNodes({ type: 'business_fact' });
-        const duplicate = existingFacts.find(
-          (f) => f.content === candidate.content && f.id !== candidate.id
-        );
-
-        if (duplicate) {
-          // Merge: add source to existing node's sources
-          const existingSources = (duplicate.metadata.sources as string[]) ?? [];
-          if (!existingSources.includes(candidate.sourceNodeId)) {
-            existingSources.push(candidate.sourceNodeId);
-            duplicate.metadata.sources = existingSources;
-          }
+        const merged = this.tryMergeDuplicate(candidate);
+        if (merged) {
           duplicatesMerged++;
           continue;
         }
-
-        // Check if this exact candidate was already created
-        const existing = this.store.getNode(candidate.id);
-        if (existing) {
-          duplicatesMerged++;
-          continue;
-        }
-
-        this.store.addNode({
-          id: candidate.id,
-          type: candidate.nodeType,
-          name: candidate.name,
-          content: candidate.content,
-          metadata: {
-            source: 'knowledge-linker',
-            pattern: candidate.pattern,
-            signal: candidate.signal,
-            confidence: candidate.confidence,
-            sourceNodeId: candidate.sourceNodeId,
-            sourceNodeType: candidate.sourceNodeType,
-            sources: [candidate.sourceNodeId],
-          },
-        });
-
-        // Create governs edge from fact to source node
-        this.store.addEdge({
-          from: candidate.id,
-          to: candidate.sourceNodeId,
-          type: 'governs',
-          confidence: candidate.confidence,
-          metadata: { source: 'knowledge-linker' },
-        });
-
+        this.createFactNode(candidate);
         factsCreated++;
       } else if (candidate.confidence >= 0.5) {
-        stagedCandidates.push(candidate);
-        stagedForReview++;
+        staged.push(candidate);
       }
-      // < 0.5: discard (no action)
     }
 
-    // Write staged candidates to separate JSONL
-    await this.writeStagedJsonl(stagedCandidates);
+    return { factsCreated, duplicatesMerged, staged };
+  }
 
-    return {
-      factsCreated,
-      conceptsClustered,
-      duplicatesMerged,
-      stagedForReview,
-      errors,
-    };
+  /** Check for existing duplicate fact and merge sources if found. Returns true if merged. */
+  private tryMergeDuplicate(candidate: Candidate): boolean {
+    // Check if this exact candidate ID already exists
+    if (this.store.getNode(candidate.id)) return true;
+
+    // Check for content-based duplicates from different sources
+    const existingFacts = this.store.findNodes({ type: 'business_fact' });
+    const duplicate = existingFacts.find(
+      (f) => f.content === candidate.content && f.id !== candidate.id
+    );
+    if (!duplicate) return false;
+
+    const existingSources = (duplicate.metadata.sources as string[]) ?? [];
+    if (!existingSources.includes(candidate.sourceNodeId)) {
+      existingSources.push(candidate.sourceNodeId);
+      duplicate.metadata.sources = existingSources;
+    }
+    return true;
+  }
+
+  /** Create a business_fact node and governs edge for a promoted candidate. */
+  private createFactNode(candidate: Candidate): void {
+    this.store.addNode({
+      id: candidate.id,
+      type: candidate.nodeType,
+      name: candidate.name,
+      content: candidate.content,
+      metadata: {
+        source: 'knowledge-linker',
+        pattern: candidate.pattern,
+        signal: candidate.signal,
+        confidence: candidate.confidence,
+        sourceNodeId: candidate.sourceNodeId,
+        sourceNodeType: candidate.sourceNodeType,
+        sources: [candidate.sourceNodeId],
+      },
+    });
+    this.store.addEdge({
+      from: candidate.id,
+      to: candidate.sourceNodeId,
+      type: 'governs',
+      confidence: candidate.confidence,
+      metadata: { source: 'knowledge-linker' },
+    });
   }
 
   /**
