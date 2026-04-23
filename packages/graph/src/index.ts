@@ -127,6 +127,19 @@ export type {
   GraphLayerViolation,
 } from './constraints/GraphConstraintAdapter.js';
 
+// Code Signal Extractors
+export {
+  ExtractionRunner,
+  createExtractionRunner,
+  ALL_EXTRACTORS,
+  TestDescriptionExtractor,
+  EnumConstantExtractor,
+  ValidationRuleExtractor,
+  ApiPathExtractor,
+  detectLanguage,
+} from './ingest/extractors/index.js';
+export type { ExtractionRecord, SignalExtractor, Language } from './ingest/extractors/index.js';
+
 // Design Ingest
 export { DesignIngestor } from './ingest/DesignIngestor.js';
 
