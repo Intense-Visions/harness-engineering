@@ -1,3 +1,5 @@
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { NodeType } from '../types.js';
 import { hash } from './ingestUtils.js';
@@ -88,9 +90,12 @@ const SCANNABLE_TYPES = ['issue', 'conversation', 'document'] as const;
  * 3. Promote: Create business_fact nodes for high-confidence, stage medium-confidence
  */
 export class KnowledgeLinker {
-  constructor(private readonly store: GraphStore) {}
+  constructor(
+    private readonly store: GraphStore,
+    private readonly outputDir?: string
+  ) {}
 
-  link(): LinkResult {
+  async link(): Promise<LinkResult> {
     const errors: string[] = [];
     let factsCreated = 0;
     let conceptsClustered = 0;
@@ -129,16 +134,59 @@ export class KnowledgeLinker {
       }
     }
 
-    // Stage 2: Cluster (skeleton -- full implementation in Phase C)
-    // For now, no clustering logic. conceptsClustered remains 0.
+    // Write extraction records to JSONL for audit trail
+    await this.writeJsonl(candidates);
+
+    // Stage 2: Cluster -- group by source node, create business_concept for 3+ extractions
+    const sourceGroups = new Map<string, Candidate[]>();
+    for (const candidate of candidates) {
+      const group = sourceGroups.get(candidate.sourceNodeId) ?? [];
+      group.push(candidate);
+      sourceGroups.set(candidate.sourceNodeId, group);
+    }
+
+    for (const [sourceNodeId, group] of sourceGroups) {
+      if (group.length >= 3) {
+        const conceptId = `concept:linker:${hash(sourceNodeId)}`;
+        this.store.addNode({
+          id: conceptId,
+          type: 'business_concept',
+          name: `Business concept cluster from ${sourceNodeId}`,
+          metadata: {
+            source: 'knowledge-linker',
+            sources: [sourceNodeId],
+            factCount: group.length,
+          },
+        });
+        conceptsClustered++;
+      }
+    }
 
     // Stage 3: Promote
+    const stagedCandidates: Candidate[] = [];
+
     for (const candidate of candidates) {
       if (candidate.confidence >= 0.8) {
-        // Check for duplicates before creating
+        // Check for duplicates: look for existing business_fact with same content
+        const existingFacts = this.store.findNodes({ type: 'business_fact' });
+        const duplicate = existingFacts.find(
+          (f) => f.content === candidate.content && f.id !== candidate.id
+        );
+
+        if (duplicate) {
+          // Merge: add source to existing node's sources
+          const existingSources = (duplicate.metadata.sources as string[]) ?? [];
+          if (!existingSources.includes(candidate.sourceNodeId)) {
+            existingSources.push(candidate.sourceNodeId);
+            duplicate.metadata.sources = existingSources;
+          }
+          duplicatesMerged++;
+          continue;
+        }
+
+        // Check if this exact candidate was already created
         const existing = this.store.getNode(candidate.id);
         if (existing) {
-          // Merge: add source to existing node's sources
           duplicatesMerged++;
           continue;
         }
@@ -170,10 +218,14 @@ export class KnowledgeLinker {
 
         factsCreated++;
       } else if (candidate.confidence >= 0.5) {
+        stagedCandidates.push(candidate);
         stagedForReview++;
       }
       // < 0.5: discard (no action)
     }
+
+    // Write staged candidates to separate JSONL
+    await this.writeStagedJsonl(stagedCandidates);
 
     return {
       factsCreated,
@@ -182,6 +234,51 @@ export class KnowledgeLinker {
       stagedForReview,
       errors,
     };
+  }
+
+  /**
+   * Write candidates to JSONL file for audit trail.
+   */
+  private async writeJsonl(candidates: readonly Candidate[]): Promise<void> {
+    if (!this.outputDir) return;
+    await fs.mkdir(this.outputDir, { recursive: true });
+    const filePath = path.join(this.outputDir, 'linker.jsonl');
+    const lines = candidates.map((c) =>
+      JSON.stringify({
+        id: c.id,
+        sourceNodeId: c.sourceNodeId,
+        sourceNodeType: c.sourceNodeType,
+        name: c.name,
+        confidence: c.confidence,
+        pattern: c.pattern,
+        signal: c.signal,
+        nodeType: c.nodeType,
+      })
+    );
+    await fs.writeFile(filePath, lines.join('\n') + (lines.length > 0 ? '\n' : ''));
+  }
+
+  /**
+   * Write medium-confidence candidates to staged JSONL for human review.
+   */
+  private async writeStagedJsonl(candidates: readonly Candidate[]): Promise<void> {
+    if (!this.outputDir || candidates.length === 0) return;
+    const stagedDir = path.join(this.outputDir, 'staged');
+    await fs.mkdir(stagedDir, { recursive: true });
+    const filePath = path.join(stagedDir, 'linker-staged.jsonl');
+    const lines = candidates.map((c) =>
+      JSON.stringify({
+        id: c.id,
+        sourceNodeId: c.sourceNodeId,
+        sourceNodeType: c.sourceNodeType,
+        name: c.name,
+        confidence: c.confidence,
+        pattern: c.pattern,
+        signal: c.signal,
+        nodeType: c.nodeType,
+      })
+    );
+    await fs.writeFile(filePath, lines.join('\n') + '\n');
   }
 
   /**

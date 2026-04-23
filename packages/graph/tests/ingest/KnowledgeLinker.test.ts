@@ -240,4 +240,72 @@ describe('KnowledgeLinker', () => {
       await expect(linker.link()).resolves.toBeDefined();
     });
   });
+
+  describe('clustering (Stage 2)', () => {
+    it('creates business_concept node when 3+ extractions share a source', async () => {
+      // Content that triggers 3+ heuristic patterns from same node
+      const richContent =
+        'The system must validate all user inputs. ' +
+        'SLA requires 99.9% availability under 200ms. ' +
+        'All handling must comply with GDPR and SOC2 requirements. ' +
+        'Given a logged-in user When they submit Then data is saved.';
+
+      addDocumentNode(store, 'doc:rich', richContent);
+      const linker = new KnowledgeLinker(store);
+      const result = await linker.link();
+
+      expect(result.conceptsClustered).toBeGreaterThan(0);
+      const concepts = store.findNodes({ type: 'business_concept' });
+      expect(concepts.length).toBeGreaterThan(0);
+      expect(concepts[0]!.metadata.sources).toContain('doc:rich');
+    });
+
+    it('does not cluster when fewer than 3 extractions from a source', async () => {
+      addDocumentNode(store, 'doc:sparse', 'Must comply with GDPR requirements');
+      const linker = new KnowledgeLinker(store);
+      const result = await linker.link();
+      expect(result.conceptsClustered).toBe(0);
+    });
+  });
+
+  describe('staged output', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'linker-staged-'));
+    });
+
+    it('writes medium-confidence extractions to staged JSONL', async () => {
+      // Monetary pattern has confidence 0.6
+      addIssueNode(store, 'issue:staged', 'Budget is $25,000 for Q1');
+      const linker = new KnowledgeLinker(store, tmpDir);
+      await linker.link();
+
+      const stagedPath = path.join(tmpDir, 'staged', 'linker-staged.jsonl');
+      const content = await fs.readFile(stagedPath, 'utf-8');
+      const lines = content.trim().split('\n');
+      expect(lines.length).toBeGreaterThan(0);
+      const record = JSON.parse(lines[0]!);
+      expect(record.confidence).toBeGreaterThanOrEqual(0.5);
+      expect(record.confidence).toBeLessThan(0.8);
+    });
+  });
+
+  describe('deduplication', () => {
+    it('merges duplicate facts from different sources', async () => {
+      // Same regulatory pattern from two different nodes
+      addDocumentNode(store, 'doc:dup1', 'All systems must comply with GDPR');
+      addIssueNode(store, 'issue:dup2', 'All systems must comply with GDPR');
+
+      const linker = new KnowledgeLinker(store);
+      const result = await linker.link();
+
+      expect(result.duplicatesMerged).toBeGreaterThan(0);
+      const facts = store.findNodes({ type: 'business_fact' });
+      // At least one fact should have multiple sources
+      const mergedFact = facts.find((f) => (f.metadata.sources as string[])?.length > 1);
+      expect(mergedFact).toBeDefined();
+      expect((mergedFact!.metadata.sources as string[]).length).toBeGreaterThanOrEqual(2);
+    });
+  });
 });
