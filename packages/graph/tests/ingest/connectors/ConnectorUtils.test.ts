@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { sanitizeExternalText } from '../../../src/ingest/connectors/ConnectorUtils';
+import { describe, it, expect, vi } from 'vitest';
+import { sanitizeExternalText, withRetry } from '../../../src/ingest/connectors/ConnectorUtils';
+import type { HttpClient } from '../../../src/ingest/connectors/ConnectorInterface';
 
 describe('sanitizeExternalText', () => {
   it('passes through clean text unchanged', () => {
@@ -128,5 +129,128 @@ describe('sanitizeExternalText', () => {
     expect(result).not.toContain('<system>');
     expect(result).not.toContain('<prompt>');
     expect(result).toContain('[filtered]');
+  });
+});
+
+describe('withRetry', () => {
+  const okResponse = () => ({ ok: true as const, status: 200, json: async () => ({}) });
+  const failResponse = (status: number) => ({
+    ok: false as const,
+    status,
+    json: async () => ({ error: 'fail' }),
+  });
+
+  it('returns immediately on success', async () => {
+    const client: HttpClient = vi.fn().mockResolvedValue(okResponse());
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(true);
+    expect(client).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns immediately on non-retryable status (e.g. 404)', async () => {
+    const client: HttpClient = vi.fn().mockResolvedValue(failResponse(404));
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(404);
+    expect(client).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on 429 and succeeds on subsequent attempt', async () => {
+    const client: HttpClient = vi
+      .fn()
+      .mockResolvedValueOnce(failResponse(429))
+      .mockResolvedValueOnce(okResponse());
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(true);
+    expect(client).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries on 503 and succeeds on subsequent attempt', async () => {
+    const client: HttpClient = vi
+      .fn()
+      .mockResolvedValueOnce(failResponse(503))
+      .mockResolvedValueOnce(okResponse());
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(true);
+    expect(client).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns last failed response after exhausting retries', async () => {
+    const client: HttpClient = vi.fn().mockResolvedValue(failResponse(500));
+    const retrying = withRetry(client, { maxRetries: 2, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(500);
+    // 1 initial + 2 retries = 3 total
+    expect(client).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries on network errors (thrown exceptions)', async () => {
+    const client: HttpClient = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+      .mockResolvedValueOnce(okResponse());
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(true);
+    expect(client).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws last network error after exhausting retries', async () => {
+    const client: HttpClient = vi.fn().mockRejectedValue(new Error('DNS_FAIL'));
+    const retrying = withRetry(client, { maxRetries: 2, baseDelayMs: 1 });
+
+    await expect(retrying('https://api.example.com/data')).rejects.toThrow('DNS_FAIL');
+    expect(client).toHaveBeenCalledTimes(3);
+  });
+
+  it('handles mixed failures (throw then 429 then success)', async () => {
+    const client: HttpClient = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValueOnce(failResponse(429))
+      .mockResolvedValueOnce(okResponse());
+    const retrying = withRetry(client, { maxRetries: 3, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(true);
+    expect(client).toHaveBeenCalledTimes(3);
+  });
+
+  it('passes url and options through to the underlying client', async () => {
+    const client: HttpClient = vi.fn().mockResolvedValue(okResponse());
+    const retrying = withRetry(client, { maxRetries: 1, baseDelayMs: 1 });
+    const headers = { Authorization: 'Bearer token' };
+
+    await retrying('https://api.example.com/data', { headers });
+
+    expect(client).toHaveBeenCalledWith('https://api.example.com/data', { headers });
+  });
+
+  it('does not retry when maxRetries is 0', async () => {
+    const client: HttpClient = vi.fn().mockResolvedValue(failResponse(500));
+    const retrying = withRetry(client, { maxRetries: 0, baseDelayMs: 1 });
+
+    const result = await retrying('https://api.example.com/data');
+
+    expect(result.ok).toBe(false);
+    expect(client).toHaveBeenCalledTimes(1);
   });
 });

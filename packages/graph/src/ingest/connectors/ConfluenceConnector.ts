@@ -1,7 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
-import { linkToCode, sanitizeExternalText } from './ConnectorUtils.js';
+import { linkToCode, sanitizeExternalText, withRetry } from './ConnectorUtils.js';
 import { condenseContent } from './ContentCondenser.js';
 
 function missingApiKeyResult(envVar: string, start: number): IngestResult {
@@ -36,7 +36,7 @@ export class ConfluenceConnector implements GraphConnector {
   private readonly httpClient: HttpClient;
 
   constructor(httpClient?: HttpClient) {
-    this.httpClient = httpClient ?? ((url, options) => fetch(url, options));
+    this.httpClient = httpClient ?? withRetry((url, options) => fetch(url, options));
   }
 
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {
