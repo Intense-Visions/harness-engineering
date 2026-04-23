@@ -287,8 +287,7 @@ export function Overview() {
               }}
               transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
               style={{
-                background:
-                  'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 60%)',
+                background: 'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 60%)',
                 filter: 'blur(14px)',
               }}
             />

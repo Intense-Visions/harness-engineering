@@ -21,15 +21,15 @@ Phase 2 of the Business Knowledge System (ADR: `.harness/architecture/business-k
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Parsing strategy | File-first | Extractors independently scan files rather than querying graph. Self-contained, testable, works without prior ingestion |
-| Language scope | All 6 (TS/JS, Python, Go, Rust, Java) | Full parity with CodeIngestor from day one |
-| Coverage model | Uniform | Every extractor covers every language, using confidence scores to signal extraction depth |
-| Output model | JSONL + graph nodes | JSONL for audit trail and promotion flow; provisional graph nodes for immediate skill queryability |
-| Trigger mechanism | New `business-signals` ingest source | Follows existing pattern, included in `harness ingest --all` automatically |
-| Re-extraction | Stable-ID diff | Deterministic IDs survive re-runs; removed signals marked stale, not deleted |
-| Architecture | Pluggable extractor registry | `SignalExtractor` interface with shared `ExtractionRunner`; each extractor independently testable |
+| Decision          | Choice                                | Rationale                                                                                                               |
+| ----------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Parsing strategy  | File-first                            | Extractors independently scan files rather than querying graph. Self-contained, testable, works without prior ingestion |
+| Language scope    | All 6 (TS/JS, Python, Go, Rust, Java) | Full parity with CodeIngestor from day one                                                                              |
+| Coverage model    | Uniform                               | Every extractor covers every language, using confidence scores to signal extraction depth                               |
+| Output model      | JSONL + graph nodes                   | JSONL for audit trail and promotion flow; provisional graph nodes for immediate skill queryability                      |
+| Trigger mechanism | New `business-signals` ingest source  | Follows existing pattern, included in `harness ingest --all` automatically                                              |
+| Re-extraction     | Stable-ID diff                        | Deterministic IDs survive re-runs; removed signals marked stale, not deleted                                            |
+| Architecture      | Pluggable extractor registry          | `SignalExtractor` interface with shared `ExtractionRunner`; each extractor independently testable                       |
 
 ## Technical Design
 
@@ -41,15 +41,15 @@ Phase 2 of the Business Knowledge System (ADR: `.harness/architecture/business-k
 type Language = 'typescript' | 'javascript' | 'python' | 'go' | 'rust' | 'java';
 
 interface ExtractionRecord {
-  id: string;              // deterministic: extracted:<extractor>:<sha256(filePath+':'+patternKey)>
-  extractor: string;       // 'test-descriptions' | 'enum-constants' | 'validation-rules' | 'api-paths'
+  id: string; // deterministic: extracted:<extractor>:<sha256(filePath+':'+patternKey)>
+  extractor: string; // 'test-descriptions' | 'enum-constants' | 'validation-rules' | 'api-paths'
   language: Language;
-  filePath: string;        // relative to project root
-  line: number;            // start line of the extracted pattern
-  nodeType: NodeType;      // which business_* node type this maps to
-  name: string;            // human-readable label for the extracted fact
-  content: string;         // the raw extracted text
-  confidence: number;      // 0.0-1.0
+  filePath: string; // relative to project root
+  line: number; // start line of the extracted pattern
+  nodeType: NodeType; // which business_* node type this maps to
+  name: string; // human-readable label for the extracted fact
+  content: string; // the raw extracted text
+  confidence: number; // 0.0-1.0
   metadata: Record<string, unknown>; // extractor-specific fields
 }
 
@@ -66,13 +66,13 @@ interface SignalExtractor {
 
 Extracts human-written test descriptions that encode business rules in natural language.
 
-| Language | Patterns | Example |
-|----------|----------|---------|
-| TypeScript/JavaScript | `describe()`, `it()`, `test()` string arguments (vitest, jest, mocha) | `it('should reject expired tokens')` |
-| Python | `def test_*` function names + docstrings, `pytest.mark.parametrize` labels | `def test_expired_token_rejected():` |
-| Go | `func Test*` function names + `t.Run()` subtests, `//` doc comments | `t.Run("rejects expired tokens", ...)` |
-| Rust | `#[test]` function names + `///` doc comments, `#[rstest]` case labels | `fn test_reject_expired_token()` |
-| Java | `@Test` method names + `@DisplayName` annotations, JUnit 5 nested classes | `@DisplayName("should reject expired tokens")` |
+| Language              | Patterns                                                                   | Example                                        |
+| --------------------- | -------------------------------------------------------------------------- | ---------------------------------------------- |
+| TypeScript/JavaScript | `describe()`, `it()`, `test()` string arguments (vitest, jest, mocha)      | `it('should reject expired tokens')`           |
+| Python                | `def test_*` function names + docstrings, `pytest.mark.parametrize` labels | `def test_expired_token_rejected():`           |
+| Go                    | `func Test*` function names + `t.Run()` subtests, `//` doc comments        | `t.Run("rejects expired tokens", ...)`         |
+| Rust                  | `#[test]` function names + `///` doc comments, `#[rstest]` case labels     | `fn test_reject_expired_token()`               |
+| Java                  | `@Test` method names + `@DisplayName` annotations, JUnit 5 nested classes  | `@DisplayName("should reject expired tokens")` |
 
 Maps to: `business_rule` nodes. Confidence: 0.7 (structured test with description string) to 0.5 (bare function name only).
 
@@ -80,14 +80,14 @@ Maps to: `business_rule` nodes. Confidence: 0.7 (structured test with descriptio
 
 Extracts domain vocabulary from enumeration and constant definitions.
 
-| Language | Patterns | Example |
-|----------|----------|---------|
-| TypeScript | `enum` declarations, `as const` objects, union types | `enum OrderStatus { PENDING, FULFILLED }` |
+| Language   | Patterns                                                           | Example                                                |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| TypeScript | `enum` declarations, `as const` objects, union types               | `enum OrderStatus { PENDING, FULFILLED }`              |
 | JavaScript | `Object.freeze({})` patterns, `const` objects with UPPER_CASE keys | `const STATUS = Object.freeze({ PENDING: 'pending' })` |
-| Python | `Enum` subclasses, `Literal` type annotations, `IntEnum`/`StrEnum` | `class OrderStatus(StrEnum):` |
-| Go | `iota` const blocks, typed const groups | `const ( Pending Status = iota; Fulfilled )` |
-| Rust | `enum` declarations (unit variants and data variants) | `enum OrderStatus { Pending, Fulfilled }` |
-| Java | `enum` classes with constants | `enum OrderStatus { PENDING, FULFILLED }` |
+| Python     | `Enum` subclasses, `Literal` type annotations, `IntEnum`/`StrEnum` | `class OrderStatus(StrEnum):`                          |
+| Go         | `iota` const blocks, typed const groups                            | `const ( Pending Status = iota; Fulfilled )`           |
+| Rust       | `enum` declarations (unit variants and data variants)              | `enum OrderStatus { Pending, Fulfilled }`              |
+| Java       | `enum` classes with constants                                      | `enum OrderStatus { PENDING, FULFILLED }`              |
 
 Maps to: `business_term` nodes. Confidence: 0.8 (named enum with members) to 0.6 (unnamed const group).
 
@@ -95,13 +95,13 @@ Maps to: `business_term` nodes. Confidence: 0.8 (named enum with members) to 0.6
 
 Extracts business constraints encoded in validation schemas and decorators.
 
-| Language | Patterns | Example |
-|----------|----------|---------|
-| TypeScript/JavaScript | Zod schemas (`.string()`, `.min()`, `.regex()`), Joi schemas, Yup schemas | `z.string().email().min(5)` |
-| Python | Pydantic `BaseModel` fields with `Field()` constraints, `@validator` decorators | `amount: Decimal = Field(gt=0, le=1000000)` |
-| Go | Struct tags with `validate:"required,min=1"` (go-playground/validator) | `` `validate:"required,email"` `` |
-| Rust | `#[validate]` derive macros, `#[garde]` attribute macros | `#[validate(length(min = 1, max = 255))]` |
-| Java | Bean Validation: `@NotNull`, `@Size`, `@Pattern`, `@Min`, `@Max`, `@Email` | `@Size(min = 1, max = 255) String name` |
+| Language              | Patterns                                                                        | Example                                     |
+| --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------- |
+| TypeScript/JavaScript | Zod schemas (`.string()`, `.min()`, `.regex()`), Joi schemas, Yup schemas       | `z.string().email().min(5)`                 |
+| Python                | Pydantic `BaseModel` fields with `Field()` constraints, `@validator` decorators | `amount: Decimal = Field(gt=0, le=1000000)` |
+| Go                    | Struct tags with `validate:"required,min=1"` (go-playground/validator)          | `` `validate:"required,email"` ``           |
+| Rust                  | `#[validate]` derive macros, `#[garde]` attribute macros                        | `#[validate(length(min = 1, max = 255))]`   |
+| Java                  | Bean Validation: `@NotNull`, `@Size`, `@Pattern`, `@Min`, `@Max`, `@Email`      | `@Size(min = 1, max = 255) String name`     |
 
 Maps to: `business_rule` nodes. Confidence: 0.8 (explicit schema with named constraints) to 0.5 (simple required field).
 
@@ -109,13 +109,13 @@ Maps to: `business_rule` nodes. Confidence: 0.8 (explicit schema with named cons
 
 Extracts domain model from route definitions revealing the API surface.
 
-| Language | Patterns | Example |
-|----------|----------|---------|
+| Language              | Patterns                                                                              | Example                               |
+| --------------------- | ------------------------------------------------------------------------------------- | ------------------------------------- |
 | TypeScript/JavaScript | Express `app.get()`, Hono `app.get()`, Fastify `fastify.route()`, Next.js file routes | `app.get('/api/orders/:id', handler)` |
-| Python | FastAPI `@app.get()` decorators, Flask `@app.route()`, Django `path()` in urlpatterns | `@app.get("/orders/{order_id}")` |
-| Go | `http.HandleFunc()`, Gin `r.GET()`, Echo `e.GET()`, Chi `r.Get()` | `r.GET("/orders/:id", getOrder)` |
-| Rust | Actix `#[get()]` macros, Axum `Router::new().route()` | `#[get("/orders/{id}")]` |
-| Java | Spring `@GetMapping`, `@PostMapping`, `@RequestMapping`, JAX-RS `@Path` | `@GetMapping("/orders/{id}")` |
+| Python                | FastAPI `@app.get()` decorators, Flask `@app.route()`, Django `path()` in urlpatterns | `@app.get("/orders/{order_id}")`      |
+| Go                    | `http.HandleFunc()`, Gin `r.GET()`, Echo `e.GET()`, Chi `r.Get()`                     | `r.GET("/orders/:id", getOrder)`      |
+| Rust                  | Actix `#[get()]` macros, Axum `Router::new().route()`                                 | `#[get("/orders/{id}")]`              |
+| Java                  | Spring `@GetMapping`, `@PostMapping`, `@RequestMapping`, JAX-RS `@Path`               | `@GetMapping("/orders/{id}")`         |
 
 Maps to: `business_process` nodes. Confidence: 0.9 (annotated route with HTTP method + path) to 0.6 (dynamic route registration).
 
@@ -147,19 +147,31 @@ packages/graph/src/ingest/extractors/
 Each line in a `.jsonl` file is one `ExtractionRecord` serialized as JSON:
 
 ```json
-{"id":"extracted:test-descriptions:a1b2c3","extractor":"test-descriptions","language":"typescript","filePath":"src/auth/auth.service.test.ts","line":42,"nodeType":"business_rule","name":"should reject expired tokens","content":"describe('AuthService') > it('should reject expired tokens')","confidence":0.7,"metadata":{"suite":"AuthService","framework":"vitest"}}
+{
+  "id": "extracted:test-descriptions:a1b2c3",
+  "extractor": "test-descriptions",
+  "language": "typescript",
+  "filePath": "src/auth/auth.service.test.ts",
+  "line": 42,
+  "nodeType": "business_rule",
+  "name": "should reject expired tokens",
+  "content": "describe('AuthService') > it('should reject expired tokens')",
+  "confidence": 0.7,
+  "metadata": { "suite": "AuthService", "framework": "vitest" }
+}
 ```
 
 ### Graph Node Mapping
 
-| Extractor | Node Type | Edge Type | Edge Target |
-|-----------|-----------|-----------|-------------|
-| test-descriptions | `business_rule` | `governs` | source `file` node |
-| enum-constants | `business_term` | `documents` | source `file` node |
-| validation-rules | `business_rule` | `governs` | source `file` node |
-| api-paths | `business_process` | `documents` | source `file` node |
+| Extractor         | Node Type          | Edge Type   | Edge Target        |
+| ----------------- | ------------------ | ----------- | ------------------ |
+| test-descriptions | `business_rule`    | `governs`   | source `file` node |
+| enum-constants    | `business_term`    | `documents` | source `file` node |
+| validation-rules  | `business_rule`    | `governs`   | source `file` node |
+| api-paths         | `business_process` | `documents` | source `file` node |
 
 All nodes include:
+
 - `metadata.source: 'code-extractor'` — distinguishes from human-authored knowledge
 - `metadata.extractor: '<extractor-name>'` — identifies which extractor produced the node
 - `metadata.confidence: <0.0-1.0>` — extraction pattern strength
@@ -173,6 +185,7 @@ extracted:<extractor>:<sha256(filePath + ':' + patternKey)>
 ```
 
 Where `patternKey` is extractor-specific:
+
 - **test-descriptions:** full nested path (`describe > describe > it` chain)
 - **enum-constants:** enum name + member name
 - **validation-rules:** schema variable name or decorator target
@@ -180,12 +193,12 @@ Where `patternKey` is extractor-specific:
 
 ### Integration Points
 
-| Component | File | Change |
-|-----------|------|--------|
-| Ingest CLI | `packages/cli/src/commands/graph/ingest.ts` | Add `'business-signals'` to source options, instantiate `ExtractionRunner` |
-| Ingest MCP | `packages/cli/src/mcp/tools/graph/ingest-source.ts` | Add `'business-signals'` to source enum, wire `ExtractionRunner` |
-| Graph exports | `packages/graph/src/index.ts` | Export `ExtractionRunner`, `SignalExtractor`, `ExtractionRecord` |
-| Graph types | `packages/graph/src/types.ts` | No changes — existing `business_*` node types and `governs`/`documents` edges suffice |
+| Component     | File                                                | Change                                                                                |
+| ------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Ingest CLI    | `packages/cli/src/commands/graph/ingest.ts`         | Add `'business-signals'` to source options, instantiate `ExtractionRunner`            |
+| Ingest MCP    | `packages/cli/src/mcp/tools/graph/ingest-source.ts` | Add `'business-signals'` to source enum, wire `ExtractionRunner`                      |
+| Graph exports | `packages/graph/src/index.ts`                       | Export `ExtractionRunner`, `SignalExtractor`, `ExtractionRecord`                      |
+| Graph types   | `packages/graph/src/types.ts`                       | No changes — existing `business_*` node types and `governs`/`documents` edges suffice |
 
 ## Success Criteria
 

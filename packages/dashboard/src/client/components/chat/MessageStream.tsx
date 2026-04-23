@@ -53,8 +53,7 @@ export function MessageStream({ messages, streaming, className }: Props) {
                 delay: 0.5,
               }}
               style={{
-                background:
-                  'radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 60%)',
+                background: 'radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 60%)',
                 filter: 'blur(12px)',
               }}
             />
@@ -109,10 +108,7 @@ export function MessageStream({ messages, streaming, className }: Props) {
                 </div>
               </motion.div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="px-1 py-1">
                   <AssistantBlocks
                     blocks={msg.blocks}

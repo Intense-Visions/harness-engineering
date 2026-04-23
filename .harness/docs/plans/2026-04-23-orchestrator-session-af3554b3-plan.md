@@ -41,15 +41,18 @@ All 7 tasks complete. Here's a summary of everything that was changed:
 ## Changes Made
 
 ### 1. `packages/orchestrator/src/core/pr-detector.ts`
+
 - **`branchHasPullRequest`** now uses `--state all` to find PRs in any state (open, closed, merged) — fixes the race where a PR merges before cleanup runs
 - Returns `{ found: boolean; error?: string }` instead of bare `boolean`, so callers can distinguish "no PR" from "gh CLI failed"
 
 ### 2. `packages/orchestrator/src/workspace/manager.ts`
+
 - **`findPushedBranch`** now requires returned branch names to contain `/` (positive-pattern validation) — catches symbolic refs and non-agent branches that slip past the skip-list
 - **`branchExistsOnRemote`** (new) — verifies a branch actually exists on the remote via `git ls-remote`
 - **`sweepStaleBranches`** (new) — deletes remote branches that are >7 days old and have merged PRs, with concurrency-limited `gh` API calls
 
 ### 3. `packages/orchestrator/src/orchestrator.ts`
+
 - **`cleanWorkspaceWithGuard`** rewritten with three safety layers:
   1. Verifies branch exists on remote before checking PRs
   2. On PR check error: preserves worktree but **does not escalate** (avoids false positives from network failures)
@@ -57,9 +60,11 @@ All 7 tasks complete. Here's a summary of everything that was changed:
 - **Stale branch sweep** integrated into tick cycle, runs at most once per hour
 
 ### 4. `packages/orchestrator/src/completion/handler.ts`
+
 - Updated to use the new discriminated result from `branchHasPullRequest`
 
 ### 5. Tests (2 files, 14 new test cases)
+
 - `branchHasPullRequest`: `--state all`, discriminated results, error handling
 - `findPushedBranch`: slash validation, positive/negative cases
 - `branchExistsOnRemote`: found, not found, error
@@ -70,15 +75,18 @@ All 7 tasks complete. Here's a summary of everything that was changed:
 ## Changes Made
 
 ### 1. `packages/orchestrator/src/core/pr-detector.ts`
+
 - **`branchHasPullRequest`** now uses `--state all` to find PRs in any state (open, closed, merged) — fixes the race where a PR merges before cleanup runs
 - Returns `{ found: boolean; error?: string }` instead of bare `boolean`, so callers can distinguish "no PR" from "gh CLI failed"
 
 ### 2. `packages/orchestrator/src/workspace/manager.ts`
+
 - **`findPushedBranch`** now requires returned branch names to contain `/` (positive-pattern validation) — catches symbolic refs and non-agent branches that slip past the skip-list
 - **`branchExistsOnRemote`** (new) — verifies a branch actually exists on the remote via `git ls-remote`
 - **`sweepStaleBranches`** (new) — deletes remote branches that are >7 days old and have merged PRs, with concurrency-limited `gh` API calls
 
 ### 3. `packages/orchestrator/src/orchestrator.ts`
+
 - **`cleanWorkspaceWithGuard`** rewritten with three safety layers:
   1. Verifies branch exists on remote before checking PRs
   2. On PR check error: preserves worktree but **does not escalate** (avoids false positives from network failures)
@@ -86,9 +94,11 @@ All 7 tasks complete. Here's a summary of everything that was changed:
 - **Stale branch sweep** integrated into tick cycle, runs at most once per hour
 
 ### 4. `packages/orchestrator/src/completion/handler.ts`
+
 - Updated to use the new discriminated result from `branchHasPullRequest`
 
 ### 5. Tests (2 files, 14 new test cases)
+
 - `branchHasPullRequest`: `--state all`, discriminated results, error handling
 - `findPushedBranch`: slash validation, positive/negative cases
 - `branchExistsOnRemote`: found, not found, error

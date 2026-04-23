@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Bioluminescent neural organism — the system's living avatar.
@@ -73,7 +73,16 @@ interface NeuralAxonProps {
   hitCount: number;
 }
 
-function NeuralAxon({ d, len, delay, duration, color, repeatDelay, weight, hitCount }: NeuralAxonProps) {
+function NeuralAxon({
+  d,
+  len,
+  delay,
+  duration,
+  color,
+  repeatDelay,
+  weight,
+  hitCount,
+}: NeuralAxonProps) {
   const traceOpacity = 0.04 + weight * 0.08;
   const traceWidth = 0.4 + weight * 0.4;
   const pulseWidth = 0.8 + weight * 0.6;
@@ -409,13 +418,7 @@ function Plankton({ count }: { count: number }) {
   );
 }
 
-function NeuralMembrane({
-  color,
-  tier,
-}: {
-  color: string;
-  tier: 'compact' | 'standard' | 'full';
-}) {
+function NeuralMembrane({ color, tier }: { color: string; tier: 'compact' | 'standard' | 'full' }) {
   const center = 28;
   const pts = 14;
 
@@ -521,7 +524,7 @@ const SPARK_COLORS = [
 /* ── Main component ────────────────────────────────────────── */
 
 export function NeuralOrganism({ size = 56 }: { size?: number }) {
-  const tier = size <= 40 ? 'compact' : size <= 72 ? 'standard' : 'full';
+  const tier = size <= 40 ? 'compact' : size <= 80 ? 'standard' : 'full';
 
   /**
    * Wandering rotation — the organism slowly drifts rotationally,
@@ -530,15 +533,7 @@ export function NeuralOrganism({ size = 56 }: { size?: number }) {
    */
   const rotation = useMemo(
     () => ({
-      angles: [
-        0,
-        jitter(12, 8),
-        jitter(-6, 5),
-        jitter(18, 10),
-        jitter(-10, 8),
-        jitter(8, 6),
-        0,
-      ],
+      angles: [0, jitter(12, 8), jitter(-6, 5), jitter(18, 10), jitter(-10, 8), jitter(8, 6), 0],
       dur: jitter(40, 12),
     }),
     []
@@ -563,13 +558,48 @@ export function NeuralOrganism({ size = 56 }: { size?: number }) {
   const ringSomas = useMemo(() => {
     if (tier === 'compact') return [];
     return [
-      { cx: jitter(28, 1.5), cy: jitter(6, 1.5), r: jitter(1.6, 0.3), color: 'rgba(139,92,246,0.9)' },
-      { cx: jitter(49, 1.5), cy: jitter(14, 1.5), r: jitter(1.6, 0.3), color: 'rgba(139,92,246,0.9)' },
-      { cx: jitter(52, 1.5), cy: jitter(30, 1.5), r: jitter(1.6, 0.3), color: 'rgba(109,40,217,0.9)' },
-      { cx: jitter(42, 1.5), cy: jitter(50, 1.5), r: jitter(1.6, 0.3), color: 'rgba(139,92,246,0.9)' },
-      { cx: jitter(12, 1.5), cy: jitter(50, 1.5), r: jitter(1.6, 0.3), color: 'rgba(139,92,246,0.9)' },
-      { cx: jitter(4, 1.5), cy: jitter(30, 1.5), r: jitter(1.6, 0.3), color: 'rgba(109,40,217,0.9)' },
-      { cx: jitter(7, 1.5), cy: jitter(14, 1.5), r: jitter(1.6, 0.3), color: 'rgba(139,92,246,0.9)' },
+      {
+        cx: jitter(28, 1.5),
+        cy: jitter(6, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(139,92,246,0.9)',
+      },
+      {
+        cx: jitter(49, 1.5),
+        cy: jitter(14, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(139,92,246,0.9)',
+      },
+      {
+        cx: jitter(52, 1.5),
+        cy: jitter(30, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(109,40,217,0.9)',
+      },
+      {
+        cx: jitter(42, 1.5),
+        cy: jitter(50, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(139,92,246,0.9)',
+      },
+      {
+        cx: jitter(12, 1.5),
+        cy: jitter(50, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(139,92,246,0.9)',
+      },
+      {
+        cx: jitter(4, 1.5),
+        cy: jitter(30, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(109,40,217,0.9)',
+      },
+      {
+        cx: jitter(7, 1.5),
+        cy: jitter(14, 1.5),
+        r: jitter(1.6, 0.3),
+        color: 'rgba(139,92,246,0.9)',
+      },
     ];
   }, [tier]);
 
@@ -622,13 +652,15 @@ export function NeuralOrganism({ size = 56 }: { size?: number }) {
             intensity,
           },
         ]);
-        setTimeout(() => {
-          setSparks((prev) => prev.filter((s) => s.id !== sparkId));
-        }, speed * 1.3 * 1000 + 400);
+        setTimeout(
+          () => {
+            setSparks((prev) => prev.filter((s) => s.id !== sparkId));
+          },
+          speed * 1.3 * 1000 + 400
+        );
       }, 180);
 
-      const nextDelay =
-        tier === 'full' ? 600 + Math.random() * 2000 : 1000 + Math.random() * 3500;
+      const nextDelay = tier === 'full' ? 600 + Math.random() * 2000 : 1000 + Math.random() * 3500;
       setTimeout(fire, nextDelay);
     };
 
@@ -683,14 +715,7 @@ export function NeuralOrganism({ size = 56 }: { size?: number }) {
         ))}
 
         {ringSomas.map((s, i) => (
-          <RingSoma
-            key={i}
-            cx={s.cx}
-            cy={s.cy}
-            r={s.r}
-            delay={Math.random() * 2}
-            color={s.color}
-          />
+          <RingSoma key={i} cx={s.cx} cy={s.cy} r={s.r} delay={Math.random() * 2} color={s.color} />
         ))}
 
         <CoreSoma cx={28} cy={28} r={coreR} />
