@@ -96,15 +96,8 @@ describe('chat proxy route (Claude Code session mode)', () => {
 
   it('streams SSE responses with session ID', async () => {
     const child = createMockChild([
-      {
-        type: 'assistant',
-        message: {
-          content: [
-            { type: 'thinking', thinking: 'Let me think...' },
-            { type: 'text', text: 'Hello world' },
-          ],
-        },
-      },
+      { type: 'content_block_delta', delta: { thinking: 'Let me think...' } },
+      { type: 'content_block_delta', delta: { text: 'Hello world' } },
     ]);
     mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
 
@@ -168,10 +161,8 @@ describe('chat proxy route (Claude Code session mode)', () => {
   it('emits tool_use and tool_result events', async () => {
     const child = createMockChild([
       {
-        type: 'assistant',
-        message: {
-          content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/foo.ts' } }],
-        },
+        type: 'content_block_start',
+        content_block: { type: 'tool_use', name: 'Read', input: { file_path: '/foo.ts' } },
       },
       {
         type: 'user',
