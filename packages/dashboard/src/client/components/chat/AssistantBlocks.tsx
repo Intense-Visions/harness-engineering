@@ -11,7 +11,7 @@ import type {
   StatusBlock,
   TextBlock,
 } from '../../types/chat';
-// Loader2 removed — no longer used after streaming indicator refactor
+import { NeuralOrganism } from './NeuralOrganism';
 
 const PROCESSING_PHRASES = [
   'Thinking deeply…',
@@ -37,104 +37,37 @@ const PROCESSING_PHRASES = [
 ];
 
 /**
- * ─── STREAMING INDICATOR: "THE SPRITE" ───
+ * ─── STREAMING INDICATOR ───
  *
- * Animated using Disney's 12 Principles:
- *  1. Squash & Stretch  → The blob body breathes, compressing on exhale
- *  2. Anticipation      → Before shifting position, it coils slightly
- *  3. Staging           → Clear silhouette against dark background
- *  4. Follow-through    → The aura trails behind position shifts
- *  5. Slow in/out       → All easing uses spring or cubic-bezier curves
- *  6. Arcs              → Position shifts follow curved paths (y dips)
- *  7. Secondary action  → Aura breathes on its own offset cycle
- *  8. Timing            → Breathing is slow (4s), gestures are quick snaps
- *  9. Exaggeration      → Scale overshoots on inhale, squishes on exhale
- * 10. Appeal            → Soft gradients, warm glow, friendly personality
+ * The NeuralOrganism radiates energy while processing. Activity bars
+ * emanate outward from the creature, and a bioluminescent glow field
+ * pulses behind it. The composition should feel like the creature is
+ * *working* — alive, focused, radiating.
  */
 
-/** The creature's body — a morphing blob */
-function SpriteBody() {
-  return (
-    <div className="relative w-8 h-8 shrink-0">
-      {/* Layer 1: Outer aura — breathes on its own slower cycle */}
-      <motion.div
-        className="absolute inset-[-8px] rounded-full"
-        animate={{
-          scale: [1, 1.3, 1.1, 1.25, 1],
-          opacity: [0.1, 0.3, 0.15, 0.25, 0.1],
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-        style={{
-          background: 'radial-gradient(circle, var(--color-primary-500), transparent 70%)',
-          filter: 'blur(10px)',
-        }}
-      />
-
-      {/* Layer 2: The blob body — squash & stretch breathing */}
-      <motion.div
-        className="absolute inset-0 rounded-full sprite-blob"
-        animate={{
-          scaleX: [1, 0.9, 1.1, 0.95, 1],
-          scaleY: [1, 1.15, 0.9, 1.08, 1],
-        }}
-        transition={{
-          duration: 4,
-          repeat: Infinity,
-          ease: [0.37, 0, 0.63, 1],
-        }}
-        style={{
-          background:
-            'radial-gradient(circle at 35% 35%, var(--color-secondary-400), var(--color-primary-500) 70%)',
-          boxShadow: '0 0 20px 4px var(--color-primary-500), inset 0 -2px 8px rgba(0,0,0,0.4)',
-        }}
-      />
-
-      {/* Subtle internal pulse — makes it feel "alive" without a distinct eye */}
-      <motion.div
-        className="absolute inset-1.5 rounded-full"
-        animate={{
-          opacity: [0.2, 0.6, 0.3, 0.5, 0.2],
-          scale: [0.8, 1.1, 0.85, 1, 0.8],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-        style={{
-          background: 'radial-gradient(circle, white, transparent 60%)',
-          filter: 'blur(3px)',
-        }}
-      />
-    </div>
-  );
-}
-
-/** Voice bars — emanate from the sprite, staggered with organic timing */
-function VoiceBar({ index, total }: { index: number; total: number }) {
+/** Activity bars — radiate outward from the organism with staggered organic timing */
+function ActivityBar({ index, total }: { index: number; total: number }) {
   const centerFactor = 1 - Math.abs(index - total / 2) / (total / 2);
-  const maxHeight = 0.5 + centerFactor * 0.5;
-  const baseHeight = 0.2 + centerFactor * 0.1;
-  const duration = 1.5 + (1 - centerFactor) * 1.5;
+  const maxHeight = 0.4 + centerFactor * 0.6;
+  const baseHeight = 0.1 + centerFactor * 0.1;
+  const duration = 1.2 + (1 - centerFactor) * 2;
+  const opacity = 0.3 + centerFactor * 0.5;
 
   return (
     <motion.div
       animate={{
-        scaleY: [baseHeight, maxHeight, baseHeight * 1.2, maxHeight * 0.8, baseHeight],
+        scaleY: [baseHeight, maxHeight, baseHeight * 1.3, maxHeight * 0.7, baseHeight],
+        opacity: [opacity * 0.6, opacity, opacity * 0.7, opacity * 0.9, opacity * 0.6],
       }}
       transition={{
         duration,
         repeat: Infinity,
-        delay: index * 0.1,
+        delay: index * 0.08,
         ease: 'easeInOut',
       }}
-      className="w-[2px] h-8 rounded-full origin-bottom"
+      className="w-[1.5px] h-5 rounded-full origin-bottom"
       style={{
-        background: `linear-gradient(to top, var(--color-primary-500), var(--color-secondary-400))`,
+        background: `linear-gradient(to top, rgba(139,92,246,0.8), rgba(34,211,238,0.6))`,
       }}
     />
   );
@@ -177,51 +110,69 @@ function StreamingIndicator() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6 }}
-      className="flex items-center gap-5 py-4 px-3"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+      className="relative flex items-center gap-4 py-5 px-4"
     >
-      {/* The creature */}
+      {/* Ambient glow field behind organism */}
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <motion.div
+          className="w-24 h-24 rounded-full"
+          animate={{
+            opacity: [0.06, 0.12, 0.08, 0.1, 0.06],
+            scale: [0.9, 1.1, 0.95, 1.05, 0.9],
+          }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            background:
+              'radial-gradient(circle, rgba(139,92,246,0.4) 0%, rgba(79,70,229,0.1) 50%, transparent 70%)',
+            filter: 'blur(14px)',
+            transform: 'translate(-30%, -50%)',
+          }}
+        />
+      </div>
+
+      {/* The creature — gentle hover */}
       <motion.div
-        animate={{ y: [0, -2.5, 1.5, -1, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        className="shrink-0"
+        animate={{ y: [0, -2, 1, -1.5, 0] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+        className="shrink-0 relative z-10"
       >
-        <SpriteBody />
+        <NeuralOrganism size={40} />
       </motion.div>
 
-      {/* Relative container for Text + Background Voice Bars */}
+      {/* Activity bars + text — connected composition */}
       <div className="relative flex-1 min-w-0 flex items-center h-10">
-        {/* Ghostly Voice Bars behind text */}
-        <div className="absolute inset-0 flex items-end justify-start gap-[3px] opacity-[0.1] pointer-events-none px-1 overflow-hidden blur-[1.5px]">
-          {Array.from({ length: 24 }).map((_, i) => (
-            <VoiceBar key={i} index={i} total={24} />
+        {/* Activity bars — ghostly, behind text */}
+        <div className="absolute inset-0 flex items-end justify-start gap-[2.5px] opacity-[0.15] pointer-events-none overflow-hidden blur-[0.5px]">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <ActivityBar key={i} index={i} total={20} />
           ))}
         </div>
 
-        {/* The phrase */}
+        {/* Phrase + elapsed */}
         <div className="relative z-10 flex flex-col justify-center">
           <AnimatePresence mode="wait">
             <motion.span
               key={phraseIndex}
-              initial={{ opacity: 0, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, filter: 'blur(2px)' }}
-              transition={{ duration: 0.5 }}
-              className="text-[13px] font-bold tracking-wider text-neutral-text uppercase leading-none"
+              initial={{ opacity: 0, x: -4, filter: 'blur(3px)' }}
+              animate={{ opacity: 0.9, x: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: 4, filter: 'blur(2px)' }}
+              transition={{ duration: 0.4 }}
+              className="text-[11px] font-semibold tracking-[0.08em] text-neutral-muted uppercase leading-none"
             >
               {PROCESSING_PHRASES[phraseIndex]}
             </motion.span>
           </AnimatePresence>
-          <div className="h-3.5 flex items-center mt-0.5">
+          <div className="h-3.5 flex items-center mt-1">
             {elapsed > 2 && (
               <motion.span
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.35 }}
-                className="text-[9px] font-mono text-neutral-muted tabular-nums uppercase tracking-widest"
+                animate={{ opacity: 0.3 }}
+                className="text-[8px] font-mono text-neutral-muted/60 tabular-nums tracking-[0.15em]"
               >
-                T+ {formatElapsed(elapsed)}
+                T+{formatElapsed(elapsed)}
               </motion.span>
             )}
           </div>

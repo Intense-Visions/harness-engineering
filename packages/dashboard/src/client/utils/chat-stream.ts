@@ -91,6 +91,9 @@ export function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
         ...(event.args != null ? { args: event.args } : {}),
       });
       break;
+    case 'tool_args_delta':
+      handleToolArgsDelta(blocks, event.text);
+      break;
     case 'tool_result':
       handleToolResultBlock(blocks, event.content, event.isError);
       break;
@@ -122,6 +125,16 @@ function handleThinkingBlock(
     blocks[blocks.length - 1] = { kind: 'thinking', text: lastBlock.text + text };
   } else {
     blocks.push({ kind: 'thinking', text });
+  }
+}
+
+function handleToolArgsDelta(blocks: ContentBlock[], text: string) {
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i]!;
+    if (b.kind === 'tool_use' && b.result === undefined) {
+      blocks[i] = { ...b, args: (b.args ?? '') + text };
+      break;
+    }
   }
 }
 

@@ -156,6 +156,7 @@ export type ChatSSEEvent =
   | { type: 'text'; text: string }
   | { type: 'thinking'; text: string }
   | { type: 'tool_use'; tool: string; args?: string }
+  | { type: 'tool_args_delta'; text: string }
   | { type: 'tool_result'; content: string; isError?: boolean }
   | { type: 'status'; text: string }
   | { type: 'error'; error: string };
