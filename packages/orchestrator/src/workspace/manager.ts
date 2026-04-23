@@ -221,6 +221,10 @@ export class WorkspaceManager {
         // HEAD on freshly-created worktrees and are never agent-pushed branches.
         const short = refName.startsWith(PREFIX) ? refName.slice(PREFIX.length) : refName;
         if (short === 'HEAD' || short === 'main' || short === 'master') continue;
+        // Agent-pushed branches always use a prefix with a slash (e.g. feat/..., fix/...).
+        // Reject anything without a slash to catch symbolic refs or other non-agent branches
+        // that slip past the skip-list above.
+        if (!short.includes('/')) continue;
         if (sha === head) {
           return short;
         }
@@ -230,6 +234,93 @@ export class WorkspaceManager {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Checks whether a branch exists on the remote by querying `git ls-remote`.
+   * Returns false if the branch is not found or the command fails.
+   */
+  public async branchExistsOnRemote(branch: string): Promise<boolean> {
+    try {
+      const repoRoot = await this.getRepoRoot();
+      const result = await this.git(['ls-remote', '--heads', 'origin', branch], repoRoot);
+      return result.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Deletes remote branches whose PRs are merged and that are older than
+   * `maxAgeDays`. Only considers branches matching agent naming conventions
+   * (feat/*, fix/*). Returns the list of deleted branch names.
+   *
+   * Requires a `checkPR` callback so this class doesn't depend on PRDetector
+   * directly. The orchestrator wires this up at call time.
+   */
+  public async sweepStaleBranches(opts: {
+    maxAgeDays: number;
+    checkPR: (branch: string) => Promise<{ found: boolean; error?: string }>;
+  }): Promise<string[]> {
+    const deleted: string[] = [];
+    try {
+      const repoRoot = await this.getRepoRoot();
+      const refs = (
+        await this.git(
+          [
+            'for-each-ref',
+            '--format=%(refname) %(committerdate:unix)',
+            'refs/remotes/origin/feat/',
+            'refs/remotes/origin/fix/',
+          ],
+          repoRoot
+        )
+      ).trim();
+
+      if (!refs) return deleted;
+
+      const PREFIX = 'refs/remotes/origin/';
+      const cutoffUnix = Date.now() / 1000 - opts.maxAgeDays * 86400;
+      const candidates: Array<{ short: string; age: number }> = [];
+
+      for (const line of refs.split('\n')) {
+        const spaceIdx = line.lastIndexOf(' ');
+        if (spaceIdx < 0) continue;
+        const refName = line.slice(0, spaceIdx);
+        const unixStr = line.slice(spaceIdx + 1);
+        const unix = parseInt(unixStr, 10);
+        if (isNaN(unix) || unix > cutoffUnix) continue;
+        const short = refName.startsWith(PREFIX) ? refName.slice(PREFIX.length) : refName;
+        candidates.push({ short, age: unix });
+      }
+
+      // Throttle to 3 concurrent gh CLI calls
+      const concurrency = 3;
+      for (let i = 0; i < candidates.length; i += concurrency) {
+        const batch = candidates.slice(i, i + concurrency);
+        const results = await Promise.allSettled(
+          batch.map(async ({ short }) => {
+            const pr = await opts.checkPR(short);
+            return { short, pr };
+          })
+        );
+        for (const result of results) {
+          if (result.status !== 'fulfilled') continue;
+          const { short, pr } = result.value;
+          if (!pr.found || pr.error) continue;
+          // PR exists and was found without error — safe to delete the remote branch
+          try {
+            await this.git(['push', 'origin', '--delete', short], repoRoot);
+            deleted.push(short);
+          } catch {
+            // Deletion failed (permissions, already deleted, etc.) — skip
+          }
+        }
+      }
+    } catch {
+      // Sweep is best-effort; don't fail the tick
+    }
+    return deleted;
   }
 
   /**

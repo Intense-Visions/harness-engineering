@@ -152,6 +152,73 @@ describe('hasOpenPRForIdentifier', () => {
   });
 });
 
+describe('branchHasPullRequest', () => {
+  let detector: PRDetector;
+  let mockExecFile: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    detector = new PRDetector({
+      logger: makeMockLogger(),
+      execFileFn: execFile,
+      projectRoot: '/tmp',
+    });
+  });
+
+  it('returns { found: true } when a PR exists (any state)', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(null, { stdout: '1\n', stderr: '' });
+      }
+    );
+
+    const result = await detector.branchHasPullRequest('feat/my-feature');
+    expect(result).toEqual({ found: true });
+  });
+
+  it('passes --state all to find merged PRs', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(null, { stdout: '1\n', stderr: '' });
+      }
+    );
+
+    await detector.branchHasPullRequest('feat/merged-branch');
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'gh',
+      expect.arrayContaining(['--state', 'all']),
+      expect.any(Object),
+      expect.any(Function)
+    );
+  });
+
+  it('returns { found: false } when no PR exists', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(null, { stdout: '0\n', stderr: '' });
+      }
+    );
+
+    const result = await detector.branchHasPullRequest('feat/no-pr');
+    expect(result).toEqual({ found: false });
+    expect(result.error).toBeUndefined();
+  });
+
+  it('returns { found: false, error } when gh command fails', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(new Error('network timeout'), { stdout: '', stderr: '' });
+      }
+    );
+
+    const result = await detector.branchHasPullRequest('feat/broken');
+    expect(result.found).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('network timeout');
+  });
+});
+
 describe('hasOpenPRForExternalId', () => {
   let detector: PRDetector;
   let mockExecFile: ReturnType<typeof vi.fn>;

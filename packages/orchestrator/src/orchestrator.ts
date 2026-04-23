@@ -105,6 +105,8 @@ export class Orchestrator extends EventEmitter {
   private analysisFailureCache: Map<string, number> = new Map();
   /** Guards against overlapping ticks when a tick takes longer than the polling interval */
   private tickInProgress = false;
+  /** Timestamp of the last stale branch sweep (at most once per hour) */
+  private lastBranchSweepMs = 0;
   /** Current tick-phase activity visible to the dashboard */
   private tickActivity: {
     phase: 'idle' | 'fetching' | 'analyzing' | 'dispatching';
@@ -637,6 +639,21 @@ export class Orchestrator extends EventEmitter {
     }
     this.recorder.sweepExpired(openPrNumbers);
 
+    // 8. Sweep stale remote branches (at most once per hour)
+    const BRANCH_SWEEP_INTERVAL_MS = 3_600_000;
+    if (nowMs - this.lastBranchSweepMs >= BRANCH_SWEEP_INTERVAL_MS) {
+      this.lastBranchSweepMs = nowMs;
+      const deleted = await this.workspace.sweepStaleBranches({
+        maxAgeDays: 7,
+        checkPR: (branch) => this.prDetector.branchHasPullRequest(branch),
+      });
+      if (deleted.length > 0) {
+        this.logger.info(`Swept ${deleted.length} stale remote branch(es)`, {
+          branches: deleted,
+        });
+      }
+    }
+
     this.setTickActivity('idle');
   }
 
@@ -698,8 +715,30 @@ export class Orchestrator extends EventEmitter {
   private async cleanWorkspaceWithGuard(identifier: string, issueId: string): Promise<void> {
     const branch = await this.workspace.findPushedBranch(identifier);
     if (branch) {
-      const hasPR = await this.branchHasPullRequest(branch);
-      if (!hasPR) {
+      // Verify the branch actually exists on the remote before checking PRs.
+      // Handles cases where the push failed or the branch was already deleted by a merge.
+      const existsOnRemote = await this.workspace.branchExistsOnRemote(branch);
+      if (!existsOnRemote) {
+        this.logger.info(
+          `Branch "${branch}" not found on remote for ${identifier}, cleaning up worktree`,
+          { issueId }
+        );
+        await this.workspace.removeWorkspace(identifier);
+        return;
+      }
+
+      const result = await this.prDetector.branchHasPullRequest(branch);
+      if (result.error) {
+        // PR check failed (gh not installed, network error, etc.) — preserve the
+        // worktree as a safety measure but don't escalate since we can't confirm
+        // whether a PR exists.
+        this.logger.warn(
+          `PR check failed for ${identifier} branch "${branch}", preserving worktree`,
+          { issueId, error: result.error }
+        );
+        return;
+      }
+      if (!result.found) {
         this.logger.warn(
           `Preserving worktree for ${identifier}: branch "${branch}" was pushed but no PR exists`,
           { issueId }
@@ -723,14 +762,6 @@ export class Orchestrator extends EventEmitter {
       }
     }
     await this.workspace.removeWorkspace(identifier);
-  }
-
-  /**
-   * Delegates to PRDetector.branchHasPullRequest.
-   * @see PRDetector#branchHasPullRequest
-   */
-  private async branchHasPullRequest(branch: string): Promise<boolean> {
-    return this.prDetector.branchHasPullRequest(branch);
   }
 
   /**
