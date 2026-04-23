@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
 import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
@@ -556,21 +556,26 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 
 export function Orchestrator() {
   const { snapshot, agentEvents, connected } = useOrchestratorSocket();
-  const [drawerAgent, setDrawerAgent] = useState<RunningAgent | null>(null);
   const [drawerIssueId, setDrawerIssueId] = useState<string | null>(null);
 
+  // Derive the drawer agent from the live snapshot so stats update in real-time.
+  // Previously, the agent was captured once at click-time and never refreshed,
+  // causing session stats (tokens, turns) to appear frozen.
+  const drawerAgent = useMemo(() => {
+    if (!drawerIssueId || !snapshot) return null;
+    const entry = snapshot.running.find(([id]) => id === drawerIssueId);
+    return entry ? entry[1] : null;
+  }, [drawerIssueId, snapshot]);
+
   const openDrawerForAgent = (agent: RunningAgent) => {
-    setDrawerAgent(agent);
     setDrawerIssueId(agent.issueId);
   };
 
   const openDrawerForSession = (issueId: string) => {
-    setDrawerAgent(null);
     setDrawerIssueId(issueId);
   };
 
   const closeDrawer = () => {
-    setDrawerAgent(null);
     setDrawerIssueId(null);
   };
 
