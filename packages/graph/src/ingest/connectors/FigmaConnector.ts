@@ -89,6 +89,20 @@ export class FigmaConnector implements GraphConnector {
     const baseUrlEnv = config.baseUrlEnv ?? 'FIGMA_BASE_URL';
     const baseUrl = process.env[baseUrlEnv] ?? 'https://api.figma.com';
 
+    try {
+      const parsed = new URL(baseUrl);
+      if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('api.figma.com')) {
+        return buildIngestResult(
+          0,
+          0,
+          [`Invalid ${baseUrlEnv}: must be an HTTPS URL on api.figma.com`],
+          start
+        );
+      }
+    } catch {
+      return buildIngestResult(0, 0, [`Invalid ${baseUrlEnv}: not a valid URL`], start);
+    }
+
     const fileIds = config.fileIds as string[] | undefined;
     if (!fileIds || fileIds.length === 0) {
       return buildIngestResult(0, 0, ['No fileIds provided in connector config'], start);
@@ -139,6 +153,7 @@ export class FigmaConnector implements GraphConnector {
       });
 
       const metadata: Record<string, unknown> = {
+        source: 'figma',
         key: style.key,
         styleType: style.style_type,
         fileId,
@@ -179,6 +194,7 @@ export class FigmaConnector implements GraphConnector {
         });
 
         const metadata: Record<string, unknown> = {
+          source: 'figma',
           key: component.key,
           fileId,
         };
@@ -209,6 +225,7 @@ export class FigmaConnector implements GraphConnector {
         });
 
         const metadata: Record<string, unknown> = {
+          source: 'figma',
           key: component.key,
           fileId,
         };

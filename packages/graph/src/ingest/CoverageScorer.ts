@@ -1,5 +1,6 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { NodeType, EdgeType } from '../types.js';
+import type { EdgeType } from '../types.js';
+import { KNOWLEDGE_NODE_TYPES } from './knowledgeTypes.js';
 
 // --- Exported result types ---
 
@@ -23,18 +24,7 @@ export interface CoverageReport {
 
 // --- Constants ---
 
-const KNOWLEDGE_TYPES: readonly NodeType[] = [
-  'business_fact',
-  'business_rule',
-  'business_process',
-  'business_term',
-  'business_concept',
-  'business_metric',
-  'design_token',
-  'design_constraint',
-  'aesthetic_intent',
-  'image_annotation',
-];
+const KNOWLEDGE_TYPES = KNOWLEDGE_NODE_TYPES;
 
 const CODE_TYPES: readonly NodeType[] = [
   'file',

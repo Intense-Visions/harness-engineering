@@ -43,6 +43,10 @@ ruleTester.run('no-process-env-in-spawn', rule, {
     {
       code: `const myEnv = { PATH: process.env.PATH }; spawn('node', ['app.js'], { env: myEnv });`,
     },
+    // Non-env spread is fine
+    {
+      code: `spawn('node', ['app.js'], { ...safeOptions });`,
+    },
     // Member expression on child_process
     {
       code: `child_process.spawn('node', ['app.js'], { env: { PATH: '/usr/bin' } });`,
@@ -82,6 +86,11 @@ ruleTester.run('no-process-env-in-spawn', rule, {
     // env: process.env as only option
     {
       code: `spawn('claude', args, { env: process.env });`,
+      errors: [{ messageId: 'processEnvInSpawn' }],
+    },
+    // Spread of process.env into options
+    {
+      code: `spawn('node', ['app.js'], { ...process.env });`,
       errors: [{ messageId: 'processEnvInSpawn' }],
     },
   ],
