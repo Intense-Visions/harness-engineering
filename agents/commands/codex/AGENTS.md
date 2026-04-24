@@ -37,4 +37,3 @@ This file bootstraps harness context for Codex CLI. Each skill is available as a
 - **harness-verification** — Comprehensive harness verification of project health and compliance
 - **harness-verify** — Binary pass/fail quick gate — runs test, lint, typecheck commands and returns structured result
 - **initialize-harness-project** — Scaffold a new harness-compliant project
-- **initialize-test-suite-project** — Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with test-suite-specific layer models, tags, reporter stack, and custom report
