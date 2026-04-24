@@ -1,5 +1,5 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { EdgeType } from '../types.js';
+import type { EdgeType, NodeType } from '../types.js';
 import { KNOWLEDGE_NODE_TYPES } from './knowledgeTypes.js';
 
 // --- Exported result types ---
