@@ -1709,14 +1709,15 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### Phase 4: Knowledge Pipeline & Diagrams
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
 - **Blockers:** —
 - **Plan:** docs/plans/2026-04-23-phase-4-knowledge-pipeline-diagrams-plan.md
-- **Assignee:** —
+- **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#228
+- **Updated-At:** 2026-04-24T02:10:03.701Z
 
 ### Phase 5: Visual & Advanced
 
