@@ -12,7 +12,7 @@
 
 ## Composition with `initialize-harness-project`
 
-This skill owns only the *test-suite-specific* pieces. The generic harness flow belongs to the parent skill. Two invocation patterns:
+This skill owns only the _test-suite-specific_ pieces. The generic harness flow belongs to the parent skill. Two invocation patterns:
 
 1. **Parent dispatches here.** The user runs `initialize-harness-project`; its Phase 1 step 5 classifies the project as a test suite and dispatches to this skill. Run the parent's Phase 2 (scaffolding) first, then this skill's full flow, then return to the parent for Phase 4 wrap-up (knowledge graph, roadmap, commit).
 
@@ -29,7 +29,7 @@ Before scaffolding, classify the project and record in the assessment.
 **Test-suite signals** (at least one must apply — re-check even if dispatched from the parent):
 
 - Repo or package name matches `*test*`, `*-e2e*`, `*-qa*`, `*-automation*`
-- `package.json` has `@playwright/test`, `cypress`, `webdriverio`, `mocha`, or `testcafe` as a direct dep (frameworks that are *only* test-related — presence of `vitest`/`jest` alone is not enough)
+- `package.json` has `@playwright/test`, `cypress`, `webdriverio`, `mocha`, or `testcafe` as a direct dep (frameworks that are _only_ test-related — presence of `vitest`/`jest` alone is not enough)
 - Top-level `tests/`, `e2e/`, `specs/`, or `playwright/` directories are the primary source tree, not an adjunct to `src/`
 - Config files like `playwright.config.*`, `cypress.config.*`, `wdio.conf.*`
 - No production runtime — build output is consumed only by other test repos (shared library)
@@ -44,7 +44,7 @@ Before scaffolding, classify the project and record in the assessment.
 
 For **API** and **E2E/UI** suites, check whether a shared library already exists — typically a team-specific `@capillary/<team>-testing-api-library` for API clients, or an equivalent for Page Object Models. If one exists, consuming it is strongly preferred: one client implementation shared by all test suites is the contract source of truth and avoids drift. Only scaffold an in-repo `src/api/` or `src/page-objects/` tree if no shared library exists or the suite has a genuinely different contract.
 
-For **Shared test library** archetypes, this phase is trivial — you *are* the shared library; scaffold in-repo.
+For **Shared test library** archetypes, this phase is trivial — you _are_ the shared library; scaffold in-repo.
 
 Record the decision in AGENTS.md. It determines which layer-model variant applies in Phase 3 step 2.
 
@@ -55,38 +55,38 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 1. **Pick a domain layout.** Independent of whether clients are in-repo or imported, domains drive the folder layout:
    - **Self-contained suite:** one folder per API domain, feature area, or user flow under `src/api/` or `src/page-objects/`, each exposing a manager/client class (API suites) or Page Object Model (UI suites) that takes an HTTP client or browser context in its constructor. A single composition module wires everything together.
    - **Shared-library consumer:** no per-domain folders in `src/`. Instead, a thin `config/` adapter wraps the shared library's entry point (e.g. exposes `{api, user}` on the Playwright test fixture). Tests are still organized by domain — see step 10 — but the domain folders live under `tests/<domain>/`, not `src/api/<domain>/`.
-   
+
    Document the chosen layout in AGENTS.md with a directory tree.
 
 2. **Define the layer model.** Two variants — pick the one matching Phase 2.
 
    **Variant A — self-contained test suite.** Record in `harness.config.json`:
-      - `utils` → helpers, date/string/id utilities (no internal deps)
-      - `composition` → single wiring module (e.g. `managers.ts`) → allowed to import every layer below
-      - `common` → shared DTOs, enums, error types → `utils`
-      - `config` → HTTP client, auth service, environment loader → `utils`, `common`
-      - `api` / `domains` / `page-objects` → per-domain managers or POMs → `utils`, `common`, `config`
-      - `fixtures` → deterministic seed data, factories, builders → `utils`, `common`, `config`
-      - `specs` → top layer; imports composition + fixtures; nothing imports specs
-      
-      Forbid (same-layer rules, enforced via `forbiddenImports`):
-      - A domain/POM importing a sibling domain/POM (domains are peers, not hierarchical)
-      - `fixtures` importing specs
-      - Specs importing each other (tests must be independently runnable in any order)
+   - `utils` → helpers, date/string/id utilities (no internal deps)
+   - `composition` → single wiring module (e.g. `managers.ts`) → allowed to import every layer below
+   - `common` → shared DTOs, enums, error types → `utils`
+   - `config` → HTTP client, auth service, environment loader → `utils`, `common`
+   - `api` / `domains` / `page-objects` → per-domain managers or POMs → `utils`, `common`, `config`
+   - `fixtures` → deterministic seed data, factories, builders → `utils`, `common`, `config`
+   - `specs` → top layer; imports composition + fixtures; nothing imports specs
+
+   Forbid (same-layer rules, enforced via `forbiddenImports`):
+   - A domain/POM importing a sibling domain/POM (domains are peers, not hierarchical)
+   - `fixtures` importing specs
+   - Specs importing each other (tests must be independently runnable in any order)
 
    **Variant B — shared-library consumer.** No `common`, no `api` layer — those live in the shared library. Record in `harness.config.json`:
-      - `utils` → helpers with no internal deps
-      - `config` → thin adapter wrapping the shared library (e.g. builds the `Managers` from the shared lib + current env), token handler, constants → `utils`
-      - `fixtures` → Playwright test fixtures that expose `{api, user, ...}` to specs → `utils`, `config`
-      - `specs` → top layer; imports `fixtures` → `utils`, `config`, `fixtures`
-      
-      Forbid:
-      - Specs bypassing `fixtures` and instantiating the shared library directly — always go through the fixture so auth, base URL, and teardown are consistent
-      - `fixtures` importing specs
-      - Any layer importing the shared library from outside `config` (forces single adapter point, keeps upgrades localized)
-   
-   **Layer-ordering gotcha — `harness check-deps` and `@harness-engineering/eslint-plugin` both use first-match-wins layer resolution.** Put more-specific patterns *before* more-general ones in the `layers` array. For Variant A, `composition` (pattern `src/config/managers.ts`) must come before `config` (pattern `src/config/**`), otherwise `managers.ts` is classified as `config` and every `api` import becomes a layer violation. Do not rely on per-layer `excludePatterns` — the CLI and the ESLint plugin both drop that field.
-   
+   - `utils` → helpers with no internal deps
+   - `config` → thin adapter wrapping the shared library (e.g. builds the `Managers` from the shared lib + current env), token handler, constants → `utils`
+   - `fixtures` → Playwright test fixtures that expose `{api, user, ...}` to specs → `utils`, `config`
+   - `specs` → top layer; imports `fixtures` → `utils`, `config`, `fixtures`
+
+   Forbid:
+   - Specs bypassing `fixtures` and instantiating the shared library directly — always go through the fixture so auth, base URL, and teardown are consistent
+   - `fixtures` importing specs
+   - Any layer importing the shared library from outside `config` (forces single adapter point, keeps upgrades localized)
+
+   **Layer-ordering gotcha — `harness check-deps` and `@harness-engineering/eslint-plugin` both use first-match-wins layer resolution.** Put more-specific patterns _before_ more-general ones in the `layers` array. For Variant A, `composition` (pattern `src/config/managers.ts`) must come before `config` (pattern `src/config/**`), otherwise `managers.ts` is classified as `config` and every `api` import becomes a layer violation. Do not rely on per-layer `excludePatterns` — the CLI and the ESLint plugin both drop that field.
+
    **`forbiddenImports` gotcha — no `exceptPaths` support.** The ESLint plugin schema for `forbiddenImports` only accepts `from`, `disallow`, `message` — any other keys (including `exceptPaths`) are silently stripped. Do not write `from: src/config/**, disallow: [src/api/**], exceptPaths: [src/config/managers.ts]` and expect it to work. Use layer ordering (above) to carve out the composition file; reserve `forbiddenImports` for same-layer rules like sibling-domain isolation that the layer graph cannot express.
 
 3. **Wire up the ESLint flat config so the forbidden-imports rule actually runs.** `harness init` scaffolds `eslint.config.mjs` that spreads `harnessPlugin.configs.recommended` but does not declare a `files:` glob or a TypeScript parser. Under ESLint 9 flat config this means every `.ts` file is ignored and the rule never fires. Replace the scaffolded config with an explicit block: `files: ['src/**/*.ts', 'tests/**/*.ts']`, `languageOptions: { parser: tsParser, parserOptions: { ecmaVersion: 'latest', sourceType: 'module' } }`, `plugins: { '@harness-engineering': harnessPlugin }`, and the three `'error'` rules (`no-layer-violation`, `no-forbidden-imports`, `no-circular-deps`). Add `@typescript-eslint/parser` to devDependencies. Verify by running `npx eslint 'src/**/*.ts'` and seeing it actually report errors on a deliberately bad file.
@@ -97,7 +97,7 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
    - Contract tests → `api-contract-testing` and `test-contract-testing`
    - Mocking (MSW, route interception) → `test-msw-pattern`, `test-mock-patterns`
    - Fixtures / factories → `test-factory-patterns`, `harness-test-data`
-   - For shared libraries that are *consumed* by tests but contain none themselves, skip framework setup entirely — record this in AGENTS.md under "Gotchas" so agents do not try to add Vitest later.
+   - For shared libraries that are _consumed_ by tests but contain none themselves, skip framework setup entirely — record this in AGENTS.md under "Gotchas" so agents do not try to add Vitest later.
 
 5. **Environment and secret handling.** Require a committed `.env.example` listing every variable the suite reads (API base URLs, OAuth client IDs, registry tokens, feature flags). Actual `.env*` files must be gitignored. For multi-environment suites, encode environments as `.env.dev`, `.env.stage`, `.env.prod` and document in AGENTS.md how the runner selects one (env var, CLI flag, or config). Never commit real credentials even as examples — use placeholders like `REPLACE_ME`.
 
@@ -109,8 +109,8 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 
 9. **Mocking support (shared libraries and API clients).** If the project will be consumed by FE or UI test suites that need to mock upstream responses, expose mock response builders (e.g. `buildMockResponse`, `buildMockErrorResponse`) and document the override API in AGENTS.md so consumer projects know the contract.
 
-10. **Test organization: tags over folders.** Do *not* split specs into `tests/smoke/`, `tests/regression/`, etc. Organize specs by domain / feature area (`tests/<domain>/<feature>.spec.ts`) and filter run shape with tags. This matches how Playwright (and most modern runners) expect grep-based filtering to work, and avoids moving a spec file whenever its coverage tier changes.
-    
+10. **Test organization: tags over folders.** Do _not_ split specs into `tests/smoke/`, `tests/regression/`, etc. Organize specs by domain / feature area (`tests/<domain>/<feature>.spec.ts`) and filter run shape with tags. This matches how Playwright (and most modern runners) expect grep-based filtering to work, and avoids moving a spec file whenever its coverage tier changes.
+
     Record the tag taxonomy in AGENTS.md. Baseline for a Playwright API suite:
     - `@smoke` — fast subset; PR gate. Applied per-test or per-describe.
     - Untagged = regression. "Full suite" is just `playwright test` with no grep.
@@ -118,13 +118,14 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
       ```ts
       grepInvert: [/@known-failure/, /@wip/, /@blocked/, /@archived/],
       ```
-    
+
     Filter commands (bake into `package.json` scripts, not ad-hoc CI yaml):
     - `npm run smoke` → `playwright test --grep @smoke`
     - `npm run exhaustive` → `playwright test` (full regression, quarantine excluded)
     - `npm run list` → `playwright test --list` (sanity check after tag edits)
 
     **Reporters.** Configure `playwright.config.ts` with the stack that feeds both human and machine consumers:
+
     ```ts
     reporter: [
         ['html', {outputFolder: './test-results/html-test-results', open: 'never'}],
@@ -133,6 +134,7 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
         ['json', {outputFile: 'test-results/json-results/results.json'}],
     ],
     ```
+
     The `json` reporter is the input to the custom report in step 11. The `github` reporter produces annotations on PRs; `list` is for local stdout; `html` is for deep-dive failure triage.
 
 11. **Custom report (enriched HTML + Slack + history).** Playwright's stock HTML report is fine for a single run but does not track trends, categorize failures, or know which tests are quarantined. Scaffold a `scripts/generate-reports.ts` that reads the JSON reporter output (`test-results/json-results/results.json`) and emits an enriched report. Modeled on reference implementations already running in Capillary test suites, it should produce:
@@ -142,8 +144,9 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
     - **Quarantine ledger:** scan for `@known-failure`-tagged tests, track age since first seen in a JSON ledger, flag tests quarantined longer than 14 days.
     - **Slack summary:** short markdown block with pass rate, new failures, and a link to the HTML report. Optional but cheap once the categorization exists.
     - **Environment + git context:** node version, base URL, commit SHA, branch, commit message — so a report opened later tells you where and when it ran.
-    
+
     Wire the script into `package.json`:
+
     ```json
     {
       "scripts": {
@@ -152,6 +155,7 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
       }
     }
     ```
+
     Do not block CI on the custom report — run it as a post-step and upload the output as an artifact. If categorization throws on an unexpected error shape, the exit code should be non-fatal.
 
 12. **CI integration.** For intermediate+: PR pipeline runs `npm run smoke` (tag-filtered, not folder-filtered); main merges trigger `npm run exhaustive`; nightly runs `npm run exhaustive` plus a quarantine audit (step 11) reporting quarantined-too-long tests. Record the flake policy (max retries, quarantine threshold) in `harness.config.json` so agents do not silently raise retries to hide flakes.
@@ -175,6 +179,7 @@ All three must pass before proceeding.
 - Revert both edits. Confirm the clean tree is green on all three gates.
 
 After verification passes, return to `initialize-harness-project`'s Phase 4 for:
+
 - `harness scan` (knowledge graph)
 - Roadmap nudge
 - Final commit
@@ -208,16 +213,16 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 
 ## Rationalizations to Reject
 
-| Rationalization                                                          | Why It Is Wrong                                                                                                                        |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| "This is a test suite, so strict layer constraints are overkill"         | Test suites benefit *more* from layer constraints than product code — peer-domain imports and spec coupling are the top sources of flaky, hard-to-maintain suites. |
-| "We can commit a real `.env` for convenience, CI will ignore it"         | Phase 3 step 5 forbids committing real credentials. A leaked `.env` in a test repo leaks the same secrets as a product repo. Use `.env.example` with placeholders. |
-| "Tests don't need tags — we'll run everything every time"                | Without a `@smoke` tag the PR pipeline grows to 30+ minutes and drives developers to skip CI. Record a tag taxonomy in Phase 3 step 10 even if enforcement comes later. |
-| "We'll split specs into `tests/smoke/` and `tests/regression/` for filtering" | Folder-based filtering forces a file move every time a spec's tier changes. Modern runners (Playwright, Vitest, Cypress) expect `--grep @tag`. Keep `tests/<domain>/<feature>.spec.ts` flat and tag per-test. |
-| "We'll add schema validation later once the client stabilizes"           | Runtime DTO validation is the primary contract-drift detector for API test suites. Adding it after tests exist means updating every spec. Decide in Phase 3 step 7. |
-| "We'll copy the API client code into this test suite for convenience"    | If a shared API client library already exists, consume it — do not fork. Forked clients drift immediately; the shared library is the contract source of truth. Only scaffold in-repo clients if no shared library exists. See Phase 2. |
-| "Playwright's built-in HTML report is enough"                            | The built-in report shows a single run. It does not categorize failures (schema vs auth vs timeout), does not track regressions by commit, and does not surface tests quarantined for weeks. Scaffold `scripts/generate-reports.ts` per Phase 3 step 11. |
-| "All three gates passed, so we're done"                                  | Clean-tree passing can co-exist with silently-misconfigured rules (layer ordering wrong, eslint glob missing, forbidden-imports fields dropped). Phase 4 requires deliberately inserting a violation and confirming the tool catches it. |
+| Rationalization                                                               | Why It Is Wrong                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This is a test suite, so strict layer constraints are overkill"              | Test suites benefit _more_ from layer constraints than product code — peer-domain imports and spec coupling are the top sources of flaky, hard-to-maintain suites.                                                                                       |
+| "We can commit a real `.env` for convenience, CI will ignore it"              | Phase 3 step 5 forbids committing real credentials. A leaked `.env` in a test repo leaks the same secrets as a product repo. Use `.env.example` with placeholders.                                                                                       |
+| "Tests don't need tags — we'll run everything every time"                     | Without a `@smoke` tag the PR pipeline grows to 30+ minutes and drives developers to skip CI. Record a tag taxonomy in Phase 3 step 10 even if enforcement comes later.                                                                                  |
+| "We'll split specs into `tests/smoke/` and `tests/regression/` for filtering" | Folder-based filtering forces a file move every time a spec's tier changes. Modern runners (Playwright, Vitest, Cypress) expect `--grep @tag`. Keep `tests/<domain>/<feature>.spec.ts` flat and tag per-test.                                            |
+| "We'll add schema validation later once the client stabilizes"                | Runtime DTO validation is the primary contract-drift detector for API test suites. Adding it after tests exist means updating every spec. Decide in Phase 3 step 7.                                                                                      |
+| "We'll copy the API client code into this test suite for convenience"         | If a shared API client library already exists, consume it — do not fork. Forked clients drift immediately; the shared library is the contract source of truth. Only scaffold in-repo clients if no shared library exists. See Phase 2.                   |
+| "Playwright's built-in HTML report is enough"                                 | The built-in report shows a single run. It does not categorize failures (schema vs auth vs timeout), does not track regressions by commit, and does not surface tests quarantined for weeks. Scaffold `scripts/generate-reports.ts` per Phase 3 step 11. |
+| "All three gates passed, so we're done"                                       | Clean-tree passing can co-exist with silently-misconfigured rules (layer ordering wrong, eslint glob missing, forbidden-imports fields dropped). Phase 4 requires deliberately inserting a violation and confirming the tool catches it.                 |
 
 ## Examples
 

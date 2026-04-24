@@ -35,9 +35,9 @@
    - Top-level `tests/`, `e2e/`, `specs/`, or `playwright/` directories are the primary source tree
    - Config files like `playwright.config.*`, `cypress.config.*`, `wdio.conf.*`
    - No production runtime — build output consumed only by other test repos (shared library)
-   
+
    **If a test suite:** complete Phase 2 (scaffolding) here, then dispatch to `initialize-test-suite-project` for Phase 3 configuration and Phase 4 verification, then return here for Phase 4 step 4+ (knowledge graph, roadmap nudge, final commit). The test-suite skill owns archetype selection, layer variants, tags, reporters, and the custom report.
-   
+
    **If a product/service:** continue with the rest of this skill as written.
 
 ### Phase 2: SCAFFOLD — Generate Project Structure
@@ -138,12 +138,12 @@ This creates the `.harness/graph/` directory and populates it with the project's
 
 ## Rationalizations to Reject
 
-| Rationalization                                                          | Why It Is Wrong                                                                                                                        |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.      |
-| "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.       |
-| "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.  |
-| "Validation passed, so the project is ready"                             | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient. |
+| Rationalization                                                          | Why It Is Wrong                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.                                                                                         |
+| "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                          |
+| "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                     |
+| "Validation passed, so the project is ready"                             | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient.                                                                                    |
 | "This is a test suite, we'll configure layers in this skill"             | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas. |
 
 ## Examples
