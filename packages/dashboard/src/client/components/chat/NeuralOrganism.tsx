@@ -173,7 +173,6 @@ function generatePalette(hue: number, accentHue: number): Palette {
 /* ── Easing ────────────────────────────────────────────────── */
 
 const BREATH_EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
-const SPARK_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const AXON_EASE: [number, number, number, number] = [0.7, 0, 0.3, 1];
 
 /* ── Sub-components ────────────────────────────────────────── */
@@ -200,9 +199,9 @@ function NeuralAxon({
   weight,
   hitCount,
 }: NeuralAxonProps) {
-  const traceOpacity = 0.04 + weight * 0.08;
-  const traceWidth = 0.4 + weight * 0.4;
-  const pulseWidth = 0.8 + weight * 0.6;
+  const traceOpacity = 0.03 + weight * 0.06;
+  const traceWidth = 0.4 + weight * 0.35;
+  const pulseWidth = 0.6 + weight * 0.5;
 
   return (
     <>
@@ -216,37 +215,39 @@ function NeuralAxon({
       />
       {hitCount > 0 && (
         <>
+          {/* Primary whip — softer, colored, travels the axon */}
           <motion.path
             key={`whip-a-${hitCount}`}
             d={d}
-            stroke="rgba(255,255,255,1)"
-            strokeWidth={traceWidth + 1.5}
+            stroke={color}
+            strokeWidth={traceWidth + 0.8}
             fill="none"
             strokeLinecap="round"
-            strokeDasharray={`2 4`}
-            initial={{ strokeDashoffset: 0, opacity: 0.5 }}
+            strokeDasharray={`3 5`}
+            initial={{ strokeDashoffset: 0, opacity: 0.25 }}
             animate={{
               strokeDashoffset: [0, -(len + 10)],
-              opacity: [0.5, 0.35, 0.15, 0],
+              opacity: [0.25, 0.18, 0.06, 0],
             }}
-            transition={{ duration: 0.35, ease: SPARK_EASE }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
             style={{ filter: 'blur(0.5px)' }}
           />
+          {/* Secondary glow — wider, dimmer, follow-through */}
           <motion.path
             key={`whip-b-${hitCount}`}
             d={d}
             stroke={color}
-            strokeWidth={traceWidth + 2.5}
+            strokeWidth={traceWidth + 2}
             fill="none"
             strokeLinecap="round"
-            strokeDasharray={`3 5`}
-            initial={{ strokeDashoffset: 2, opacity: 0.3 }}
+            strokeDasharray={`4 6`}
+            initial={{ strokeDashoffset: 2, opacity: 0.12 }}
             animate={{
               strokeDashoffset: [2, -(len + 8)],
-              opacity: [0.3, 0.2, 0.08, 0],
+              opacity: [0.12, 0.08, 0.03, 0],
             }}
-            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.06 }}
-            style={{ filter: 'blur(1.5px)' }}
+            transition={{ duration: 0.7, ease: 'easeOut', delay: 0.08 }}
+            style={{ filter: 'blur(2px)' }}
           />
         </>
       )}
@@ -259,7 +260,7 @@ function NeuralAxon({
         strokeDasharray={`6 ${len + 6}`}
         animate={{ strokeDashoffset: [8, -(len + 8)] }}
         transition={{ duration, delay, repeat: Infinity, ease: AXON_EASE, repeatDelay }}
-        style={{ opacity: 0.15, filter: 'blur(1.5px)' }}
+        style={{ opacity: 0.1, filter: 'blur(1.5px)' }}
       />
       <motion.path
         d={d}
@@ -270,7 +271,7 @@ function NeuralAxon({
         strokeDasharray={`3.5 ${len + 8}`}
         animate={{ strokeDashoffset: [8, -(len + 8)] }}
         transition={{ duration, delay, repeat: Infinity, ease: AXON_EASE, repeatDelay }}
-        style={{ opacity: 0.75 }}
+        style={{ opacity: 0.4 }}
       />
     </>
   );
@@ -297,7 +298,7 @@ function RingSoma({
     }),
     []
   );
-  const breathDur = useMemo(() => jitter(2, 0.5), []);
+  const breathDur = useMemo(() => jitter(3.5, 1.5), []);
 
   return (
     <motion.g
@@ -310,8 +311,8 @@ function RingSoma({
         r={r + 2.5}
         fill={color}
         animate={{
-          opacity: [0, jitter(0.1, 0.04), 0],
-          r: [r + 1.5, r + jitter(5, 1), r + 1.5],
+          opacity: [0, jitter(0.07, 0.03), 0],
+          r: [r + 1, r + jitter(4, 1), r + 1],
         }}
         transition={{ duration: breathDur * 1.3, delay, repeat: Infinity, ease: BREATH_EASE }}
       />
@@ -321,8 +322,8 @@ function RingSoma({
         r={r}
         fill={color}
         animate={{
-          opacity: [0.35, 0.9, 0.35],
-          r: [r * 0.85, r * jitter(1.08, 0.1), r * 0.85],
+          opacity: [0.2, 0.65, 0.2],
+          r: [r * 0.9, r * jitter(1.06, 0.06), r * 0.9],
         }}
         transition={{ duration: breathDur, delay, repeat: Infinity, ease: BREATH_EASE }}
       />
@@ -343,21 +344,23 @@ function SpontaneousSpark({
   speed: number;
   intensity: number;
 }) {
-  const width = 1 + intensity * 1.5;
+  const width = 0.8 + intensity * 1;
   return (
     <>
+      {/* Soft glow halo */}
       <motion.path
         d={d}
         stroke={color}
-        strokeWidth={width + 2.5}
+        strokeWidth={width + 2}
         fill="none"
         strokeLinecap="round"
         strokeDasharray={`5 ${len + 4}`}
         initial={{ strokeDashoffset: 6, opacity: 0 }}
-        animate={{ strokeDashoffset: -(len + 4), opacity: [0, intensity * 0.35, 0] }}
-        transition={{ duration: speed * 1.3, ease: 'easeOut' }}
+        animate={{ strokeDashoffset: -(len + 4), opacity: [0, intensity * 0.2, 0] }}
+        transition={{ duration: speed * 1.5, ease: 'easeOut' }}
         style={{ filter: 'blur(2px)' }}
       />
+      {/* Core spark */}
       <motion.path
         d={d}
         stroke={color}
@@ -366,17 +369,25 @@ function SpontaneousSpark({
         strokeLinecap="round"
         strokeDasharray={`3 ${len + 5}`}
         initial={{ strokeDashoffset: 5, opacity: 0 }}
-        animate={{ strokeDashoffset: -(len + 5), opacity: [0, intensity, intensity * 0.7, 0] }}
-        transition={{ duration: speed, ease: SPARK_EASE }}
+        animate={{
+          strokeDashoffset: -(len + 5),
+          opacity: [0, intensity * 0.6, intensity * 0.35, 0],
+        }}
+        transition={{ duration: speed * 1.2, ease: 'easeOut' }}
       />
     </>
   );
 }
 
+/**
+ * HeartbeatPulse — slow, breathing expansion/contraction.
+ * Feels like a deep inhale/exhale rather than a sharp flash.
+ */
 function HeartbeatPulse({ primary, accent }: { primary: string; accent: string }) {
-  const dur = useMemo(() => jitter(7, 1.5), []);
+  const cycleDur = useMemo(() => jitter(6, 1.5), []);
   return (
     <>
+      {/* Primary breath — slow expand then fade */}
       <motion.circle
         cx="28"
         cy="28"
@@ -384,9 +395,18 @@ function HeartbeatPulse({ primary, accent }: { primary: string; accent: string }
         fill="none"
         stroke={primary}
         strokeWidth="0.8"
-        animate={{ r: [3, 28], opacity: [0.35, 0], strokeWidth: [0.8, 0.15] }}
-        transition={{ duration: 2.5, repeat: Infinity, repeatDelay: dur, ease: SPARK_EASE }}
+        animate={{
+          r: [4, 18, 26],
+          opacity: [0, 0.2, 0],
+          strokeWidth: [0.6, 0.35, 0.1],
+        }}
+        transition={{
+          duration: cycleDur,
+          repeat: Infinity,
+          ease: [0.25, 0.1, 0.25, 1],
+        }}
       />
+      {/* Accent breath — offset, slightly smaller, softer */}
       <motion.circle
         cx="28"
         cy="28"
@@ -394,13 +414,16 @@ function HeartbeatPulse({ primary, accent }: { primary: string; accent: string }
         fill="none"
         stroke={accent}
         strokeWidth="0.5"
-        animate={{ r: [3, 24], opacity: [0.2, 0], strokeWidth: [0.5, 0.08] }}
+        animate={{
+          r: [5, 15, 22],
+          opacity: [0, 0.12, 0],
+          strokeWidth: [0.4, 0.25, 0.06],
+        }}
         transition={{
-          duration: 2,
+          duration: cycleDur * 0.85,
           repeat: Infinity,
-          repeatDelay: dur + 0.5,
-          delay: 0.4,
-          ease: SPARK_EASE,
+          delay: cycleDur * 0.35,
+          ease: [0.25, 0.1, 0.25, 1],
         }}
       />
     </>
@@ -419,14 +442,30 @@ function Plankton({ count, pool, colors }: { count: number; pool: number; colors
         const dist = 12 + Math.random() * 18;
         const cx = 28 + Math.cos(angle) * dist;
         const cy = 28 + Math.sin(angle) * dist;
-        const r = 0.25 + Math.random() * 0.55;
+        // Bimodal size: mostly tiny marine snow, occasional larger motes
+        const isLarge = Math.random() > 0.8;
+        const r = isLarge ? 0.5 + Math.random() * 0.4 : 0.15 + Math.random() * 0.35;
 
-        const driftX = [0, jitter(0, 4), jitter(0, 3), jitter(0, 5), 0];
-        const driftY = [0, jitter(0, 5), jitter(0, 3), jitter(0, 4), 0];
-        const driftDur = jitter(18, 8);
+        // Larger motes drift slower, smaller faster
+        const driftScale = isLarge ? 0.6 : 1;
+        const driftX = [
+          0,
+          jitter(0, 4 * driftScale),
+          jitter(0, 3 * driftScale),
+          jitter(0, 5 * driftScale),
+          0,
+        ];
+        const driftY = [
+          0,
+          jitter(0, 5 * driftScale),
+          jitter(0, 3 * driftScale),
+          jitter(0, 4 * driftScale),
+          0,
+        ];
+        const driftDur = isLarge ? jitter(28, 10) : jitter(16, 6);
 
-        const blinkDur = jitter(3, 1.5);
-        const blinkPeak = jitter(0.5, 0.25);
+        const blinkDur = isLarge ? jitter(5, 2) : jitter(2.5, 1);
+        const blinkPeak = isLarge ? jitter(0.35, 0.15) : jitter(0.5, 0.2);
         const blinkDelay = Math.random() * 6;
 
         const color = colors[Math.floor(Math.random() * colors.length)]!;
@@ -675,7 +714,7 @@ function DividingCells({
   growthOffset: number;
 }) {
   const filterId = useMemo(() => `goo-${Math.random().toString(36).slice(2, 8)}`, []);
-  const breathDur = useMemo(() => jitter(4.5, 1), []);
+  const breathDur = useMemo(() => jitter(8, 2.5), []); // jellyfish-slow: 5.5–10.5s
   const drift = useMemo(
     () => ({
       x: [0, jitter(0, 1.2), jitter(0, 0.8), jitter(0, 1), 0],
@@ -771,8 +810,8 @@ function DividingCells({
       <motion.g
         filter={`url(#${filterId})`}
         animate={{
-          scaleX: [1, 1.025, 0.98, 1.015, 1],
-          scaleY: [1, 0.98, 1.03, 0.985, 1],
+          scaleX: [1, 1.015, 0.985, 1.01, 0.99, 1],
+          scaleY: [1, 0.99, 1.02, 0.985, 1.01, 1],
         }}
         transition={{ duration: breathDur, repeat: Infinity, ease: BREATH_EASE }}
         style={{ transformOrigin: '28px 28px' }}
@@ -812,7 +851,7 @@ function DividingCells({
                 cy={center}
                 r={c.r + 2}
                 fill={color}
-                animate={{ opacity: [0, 0.12, 0.03, 0.1, 0] }}
+                animate={{ opacity: [0, 0.08, 0.02, 0.06, 0] }}
                 transition={{
                   duration: breathDur * 1.1,
                   repeat: Infinity,
@@ -824,9 +863,9 @@ function DividingCells({
               <motion.circle
                 cx={center}
                 cy={center}
-                r={c.r * 0.3}
+                r={c.r * 0.25}
                 fill="rgba(255,255,255,1)"
-                animate={{ opacity: [0.08, 0.32, 0.12, 0.25, 0.08] }}
+                animate={{ opacity: [0.04, 0.18, 0.06, 0.14, 0.04] }}
                 transition={{
                   duration: breathDur * 0.8,
                   repeat: Infinity,
@@ -955,10 +994,22 @@ export function NeuralOrganism({
    */
   const rotation = useMemo(
     () => ({
+      // Slow drift — one full revolution every 2–5 minutes
       driftDir: Math.random() > 0.5 ? 360 : -360,
-      driftDur: jitter(90, 40),
-      wobbleAngles: [0, jitter(40, 25), jitter(-25, 20), jitter(50, 30), jitter(-35, 20), 0],
-      wobbleDur: jitter(25, 10),
+      driftDur: jitter(200, 80), // 120–280 seconds per revolution
+      // Gentle wobble with occasional larger swings
+      wobbleAngles: [
+        0,
+        jitter(8, 5),
+        jitter(-5, 4),
+        jitter(25, 15), // occasional larger swing
+        jitter(-6, 5),
+        jitter(10, 6),
+        jitter(-20, 12), // another occasional larger swing
+        jitter(6, 4),
+        0,
+      ],
+      wobbleDur: jitter(40, 15), // 25–55 seconds per wobble cycle
     }),
     []
   );
@@ -1255,18 +1306,20 @@ export function NeuralOrganism({
             growthOffset={go}
           />
 
+          {/* Subtle inner warmth when a spark is about to fire */}
           <AnimatePresence>
             {anticipate && growth >= 0.55 + go && tier !== 'compact' && (
               <motion.circle
                 key="anticipation"
                 cx="28"
                 cy="28"
-                r={coreR + 3}
+                r={coreR + 2}
                 fill="rgba(255,255,255,1)"
-                initial={{ opacity: 0, r: coreR }}
-                animate={{ opacity: 0.35, r: coreR + 3 }}
-                exit={{ opacity: 0, r: coreR + 5 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.08 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                style={{ filter: 'blur(2px)' }}
               />
             )}
           </AnimatePresence>
