@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-21
-last_synced: 2026-04-23T21:00:00.000Z
+last_synced: 2026-04-23T23:00:00.000Z
 last_manual_edit: 2026-04-23T02:02:33.199Z
 ---
 
@@ -1583,7 +1583,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### ESLint: Async IO Enforcement
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Migrate 30+ sync fs calls in async functions to async equivalents, then enable the no-sync-io-in-async ESLint rule to prevent event loop blocking in orchestrator and CLI hot paths
 - **Blockers:** —
@@ -1594,7 +1594,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### ESLint: Boundary Schema Validation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Configure API boundary functions and enable the require-boundary-schema ESLint rule to enforce Zod validation at HTTP handlers, MCP tools, and CLI command entry points
 - **Blockers:** —
@@ -1605,7 +1605,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### ESLint: Performance-Critical Loop Guards
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Add @perf-critical annotations to hot-path functions (graph traversal, scan pipeline, state machine tick) and enable the no-nested-loops-in-critical ESLint rule to prevent O(n²) regressions
 - **Blockers:** —
@@ -1713,7 +1713,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 - **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/plans/2026-04-23-phase-4-knowledge-pipeline-diagrams-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#228
@@ -1736,3 +1736,4 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 | Performance Engineering Knowledge Skills | @chadjw  | assigned | 2026-04-09 |
 | Phase 2: Code Signal Extractors          | @chadjw  | assigned | 2026-04-23 |
 | Phase 3: Connector Enhancement           | @chadjw  | assigned | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams   | @chadjw  | assigned | 2026-04-23 |
