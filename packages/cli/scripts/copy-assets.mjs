@@ -16,8 +16,13 @@ const assets = [
 
 await mkdir(resolve(root, 'dist'), { recursive: true });
 
-/** Skip node_modules directories */
-const filter = (src) => basename(src) !== 'node_modules';
+/** Skip node_modules and agents/commands directories */
+const filter = (src) => {
+  const name = basename(src);
+  if (name === 'node_modules') return false;
+  if (name === 'commands' && src.includes('agents')) return false;
+  return true;
+};
 
 for (const { src, dest } of assets) {
   // Clean destination first to avoid stale content and src/dest conflicts
