@@ -3,9 +3,9 @@
  * reconciliation, drift detection, and remediation.
  *
  * Phases:
- * 1. EXTRACT — Run code signal extractors, diagram parsers, business knowledge ingestor, linker
- * 2. RECONCILE — Compare pre-extraction graph snapshot against post-extraction snapshot
- * 3. DETECT — Classify findings by severity, generate gap report
+ * 1. EXTRACT — Run code signal extractors, diagram parsers, image analysis, business knowledge ingestor, linker
+ * 2. RECONCILE — Compare pre-extraction graph snapshot against post-extraction snapshot + cross-source contradiction detection
+ * 3. DETECT — Classify findings by severity, generate gap report + coverage scoring
  * 4. REMEDIATE — Apply safe fixes, converge (only with `fix: true`)
  */
 
@@ -29,6 +29,9 @@ import {
   type StagedEntry,
 } from './KnowledgeStagingAggregator.js';
 import { createExtractionRunner } from './extractors/index.js';
+import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisExtractor.js';
+import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
+import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_concept',
@@ -37,6 +40,15 @@ const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_term',
   'business_metric',
   'business_fact',
+];
+
+/** Node types included in snapshot for drift detection (Phase 5 adds design + image types). */
+const SNAPSHOT_NODE_TYPES: readonly NodeType[] = [
+  ...BUSINESS_NODE_TYPES,
+  'design_token',
+  'design_constraint',
+  'aesthetic_intent',
+  'image_annotation',
 ];
 
 // ─── Public Types ───────────────────────────────────────────────────────────
@@ -48,6 +60,9 @@ export interface KnowledgePipelineOptions {
   readonly domain?: string;
   readonly graphDir?: string;
   readonly maxIterations?: number;
+  readonly analyzeImages?: boolean;
+  readonly analysisProvider?: AnalysisProvider;
+  readonly imagePaths?: readonly string[];
 }
 
 export interface ExtractionCounts {
@@ -55,6 +70,7 @@ export interface ExtractionCounts {
   readonly diagrams: number;
   readonly linkerFacts: number;
   readonly businessKnowledge: number;
+  readonly images: number;
 }
 
 export interface KnowledgePipelineResult {
@@ -65,6 +81,8 @@ export interface KnowledgePipelineResult {
   readonly extraction: ExtractionCounts;
   readonly gaps: GapReport;
   readonly remediations: readonly string[];
+  readonly contradictions: ContradictionResult;
+  readonly coverage: CoverageReport;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────────────
@@ -88,8 +106,16 @@ export class KnowledgePipelineRunner {
     const postSnapshot = this.buildSnapshot(options.domain);
     let driftResult = this.reconcile(preSnapshot, postSnapshot);
 
+    // Cross-source contradiction detection
+    const contradictionDetector = new ContradictionDetector();
+    const contradictions = contradictionDetector.detect(this.store);
+
     // ── Phase 3: DETECT ──
     let gapReport = await this.detect(options);
+
+    // Coverage scoring
+    const coverageScorer = new CoverageScorer();
+    const coverage = coverageScorer.score(this.store);
 
     // ── Phase 4: REMEDIATE (only with --fix) ──
     let iterations = 1;
@@ -127,6 +153,8 @@ export class KnowledgePipelineRunner {
       extraction,
       gaps: gapReport,
       remediations,
+      contradictions,
+      coverage,
     };
   }
 
@@ -143,6 +171,17 @@ export class KnowledgePipelineRunner {
     // Diagram parsers
     const diagramParser = new DiagramParser(this.store);
     const diagramResult = await diagramParser.ingest(options.projectDir);
+
+    // Image analysis (when enabled, provider supplied, and paths non-empty)
+    let imageCount = 0;
+    const imagePaths = options.imagePaths ?? [];
+    if (options.analyzeImages && options.analysisProvider && imagePaths.length > 0) {
+      const imageExtractor = new ImageAnalysisExtractor({
+        analysisProvider: options.analysisProvider,
+      });
+      const imageResult = await imageExtractor.analyze(this.store, imagePaths);
+      imageCount = imageResult.nodesAdded;
+    }
 
     // Business knowledge from docs/knowledge/
     const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
@@ -170,13 +209,14 @@ export class KnowledgePipelineRunner {
       diagrams: diagramResult.nodesAdded,
       linkerFacts: linkResult.factsCreated,
       businessKnowledge: bkResult.nodesAdded,
+      images: imageCount,
     };
   }
 
   // ── Phase 2: RECONCILE ────────────────────────────────────────────────────
 
   private buildSnapshot(domain?: string): KnowledgeSnapshot {
-    let nodes = BUSINESS_NODE_TYPES.flatMap((type) => this.store.findNodes({ type }));
+    let nodes = SNAPSHOT_NODE_TYPES.flatMap((type) => this.store.findNodes({ type }));
 
     if (domain) {
       nodes = nodes.filter((n) => (n.metadata?.domain as string) === domain);
