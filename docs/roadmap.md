@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-23
-last_synced: 2026-04-24T00:00:00.000Z
+updated: 2026-04-24
+last_synced: 2026-04-24T14:00:00.000Z
 last_manual_edit: 2026-04-23T02:02:33.199Z
 ---
 
@@ -1627,7 +1627,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### ESLint Rule: no-process-env-in-spawn
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** New ESLint rule to flag spawn/execFile/fork calls that pass process.env directly, which leaks all server-side secrets to subprocesses. 5 instances in codebase. Require explicit env allowlist construction.
 - **Blockers:** —

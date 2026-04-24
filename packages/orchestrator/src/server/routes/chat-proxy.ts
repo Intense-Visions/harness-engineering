@@ -7,6 +7,47 @@ import { readBody } from '../utils';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Prefixes/names of environment variables safe to pass to the Claude CLI
+ * subprocess.  Everything else (database credentials, internal API tokens,
+ * etc.) is intentionally excluded.
+ */
+const SAFE_ENV_PREFIXES = [
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'TERM',
+  'LANG',
+  'LC_',
+  'XDG_',
+  'ANTHROPIC_',
+  'CLAUDE_',
+  'NODE_ENV',
+  'NODE_OPTIONS',
+  'NODE_EXTRA_CA_CERTS',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+];
+
+function buildChildEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (SAFE_ENV_PREFIXES.some((p) => key === p || key.startsWith(p))) {
+      env[key] = value;
+    }
+  }
+  return env;
+}
+
 const ChatRequestSchema = z.object({
   prompt: z.string().min(1),
   system: z.string().optional(),
@@ -105,7 +146,7 @@ async function handleChatRequest(
     emit(res, { type: 'session', sessionId });
 
     const args = buildArgs(parsed.prompt, sessionId, isFirstTurn, parsed.system);
-    child = spawn(command, args, { env: process.env, stdio: 'pipe' });
+    child = spawn(command, args, { env: buildChildEnv(), stdio: 'pipe' });
     child.stdin?.end();
 
     let clientDisconnected = false;
