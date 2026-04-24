@@ -44,7 +44,7 @@ Before scaffolding, classify the project and record in the assessment.
 
 ### Phase 2: DECIDE — Shared Library or Scaffold In-Repo?
 
-For **API** and **E2E/UI** suites, check whether a shared library already exists — typically a team-specific `@capillary/<team>-testing-api-library` for API clients, or an equivalent for Page Object Models. If one exists, consuming it is strongly preferred: one client implementation shared by all test suites is the contract source of truth and avoids drift. Only scaffold an in-repo `src/api/` or `src/page-objects/` tree if no shared library exists or the suite has a genuinely different contract.
+For **API** and **E2E/UI** suites, check whether a shared library already exists — typically a team-specific `@<org>/<team>-testing-api-library` for API clients, or an equivalent for Page Object Models. If one exists, consuming it is strongly preferred: one client implementation shared by all test suites is the contract source of truth and avoids drift. Only scaffold an in-repo `src/api/` or `src/page-objects/` tree if no shared library exists or the suite has a genuinely different contract.
 
 For **Shared test library** archetypes, this phase is trivial — you _are_ the shared library; scaffold in-repo.
 
@@ -103,7 +103,7 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 
 5. **Environment and secret handling.** Require a committed `.env.example` listing every variable the suite reads (API base URLs, OAuth client IDs, registry tokens, feature flags). Actual `.env*` files must be gitignored. For multi-environment suites, encode environments as `.env.dev`, `.env.stage`, `.env.prod` and document in AGENTS.md how the runner selects one (env var, CLI flag, or config). Never commit real credentials even as examples — use placeholders like `REPLACE_ME`.
 
-6. **Authentication abstraction.** Record in AGENTS.md: token source (OAuth client-credentials, CIAM, basic auth, session cookie), caching strategy (in-memory, file, Redis), and how test users or parent/child scopes are resolved. If a shared test-user library exists (typically `@capillary/<team>-testing-user-library` or similar), link it and forbid inlining user credentials in specs.
+6. **Authentication abstraction.** Record in AGENTS.md: token source (OAuth client-credentials, CIAM, basic auth, session cookie), caching strategy (in-memory, file, Redis), and how test users or parent/child scopes are resolved. If a shared test-user library exists (typically `@<org>/<team>-testing-user-library` or similar), link it and forbid inlining user credentials in specs.
 
 7. **Schema / contract validation.** Decide whether request and response DTOs are validated at runtime (zod, ajv, io-ts) or only compile-time. Intermediate and above should validate at runtime for contract-drift detection. If adopting zod, reference `zod-schema-definition`.
 
@@ -139,7 +139,7 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 
     The `json` reporter is the input to the custom report in step 11. The `github` reporter produces annotations on PRs; `list` is for local stdout; `html` is for deep-dive failure triage.
 
-11. **Custom report (enriched HTML + Slack + history).** Playwright's stock HTML report is fine for a single run but does not track trends, categorize failures, or know which tests are quarantined. Scaffold a `scripts/generate-reports.ts` that reads the JSON reporter output (`test-results/json-results/results.json`) and emits an enriched report. Modeled on reference implementations already running in Capillary test suites, it should produce:
+11. **Custom report (enriched HTML + Slack + history).** Playwright's stock HTML report is fine for a single run but does not track trends, categorize failures, or know which tests are quarantined. Scaffold a `scripts/generate-reports.ts` that reads the JSON reporter output (`test-results/json-results/results.json`) and emits an enriched report. Modeled on reference implementations running in production test suites, it should produce:
     - **Failure categorization:** bucket each failure into one of `schema | auth | server | client | timeout | network | other` based on the error message. Surfaces whether a red run is an API regression (schema) vs. infrastructure (timeout/network) vs. test-data problem (auth).
     - **Per-area health:** group by domain folder (first path segment under `tests/`), report pass rate and failing titles per area. Tells you which surface of the product is drifting.
     - **Delta vs history:** append each run to a JSONL ledger keyed by commit. Report new failures since last run and failures since last green — not just "X failed" but "X started failing at commit Y."
@@ -279,7 +279,7 @@ Env: .env.example committed with GITHUB_ACCESS_TOKEN placeholder (registry
 
 Auth: OAuth client-credentials with pluggable TokenStorage interface; parent
   vs child scope resolution documented in docs/auth-flow.md. Link to
-  the shared Capillary test-user library for test-user data.
+  a shared test-user library for test-user data.
 
 Schema validation: zod at runtime for all response DTOs. Reference
   zod-schema-definition skill for future domain additions.
@@ -308,7 +308,7 @@ git commit -m "feat: initialize harness project at intermediate level for shared
 **CLASSIFY:**
 
 ```
-Human: "New repo. Playwright API tests for one of our backend services. A shared API client library already exists at @capillary/<team>-testing-api-library and a shared test-user library at @capillary/<team>-testing-user-library."
+Human: "New repo. Playwright API tests for one of our backend services. A shared API client library already exists at @<org>/<team>-testing-api-library and a shared test-user library at @<org>/<team>-testing-user-library."
 package.json will have @playwright/test as a direct dep → test suite signal.
 Archetype: API test suite.
 ```
@@ -330,7 +330,7 @@ harness init --level intermediate --language typescript
 **CONFIGURE (Phase 3, Variant B):**
 
 ```text
-Dependencies: @capillary/<team>-testing-api-library, @capillary/<team>-testing-user-library,
+Dependencies: @<org>/<team>-testing-api-library, @<org>/<team>-testing-user-library,
   @playwright/test, dotenv, zod.
 
 Directory layout (no src/api/, no src/page-objects/):
@@ -368,7 +368,7 @@ Layer model (Variant B, harness.config.json):
   specs       → tests/**            → utils, config, fixtures
 
 Forbidden (same-layer or cross-cutting):
-  - tests/** importing @capillary/<team>-testing-api-library directly
+  - tests/** importing @<org>/<team>-testing-api-library directly
     (must go through fixtures → config adapter)
   - fixtures/** importing tests/**
   - Specs importing each other
@@ -408,7 +408,7 @@ npm run lint         # Pass
 npm run smoke        # Sanity: runs only @smoke-tagged specs
 
 # Prove the forbidden-imports rule fires:
-# temporarily add an import of @capillary/<team>-testing-api-library to a spec
+# temporarily add an import of @<org>/<team>-testing-api-library to a spec
 npx eslint tests/challenges/create.spec.ts  # Should report violation
 # revert, confirm green
 
