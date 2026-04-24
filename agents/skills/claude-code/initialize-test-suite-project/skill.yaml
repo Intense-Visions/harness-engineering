@@ -1,11 +1,10 @@
-name: initialize-harness-project
+name: initialize-test-suite-project
 version: "1.0.0"
-description: Scaffold a new harness-compliant project
+description: Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with test-suite-specific layer models, tags, reporter stack, and custom report
 stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual
-  - on_project_init
 platforms:
   - claude-code
   - gemini-cli
@@ -17,7 +16,7 @@ tools:
   - Write
   - Glob
 cli:
-  command: harness skill run initialize-harness-project
+  command: harness skill run initialize-test-suite-project
   args:
     - name: path
       description: Project root path
@@ -25,7 +24,7 @@ cli:
 mcp:
   tool: run_skill
   input:
-    skill: initialize-harness-project
+    skill: initialize-test-suite-project
     path: string
 type: flexible
 tier: 1
@@ -33,4 +32,4 @@ state:
   persistent: false
   files: []
 depends_on:
-  - initialize-test-suite-project
+  - initialize-harness-project

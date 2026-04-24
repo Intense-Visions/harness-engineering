@@ -61,3 +61,6 @@ temp/
 .vitepress
 *.tsbuildinfo
 .playwright-mcp/
+
+# Generated slash commands
+agents/commands/

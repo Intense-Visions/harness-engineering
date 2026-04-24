@@ -32,7 +32,7 @@ Start a new project or adopt harness in an existing one.
 | `harness doctor`                  | Diagnose environment: Node.js, git, MCP, integrations health                                      |
 | `harness add <type> <name>`       | Add a layer, module, doc, skill, or persona to an existing project                                |
 
-**Related skills:** `/harness:initialize-project`, `/harness:onboarding`, `/harness:add-component`
+**Related skills:** `/harness:initialize-project`, `/harness:initialize-test-suite-project`, `/harness:onboarding`, `/harness:add-component`
 
 ## Validation & Enforcement
 
