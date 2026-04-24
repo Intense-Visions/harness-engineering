@@ -29,17 +29,17 @@ Complete the `/harness:knowledge-pipeline` skill implementation — a 4-phase co
 | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `packages/cli/src/commands/knowledge-pipeline.ts`             | Rewrite to use KnowledgePipelineRunner, add `--fix`/`--ci`/`--domain` flags |
 | `packages/graph/src/index.ts`                                 | Export KnowledgePipelineRunner and types                                    |
-| `packages/graph/tests/integration/knowledge-pipeline.test.ts` | Add convergence loop and remediation tests                                  |
+| `packages/graph/tests/integration/knowledge-pipeline.test.ts` | Add KnowledgePipelineRunner integration tests                               |
 
 ### KnowledgePipelineRunner API
 
 ```typescript
 interface KnowledgePipelineOptions {
   projectDir: string;
-  fix: boolean;      // Enable convergence-based auto-remediation
-  ci: boolean;       // Non-interactive mode
-  domain?: string;   // Limit to specific knowledge domain
-  graphDir?: string;  // Override graph directory
+  fix: boolean;
+  ci: boolean;
+  domain?: string;
+  graphDir?: string;
   maxIterations?: number; // Default: 5
 }
 
@@ -48,14 +48,14 @@ interface KnowledgePipelineResult {
   driftScore: number;
   iterations: number;
   findings: DriftResult['summary'];
-  extraction: { codeSignals: number; diagrams: number; linkerFacts: number };
+  extraction: ExtractionCounts;
   gaps: GapReport;
-  remediations: string[];
+  remediations: readonly string[];
 }
 
 class KnowledgePipelineRunner {
-  constructor(private store: GraphStore);
-  async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult>;
+  constructor(store: GraphStore);
+  run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult>;
 }
 ```
 

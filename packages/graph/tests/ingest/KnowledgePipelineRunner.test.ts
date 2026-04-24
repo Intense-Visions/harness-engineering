@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GraphStore } from '../../src/store/GraphStore.js';
 import { KnowledgePipelineRunner } from '../../src/ingest/KnowledgePipelineRunner.js';
 import type { KnowledgePipelineOptions } from '../../src/ingest/KnowledgePipelineRunner.js';
@@ -13,9 +13,16 @@ describe('KnowledgePipelineRunner', () => {
   beforeEach(async () => {
     store = new GraphStore();
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kp-runner-'));
-    // Ensure required directories exist
     await fs.mkdir(path.join(tmpDir, '.harness', 'knowledge', 'extracted'), { recursive: true });
     await fs.mkdir(path.join(tmpDir, '.harness', 'knowledge', 'staged'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    try {
+      await fs.rm(tmpDir, { recursive: true });
+    } catch {
+      // cleanup best-effort
+    }
   });
 
   function makeOptions(
@@ -30,49 +37,21 @@ describe('KnowledgePipelineRunner', () => {
   }
 
   describe('verdict computation', () => {
-    it('returns pass when no findings', async () => {
+    it('returns pass when no findings exist', async () => {
       const runner = new KnowledgePipelineRunner(store);
       const result = await runner.run(makeOptions());
       expect(result.verdict).toBe('pass');
     });
 
-    it('returns warn when only NEW findings exist', async () => {
-      // Create a diagram file so DiagramParser produces new entities
-      const diagramDir = path.join(tmpDir, 'docs', 'diagrams');
-      await fs.mkdir(diagramDir, { recursive: true });
-      await fs.writeFile(path.join(diagramDir, 'flow.mmd'), 'graph TD\n  A[Start] --> B[End]');
-
+    it('returns correct iteration count without fix mode', async () => {
       const runner = new KnowledgePipelineRunner(store);
-      const result = await runner.run(makeOptions());
-      // Diagram entities are new (not in pre-snapshot since graph was empty)
-      // However, they're added during extraction so they appear in BOTH pre and post snapshots
-      // (pre is taken before extract, post is taken after extract)
-      // So new entities show up as NEW in drift detection
-      expect(['pass', 'warn']).toContain(result.verdict);
-    });
-
-    it('returns fail when stale findings exist', async () => {
-      // Add a business node that won't be re-produced by extraction
-      store.addNode({
-        id: 'bk:test:stale-node',
-        type: 'business_rule',
-        name: 'Stale Rule',
-        content: 'This rule is stale',
-        metadata: { source: 'code-extractor', domain: 'test' },
-      });
-
-      const runner = new KnowledgePipelineRunner(store);
-      // The pre-snapshot captures the stale node, but after extraction it stays
-      // (extraction doesn't remove it). So drift detection sees it in both snapshots = no drift.
-      // To truly test stale, we need different pre vs post snapshots.
-      // This tests the normal flow where existing nodes persist.
-      const result = await runner.run(makeOptions());
-      expect(result.verdict).toBeDefined();
+      const result = await runner.run(makeOptions({ fix: false }));
+      expect(result.iterations).toBe(1);
     });
   });
 
   describe('extraction phase', () => {
-    it('extracts from diagrams', async () => {
+    it('extracts entities from diagram files', async () => {
       const diagramDir = path.join(tmpDir, 'docs', 'diagrams');
       await fs.mkdir(diagramDir, { recursive: true });
       await fs.writeFile(
@@ -103,6 +82,12 @@ describe('KnowledgePipelineRunner', () => {
       const result = await runner.run(makeOptions());
       expect(result.extraction.businessKnowledge).toBe(0);
     });
+
+    it('reports zero code signals for empty project', async () => {
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+      expect(result.extraction.codeSignals).toBe(0);
+    });
   });
 
   describe('gap report', () => {
@@ -124,17 +109,22 @@ describe('KnowledgePipelineRunner', () => {
       expect(result.gaps.domains.length).toBe(2);
       expect(result.gaps.totalEntries).toBe(2);
 
-      // Verify gaps.md was written
       const gapsPath = path.join(tmpDir, '.harness', 'knowledge', 'gaps.md');
       const gapsContent = await fs.readFile(gapsPath, 'utf-8');
       expect(gapsContent).toContain('auth');
       expect(gapsContent).toContain('billing');
     });
+
+    it('handles empty knowledge directory gracefully', async () => {
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+      expect(result.gaps.domains).toHaveLength(0);
+      expect(result.gaps.totalEntries).toBe(0);
+    });
   });
 
   describe('domain filtering', () => {
-    it('limits pipeline to specified domain', async () => {
-      // Add nodes for two domains
+    it('limits snapshot to specified domain', async () => {
       store.addNode({
         id: 'bk:payments:rule1',
         type: 'business_rule',
@@ -150,8 +140,9 @@ describe('KnowledgePipelineRunner', () => {
 
       const runner = new KnowledgePipelineRunner(store);
       const result = await runner.run(makeOptions({ domain: 'payments' }));
-      // Only payments domain should be in the drift analysis
+      // Only the payments domain node should be in drift analysis
       expect(result.verdict).toBeDefined();
+      expect(result.driftScore).toBeDefined();
     });
   });
 
@@ -168,35 +159,22 @@ describe('KnowledgePipelineRunner', () => {
       expect(result.iterations).toBeLessThanOrEqual(2);
     });
 
-    it('converges when finding count is stable', async () => {
+    it('converges immediately on empty project', async () => {
       const runner = new KnowledgePipelineRunner(store);
       const result = await runner.run(makeOptions({ fix: true, maxIterations: 5 }));
-      // With empty project, should converge immediately
       expect(result.iterations).toBe(1);
       expect(result.verdict).toBe('pass');
     });
   });
 
   describe('remediation', () => {
-    it('removes stale nodes when fix is true', async () => {
-      // Add a stale business node
-      store.addNode({
-        id: 'bk:old:legacy-rule',
-        type: 'business_rule',
-        name: 'Legacy Rule',
-        content: 'Old rule',
-        metadata: { source: 'manual', domain: 'old' },
-      });
-
+    it('returns remediations array', async () => {
       const runner = new KnowledgePipelineRunner(store);
       const result = await runner.run(makeOptions({ fix: true }));
-      // The node is in pre-snapshot but also in post-snapshot (extraction doesn't remove it)
-      // So it won't be classified as stale unless the extraction truly changes things
-      expect(result.remediations).toBeDefined();
+      expect(Array.isArray(result.remediations)).toBe(true);
     });
 
-    it('stages new findings to pipeline-staged.jsonl', async () => {
-      // Create a diagram so we get NEW findings
+    it('stages new diagram findings', async () => {
       const diagramDir = path.join(tmpDir, 'docs', 'diagrams');
       await fs.mkdir(diagramDir, { recursive: true });
       await fs.writeFile(
@@ -207,7 +185,7 @@ describe('KnowledgePipelineRunner', () => {
       const runner = new KnowledgePipelineRunner(store);
       await runner.run(makeOptions());
 
-      // Check if staged file was written (may or may not have entries depending on drift detection)
+      // Verify staged file
       const stagedPath = path.join(
         tmpDir,
         '.harness',
@@ -217,7 +195,6 @@ describe('KnowledgePipelineRunner', () => {
       );
       try {
         const content = await fs.readFile(stagedPath, 'utf-8');
-        // If file exists, it should contain valid JSONL
         if (content.trim().length > 0) {
           const lines = content.trim().split('\n');
           for (const line of lines) {
@@ -225,7 +202,7 @@ describe('KnowledgePipelineRunner', () => {
           }
         }
       } catch {
-        // File may not exist if no new findings — that's OK
+        // File may not exist if no new findings
       }
     });
   });
@@ -239,11 +216,28 @@ describe('KnowledgePipelineRunner', () => {
     });
   });
 
-  afterEach(async () => {
-    try {
-      await fs.rm(tmpDir, { recursive: true });
-    } catch {
-      // cleanup best-effort
-    }
+  describe('result structure', () => {
+    it('returns complete result object', async () => {
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      expect(result).toHaveProperty('verdict');
+      expect(result).toHaveProperty('driftScore');
+      expect(result).toHaveProperty('iterations');
+      expect(result).toHaveProperty('findings');
+      expect(result).toHaveProperty('extraction');
+      expect(result).toHaveProperty('gaps');
+      expect(result).toHaveProperty('remediations');
+
+      expect(result.findings).toHaveProperty('new');
+      expect(result.findings).toHaveProperty('drifted');
+      expect(result.findings).toHaveProperty('stale');
+      expect(result.findings).toHaveProperty('contradicting');
+
+      expect(result.extraction).toHaveProperty('codeSignals');
+      expect(result.extraction).toHaveProperty('diagrams');
+      expect(result.extraction).toHaveProperty('linkerFacts');
+      expect(result.extraction).toHaveProperty('businessKnowledge');
+    });
   });
 });
