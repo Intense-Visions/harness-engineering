@@ -178,6 +178,122 @@ describe('ContradictionDetector', () => {
     expect(result.contradictions).toHaveLength(0);
   });
 
+  it('detects temporal_conflict when lastModified differs', () => {
+    const store = new GraphStore();
+    store.addNode(
+      makeNode({
+        id: 'proc-a',
+        type: 'business_process',
+        name: 'onboarding-flow',
+        content: 'Step 1 then step 2',
+        hash: 'h1',
+        metadata: { source: 'wiki' },
+        lastModified: '2026-01-01T00:00:00Z',
+      })
+    );
+    store.addNode(
+      makeNode({
+        id: 'proc-b',
+        type: 'business_process',
+        name: 'onboarding-flow',
+        content: 'Step 1 then step 3',
+        hash: 'h2',
+        metadata: { source: 'confluence' },
+        lastModified: '2026-03-15T00:00:00Z',
+      })
+    );
+
+    const result = detector.detect(store);
+    expect(result.contradictions).toHaveLength(1);
+    expect(result.contradictions[0].conflictType).toBe('temporal_conflict');
+    expect(result.contradictions[0].severity).toBe('medium');
+  });
+
+  it('detects status_divergence when no temporal data exists', () => {
+    const store = new GraphStore();
+    store.addNode(
+      makeNode({
+        id: 'rule-a',
+        type: 'business_rule',
+        name: 'approval-threshold',
+        content: 'Threshold is $500',
+        hash: 'h1',
+        metadata: { source: 'policy-doc' },
+      })
+    );
+    store.addNode(
+      makeNode({
+        id: 'rule-b',
+        type: 'business_rule',
+        name: 'approval-threshold',
+        content: 'Threshold is $1000',
+        hash: 'h2',
+        metadata: { source: 'training-manual' },
+      })
+    );
+
+    const result = detector.detect(store);
+    expect(result.contradictions).toHaveLength(1);
+    expect(result.contradictions[0].conflictType).toBe('status_divergence');
+    expect(result.contradictions[0].severity).toBe('medium');
+  });
+
+  it('detects fuzzy matches across similar but not identical names', () => {
+    const store = new GraphStore();
+    store.addNode(
+      makeNode({
+        id: 'a',
+        type: 'business_fact',
+        name: 'api-timeout',
+        content: 'Timeout is 30s',
+        hash: 'h1',
+        metadata: { source: 'jira' },
+      })
+    );
+    store.addNode(
+      makeNode({
+        id: 'b',
+        type: 'business_fact',
+        name: 'api-timeouts',
+        content: 'Timeout is 60s',
+        hash: 'h2',
+        metadata: { source: 'confluence' },
+      })
+    );
+
+    const result = detector.detect(store);
+    expect(result.contradictions).toHaveLength(1);
+    expect(result.contradictions[0].similarity).toBeGreaterThanOrEqual(0.8);
+    expect(result.contradictions[0].similarity).toBeLessThan(1.0);
+  });
+
+  it('does not match names below similarity threshold', () => {
+    const store = new GraphStore();
+    store.addNode(
+      makeNode({
+        id: 'a',
+        type: 'business_fact',
+        name: 'timeout',
+        content: 'Timeout is 30s',
+        hash: 'h1',
+        metadata: { source: 'jira' },
+      })
+    );
+    store.addNode(
+      makeNode({
+        id: 'b',
+        type: 'business_fact',
+        name: 'max-retries',
+        content: 'Max retries is 5',
+        hash: 'h2',
+        metadata: { source: 'confluence' },
+      })
+    );
+
+    const result = detector.detect(store);
+    expect(result.contradictions).toHaveLength(0);
+  });
+
   it('returns correct sourcePairCounts', () => {
     const store = new GraphStore();
     store.addNode(

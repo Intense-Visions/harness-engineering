@@ -282,7 +282,7 @@ Complete. In use in production.
 
 ## Related
 
-- [Security Guidelines](/docs/standard/security.md)
+- [Security Guidelines](/docs/guides/security-quickstart.md)
 - [API Reference](/docs/reference/cli.md)
 ```
 

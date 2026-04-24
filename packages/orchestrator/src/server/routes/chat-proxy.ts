@@ -25,7 +25,6 @@ const SAFE_ENV_PREFIXES = [
   'ANTHROPIC_',
   'CLAUDE_',
   'NODE_ENV',
-  'NODE_OPTIONS',
   'NODE_EXTRA_CA_CERTS',
   'TMPDIR',
   'TMP',

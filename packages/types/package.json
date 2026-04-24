@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/types",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "TypeScript types and interfaces for Harness Engineering",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -47,8 +47,8 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/types#readme",
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.5",
     "tsup": "^8.5.1",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.5"
   }
 }

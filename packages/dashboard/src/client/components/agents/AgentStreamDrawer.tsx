@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { X, Radio, Cpu, Clock, Zap, History } from 'lucide-react';
+import { X, Radio, Cpu, Clock, Zap, History, ChevronUp, ChevronDown } from 'lucide-react';
 import { BlockSegmentView } from '../chat/AssistantBlocks';
 import { computeBlockSegments, segmentKey } from '../chat/block-segments';
 import { useStreamReplay } from '../../hooks/useStreamReplay';
@@ -19,9 +19,9 @@ function formatDuration(startedAt: string): string {
   const ms = Date.now() - new Date(startedAt).getTime();
   const secs = Math.floor(ms / 1000);
   if (secs < 60) return `${secs}s`;
-  const mins = Math.floor(secs / 60);
+  const minutes = Math.floor(secs / 60);
   const remSecs = secs % 60;
-  return `${mins}m ${remSecs}s`;
+  return `${minutes}m ${remSecs}s`;
 }
 
 function formatTokens(n: number): string {
@@ -51,6 +51,7 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [atBottom, setAtBottom] = useState(true);
+  const [atTop, setAtTop] = useState(true);
   const rafRef = useRef(0);
 
   useEffect(() => {
@@ -66,6 +67,22 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
     }
     return () => cancelAnimationFrame(rafRef.current);
   }, [isLive, atBottom, segments]);
+
+  const scrollToTop = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'smooth',
+    });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: segments.length - 1,
+      align: 'end',
+      behavior: 'smooth',
+    });
+  }, [segments.length]);
 
   return (
     <AnimatePresence>
@@ -235,7 +252,35 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                 </div>
 
                 {/* Stream body */}
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden relative">
+                  <AnimatePresence>
+                    {!atTop && (
+                      <motion.button
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        onClick={scrollToTop}
+                        className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-neutral-muted hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                        title="Jump to top"
+                      >
+                        <ChevronUp size={18} />
+                      </motion.button>
+                    )}
+
+                    {!atBottom && (
+                      <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        onClick={scrollToBottom}
+                        className="absolute bottom-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/80 backdrop-blur-md border border-white/20 text-white hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20"
+                        title="Jump to bottom"
+                      >
+                        <ChevronDown size={18} />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center px-6">
                       <motion.div
@@ -269,6 +314,7 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                       data={segments}
                       followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
                       atBottomStateChange={setAtBottom}
+                      atTopStateChange={setAtTop}
                       atBottomThreshold={200}
                       initialTopMostItemIndex={Math.max(0, segments.length - 1)}
                       computeItemKey={(_, segment) => segmentKey(segment)}

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.23.2
+
+### Patch Changes
+
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+  - @harness-engineering/graph@0.5.0
+  - @harness-engineering/types@0.10.1
+
 ## 0.23.1
 
 ### Patch Changes

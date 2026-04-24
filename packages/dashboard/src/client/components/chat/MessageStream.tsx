@@ -1,6 +1,7 @@
-import { useRef, useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { ChatMessage } from '../../types/chat';
 import { AssistantBlocks } from './AssistantBlocks';
 import { NeuralOrganism } from './NeuralOrganism';
@@ -14,6 +15,7 @@ interface Props {
 export function MessageStream({ messages, streaming, className }: Props) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [atBottom, setAtBottom] = useState(true);
+  const [atTop, setAtTop] = useState(true);
   const rafRef = useRef(0);
 
   // Virtuoso's followOutput only fires when new items are appended.
@@ -33,10 +35,54 @@ export function MessageStream({ messages, streaming, className }: Props) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [streaming, atBottom, messages]);
 
+  const scrollToTop = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'smooth',
+    });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: messages.length - 1,
+      align: 'end',
+      behavior: 'smooth',
+    });
+  }, [messages.length]);
+
   return (
     <div
       className={`h-full overflow-hidden rounded-2xl border border-neutral-border bg-neutral-bg/40 backdrop-blur-sm shadow-inner relative ${className}`}
     >
+      <AnimatePresence>
+        {!atTop && (
+          <motion.button
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            onClick={scrollToTop}
+            className="absolute top-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20 transition-all shadow-2xl shadow-black/50"
+            title="Jump to top"
+          >
+            <ChevronUp size={20} />
+          </motion.button>
+        )}
+
+        {!atBottom && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            onClick={scrollToBottom}
+            className="absolute bottom-4 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary-500 hover:bg-primary-400 text-white transition-all shadow-2xl shadow-primary-500/40 border border-white/20"
+            title="Jump to bottom"
+          >
+            <ChevronDown size={24} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {messages.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -105,9 +151,11 @@ export function MessageStream({ messages, streaming, className }: Props) {
       )}
       <Virtuoso
         ref={virtuosoRef}
+        style={{ height: '100%' }}
         data={messages}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}
+        atTopStateChange={setAtTop}
         atBottomThreshold={200}
         initialTopMostItemIndex={messages.length - 1}
         itemContent={(i, msg) => (

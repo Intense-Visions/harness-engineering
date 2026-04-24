@@ -136,7 +136,7 @@ describe('ImageAnalysisExtractor', () => {
     const result = await extractor.analyze(store, ['src/assets/login.png']);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.edgesAdded).toBe(1);
+    expect(result.edgesAdded).toBe(2); // 1 annotates (annotation -> file) + 1 contains (annotation -> concept)
 
     const edges = store.getEdges({ type: 'annotates' });
     expect(edges).toHaveLength(1);
@@ -156,7 +156,7 @@ describe('ImageAnalysisExtractor', () => {
 
     expect(result.nodesAdded).toBe(2); // 1 image_annotation + 1 business_concept
     expect(result.nodesUpdated).toBe(0);
-    expect(result.edgesAdded).toBe(0); // no pre-existing file node
+    expect(result.edgesAdded).toBe(1); // 1 contains edge (annotation -> concept)
     expect(result.edgesUpdated).toBe(0);
     expect(result.errors).toHaveLength(0);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);

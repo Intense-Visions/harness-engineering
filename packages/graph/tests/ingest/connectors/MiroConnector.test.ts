@@ -156,6 +156,32 @@ describe('MiroConnector', () => {
     expect(edges).toHaveLength(1);
   });
 
+  it('continues processing remaining boards when one board fails', async () => {
+    process.env['MIRO_API_KEY'] = 'test-key';
+
+    const failingBoard = 'board-bad';
+    const httpClient = async (url: string, _options?: { headers?: Record<string, string> }) => {
+      if (url.includes(failingBoard)) {
+        return { ok: false as const, json: async () => ({}) };
+      }
+      return {
+        ok: true as const,
+        json: async () => (url.includes('/items') ? MIRO_ITEMS_FIXTURE : MIRO_BOARD_FIXTURE),
+      };
+    };
+
+    const connector = new MiroConnector(httpClient);
+    const config: ConnectorConfig = { boardIds: [failingBoard, 'board-001'] };
+
+    const result = await connector.ingest(store, config);
+
+    // First board failed, second board succeeded
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(failingBoard);
+    // Second board was still processed
+    expect(result.nodesAdded).toBeGreaterThan(0);
+  });
+
   it('reports correct ingest counts', async () => {
     process.env['MIRO_API_KEY'] = 'test-key';
 

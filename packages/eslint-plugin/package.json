@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/eslint-plugin",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "ESLint plugin for harness engineering architectural constraints",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,19 +25,19 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@typescript-eslint/utils": "^8.58.0",
+    "@typescript-eslint/utils": "^8.59.0",
     "minimatch": "^10.2.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
-    "@typescript-eslint/parser": "^8.58.0",
-    "@typescript-eslint/rule-tester": "^8.58.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "eslint": "^10.1.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "@typescript-eslint/rule-tester": "^8.59.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "eslint": "^10.2.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "eslint": "^8.0.0 || ^9.0.0 || ^10.0.0",

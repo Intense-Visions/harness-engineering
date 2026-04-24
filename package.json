@@ -40,19 +40,19 @@
     "@changesets/cli": "^2.30.0",
     "@eslint/js": "^10.0.1",
     "@harness-engineering/eslint-plugin": "workspace:^",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
     "concurrently": "^9.1.0",
-    "eslint": "^10.1.0",
+    "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.3",
     "tsup": "^8.5.1",
     "turbo": "^2.9.6",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.2",
+    "vitest": "^4.1.5",
     "yaml": "^2.8.3"
   },
   "lint-staged": {
@@ -69,7 +69,8 @@
     "strictPeerDependencies": false,
     "overrides": {
       "hono": ">=4.12.14",
-      "@hono/node-server": ">=1.19.13"
+      "@hono/node-server": ">=1.19.13",
+      "postcss": ">=8.5.10"
     },
     "auditExceptions": {
       "GHSA-67mh-4wv8-2f99": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",

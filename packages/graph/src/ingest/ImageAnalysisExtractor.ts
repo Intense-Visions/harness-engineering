@@ -64,7 +64,7 @@ export class ImageAnalysisExtractor {
       try {
         // Call the analysis provider with a descriptive prompt
         const response = await this.provider.analyze<ImageAnalysisResult>({
-          prompt: `Analyze this image and provide a structured description. Image path: ${imagePath}`,
+          prompt: 'Analyze this image and provide a structured description of its visual contents.',
           systemPrompt:
             'You are an image analysis assistant. Describe the image contents, detect UI elements, extract visible text, identify design patterns, and note accessibility concerns.',
           responseSchema: {} as unknown, // Schema handled by provider
@@ -118,6 +118,10 @@ export class ImageAnalysisExtractor {
             },
           });
           nodesAdded++;
+
+          // Link concept to its parent annotation
+          store.addEdge({ from: annotationId, to: conceptId, type: 'contains' });
+          edgesAdded++;
         }
       } catch (err) {
         errors.push(

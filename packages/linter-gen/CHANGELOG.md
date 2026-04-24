@@ -1,5 +1,12 @@
 # @harness-engineering/linter-gen
 
+## 0.1.7
+
+### Patch Changes
+
+- f62d6ab: Resolve recurring release and CI workflow failures including V8 coverage race and Windows perf timeout
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+
 ## 0.1.6
 
 ### Patch Changes

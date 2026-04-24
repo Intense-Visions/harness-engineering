@@ -71,6 +71,20 @@ export class MiroConnector implements GraphConnector {
     const baseUrlEnv = config.baseUrlEnv ?? 'MIRO_BASE_URL';
     const baseUrl = process.env[baseUrlEnv] ?? 'https://api.miro.com';
 
+    try {
+      const parsed = new URL(baseUrl);
+      if (parsed.protocol !== 'https:' || parsed.hostname !== 'api.miro.com') {
+        return buildIngestResult(
+          0,
+          0,
+          [`Invalid ${baseUrlEnv}: must be an HTTPS URL on api.miro.com`],
+          start
+        );
+      }
+    } catch {
+      return buildIngestResult(0, 0, [`Invalid ${baseUrlEnv}: not a valid URL`], start);
+    }
+
     const boardIds = config.boardIds as string[] | undefined;
     if (!boardIds || boardIds.length === 0) {
       return buildIngestResult(0, 0, ['No boardIds provided in config'], start);
@@ -80,22 +94,21 @@ export class MiroConnector implements GraphConnector {
 
     let totalNodesAdded = 0;
     let totalEdgesAdded = 0;
+    const errors: string[] = [];
 
-    try {
-      for (const boardId of boardIds) {
+    for (const boardId of boardIds) {
+      try {
         const counts = await this.processBoard(store, baseUrl, boardId, headers);
         totalNodesAdded += counts.nodesAdded;
         totalEdgesAdded += counts.edgesAdded;
+      } catch (err) {
+        errors.push(
+          `Miro API error for board ${boardId}: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
-      return buildIngestResult(totalNodesAdded, totalEdgesAdded, [], start);
-    } catch (err) {
-      return buildIngestResult(
-        totalNodesAdded,
-        totalEdgesAdded,
-        [`Miro API error: ${err instanceof Error ? err.message : String(err)}`],
-        start
-      );
     }
+
+    return buildIngestResult(totalNodesAdded, totalEdgesAdded, errors, start);
   }
 
   private async processBoard(
