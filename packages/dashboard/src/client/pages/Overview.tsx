@@ -225,24 +225,60 @@ export function Overview() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">
-      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8">
-        <div>
-          <h1 className="text-5xl font-black tracking-tighter text-gradient-neon pb-1">
-            <ScrambleText text="Command Center" />
-          </h1>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-500/10 border border-primary-500/20">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse shadow-[0_0_8px_var(--color-primary-500)]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary-500">
-                Live Telemetry
-              </span>
+      <div className="mb-10 flex items-start justify-between border-b border-neutral-border pb-8">
+        <div className="flex items-start gap-8">
+          {/* Living organism — glass containment field, always visible */}
+          <motion.div
+            className="relative flex-shrink-0 mt-1"
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Outer atmospheric glow */}
+            <motion.div
+              className="absolute inset-0 -m-6 rounded-full pointer-events-none"
+              animate={{
+                opacity: [0.04, 0.09, 0.05, 0.07, 0.04],
+                scale: [1, 1.08, 1.02, 1.06, 1],
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                background: 'radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%)',
+                filter: 'blur(14px)',
+              }}
+            />
+            {/* Glass containment ring */}
+            <div
+              className="relative rounded-full p-3"
+              style={{
+                background:
+                  'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 50%, transparent 70%)',
+                boxShadow:
+                  'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03)',
+              }}
+            >
+              <NeuralOrganism size={88} />
             </div>
-            <p className="text-sm text-neutral-muted">
-              Neural link established. Monitoring project intelligence.
-            </p>
+          </motion.div>
+
+          <div className="pt-1">
+            <h1 className="text-5xl font-black tracking-tighter text-gradient-neon pb-1">
+              <ScrambleText text="Command Center" />
+            </h1>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-500/10 border border-primary-500/20">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse shadow-[0_0_8px_var(--color-primary-500)]" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-primary-500">
+                  Live Telemetry
+                </span>
+              </div>
+              <p className="text-sm text-neutral-muted">
+                Neural link established. Monitoring project intelligence.
+              </p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 pt-3">
           <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
           <div className="h-10 w-px bg-neutral-border mx-2" />
           <ActionButton
@@ -254,48 +290,9 @@ export function Overview() {
       </div>
 
       {!data && !error && (
-        <div className="flex flex-col items-center justify-center py-32 text-neutral-muted relative">
-          {/* Deep atmospheric gradient */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.06),transparent_50%)]" />
-
-          <motion.div
-            className="relative z-10 mb-10"
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {/* Outer violet atmospheric glow */}
-            <motion.div
-              className="absolute inset-0 -m-16 rounded-full pointer-events-none"
-              animate={{
-                opacity: [0.04, 0.09, 0.05, 0.07, 0.04],
-                scale: [1, 1.1, 1.03, 1.07, 1],
-              }}
-              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-              style={{
-                background:
-                  'radial-gradient(circle, rgba(139,92,246,0.25) 0%, rgba(79,70,229,0.08) 45%, transparent 70%)',
-                filter: 'blur(22px)',
-              }}
-            />
-            {/* Inner cyan accent glow — offset cycle */}
-            <motion.div
-              className="absolute inset-0 -m-8 rounded-full pointer-events-none"
-              animate={{
-                opacity: [0.03, 0.07, 0.04, 0.06, 0.03],
-                scale: [1, 1.06, 1.02, 1.04, 1],
-              }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-              style={{
-                background: 'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 60%)',
-                filter: 'blur(14px)',
-              }}
-            />
-            <NeuralOrganism size={120} />
-          </motion.div>
-
+        <div className="flex flex-col items-center justify-center py-16 text-neutral-muted">
           <motion.p
-            className="text-sm font-mono tracking-widest uppercase relative z-10"
+            className="text-sm font-mono tracking-widest uppercase"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.8 }}
