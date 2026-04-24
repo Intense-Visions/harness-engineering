@@ -106,6 +106,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'check_traceability',
   'predict_failures',
   'recommend_skills',
+  'advise_skills',
   'compute_blast_radius',
   'dispatch_skills',
   'compact',
