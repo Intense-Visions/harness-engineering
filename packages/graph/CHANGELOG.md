@@ -1,5 +1,49 @@
 # @harness-engineering/graph
 
+## 0.5.0
+
+### Minor Changes
+
+- f62d6ab: Knowledge pipeline (Phases 4-5)
+
+  **@harness-engineering/graph:**
+  - Add KnowledgePipelineRunner with 4-phase convergence loop for end-to-end knowledge extraction
+  - Complete Phase 4 knowledge pipeline with D2/PlantUML parsers, staging aggregator, and CLI integration
+  - Add Phase 5 Visual & Advanced pipeline capabilities
+  - Add DiagramParseResult types and MermaidParser for diagram-to-graph ingestion
+  - Add StructuralDriftDetector with deterministic classification
+  - Add ContentCondenser with passthrough and truncation tiers
+  - Add KnowledgeLinker with heuristic pattern registry, clustering, staged output, and deduplication
+  - Add code signal extractors for business knowledge extraction
+  - Add business knowledge foundation with `business_fact` node type and `maxContentLength` config field
+  - Add `execution_outcome` node type and `outcome_of` edge type
+
+  **@harness-engineering/cli:**
+  - Add Phase 5 Visual & Advanced pipeline capabilities
+  - Add business-signals source to graph ingest
+
+- f62d6ab: Add multi-language support for Python, Go, Rust, and Java in code signal extraction and graph ingestion
+
+### Patch Changes
+
+- f62d6ab: Enhance external connectors
+  - Enhance JiraConnector with comments, acceptance criteria, custom fields, and condenseContent
+  - Enhance ConfluenceConnector with hierarchy edges, labels, and condenseContent
+  - Enhance SlackConnector with thread replies, reactions, and condenseContent
+  - Add retry with exponential backoff to all connectors
+  - Wire KnowledgeLinker into SyncManager post-processing
+
+- f62d6ab: Reduce cyclomatic complexity across graph modules and update arch baselines
+- f62d6ab: Fix OOM and stability issues
+  - Resolve OOM in CodeIngestor and optimize directory traversal
+  - Prevent OOM during graph serialization by streaming JSON output
+  - Add missing NodeType import in CoverageScorer
+  - Add missing lokijs runtime dependency
+  - Relax flaky timing assertion and increase graph test timeout
+  - Address integrity review suggestions across pagination, logging, and observability
+
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+
 ## 0.4.3
 
 ### Patch Changes

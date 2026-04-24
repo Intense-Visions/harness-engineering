@@ -1,5 +1,12 @@
 # @harness-engineering/types
 
+## 0.10.1
+
+### Patch Changes
+
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+- f62d6ab: Resolve V8 coverage race and Windows perf timeout in CI
+
 ## 0.10.0
 
 ### Minor Changes

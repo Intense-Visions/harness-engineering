@@ -1,5 +1,51 @@
 # @harness-engineering/cli
 
+## 1.26.0
+
+### Minor Changes
+
+- f62d6ab: Knowledge pipeline (Phases 4-5)
+
+  **@harness-engineering/graph:**
+  - Add KnowledgePipelineRunner with 4-phase convergence loop for end-to-end knowledge extraction
+  - Complete Phase 4 knowledge pipeline with D2/PlantUML parsers, staging aggregator, and CLI integration
+  - Add Phase 5 Visual & Advanced pipeline capabilities
+  - Add DiagramParseResult types and MermaidParser for diagram-to-graph ingestion
+  - Add StructuralDriftDetector with deterministic classification
+  - Add ContentCondenser with passthrough and truncation tiers
+  - Add KnowledgeLinker with heuristic pattern registry, clustering, staged output, and deduplication
+  - Add code signal extractors for business knowledge extraction
+  - Add business knowledge foundation with `business_fact` node type and `maxContentLength` config field
+  - Add `execution_outcome` node type and `outcome_of` edge type
+
+  **@harness-engineering/cli:**
+  - Add Phase 5 Visual & Advanced pipeline capabilities
+  - Add business-signals source to graph ingest
+
+### Patch Changes
+
+- f62d6ab: Resolve CLI typecheck errors for optional intelligence import and fix formatting failures
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+  - @harness-engineering/graph@0.5.0
+  - @harness-engineering/dashboard@0.2.0
+  - @harness-engineering/orchestrator@0.2.13
+  - @harness-engineering/linter-gen@0.1.7
+  - @harness-engineering/core@0.23.2
+  - @harness-engineering/types@0.10.1
+
 ## 1.25.7
 
 ### Patch Changes
