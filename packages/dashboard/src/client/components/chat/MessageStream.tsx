@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { ChatMessage } from '../../types/chat';
@@ -13,6 +13,25 @@ interface Props {
 
 export function MessageStream({ messages, streaming, className }: Props) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const rafRef = useRef(0);
+
+  // Virtuoso's followOutput only fires when new items are appended.
+  // During streaming, the last message's blocks grow but the data array
+  // length stays the same, so we manually scroll to the end.
+  useEffect(() => {
+    if (streaming && atBottom && messages.length > 0) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: messages.length - 1,
+          align: 'end',
+          behavior: 'smooth',
+        });
+      });
+    }
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [streaming, atBottom, messages]);
 
   return (
     <div
@@ -87,7 +106,9 @@ export function MessageStream({ messages, streaming, className }: Props) {
       <Virtuoso
         ref={virtuosoRef}
         data={messages}
-        followOutput="smooth"
+        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        atBottomStateChange={setAtBottom}
+        atBottomThreshold={200}
         initialTopMostItemIndex={messages.length - 1}
         itemContent={(i, msg) => (
           <div className="px-6 py-3">

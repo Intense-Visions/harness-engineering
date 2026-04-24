@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { X, Radio, Cpu, Clock, Zap, History } from 'lucide-react';
 import { BlockSegmentView } from '../chat/AssistantBlocks';
 import { computeBlockSegments, segmentKey } from '../chat/block-segments';
@@ -48,6 +48,24 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
     () => computeBlockSegments(mergedBlocks, isLive),
     [mergedBlocks, isLive]
   );
+
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    if (isLive && atBottom && segments.length > 0) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: segments.length - 1,
+          align: 'end',
+          behavior: 'smooth',
+        });
+      });
+    }
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [isLive, atBottom, segments]);
 
   return (
     <AnimatePresence>
@@ -246,9 +264,12 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                     </div>
                   ) : (
                     <Virtuoso
+                      ref={virtuosoRef}
                       style={{ height: '100%' }}
                       data={segments}
-                      followOutput="smooth"
+                      followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+                      atBottomStateChange={setAtBottom}
+                      atBottomThreshold={200}
                       initialTopMostItemIndex={Math.max(0, segments.length - 1)}
                       computeItemKey={(_, segment) => segmentKey(segment)}
                       itemContent={(_, segment) => (
