@@ -54,6 +54,21 @@ When no arguments are provided (standalone invocation), discover spec from conte
 Work backward from the goal. Start with "what must be true when we are done?"
 
 1. **State the goal.** One sentence. What does the system do when this plan is complete?
+
+1b. **Load skill recommendations.** After loading the spec, check for skill recommendations:
+
+- If `docs/changes/<feature>/SKILLS.md` exists alongside the spec: parse the Apply and Reference tiers. These inform task annotation in Phase 2.
+- If SKILLS.md is missing but a spec exists: run the advisor inline using `advise_skills` MCP tool to generate SKILLS.md.
+- If neither SKILLS.md nor a spec exists: emit a one-line note:
+
+  ```
+  Note: No skill recommendations found. Run the advisor to discover
+  relevant design, framework, and knowledge skills:
+    harness advise-skills --spec-path <path>
+  ```
+
+Store the parsed skill list for use in Phase 2 task annotation.
+
 2. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
    - BAD: "The API handles errors"
    - GOOD: "GET /api/users/nonexistent returns 404 with `{ error: 'User not found' }` body"
@@ -190,7 +205,16 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    - **Exact commit message**
    - **`harness validate`** as the final step
 
-5. **Include checkpoints.** Mark tasks requiring human input:
+5. **Skill annotations.** If skill recommendations were loaded in Phase 1, annotate each task with relevant skills from the Apply and Reference tiers:
+
+   ```
+   ### Task 3: Implement dark mode toggle
+   **Skills:** `design-dark-mode` (apply), `a11y-color-contrast` (reference)
+   ```
+
+   Match skills to tasks based on keyword and domain overlap between the task description and the skill's purpose/keywords. Only annotate when the match is relevant to the specific task.
+
+6. **Include checkpoints.** Mark tasks requiring human input:
    - `[checkpoint:human-verify]` — Pause, show result, wait for confirmation
    - `[checkpoint:decision]` — Pause, present options, wait for choice
    - `[checkpoint:human-action]` — Pause, instruct human on required action

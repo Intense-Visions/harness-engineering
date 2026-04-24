@@ -6,28 +6,28 @@
     "statements": 87.66
   },
   "packages/graph": {
-    "lines": 95.52,
-    "branches": 80.92,
-    "functions": 96.52,
-    "statements": 93.99
+    "lines": 95.57,
+    "branches": 81.32,
+    "functions": 96.55,
+    "statements": 94.06
   },
   "packages/cli": {
-    "lines": 80.42,
-    "branches": 67.14,
-    "functions": 84.5,
-    "statements": 79.77
+    "lines": 80.21,
+    "branches": 67.09,
+    "functions": 84,
+    "statements": 79.52
   },
   "packages/orchestrator": {
-    "lines": 76.55,
-    "branches": 63.08,
-    "functions": 78.37,
-    "statements": 75.26
+    "lines": 76.59,
+    "branches": 63.2,
+    "functions": 78.44,
+    "statements": 75.31
   },
   "packages/eslint-plugin": {
-    "lines": 94.67,
-    "branches": 85.57,
-    "functions": 99.08,
-    "statements": 92.27
+    "lines": 94.95,
+    "branches": 86.84,
+    "functions": 99.13,
+    "statements": 92.65
   },
   "packages/linter-gen": {
     "lines": 89.39,

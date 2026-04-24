@@ -28,6 +28,14 @@ export const HandoffSchema = z.object({
     .default([]),
   blockers: z.array(z.string()).default([]),
   contextKeywords: z.array(z.string()).default([]),
+  recommendedSkills: z
+    .object({
+      apply: z.array(z.string()),
+      reference: z.array(z.string()),
+      consider: z.array(z.string()),
+      skillsPath: z.string(),
+    })
+    .optional(),
 });
 
 export type Handoff = z.infer<typeof HandoffSchema>;

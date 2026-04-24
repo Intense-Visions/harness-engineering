@@ -332,6 +332,17 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
 
 ## Other
 
+### `advise_skills`
+
+Content-based skill recommendations for a spec or feature description. Returns tiered matches with purpose and timing guidance.
+
+**Parameters:**
+
+- `path` (string, optional) — Project root path (defaults to cwd)
+- `specPath` (string, required) — Path to the spec file (proposal.md), relative to project root
+- `thorough` (boolean, optional) — Include Consider tier in output
+- `top` (number, optional) — Max skills per tier (default 5 apply, 10 reference)
+
 ### `analyze_diff`
 
 Parse a git diff and check for forbidden patterns, oversized files, and missing test coverage

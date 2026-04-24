@@ -15,6 +15,17 @@ Add a component to the project
 - `type` (required) — Component type (layer, module, doc, skill, persona)
 - `name` (required) — Component name
 
+### `harness advise-skills`
+
+Content-based skill recommendations for a spec
+
+**Options:**
+
+- `--spec-path` — Path to the spec (proposal.md)
+- `--thorough` — Include Consider tier in output
+- `--top` — Max skills per tier (default 5)
+- `--json` — Output as JSON
+
 ### `harness audit-protected`
 
 Report all harness-ignore protected code regions

@@ -1,7 +1,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Fast checks only — format/lint already run via pre-commit (lint-staged).
-# Full harness ci check, docs:build, and format:check run in CI.
+# Format check catches files missed by lint-staged (e.g., from merges).
+pnpm run format:check
 pnpm run typecheck
 pnpm run test:ci
 node scripts/coverage-ratchet.mjs

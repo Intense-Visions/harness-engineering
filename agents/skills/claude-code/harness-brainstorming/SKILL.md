@@ -114,9 +114,31 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
 3. **Write the spec** to `docs/changes/<feature>/proposal.md`.
 
-4. **Run `harness validate`** to verify proper placement and project health.
+4. **Run skill advisor scan.** After writing the spec, extract signals from its content and scan the skill index for relevant skills. Write results to `docs/changes/<feature>/SKILLS.md` alongside the spec.
 
-5. **Request sign-off via `emit_interaction`:**
+   Use the `advise_skills` MCP tool:
+
+   ```json
+   advise_skills({
+     "path": "<project-root>",
+     "specPath": "docs/changes/<feature>/proposal.md"
+   })
+   ```
+
+   Announce findings in a brief summary (skip announcement in `--fast` mode):
+
+   ```
+   Skill Advisor: Found N relevant skills for '<feature>'
+     Apply: N (skill-a, skill-b, ...)
+     Reference: N | Consider: N
+     Full list: docs/changes/<feature>/SKILLS.md
+   ```
+
+   In `--thorough` mode, show the full skill list for human review before proceeding.
+
+5. **Run `harness validate`** to verify proper placement and project health.
+
+6. **Request sign-off via `emit_interaction`:**
 
    ```json
    emit_interaction({
@@ -133,14 +155,14 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
    The human must explicitly approve before this skill is complete.
 
-6. **Add feature to roadmap.** If `docs/roadmap.md` exists:
+7. **Add feature to roadmap.** If `docs/roadmap.md` exists:
    - Derive feature name from the spec title (the H1 heading).
    - Call `manage_roadmap` with action `add`, `status: "planned"`, `milestone: "Current Work"`, and the spec path.
    - If the feature already exists, skip silently.
    - If `manage_roadmap` is unavailable, fall back to `parseRoadmap`/`serializeRoadmap` from core. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."
    - If no roadmap exists, skip silently.
 
-7. **Write handoff and suggest transition.** After approval:
+8. **Write handoff and suggest transition.** After approval:
 
    Write handoff to the session-scoped path when a session slug is known, otherwise fall back to the global path:
    - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
@@ -155,7 +177,13 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
      "summary": "<1-sentence summary>",
      "artifacts": ["<spec path>"],
      "decisions": [{ "what": "<decision>", "why": "<rationale>" }],
-     "contextKeywords": ["<keywords from Phase 2>"]
+     "contextKeywords": ["<keywords from Phase 2>"],
+     "recommendedSkills": {
+       "apply": ["<skill-names>"],
+       "reference": ["<skill-names>"],
+       "consider": ["<skill-names>"],
+       "skillsPath": "docs/changes/<feature>/SKILLS.md"
+     }
    }
    ```
 

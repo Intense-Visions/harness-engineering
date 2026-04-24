@@ -147,15 +147,23 @@ function generateGenome(): Genome {
   // Roll for species (weighted distribution)
   const roll = Math.random();
   const species: string | null =
-    roll < 0.30 ? null :            // 30% standard
-    roll < 0.39 ? 'medusa' :        //  9% — docile jellyfish, trailing tentacles
-    roll < 0.48 ? 'lurker' :        //  9% — predatory anglerfish, one long lure
-    roll < 0.57 ? 'radiant' :       //  9% — friendly starfish, 5 even arms
-    roll < 0.65 ? 'bristle' :       //  8% — defensive urchin, many spikes
-    roll < 0.73 ? 'tendril' :       //  8% — predatory squid, clustered arms
-    roll < 0.81 ? 'nebula' :        //  8% — friendly amoeba, blobby armless
-    roll < 0.89 ? 'wraith' :        //  8% — terrifying hydra, twin core + writhing
-    'coral';                         // 11% — docile branching colony
+    roll < 0.3
+      ? null // 30% standard
+      : roll < 0.39
+        ? 'medusa' //  9% — docile jellyfish, trailing tentacles
+        : roll < 0.48
+          ? 'lurker' //  9% — predatory anglerfish, one long lure
+          : roll < 0.57
+            ? 'radiant' //  9% — friendly starfish, 5 even arms
+            : roll < 0.65
+              ? 'bristle' //  8% — defensive urchin, many spikes
+              : roll < 0.73
+                ? 'tendril' //  8% — predatory squid, clustered arms
+                : roll < 0.81
+                  ? 'nebula' //  8% — friendly amoeba, blobby armless
+                  : roll < 0.89
+                    ? 'wraith' //  8% — terrifying hydra, twin core + writhing
+                    : 'coral'; // 11% — docile branching colony
 
   /* ── Species-specific body plans ─────────────────────────── */
 
@@ -177,8 +185,14 @@ function generateGenome(): Genome {
       // Jellyfish — dome body with trailing tentacles in bottom arc
       armCount = 5 + Math.floor(Math.random() * 3);
       const arcSpan = Math.PI * 1.3;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + Math.PI * 0.5 + (i / (armCount - 1 || 1)) * arcSpan - arcSpan / 2 + jitter(0, 0.15)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) =>
+          startAngle +
+          Math.PI * 0.5 +
+          (i / (armCount - 1 || 1)) * arcSpan -
+          arcSpan / 2 +
+          jitter(0, 0.15)
       );
       armLengths = armAngles.map(() => 0.85 + Math.random() * 0.45);
       armCurves = armAngles.map(() => (Math.random() - 0.3) * 2.5);
@@ -189,15 +203,21 @@ function generateGenome(): Genome {
       coreScale = 0.9 + Math.random() * 0.3;
       divisionRounds = 3;
       pattern = 'stripes'; // radial ribs like a jellyfish bell
-      mutation = { twinCore: false, rings: Math.random() < 0.3, cometTail: false, ghostMembrane: false };
+      mutation = {
+        twinCore: false,
+        rings: Math.random() < 0.3,
+        cometTail: false,
+        ghostMembrane: false,
+      };
       break;
     }
     case 'lurker': {
       // Anglerfish — compact body, one dominant lure arm, rest short
       armCount = 3 + Math.floor(Math.random() * 3);
       const bs1 = (Math.PI * 2) / armCount;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * bs1 + jitter(0, bs1 * 0.2)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * bs1 + jitter(0, bs1 * 0.2)
       );
       armLengths = Array.from({ length: armCount }, (_, i) =>
         i === 0 ? 1.2 + Math.random() * 0.25 : 0.3 + Math.random() * 0.2
@@ -217,9 +237,7 @@ function generateGenome(): Genome {
     case 'radiant': {
       // Starfish — 5 perfectly spaced short thick arms, all connectors
       armCount = 5;
-      armAngles = Array.from({ length: 5 }, (_, i) =>
-        startAngle + (i / 5) * Math.PI * 2
-      );
+      armAngles = Array.from({ length: 5 }, (_, i) => startAngle + (i / 5) * Math.PI * 2);
       armLengths = Array.from({ length: 5 }, () => 0.5 + Math.random() * 0.15);
       armCurves = Array.from({ length: 5 }, () => (Math.random() - 0.5) * 0.5);
       connectorMask = Array.from({ length: 5 }, () => true);
@@ -229,15 +247,21 @@ function generateGenome(): Genome {
       coreScale = 1.0 + Math.random() * 0.2;
       divisionRounds = 3;
       pattern = 'spots'; // ossicle-like dots on the surface
-      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: Math.random() < 0.25 };
+      mutation = {
+        twinCore: false,
+        rings: false,
+        cometTail: false,
+        ghostMembrane: Math.random() < 0.25,
+      };
       break;
     }
     case 'bristle': {
       // Urchin — many short straight spikes, no connectors
       armCount = 8 + Math.floor(Math.random() * 2);
       const bs2 = (Math.PI * 2) / armCount;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * bs2 + jitter(0, bs2 * 0.08)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * bs2 + jitter(0, bs2 * 0.08)
       );
       armLengths = Array.from({ length: armCount }, () => 0.35 + Math.random() * 0.15);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 0.25);
@@ -254,8 +278,9 @@ function generateGenome(): Genome {
       // Squid — arms clustered in narrow forward arc
       armCount = 6 + Math.floor(Math.random() * 3);
       const arcW = Math.PI * 0.65;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + (i / (armCount - 1 || 1)) * arcW - arcW / 2 + jitter(0, 0.1)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + (i / (armCount - 1 || 1)) * arcW - arcW / 2 + jitter(0, 0.1)
       );
       armLengths = Array.from({ length: armCount }, () => 0.7 + Math.random() * 0.55);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 2);
@@ -265,14 +290,20 @@ function generateGenome(): Genome {
       bodyRadius = 0.8 + Math.random() * 0.15;
       coreScale = 0.8 + Math.random() * 0.15;
       pattern = 'veins'; // mantle vein patterns like squid chromatophores
-      mutation = { twinCore: false, rings: false, cometTail: Math.random() < 0.4, ghostMembrane: false };
+      mutation = {
+        twinCore: false,
+        rings: false,
+        cometTail: Math.random() < 0.4,
+        ghostMembrane: false,
+      };
       break;
     }
     case 'nebula': {
       // Amoeba — blobby, nearly armless, large gentle body
       armCount = Math.floor(Math.random() * 3); // 0–2
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * Math.PI + jitter(0, 0.5)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * Math.PI + jitter(0, 0.5)
       );
       armLengths = Array.from({ length: armCount }, () => 0.25 + Math.random() * 0.2);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 0.8);
@@ -283,15 +314,21 @@ function generateGenome(): Genome {
       coreScale = 1.15 + Math.random() * 0.25;
       divisionRounds = 4;
       pattern = 'rings'; // vacuole-like internal rings
-      mutation = { twinCore: false, rings: Math.random() < 0.35, cometTail: false, ghostMembrane: Math.random() < 0.4 };
+      mutation = {
+        twinCore: false,
+        rings: Math.random() < 0.35,
+        cometTail: false,
+        ghostMembrane: Math.random() < 0.4,
+      };
       break;
     }
     case 'wraith': {
       // Hydra — twin core, writhing arms, aggressive, ring halos
       armCount = 6 + Math.floor(Math.random() * 2);
       const bs3 = (Math.PI * 2) / armCount;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * bs3 + jitter(0, bs3 * 0.25)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * bs3 + jitter(0, bs3 * 0.25)
       );
       armLengths = Array.from({ length: armCount }, () => 0.7 + Math.random() * 0.5);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3.5); // wild
@@ -301,15 +338,21 @@ function generateGenome(): Genome {
       bodyRadius = 0.85 + Math.random() * 0.2;
       coreScale = 0.85 + Math.random() * 0.15;
       pattern = 'veins'; // cracked/fractured surface
-      mutation = { twinCore: true, rings: true, cometTail: false, ghostMembrane: Math.random() < 0.3 };
+      mutation = {
+        twinCore: true,
+        rings: true,
+        cometTail: false,
+        ghostMembrane: Math.random() < 0.3,
+      };
       break;
     }
     case 'coral': {
       // Colony — few long arms, heavy connectors, branching look
       armCount = 4 + Math.floor(Math.random() * 2);
       const bs4 = (Math.PI * 2) / armCount;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * bs4 + jitter(0, bs4 * 0.15)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * bs4 + jitter(0, bs4 * 0.15)
       );
       armLengths = Array.from({ length: armCount }, () => 0.9 + Math.random() * 0.4);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 1.2);
@@ -320,15 +363,21 @@ function generateGenome(): Genome {
       coreScale = 0.9 + Math.random() * 0.2;
       divisionRounds = 3;
       pattern = 'spots'; // polyp-like dots
-      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: Math.random() < 0.2 };
+      mutation = {
+        twinCore: false,
+        rings: false,
+        cometTail: false,
+        ghostMembrane: Math.random() < 0.2,
+      };
       break;
     }
     default: {
       // Standard — full random
       armCount = 4 + Math.floor(Math.random() * 6);
       const bs5 = (Math.PI * 2) / armCount;
-      armAngles = Array.from({ length: armCount }, (_, i) =>
-        startAngle + i * bs5 + jitter(0, bs5 * 0.35)
+      armAngles = Array.from(
+        { length: armCount },
+        (_, i) => startAngle + i * bs5 + jitter(0, bs5 * 0.35)
       );
       armLengths = Array.from({ length: armCount }, () => 0.6 + Math.random() * 0.7);
       armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3);
@@ -932,9 +981,7 @@ function MembranePattern({
       }
       case 'rings':
         return {
-          rings: [0.35, 0.55, 0.75, 0.9]
-            .filter(() => Math.random() > 0.15)
-            .map((f) => radius * f),
+          rings: [0.35, 0.55, 0.75, 0.9].filter(() => Math.random() > 0.15).map((f) => radius * f),
         };
       case 'veins':
         return {
@@ -965,7 +1012,15 @@ function MembranePattern({
       transition={{ duration: shimmerDur, repeat: Infinity, ease: BREATH_EASE }}
     >
       {data.circles?.map((s, i) => (
-        <circle key={`s${i}`} cx={s.x} cy={s.y} r={s.r} fill={pc} opacity={0.3} style={{ filter: 'blur(0.5px)' }} />
+        <circle
+          key={`s${i}`}
+          cx={s.x}
+          cy={s.y}
+          r={s.r}
+          fill={pc}
+          opacity={0.3}
+          style={{ filter: 'blur(0.5px)' }}
+        />
       ))}
       {data.lines?.map((l, i) => (
         <line
@@ -1724,8 +1779,11 @@ export function NeuralOrganism({
           {genome.mutation.rings && growth > 0.7 && (
             <>
               <motion.circle
-                cx="28" cy="28" r="12"
-                fill="none" stroke={agedPalette.primary}
+                cx="28"
+                cy="28"
+                r="12"
+                fill="none"
+                stroke={agedPalette.primary}
                 strokeWidth="0.3"
                 animate={{
                   r: [10, 14, 10],
@@ -1735,8 +1793,11 @@ export function NeuralOrganism({
                 transition={{ duration: 7, repeat: Infinity, ease: BREATH_EASE }}
               />
               <motion.circle
-                cx="28" cy="28" r="20"
-                fill="none" stroke={agedPalette.accent}
+                cx="28"
+                cy="28"
+                r="20"
+                fill="none"
+                stroke={agedPalette.accent}
                 strokeWidth="0.2"
                 animate={{
                   r: [17, 22, 17],
@@ -1770,12 +1831,13 @@ export function NeuralOrganism({
               {[0, 1, 2, 3, 4].map((i) => (
                 <motion.circle
                   key={`tail-${i}`}
-                  cx="28" cy="28"
+                  cx="28"
+                  cy="28"
                   r={0.5 + i * 0.15}
                   fill={agedPalette.primary}
                   animate={{
                     x: [0, -(4 + i * 3), -(2 + i * 2), -(5 + i * 2.5), 0],
-                    y: [0, (2 + i * 1.5), -(1 + i), (3 + i * 0.8), 0],
+                    y: [0, 2 + i * 1.5, -(1 + i), 3 + i * 0.8, 0],
                     opacity: [0, 0.2 - i * 0.03, 0.05, 0.15 - i * 0.02, 0],
                   }}
                   transition={{
