@@ -4,7 +4,7 @@
 
 738 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
-## Tier 1 — Workflow (14 skills)
+## Tier 1 — Workflow (13 skills)
 
 ### add-harness-component
 
