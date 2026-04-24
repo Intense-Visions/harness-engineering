@@ -1,7 +1,9 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Virtuoso } from 'react-virtuoso';
 import { X, Radio, Cpu, Clock, Zap, History } from 'lucide-react';
-import { AssistantBlocks } from '../chat/AssistantBlocks';
+import { BlockSegmentView } from '../chat/AssistantBlocks';
+import { computeBlockSegments, segmentKey } from '../chat/block-segments';
 import { useStreamReplay } from '../../hooks/useStreamReplay';
 import type { ContentBlock } from '../../types/chat';
 import type { RunningAgent } from '../../types/orchestrator';
@@ -29,7 +31,6 @@ function formatTokens(n: number): string {
 }
 
 export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
   const { manifest, recordedBlocks, loading } = useStreamReplay(issueId);
 
   // Merge recorded history with live blocks, avoiding duplicates at the join
@@ -43,9 +44,10 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
   const isLive = agent != null;
   const attemptStats = manifest?.attempts[manifest.attempts.length - 1]?.stats;
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mergedBlocks.length]);
+  const segments = useMemo(
+    () => computeBlockSegments(mergedBlocks, isLive),
+    [mergedBlocks, isLive]
+  );
 
   return (
     <AnimatePresence>
@@ -215,9 +217,9 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                 </div>
 
                 {/* Stream body */}
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex-1 overflow-hidden">
                   {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="flex flex-col items-center justify-center py-20 text-center px-6">
                       <motion.div
                         animate={{ opacity: [0.4, 1, 0.4] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
@@ -230,7 +232,7 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                       <p className="text-xs text-gray-500">Loading recorded stream...</p>
                     </div>
                   ) : mergedBlocks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="flex flex-col items-center justify-center py-20 text-center px-6">
                       <motion.div
                         animate={{ opacity: [0.4, 1, 0.4] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
@@ -243,10 +245,18 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                       <p className="text-xs text-gray-500">Waiting for agent output...</p>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-gray-800 bg-gray-900/40 px-5 py-4">
-                      <AssistantBlocks blocks={mergedBlocks} isStreaming={isLive} />
-                      <div ref={bottomRef} />
-                    </div>
+                    <Virtuoso
+                      style={{ height: '100%' }}
+                      data={segments}
+                      followOutput="smooth"
+                      initialTopMostItemIndex={Math.max(0, segments.length - 1)}
+                      computeItemKey={(_, segment) => segmentKey(segment)}
+                      itemContent={(_, segment) => (
+                        <div className="px-6 py-1">
+                          <BlockSegmentView segment={segment} isStreaming={isLive} />
+                        </div>
+                      )}
+                    />
                   )}
                 </div>
               </div>

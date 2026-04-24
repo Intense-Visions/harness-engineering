@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -12,6 +12,7 @@ import type {
   TextBlock,
 } from '../../types/chat';
 import { NeuralOrganism } from './NeuralOrganism';
+import { isLogOutput, computeBlockSegments, segmentKey, type BlockSegment } from './block-segments';
 
 const PROCESSING_PHRASES = [
   'Thinking deeply…',
@@ -662,36 +663,6 @@ function TodoBlockView({ block }: { block: ToolUseBlock }) {
   );
 }
 
-function isLogOutput(text: string, tool?: string) {
-  const toolLower = tool?.toLowerCase();
-  const isCodeTool = toolLower === 'read' || toolLower === 'read_file' || toolLower === 'bash';
-
-  // For code/bash tools, we are very aggressive about pairing/collapsing
-  if (isCodeTool) return true;
-
-  const logMarkers = [
-    /^>\s/,
-    /^\$\s/,
-    /^RUN\s/,
-    /^[@\w-]+\/@?[\w-]+/,
-    /\[\d{1,2}m/,
-    /\[\]\s\[\d{2}/,
-    /^(\s*\||\s*\+|-{3,})/,
-    /^(\s*[✔✘ℹ⚠]\s)/,
-    /^\s*\d+\s+import\s+/i,
-    /^\s*\d+\s+export\s+/i,
-    /^\s*\d+\s+\w+/,
-    /import\s+.*\s+from\s+['"]/,
-    /const\s+.*\s+=\s+require\(/,
-  ];
-
-  const lines = text.trim().split('\n');
-  if (lines.length === 0) return false;
-
-  const matches = lines.filter((l) => logMarkers.some((m) => m.test(l.trim()))).length;
-  return matches / lines.length > 0.1 || matches > 0;
-}
-
 function LogOutputView({ text }: { text: string }) {
   return (
     <div className="my-2 rounded border border-neutral-border/30 bg-neutral-surface/20 backdrop-blur-sm overflow-hidden">
@@ -975,6 +946,69 @@ function ActivityGroup({
   );
 }
 
+export function BlockSegmentView({
+  segment,
+  isStreaming,
+}: {
+  segment: BlockSegment;
+  isStreaming: boolean;
+}) {
+  switch (segment.kind) {
+    case 'agent':
+      return (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <AgentBlockView block={segment.block}>
+            {segment.childBlocks.length > 0 && (
+              <ActivityGroup
+                blocks={segment.childBlocks}
+                startIndex={segment.childStartIndex}
+                isStreaming={isStreaming}
+                isLastGroup={segment.childIsLastGroup}
+              />
+            )}
+          </AgentBlockView>
+        </motion.div>
+      );
+    case 'todo':
+      return (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <TodoBlockView block={segment.block} />
+        </motion.div>
+      );
+    case 'interaction':
+      return (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <ToolUseBlockView block={segment.block} isPending={segment.isPending} />
+        </motion.div>
+      );
+    case 'activity':
+      return (
+        <ActivityGroup
+          blocks={segment.blocks}
+          startIndex={segment.startIndex}
+          isStreaming={isStreaming}
+          isLastGroup={segment.isLastGroup}
+        />
+      );
+    case 'text':
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <TextBlockView block={segment.block} />
+        </motion.div>
+      );
+    case 'streaming':
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-2 border-t border-white/5"
+        >
+          <StreamingIndicator />
+        </motion.div>
+      );
+  }
+}
+
 export function AssistantBlocks({
   blocks,
   isStreaming,
@@ -986,255 +1020,15 @@ export function AssistantBlocks({
     return <StreamingIndicator />;
   }
 
-  const elements: React.ReactNode[] = [];
-  const consumedIndices = new Set<number>();
+  const segments = useMemo(() => computeBlockSegments(blocks, isStreaming), [blocks, isStreaming]);
 
-  /**
-   * Helper: check if a tool_use block is a "container" type (agent/subagent/skill).
-   */
-  function isContainerTool(tool: string): boolean {
-    const t = tool.toLowerCase();
-    return t === 'agent' || t === 'subagent' || t === 'skill' || t.startsWith('harness:');
-  }
+  if (segments.length === 0) return null;
 
-  /**
-   * Helper: given a subagent/agent/skill block at index `agentIdx`, collect
-   * all "child" block indices that follow it. A child is any block that appears
-   * after the agent AND before the next conversational text (non-log) or
-   * another agent/todo/interaction block.
-   */
-  function collectChildIndices(agentIdx: number): number[] {
-    const children: number[] = [];
-    for (let j = agentIdx + 1; j < blocks.length; j++) {
-      if (consumedIndices.has(j)) continue;
-      const b = blocks[j]!;
-
-      // Stop collecting at another container tool
-      if (b.kind === 'tool_use') {
-        const t = b.tool.toLowerCase();
-        if (isContainerTool(b.tool)) break;
-        if (t.includes('todo')) break;
-        if (
-          t.includes('interaction') ||
-          t.includes('question') ||
-          t.includes('ask') ||
-          t.includes('human')
-        )
-          break;
-      }
-
-      // Stop at conversational text (non-log output)
-      if (b.kind === 'text' && !isLogOutput(b.text)) break;
-
-      children.push(j);
-    }
-    return children;
-  }
-
-  /** Render a set of child block indices as an ActivityGroup */
-  function renderChildBlocks(childIndices: number[]): React.ReactNode[] {
-    if (childIndices.length === 0) return [];
-    const childBlocks: ContentBlock[] = [];
-    const innerConsumed = new Set<number>();
-
-    for (const idx of childIndices) {
-      if (innerConsumed.has(idx)) continue;
-      let block = blocks[idx]!;
-
-      // Pair tool_use with following text/status results
-      if (block.kind === 'tool_use') {
-        const forceResultChunks: string[] = [];
-        let lookAhead = idx + 1;
-        while (lookAhead < blocks.length && childIndices.includes(lookAhead)) {
-          if (innerConsumed.has(lookAhead)) {
-            lookAhead++;
-            continue;
-          }
-          const nextB = blocks[lookAhead]!;
-          if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break;
-          if (nextB.kind === 'text') {
-            if (isLogOutput(nextB.text, block.tool)) {
-              forceResultChunks.push(nextB.text);
-              innerConsumed.add(lookAhead);
-            } else {
-              break;
-            }
-          } else if (nextB.kind === 'status') {
-            forceResultChunks.push(nextB.text);
-            innerConsumed.add(lookAhead);
-          }
-          lookAhead++;
-        }
-        if (forceResultChunks.length > 0) {
-          const chunkString = forceResultChunks.join('\n\n');
-          block = {
-            ...block,
-            result: block.result ? `${chunkString}\n\n${block.result}` : chunkString,
-          } as ToolUseBlock;
-        }
-      }
-
-      childBlocks.push(block);
-    }
-
-    if (childBlocks.length === 0) return [];
-    return [
-      <ActivityGroup
-        key={`ag-child-${childIndices[0]}`}
-        blocks={childBlocks}
-        startIndex={childIndices[0]!}
-        isStreaming={isStreaming}
-        isLastGroup={childIndices[childIndices.length - 1] === blocks.length - 1}
-      />,
-    ];
-  }
-
-  // Main rendering loop
-  let activityGroup: ContentBlock[] = [];
-  let activityGroupStart = 0;
-
-  const flushActivityGroup = () => {
-    if (activityGroup.length === 0) return;
-    elements.push(
-      <ActivityGroup
-        key={`ag-${activityGroupStart}`}
-        blocks={activityGroup}
-        startIndex={activityGroupStart}
-        isStreaming={isStreaming}
-        isLastGroup={false}
-      />
-    );
-    activityGroup = [];
-  };
-
-  for (let i = 0; i < blocks.length; i++) {
-    if (consumedIndices.has(i)) continue;
-
-    let block = blocks[i]!;
-
-    if (block.kind === 'tool_use') {
-      const t = block.tool.toLowerCase();
-
-      // --- Container tools: agent/subagent/skill ---
-      if (isContainerTool(block.tool)) {
-        flushActivityGroup();
-        const childIndices = collectChildIndices(i);
-        childIndices.forEach((idx) => consumedIndices.add(idx));
-        elements.push(
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <AgentBlockView block={block as ToolUseBlock}>
-              {renderChildBlocks(childIndices)}
-            </AgentBlockView>
-          </motion.div>
-        );
-        continue;
-      }
-
-      // --- Todo blocks ---
-      if (t.includes('todo')) {
-        flushActivityGroup();
-        elements.push(
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <TodoBlockView block={block as ToolUseBlock} />
-          </motion.div>
-        );
-        continue;
-      }
-
-      // --- Interaction blocks ---
-      if (
-        t.includes('interaction') ||
-        t.includes('question') ||
-        t.includes('ask') ||
-        t.includes('human')
-      ) {
-        flushActivityGroup();
-        elements.push(
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <ToolUseBlockView
-              block={block as ToolUseBlock}
-              isPending={isStreaming && i === blocks.length - 1}
-            />
-          </motion.div>
-        );
-        continue;
-      }
-
-      // --- Regular tool_use: pair with following output, add to activity group ---
-      const forceResultChunks: string[] = [];
-      let lookAhead = i + 1;
-      while (lookAhead < blocks.length) {
-        if (consumedIndices.has(lookAhead)) {
-          lookAhead++;
-          continue;
-        }
-        const nextB = blocks[lookAhead]!;
-        if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break;
-        if (nextB.kind === 'text') {
-          if (isLogOutput(nextB.text, block.tool)) {
-            forceResultChunks.push(nextB.text);
-            consumedIndices.add(lookAhead);
-          } else {
-            break;
-          }
-        } else if (nextB.kind === 'status') {
-          forceResultChunks.push(nextB.text);
-          consumedIndices.add(lookAhead);
-        }
-        lookAhead++;
-      }
-      if (forceResultChunks.length > 0) {
-        const chunkString = forceResultChunks.join('\n\n');
-        block = {
-          ...block,
-          result: block.result ? `${chunkString}\n\n${block.result}` : chunkString,
-        } as ToolUseBlock;
-      }
-
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else if (block.kind === 'thinking' || block.kind === 'status') {
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else if (block.kind === 'text' && isLogOutput(block.text)) {
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else {
-      // Conversational text — flush and render inline
-      flushActivityGroup();
-      elements.push(
-        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <TextBlockView block={block as TextBlock} />
-        </motion.div>
-      );
-    }
-  }
-
-  // Flush final activity group
-  if (activityGroup.length > 0) {
-    elements.push(
-      <ActivityGroup
-        key={`ag-${activityGroupStart}`}
-        blocks={activityGroup}
-        startIndex={activityGroupStart}
-        isStreaming={isStreaming}
-        isLastGroup={true}
-      />
-    );
-  }
-
-  if (isStreaming && blocks.length > 0) {
-    elements.push(
-      <motion.div
-        key="streaming-indicator"
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-2 border-t border-white/5"
-      >
-        <StreamingIndicator />
-      </motion.div>
-    );
-  }
-
-  return <div className="flex flex-col gap-2">{elements}</div>;
+  return (
+    <div className="flex flex-col gap-2">
+      {segments.map((segment) => (
+        <BlockSegmentView key={segmentKey(segment)} segment={segment} isStreaming={isStreaming} />
+      ))}
+    </div>
+  );
 }
