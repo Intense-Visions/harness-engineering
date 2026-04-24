@@ -74,7 +74,6 @@ interface Genome {
   accentHue: number;
   eggAspect: number;
   coreScale: number;
-  axonMask: boolean[];
   growthOffset: number;
   clusterAngle: number;
   clusterSpread: number;
@@ -82,10 +81,35 @@ interface Genome {
   divisionRounds: number;
   /** Membrane boundary point count: 8 = blobby amoeba, 18 = smooth sphere */
   membraneLobes: number;
-  /** Arm curvature multiplier: 0.5 = straight spikes, 1.5 = curvy tentacles */
-  armCurve: number;
   /** Spark firing rate multiplier: 0.5 = calm, 2.0 = hyperactive */
   sparkRate: number;
+  /** Number of main arms radiating from center (4-9) */
+  armCount: number;
+  /** Per-arm angle in radians */
+  armAngles: number[];
+  /** Per-arm length multiplier (0.6-1.3) */
+  armLengths: number[];
+  /** Per-arm signed curvature (-1.5 to 1.5) */
+  armCurves: number[];
+  /** Which adjacent arm pairs get connector arcs (~55% each) */
+  connectorMask: boolean[];
+  /** Body radius scale (0.75-1.2), multiplies membrane radii */
+  bodyRadius: number;
+  /**
+   * Rare mutations — surprise traits that appear in ~10-15% of creatures.
+   * Each is independently rolled, so a creature might have zero, one, or
+   * (very rarely) multiple mutations stacked.
+   */
+  mutation: {
+    /** Twin nucleus: two cores orbit each other instead of one cluster */
+    twinCore: boolean;
+    /** Bioluminescent rings: concentric pulsing rings around the body */
+    rings: boolean;
+    /** Comet tail: trailing particles when the organism drifts */
+    cometTail: boolean;
+    /** Ghost membrane: a second translucent membrane drifts offset */
+    ghostMembrane: boolean;
+  };
 }
 
 interface Palette {
@@ -99,48 +123,115 @@ interface Palette {
   planktonColors: string[];
 }
 
-/** Which main-axon endpoints each connector axon bridges (template indices 7-10). */
-const CONNECTOR_DEPS: [number, number][] = [
-  [0, 1],
-  [1, 2],
-  [6, 5],
-  [4, 5],
-];
+/** Arm data produced by generateArmData for each arm/connector. */
+interface ArmDatum {
+  d: string;
+  baselen: number;
+  weight: number;
+  endX: number;
+  endY: number;
+}
 
 function generateGenome(): Genome {
   const hue = Math.random() * 360;
   const accentHue = (hue + 140 + Math.random() * 40) % 360;
 
-  // Main axons (indices 0-6): keep at least 5 of 7
-  const mainAxons = Array.from({ length: 7 }, () => Math.random() > 0.2);
-  let mainCount = mainAxons.filter(Boolean).length;
-  while (mainCount < 5) {
-    const idx = Math.floor(Math.random() * 7);
-    if (!mainAxons[idx]) {
-      mainAxons[idx] = true;
-      mainCount++;
-    }
-  }
-
-  // Connector axons (indices 7-10): only if both endpoints present
-  const connAxons = CONNECTOR_DEPS.map(
-    ([a, b]) => mainAxons[a]! && mainAxons[b]! && Math.random() > 0.35
-  );
+  const armCount = 4 + Math.floor(Math.random() * 6); // 4–9
+  const baseSpacing = (Math.PI * 2) / armCount;
+  const startAngle = Math.random() * Math.PI * 2;
+  const armAngles = Array.from({ length: armCount }, (_, i) => {
+    const symmetryJitter = (Math.random() - 0.5) * baseSpacing * 0.35;
+    return startAngle + i * baseSpacing + symmetryJitter;
+  });
+  const armLengths = Array.from({ length: armCount }, () => 0.6 + Math.random() * 0.7);
+  const armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3); // -1.5 to 1.5
+  const connectorMask = Array.from({ length: armCount }, () => Math.random() < 0.55);
 
   return {
     hue,
     accentHue,
     eggAspect: 0.6 + Math.random() * 0.25,
     coreScale: 0.8 + Math.random() * 0.4,
-    axonMask: [...mainAxons, ...connAxons],
     growthOffset: (Math.random() - 0.5) * 0.1,
     clusterAngle: Math.random() * Math.PI * 2,
     clusterSpread: 4 + Math.random() * 3.5,
     divisionRounds: 3 + Math.floor(Math.random() * 2), // 3–4 rounds → 8–16 cells
     membraneLobes: 8 + Math.floor(Math.random() * 11), // 8–18 boundary points
-    armCurve: 0.5 + Math.random(), // 0.5–1.5 curvature
     sparkRate: 0.5 + Math.random() * 1.5, // 0.5–2.0 firing rate
+    armCount,
+    armAngles,
+    armLengths,
+    armCurves,
+    connectorMask,
+    bodyRadius: 0.75 + Math.random() * 0.45, // 0.75–1.2
+    mutation: {
+      twinCore: Math.random() < 0.12,
+      rings: Math.random() < 0.1,
+      cometTail: Math.random() < 0.1,
+      ghostMembrane: Math.random() < 0.1,
+    },
   };
+}
+
+/**
+ * Generate procedural arm and connector path data from genome parameters.
+ * Arms radiate from center (28,28) as quadratic bezier curves.
+ * Connectors arc between adjacent arm endpoints.
+ */
+function generateArmData(genome: Genome): { arms: ArmDatum[]; connectors: ArmDatum[] } {
+  const cx = 28;
+  const cy = 28;
+  const baseReach = 22;
+
+  const arms: ArmDatum[] = [];
+  for (let i = 0; i < genome.armCount; i++) {
+    const angle = genome.armAngles[i]!;
+    const lengthMul = genome.armLengths[i]!;
+    const curvature = genome.armCurves[i]!;
+    const reach = Math.min(baseReach * lengthMul, 24); // cap to stay in viewBox
+
+    // Endpoint
+    const endX = cx + Math.cos(angle) * reach;
+    const endY = cy + Math.sin(angle) * reach;
+
+    // Control point — perpendicular offset for curvature
+    const midX = (cx + endX) / 2;
+    const midY = (cy + endY) / 2;
+    const perpAngle = angle + Math.PI / 2;
+    const curveMag = curvature * reach * 0.35;
+    const qx = midX + Math.cos(perpAngle) * curveMag;
+    const qy = midY + Math.sin(perpAngle) * curveMag;
+
+    const d = `M ${cx} ${cy} Q ${qx.toFixed(1)} ${qy.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+    const baselen = Math.sqrt((endX - cx) ** 2 + (endY - cy) ** 2) * 1.15; // path is longer than straight
+
+    arms.push({ d, baselen, weight: 0.7 + Math.random() * 0.25, endX, endY });
+  }
+
+  const connectors: ArmDatum[] = [];
+  for (let i = 0; i < genome.armCount; i++) {
+    if (!genome.connectorMask[i]) continue;
+    const a = arms[i]!;
+    const b = arms[(i + 1) % genome.armCount]!;
+
+    // Arc between the two endpoints via a control point pushed outward
+    const arcMidX = (a.endX + b.endX) / 2;
+    const arcMidY = (a.endY + b.endY) / 2;
+    const toCenterX = cx - arcMidX;
+    const toCenterY = cy - arcMidY;
+    const dist = Math.sqrt(toCenterX ** 2 + toCenterY ** 2) || 1;
+    // Push control point away from center for a convex arc
+    const pushDist = dist * 0.4;
+    const qx = arcMidX - (toCenterX / dist) * pushDist;
+    const qy = arcMidY - (toCenterY / dist) * pushDist;
+
+    const d = `M ${a.endX.toFixed(1)} ${a.endY.toFixed(1)} Q ${qx.toFixed(1)} ${qy.toFixed(1)} ${b.endX.toFixed(1)} ${b.endY.toFixed(1)}`;
+    const baselen = Math.sqrt((b.endX - a.endX) ** 2 + (b.endY - a.endY) ** 2) * 1.1;
+
+    connectors.push({ d, baselen, weight: 0.3 + Math.random() * 0.15, endX: b.endX, endY: b.endY });
+  }
+
+  return { arms, connectors };
 }
 
 function generatePalette(hue: number, accentHue: number): Palette {
@@ -509,25 +600,28 @@ function NeuralMembrane({
   color,
   tier,
   points = 14,
+  scale = 1,
 }: {
   color: string;
   tier: 'compact' | 'standard' | 'full';
   points?: number;
+  /** Multiplies the base radii (18, 24, 27) for body size variation */
+  scale?: number;
 }) {
   const center = 28;
   const pts = points;
 
   const innerVariants = useMemo(
-    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 18, 5)),
-    []
+    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 18 * scale, 5 * scale)),
+    [scale]
   );
   const outerVariants = useMemo(
-    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 24, 7)),
-    []
+    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 24 * scale, 7 * scale)),
+    [scale]
   );
   const haloVariants = useMemo(
-    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 27, 9)),
-    []
+    () => Array.from({ length: 8 }, () => generateSmoothPath(center, pts, 27 * scale, 9 * scale)),
+    [scale]
   );
 
   const innerDur = useMemo(() => jitter(12, 2), []);
@@ -881,22 +975,6 @@ function DividingCells({
   );
 }
 
-/* ── Constants ─────────────────────────────────────────────── */
-
-const AXON_TEMPLATES = [
-  { d: 'M 28 28 Q 20 18 28 6', baselen: 25, weight: 0.9 },
-  { d: 'M 28 28 Q 40 18 49 14', baselen: 26, weight: 0.8 },
-  { d: 'M 28 28 Q 42 30 52 30', baselen: 26, weight: 0.7 },
-  { d: 'M 28 28 Q 38 40 42 50', baselen: 26, weight: 0.8 },
-  { d: 'M 28 28 Q 16 40 12 50', baselen: 26, weight: 0.7 },
-  { d: 'M 28 28 Q 14 30 4 30', baselen: 26, weight: 0.8 },
-  { d: 'M 28 28 Q 16 18 7 14', baselen: 26, weight: 0.9 },
-  { d: 'M 28 6 Q 40 8 49 14', baselen: 23, weight: 0.4 },
-  { d: 'M 49 14 Q 54 22 52 30', baselen: 20, weight: 0.3 },
-  { d: 'M 7 14 Q 4 22 4 30', baselen: 20, weight: 0.35 },
-  { d: 'M 12 50 Q 6 40 4 30', baselen: 24, weight: 0.4 },
-];
-
 /* ── Main component ────────────────────────────────────────── */
 
 export function NeuralOrganism({
@@ -911,10 +989,11 @@ export function NeuralOrganism({
 
   /* ── Unique genome + palette (once per mount) ──────────────── */
 
-  const { genome, palette } = useMemo(() => {
+  const { genome, palette, armData } = useMemo(() => {
     const g = generateGenome();
     const p = generatePalette(g.hue, g.accentHue);
-    return { genome: g, palette: p };
+    const ad = generateArmData(g);
+    return { genome: g, palette: p, armData: ad };
   }, []);
 
   /* ── Growth + age tracking ───────────────────────────────────
@@ -1014,93 +1093,54 @@ export function NeuralOrganism({
     []
   );
 
+  // Keep a ref to armData for the spark effect to reference
+  const armDataRef = useRef(armData);
+  armDataRef.current = armData;
+
   const axons = useMemo(() => {
     if (tier === 'compact') return [];
-    return AXON_TEMPLATES.map((t, origIdx) => ({ t, origIdx }))
-      .filter(({ origIdx }) => genome.axonMask[origIdx])
-      .map(({ t, origIdx }) => ({
-        origIdx,
-        d: perturbPath(t.d, 3 + genome.armCurve * 4),
+    const allData = [...armData.arms, ...armData.connectors];
+    const armCount = armData.arms.length;
+    return allData.map((t, idx) => {
+      const isConnector = idx >= armCount;
+      return {
+        origIdx: idx,
+        d: perturbPath(t.d, 4),
         len: t.baselen,
         delay: Math.random() * 4,
         duration: jitter(1.4, 0.6),
-        color:
-          origIdx >= 7
-            ? origIdx % 2 === 0
-              ? agedPalette.accent
-              : agedPalette.accentAlt
-            : t.weight > 0.75
-              ? agedPalette.primary
-              : agedPalette.primaryDeep,
+        color: isConnector
+          ? idx % 2 === 0
+            ? agedPalette.accent
+            : agedPalette.accentAlt
+          : t.weight > 0.75
+            ? agedPalette.primary
+            : agedPalette.primaryDeep,
         repeatDelay: jitter(2.5, 1.5),
         weight: t.weight,
-      }));
-  }, [tier, genome.axonMask, agedPalette]);
+      };
+    });
+  }, [tier, armData, agedPalette]);
 
   const ringSomas = useMemo(() => {
     if (tier === 'compact') return [];
     const ringColor = withAlpha(agedPalette.primary, 0.9);
     const ringDeep = withAlpha(agedPalette.primaryDeep, 0.9);
-    const all = [
-      {
-        cx: jitter(28, 1.5),
-        cy: jitter(6, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringColor,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(49, 1.5),
-        cy: jitter(14, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringColor,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(52, 1.5),
-        cy: jitter(30, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringDeep,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(42, 1.5),
-        cy: jitter(50, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringColor,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(12, 1.5),
-        cy: jitter(50, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringColor,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(4, 1.5),
-        cy: jitter(30, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringDeep,
-        delay: Math.random() * 2,
-      },
-      {
-        cx: jitter(7, 1.5),
-        cy: jitter(14, 1.5),
-        r: jitter(1.6, 0.3),
-        color: ringColor,
-        delay: Math.random() * 2,
-      },
-    ];
-    return all.filter((_, i) => genome.axonMask[i]);
-  }, [tier, genome.axonMask, agedPalette]);
+    return armData.arms.map((arm, i) => ({
+      cx: jitter(arm.endX, 1.5),
+      cy: jitter(arm.endY, 1.5),
+      r: jitter(1.6, 0.3),
+      color: i % 3 === 2 ? ringDeep : ringColor,
+      delay: Math.random() * 2,
+    }));
+  }, [tier, armData, agedPalette]);
 
   // Sparks — gated by growth
   const [sparks, setSparks] = useState<
     Array<{ id: number; d: string; len: number; color: string; speed: number; intensity: number }>
   >([]);
   const [anticipate, setAnticipate] = useState(false);
-  const [axonHits, setAxonHits] = useState<number[]>(() => AXON_TEMPLATES.map(() => 0));
+  const [axonHits, setAxonHits] = useState<number[]>(() => Array(20).fill(0) as number[]);
   const sparkIdRef = useRef(0);
   const cancelledRef = useRef(false);
 
@@ -1108,15 +1148,13 @@ export function NeuralOrganism({
     if (tier === 'compact') return;
     cancelledRef.current = false;
 
-    // Only fire sparks along active axons
-    const activeIndices = genome.axonMask
-      .map((active, i) => (active ? i : -1))
-      .filter((i) => i >= 0);
-
     const fire = () => {
       if (cancelledRef.current) return;
 
-      if (growthRef.current < 0.55 + genome.growthOffset || activeIndices.length === 0) {
+      const currentArmData = armDataRef.current;
+      const allPaths = [...currentArmData.arms, ...currentArmData.connectors];
+
+      if (growthRef.current < 0.55 + genome.growthOffset || allPaths.length === 0) {
         setTimeout(fire, 300 + Math.random() * 700);
         return;
       }
@@ -1126,8 +1164,8 @@ export function NeuralOrganism({
         if (cancelledRef.current) return;
         setAnticipate(false);
 
-        const templateIdx = activeIndices[Math.floor(Math.random() * activeIndices.length)]!;
-        const template = AXON_TEMPLATES[templateIdx]!;
+        const templateIdx = Math.floor(Math.random() * allPaths.length);
+        const template = allPaths[templateIdx]!;
         const sparkId = ++sparkIdRef.current;
         const speed = jitter(0.5, 0.2);
         const intensity = jitter(0.8, 0.2);
@@ -1235,6 +1273,7 @@ export function NeuralOrganism({
                 color={agedPalette.primary}
                 tier={membraneTier}
                 points={genome.membraneLobes}
+                scale={genome.bodyRadius}
               />
             </g>
           )}
@@ -1323,6 +1362,78 @@ export function NeuralOrganism({
               />
             )}
           </AnimatePresence>
+
+          {/* ── Rare mutations ─────────────────────────────────── */}
+
+          {/* Bioluminescent rings — concentric pulsing halos */}
+          {genome.mutation.rings && growth > 0.7 && (
+            <>
+              <motion.circle
+                cx="28" cy="28" r="12"
+                fill="none" stroke={agedPalette.primary}
+                strokeWidth="0.3"
+                animate={{
+                  r: [10, 14, 10],
+                  opacity: [0, 0.12, 0],
+                  strokeWidth: [0.2, 0.4, 0.2],
+                }}
+                transition={{ duration: 7, repeat: Infinity, ease: BREATH_EASE }}
+              />
+              <motion.circle
+                cx="28" cy="28" r="20"
+                fill="none" stroke={agedPalette.accent}
+                strokeWidth="0.2"
+                animate={{
+                  r: [17, 22, 17],
+                  opacity: [0, 0.08, 0],
+                  strokeWidth: [0.15, 0.3, 0.15],
+                }}
+                transition={{ duration: 9.5, repeat: Infinity, ease: BREATH_EASE, delay: 2 }}
+              />
+            </>
+          )}
+
+          {/* Ghost membrane — a second translucent membrane drifts offset */}
+          {genome.mutation.ghostMembrane && growth > 0.6 && (
+            <motion.g
+              animate={{ x: [0, 2.5, -1.5, 3, 0], y: [0, -2, 3, -1, 0] }}
+              transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ opacity: 0.3 }}
+            >
+              <NeuralMembrane
+                color={agedPalette.accent}
+                tier="compact"
+                points={Math.max(6, genome.membraneLobes - 3)}
+                scale={genome.bodyRadius * 0.85}
+              />
+            </motion.g>
+          )}
+
+          {/* Comet tail — trailing particles when the organism drifts */}
+          {genome.mutation.cometTail && growth > 0.5 && (
+            <>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <motion.circle
+                  key={`tail-${i}`}
+                  cx="28" cy="28"
+                  r={0.5 + i * 0.15}
+                  fill={agedPalette.primary}
+                  animate={{
+                    x: [0, -(4 + i * 3), -(2 + i * 2), -(5 + i * 2.5), 0],
+                    y: [0, (2 + i * 1.5), -(1 + i), (3 + i * 0.8), 0],
+                    opacity: [0, 0.2 - i * 0.03, 0.05, 0.15 - i * 0.02, 0],
+                  }}
+                  transition={{
+                    duration: 12 + i * 2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                    delay: i * 0.8,
+                  }}
+                  style={{ filter: 'blur(1px)' }}
+                />
+              ))}
+            </>
+          )}
         </motion.g>
         {/* /wobble */}
       </motion.g>
