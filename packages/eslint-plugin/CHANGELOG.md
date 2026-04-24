@@ -1,5 +1,18 @@
 # @harness-engineering/eslint-plugin
 
+## 0.3.0
+
+### Minor Changes
+
+- f62d6ab: Add `no-process-env-in-spawn` ESLint rule and fix env leak in chat-proxy
+  - New rule detects `process.env` passed directly to child process spawn calls, preventing environment variable leaks
+  - Fix env leak in orchestrator chat-proxy identified by the new rule
+
+### Patch Changes
+
+- f62d6ab: Fix Math.random ID generation security vulnerability and API doc version drift
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+
 ## 0.2.4
 
 ### Patch Changes
