@@ -141,6 +141,7 @@ import {
 import { checkTraceabilityDefinition, handleCheckTraceability } from './tools/traceability.js';
 import { predictFailuresDefinition, handlePredictFailures } from './tools/predict-failures.js';
 import { recommendSkillsDefinition, handleRecommendSkills } from './tools/recommend-skills.js';
+import { adviseSkillsDefinition, handleAdviseSkills } from './tools/advise-skills.js';
 import { compactToolDefinition, handleCompact } from './tools/compact.js';
 import {
   detectConstraintEmergenceDefinition,
@@ -216,6 +217,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   checkTraceabilityDefinition,
   predictFailuresDefinition,
   recommendSkillsDefinition,
+  adviseSkillsDefinition,
   computeBlastRadiusDefinition,
   dispatchSkillsDefinition,
   compactToolDefinition,
@@ -276,6 +278,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   check_traceability: handleCheckTraceability as ToolHandler,
   predict_failures: handlePredictFailures as ToolHandler,
   recommend_skills: handleRecommendSkills as ToolHandler,
+  advise_skills: handleAdviseSkills as ToolHandler,
   compute_blast_radius: handleComputeBlastRadius as ToolHandler,
   dispatch_skills: handleDispatchSkills as ToolHandler,
   compact: handleCompact as ToolHandler,

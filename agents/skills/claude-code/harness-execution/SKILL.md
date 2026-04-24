@@ -96,6 +96,12 @@ For each task, starting from current position:
 
 1. **Read task instructions completely** before writing any code.
 
+1b. **Load skill context for annotated tasks.** If the task has a `**Skills:**` annotation:
+
+- For `apply` tier skills: note the skill name in the task context. The skill may provide patterns or approaches to follow during implementation.
+- For `reference` tier skills (type: `knowledge`): load the skill's SKILL.md content as supplementary context. Cap at 3 reference skills per task to manage context budget.
+- Use the skill content to inform implementation decisions but follow the plan's exact instructions as written. Skill context provides background knowledge, not overriding instructions.
+
 2. **Follow instructions exactly.** The plan contains exact file paths, code, and commands. Execute as written.
 
 3. **TDD rhythm:**

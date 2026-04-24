@@ -3,6 +3,7 @@
 import type { Command } from 'commander';
 
 import { createAddCommand } from './add';
+import { createAdviseSkillsCommand } from './advise-skills';
 import { createAdoptionCommand } from './adoption';
 import { createAgentCommand } from './agent';
 import { createAuditProtectedCommand } from './audit-protected';
@@ -66,6 +67,7 @@ import { createValidateCommand } from './validate';
  */
 export const commandCreators: Array<() => Command> = [
   createAddCommand,
+  createAdviseSkillsCommand,
   createAdoptionCommand,
   createAgentCommand,
   createAuditProtectedCommand,
