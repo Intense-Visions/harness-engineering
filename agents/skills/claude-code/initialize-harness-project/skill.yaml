@@ -32,4 +32,5 @@ tier: 1
 state:
   persistent: false
   files: []
-depends_on: []
+depends_on:
+  - initialize-test-suite-project
