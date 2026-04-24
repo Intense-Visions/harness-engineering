@@ -1721,7 +1721,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 
 ### Phase 5: Visual & Advanced
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** Vision model analysis of image attachments, design tool API connectors (Figma, Miro), cross-source contradiction detection, knowledge coverage scoring per domain
 - **Blockers:** —
@@ -1729,7 +1729,7 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 - **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#229
-- **Updated-At:** 2026-04-24T02:56:37.582Z
+- **Updated-At:** 2026-04-24T11:23:48.933Z
 
 ## Assignment History
 
