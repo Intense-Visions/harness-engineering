@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as fs from 'node:fs/promises';
@@ -9,6 +9,7 @@ import {
   type KnowledgeSnapshot,
 } from '../../src/ingest/StructuralDriftDetector.js';
 import { KnowledgeStagingAggregator } from '../../src/ingest/KnowledgeStagingAggregator.js';
+import { KnowledgePipelineRunner } from '../../src/ingest/KnowledgePipelineRunner.js';
 
 const DIAGRAM_FIXTURES = path.resolve(__dirname, '../__fixtures__/diagrams');
 
@@ -168,6 +169,126 @@ describe('Knowledge Pipeline (integration)', () => {
     const result2 = detector.detect(current, fresh);
     expect(result2.findings.length).toBe(result1.findings.length);
     // Convergence: finding count did not decrease → should stop
+  });
+
+  describe('KnowledgePipelineRunner (full pipeline)', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'runner-e2e-'));
+    });
+
+    afterEach(async () => {
+      try {
+        await fs.rm(tmpDir, { recursive: true });
+      } catch {
+        // best-effort cleanup
+      }
+    });
+
+    it('runs full pipeline with diagrams and business knowledge', async () => {
+      // Set up diagram
+      const diagramDir = path.join(tmpDir, 'docs', 'diagrams');
+      await fs.mkdir(diagramDir, { recursive: true });
+      await fs.writeFile(
+        path.join(diagramDir, 'arch.mmd'),
+        'graph TD\n  API[API Server] --> DB[Database]'
+      );
+
+      // Set up business knowledge
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge', 'payments');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'sla.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n# Payment SLA\nPayments must settle within 24 hours.'
+      );
+
+      const runnerStore = new GraphStore();
+      const runner = new KnowledgePipelineRunner(runnerStore);
+      const result = await runner.run({
+        projectDir: tmpDir,
+        fix: false,
+        ci: false,
+      });
+
+      expect(result.extraction.diagrams).toBeGreaterThan(0);
+      expect(result.extraction.businessKnowledge).toBeGreaterThan(0);
+      expect(result.gaps.domains.length).toBeGreaterThan(0);
+      expect(result.verdict).toBeDefined();
+      expect(['pass', 'warn', 'fail']).toContain(result.verdict);
+    });
+
+    it('fix mode converges on empty project', async () => {
+      const runnerStore = new GraphStore();
+      const runner = new KnowledgePipelineRunner(runnerStore);
+      const result = await runner.run({
+        projectDir: tmpDir,
+        fix: true,
+        ci: false,
+        maxIterations: 3,
+      });
+
+      expect(result.iterations).toBe(1);
+      expect(result.verdict).toBe('pass');
+      expect(result.remediations).toHaveLength(0);
+    });
+
+    it('CI mode runs non-interactively', async () => {
+      const runnerStore = new GraphStore();
+      const runner = new KnowledgePipelineRunner(runnerStore);
+      const result = await runner.run({
+        projectDir: tmpDir,
+        fix: true,
+        ci: true,
+      });
+
+      expect(result.verdict).toBeDefined();
+      expect(result.iterations).toBeGreaterThanOrEqual(1);
+    });
+
+    it('domain filter limits scope', async () => {
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'auth'), { recursive: true });
+      await fs.mkdir(path.join(knowledgeDir, 'billing'), { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'auth', 'policy.md'),
+        '---\ntype: business_rule\ndomain: auth\n---\nSession timeout: 24h'
+      );
+      await fs.writeFile(
+        path.join(knowledgeDir, 'billing', 'cycle.md'),
+        '---\ntype: business_rule\ndomain: billing\n---\nMonthly billing'
+      );
+
+      const runnerStore = new GraphStore();
+      const runner = new KnowledgePipelineRunner(runnerStore);
+      const result = await runner.run({
+        projectDir: tmpDir,
+        fix: false,
+        ci: false,
+        domain: 'auth',
+      });
+
+      expect(result.verdict).toBeDefined();
+      expect(result.gaps.domains.length).toBe(2); // Gap report still shows all domains
+    });
+
+    it('writes gaps.md to .harness/knowledge/', async () => {
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge', 'testing');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'rules.md'),
+        '---\ntype: business_rule\ndomain: testing\n---\nAll tests must pass'
+      );
+
+      const runnerStore = new GraphStore();
+      const runner = new KnowledgePipelineRunner(runnerStore);
+      await runner.run({ projectDir: tmpDir, fix: false, ci: false });
+
+      const gapsPath = path.join(tmpDir, '.harness', 'knowledge', 'gaps.md');
+      const content = await fs.readFile(gapsPath, 'utf-8');
+      expect(content).toContain('testing');
+      expect(content).toContain('Knowledge Gaps Report');
+    });
   });
 
   it('end-to-end: ingest + detect + stage', async () => {
