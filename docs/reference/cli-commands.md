@@ -242,6 +242,10 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--ci` — Non-interactive mode — apply safe fixes only, report everything else
 - `--domain` — Limit pipeline to a specific knowledge domain
 - `--drift-check` — Exit 1 if unresolved drift exists (CI gate mode)
+- `--analyze-images` — Enable vision model analysis of image files
+- `--image-paths` — Comma-separated image file paths for analysis
+- `--coverage` — Display per-domain coverage report
+- `--check-contradictions` — Display cross-source contradiction report
 
 ### `harness mcp`
 
