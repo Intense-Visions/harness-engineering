@@ -119,6 +119,7 @@ Scaffold a new harness-compliant project
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
+- **Depends on:** initialize-test-suite-project
 
 ### initialize-test-suite-project
 
