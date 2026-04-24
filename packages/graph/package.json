@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/graph",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "license": "MIT",
   "description": "Knowledge graph for context assembly in Harness Engineering",
   "main": "./dist/index.js",

@@ -1,5 +1,33 @@
 # @harness-engineering/orchestrator
 
+## 0.2.13
+
+### Patch Changes
+
+- f62d6ab: Add `no-process-env-in-spawn` ESLint rule and fix env leak in chat-proxy
+  - New rule detects `process.env` passed directly to child process spawn calls, preventing environment variable leaks
+  - Fix env leak in orchestrator chat-proxy identified by the new rule
+
+- f62d6ab: SSE streaming and chat-proxy fixes
+  - Emit SSE events from CLI assistant message content blocks
+  - Update chat-proxy tests to use streaming event format
+  - Suppress unused mapContentBlock warning
+  - Harden workspace cleanup guard against false escalations
+
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+  - @harness-engineering/graph@0.5.0
+  - @harness-engineering/intelligence@0.1.2
+  - @harness-engineering/core@0.23.2
+  - @harness-engineering/types@0.10.1
+
 ## 0.2.12
 
 ### Patch Changes

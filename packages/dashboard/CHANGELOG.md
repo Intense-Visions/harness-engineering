@@ -1,5 +1,44 @@
 # @harness-engineering/dashboard
 
+## 0.2.0
+
+### Minor Changes
+
+- f62d6ab: Chat and agent stream UX improvements
+  - Add jump to top and jump to bottom buttons to chat and agent streams
+  - Virtualize AgentStreamDrawer with react-virtuoso for large stream performance
+  - Add roadmap action buttons and commandArgs support
+  - Add sticky auto-scroll to chat and agent stream views
+
+- f62d6ab: Neural organism evolution and chat navigation polish
+  - Evolving neural organism with genome, mitosis, and long-session vitality
+  - Polish NeuralOrganism with Disney animation principles
+  - Refine neural organism animation — softer, slower, more organic
+  - Increase NeuralOrganism size across chat UI
+  - Polish chat navigation and neural organism evolution
+
+### Patch Changes
+
+- f62d6ab: Chat rendering and session fixes
+  - Derive drawer agent from live snapshot so session stats update in real time
+  - Fix chat stream rendering and integrate NeuralOrganism
+  - Remove unreachable thinking branch and fix lint errors
+  - Preserve newlines in chat block rendering
+  - Prevent chat session cross-pollination and redundant tab creation
+  - Improve interaction tools UI, fix duplicate text rendering, and adjust whitespace formatting
+
+- f62d6ab: Supply chain audit — fix HIGH vulnerability, bump dependencies, migrate openai to v6
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+- Updated dependencies [f62d6ab]
+  - @harness-engineering/graph@0.5.0
+  - @harness-engineering/core@0.23.2
+  - @harness-engineering/types@0.10.1
+
 ## 0.1.9
 
 ### Patch Changes
