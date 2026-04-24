@@ -1,7 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
-import { sanitizeExternalText } from './ConnectorUtils.js';
+import { sanitizeExternalText, withRetry } from './ConnectorUtils.js';
 
 interface WorkflowRun {
   id: number;
@@ -88,7 +88,7 @@ export class CIConnector implements GraphConnector {
   private readonly httpClient: HttpClient;
 
   constructor(httpClient?: HttpClient) {
-    this.httpClient = httpClient ?? ((url, options) => fetch(url, options));
+    this.httpClient = httpClient ?? withRetry((url, options) => fetch(url, options));
   }
 
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {

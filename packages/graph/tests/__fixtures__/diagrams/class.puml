@@ -1,0 +1,11 @@
+@startuml
+class AuthService {
+  +validateToken(token: string): boolean
+  +createSession(user: User): Session
+}
+class TokenStore {
+  +get(key: string): Token
+  +set(key: string, token: Token): void
+}
+AuthService --> TokenStore : uses
+@enduml

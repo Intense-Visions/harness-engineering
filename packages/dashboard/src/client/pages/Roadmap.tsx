@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
+import { useChatPanel } from '../hooks/useChatPanel';
 import { useSSE } from '../hooks/useSSE';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { ProgressChart } from '../components/ProgressChart';
@@ -47,6 +49,93 @@ function FilterBar({
         <option value="done">Done</option>
         <option value="backlog">Backlog</option>
       </select>
+    </div>
+  );
+}
+
+const btnClass =
+  'rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all';
+
+function RoadmapActionButton({ command, label }: { command: string; label: string }) {
+  const [, setSearchParams] = useSearchParams();
+  const { open: openChat } = useChatPanel();
+  return (
+    <button
+      onClick={() => {
+        setSearchParams({ command });
+        openChat();
+      }}
+      className={btnClass}
+    >
+      {label}
+    </button>
+  );
+}
+
+function AddToRoadmapButton() {
+  const [, setSearchParams] = useSearchParams();
+  const { open: openChat } = useChatPanel();
+  const [showDialog, setShowDialog] = useState(false);
+  const [description, setDescription] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showDialog) inputRef.current?.focus();
+  }, [showDialog]);
+
+  const handleSubmit = () => {
+    const text = description.trim();
+    if (!text) return;
+    setSearchParams({ command: 'harness:roadmap-add', commandArgs: text });
+    openChat();
+    setShowDialog(false);
+    setDescription('');
+  };
+
+  return (
+    <div className="relative">
+      <button onClick={() => setShowDialog(!showDialog)} className={btnClass}>
+        Add
+      </button>
+      {showDialog && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-xl">
+          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+            What should be added?
+          </label>
+          <input
+            ref={inputRef}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSubmit();
+              if (e.key === 'Escape') {
+                setShowDialog(false);
+                setDescription('');
+              }
+            }}
+            placeholder="e.g. Dark mode support"
+            className="mb-2 w-full rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:border-primary-500 focus:outline-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setShowDialog(false);
+                setDescription('');
+              }}
+              className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!description.trim()}
+              className="rounded bg-primary-500 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white disabled:opacity-40 hover:bg-primary-400 transition-colors"
+            >
+              Go
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -118,7 +207,12 @@ export function Roadmap() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Roadmap</h1>
-        <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
+        <div className="flex items-center gap-3">
+          <RoadmapActionButton command="harness:roadmap-pilot" label="Pilot" />
+          <RoadmapActionButton command="harness:roadmap-sync" label="Sync" />
+          <AddToRoadmapButton />
+          <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
+        </div>
       </div>
 
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream…</p>}

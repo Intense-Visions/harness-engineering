@@ -232,6 +232,17 @@ Install a constraints bundle into the local harness config
 - `--dry-run` — Show what would change without writing files
 - `-c, --config` — Path to harness.config.json
 
+### `harness knowledge-pipeline`
+
+Run knowledge extraction, drift detection, and gap analysis
+
+**Options:**
+
+- `--fix` — Enable convergence-based auto-remediation (default: detect-only)
+- `--ci` — Non-interactive mode — apply safe fixes only, report everything else
+- `--domain` — Limit pipeline to a specific knowledge domain
+- `--drift-check` — Exit 1 if unresolved drift exists (CI gate mode)
+
 ### `harness mcp`
 
 Start the MCP (Model Context Protocol) server on stdio

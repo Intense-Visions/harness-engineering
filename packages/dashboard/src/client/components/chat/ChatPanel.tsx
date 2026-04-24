@@ -60,6 +60,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const commandParam = searchParams.get('command');
+  const commandArgsParam = searchParams.get('commandArgs');
   const interactionIdParam = searchParams.get('interactionId');
 
   const {
@@ -86,6 +87,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const autoExecutedRef = useRef(new Set<string>());
   const processedCommandRef = useRef<string | null>(null);
   const processedInteractionRef = useRef<string | null>(null);
+  const pendingCommandArgsRef = useRef<string | null>(null);
 
   // Interaction state
   const [interaction, setInteraction] = useState<PendingInteraction | null>(null);
@@ -113,13 +115,15 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     if (!skill) return;
 
     processedCommandRef.current = commandParam;
+    pendingCommandArgsRef.current = commandArgsParam || null;
     createNewSession({ command: skill.id });
     setSelectedSkill(skill);
 
     const next = new URLSearchParams(searchParams);
     next.delete('command');
+    next.delete('commandArgs');
     setSearchParams(next, { replace: true });
-  }, [isOpen, commandParam, createNewSession, searchParams, setSearchParams]);
+  }, [isOpen, commandParam, commandArgsParam, createNewSession, searchParams, setSearchParams]);
 
   // Handle interactionId Param
   useEffect(() => {
@@ -297,7 +301,10 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const handleExecuteSkill = useCallback(() => {
     if (!selectedSkill) return;
     const systemPrompt = generateSystemPrompt(selectedSkill, context.data);
-    void handleSend(selectedSkill.slashCommand, systemPrompt);
+    const args = pendingCommandArgsRef.current;
+    const command = args ? `${selectedSkill.slashCommand} ${args}` : selectedSkill.slashCommand;
+    pendingCommandArgsRef.current = null;
+    void handleSend(command, systemPrompt);
     setSelectedSkill(null);
   }, [selectedSkill, context.data, handleSend]);
 

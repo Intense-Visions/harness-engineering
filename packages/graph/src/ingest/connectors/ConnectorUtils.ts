@@ -1,7 +1,73 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { EdgeType } from '../../types.js';
+import type { HttpClient } from './ConnectorInterface.js';
 
 const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
+
+/** Status codes that indicate a transient failure worth retrying. */
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3). */
+  maxRetries?: number;
+  /** Initial backoff delay in ms (default: 1000). */
+  baseDelayMs?: number;
+  /** Maximum backoff delay in ms (default: 30000). */
+  maxDelayMs?: number;
+}
+
+/**
+ * Wrap an HttpClient with exponential backoff + jitter.
+ *
+ * Retries on:
+ *   - HTTP 429 (rate-limited) / 5xx (server error)
+ *   - Network-level throws (DNS, connection refused, timeout)
+ *
+ * Jitter formula: `delay * (0.5 + random * 0.5)` prevents thundering herd.
+ * After exhausting retries the last response is returned (or the last error thrown).
+ */
+export function withRetry(client: HttpClient, options?: RetryOptions): HttpClient {
+  const maxRetries = options?.maxRetries ?? 3;
+  const baseDelayMs = options?.baseDelayMs ?? 1000;
+  const maxDelayMs = options?.maxDelayMs ?? 30_000;
+
+  return async (url, requestOptions) => {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await client(url, requestOptions);
+
+        // Successful or non-retryable status — return immediately
+        if (response.ok || !RETRYABLE_STATUSES.has(response.status ?? 0)) {
+          return response;
+        }
+
+        // Retryable status but no retries left — return the failed response
+        if (attempt === maxRetries) {
+          return response;
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        // Network error with no retries left — re-throw
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+      }
+
+      // Exponential backoff with jitter before next attempt
+      const exponentialDelay = baseDelayMs * 2 ** attempt;
+      const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
+      const jitteredDelay = cappedDelay * (0.5 + Math.random() * 0.5);
+      await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
+    }
+
+    // Unreachable — the loop always returns or throws on the last attempt.
+    // Satisfy TypeScript:
+    throw lastError ?? new Error('Request failed after retries');
+  };
+}
 
 /**
  * Sanitization rules applied in order. Each rule removes or replaces

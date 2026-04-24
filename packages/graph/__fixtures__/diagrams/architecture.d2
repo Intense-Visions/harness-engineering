@@ -1,0 +1,8 @@
+server: Web Server
+db: PostgreSQL {
+  shape: cylinder
+}
+cache: Redis
+server -> db: queries
+server -> cache: session lookup
+cache -> db: cache miss

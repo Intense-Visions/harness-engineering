@@ -48,6 +48,39 @@ export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
 export { BusinessKnowledgeIngestor } from './ingest/BusinessKnowledgeIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 
+// Knowledge Pipeline
+export { KnowledgePipelineRunner } from './ingest/KnowledgePipelineRunner.js';
+export type {
+  KnowledgePipelineOptions,
+  KnowledgePipelineResult,
+  ExtractionCounts,
+} from './ingest/KnowledgePipelineRunner.js';
+
+// Diagram + Drift + Staging
+export { DiagramParser, MermaidParser, D2Parser, PlantUmlParser } from './ingest/DiagramParser.js';
+export type {
+  DiagramParseResult,
+  DiagramEntity,
+  DiagramRelationship,
+  DiagramFormatParser,
+} from './ingest/DiagramParser.js';
+export { StructuralDriftDetector } from './ingest/StructuralDriftDetector.js';
+export type {
+  DriftDetector,
+  DriftResult,
+  DriftFinding,
+  DriftClassification,
+  KnowledgeSnapshot,
+  KnowledgeSnapshotEntry,
+} from './ingest/StructuralDriftDetector.js';
+export { KnowledgeStagingAggregator } from './ingest/KnowledgeStagingAggregator.js';
+export type {
+  StagedEntry,
+  GapReport,
+  DomainCoverage,
+  AggregateResult,
+} from './ingest/KnowledgeStagingAggregator.js';
+
 // Connectors
 export type {
   GraphConnector,
