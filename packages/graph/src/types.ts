@@ -39,6 +39,7 @@ export const NODE_TYPES = [
   'design_token',
   'aesthetic_intent',
   'design_constraint',
+  'image_annotation',
   // Traceability
   'requirement',
   // Business Knowledge
@@ -92,6 +93,7 @@ export const EDGE_TYPES = [
   // Business Knowledge relationships
   'governs',
   'measures',
+  'annotates',
   // Cache relationships
   'caches',
 ] as const;

@@ -73,6 +73,15 @@ export type {
   KnowledgeSnapshot,
   KnowledgeSnapshotEntry,
 } from './ingest/StructuralDriftDetector.js';
+export { ContradictionDetector } from './ingest/ContradictionDetector.js';
+export type {
+  ConflictType,
+  ContradictionEntry,
+  Contradiction,
+  ContradictionResult,
+} from './ingest/ContradictionDetector.js';
+export { CoverageScorer } from './ingest/CoverageScorer.js';
+export type { DomainCoverageScore, CoverageReport } from './ingest/CoverageScorer.js';
 export { KnowledgeStagingAggregator } from './ingest/KnowledgeStagingAggregator.js';
 export type {
   StagedEntry,
@@ -94,6 +103,8 @@ export { JiraConnector } from './ingest/connectors/JiraConnector.js';
 export { SlackConnector } from './ingest/connectors/SlackConnector.js';
 export { ConfluenceConnector } from './ingest/connectors/ConfluenceConnector.js';
 export { CIConnector } from './ingest/connectors/CIConnector.js';
+export { FigmaConnector } from './ingest/connectors/FigmaConnector.js';
+export { MiroConnector } from './ingest/connectors/MiroConnector.js';
 
 // Search
 export { FusionLayer } from './search/FusionLayer.js';
@@ -172,6 +183,15 @@ export {
   detectLanguage,
 } from './ingest/extractors/index.js';
 export type { ExtractionRecord, SignalExtractor, Language } from './ingest/extractors/index.js';
+
+// Image Analysis
+export { ImageAnalysisExtractor } from './ingest/ImageAnalysisExtractor.js';
+export type {
+  ImageAnalysisResult,
+  DetectedElement,
+  ImageAnalysisExtractorOptions,
+  AnalysisProvider as ImageAnalysisProvider,
+} from './ingest/ImageAnalysisExtractor.js';
 
 // Design Ingest
 export { DesignIngestor } from './ingest/DesignIngestor.js';

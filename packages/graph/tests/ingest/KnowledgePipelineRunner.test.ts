@@ -238,6 +238,19 @@ describe('KnowledgePipelineRunner', () => {
       expect(result.extraction).toHaveProperty('diagrams');
       expect(result.extraction).toHaveProperty('linkerFacts');
       expect(result.extraction).toHaveProperty('businessKnowledge');
+      expect(result.extraction).toHaveProperty('images');
+
+      // Phase 5 additions: contradictions and coverage
+      expect(result).toHaveProperty('contradictions');
+      expect(result.contradictions).toHaveProperty('contradictions');
+      expect(result.contradictions).toHaveProperty('sourcePairCounts');
+      expect(result.contradictions).toHaveProperty('totalChecked');
+
+      expect(result).toHaveProperty('coverage');
+      expect(result.coverage).toHaveProperty('overallScore');
+      expect(result.coverage).toHaveProperty('overallGrade');
+      expect(result.coverage).toHaveProperty('domains');
+      expect(result.coverage).toHaveProperty('generatedAt');
     });
   });
 });

@@ -10,6 +10,10 @@ export function createKnowledgePipelineCommand(): Command {
     .option('--ci', 'Non-interactive mode — apply safe fixes only, report everything else')
     .option('--domain <name>', 'Limit pipeline to a specific knowledge domain')
     .option('--drift-check', 'Exit 1 if unresolved drift exists (CI gate mode)')
+    .option('--analyze-images', 'Enable vision model analysis of image files')
+    .option('--image-paths <paths>', 'Comma-separated image file paths for analysis')
+    .option('--coverage', 'Display per-domain coverage report')
+    .option('--check-contradictions', 'Display cross-source contradiction report')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const projectDir = globalOpts.cwd ?? process.cwd();
@@ -29,15 +33,45 @@ export function createKnowledgePipelineCommand(): Command {
           // Fresh graph
         }
 
-        // Run pipeline
-        const runner = new KnowledgePipelineRunner(store);
-        const result = await runner.run({
+        // Build pipeline options
+        const pipelineOpts: Record<string, unknown> = {
           projectDir,
           fix: Boolean(opts.fix),
           ci: Boolean(opts.ci),
           ...(opts.domain ? { domain: opts.domain as string } : {}),
           graphDir,
-        });
+          analyzeImages: Boolean(opts.analyzeImages),
+        };
+
+        // Parse image paths if provided
+        if (opts.imagePaths) {
+          pipelineOpts.imagePaths = (opts.imagePaths as string)
+            .split(',')
+            .map((p: string) => p.trim());
+        }
+
+        // Set up analysis provider for image analysis if requested
+        if (opts.analyzeImages) {
+          try {
+            // Dynamic import — intelligence is an optional peer dependency
+            const intelligence = (await import(
+              '@harness-engineering/intelligence' as string
+            )) as Record<string, unknown>;
+            const ProviderClass = intelligence.AnthropicAnalysisProvider as new () => unknown;
+            pipelineOpts.analysisProvider = new ProviderClass();
+          } catch {
+            logger.error(
+              'Image analysis requires @harness-engineering/intelligence with ANTHROPIC_API_KEY set.'
+            );
+            process.exit(1);
+          }
+        }
+
+        // Run pipeline
+        const runner = new KnowledgePipelineRunner(store);
+        const result = await runner.run(
+          pipelineOpts as unknown as Parameters<typeof runner.run>[0]
+        );
 
         // Output
         if (globalOpts.json) {
@@ -54,6 +88,15 @@ export function createKnowledgePipelineCommand(): Command {
                   totalEntries: result.gaps.totalEntries,
                 },
                 remediations: result.remediations,
+                contradictions: {
+                  count: result.contradictions.contradictions.length,
+                  sourcePairCounts: result.contradictions.sourcePairCounts,
+                },
+                coverage: {
+                  overallScore: result.coverage.overallScore,
+                  overallGrade: result.coverage.overallGrade,
+                  domains: result.coverage.domains.length,
+                },
               },
               null,
               2
@@ -75,7 +118,7 @@ export function createKnowledgePipelineCommand(): Command {
             `  Findings: ${result.findings.new} new, ${result.findings.stale} stale, ${result.findings.drifted} drifted, ${result.findings.contradicting} contradicting`
           );
           console.log(
-            `  Extraction: ${result.extraction.codeSignals} code signals, ${result.extraction.diagrams} diagrams, ${result.extraction.linkerFacts} linker facts, ${result.extraction.businessKnowledge} business knowledge`
+            `  Extraction: ${result.extraction.codeSignals} code signals, ${result.extraction.diagrams} diagrams, ${result.extraction.linkerFacts} linker facts, ${result.extraction.businessKnowledge} business knowledge, ${result.extraction.images} images`
           );
           console.log(
             `  Gaps: ${result.gaps.domains.length} domains, ${result.gaps.totalEntries} total entries`
@@ -86,6 +129,33 @@ export function createKnowledgePipelineCommand(): Command {
           if (result.remediations.length > 0) {
             console.log(`  Remediations: ${result.remediations.length} applied`);
           }
+
+          // Contradiction report
+          if (opts.checkContradictions || result.contradictions.contradictions.length > 0) {
+            console.log('');
+            console.log(
+              `  Contradictions: ${result.contradictions.contradictions.length} detected across ${result.contradictions.totalChecked} knowledge nodes`
+            );
+            for (const c of result.contradictions.contradictions) {
+              console.log(
+                `    ${chalk.red('!')} ${c.description} [${c.conflictType}] (${c.severity})`
+              );
+            }
+          }
+
+          // Coverage report
+          if (opts.coverage || result.coverage.domains.length > 0) {
+            console.log('');
+            console.log(
+              `  Coverage: ${result.coverage.overallGrade} (${result.coverage.overallScore}/100)`
+            );
+            for (const d of result.coverage.domains) {
+              console.log(
+                `    ${d.domain}: ${d.grade} (${d.score}/100) — ${d.knowledgeEntries} knowledge, ${d.linkedEntities}/${d.codeEntities} code linked`
+              );
+            }
+          }
+
           console.log('');
         }
 
