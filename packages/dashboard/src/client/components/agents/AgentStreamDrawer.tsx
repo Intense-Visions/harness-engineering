@@ -254,7 +254,7 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                 {/* Stream body */}
                 <div className="flex-1 overflow-hidden relative">
                   <AnimatePresence>
-                    {!atTop && segments.length > 5 && (
+                    {!atTop && (
                       <motion.button
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -267,7 +267,7 @@ export function AgentStreamDrawer({ agent, issueId, blocks, onClose }: Props) {
                       </motion.button>
                     )}
 
-                    {!atBottom && segments.length > 5 && (
+                    {!atBottom && (
                       <motion.button
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}

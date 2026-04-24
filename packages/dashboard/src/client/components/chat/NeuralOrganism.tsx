@@ -95,10 +95,17 @@ interface Genome {
   connectorMask: boolean[];
   /** Body radius scale (0.75-1.2), multiplies membrane radii */
   bodyRadius: number;
+  /** Surface pattern on the membrane: spots, stripes, rings, veins, or none */
+  pattern: 'spots' | 'stripes' | 'rings' | 'veins' | 'none';
   /**
-   * Rare mutations — surprise traits that appear in ~10-15% of creatures.
-   * Each is independently rolled, so a creature might have zero, one, or
-   * (very rarely) multiple mutations stacked.
+   * Species archetype — determines the creature's fundamental body plan.
+   * null = standard (full random). Each named species forces a specific
+   * arm arrangement, membrane shape, and behavioral personality.
+   */
+  species: string | null;
+  /**
+   * Rare mutations — surprise traits. Each species has its own
+   * mutation probabilities; some species force specific mutations on.
    */
   mutation: {
     /** Twin nucleus: two cores orbit each other instead of one cluster */
@@ -135,41 +142,233 @@ interface ArmDatum {
 function generateGenome(): Genome {
   const hue = Math.random() * 360;
   const accentHue = (hue + 140 + Math.random() * 40) % 360;
-
-  const armCount = 4 + Math.floor(Math.random() * 6); // 4–9
-  const baseSpacing = (Math.PI * 2) / armCount;
   const startAngle = Math.random() * Math.PI * 2;
-  const armAngles = Array.from({ length: armCount }, (_, i) => {
-    const symmetryJitter = (Math.random() - 0.5) * baseSpacing * 0.35;
-    return startAngle + i * baseSpacing + symmetryJitter;
-  });
-  const armLengths = Array.from({ length: armCount }, () => 0.6 + Math.random() * 0.7);
-  const armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3); // -1.5 to 1.5
-  const connectorMask = Array.from({ length: armCount }, () => Math.random() < 0.55);
+
+  // Roll for species (weighted distribution)
+  const roll = Math.random();
+  const species: string | null =
+    roll < 0.30 ? null :            // 30% standard
+    roll < 0.39 ? 'medusa' :        //  9% — docile jellyfish, trailing tentacles
+    roll < 0.48 ? 'lurker' :        //  9% — predatory anglerfish, one long lure
+    roll < 0.57 ? 'radiant' :       //  9% — friendly starfish, 5 even arms
+    roll < 0.65 ? 'bristle' :       //  8% — defensive urchin, many spikes
+    roll < 0.73 ? 'tendril' :       //  8% — predatory squid, clustered arms
+    roll < 0.81 ? 'nebula' :        //  8% — friendly amoeba, blobby armless
+    roll < 0.89 ? 'wraith' :        //  8% — terrifying hydra, twin core + writhing
+    'coral';                         // 11% — docile branching colony
+
+  /* ── Species-specific body plans ─────────────────────────── */
+
+  let armCount: number;
+  let armAngles: number[];
+  let armLengths: number[];
+  let armCurves: number[];
+  let connectorMask: boolean[];
+  let membraneLobes: number;
+  let sparkRate: number;
+  let bodyRadius: number;
+  let coreScale = 0.8 + Math.random() * 0.4;
+  let divisionRounds = 3 + Math.floor(Math.random() * 2);
+  let pattern: Genome['pattern'];
+  let mutation: Genome['mutation'];
+
+  switch (species) {
+    case 'medusa': {
+      // Jellyfish — dome body with trailing tentacles in bottom arc
+      armCount = 5 + Math.floor(Math.random() * 3);
+      const arcSpan = Math.PI * 1.3;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + Math.PI * 0.5 + (i / (armCount - 1 || 1)) * arcSpan - arcSpan / 2 + jitter(0, 0.15)
+      );
+      armLengths = armAngles.map(() => 0.85 + Math.random() * 0.45);
+      armCurves = armAngles.map(() => (Math.random() - 0.3) * 2.5);
+      connectorMask = armAngles.map(() => Math.random() < 0.25);
+      membraneLobes = 16 + Math.floor(Math.random() * 5);
+      sparkRate = 0.25 + Math.random() * 0.3;
+      bodyRadius = 0.95 + Math.random() * 0.2;
+      coreScale = 0.9 + Math.random() * 0.3;
+      divisionRounds = 3;
+      pattern = 'stripes'; // radial ribs like a jellyfish bell
+      mutation = { twinCore: false, rings: Math.random() < 0.3, cometTail: false, ghostMembrane: false };
+      break;
+    }
+    case 'lurker': {
+      // Anglerfish — compact body, one dominant lure arm, rest short
+      armCount = 3 + Math.floor(Math.random() * 3);
+      const bs1 = (Math.PI * 2) / armCount;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * bs1 + jitter(0, bs1 * 0.2)
+      );
+      armLengths = Array.from({ length: armCount }, (_, i) =>
+        i === 0 ? 1.2 + Math.random() * 0.25 : 0.3 + Math.random() * 0.2
+      );
+      armCurves = Array.from({ length: armCount }, (_, i) =>
+        i === 0 ? (Math.random() - 0.5) * 2 : (Math.random() - 0.5) * 0.5
+      );
+      connectorMask = armAngles.map(() => false);
+      membraneLobes = 8 + Math.floor(Math.random() * 3);
+      sparkRate = 1.5 + Math.random() * 0.5;
+      bodyRadius = 0.75 + Math.random() * 0.1;
+      coreScale = 0.7 + Math.random() * 0.15;
+      pattern = 'none'; // stealthy, no markings
+      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: false };
+      break;
+    }
+    case 'radiant': {
+      // Starfish — 5 perfectly spaced short thick arms, all connectors
+      armCount = 5;
+      armAngles = Array.from({ length: 5 }, (_, i) =>
+        startAngle + (i / 5) * Math.PI * 2
+      );
+      armLengths = Array.from({ length: 5 }, () => 0.5 + Math.random() * 0.15);
+      armCurves = Array.from({ length: 5 }, () => (Math.random() - 0.5) * 0.5);
+      connectorMask = Array.from({ length: 5 }, () => true);
+      membraneLobes = 12 + Math.floor(Math.random() * 4);
+      sparkRate = 0.35 + Math.random() * 0.25;
+      bodyRadius = 1.0 + Math.random() * 0.2;
+      coreScale = 1.0 + Math.random() * 0.2;
+      divisionRounds = 3;
+      pattern = 'spots'; // ossicle-like dots on the surface
+      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: Math.random() < 0.25 };
+      break;
+    }
+    case 'bristle': {
+      // Urchin — many short straight spikes, no connectors
+      armCount = 8 + Math.floor(Math.random() * 2);
+      const bs2 = (Math.PI * 2) / armCount;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * bs2 + jitter(0, bs2 * 0.08)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.35 + Math.random() * 0.15);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 0.25);
+      connectorMask = armAngles.map(() => false);
+      membraneLobes = 8 + Math.floor(Math.random() * 3);
+      sparkRate = 0.3 + Math.random() * 0.25;
+      bodyRadius = 0.8 + Math.random() * 0.15;
+      coreScale = 0.8 + Math.random() * 0.15;
+      pattern = 'rings'; // concentric defense markings
+      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: false };
+      break;
+    }
+    case 'tendril': {
+      // Squid — arms clustered in narrow forward arc
+      armCount = 6 + Math.floor(Math.random() * 3);
+      const arcW = Math.PI * 0.65;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + (i / (armCount - 1 || 1)) * arcW - arcW / 2 + jitter(0, 0.1)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.7 + Math.random() * 0.55);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 2);
+      connectorMask = armAngles.map(() => Math.random() < 0.35);
+      membraneLobes = 10 + Math.floor(Math.random() * 4);
+      sparkRate = 1.2 + Math.random() * 0.8;
+      bodyRadius = 0.8 + Math.random() * 0.15;
+      coreScale = 0.8 + Math.random() * 0.15;
+      pattern = 'veins'; // mantle vein patterns like squid chromatophores
+      mutation = { twinCore: false, rings: false, cometTail: Math.random() < 0.4, ghostMembrane: false };
+      break;
+    }
+    case 'nebula': {
+      // Amoeba — blobby, nearly armless, large gentle body
+      armCount = Math.floor(Math.random() * 3); // 0–2
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * Math.PI + jitter(0, 0.5)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.25 + Math.random() * 0.2);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 0.8);
+      connectorMask = armAngles.map(() => false);
+      membraneLobes = 6 + Math.floor(Math.random() * 3);
+      sparkRate = 0.15 + Math.random() * 0.15;
+      bodyRadius = 1.1 + Math.random() * 0.15;
+      coreScale = 1.15 + Math.random() * 0.25;
+      divisionRounds = 4;
+      pattern = 'rings'; // vacuole-like internal rings
+      mutation = { twinCore: false, rings: Math.random() < 0.35, cometTail: false, ghostMembrane: Math.random() < 0.4 };
+      break;
+    }
+    case 'wraith': {
+      // Hydra — twin core, writhing arms, aggressive, ring halos
+      armCount = 6 + Math.floor(Math.random() * 2);
+      const bs3 = (Math.PI * 2) / armCount;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * bs3 + jitter(0, bs3 * 0.25)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.7 + Math.random() * 0.5);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3.5); // wild
+      connectorMask = armAngles.map(() => Math.random() < 0.25);
+      membraneLobes = 10 + Math.floor(Math.random() * 5);
+      sparkRate = 1.5 + Math.random() * 0.5;
+      bodyRadius = 0.85 + Math.random() * 0.2;
+      coreScale = 0.85 + Math.random() * 0.15;
+      pattern = 'veins'; // cracked/fractured surface
+      mutation = { twinCore: true, rings: true, cometTail: false, ghostMembrane: Math.random() < 0.3 };
+      break;
+    }
+    case 'coral': {
+      // Colony — few long arms, heavy connectors, branching look
+      armCount = 4 + Math.floor(Math.random() * 2);
+      const bs4 = (Math.PI * 2) / armCount;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * bs4 + jitter(0, bs4 * 0.15)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.9 + Math.random() * 0.4);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 1.2);
+      connectorMask = armAngles.map(() => true); // all connectors
+      membraneLobes = 10 + Math.floor(Math.random() * 3);
+      sparkRate = 0.2 + Math.random() * 0.2;
+      bodyRadius = 0.9 + Math.random() * 0.15;
+      coreScale = 0.9 + Math.random() * 0.2;
+      divisionRounds = 3;
+      pattern = 'spots'; // polyp-like dots
+      mutation = { twinCore: false, rings: false, cometTail: false, ghostMembrane: Math.random() < 0.2 };
+      break;
+    }
+    default: {
+      // Standard — full random
+      armCount = 4 + Math.floor(Math.random() * 6);
+      const bs5 = (Math.PI * 2) / armCount;
+      armAngles = Array.from({ length: armCount }, (_, i) =>
+        startAngle + i * bs5 + jitter(0, bs5 * 0.35)
+      );
+      armLengths = Array.from({ length: armCount }, () => 0.6 + Math.random() * 0.7);
+      armCurves = Array.from({ length: armCount }, () => (Math.random() - 0.5) * 3);
+      connectorMask = armAngles.map(() => Math.random() < 0.55);
+      membraneLobes = 8 + Math.floor(Math.random() * 11);
+      sparkRate = 0.5 + Math.random() * 1.5;
+      bodyRadius = 0.75 + Math.random() * 0.45;
+      divisionRounds = 3 + Math.floor(Math.random() * 2);
+      // Standard gets a random pattern
+      const pats: Genome['pattern'][] = ['spots', 'stripes', 'rings', 'veins', 'none', 'none'];
+      pattern = pats[Math.floor(Math.random() * pats.length)]!;
+      mutation = {
+        twinCore: Math.random() < 0.12,
+        rings: Math.random() < 0.1,
+        cometTail: Math.random() < 0.1,
+        ghostMembrane: Math.random() < 0.1,
+      };
+    }
+  }
 
   return {
     hue,
     accentHue,
     eggAspect: 0.6 + Math.random() * 0.25,
-    coreScale: 0.8 + Math.random() * 0.4,
+    coreScale,
     growthOffset: (Math.random() - 0.5) * 0.1,
     clusterAngle: Math.random() * Math.PI * 2,
     clusterSpread: 4 + Math.random() * 3.5,
-    divisionRounds: 3 + Math.floor(Math.random() * 2), // 3–4 rounds → 8–16 cells
-    membraneLobes: 8 + Math.floor(Math.random() * 11), // 8–18 boundary points
-    sparkRate: 0.5 + Math.random() * 1.5, // 0.5–2.0 firing rate
+    divisionRounds,
+    membraneLobes,
+    sparkRate,
     armCount,
     armAngles,
     armLengths,
     armCurves,
     connectorMask,
-    bodyRadius: 0.75 + Math.random() * 0.45, // 0.75–1.2
-    mutation: {
-      twinCore: Math.random() < 0.12,
-      rings: Math.random() < 0.1,
-      cometTail: Math.random() < 0.1,
-      ghostMembrane: Math.random() < 0.1,
-    },
+    bodyRadius,
+    pattern,
+    species,
+    mutation,
   };
 }
 
@@ -682,6 +881,129 @@ function NeuralMembrane({
         style={{ filter: tier === 'compact' ? 'blur(1px)' : 'blur(1.5px)' }}
       />
     </>
+  );
+}
+
+/**
+ * MembranePattern — surface markings that vary by species.
+ * Spots (starfish ossicles), stripes (jellyfish ribs),
+ * rings (urchin defense bands), veins (squid chromatophores).
+ * Rendered as low-opacity SVG elements with a gentle shimmer.
+ */
+function MembranePattern({
+  type,
+  color,
+  accentColor,
+  radius,
+}: {
+  type: string;
+  color: string;
+  accentColor: string;
+  radius: number;
+}) {
+  const shimmerDur = useMemo(() => jitter(9, 3), []);
+  const cx = 28;
+  const cy = 28;
+
+  const data = useMemo(() => {
+    switch (type) {
+      case 'spots':
+        return {
+          circles: Array.from({ length: 6 + Math.floor(Math.random() * 4) }, () => {
+            const a = Math.random() * Math.PI * 2;
+            const d = 2 + Math.random() * radius * 0.7;
+            return { x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, r: 1.2 + Math.random() * 2 };
+          }),
+        };
+      case 'stripes': {
+        const count = 5 + Math.floor(Math.random() * 4);
+        return {
+          lines: Array.from({ length: count }, (_, i) => {
+            const a = (i / count) * Math.PI * 2 + Math.random() * 0.3;
+            const len = radius * (0.5 + Math.random() * 0.5);
+            return {
+              x1: cx + Math.cos(a) * 3,
+              y1: cy + Math.sin(a) * 3,
+              x2: cx + Math.cos(a) * len,
+              y2: cy + Math.sin(a) * len,
+            };
+          }),
+        };
+      }
+      case 'rings':
+        return {
+          rings: [0.35, 0.55, 0.75, 0.9]
+            .filter(() => Math.random() > 0.15)
+            .map((f) => radius * f),
+        };
+      case 'veins':
+        return {
+          paths: Array.from({ length: 4 + Math.floor(Math.random() * 3) }, () => {
+            const a = Math.random() * Math.PI * 2;
+            const len = radius * (0.5 + Math.random() * 0.5);
+            const ex = cx + Math.cos(a) * len;
+            const ey = cy + Math.sin(a) * len;
+            const ca = a + (Math.random() - 0.5) * 1;
+            const cl = len * (0.3 + Math.random() * 0.4);
+            const qx = cx + Math.cos(ca) * cl;
+            const qy = cy + Math.sin(ca) * cl;
+            return `M ${cx} ${cy} Q ${qx.toFixed(1)} ${qy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+          }),
+        };
+      default:
+        return null;
+    }
+  }, [type, radius]);
+
+  if (!data) return null;
+
+  const pc = type === 'spots' ? accentColor : color;
+
+  return (
+    <motion.g
+      animate={{ opacity: [0.5, 0.85, 0.5] }}
+      transition={{ duration: shimmerDur, repeat: Infinity, ease: BREATH_EASE }}
+    >
+      {data.circles?.map((s, i) => (
+        <circle key={`s${i}`} cx={s.x} cy={s.y} r={s.r} fill={pc} opacity={0.3} style={{ filter: 'blur(0.5px)' }} />
+      ))}
+      {data.lines?.map((l, i) => (
+        <line
+          key={`l${i}`}
+          x1={l.x1}
+          y1={l.y1}
+          x2={l.x2}
+          y2={l.y2}
+          stroke={pc}
+          strokeWidth={0.8}
+          opacity={0.25}
+          strokeLinecap="round"
+        />
+      ))}
+      {data.rings?.map((r, i) => (
+        <circle
+          key={`r${i}`}
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={pc}
+          strokeWidth={0.6}
+          opacity={0.2}
+        />
+      ))}
+      {data.paths?.map((d, i) => (
+        <path
+          key={`p${i}`}
+          d={d}
+          fill="none"
+          stroke={pc}
+          strokeWidth={0.6}
+          opacity={0.2}
+          strokeLinecap="round"
+        />
+      ))}
+    </motion.g>
   );
 }
 
@@ -1278,6 +1600,18 @@ export function NeuralOrganism({
             </g>
           )}
 
+          {/* Surface pattern — species-specific markings */}
+          {membraneOpacity > 0 && genome.pattern !== 'none' && (
+            <g style={{ opacity: membraneOpacity, transition: 'opacity 0.5s ease-out' }}>
+              <MembranePattern
+                type={genome.pattern}
+                color={agedPalette.primary}
+                accentColor={agedPalette.accent}
+                radius={18 * genome.bodyRadius}
+              />
+            </g>
+          )}
+
           {showHeartbeat && (
             <HeartbeatPulse primary={agedPalette.primary} accent={agedPalette.accent} />
           )}
@@ -1344,6 +1678,27 @@ export function NeuralOrganism({
             clusterSpread={genome.clusterSpread}
             growthOffset={go}
           />
+
+          {/* Twin core mutation — a second smaller nucleus orbits the primary */}
+          {genome.mutation.twinCore && growth > 0.5 && (
+            <motion.g
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+              style={{ transformOrigin: '28px 28px', opacity: ramp(growth, 0.5, 0.15) }}
+            >
+              <g transform="translate(7, 0)">
+                <DividingCells
+                  growth={growth}
+                  baseR={coreR * 0.55}
+                  color={agedPalette.accent}
+                  divisionRounds={Math.max(2, genome.divisionRounds - 1)}
+                  clusterAngle={genome.clusterAngle + Math.PI * 0.7}
+                  clusterSpread={genome.clusterSpread * 0.5}
+                  growthOffset={go + 0.1}
+                />
+              </g>
+            </motion.g>
+          )}
 
           {/* Subtle inner warmth when a spark is about to fire */}
           <AnimatePresence>
