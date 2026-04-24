@@ -1,0 +1,60 @@
+name: harness-knowledge-pipeline
+version: "1.0.0"
+description: 4-phase knowledge extraction, reconciliation, drift detection, and remediation with convergence loop
+stability: static
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-knowledge-pipeline
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: fix
+      description: Enable auto-remediation of safe findings (default detect-only)
+      required: false
+    - name: ci
+      description: Non-interactive mode, skip probably-safe fixes
+      required: false
+    - name: domain
+      description: Limit pipeline to specific knowledge domain
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-knowledge-pipeline
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: extract
+    description: Run code signal extractors, diagram parsers, and connector sync
+    required: true
+  - name: reconcile
+    description: Build snapshots and run structural drift detection
+    required: true
+  - name: detect
+    description: Partition findings by severity and safety classification
+    required: true
+  - name: remediate
+    description: Apply safe fixes, prompt for unsafe, convergence loop
+    required: false
+state:
+  persistent: false
+  files:
+    - .harness/knowledge/staged/pipeline-staged.jsonl
+    - .harness/knowledge/gaps.md
+depends_on: []

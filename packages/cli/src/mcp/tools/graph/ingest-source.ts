@@ -11,7 +11,7 @@ export const ingestSourceDefinition = {
       path: { type: 'string', description: 'Path to project root' },
       source: {
         type: 'string',
-        enum: ['code', 'knowledge', 'git', 'business-signals', 'all'],
+        enum: ['code', 'knowledge', 'git', 'business-signals', 'diagrams', 'all'],
         description: 'Type of source to ingest',
       },
     },
@@ -21,7 +21,7 @@ export const ingestSourceDefinition = {
 
 export async function handleIngestSource(input: {
   path: string;
-  source: 'code' | 'knowledge' | 'git' | 'business-signals' | 'all';
+  source: 'code' | 'knowledge' | 'git' | 'business-signals' | 'diagrams' | 'all';
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -66,6 +66,13 @@ export async function handleIngestSource(input: {
       const extractedDir = path.join(projectPath, '.harness', 'knowledge', 'extracted');
       const signalsResult = await createExtractionRunner().run(projectPath, store, extractedDir);
       results.push(signalsResult);
+    }
+
+    if (input.source === 'diagrams' || input.source === 'all') {
+      const { DiagramParser } = await import('@harness-engineering/graph');
+      const diagramParser = new DiagramParser(store);
+      const diagramResult = await diagramParser.ingest(projectPath);
+      results.push(diagramResult);
     }
 
     // Save the graph
