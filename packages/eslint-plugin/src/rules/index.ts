@@ -9,6 +9,7 @@ import noUnboundedArrayChains from './no-unbounded-array-chains';
 import requireBoundarySchema from './require-boundary-schema';
 import noUnixShellCommand from './no-unix-shell-command';
 import noHardcodedPathSeparator from './no-hardcoded-path-separator';
+import noProcessEnvInSpawn from './no-process-env-in-spawn';
 import requirePathNormalization from './require-path-normalization';
 
 export const rules = {
@@ -18,6 +19,7 @@ export const rules = {
   'no-hardcoded-path-separator': noHardcodedPathSeparator,
   'no-layer-violation': noLayerViolation,
   'no-nested-loops-in-critical': noNestedLoopsInCritical,
+  'no-process-env-in-spawn': noProcessEnvInSpawn,
   'no-sync-io-in-async': noSyncIoInAsync,
   'no-unbounded-array-chains': noUnboundedArrayChains,
   'no-unix-shell-command': noUnixShellCommand,
