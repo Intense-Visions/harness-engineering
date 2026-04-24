@@ -53,8 +53,12 @@ export function createKnowledgePipelineCommand(): Command {
         // Set up analysis provider for image analysis if requested
         if (opts.analyzeImages) {
           try {
-            const { AnthropicAnalysisProvider } = await import('@harness-engineering/intelligence');
-            pipelineOpts.analysisProvider = new AnthropicAnalysisProvider();
+            // Dynamic import — intelligence is an optional peer dependency
+            const intelligence = (await import(
+              '@harness-engineering/intelligence' as string
+            )) as Record<string, unknown>;
+            const ProviderClass = intelligence.AnthropicAnalysisProvider as new () => unknown;
+            pipelineOpts.analysisProvider = new ProviderClass();
           } catch {
             logger.error(
               'Image analysis requires @harness-engineering/intelligence with ANTHROPIC_API_KEY set.'
@@ -65,7 +69,9 @@ export function createKnowledgePipelineCommand(): Command {
 
         // Run pipeline
         const runner = new KnowledgePipelineRunner(store);
-        const result = await runner.run(pipelineOpts as Parameters<typeof runner.run>[0]);
+        const result = await runner.run(
+          pipelineOpts as unknown as Parameters<typeof runner.run>[0]
+        );
 
         // Output
         if (globalOpts.json) {
