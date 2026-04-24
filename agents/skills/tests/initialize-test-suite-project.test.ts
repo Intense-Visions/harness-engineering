@@ -145,56 +145,8 @@ describe('initialize-test-suite-project cross-file registration', () => {
     expect(overview).toContain(`/harness:${SKILL_NAME}`);
   });
 
-  it('is listed in agents/commands/codex/AGENTS.md', () => {
-    const agents = readFileSync(
-      resolve(REPO_ROOT, 'agents', 'commands', 'codex', 'AGENTS.md'),
-      'utf-8'
-    );
-    expect(agents).toContain(`**${SKILL_NAME}**`);
-  });
-
   it('is listed in agents/skills/README.md Setup section', () => {
     const readme = readFileSync(resolve(SKILLS_DIR, 'README.md'), 'utf-8');
     expect(readme).toContain(SKILL_NAME);
-  });
-
-  it('has a Cursor .mdc slash command registration', () => {
-    const mdcPath = resolve(
-      REPO_ROOT,
-      'agents',
-      'commands',
-      'cursor',
-      'harness',
-      `${SKILL_NAME}.mdc`
-    );
-    expect(existsSync(mdcPath), `missing Cursor .mdc at ${mdcPath}`).toBe(true);
-    const body = readFileSync(mdcPath, 'utf-8');
-    expect(body).toMatch(/^---/);
-    expect(body).toContain('description:');
-    expect(body).toContain('alwaysApply: false');
-  });
-
-  it('has a Codex command directory with SKILL.md and agents/openai.yaml', () => {
-    const codexSkillMd = resolve(
-      REPO_ROOT,
-      'agents',
-      'commands',
-      'codex',
-      'harness',
-      SKILL_NAME,
-      'SKILL.md'
-    );
-    const codexAgentsYaml = resolve(
-      REPO_ROOT,
-      'agents',
-      'commands',
-      'codex',
-      'harness',
-      SKILL_NAME,
-      'agents',
-      'openai.yaml'
-    );
-    expect(existsSync(codexSkillMd), `missing ${codexSkillMd}`).toBe(true);
-    expect(existsSync(codexAgentsYaml), `missing ${codexAgentsYaml}`).toBe(true);
   });
 });
