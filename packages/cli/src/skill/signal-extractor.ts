@@ -5,6 +5,7 @@
  */
 
 import type { ContentSignals } from './content-matcher-types.js';
+import { DOMAIN_KEYWORD_MAP } from './content-matcher-types.js';
 
 // ---------------------------------------------------------------------------
 // Stemming
@@ -128,168 +129,16 @@ export function detectStackFromDeps(
 // Domain inference
 // ---------------------------------------------------------------------------
 
-/** Domain marker patterns: [domain, keywords to detect in lowercase spec text]. */
-const DOMAIN_MARKERS: Array<[string, string[]]> = [
-  [
-    'design',
-    [
-      'layout',
-      'responsive',
-      'typography',
-      'color',
-      'theme',
-      'dark mode',
-      'ui',
-      'ux',
-      'component',
-      'palette',
-      'breakpoint',
-      'grid',
-      'elevation',
-      'shadow',
-      'motion',
-      'animation',
-    ],
-  ],
-  [
-    'auth',
-    [
-      'authentication',
-      'authorization',
-      'oauth',
-      'session',
-      'token',
-      'jwt',
-      'login',
-      'signup',
-      'password',
-      'credential',
-      'rbac',
-      'permission',
-      'identity',
-    ],
-  ],
-  [
-    'data',
-    [
-      'database',
-      'schema',
-      'migration',
-      'query',
-      'sql',
-      'nosql',
-      'orm',
-      'model',
-      'table',
-      'transaction',
-      'prisma',
-      'drizzle',
-    ],
-  ],
-  [
-    'security',
-    [
-      'security',
-      'vulnerability',
-      'xss',
-      'csrf',
-      'injection',
-      'sanitiz',
-      'encrypt',
-      'hash',
-      'owasp',
-      'cve',
-      'audit',
-    ],
-  ],
-  [
-    'a11y',
-    [
-      'accessibility',
-      'a11y',
-      'aria',
-      'screen reader',
-      'wcag',
-      'contrast',
-      'keyboard navigation',
-      'focus management',
-    ],
-  ],
-  [
-    'perf',
-    [
-      'performance',
-      'latency',
-      'throughput',
-      'cache',
-      'lazy load',
-      'bundle size',
-      'tree shaking',
-      'code splitting',
-      'lighthouse',
-    ],
-  ],
-  [
-    'testing',
-    [
-      'test',
-      'coverage',
-      'mock',
-      'stub',
-      'fixture',
-      'assertion',
-      'snapshot',
-      'e2e',
-      'integration test',
-      'unit test',
-    ],
-  ],
-  [
-    'api',
-    [
-      'api',
-      'endpoint',
-      'rest',
-      'graphql',
-      'openapi',
-      'swagger',
-      'route',
-      'middleware',
-      'webhook',
-      'grpc',
-    ],
-  ],
-  [
-    'infra',
-    [
-      'docker',
-      'kubernetes',
-      'ci/cd',
-      'deploy',
-      'terraform',
-      'aws',
-      'gcp',
-      'azure',
-      'cloud',
-      'container',
-      'helm',
-    ],
-  ],
-  [
-    'mobile',
-    ['mobile', 'ios', 'android', 'react native', 'flutter', 'app store', 'push notification'],
-  ],
-];
-
 /**
  * Infer feature domain categories from spec text.
+ * Uses DOMAIN_KEYWORD_MAP (shared with content-matcher) as single source of truth.
  * Requires at least 2 marker hits per domain to reduce noise.
  */
 export function inferDomain(specText: string): string[] {
   const lower = specText.toLowerCase();
   const domains: string[] = [];
 
-  for (const [domain, markers] of DOMAIN_MARKERS) {
+  for (const [domain, markers] of Object.entries(DOMAIN_KEYWORD_MAP)) {
     const hits = markers.filter((m) => lower.includes(m)).length;
     if (hits >= 2) {
       domains.push(domain);

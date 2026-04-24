@@ -10,7 +10,7 @@ import type {
   SkillMatch,
   SkillMatchTier,
 } from './content-matcher-types.js';
-import { TIER_THRESHOLDS, SCORING_WEIGHTS } from './content-matcher-types.js';
+import { TIER_THRESHOLDS, SCORING_WEIGHTS, DOMAIN_KEYWORD_MAP } from './content-matcher-types.js';
 import { simpleStem } from './signal-extractor.js';
 
 // ---------------------------------------------------------------------------
@@ -90,44 +90,10 @@ export function computeTermOverlap(skillDescription: string, specText: string): 
 export function computeDomainMatch(entry: SkillIndexEntry, featureDomains: string[]): number {
   if (featureDomains.length === 0 || entry.keywords.length === 0) return 0;
 
-  const domainKeywordMap: Record<string, string[]> = {
-    design: [
-      'design',
-      'layout',
-      'responsive',
-      'typography',
-      'color',
-      'theme',
-      'ui',
-      'ux',
-      'component',
-      'css',
-    ],
-    auth: [
-      'auth',
-      'authentication',
-      'authorization',
-      'oauth',
-      'session',
-      'token',
-      'jwt',
-      'login',
-      'credential',
-    ],
-    data: ['database', 'data', 'sql', 'query', 'migration', 'schema', 'orm', 'prisma', 'drizzle'],
-    security: ['security', 'vulnerability', 'xss', 'csrf', 'injection', 'owasp', 'encrypt'],
-    a11y: ['accessibility', 'a11y', 'aria', 'wcag', 'contrast', 'screen-reader'],
-    perf: ['performance', 'perf', 'latency', 'cache', 'optimization', 'bundle', 'lighthouse'],
-    testing: ['test', 'testing', 'coverage', 'mock', 'e2e', 'tdd', 'unit-test'],
-    api: ['api', 'rest', 'graphql', 'endpoint', 'route', 'middleware', 'webhook'],
-    infra: ['docker', 'kubernetes', 'ci', 'cd', 'deploy', 'terraform', 'cloud', 'container'],
-    mobile: ['mobile', 'ios', 'android', 'react-native', 'flutter', 'app'],
-  };
-
   const skillKeywordsLower = entry.keywords.map((k) => k.toLowerCase());
 
   for (const domain of featureDomains) {
-    const domainKeywords = domainKeywordMap[domain];
+    const domainKeywords = DOMAIN_KEYWORD_MAP[domain];
     if (!domainKeywords) continue;
     const hasMatch = skillKeywordsLower.some((kw) =>
       domainKeywords.some((dk) => kw.includes(dk) || dk.includes(kw))
