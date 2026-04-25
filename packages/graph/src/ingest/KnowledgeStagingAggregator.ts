@@ -8,7 +8,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { NodeType } from '../types.js';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { GraphStore } from '../store/GraphStore.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -52,6 +51,17 @@ export interface AggregateResult {
   readonly staged: number;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const BUSINESS_NODE_TYPES: readonly NodeType[] = [
+  'business_concept',
+  'business_rule',
+  'business_process',
+  'business_term',
+  'business_metric',
+  'business_fact',
+];
+
 // ─── Implementation ─────────────────────────────────────────────────────────
 
 export class KnowledgeStagingAggregator {
@@ -89,8 +99,19 @@ export class KnowledgeStagingAggregator {
     return { staged: deduplicated.length };
   }
 
-  async generateGapReport(knowledgeDir: string): Promise<GapReport> {
-    const domains: DomainCoverage[] = [];
+  private async extractDocName(filePath: string): Promise<string> {
+    const raw = await fs.readFile(filePath, 'utf-8');
+    // Skip frontmatter if present
+    const fmMatch = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+    const body = fmMatch ? fmMatch[1]! : raw;
+    const titleMatch = body.match(/^#\s+(.+)$/m);
+    return titleMatch ? titleMatch[1]!.trim() : path.basename(filePath, '.md');
+  }
+
+  async generateGapReport(knowledgeDir: string, store?: GraphStore): Promise<GapReport> {
+    // Step 1: Collect documented entries per domain (existing logic)
+    const domainDocNames = new Map<string, string[]>(); // domain -> normalized names
+    const domainEntryCounts = new Map<string, number>();
     let totalEntries = 0;
 
     try {
@@ -103,15 +124,86 @@ export class KnowledgeStagingAggregator {
         const mdFiles = files.filter((f) => f.endsWith('.md'));
         const entryCount = mdFiles.length;
         totalEntries += entryCount;
-        domains.push({ domain: dir.name, entryCount });
+        domainEntryCounts.set(dir.name, entryCount);
+
+        // Step 2: Extract documented names for comparison
+        if (store) {
+          const names: string[] = [];
+          for (const file of mdFiles) {
+            const name = await this.extractDocName(path.join(domainPath, file));
+            names.push(name.toLowerCase().trim());
+          }
+          domainDocNames.set(dir.name, names);
+        }
       }
     } catch {
       // Knowledge directory doesn't exist — return empty report
     }
 
+    // Step 3: If no store, return backward-compatible result
+    if (!store) {
+      const domains: DomainCoverage[] = [];
+      for (const [domain, entryCount] of domainEntryCounts) {
+        domains.push({ domain, entryCount, extractedCount: 0, gapCount: 0, gapEntries: [] });
+      }
+      return {
+        domains,
+        totalEntries,
+        totalExtracted: 0,
+        totalGaps: 0,
+        generatedAt: new Date().toISOString(),
+      };
+    }
+
+    // Step 4: Query store for all business nodes, group by domain
+    const extractedByDomain = new Map<string, import('../types.js').GraphNode[]>();
+    for (const nodeType of BUSINESS_NODE_TYPES) {
+      const nodes = store.findNodes({ type: nodeType });
+      for (const node of nodes) {
+        const domain = (node.metadata?.domain as string) ?? 'unknown';
+        const list = extractedByDomain.get(domain) ?? [];
+        list.push(node);
+        extractedByDomain.set(domain, list);
+      }
+    }
+
+    // Step 5: Build domain coverage with gap analysis
+    const allDomains = new Set([...domainEntryCounts.keys(), ...extractedByDomain.keys()]);
+    const domains: DomainCoverage[] = [];
+    let totalExtracted = 0;
+    let totalGaps = 0;
+
+    for (const domain of allDomains) {
+      const entryCount = domainEntryCounts.get(domain) ?? 0;
+      const extractedNodes = extractedByDomain.get(domain) ?? [];
+      const extractedCount = extractedNodes.length;
+      totalExtracted += extractedCount;
+
+      const docNames = domainDocNames.get(domain) ?? [];
+      const gapEntries: GapEntry[] = [];
+
+      for (const node of extractedNodes) {
+        const normalizedName = node.name.toLowerCase().trim();
+        if (!docNames.includes(normalizedName)) {
+          gapEntries.push({
+            nodeId: node.id,
+            name: node.name,
+            nodeType: node.type,
+            source: (node.metadata?.source as string) ?? 'unknown',
+            hasContent: Boolean(node.content && node.content.trim().length >= 10),
+          });
+        }
+      }
+
+      totalGaps += gapEntries.length;
+      domains.push({ domain, entryCount, extractedCount, gapCount: gapEntries.length, gapEntries });
+    }
+
     return {
       domains,
       totalEntries,
+      totalExtracted,
+      totalGaps,
       generatedAt: new Date().toISOString(),
     };
   }
