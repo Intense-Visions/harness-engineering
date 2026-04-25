@@ -98,19 +98,43 @@ function getOrCreateInstallId(cwd) {
   return id;
 }
 
+// --- Cursor ---
+
+const TELEMETRY_CURSOR_FILE = '.telemetry-cursor';
+
+function readCursor(cwd) {
+  try {
+    const data = JSON.parse(readFileSync(join(cwd, '.harness', 'metrics', TELEMETRY_CURSOR_FILE), 'utf-8'));
+    return typeof data.offset === 'number' ? data.offset : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeCursor(cwd, offset) {
+  const metricsDir = join(cwd, '.harness', 'metrics');
+  mkdirSync(metricsDir, { recursive: true });
+  writeFileSync(join(metricsDir, TELEMETRY_CURSOR_FILE), JSON.stringify({ offset }) + '\n');
+}
+
 // --- Collector ---
 
-function readAdoptionRecords(cwd) {
+function readNewAdoptionRecords(cwd) {
   const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
   let raw;
   try {
     raw = readFileSync(adoptionFile, 'utf-8');
   } catch {
-    return [];
+    return { records: [], newOffset: 0 };
   }
 
+  const cursor = readCursor(cwd);
+  // If file shrank (was manually reset), reprocess from start
+  const effectiveCursor = cursor > raw.length ? 0 : cursor;
+  const newContent = raw.slice(effectiveCursor);
+
   const records = [];
-  for (const line of raw.split('\n')) {
+  for (const line of newContent.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
@@ -128,11 +152,10 @@ function readAdoptionRecords(cwd) {
       // Skip malformed lines
     }
   }
-  return records;
+  return { records, newOffset: raw.length };
 }
 
-function collectEvents(cwd, consent) {
-  const records = readAdoptionRecords(cwd);
+function collectEvents(cwd, records, consent) {
   if (records.length === 0) return [];
 
   const { installId, identity } = consent;
@@ -242,21 +265,17 @@ async function main() {
     // Show first-run notice (before sending, so user sees it even if send fails)
     showFirstRunNotice(cwd);
 
-    const events = collectEvents(cwd, consent);
+    const { records, newOffset } = readNewAdoptionRecords(cwd);
+    const events = collectEvents(cwd, records, consent);
     if (events.length === 0) {
-      process.stderr.write('[telemetry-reporter] No adoption records to report\n');
+      process.stderr.write('[telemetry-reporter] No new adoption records to report\n');
       process.exit(0);
     }
 
     await sendEvents(events);
 
-    // Truncate adoption.jsonl after successful send to prevent re-sending
-    const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
-    try {
-      writeFileSync(adoptionFile, '', 'utf-8');
-    } catch {
-      // Non-fatal — records may be re-sent next session
-    }
+    // Advance cursor past sent records (adoption.jsonl is preserved for CLI reads)
+    writeCursor(cwd, newOffset);
 
     process.stderr.write(`[telemetry-reporter] Sent ${events.length} telemetry event(s)\n`);
     process.exit(0);

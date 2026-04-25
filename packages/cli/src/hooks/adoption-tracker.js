@@ -4,9 +4,11 @@
 // appends SkillInvocationRecord entries to .harness/metrics/adoption.jsonl.
 // Exit codes: 0 = allow (always, log-only hook)
 
-import { readFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
+
+const ADOPTION_CURSOR_FILE = '.adoption-cursor';
 
 /** Read and parse a JSON file, returning null on any error. */
 function readJsonSafe(filePath) {
@@ -25,17 +27,27 @@ function isAdoptionEnabled(cwd) {
   return true;
 }
 
-/** Parse events.jsonl into an array of event objects. Skips malformed lines. */
-function parseEventsFile(eventsPath) {
-  let raw;
+/** Read the cursor offset for events.jsonl processing. */
+function readEventsCursor(cwd) {
   try {
-    raw = readFileSync(eventsPath, 'utf-8');
+    const data = JSON.parse(readFileSync(join(cwd, '.harness', 'metrics', ADOPTION_CURSOR_FILE), 'utf-8'));
+    return typeof data.offset === 'number' ? data.offset : 0;
   } catch {
-    return [];
+    return 0;
   }
+}
 
+/** Save the cursor offset after processing events. */
+function writeEventsCursor(cwd, offset) {
+  const metricsDir = join(cwd, '.harness', 'metrics');
+  mkdirSync(metricsDir, { recursive: true });
+  writeFileSync(join(metricsDir, ADOPTION_CURSOR_FILE), JSON.stringify({ offset }) + '\n');
+}
+
+/** Parse events from a content string. Skips malformed lines. */
+function parseEventsContent(content) {
   const events = [];
-  const lines = raw.split('\n');
+  const lines = content.split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -135,11 +147,24 @@ function main() {
       process.exit(0);
     }
 
-    const allEvents = parseEventsFile(eventsPath);
+    const fullContent = readFileSync(eventsPath, 'utf-8');
+    const cursor = readEventsCursor(cwd);
+    // If file shrank (was manually reset), reprocess from start
+    const effectiveCursor = cursor > fullContent.length ? 0 : cursor;
+    const newContent = fullContent.slice(effectiveCursor);
+
+    if (!newContent.trim()) {
+      process.stderr.write('[adoption-tracker] No new events since last run — skipping\n');
+      process.exit(0);
+    }
+
+    const allEvents = parseEventsContent(newContent);
     // Filter to relevant event types
     const relevantEvents = allEvents.filter((e) => RELEVANT_TYPES.has(e.type));
     if (relevantEvents.length === 0) {
       process.stderr.write('[adoption-tracker] No relevant skill events — skipping\n');
+      // Still advance cursor past non-relevant events
+      writeEventsCursor(cwd, fullContent.length);
       process.exit(0);
     }
 
@@ -175,6 +200,9 @@ function main() {
       appendFileSync(adoptionFile, JSON.stringify(record) + '\n');
       written++;
     }
+
+    // Advance cursor past processed events
+    writeEventsCursor(cwd, fullContent.length);
 
     process.stderr.write(
       `[adoption-tracker] Wrote ${written} adoption record(s) for session ${sessionId}\n`

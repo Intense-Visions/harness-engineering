@@ -274,6 +274,66 @@ describe('adoption-tracker', { timeout: 30000 }, () => {
     expect(records[1].session).toBe('session-002');
   });
 
+  it('does not re-process events on second run (cursor dedup)', () => {
+    writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
+    runHook(JSON.stringify({ session_id: 'session-001' }), tmpDir);
+    const afterFirst = readAdoptionRecords(tmpDir);
+    expect(afterFirst).toHaveLength(1);
+
+    // Second run with the SAME events.jsonl — should produce no new records
+    const result = runHook(JSON.stringify({ session_id: 'session-002' }), tmpDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('No new events since last run');
+
+    const afterSecond = readAdoptionRecords(tmpDir);
+    expect(afterSecond).toHaveLength(1); // Still 1, not 2
+  });
+
+  it('processes only new events appended after cursor', () => {
+    writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
+    runHook(JSON.stringify({ session_id: 'session-001' }), tmpDir);
+    expect(readAdoptionRecords(tmpDir)).toHaveLength(1);
+
+    // Append a new event to events.jsonl
+    const eventsPath = join(tmpDir, '.harness', 'events.jsonl');
+    const newEvent = JSON.stringify({
+      timestamp: '2026-04-09T14:00:00.000Z',
+      skill: 'harness-execution',
+      type: 'phase_transition',
+      summary: 'Starting EXECUTE',
+      data: { from: 'init', to: 'EXECUTE' },
+    });
+    const { appendFileSync } = require('node:fs');
+    appendFileSync(eventsPath, newEvent + '\n');
+
+    runHook(JSON.stringify({ session_id: 'session-002' }), tmpDir);
+    const records = readAdoptionRecords(tmpDir) as Array<Record<string, unknown>>;
+    expect(records).toHaveLength(2);
+    expect(records[0].skill).toBe('harness-brainstorming');
+    expect(records[1].skill).toBe('harness-execution');
+  });
+
+  it('resets cursor when events.jsonl is rewritten shorter', () => {
+    writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
+    runHook(JSON.stringify({ session_id: 'session-001' }), tmpDir);
+    expect(readAdoptionRecords(tmpDir)).toHaveLength(1);
+
+    // Rewrite events.jsonl with different (shorter) content
+    writeEventsJsonl(tmpDir, [
+      {
+        timestamp: '2026-04-10T10:00:00.000Z',
+        skill: 'harness-tdd',
+        type: 'phase_transition',
+        summary: 'Starting RED',
+        data: { from: 'init', to: 'RED' },
+      },
+    ]);
+    runHook(JSON.stringify({ session_id: 'session-002' }), tmpDir);
+    const records = readAdoptionRecords(tmpDir) as Array<Record<string, unknown>>;
+    expect(records).toHaveLength(2);
+    expect(records[1].skill).toBe('harness-tdd');
+  });
+
   it('ignores irrelevant event types (decision, checkpoint)', () => {
     const events = [
       {
