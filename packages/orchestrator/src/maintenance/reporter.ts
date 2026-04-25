@@ -1,7 +1,20 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { z } from 'zod';
 import type { RunResult } from './types';
 import type { MaintenanceLogger } from './scheduler';
+
+const RunResultSchema = z.object({
+  taskId: z.string(),
+  startedAt: z.string(),
+  completedAt: z.string(),
+  status: z.enum(['success', 'failure', 'skipped', 'no-issues']),
+  findings: z.number(),
+  fixed: z.number(),
+  prUrl: z.string().nullable(),
+  prUpdated: z.boolean(),
+  error: z.string().optional(),
+});
 
 /**
  * Options for the MaintenanceReporter.
@@ -45,10 +58,9 @@ export class MaintenanceReporter {
       await fs.promises.mkdir(this.persistDir, { recursive: true });
       const filePath = path.join(this.persistDir, 'history.json');
       const data = await fs.promises.readFile(filePath, 'utf-8');
-      // harness-ignore SEC-DES-001: reading self-written history.json from disk — trusted internal source
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
-        this.history = parsed.slice(0, MAX_HISTORY);
+      const parsed = z.array(RunResultSchema).safeParse(JSON.parse(data));
+      if (parsed.success) {
+        this.history = (parsed.data as RunResult[]).slice(0, MAX_HISTORY);
       }
     } catch (err: unknown) {
       // File not found is expected on first run; other errors are logged

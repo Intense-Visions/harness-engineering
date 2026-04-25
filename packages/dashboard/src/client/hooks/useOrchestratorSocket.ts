@@ -106,8 +106,9 @@ function createSocket(
   ws.onmessage = (event: MessageEvent<string>) => {
     if (!mounted.current) return;
     try {
-      // harness-ignore SEC-DES-001: parsing own orchestrator server WebSocket messages — trusted internal source, wrapped in try-catch
-      const msg = JSON.parse(event.data) as WebSocketMessage;
+      const raw: unknown = JSON.parse(event.data);
+      if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
+      const msg = raw as WebSocketMessage;
       handleMessage(msg, setSnapshot, setInteractions, setAgentEvents);
     } catch {
       // ignore malformed messages

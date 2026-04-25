@@ -48,8 +48,9 @@ export async function streamChat(
           return;
         }
         try {
-          // harness-ignore SEC-DES-001: parsing own orchestrator server SSE events — trusted internal source, wrapped in try-catch
-          const event = JSON.parse(payload) as ChatSSEEvent;
+          const raw: unknown = JSON.parse(payload);
+          if (typeof raw !== 'object' || raw === null || !('type' in raw)) continue;
+          const event = raw as ChatSSEEvent;
           if (event.type === 'session') {
             callbacks.onSession(event.sessionId);
           } else if (event.type === 'error') {

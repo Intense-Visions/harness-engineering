@@ -115,8 +115,9 @@ async function streamAnalyze(
           return;
         }
         try {
-          // harness-ignore SEC-DES-001: parsing own orchestrator server SSE events — trusted internal source, wrapped in try-catch
-          const event = JSON.parse(payload) as AnalyzeSSEEvent;
+          const raw: unknown = JSON.parse(payload);
+          if (typeof raw !== 'object' || raw === null || !('type' in raw)) continue;
+          const event = raw as AnalyzeSSEEvent;
           switch (event.type) {
             case 'status':
               callbacks.onStatus(event.text);
