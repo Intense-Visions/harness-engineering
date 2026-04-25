@@ -1,5 +1,13 @@
 # @harness-engineering/cli
 
+## 1.26.1
+
+### Patch Changes
+
+- Updated dependencies [e3dc2e7]
+  - @harness-engineering/orchestrator@0.2.14
+  - @harness-engineering/dashboard@0.2.1
+
 ## 1.26.0
 
 ### Minor Changes
