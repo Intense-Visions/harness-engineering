@@ -95,10 +95,16 @@ export class KnowledgePipelineRunner {
   async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult> {
     const remediations: string[] = [];
 
-    // Phases 1-3: Extract, Reconcile, Detect
+    // Phase 1: Capture pre-extraction snapshot, then extract
+    const preSnapshot = this.buildSnapshot(options.domain);
     const extraction = await this.extract(options);
-    let driftResult = this.runReconciliation(options);
+
+    // Phase 2: Reconcile pre vs post extraction
+    const postSnapshot = this.buildSnapshot(options.domain);
+    let driftResult = this.reconcile(preSnapshot, postSnapshot);
     const contradictions = new ContradictionDetector().detect(this.store);
+
+    // Phase 3: Detect gaps
     let gapReport = await this.detect(options);
     const coverage = new CoverageScorer().score(this.store);
 
@@ -117,9 +123,10 @@ export class KnowledgePipelineRunner {
       materialization = loopResult.materialization;
     }
 
-    // Re-read final state after remediation loop may have mutated driftResult/gapReport
+    // Re-read final state after remediation loop
     if (options.fix && iterations > 1) {
-      driftResult = this.runReconciliation(options);
+      const finalSnapshot = this.buildSnapshot(options.domain);
+      driftResult = this.reconcile(preSnapshot, finalSnapshot);
       gapReport = await this.detect(options);
     }
 
@@ -137,13 +144,6 @@ export class KnowledgePipelineRunner {
     );
   }
 
-  /** Run phases 1-2 (extract snapshot, reconcile) and return drift result. */
-  private runReconciliation(options: KnowledgePipelineOptions): DriftResult {
-    const preSnapshot = this.buildSnapshot(options.domain);
-    const postSnapshot = this.buildSnapshot(options.domain);
-    return this.reconcile(preSnapshot, postSnapshot);
-  }
-
   /** Run the remediation convergence loop; returns iteration count and accumulated materialization. */
   private async runRemediationLoop(
     options: KnowledgePipelineOptions,
@@ -155,7 +155,7 @@ export class KnowledgePipelineRunner {
     let iterations = 1;
     let currentDrift = driftResult;
     let currentGapReport = gapReport;
-    let previousFindingCount = currentDrift.findings.length;
+    let previousIssueCount = currentDrift.findings.length + currentGapReport.totalGaps;
     let accumulatedMaterialization: MaterializeResult | undefined;
 
     while (iterations < maxIterations) {
@@ -175,13 +175,17 @@ export class KnowledgePipelineRunner {
         }
       }
 
+      // Re-run extraction and detection with proper pre/post snapshot separation
+      const preSnapshot = this.buildSnapshot(options.domain);
       await this.extract(options);
-      currentDrift = this.runReconciliation(options);
+      const postSnapshot = this.buildSnapshot(options.domain);
+      currentDrift = this.reconcile(preSnapshot, postSnapshot);
       currentGapReport = await this.detect(options);
 
       iterations++;
-      if (currentDrift.findings.length >= previousFindingCount) break;
-      previousFindingCount = currentDrift.findings.length;
+      const currentIssueCount = currentDrift.findings.length + currentGapReport.totalGaps;
+      if (currentIssueCount >= previousIssueCount) break;
+      previousIssueCount = currentIssueCount;
     }
 
     return {

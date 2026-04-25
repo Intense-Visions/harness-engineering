@@ -155,7 +155,7 @@ export class KnowledgeStagingAggregator {
       };
     }
 
-    // Step 4: Query store for all business nodes, group by domain
+    // Step 4: Query store for all business nodes, group by domain, deduplicate by name
     const extractedByDomain = new Map<string, import('../types.js').GraphNode[]>();
     for (const nodeType of BUSINESS_NODE_TYPES) {
       const nodes = store.findNodes({ type: nodeType });
@@ -165,6 +165,20 @@ export class KnowledgeStagingAggregator {
         list.push(node);
         extractedByDomain.set(domain, list);
       }
+    }
+
+    // Deduplicate nodes with the same normalized name within each domain.
+    // After materialization + re-ingestion, both extracted:* and bk:* nodes
+    // can exist for the same concept. Keep the first occurrence per name.
+    for (const [domain, nodes] of extractedByDomain) {
+      const seen = new Set<string>();
+      const deduped = nodes.filter((n) => {
+        const key = n.name.toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      extractedByDomain.set(domain, deduped);
     }
 
     // Step 5: Build domain coverage with gap analysis

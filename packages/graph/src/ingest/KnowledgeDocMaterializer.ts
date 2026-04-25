@@ -63,6 +63,7 @@ export class KnowledgeDocMaterializer {
     const maxDocs = options.maxDocs ?? DEFAULT_MAX_DOCS;
     const created: MaterializedDoc[] = [];
     const skipped: SkippedEntry[] = [];
+    const createdNames = new Set<string>(); // track names created in this run
 
     for (const entry of gapEntries) {
       // 1. Skip if no content flag
@@ -91,14 +92,21 @@ export class KnowledgeDocMaterializer {
         continue;
       }
 
-      // 5. Dry run
+      // 5. Check if already documented (defense-in-depth for unfiltered callers)
+      const domainDir = path.join(options.projectDir, 'docs', 'knowledge', domain);
+      const nameKey = `${domain}:${entry.name.toLowerCase().trim()}`;
+      if (!createdNames.has(nameKey) && (await this.hasExistingDoc(domainDir, entry.name))) {
+        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'already_documented' });
+        continue;
+      }
+
+      // 6. Dry run
       if (options.dryRun) {
         skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'dry_run' });
         continue;
       }
 
-      // 6. Generate filename, resolve collisions, write
-      const domainDir = path.join(options.projectDir, 'docs', 'knowledge', domain);
+      // 7. Generate filename, resolve collisions, write
       await fs.mkdir(domainDir, { recursive: true });
 
       const basename = this.generateFilename(entry.name);
@@ -108,6 +116,7 @@ export class KnowledgeDocMaterializer {
 
       await fs.writeFile(path.join(options.projectDir, filePath), content, 'utf-8');
 
+      createdNames.add(nameKey);
       created.push({ filePath, nodeId: entry.nodeId, domain, name: entry.name });
     }
 
@@ -186,6 +195,27 @@ export class KnowledgeDocMaterializer {
     lines.push('---', '', `# ${node.name}`, '', node.content ?? '', '');
 
     return lines.join('\n');
+  }
+
+  /** Check if a doc with a matching title already exists in the domain directory. */
+  private async hasExistingDoc(domainDir: string, name: string): Promise<boolean> {
+    const normalizedName = name.toLowerCase().trim();
+    try {
+      const files = await fs.readdir(domainDir);
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+        const raw = await fs.readFile(path.join(domainDir, file), 'utf-8');
+        const fmMatch = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+        const body = fmMatch ? fmMatch[1]! : raw;
+        const titleMatch = body.match(/^#\s+(.+)$/m);
+        if (titleMatch && titleMatch[1]!.trim().toLowerCase() === normalizedName) {
+          return true;
+        }
+      }
+    } catch {
+      // Directory doesn't exist yet — no existing doc
+    }
+    return false;
   }
 
   mapNodeType(node: GraphNode): NodeType {
