@@ -90,6 +90,13 @@ export type {
   DomainCoverage,
   AggregateResult,
 } from './ingest/KnowledgeStagingAggregator.js';
+export { KnowledgeDocMaterializer } from './ingest/KnowledgeDocMaterializer.js';
+export type {
+  MaterializeOptions,
+  MaterializeResult,
+  MaterializedDoc,
+  SkippedEntry,
+} from './ingest/KnowledgeDocMaterializer.js';
 
 // Connectors
 export type {
