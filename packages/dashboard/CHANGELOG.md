@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.2.1
+
+### Patch Changes
+
+- e3dc2e7: Add runtime validation for JSON.parse calls flagged by security scan
+  - orchestrator: validate persisted maintenance history with Zod schema instead of bare Array.isArray check
+  - dashboard: add structural type guards (object + discriminator check) before casting parsed WebSocket/SSE messages
+
 ## 0.2.0
 
 ### Minor Changes
