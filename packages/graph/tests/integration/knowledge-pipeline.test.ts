@@ -134,6 +134,221 @@ describe('Knowledge Pipeline (integration)', () => {
     }
   });
 
+  describe('differential gap report', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'diff-gap-'));
+    });
+
+    afterEach(async () => {
+      try {
+        await fs.rm(tmpDir, { recursive: true });
+      } catch {
+        // best-effort cleanup
+      }
+    });
+
+    it('produces differential report when store is provided', async () => {
+      // Set up docs/knowledge/ with one documented entry
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'payments'), { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'payments', 'refund-rules.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n# Refund Rules\nRefund within 30 days'
+      );
+
+      // Set up graph store with 3 nodes in payments domain (one matches doc)
+      const gapStore = new GraphStore();
+      gapStore.addNode({
+        id: 'extracted:payments:refund-rules',
+        type: 'business_rule',
+        name: 'Refund Rules',
+        metadata: { domain: 'payments', source: 'extractor' },
+        content: 'Refund within 30 days for all products',
+      });
+      gapStore.addNode({
+        id: 'extracted:payments:chargeback-policy',
+        type: 'business_rule',
+        name: 'Chargeback Policy',
+        metadata: { domain: 'payments', source: 'extractor' },
+        content: 'Chargebacks are handled within 14 business days',
+      });
+      gapStore.addNode({
+        id: 'extracted:payments:payment-sla',
+        type: 'business_process',
+        name: 'Payment SLA',
+        metadata: { domain: 'payments', source: 'diagram' },
+        content: 'All payments settle within 24 hours',
+      });
+
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const report = await aggregator.generateGapReport(knowledgeDir, gapStore);
+
+      expect(report.totalEntries).toBe(1);
+      expect(report.totalExtracted).toBe(3);
+      expect(report.totalGaps).toBe(2);
+
+      const payments = report.domains.find((d) => d.domain === 'payments')!;
+      expect(payments.entryCount).toBe(1);
+      expect(payments.extractedCount).toBe(3);
+      expect(payments.gapCount).toBe(2);
+      expect(payments.gapEntries).toHaveLength(2);
+
+      const gapNames = payments.gapEntries.map((e) => e.name).sort();
+      expect(gapNames).toEqual(['Chargeback Policy', 'Payment SLA']);
+    });
+
+    it('returns backward-compatible result when store is not provided', async () => {
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'auth'), { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'auth', 'session-policy.md'),
+        '---\ntype: business_rule\ndomain: auth\n---\n# Session Policy\n24h session timeout'
+      );
+
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const report = await aggregator.generateGapReport(knowledgeDir);
+
+      expect(report.totalEntries).toBe(1);
+      expect(report.totalExtracted).toBe(0);
+      expect(report.totalGaps).toBe(0);
+
+      const auth = report.domains.find((d) => d.domain === 'auth')!;
+      expect(auth.entryCount).toBe(1);
+      expect(auth.extractedCount).toBe(0);
+      expect(auth.gapCount).toBe(0);
+      expect(auth.gapEntries).toHaveLength(0);
+    });
+
+    it('gap entries include correct details', async () => {
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'billing'), { recursive: true });
+
+      // No docs — all extracted nodes are gaps
+      const gapStore = new GraphStore();
+      gapStore.addNode({
+        id: 'extracted:billing:invoice-gen',
+        type: 'business_process',
+        name: 'Invoice Generation',
+        metadata: { domain: 'billing', source: 'extractor' },
+        content: 'Generate invoices on the 1st of each month for all active subscriptions',
+      });
+      gapStore.addNode({
+        id: 'extracted:billing:thin-finding',
+        type: 'business_fact',
+        name: 'Tax Rate',
+        metadata: { domain: 'billing', source: 'linker' },
+        content: 'short',
+      });
+
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const report = await aggregator.generateGapReport(knowledgeDir, gapStore);
+
+      expect(report.totalGaps).toBe(2);
+      const billing = report.domains.find((d) => d.domain === 'billing')!;
+      expect(billing.entryCount).toBe(0);
+      expect(billing.extractedCount).toBe(2);
+
+      const invoiceGap = billing.gapEntries.find((e) => e.name === 'Invoice Generation')!;
+      expect(invoiceGap.nodeId).toBe('extracted:billing:invoice-gen');
+      expect(invoiceGap.nodeType).toBe('business_process');
+      expect(invoiceGap.source).toBe('extractor');
+      expect(invoiceGap.hasContent).toBe(true);
+
+      const thinGap = billing.gapEntries.find((e) => e.name === 'Tax Rate')!;
+      expect(thinGap.hasContent).toBe(false); // 'short' is < 10 chars
+      expect(thinGap.source).toBe('linker');
+    });
+
+    it('writeGapReport renders differential table when extracted data present', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+
+      const report: import('../../src/ingest/KnowledgeStagingAggregator.js').GapReport = {
+        domains: [
+          {
+            domain: 'payments',
+            entryCount: 3,
+            extractedCount: 15,
+            gapCount: 12,
+            gapEntries: [],
+          },
+        ],
+        totalEntries: 3,
+        totalExtracted: 15,
+        totalGaps: 12,
+        generatedAt: '2026-04-25T00:00:00.000Z',
+      };
+
+      await aggregator.writeGapReport(report);
+      const content = await fs.readFile(
+        path.join(tmpDir, '.harness', 'knowledge', 'gaps.md'),
+        'utf-8'
+      );
+
+      expect(content).toContain('| Domain | Documented | Extracted | Gaps |');
+      expect(content).toContain('| payments | 3 | 15 | 12 |');
+      expect(content).toContain('**Total Gaps:** 12');
+      expect(content).not.toContain('| Domain | Entries |');
+    });
+
+    it('writeGapReport renders legacy table when no extracted data', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+
+      const report: import('../../src/ingest/KnowledgeStagingAggregator.js').GapReport = {
+        domains: [
+          {
+            domain: 'auth',
+            entryCount: 2,
+            extractedCount: 0,
+            gapCount: 0,
+            gapEntries: [],
+          },
+        ],
+        totalEntries: 2,
+        totalExtracted: 0,
+        totalGaps: 0,
+        generatedAt: '2026-04-25T00:00:00.000Z',
+      };
+
+      await aggregator.writeGapReport(report);
+      const content = await fs.readFile(
+        path.join(tmpDir, '.harness', 'knowledge', 'gaps.md'),
+        'utf-8'
+      );
+
+      expect(content).toContain('| Domain | Entries |');
+      expect(content).toContain('| auth | 2 |');
+      expect(content).toContain('Total Entries: 2');
+      expect(content).not.toContain('Extracted');
+    });
+
+    it('name matching is case-insensitive', async () => {
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'auth'), { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'auth', 'session-policy.md'),
+        '---\ntype: business_rule\ndomain: auth\n---\n# Session Policy\n24h session timeout'
+      );
+
+      const gapStore = new GraphStore();
+      gapStore.addNode({
+        id: 'extracted:auth:session-policy',
+        type: 'business_rule',
+        name: 'session policy', // lowercase — should still match
+        metadata: { domain: 'auth', source: 'extractor' },
+        content: '24h session timeout policy for all users',
+      });
+
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const report = await aggregator.generateGapReport(knowledgeDir, gapStore);
+
+      expect(report.totalGaps).toBe(0);
+      const auth = report.domains.find((d) => d.domain === 'auth')!;
+      expect(auth.gapEntries).toHaveLength(0);
+    });
+  });
+
   it('convergence: finding count stable when no remediation applied', () => {
     const detector = new StructuralDriftDetector();
     const current: KnowledgeSnapshot = {
