@@ -63,6 +63,8 @@ When no arguments are provided (standalone invocation), discover plan from `docs
    - Referenced files exist?
    - Test suite passes? Run `harness validate` for clean baseline.
 
+5b. **Knowledge health check.** If `docs/knowledge/` exists and the knowledge graph is available, run the knowledge pipeline in detect-only mode for domains touched by the current plan. If contradictions exist (severity: critical), treat as a blocker — knowledge must be reconciled before implementation. If gaps exist, surface as a warning but do not block execution.
+
 6. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ### Graph-Enhanced Context (when available)
@@ -237,6 +239,8 @@ All session-scoped files use `{sessionDir}/` when session is known, otherwise `.
    ```
 
 **Graph Refresh:** If `.harness/graph/` exists, run `harness scan [path]` after code changes. Skipping causes stale graph query results.
+
+1b. **Knowledge reconciliation.** After code changes committed and graph refreshed, run the knowledge pipeline in extract-only mode to stage any new business signals discovered in the code (validation rules, API contracts, test descriptions) for future materialization. This keeps the knowledge graph current with what was actually implemented. Skip if no `docs/knowledge/` directory exists.
 
 2. **Append tagged learnings** to `learnings.md`. Tag every entry:
 
