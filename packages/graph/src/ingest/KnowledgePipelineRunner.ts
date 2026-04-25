@@ -184,7 +184,10 @@ export class KnowledgePipelineRunner {
       previousFindingCount = currentDrift.findings.length;
     }
 
-    return { iterations, materialization: accumulatedMaterialization };
+    return {
+      iterations,
+      ...(accumulatedMaterialization ? { materialization: accumulatedMaterialization } : {}),
+    };
   }
 
   /** Assemble the final pipeline result. */
