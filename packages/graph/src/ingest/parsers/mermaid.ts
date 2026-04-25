@@ -44,6 +44,24 @@ function isDecisionNode(content: string, nodeId: string): boolean {
 
 // ─── Flowchart extraction helpers ───────────────────────────────────────────
 
+/** Build a DiagramEntity from a node regex match. */
+function buildFlowchartEntity(
+  content: string,
+  match: RegExpExecArray
+): { id: string; entity: DiagramEntity } | null {
+  const id = match[1] ?? '';
+  const label = (match[2] ?? '').trim();
+  if (!id) return null;
+
+  const decision = isDecisionNode(content, id);
+  const entity: DiagramEntity = {
+    id,
+    label,
+    ...(decision ? { type: 'decision' as const } : {}),
+  };
+  return { id, entity };
+}
+
 /** Extract node entities from flowchart content. */
 function extractFlowchartNodes(content: string): Map<string, DiagramEntity> {
   const entities = new Map<string, DiagramEntity>();
@@ -51,21 +69,25 @@ function extractFlowchartNodes(content: string): Map<string, DiagramEntity> {
 
   let match = nodeRegex.exec(content);
   while (match !== null) {
-    const id = match[1] ?? '';
-    const label = (match[2] ?? '').trim();
-
-    if (id && !entities.has(id)) {
-      const decision = isDecisionNode(content, id);
-      entities.set(id, {
-        id,
-        label,
-        ...(decision ? { type: 'decision' as const } : {}),
-      });
+    const parsed = buildFlowchartEntity(content, match);
+    if (parsed && !entities.has(parsed.id)) {
+      entities.set(parsed.id, parsed.entity);
     }
     match = nodeRegex.exec(content);
   }
 
   return entities;
+}
+
+/** Parse a single labeled edge match into an edge key and relationship. */
+function parseLabeledEdgeMatch(
+  match: RegExpExecArray
+): { key: string; rel: DiagramRelationship } | null {
+  const from = match[1] ?? '';
+  const label = (match[2] ?? '').trim();
+  const to = match[3] ?? '';
+  if (!from || !to) return null;
+  return { key: `${from}->${to}:${label}`, rel: { from, to, label } };
 }
 
 /** Extract labeled edges (A -->|label| B) from stripped content. */
@@ -75,20 +97,24 @@ function extractLabeledEdges(stripped: string, edgeKeys: Set<string>): DiagramRe
 
   let match = labeledEdgeRegex.exec(stripped);
   while (match !== null) {
-    const from = match[1] ?? '';
-    const label = (match[2] ?? '').trim();
-    const to = match[3] ?? '';
-    if (from && to) {
-      const key = `${from}->${to}:${label}`;
-      if (!edgeKeys.has(key)) {
-        edgeKeys.add(key);
-        relationships.push({ from, to, label });
-      }
+    const parsed = parseLabeledEdgeMatch(match);
+    if (parsed && !edgeKeys.has(parsed.key)) {
+      edgeKeys.add(parsed.key);
+      relationships.push(parsed.rel);
     }
     match = labeledEdgeRegex.exec(stripped);
   }
 
   return relationships;
+}
+
+/** Check whether a labeled edge already covers the given from->to pair. */
+function hasLabeledEdgeBetween(
+  labeledEdges: readonly DiagramRelationship[],
+  from: string,
+  to: string
+): boolean {
+  return labeledEdges.some((r) => r.from === from && r.to === to);
 }
 
 /** Extract unlabeled edges (A --> B) from stripped content. */
@@ -104,15 +130,11 @@ function extractUnlabeledEdges(
   while (match !== null) {
     const from = match[1] ?? '';
     const to = match[2] ?? '';
-    if (from && to) {
-      const hasLabeled = labeledEdges.some((r) => r.from === from && r.to === to);
-      if (!hasLabeled) {
-        const key = `${from}->${to}`;
-        if (!edgeKeys.has(key)) {
-          edgeKeys.add(key);
-          relationships.push({ from, to });
-        }
-      }
+    const key = `${from}->${to}`;
+
+    if (from && to && !hasLabeledEdgeBetween(labeledEdges, from, to) && !edgeKeys.has(key)) {
+      edgeKeys.add(key);
+      relationships.push({ from, to });
     }
     match = unlabeledEdgeRegex.exec(stripped);
   }
@@ -161,37 +183,35 @@ function extractParticipants(content: string): DiagramEntity[] {
   return entities;
 }
 
+/** Build a relationship from a regex match with groups [_, from, to, label]. */
+function relationshipFromMatch(match: RegExpExecArray): DiagramRelationship | null {
+  const from = match[1] ?? '';
+  const to = match[2] ?? '';
+  const label = (match[3] ?? '').trim();
+  return from && to ? { from, to, label } : null;
+}
+
+/** Collect all relationships matching a given regex pattern. */
+function collectMessageMatches(content: string, regex: RegExp): DiagramRelationship[] {
+  const results: DiagramRelationship[] = [];
+  let match = regex.exec(content);
+  while (match !== null) {
+    const rel = relationshipFromMatch(match);
+    if (rel) results.push(rel);
+    match = regex.exec(content);
+  }
+  return results;
+}
+
 /** Extract messages (both forward and return) from a sequence diagram. */
 function extractMessages(content: string): DiagramRelationship[] {
-  const relationships: DiagramRelationship[] = [];
-
   // Forward messages: A->>B: label or A->>+B: label
-  const forwardMsgRegex = /(\w+)\s*->>?\+?\s*(\w+)\s*:\s*(.+)/g;
-  let match = forwardMsgRegex.exec(content);
-  while (match !== null) {
-    const from = match[1] ?? '';
-    const to = match[2] ?? '';
-    const label = (match[3] ?? '').trim();
-    if (from && to) {
-      relationships.push({ from, to, label });
-    }
-    match = forwardMsgRegex.exec(content);
-  }
+  const forward = collectMessageMatches(content, /(\w+)\s*->>?\+?\s*(\w+)\s*:\s*(.+)/g);
 
   // Return messages: A-->>B: label or A-->>-B: label
-  const returnMsgRegex = /(\w+)\s*-->>?-?\s*(\w+)\s*:\s*(.+)/g;
-  match = returnMsgRegex.exec(content);
-  while (match !== null) {
-    const from = match[1] ?? '';
-    const to = match[2] ?? '';
-    const label = (match[3] ?? '').trim();
-    if (from && to) {
-      relationships.push({ from, to, label });
-    }
-    match = returnMsgRegex.exec(content);
-  }
+  const returns = collectMessageMatches(content, /(\w+)\s*-->>?-?\s*(\w+)\s*:\s*(.+)/g);
 
-  return relationships;
+  return [...forward, ...returns];
 }
 
 /** Parse a complete sequence diagram. */

@@ -67,6 +67,19 @@ function hasProcessEnvProperty(node: TSESTree.ObjectExpression): TSESTree.Node |
   return undefined;
 }
 
+/**
+ * Find the first argument that is an ObjectExpression containing `env: process.env`
+ * or `...process.env`, and return the offending node.
+ */
+function findEnvViolation(args: TSESTree.CallExpressionArgument[]): TSESTree.Node | undefined {
+  for (const arg of args) {
+    if (arg.type !== 'ObjectExpression') continue;
+    const envProp = hasProcessEnvProperty(arg);
+    if (envProp) return envProp;
+  }
+  return undefined;
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-process-env-in-spawn',
   meta: {
@@ -83,23 +96,14 @@ export default createRule<[], MessageIds>({
   },
   defaultOptions: [],
   create(context) {
-    return {
-      CallExpression(node: TSESTree.CallExpression) {
-        const name = getSpawnFunctionName(node);
-        if (!name) return;
-
-        // spawn/execFile: options is typically the last argument (2nd or 3rd)
-        // fork: options is the 2nd or 3rd argument
-        // Check every ObjectExpression argument for `env: process.env`
-        for (const arg of node.arguments) {
-          if (arg.type === 'ObjectExpression') {
-            const envProp = hasProcessEnvProperty(arg);
-            if (envProp) {
-              context.report({ node: envProp, messageId: 'processEnvInSpawn', data: { name } });
-            }
-          }
-        }
-      },
-    };
+    function checkCall(node: TSESTree.CallExpression): void {
+      const name = getSpawnFunctionName(node);
+      if (!name) return;
+      const violation = findEnvViolation(node.arguments);
+      if (violation) {
+        context.report({ node: violation, messageId: 'processEnvInSpawn', data: { name } });
+      }
+    }
+    return { CallExpression: checkCall };
   },
 });

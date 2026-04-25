@@ -62,67 +62,9 @@ export class ImageAnalysisExtractor {
 
     for (const imagePath of imagePaths) {
       try {
-        // Call the analysis provider with a descriptive prompt
-        const response = await this.provider.analyze<ImageAnalysisResult>({
-          prompt: 'Analyze this image and provide a structured description of its visual contents.',
-          systemPrompt:
-            'You are an image analysis assistant. Describe the image contents, detect UI elements, extract visible text, identify design patterns, and note accessibility concerns.',
-          responseSchema: {} as unknown, // Schema handled by provider
-          maxTokens: 1000,
-        });
-
-        const result = response.result;
-        const pathHash = hash(imagePath);
-        const annotationId = `img:${pathHash}`;
-
-        // Create image_annotation node
-        store.addNode({
-          id: annotationId,
-          type: 'image_annotation',
-          name: result.description.slice(0, 200),
-          path: imagePath,
-          content: result.description,
-          hash: hash(result.description),
-          metadata: {
-            source: 'image-analysis',
-            detectedElements: result.detectedElements,
-            extractedText: result.extractedText,
-            designPatterns: result.designPatterns,
-            accessibilityNotes: result.accessibilityNotes,
-            model: response.model,
-          },
-        });
-        nodesAdded++;
-
-        // Create annotates edge to source file node if it exists
-        const fileNodes = store.findNodes({ type: 'file' });
-        const fileNode = fileNodes.find((n) => n.path === imagePath);
-        if (fileNode) {
-          store.addEdge({ from: annotationId, to: fileNode.id, type: 'annotates' });
-          edgesAdded++;
-        }
-
-        // Create business_concept nodes for high-confidence design patterns
-        for (const pattern of result.designPatterns) {
-          const conceptId = `img:concept:${hash(pattern + imagePath)}`;
-          store.addNode({
-            id: conceptId,
-            type: 'business_concept',
-            name: pattern,
-            content: `Design pattern detected in ${imagePath}: ${pattern}`,
-            hash: hash(pattern),
-            metadata: {
-              source: 'image-analysis',
-              sourceImage: imagePath,
-              domain: 'design',
-            },
-          });
-          nodesAdded++;
-
-          // Link concept to its parent annotation
-          store.addEdge({ from: annotationId, to: conceptId, type: 'contains' });
-          edgesAdded++;
-        }
+        const counts = await this.processImage(store, imagePath);
+        nodesAdded += counts.nodes;
+        edgesAdded += counts.edges;
       } catch (err) {
         errors.push(
           `Image analysis failed for ${imagePath}: ${err instanceof Error ? err.message : String(err)}`
@@ -138,5 +80,83 @@ export class ImageAnalysisExtractor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  /** Analyze a single image and add annotation + concept nodes to the store. */
+  private async processImage(
+    store: GraphStore,
+    imagePath: string
+  ): Promise<{ nodes: number; edges: number }> {
+    const response = await this.provider.analyze<ImageAnalysisResult>({
+      prompt: 'Analyze this image and provide a structured description of its visual contents.',
+      systemPrompt:
+        'You are an image analysis assistant. Describe the image contents, detect UI elements, extract visible text, identify design patterns, and note accessibility concerns.',
+      responseSchema: {} as unknown, // Schema handled by provider
+      maxTokens: 1000,
+    });
+
+    const result = response.result;
+    const annotationId = `img:${hash(imagePath)}`;
+    let nodes = 0;
+    let edges = 0;
+
+    store.addNode({
+      id: annotationId,
+      type: 'image_annotation',
+      name: result.description.slice(0, 200),
+      path: imagePath,
+      content: result.description,
+      hash: hash(result.description),
+      metadata: {
+        source: 'image-analysis',
+        detectedElements: result.detectedElements,
+        extractedText: result.extractedText,
+        designPatterns: result.designPatterns,
+        accessibilityNotes: result.accessibilityNotes,
+        model: response.model,
+      },
+    });
+    nodes++;
+
+    edges += this.linkToFileNode(store, annotationId, imagePath);
+
+    for (const pattern of result.designPatterns) {
+      edges += this.addDesignPatternConcept(store, annotationId, imagePath, pattern);
+      nodes++;
+    }
+
+    return { nodes, edges };
+  }
+
+  /** Link annotation to its source file node if it exists. Returns 1 if linked, 0 otherwise. */
+  private linkToFileNode(store: GraphStore, annotationId: string, imagePath: string): number {
+    const fileNode = store.findNodes({ type: 'file' }).find((n) => n.path === imagePath);
+    if (!fileNode) return 0;
+    store.addEdge({ from: annotationId, to: fileNode.id, type: 'annotates' });
+    return 1;
+  }
+
+  /** Create a business_concept node for a design pattern and link it. Returns edges added. */
+  private addDesignPatternConcept(
+    store: GraphStore,
+    annotationId: string,
+    imagePath: string,
+    pattern: string
+  ): number {
+    const conceptId = `img:concept:${hash(pattern + imagePath)}`;
+    store.addNode({
+      id: conceptId,
+      type: 'business_concept',
+      name: pattern,
+      content: `Design pattern detected in ${imagePath}: ${pattern}`,
+      hash: hash(pattern),
+      metadata: {
+        source: 'image-analysis',
+        sourceImage: imagePath,
+        domain: 'design',
+      },
+    });
+    store.addEdge({ from: annotationId, to: conceptId, type: 'contains' });
+    return 1;
   }
 }

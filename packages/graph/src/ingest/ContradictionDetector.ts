@@ -78,112 +78,143 @@ function classifyConflict(a: GraphNode, b: GraphNode): ConflictType {
   return 'status_divergence';
 }
 
+/** Map conflict type to severity. */
+const SEVERITY_MAP: Record<ConflictType, 'critical' | 'high' | 'medium'> = {
+  value_mismatch: 'critical',
+  definition_conflict: 'high',
+  status_divergence: 'medium',
+  temporal_conflict: 'medium',
+};
+
+/** Build a ContradictionEntry from a GraphNode. */
+function buildEntry(node: GraphNode, source: string): ContradictionEntry {
+  return {
+    nodeId: node.id,
+    source,
+    name: node.name,
+    content: node.content ?? '',
+    lastModified: node.lastModified,
+  };
+}
+
+/** Group nodes by their normalized (lowercased, trimmed) name. */
+function groupByName(nodes: readonly GraphNode[]): Map<string, GraphNode[]> {
+  const byName = new Map<string, GraphNode[]>();
+  for (const node of nodes) {
+    const key = node.name.toLowerCase().trim();
+    const group = byName.get(key) ?? [];
+    group.push(node);
+    byName.set(key, group);
+  }
+  return byName;
+}
+
+/** State accumulated while collecting contradictions. */
+interface ContradictionAccumulator {
+  readonly contradictions: Contradiction[];
+  readonly sourcePairCounts: Record<string, number>;
+  readonly seen: Set<string>;
+}
+
+/** Try to add a contradiction between two nodes; returns true if added. */
+function tryAddContradiction(
+  acc: ContradictionAccumulator,
+  a: GraphNode,
+  b: GraphNode,
+  similarity: number
+): void {
+  const sourceA = (a.metadata.source as string) ?? 'unknown';
+  const sourceB = (b.metadata.source as string) ?? 'unknown';
+
+  // Skip same source
+  if (sourceA === sourceB) return;
+
+  // Only contradicting if content differs
+  if ((a.hash ?? a.id) === (b.hash ?? b.id)) return;
+
+  // Deduplicate by node pair
+  const pairId = [a.id, b.id].sort().join(':');
+  if (acc.seen.has(pairId)) return;
+  acc.seen.add(pairId);
+
+  const conflictType = classifyConflict(a, b);
+  const pairKey = [sourceA, sourceB].sort().join('\u2194');
+  acc.sourcePairCounts[pairKey] = (acc.sourcePairCounts[pairKey] ?? 0) + 1;
+
+  acc.contradictions.push({
+    id: `contradiction:${a.id}:${b.id}`,
+    entityA: buildEntry(a, sourceA),
+    entityB: buildEntry(b, sourceB),
+    similarity,
+    conflictType,
+    severity: SEVERITY_MAP[conflictType],
+    description: `"${a.name}" has conflicting definitions from ${sourceA} and ${sourceB}`,
+  });
+}
+
+/** Find contradictions from exact name matches within each group (similarity = 1.0). */
+function collectExactMatches(
+  byName: Map<string, GraphNode[]>,
+  acc: ContradictionAccumulator
+): void {
+  for (const [, group] of byName) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        tryAddContradiction(acc, group[i]!, group[j]!, 1.0);
+      }
+    }
+  }
+}
+
+/** Find contradictions from fuzzy name matches across groups. */
+function collectFuzzyMatches(
+  byName: Map<string, GraphNode[]>,
+  acc: ContradictionAccumulator
+): void {
+  const keys = [...byName.keys()];
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const keyA = keys[i]!;
+      const keyB = keys[j]!;
+
+      // Quick length check: ratio can't meet threshold if lengths differ too much
+      const maxLen = Math.max(keyA.length, keyB.length);
+      const minLen = Math.min(keyA.length, keyB.length);
+      if (minLen / maxLen < SIMILARITY_THRESHOLD) continue;
+
+      const ratio = levenshteinRatio(keyA, keyB);
+      if (ratio < SIMILARITY_THRESHOLD) continue;
+
+      const groupA = byName.get(keyA)!;
+      const groupB = byName.get(keyB)!;
+      for (const a of groupA) {
+        for (const b of groupB) {
+          tryAddContradiction(acc, a, b, ratio);
+        }
+      }
+    }
+  }
+}
+
 export class ContradictionDetector {
   detect(store: GraphStore): ContradictionResult {
-    // 1. Gather all knowledge nodes
     const nodes = KNOWLEDGE_NODE_TYPES.flatMap((t) => store.findNodes({ type: t }));
+    const byName = groupByName(nodes);
 
-    // 2. Group by normalized name (lowercase, trim)
-    const byName = new Map<string, GraphNode[]>();
-    for (const node of nodes) {
-      const key = node.name.toLowerCase().trim();
-      const group = byName.get(key) ?? [];
-      group.push(node);
-      byName.set(key, group);
-    }
-
-    // 3. Find contradictions — exact matches within groups + fuzzy matches across groups
-    const contradictions: Contradiction[] = [];
-    const sourcePairCounts: Record<string, number> = {};
-    const seen = new Set<string>();
-
-    const addContradiction = (a: GraphNode, b: GraphNode, similarity: number): void => {
-      const sourceA = (a.metadata.source as string) ?? 'unknown';
-      const sourceB = (b.metadata.source as string) ?? 'unknown';
-
-      // Skip same source
-      if (sourceA === sourceB) return;
-
-      const hashA = a.hash ?? a.id;
-      const hashB = b.hash ?? b.id;
-
-      // Only contradicting if content differs
-      if (hashA === hashB) return;
-
-      // Deduplicate by node pair
-      const pairId = [a.id, b.id].sort().join(':');
-      if (seen.has(pairId)) return;
-      seen.add(pairId);
-
-      const conflictType = classifyConflict(a, b);
-      const severity =
-        conflictType === 'value_mismatch'
-          ? 'critical'
-          : conflictType === 'definition_conflict'
-            ? 'high'
-            : 'medium';
-
-      const pairKey = [sourceA, sourceB].sort().join('\u2194');
-      sourcePairCounts[pairKey] = (sourcePairCounts[pairKey] ?? 0) + 1;
-
-      contradictions.push({
-        id: `contradiction:${a.id}:${b.id}`,
-        entityA: {
-          nodeId: a.id,
-          source: sourceA,
-          name: a.name,
-          content: a.content ?? '',
-          lastModified: a.lastModified,
-        },
-        entityB: {
-          nodeId: b.id,
-          source: sourceB,
-          name: b.name,
-          content: b.content ?? '',
-          lastModified: b.lastModified,
-        },
-        similarity,
-        conflictType,
-        severity,
-        description: `"${a.name}" has conflicting definitions from ${sourceA} and ${sourceB}`,
-      });
+    const acc: ContradictionAccumulator = {
+      contradictions: [],
+      sourcePairCounts: {},
+      seen: new Set<string>(),
     };
 
-    // 3a. Exact name matches within each group (similarity = 1.0)
-    for (const [, group] of byName) {
-      if (group.length < 2) continue;
-      for (let i = 0; i < group.length; i++) {
-        for (let j = i + 1; j < group.length; j++) {
-          addContradiction(group[i]!, group[j]!, 1.0);
-        }
-      }
-    }
+    collectExactMatches(byName, acc);
+    collectFuzzyMatches(byName, acc);
 
-    // 3b. Fuzzy matches across groups (Levenshtein ratio >= threshold)
-    const keys = [...byName.keys()];
-    for (let i = 0; i < keys.length; i++) {
-      for (let j = i + 1; j < keys.length; j++) {
-        const keyA = keys[i]!;
-        const keyB = keys[j]!;
-
-        // Quick length check: ratio can't meet threshold if lengths differ too much
-        const maxLen = Math.max(keyA.length, keyB.length);
-        const minLen = Math.min(keyA.length, keyB.length);
-        if (minLen / maxLen < SIMILARITY_THRESHOLD) continue;
-
-        const ratio = levenshteinRatio(keyA, keyB);
-        if (ratio < SIMILARITY_THRESHOLD) continue;
-
-        const groupA = byName.get(keyA)!;
-        const groupB = byName.get(keyB)!;
-        for (const a of groupA) {
-          for (const b of groupB) {
-            addContradiction(a, b, ratio);
-          }
-        }
-      }
-    }
-
-    return { contradictions, sourcePairCounts, totalChecked: nodes.length };
+    return {
+      contradictions: acc.contradictions,
+      sourcePairCounts: acc.sourcePairCounts,
+      totalChecked: nodes.length,
+    };
   }
 }

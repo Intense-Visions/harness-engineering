@@ -47,6 +47,18 @@ function hasConstraintKeyword(text: string): boolean {
   return CONSTRAINT_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
+function buildNodeMetadata(
+  condensed: { method: string; originalLength?: number },
+  base: Record<string, unknown>
+): Record<string, unknown> {
+  const metadata = { ...base };
+  if (condensed.method !== 'passthrough') {
+    metadata.condensed = condensed.method;
+    metadata.originalLength = condensed.originalLength;
+  }
+  return metadata;
+}
+
 function buildIngestResult(
   nodesAdded: number,
   edgesAdded: number,
@@ -63,6 +75,32 @@ function buildIngestResult(
   };
 }
 
+/** Validate Figma connector config and resolve API key + base URL. */
+function validateFigmaConfig(
+  config: ConnectorConfig
+): { apiKey: string; baseUrl: string; fileIds: string[] } | { error: string } {
+  const apiKeyEnv = config.apiKeyEnv ?? 'FIGMA_API_KEY';
+  const apiKey = process.env[apiKeyEnv];
+  if (!apiKey) return { error: `Missing API key: environment variable "${apiKeyEnv}" is not set` };
+
+  const baseUrlEnv = config.baseUrlEnv ?? 'FIGMA_BASE_URL';
+  const baseUrl = process.env[baseUrlEnv] ?? 'https://api.figma.com';
+
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('api.figma.com')) {
+      return { error: `Invalid ${baseUrlEnv}: must be an HTTPS URL on api.figma.com` };
+    }
+  } catch {
+    return { error: `Invalid ${baseUrlEnv}: not a valid URL` };
+  }
+
+  const fileIds = config.fileIds as string[] | undefined;
+  if (!fileIds || fileIds.length === 0) return { error: 'No fileIds provided in connector config' };
+
+  return { apiKey, baseUrl, fileIds };
+}
+
 export class FigmaConnector implements GraphConnector {
   readonly name = 'figma';
   readonly source = 'figma';
@@ -74,40 +112,10 @@ export class FigmaConnector implements GraphConnector {
 
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {
     const start = Date.now();
+    const validated = validateFigmaConfig(config);
+    if ('error' in validated) return buildIngestResult(0, 0, [validated.error], start);
 
-    const apiKeyEnv = config.apiKeyEnv ?? 'FIGMA_API_KEY';
-    const apiKey = process.env[apiKeyEnv];
-    if (!apiKey) {
-      return buildIngestResult(
-        0,
-        0,
-        [`Missing API key: environment variable "${apiKeyEnv}" is not set`],
-        start
-      );
-    }
-
-    const baseUrlEnv = config.baseUrlEnv ?? 'FIGMA_BASE_URL';
-    const baseUrl = process.env[baseUrlEnv] ?? 'https://api.figma.com';
-
-    try {
-      const parsed = new URL(baseUrl);
-      if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('api.figma.com')) {
-        return buildIngestResult(
-          0,
-          0,
-          [`Invalid ${baseUrlEnv}: must be an HTTPS URL on api.figma.com`],
-          start
-        );
-      }
-    } catch {
-      return buildIngestResult(0, 0, [`Invalid ${baseUrlEnv}: not a valid URL`], start);
-    }
-
-    const fileIds = config.fileIds as string[] | undefined;
-    if (!fileIds || fileIds.length === 0) {
-      return buildIngestResult(0, 0, ['No fileIds provided in connector config'], start);
-    }
-
+    const { apiKey, baseUrl, fileIds } = validated;
     const headers = { 'X-FIGMA-TOKEN': apiKey };
     const maxLen = (config.maxContentLength as number | undefined) ?? 4000;
 
@@ -140,115 +148,189 @@ export class FigmaConnector implements GraphConnector {
     let nodesAdded = 0;
     let edgesAdded = 0;
 
-    // Fetch styles
+    const styleCounts = await this.ingestStyles(store, baseUrl, fileId, headers, maxLen);
+    nodesAdded += styleCounts.nodesAdded;
+    edgesAdded += styleCounts.edgesAdded;
+
+    const componentCounts = await this.ingestComponents(store, baseUrl, fileId, headers, maxLen);
+    nodesAdded += componentCounts.nodesAdded;
+    edgesAdded += componentCounts.edgesAdded;
+
+    return { nodesAdded, edgesAdded };
+  }
+
+  private async ingestStyles(
+    store: GraphStore,
+    baseUrl: string,
+    fileId: string,
+    headers: Record<string, string>,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
     const stylesUrl = `${baseUrl}/v1/files/${fileId}/styles`;
     const stylesResponse = await this.httpClient(stylesUrl, { headers });
     if (!stylesResponse.ok) throw new Error(`Styles request failed for file ${fileId}`);
     const stylesData = (await stylesResponse.json()) as FigmaStylesResponse;
 
     for (const style of stylesData.meta.styles) {
-      const nodeId = `figma:token:${style.key}`;
-      const condensed = await condenseContent(sanitizeExternalText(style.description || '', 2000), {
-        maxLength: maxLen,
-      });
-
-      const metadata: Record<string, unknown> = {
-        source: 'figma',
-        key: style.key,
-        styleType: style.style_type,
-        fileId,
-      };
-
-      if (condensed.method !== 'passthrough') {
-        metadata.condensed = condensed.method;
-        metadata.originalLength = condensed.originalLength;
-      }
-
-      store.addNode({
-        id: nodeId,
-        type: 'design_token',
-        name: sanitizeExternalText(style.name, 500),
-        content: condensed.content,
-        metadata,
-      });
-      nodesAdded++;
-
-      const searchText = sanitizeExternalText([style.name, style.description].join(' '));
-      edgesAdded += linkToCode(store, searchText, nodeId, 'references');
+      const counts = await this.processStyle(store, style, fileId, maxLen);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
     }
 
-    // Fetch components
+    return { nodesAdded, edgesAdded };
+  }
+
+  private async processStyle(
+    store: GraphStore,
+    style: FigmaStyle,
+    fileId: string,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    const nodeId = `figma:token:${style.key}`;
+    const condensed = await condenseContent(sanitizeExternalText(style.description || '', 2000), {
+      maxLength: maxLen,
+    });
+
+    const metadata = buildNodeMetadata(condensed, {
+      source: 'figma',
+      key: style.key,
+      styleType: style.style_type,
+      fileId,
+    });
+
+    store.addNode({
+      id: nodeId,
+      type: 'design_token',
+      name: sanitizeExternalText(style.name, 500),
+      content: condensed.content,
+      metadata,
+    });
+
+    const searchText = sanitizeExternalText([style.name, style.description].join(' '));
+    const edgesAdded = linkToCode(store, searchText, nodeId, 'references');
+
+    return { nodesAdded: 1, edgesAdded };
+  }
+
+  private async ingestComponents(
+    store: GraphStore,
+    baseUrl: string,
+    fileId: string,
+    headers: Record<string, string>,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
     const componentsUrl = `${baseUrl}/v1/files/${fileId}/components`;
     const componentsResponse = await this.httpClient(componentsUrl, { headers });
     if (!componentsResponse.ok) throw new Error(`Components request failed for file ${fileId}`);
     const componentsData = (await componentsResponse.json()) as FigmaComponentsResponse;
 
     for (const component of componentsData.meta.components) {
-      const description = component.description || '';
-
-      // Create aesthetic_intent node for every component with a description
-      if (description) {
-        const intentId = `figma:intent:${component.key}`;
-        const condensed = await condenseContent(sanitizeExternalText(description, 2000), {
-          maxLength: maxLen,
-        });
-
-        const metadata: Record<string, unknown> = {
-          source: 'figma',
-          key: component.key,
-          fileId,
-        };
-
-        if (condensed.method !== 'passthrough') {
-          metadata.condensed = condensed.method;
-          metadata.originalLength = condensed.originalLength;
-        }
-
-        store.addNode({
-          id: intentId,
-          type: 'aesthetic_intent',
-          name: sanitizeExternalText(component.name, 500),
-          content: condensed.content,
-          metadata,
-        });
-        nodesAdded++;
-
-        const searchText = sanitizeExternalText([component.name, description].join(' '));
-        edgesAdded += linkToCode(store, searchText, intentId, 'references');
-      }
-
-      // Create design_constraint node when description has constraint keywords
-      if (description && hasConstraintKeyword(description)) {
-        const constraintId = `figma:constraint:${component.key}`;
-        const condensed = await condenseContent(sanitizeExternalText(description, 2000), {
-          maxLength: maxLen,
-        });
-
-        const metadata: Record<string, unknown> = {
-          source: 'figma',
-          key: component.key,
-          fileId,
-        };
-
-        if (condensed.method !== 'passthrough') {
-          metadata.condensed = condensed.method;
-          metadata.originalLength = condensed.originalLength;
-        }
-
-        store.addNode({
-          id: constraintId,
-          type: 'design_constraint',
-          name: sanitizeExternalText(component.name, 500),
-          content: condensed.content,
-          metadata,
-        });
-        nodesAdded++;
-
-        const searchText = sanitizeExternalText([component.name, description].join(' '));
-        edgesAdded += linkToCode(store, searchText, constraintId, 'references');
-      }
+      const counts = await this.processComponent(store, component, fileId, maxLen);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
     }
 
     return { nodesAdded, edgesAdded };
+  }
+
+  private async processComponent(
+    store: GraphStore,
+    component: FigmaComponent,
+    fileId: string,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+    const description = component.description || '';
+
+    if (description) {
+      const counts = await this.addComponentIntent(store, component, description, fileId, maxLen);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
+    }
+
+    if (description && hasConstraintKeyword(description)) {
+      const counts = await this.addComponentConstraint(
+        store,
+        component,
+        description,
+        fileId,
+        maxLen
+      );
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
+    }
+
+    return { nodesAdded, edgesAdded };
+  }
+
+  private async addComponentIntent(
+    store: GraphStore,
+    component: FigmaComponent,
+    description: string,
+    fileId: string,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    const intentId = `figma:intent:${component.key}`;
+    const condensed = await condenseContent(sanitizeExternalText(description, 2000), {
+      maxLength: maxLen,
+    });
+
+    const metadata = buildNodeMetadata(condensed, {
+      source: 'figma',
+      key: component.key,
+      fileId,
+    });
+
+    store.addNode({
+      id: intentId,
+      type: 'aesthetic_intent',
+      name: sanitizeExternalText(component.name, 500),
+      content: condensed.content,
+      metadata,
+    });
+
+    const searchText = sanitizeExternalText([component.name, description].join(' '));
+    const edgesAdded = linkToCode(store, searchText, intentId, 'references');
+
+    return { nodesAdded: 1, edgesAdded };
+  }
+
+  private async addComponentConstraint(
+    store: GraphStore,
+    component: FigmaComponent,
+    description: string,
+    fileId: string,
+    maxLen: number
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    const constraintId = `figma:constraint:${component.key}`;
+    const condensed = await condenseContent(sanitizeExternalText(description, 2000), {
+      maxLength: maxLen,
+    });
+
+    const metadata = buildNodeMetadata(condensed, {
+      source: 'figma',
+      key: component.key,
+      fileId,
+    });
+
+    store.addNode({
+      id: constraintId,
+      type: 'design_constraint',
+      name: sanitizeExternalText(component.name, 500),
+      content: condensed.content,
+      metadata,
+    });
+
+    const searchText = sanitizeExternalText([component.name, description].join(' '));
+    const edgesAdded = linkToCode(store, searchText, constraintId, 'references');
+
+    return { nodesAdded: 1, edgesAdded };
   }
 }

@@ -123,6 +123,38 @@ export function classifyTier(score: number): SkillMatchTier | null {
 // ---------------------------------------------------------------------------
 
 /**
+ * Phase-timing rules: each entry maps a regex pair (name pattern, keyword pattern)
+ * to a phase label. The first matching rule wins.
+ */
+const WHEN_RULES: Array<{ name?: RegExp; keywords?: RegExp; when: string }> = [
+  { name: /scan|audit|i18n|lint/, when: 'End of phase' },
+  { name: /test/, keywords: /test|tdd|coverage|mock|e2e|snapshot/, when: 'Testing' },
+  {
+    name: /a11y|contrast|wcag|color.accessib/,
+    keywords: /contrast|wcag/,
+    when: 'After styling',
+  },
+  { keywords: /css|tailwind|typography|font|color|palette/, when: 'During styling' },
+  { keywords: /alignment|whitespace|spacing|grid/, when: 'Layout review' },
+  { keywords: /motion|animation|transition|parallax/, when: 'During polish' },
+  { keywords: /architect|pattern|api|schema|data.model/, when: 'Architecture decisions' },
+  { name: /^(gof-|js-)/, when: 'Architecture decisions' },
+];
+
+function matchesWhenRule(
+  rule: (typeof WHEN_RULES)[number],
+  nameLower: string,
+  keywordsLower: string
+): boolean {
+  const nameHit = rule.name ? rule.name.test(nameLower) : false;
+  const kwHit = rule.keywords ? rule.keywords.test(keywordsLower) : false;
+  // If both patterns are defined, either can trigger the rule (OR semantics).
+  // If only one is defined, that one must match.
+  if (rule.name && rule.keywords) return nameHit || kwHit;
+  return nameHit || kwHit;
+}
+
+/**
  * Infer when during the phase this skill should be applied.
  * Uses heuristics based on skill name, keywords, and type.
  */
@@ -130,17 +162,9 @@ export function inferWhen(name: string, entry: SkillIndexEntry): string {
   const nameLower = name.toLowerCase();
   const keywordsLower = entry.keywords.map((k) => k.toLowerCase()).join(' ');
 
-  if (/scan|audit|i18n|lint/.test(nameLower)) return 'End of phase';
-  if (/test|tdd|coverage|mock|e2e|snapshot/.test(keywordsLower) || /test/.test(nameLower))
-    return 'Testing';
-  if (/a11y|contrast|wcag|color.accessib/.test(nameLower) || /contrast|wcag/.test(keywordsLower))
-    return 'After styling';
-  if (/css|tailwind|typography|font|color|palette/.test(keywordsLower)) return 'During styling';
-  if (/alignment|whitespace|spacing|grid/.test(keywordsLower)) return 'Layout review';
-  if (/motion|animation|transition|parallax/.test(keywordsLower)) return 'During polish';
-  if (/architect|pattern|api|schema|data.model/.test(keywordsLower))
-    return 'Architecture decisions';
-  if (nameLower.startsWith('gof-') || nameLower.startsWith('js-')) return 'Architecture decisions';
+  for (const rule of WHEN_RULES) {
+    if (matchesWhenRule(rule, nameLower, keywordsLower)) return rule.when;
+  }
 
   return 'During implementation';
 }
@@ -213,34 +237,35 @@ function inferCategory(entry: SkillIndexEntry): string {
 }
 
 // ---------------------------------------------------------------------------
-// Main matching engine
+// Main matching engine — helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Match all skills in the index against content signals.
- * Returns scored, classified, and sorted matches with related-skills expansion.
- */
-export function matchContent(index: SkillsIndex, signals: ContentSignals): ContentMatchResult {
-  const startTime = performance.now();
+interface ScoredSkill {
+  name: string;
+  entry: SkillIndexEntry;
+  score: number;
+}
 
-  // Phase 1: Score all skills
-  const scored: Array<{ name: string; entry: SkillIndexEntry; score: number }> = [];
+interface ExpandedSkill extends ScoredSkill {
+  parentName: string;
+}
 
+/** Phase 1: Score every skill and keep those above the consider threshold. */
+function scoreAllSkills(index: SkillsIndex, signals: ContentSignals): ScoredSkill[] {
+  const scored: ScoredSkill[] = [];
   for (const [name, entry] of Object.entries(index.skills)) {
     const score = scoreSkillByContent(entry, signals);
     if (score >= TIER_THRESHOLDS.consider) {
       scored.push({ name, entry, score });
     }
   }
+  return scored;
+}
 
-  // Phase 2: Related-skills expansion
+/** Phase 2: Expand related skills from high-scoring matches. */
+function expandRelatedSkills(scored: ScoredSkill[], index: SkillsIndex): ExpandedSkill[] {
   const matchedNames = new Set(scored.map((s) => s.name));
-  const expansions: Array<{
-    name: string;
-    entry: SkillIndexEntry;
-    score: number;
-    parentName: string;
-  }> = [];
+  const expansions: ExpandedSkill[] = [];
 
   for (const match of scored) {
     if (match.score < TIER_THRESHOLDS.reference) continue;
@@ -261,8 +286,15 @@ export function matchContent(index: SkillsIndex, signals: ContentSignals): Conte
       }
     }
   }
+  return expansions;
+}
 
-  // Phase 3: Build SkillMatch results
+/** Phase 3: Convert scored/expanded skills into classified SkillMatch objects. */
+function buildMatchList(
+  scored: ScoredSkill[],
+  expansions: ExpandedSkill[],
+  signals: ContentSignals
+): SkillMatch[] {
   const matches: SkillMatch[] = [];
 
   for (const { name, entry, score } of scored) {
@@ -292,12 +324,27 @@ export function matchContent(index: SkillsIndex, signals: ContentSignals): Conte
   }
 
   matches.sort((a, b) => b.score - a.score);
+  return matches;
+}
 
-  const scanDuration = Math.round(performance.now() - startTime);
+// ---------------------------------------------------------------------------
+// Main matching engine
+// ---------------------------------------------------------------------------
+
+/**
+ * Match all skills in the index against content signals.
+ * Returns scored, classified, and sorted matches with related-skills expansion.
+ */
+export function matchContent(index: SkillsIndex, signals: ContentSignals): ContentMatchResult {
+  const startTime = performance.now();
+
+  const scored = scoreAllSkills(index, signals);
+  const expansions = expandRelatedSkills(scored, index);
+  const matches = buildMatchList(scored, expansions, signals);
 
   return {
     matches,
     signalsUsed: signals,
-    scanDuration,
+    scanDuration: Math.round(performance.now() - startTime),
   };
 }

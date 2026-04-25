@@ -91,67 +91,92 @@ export class KnowledgePipelineRunner {
   constructor(private readonly store: GraphStore) {}
 
   async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult> {
-    const maxIterations = options.maxIterations ?? 5;
     const remediations: string[] = [];
 
-    // ── Phase 1: EXTRACT ──
-    // Capture pre-extraction snapshot (current graph state)
-    const preSnapshot = this.buildSnapshot(options.domain);
-
-    // Run all extractors
+    // Phases 1-3: Extract, Reconcile, Detect
     const extraction = await this.extract(options);
-
-    // ── Phase 2: RECONCILE ──
-    // Build fresh snapshot from post-extraction graph state
-    const postSnapshot = this.buildSnapshot(options.domain);
-    let driftResult = this.reconcile(preSnapshot, postSnapshot);
-
-    // Cross-source contradiction detection
-    const contradictionDetector = new ContradictionDetector();
-    const contradictions = contradictionDetector.detect(this.store);
-
-    // ── Phase 3: DETECT ──
+    let driftResult = this.runReconciliation(options);
+    const contradictions = new ContradictionDetector().detect(this.store);
     let gapReport = await this.detect(options);
+    const coverage = new CoverageScorer().score(this.store);
 
-    // Coverage scoring
-    const coverageScorer = new CoverageScorer();
-    const coverage = coverageScorer.score(this.store);
+    // Phase 4: Remediate (convergence loop)
+    const iterations = options.fix
+      ? await this.runRemediationLoop(options, driftResult, gapReport, remediations)
+      : 1;
 
-    // ── Phase 4: REMEDIATE (only with --fix) ──
-    let iterations = 1;
-    if (options.fix) {
-      let previousFindingCount = driftResult.findings.length;
-
-      while (iterations < maxIterations) {
-        if (driftResult.findings.length === 0) break;
-
-        // Apply safe remediations
-        this.remediate(driftResult, remediations, options);
-
-        // Re-run pipeline phases 1-3
-        const rePreSnapshot = this.buildSnapshot(options.domain);
-        await this.extract(options);
-        const rePostSnapshot = this.buildSnapshot(options.domain);
-        driftResult = this.reconcile(rePreSnapshot, rePostSnapshot);
-        gapReport = await this.detect(options);
-
-        iterations++;
-        const newFindingCount = driftResult.findings.length;
-        if (newFindingCount >= previousFindingCount) break; // Converged
-        previousFindingCount = newFindingCount;
-      }
+    // Re-read final state after remediation loop may have mutated driftResult/gapReport
+    if (options.fix && iterations > 1) {
+      driftResult = this.runReconciliation(options);
+      gapReport = await this.detect(options);
     }
 
-    // Stage NEW findings
     await this.stageNewFindings(driftResult, options);
 
+    return this.buildResult(
+      driftResult,
+      iterations,
+      extraction,
+      gapReport,
+      remediations,
+      contradictions,
+      coverage
+    );
+  }
+
+  /** Run phases 1-2 (extract snapshot, reconcile) and return drift result. */
+  private runReconciliation(options: KnowledgePipelineOptions): DriftResult {
+    const preSnapshot = this.buildSnapshot(options.domain);
+    const postSnapshot = this.buildSnapshot(options.domain);
+    return this.reconcile(preSnapshot, postSnapshot);
+  }
+
+  /** Run the remediation convergence loop; returns total iteration count. */
+  private async runRemediationLoop(
+    options: KnowledgePipelineOptions,
+    driftResult: DriftResult,
+    _gapReport: GapReport,
+    remediations: string[]
+  ): Promise<number> {
+    const maxIterations = options.maxIterations ?? 5;
+    let iterations = 1;
+    let currentDrift = driftResult;
+    let previousFindingCount = currentDrift.findings.length;
+
+    while (iterations < maxIterations) {
+      if (currentDrift.findings.length === 0) break;
+
+      this.remediate(currentDrift, remediations, options);
+
+      await this.extract(options);
+      currentDrift = this.runReconciliation(options);
+      await this.detect(options);
+
+      iterations++;
+      if (currentDrift.findings.length >= previousFindingCount) break;
+      previousFindingCount = currentDrift.findings.length;
+    }
+
+    return iterations;
+  }
+
+  /** Assemble the final pipeline result. */
+  private buildResult(
+    driftResult: DriftResult,
+    iterations: number,
+    extraction: ExtractionCounts,
+    gaps: GapReport,
+    remediations: readonly string[],
+    contradictions: ContradictionResult,
+    coverage: CoverageReport
+  ): KnowledgePipelineResult {
     return {
       verdict: this.computeVerdict(driftResult),
       driftScore: driftResult.driftScore,
       iterations,
       findings: driftResult.summary,
       extraction,
-      gaps: gapReport,
+      gaps,
       remediations,
       contradictions,
       coverage,

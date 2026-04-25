@@ -87,6 +87,36 @@ const TIER_HEADING_MAP: Array<[RegExp, SkillMatchTier]> = [
   [/^## Consider/i, 'consider'],
 ];
 
+/** Detect whether a line is a tier heading and return the tier if so. */
+function detectTier(line: string): SkillMatchTier | undefined {
+  for (const [pattern, tier] of TIER_HEADING_MAP) {
+    if (pattern.test(line)) return tier;
+  }
+  return undefined;
+}
+
+/** Parse a single table row into a SkillMatch, or return undefined if it cannot be parsed. */
+function parseTableRow(line: string, tier: SkillMatchTier): SkillMatch | undefined {
+  const cells = line
+    .split('|')
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+
+  if (cells.length < 4) return undefined;
+
+  const score = parseFloat(cells[3]!);
+  if (isNaN(score)) return undefined;
+
+  return {
+    skillName: cells[0]!.replace(/`/g, ''),
+    score,
+    tier,
+    matchReasons: [cells[1]!],
+    category: '',
+    when: cells[2]!,
+  };
+}
+
 /**
  * Parse a SKILLS.md markdown string back into SkillMatch objects.
  * Used for loading previously generated recommendations.
@@ -99,37 +129,16 @@ export function parseSkillsMd(markdown: string): SkillMatch[] {
   let currentTier: SkillMatchTier | null = null;
 
   for (const line of lines) {
-    for (const [pattern, tier] of TIER_HEADING_MAP) {
-      if (pattern.test(line)) {
-        currentTier = tier;
-        break;
-      }
+    const tier = detectTier(line);
+    if (tier) {
+      currentTier = tier;
+      continue;
     }
 
-    if (currentTier && line.startsWith('| `')) {
-      const cells = line
-        .split('|')
-        .map((c) => c.trim())
-        .filter((c) => c.length > 0);
+    if (!currentTier || !line.startsWith('| `')) continue;
 
-      if (cells.length >= 4) {
-        const skillName = cells[0]!.replace(/`/g, '');
-        const purpose = cells[1]!;
-        const when = cells[2]!;
-        const score = parseFloat(cells[3]!);
-
-        if (!isNaN(score)) {
-          matches.push({
-            skillName,
-            score,
-            tier: currentTier,
-            matchReasons: [purpose],
-            category: '',
-            when,
-          });
-        }
-      }
-    }
+    const match = parseTableRow(line, currentTier);
+    if (match) matches.push(match);
   }
 
   return matches;

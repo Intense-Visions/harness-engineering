@@ -45,6 +45,65 @@ function buildIngestResult(
   };
 }
 
+/** Validate the Miro base URL and return an error message if invalid, or null if valid. */
+function validateBaseUrl(baseUrl: string, baseUrlEnv: string): string | null {
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'api.miro.com') {
+      return `Invalid ${baseUrlEnv}: must be an HTTPS URL on api.miro.com`;
+    }
+  } catch {
+    return `Invalid ${baseUrlEnv}: not a valid URL`;
+  }
+  return null;
+}
+
+/** Resolve and validate connector config, returning either resolved config or an early IngestResult. */
+function resolveConfig(
+  config: ConnectorConfig,
+  start: number
+):
+  | {
+      ok: true;
+      apiKey: string;
+      baseUrl: string;
+      boardIds: string[];
+      headers: Record<string, string>;
+    }
+  | { ok: false; result: IngestResult } {
+  const apiKeyEnv = config.apiKeyEnv ?? 'MIRO_API_KEY';
+  const apiKey = process.env[apiKeyEnv];
+  if (!apiKey) {
+    return {
+      ok: false,
+      result: buildIngestResult(
+        0,
+        0,
+        [`Missing API key: environment variable "${apiKeyEnv}" is not set`],
+        start
+      ),
+    };
+  }
+
+  const baseUrlEnv = config.baseUrlEnv ?? 'MIRO_BASE_URL';
+  const baseUrl = process.env[baseUrlEnv] ?? 'https://api.miro.com';
+
+  const urlError = validateBaseUrl(baseUrl, baseUrlEnv);
+  if (urlError) {
+    return { ok: false, result: buildIngestResult(0, 0, [urlError], start) };
+  }
+
+  const boardIds = config.boardIds as string[] | undefined;
+  if (!boardIds || boardIds.length === 0) {
+    return {
+      ok: false,
+      result: buildIngestResult(0, 0, ['No boardIds provided in config'], start),
+    };
+  }
+
+  return { ok: true, apiKey, baseUrl, boardIds, headers: { Authorization: `Bearer ${apiKey}` } };
+}
+
 export class MiroConnector implements GraphConnector {
   readonly name = 'miro';
   readonly source = 'miro';
@@ -57,40 +116,10 @@ export class MiroConnector implements GraphConnector {
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {
     const start = Date.now();
 
-    const apiKeyEnv = config.apiKeyEnv ?? 'MIRO_API_KEY';
-    const apiKey = process.env[apiKeyEnv];
-    if (!apiKey) {
-      return buildIngestResult(
-        0,
-        0,
-        [`Missing API key: environment variable "${apiKeyEnv}" is not set`],
-        start
-      );
-    }
+    const resolved = resolveConfig(config, start);
+    if (!resolved.ok) return resolved.result;
 
-    const baseUrlEnv = config.baseUrlEnv ?? 'MIRO_BASE_URL';
-    const baseUrl = process.env[baseUrlEnv] ?? 'https://api.miro.com';
-
-    try {
-      const parsed = new URL(baseUrl);
-      if (parsed.protocol !== 'https:' || parsed.hostname !== 'api.miro.com') {
-        return buildIngestResult(
-          0,
-          0,
-          [`Invalid ${baseUrlEnv}: must be an HTTPS URL on api.miro.com`],
-          start
-        );
-      }
-    } catch {
-      return buildIngestResult(0, 0, [`Invalid ${baseUrlEnv}: not a valid URL`], start);
-    }
-
-    const boardIds = config.boardIds as string[] | undefined;
-    if (!boardIds || boardIds.length === 0) {
-      return buildIngestResult(0, 0, ['No boardIds provided in config'], start);
-    }
-
-    const headers = { Authorization: `Bearer ${apiKey}` };
+    const { baseUrl, boardIds, headers } = resolved;
 
     let totalNodesAdded = 0;
     let totalEdgesAdded = 0;

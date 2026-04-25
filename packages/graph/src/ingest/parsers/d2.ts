@@ -55,6 +55,56 @@ function parseSimpleShape(stripped: string): { id: string; label: string } | nul
   return null;
 }
 
+// ─── Line processing helpers ───────────────────────────────────────────────
+
+interface ParseState {
+  entities: Map<string, DiagramEntity>;
+  relationships: DiagramRelationship[];
+  braceDepth: number;
+}
+
+/** Handle a line that opens a brace block. Returns the new brace depth. */
+function handleBlockOpen(stripped: string, state: ParseState): void {
+  if (state.braceDepth === 0) {
+    const shape = parseBlockShape(stripped);
+    if (shape) state.entities.set(shape.id, { id: shape.id, label: shape.label });
+  }
+  state.braceDepth++;
+}
+
+/** Process a top-level line (not inside a nested block). */
+function processTopLevelLine(stripped: string, state: ParseState): void {
+  const conn = parseConnection(stripped);
+  if (conn) {
+    state.relationships.push(conn);
+    return;
+  }
+
+  const shape = parseSimpleShape(stripped);
+  if (shape && !state.entities.has(shape.id)) {
+    state.entities.set(shape.id, { id: shape.id, label: shape.label });
+  }
+}
+
+/** Process a single line within the D2 parse loop. */
+function processD2Line(stripped: string, state: ParseState): void {
+  if (!stripped || stripped.startsWith('#')) return;
+
+  if (stripped.endsWith('{')) {
+    handleBlockOpen(stripped, state);
+    return;
+  }
+
+  if (stripped === '}') {
+    state.braceDepth = Math.max(0, state.braceDepth - 1);
+    return;
+  }
+
+  if (state.braceDepth > 0) return;
+
+  processTopLevelLine(stripped, state);
+}
+
 // ─── D2Parser class ─────────────────────────────────────────────────────────
 
 export class D2Parser implements DiagramFormatParser {
@@ -66,48 +116,19 @@ export class D2Parser implements DiagramFormatParser {
     const trimmed = content.trim();
     if (!trimmed) return emptyResult();
 
-    const entities = new Map<string, DiagramEntity>();
-    const relationships: DiagramRelationship[] = [];
-    let braceDepth = 0;
+    const state: ParseState = {
+      entities: new Map<string, DiagramEntity>(),
+      relationships: [],
+      braceDepth: 0,
+    };
 
     for (const line of trimmed.split('\n')) {
-      const stripped = line.trim();
-      if (!stripped || stripped.startsWith('#')) continue;
-
-      // Track brace depth — skip lines inside nested blocks
-      if (stripped.endsWith('{')) {
-        if (braceDepth === 0) {
-          const shape = parseBlockShape(stripped);
-          if (shape) entities.set(shape.id, { id: shape.id, label: shape.label });
-        }
-        braceDepth++;
-        continue;
-      }
-
-      if (stripped === '}') {
-        braceDepth = Math.max(0, braceDepth - 1);
-        continue;
-      }
-
-      if (braceDepth > 0) continue;
-
-      // Connection: "server -> db: queries"
-      const conn = parseConnection(stripped);
-      if (conn) {
-        relationships.push(conn);
-        continue;
-      }
-
-      // Simple shape declaration: "server: Web Server"
-      const shape = parseSimpleShape(stripped);
-      if (shape && !entities.has(shape.id)) {
-        entities.set(shape.id, { id: shape.id, label: shape.label });
-      }
+      processD2Line(line.trim(), state);
     }
 
     return {
-      entities: Array.from(entities.values()),
-      relationships,
+      entities: Array.from(state.entities.values()),
+      relationships: state.relationships,
       metadata: { format: 'd2', diagramType: 'architecture' },
     };
   }

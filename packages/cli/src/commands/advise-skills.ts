@@ -37,15 +37,37 @@ function readPackageDeps(cwd: string): {
   }
 }
 
-export async function runAdviseSkills(options: AdviseSkillsOptions) {
-  const cwd = options.cwd ?? process.cwd();
-  const specPath = path.resolve(cwd, options.specPath);
-
+function readSpecText(specPath: string): string {
   if (!fs.existsSync(specPath)) {
     throw new Error(`Spec not found: ${specPath}`);
   }
+  return fs.readFileSync(specPath, 'utf-8');
+}
 
-  const specText = fs.readFileSync(specPath, 'utf-8');
+function filterMatchesByTier(
+  result: ReturnType<typeof matchContent>,
+  top: number,
+  thorough: boolean
+): ReturnType<typeof matchContent> {
+  const applySkills = result.matches.filter((m) => m.tier === 'apply').slice(0, top);
+  const refSkills = result.matches.filter((m) => m.tier === 'reference').slice(0, top * 2);
+  const considerSkills = thorough
+    ? result.matches.filter((m) => m.tier === 'consider').slice(0, top)
+    : [];
+
+  return { ...result, matches: [...applySkills, ...refSkills, ...considerSkills] };
+}
+
+function extractFeatureName(specText: string, specPath: string): string {
+  const titleMatch = specText.match(/^#\s+(.+)/m);
+  return titleMatch?.[1] ?? path.basename(path.dirname(specPath));
+}
+
+export async function runAdviseSkills(options: AdviseSkillsOptions) {
+  const cwd = options.cwd ?? process.cwd();
+  const specPath = path.resolve(cwd, options.specPath);
+  const specText = readSpecText(specPath);
+
   const { deps, devDeps } = readPackageDeps(cwd);
   const signals = extractSignals(specText, deps, devDeps);
 
@@ -55,22 +77,9 @@ export async function runAdviseSkills(options: AdviseSkillsOptions) {
   const totalSkills = Object.keys(index.skills).length;
 
   const result = matchContent(index, signals);
+  const filteredResult = filterMatchesByTier(result, options.top ?? 5, !!options.thorough);
 
-  const top = options.top ?? 5;
-  const applySkills = result.matches.filter((m) => m.tier === 'apply').slice(0, top);
-  const refSkills = result.matches.filter((m) => m.tier === 'reference').slice(0, top * 2);
-  const considerSkills = options.thorough
-    ? result.matches.filter((m) => m.tier === 'consider').slice(0, top)
-    : [];
-
-  const filteredResult = {
-    ...result,
-    matches: [...applySkills, ...refSkills, ...considerSkills],
-  };
-
-  const titleMatch = specText.match(/^#\s+(.+)/m);
-  const featureName = titleMatch?.[1] ?? path.basename(path.dirname(specPath));
-
+  const featureName = extractFeatureName(specText, specPath);
   const skillsMdPath = path.join(path.dirname(specPath), 'SKILLS.md');
   const md = generateSkillsMd(featureName, filteredResult, totalSkills);
   fs.writeFileSync(skillsMdPath, md, 'utf-8');

@@ -61,6 +61,27 @@ export type BlockSegment =
 
 // ── Helpers ────────────────────────────────────────────────────────
 
+function isTodoTool(toolLower: string): boolean {
+  return toolLower.includes('todo');
+}
+
+function isInteractionTool(toolLower: string): boolean {
+  return (
+    toolLower.includes('interaction') ||
+    toolLower.includes('question') ||
+    toolLower.includes('ask') ||
+    toolLower.includes('human')
+  );
+}
+
+/** Returns true if this tool_use block should break child collection. */
+function isChildBreakingTool(b: ContentBlock): boolean {
+  if (b.kind !== 'tool_use') return false;
+  if (isContainerTool(b.tool)) return true;
+  const t = b.tool.toLowerCase();
+  return isTodoTool(t) || isInteractionTool(t);
+}
+
 function collectChildIndices(
   blocks: ContentBlock[],
   consumedIndices: Set<number>,
@@ -70,22 +91,59 @@ function collectChildIndices(
   for (let j = agentIdx + 1; j < blocks.length; j++) {
     if (consumedIndices.has(j)) continue;
     const b = blocks[j]!;
-    if (b.kind === 'tool_use') {
-      if (isContainerTool(b.tool)) break;
-      const t = b.tool.toLowerCase();
-      if (t.includes('todo')) break;
-      if (
-        t.includes('interaction') ||
-        t.includes('question') ||
-        t.includes('ask') ||
-        t.includes('human')
-      )
-        break;
-    }
+    if (isChildBreakingTool(b)) break;
     if (b.kind === 'text' && !isLogOutput(b.text)) break;
     children.push(j);
   }
   return children;
+}
+
+/**
+ * Walk forward from a tool_use block, collecting adjacent text/status output
+ * that should be merged into the tool's result. Returns the merged block and
+ * marks consumed indices in `consumed`.
+ *
+ * `eligible` constrains which indices may be consumed (pass `undefined` to
+ * allow all indices up to `blocks.length`).
+ */
+function mergeFollowingOutput(
+  blocks: ContentBlock[],
+  toolBlock: ToolUseBlock,
+  startIdx: number,
+  consumed: Set<number>,
+  eligible?: number[]
+): ToolUseBlock {
+  const chunks: string[] = [];
+  let look = startIdx;
+  const inRange = (idx: number) => (eligible ? eligible.includes(idx) : idx < blocks.length);
+
+  while (inRange(look)) {
+    if (consumed.has(look)) {
+      look++;
+      continue;
+    }
+    const nextB = blocks[look]!;
+    if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break;
+    if (nextB.kind === 'text') {
+      if (isLogOutput(nextB.text, toolBlock.tool)) {
+        chunks.push(nextB.text);
+        consumed.add(look);
+      } else {
+        break;
+      }
+    } else if (nextB.kind === 'status') {
+      chunks.push(nextB.text);
+      consumed.add(look);
+    }
+    look++;
+  }
+
+  if (chunks.length === 0) return toolBlock;
+  const merged = chunks.join('\n\n');
+  return {
+    ...toolBlock,
+    result: toolBlock.result ? `${merged}\n\n${toolBlock.result}` : merged,
+  } as ToolUseBlock;
 }
 
 function processChildBlocks(blocks: ContentBlock[], childIndices: number[]): ContentBlock[] {
@@ -94,44 +152,110 @@ function processChildBlocks(blocks: ContentBlock[], childIndices: number[]): Con
 
   for (const idx of childIndices) {
     if (innerConsumed.has(idx)) continue;
-    let block = blocks[idx]!;
+    const block = blocks[idx]!;
 
     if (block.kind === 'tool_use') {
-      const forceResultChunks: string[] = [];
-      let lookAhead = idx + 1;
-      while (lookAhead < blocks.length && childIndices.includes(lookAhead)) {
-        if (innerConsumed.has(lookAhead)) {
-          lookAhead++;
-          continue;
-        }
-        const nextB = blocks[lookAhead]!;
-        if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break;
-        if (nextB.kind === 'text') {
-          if (isLogOutput(nextB.text, block.tool)) {
-            forceResultChunks.push(nextB.text);
-            innerConsumed.add(lookAhead);
-          } else {
-            break;
-          }
-        } else if (nextB.kind === 'status') {
-          forceResultChunks.push(nextB.text);
-          innerConsumed.add(lookAhead);
-        }
-        lookAhead++;
-      }
-      if (forceResultChunks.length > 0) {
-        const chunkString = forceResultChunks.join('\n\n');
-        block = {
-          ...block,
-          result: block.result ? `${chunkString}\n\n${block.result}` : chunkString,
-        } as ToolUseBlock;
-      }
+      childBlocks.push(mergeFollowingOutput(blocks, block, idx + 1, innerConsumed, childIndices));
+    } else {
+      childBlocks.push(block);
     }
-
-    childBlocks.push(block);
   }
 
   return childBlocks;
+}
+
+/** Mark the last activity segment in the list (if any). */
+function markLastActivitySegment(segments: BlockSegment[]): void {
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (segments[i]!.kind === 'activity') {
+      (segments[i] as Extract<BlockSegment, { kind: 'activity' }>).isLastGroup = true;
+      return;
+    }
+  }
+}
+
+// ── Per-block-kind handlers ───────────────────────────────────────
+
+interface LoopState {
+  blocks: ContentBlock[];
+  segments: BlockSegment[];
+  consumedIndices: Set<number>;
+  activityGroup: ContentBlock[];
+  activityGroupStart: number;
+  isStreaming: boolean;
+}
+
+function flushActivityGroup(state: LoopState): void {
+  if (state.activityGroup.length === 0) return;
+  state.segments.push({
+    kind: 'activity',
+    blocks: state.activityGroup,
+    startIndex: state.activityGroupStart,
+    isLastGroup: false,
+  });
+  state.activityGroup = [];
+}
+
+function addToActivityGroup(state: LoopState, block: ContentBlock, index: number): void {
+  if (state.activityGroup.length === 0) state.activityGroupStart = index;
+  state.activityGroup.push(block);
+}
+
+function handleContainerTool(state: LoopState, block: ToolUseBlock, i: number): void {
+  flushActivityGroup(state);
+  const childIndices = collectChildIndices(state.blocks, state.consumedIndices, i);
+  childIndices.forEach((idx) => state.consumedIndices.add(idx));
+  const childBlocks = processChildBlocks(state.blocks, childIndices);
+  state.segments.push({
+    kind: 'agent',
+    block,
+    childBlocks,
+    childStartIndex: childIndices[0] ?? i + 1,
+    childIsLastGroup:
+      childIndices.length > 0 && childIndices[childIndices.length - 1] === state.blocks.length - 1,
+    index: i,
+  });
+}
+
+function handleTodoTool(state: LoopState, block: ToolUseBlock, i: number): void {
+  flushActivityGroup(state);
+  state.segments.push({ kind: 'todo', block, index: i });
+}
+
+function handleInteractionTool(state: LoopState, block: ToolUseBlock, i: number): void {
+  flushActivityGroup(state);
+  state.segments.push({
+    kind: 'interaction',
+    block,
+    index: i,
+    isPending: state.isStreaming && i === state.blocks.length - 1,
+  });
+}
+
+function handleRegularTool(state: LoopState, block: ToolUseBlock, i: number): void {
+  const merged = mergeFollowingOutput(state.blocks, block, i + 1, state.consumedIndices, undefined);
+  addToActivityGroup(state, merged, i);
+}
+
+function handleToolUse(state: LoopState, block: ToolUseBlock, i: number): void {
+  const t = block.tool.toLowerCase();
+  if (isContainerTool(block.tool)) return handleContainerTool(state, block, i);
+  if (isTodoTool(t)) return handleTodoTool(state, block, i);
+  if (isInteractionTool(t)) return handleInteractionTool(state, block, i);
+  handleRegularTool(state, block, i);
+}
+
+function handleBlock(state: LoopState, block: ContentBlock, i: number): void {
+  if (block.kind === 'tool_use') {
+    handleToolUse(state, block as ToolUseBlock, i);
+  } else if (block.kind === 'thinking' || block.kind === 'status') {
+    addToActivityGroup(state, block, i);
+  } else if (block.kind === 'text' && isLogOutput(block.text)) {
+    addToActivityGroup(state, block, i);
+  } else {
+    flushActivityGroup(state);
+    state.segments.push({ kind: 'text', block: block as TextBlock, index: i });
+  }
 }
 
 // ── Main computation ───────────────────────────────────────────────
@@ -143,144 +267,37 @@ function processChildBlocks(blocks: ContentBlock[], childIndices: number[]): Con
 export function computeBlockSegments(blocks: ContentBlock[], isStreaming: boolean): BlockSegment[] {
   if (blocks.length === 0) return [];
 
-  const segments: BlockSegment[] = [];
-  const consumedIndices = new Set<number>();
-
-  let activityGroup: ContentBlock[] = [];
-  let activityGroupStart = 0;
-
-  const flushActivityGroup = () => {
-    if (activityGroup.length === 0) return;
-    segments.push({
-      kind: 'activity',
-      blocks: activityGroup,
-      startIndex: activityGroupStart,
-      isLastGroup: false,
-    });
-    activityGroup = [];
+  const state: LoopState = {
+    blocks,
+    segments: [],
+    consumedIndices: new Set<number>(),
+    activityGroup: [],
+    activityGroupStart: 0,
+    isStreaming,
   };
 
   for (let i = 0; i < blocks.length; i++) {
-    if (consumedIndices.has(i)) continue;
-    let block = blocks[i]!;
-
-    if (block.kind === 'tool_use') {
-      const t = block.tool.toLowerCase();
-
-      // Container tools: agent/subagent/skill
-      if (isContainerTool(block.tool)) {
-        flushActivityGroup();
-        const childIndices = collectChildIndices(blocks, consumedIndices, i);
-        childIndices.forEach((idx) => consumedIndices.add(idx));
-        const childBlocks = processChildBlocks(blocks, childIndices);
-        segments.push({
-          kind: 'agent',
-          block: block as ToolUseBlock,
-          childBlocks,
-          childStartIndex: childIndices[0] ?? i + 1,
-          childIsLastGroup:
-            childIndices.length > 0 && childIndices[childIndices.length - 1] === blocks.length - 1,
-          index: i,
-        });
-        continue;
-      }
-
-      // Todo blocks
-      if (t.includes('todo')) {
-        flushActivityGroup();
-        segments.push({ kind: 'todo', block: block as ToolUseBlock, index: i });
-        continue;
-      }
-
-      // Interaction blocks
-      if (
-        t.includes('interaction') ||
-        t.includes('question') ||
-        t.includes('ask') ||
-        t.includes('human')
-      ) {
-        flushActivityGroup();
-        segments.push({
-          kind: 'interaction',
-          block: block as ToolUseBlock,
-          index: i,
-          isPending: isStreaming && i === blocks.length - 1,
-        });
-        continue;
-      }
-
-      // Regular tool_use: pair with following text/status output
-      const forceResultChunks: string[] = [];
-      let lookAhead = i + 1;
-      while (lookAhead < blocks.length) {
-        if (consumedIndices.has(lookAhead)) {
-          lookAhead++;
-          continue;
-        }
-        const nextB = blocks[lookAhead]!;
-        if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break;
-        if (nextB.kind === 'text') {
-          if (isLogOutput(nextB.text, block.tool)) {
-            forceResultChunks.push(nextB.text);
-            consumedIndices.add(lookAhead);
-          } else {
-            break;
-          }
-        } else if (nextB.kind === 'status') {
-          forceResultChunks.push(nextB.text);
-          consumedIndices.add(lookAhead);
-        }
-        lookAhead++;
-      }
-      if (forceResultChunks.length > 0) {
-        const chunkString = forceResultChunks.join('\n\n');
-        block = {
-          ...block,
-          result: (block as ToolUseBlock).result
-            ? `${chunkString}\n\n${(block as ToolUseBlock).result}`
-            : chunkString,
-        } as ToolUseBlock;
-      }
-
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else if (block.kind === 'thinking' || block.kind === 'status') {
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else if (block.kind === 'text' && isLogOutput(block.text)) {
-      if (activityGroup.length === 0) activityGroupStart = i;
-      activityGroup.push(block);
-    } else {
-      // Conversational text
-      flushActivityGroup();
-      segments.push({ kind: 'text', block: block as TextBlock, index: i });
-    }
+    if (state.consumedIndices.has(i)) continue;
+    handleBlock(state, blocks[i]!, i);
   }
 
   // Flush final activity group (mark as last)
-  if (activityGroup.length > 0) {
-    segments.push({
+  if (state.activityGroup.length > 0) {
+    state.segments.push({
       kind: 'activity',
-      blocks: activityGroup,
-      startIndex: activityGroupStart,
+      blocks: state.activityGroup,
+      startIndex: state.activityGroupStart,
       isLastGroup: true,
     });
   } else {
-    // Find and mark the last activity segment
-    for (let i = segments.length - 1; i >= 0; i--) {
-      if (segments[i]!.kind === 'activity') {
-        (segments[i] as Extract<BlockSegment, { kind: 'activity' }>).isLastGroup = true;
-        break;
-      }
-    }
+    markLastActivitySegment(state.segments);
   }
 
-  // Add streaming indicator
   if (isStreaming) {
-    segments.push({ kind: 'streaming' });
+    state.segments.push({ kind: 'streaming' });
   }
 
-  return segments;
+  return state.segments;
 }
 
 /** Stable key for a segment, based on its block index or kind. */

@@ -66,23 +66,34 @@ function extractComponents(body: string, entities: Map<string, DiagramEntity>): 
   }
 }
 
+/** Parse a single relationship match into a DiagramRelationship. */
+function parseRelationshipMatch(match: RegExpExecArray): DiagramRelationship | null {
+  const from = match[1] ?? '';
+  const to = match[2] ?? '';
+  if (!from || !to) return null;
+
+  const label = match[3]?.trim();
+  return { from, to, ...(label ? { label } : {}) };
+}
+
+/** Collect all regex matches from body into relationships. */
+function collectRelationshipMatches(body: string, regex: RegExp): DiagramRelationship[] {
+  const results: DiagramRelationship[] = [];
+  let match = regex.exec(body);
+  while (match !== null) {
+    const rel = parseRelationshipMatch(match);
+    if (rel) results.push(rel);
+    match = regex.exec(body);
+  }
+  return results;
+}
+
 /** Extract relationships (various arrow styles) from body. */
 function extractRelationships(body: string): DiagramRelationship[] {
-  const relationships: DiagramRelationship[] = [];
-  const relRegex = /(\w+)\s*(?:-->|->|<--|<-|\.\.>|--)\s*(\w+)(?:\s*:\s*(.+))?/g;
-
-  let match = relRegex.exec(body);
-  while (match !== null) {
-    const from = match[1] ?? '';
-    const to = match[2] ?? '';
-    const label = match[3]?.trim();
-    if (from && to) {
-      relationships.push({ from, to, ...(label ? { label } : {}) });
-    }
-    match = relRegex.exec(body);
-  }
-
-  return relationships;
+  return collectRelationshipMatches(
+    body,
+    /(\w+)\s*(?:-->|->|<--|<-|\.\.>|--)\s*(\w+)(?:\s*:\s*(.+))?/g
+  );
 }
 
 // ─── PlantUmlParser class ───────────────────────────────────────────────────

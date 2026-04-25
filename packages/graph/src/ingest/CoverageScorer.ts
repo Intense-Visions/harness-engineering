@@ -1,5 +1,5 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { EdgeType, NodeType } from '../types.js';
+import type { EdgeType, GraphNode, NodeType } from '../types.js';
 import { KNOWLEDGE_NODE_TYPES } from './knowledgeTypes.js';
 
 // --- Exported result types ---
@@ -56,88 +56,116 @@ function toGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
   return 'F';
 }
 
+// --- Helpers (module-level) ---
+
+/** Group nodes by domain, using a fallback resolver for nodes without explicit domain metadata. */
+function groupByDomain(
+  nodes: readonly GraphNode[],
+  fallback: (node: GraphNode) => string
+): Map<string, GraphNode[]> {
+  const map = new Map<string, GraphNode[]>();
+  for (const node of nodes) {
+    const domain = (node.metadata.domain as string) ?? fallback(node);
+    const group = map.get(domain) ?? [];
+    group.push(node);
+    map.set(domain, group);
+  }
+  return map;
+}
+
+/** Count code entities that have at least one knowledge edge pointing to them. */
+function countLinkedEntities(codeEntries: readonly GraphNode[], store: GraphStore): Set<string> {
+  const linkedIds = new Set<string>();
+  for (const codeNode of codeEntries) {
+    if (hasKnowledgeEdge(codeNode.id, store)) {
+      linkedIds.add(codeNode.id);
+    }
+  }
+  return linkedIds;
+}
+
+/** Check whether a code node has at least one knowledge edge pointing to it. */
+function hasKnowledgeEdge(nodeId: string, store: GraphStore): boolean {
+  for (const edgeType of KNOWLEDGE_EDGE_TYPES) {
+    if (store.getEdges({ to: nodeId, type: edgeType }).length > 0) return true;
+  }
+  return false;
+}
+
+/** Compute source breakdown for a set of knowledge nodes. */
+function computeSourceBreakdown(knEntries: readonly GraphNode[]): Record<string, number> {
+  const breakdown: Record<string, number> = {};
+  for (const kn of knEntries) {
+    const src = (kn.metadata.source as string) ?? 'unknown';
+    breakdown[src] = (breakdown[src] ?? 0) + 1;
+  }
+  return breakdown;
+}
+
+/** Compute the weighted score for a single domain. */
+function computeDomainScore(
+  knowledgeEntries: number,
+  codeEntities: number,
+  linkedEntities: number,
+  uniqueSources: number
+): number {
+  // 60% weight: code coverage (linked / total code entities)
+  const codeCoverageComponent = codeEntities > 0 ? (linkedEntities / codeEntities) * 60 : 0;
+  // 20% weight: knowledge depth (capped at 10 entries)
+  const knowledgeDepthComponent = Math.min(knowledgeEntries / 10, 1.0) * 20;
+  // 20% weight: source diversity (capped at 3 sources)
+  const sourceDiversityComponent = Math.min(uniqueSources / 3, 1.0) * 20;
+  return Math.round(codeCoverageComponent + knowledgeDepthComponent + sourceDiversityComponent);
+}
+
+/** Score a single domain and return a DomainCoverageScore. */
+function scoreDomain(
+  domain: string,
+  knEntries: readonly GraphNode[],
+  codeEntries: readonly GraphNode[],
+  store: GraphStore
+): DomainCoverageScore {
+  const linkedIds = countLinkedEntities(codeEntries, store);
+  const sourceBreakdown = computeSourceBreakdown(knEntries);
+
+  const codeEntities = codeEntries.length;
+  const linkedEntities = linkedIds.size;
+  const knowledgeEntries = knEntries.length;
+  const uniqueSources = Object.keys(sourceBreakdown).length;
+
+  const score = computeDomainScore(knowledgeEntries, codeEntities, linkedEntities, uniqueSources);
+
+  return {
+    domain,
+    score,
+    knowledgeEntries,
+    codeEntities,
+    linkedEntities,
+    unlinkedEntities: codeEntities - linkedEntities,
+    sourceBreakdown,
+    grade: toGrade(score),
+  };
+}
+
 // --- Scorer ---
 
 export class CoverageScorer {
   score(store: GraphStore): CoverageReport {
-    // 1. Collect all knowledge nodes, group by domain
     const knowledgeNodes = KNOWLEDGE_TYPES.flatMap((t) => store.findNodes({ type: t }));
+    const domainMap = groupByDomain(knowledgeNodes, () => 'unclassified');
 
-    const domainMap = new Map<string, typeof knowledgeNodes>();
-    for (const node of knowledgeNodes) {
-      const domain = (node.metadata.domain as string) ?? 'unclassified';
-      const group = domainMap.get(domain) ?? [];
-      group.push(node);
-      domainMap.set(domain, group);
-    }
-
-    // 2. Collect code nodes, group by domain
     const codeNodes = CODE_TYPES.flatMap((t) => store.findNodes({ type: t }));
+    const codeDomains = groupByDomain(codeNodes, (n) => this.domainFromPath(n.path));
 
-    const codeDomains = new Map<string, typeof codeNodes>();
-    for (const node of codeNodes) {
-      const domain = (node.metadata.domain as string) ?? this.domainFromPath(node.path);
-      const group = codeDomains.get(domain) ?? [];
-      group.push(node);
-      codeDomains.set(domain, group);
-    }
-
-    // 3. Compute per-domain scores
     const allDomains = new Set([...domainMap.keys(), ...codeDomains.keys()]);
     const domains: DomainCoverageScore[] = [];
 
     for (const domain of allDomains) {
-      const knEntries = domainMap.get(domain) ?? [];
-      const codeEntries = codeDomains.get(domain) ?? [];
-
-      // Count linked code entities (those with at least one knowledge edge)
-      const linkedIds = new Set<string>();
-      for (const codeNode of codeEntries) {
-        for (const edgeType of KNOWLEDGE_EDGE_TYPES) {
-          const edges = store.getEdges({ to: codeNode.id, type: edgeType });
-          if (edges.length > 0) {
-            linkedIds.add(codeNode.id);
-            break;
-          }
-        }
-      }
-
-      // Source breakdown
-      const sourceBreakdown: Record<string, number> = {};
-      for (const kn of knEntries) {
-        const src = (kn.metadata.source as string) ?? 'unknown';
-        sourceBreakdown[src] = (sourceBreakdown[src] ?? 0) + 1;
-      }
-
-      const codeEntities = codeEntries.length;
-      const linkedEntities = linkedIds.size;
-      const knowledgeEntries = knEntries.length;
-      const uniqueSources = Object.keys(sourceBreakdown).length;
-
-      // Score formula:
-      //   60% weight: code coverage (linked / total code entities)
-      //   20% weight: knowledge depth (capped at 10 entries)
-      //   20% weight: source diversity (capped at 3 sources)
-      const codeCoverageComponent = codeEntities > 0 ? (linkedEntities / codeEntities) * 60 : 0;
-      const knowledgeDepthComponent = Math.min(knowledgeEntries / 10, 1.0) * 20;
-      const sourceDiversityComponent = Math.min(uniqueSources / 3, 1.0) * 20;
-      const score = Math.round(
-        codeCoverageComponent + knowledgeDepthComponent + sourceDiversityComponent
+      domains.push(
+        scoreDomain(domain, domainMap.get(domain) ?? [], codeDomains.get(domain) ?? [], store)
       );
-
-      domains.push({
-        domain,
-        score,
-        knowledgeEntries,
-        codeEntities,
-        linkedEntities,
-        unlinkedEntities: codeEntities - linkedEntities,
-        sourceBreakdown,
-        grade: toGrade(score),
-      });
     }
 
-    // 4. Overall score (average of domain scores, or 0 if no domains)
     const overallScore =
       domains.length > 0
         ? Math.round(domains.reduce((sum, d) => sum + d.score, 0) / domains.length)
