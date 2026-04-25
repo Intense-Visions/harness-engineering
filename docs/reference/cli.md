@@ -121,6 +121,9 @@ harness validate [options]
 
 ```
 --cross-check           Run cross-artifact consistency validation
+--agent-configs         Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
+--strict                Treat warnings as errors (applies to --agent-configs)
+--agnix-bin <path>      Override the agnix binary path discovered on PATH
 ```
 
 **Examples:**
@@ -131,6 +134,9 @@ harness validate
 
 # Run with cross-check validation
 harness validate --cross-check
+
+# Validate agent configs with strict mode
+harness validate --agent-configs --strict
 
 # Output results as JSON
 harness validate --json
@@ -427,6 +433,37 @@ harness recommend --json
 
 ---
 
+### harness advise-skills
+
+Content-based skill recommendations for a spec. Analyzes a proposal or spec document to identify relevant skills, producing a tiered list of Apply, Reference, and optionally Consider skills. Results are written to a SKILLS.md file alongside the spec.
+
+```
+harness advise-skills [options]
+```
+
+**Options:**
+
+```
+--spec-path <path>      Path to the spec (proposal.md) (required)
+--thorough              Include Consider tier in output
+--top <n>               Max skills per tier (default: 5)
+```
+
+**Examples:**
+
+```bash
+# Get skill recommendations for a spec
+harness advise-skills --spec-path docs/specs/auth-refactor/proposal.md
+
+# Include Consider tier, limit to top 3 per tier
+harness advise-skills --spec-path docs/specs/auth-refactor/proposal.md --thorough --top 3
+
+# Output as JSON
+harness advise-skills --spec-path docs/specs/auth-refactor/proposal.md --json
+```
+
+---
+
 ## Entropy and Drift Commands
 
 ### harness cleanup
@@ -511,6 +548,51 @@ harness impact-preview --detailed --per-file
 
 # Output as JSON
 harness impact-preview --json
+```
+
+---
+
+### harness knowledge-pipeline
+
+Run knowledge extraction, drift detection, and gap analysis. Orchestrates a multi-phase pipeline that extracts knowledge from code and documentation, detects drift between sources, identifies gaps, and optionally auto-remediates findings.
+
+```
+harness knowledge-pipeline [options]
+```
+
+**Options:**
+
+```
+--fix                   Enable convergence-based auto-remediation (default: detect-only)
+--ci                    Non-interactive mode — apply safe fixes only, report everything else
+--domain <name>         Limit pipeline to a specific knowledge domain
+--drift-check           Exit 1 if unresolved drift exists (CI gate mode)
+--analyze-images        Enable vision model analysis of image files
+--image-paths <paths>   Comma-separated image file paths for analysis
+--coverage              Display per-domain coverage report
+--check-contradictions  Display cross-source contradiction report
+```
+
+**Examples:**
+
+```bash
+# Run knowledge pipeline (detect only)
+harness knowledge-pipeline
+
+# Run with auto-remediation
+harness knowledge-pipeline --fix
+
+# CI mode with drift gate
+harness knowledge-pipeline --ci --drift-check
+
+# Limit to a specific domain with coverage report
+harness knowledge-pipeline --domain api --coverage
+
+# Analyze images in the pipeline
+harness knowledge-pipeline --analyze-images --image-paths "docs/diagrams/arch.png,docs/diagrams/flow.png"
+
+# Output as JSON
+harness knowledge-pipeline --json
 ```
 
 ---
@@ -668,6 +750,8 @@ harness agent review [options]
 --ci                    Enable eligibility gate, non-interactive output
 --deep                  Add threat modeling pass to security agent
 --no-mechanical         Skip mechanical checks
+--thorough              Generate task-specific rubric before reading implementation
+--isolated              Two-stage review: spec-compliance then code-quality with disjoint context
 ```
 
 **Examples:**
@@ -697,6 +781,7 @@ harness orchestrator run [options]
 
 ```
 -w, --workflow <path>   Path to harness.orchestrator.md (default: harness.orchestrator.md)
+--headless              Run without TUI (server-only mode for use with web dashboard)
 ```
 
 **Examples:**
@@ -1443,6 +1528,40 @@ harness usage latest
 
 ## Integration Commands
 
+### harness mcp
+
+Start the MCP (Model Context Protocol) server on stdio. Used by AI clients (Claude Code, Gemini CLI, Cursor) to access harness tools programmatically.
+
+```
+harness mcp [options]
+```
+
+**Options:**
+
+```
+--tools <tools...>      Only register the specified tools (used by Cursor integration)
+--tier <tier>           Load a preset tool tier instead of all tools (core, standard, full)
+--budget-tokens <n>     Auto-select tier to fit this baseline token budget
+```
+
+**Examples:**
+
+```bash
+# Start MCP server with all tools
+harness mcp
+
+# Start with only specific tools
+harness mcp --tools validate check-docs scan
+
+# Start with a specific tier
+harness mcp --tier core
+
+# Auto-select tier based on token budget
+harness mcp --budget-tokens 50000
+```
+
+---
+
 ### harness setup-mcp
 
 Configure MCP server for AI agent integration.
@@ -1672,6 +1791,7 @@ harness dashboard [options]
 ```
 --port <port>           Client dev server port (default: 3700)
 --api-port <port>       API server port (default: 3701)
+--orchestrator-url <url>  Orchestrator URL (default: http://localhost:8080)
 --no-open               Do not automatically open browser
 --cwd <path>            Project directory (defaults to cwd)
 ```
@@ -1875,7 +1995,7 @@ harness ingest [options]
 **Options:**
 
 ```
---source <name>          Source to ingest: code, knowledge, git, jira, slack
+--source <name>          Source to ingest: code, knowledge, git, business-signals, jira, slack, ci, confluence
 --all                    Run all sources (code, knowledge, git, and configured connectors)
 --full                   Force full re-ingestion
 ```
@@ -1962,6 +2082,39 @@ harness graph export --format json
 
 # Export as Mermaid diagram
 harness graph export --format mermaid
+```
+
+---
+
+### harness traceability
+
+Show spec-to-implementation traceability from the knowledge graph. Maps requirements from spec documents to their implementing code files and tests, showing coverage status and confidence levels.
+
+```
+harness traceability [options]
+```
+
+**Options:**
+
+```
+--spec <path>           Filter by spec file path
+--feature <name>        Filter by feature name
+```
+
+**Examples:**
+
+```bash
+# Show traceability for all specs
+harness traceability
+
+# Filter by a specific spec file
+harness traceability --spec docs/specs/auth-refactor/proposal.md
+
+# Filter by feature name
+harness traceability --feature "User Authentication"
+
+# Output as JSON
+harness traceability --json
 ```
 
 ---
@@ -2335,6 +2488,23 @@ harness telemetry status --json
 
 ---
 
+### harness telemetry test
+
+Send a test event to PostHog and verify connectivity. Requires telemetry to be enabled.
+
+```
+harness telemetry test
+```
+
+**Examples:**
+
+```bash
+# Send a test telemetry event
+harness telemetry test
+```
+
+---
+
 ### harness telemetry-wizard
 
 Interactive wizard that walks through telemetry configuration: anonymous telemetry opt-in, local adoption tracking opt-in, and optional identity fields. Writes results to `harness.config.json` and `.harness/telemetry.json`.
@@ -2402,4 +2572,4 @@ harness validate --config=/path/to/harness.config.json
 
 ---
 
-_Last Updated: 2026-04-18_
+_Last Updated: 2026-04-24_

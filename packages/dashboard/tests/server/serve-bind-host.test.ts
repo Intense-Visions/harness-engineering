@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { getBindHost } from '../../src/server/serve';
+import { getBindHost } from '../../src/shared/constants';
 
 describe('Dashboard server bind host', () => {
   const originalEnv = process.env['HOST'];

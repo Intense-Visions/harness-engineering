@@ -1,6 +1,14 @@
 /** Default port for the Hono API server */
 export const API_PORT = 3701;
 
+/**
+ * Returns the host address the server should bind to.
+ * Defaults to 127.0.0.1 (loopback) unless the HOST env var is set (e.g. 0.0.0.0 for containers).
+ */
+export function getBindHost(): string {
+  return process.env['HOST'] ?? '127.0.0.1';
+}
+
 /** Default port for the Vite dev server / dashboard UI */
 export const DASHBOARD_PORT = 3700;
 

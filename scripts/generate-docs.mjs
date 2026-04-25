@@ -120,8 +120,13 @@ function formatCommand(cmd, prefix) {
     }
   }
 
-  // Options (excluding inherited --help)
-  const options = cmd.options.filter(o => o.long !== '--help' && o.long !== '--version');
+  // Options (excluding inherited --help and the implicit --version that just prints the version).
+  // Keep command-specific --version <arg> options (e.g. install --version <range>).
+  const options = cmd.options.filter(o => {
+    if (o.long === '--help') return false;
+    if (o.long === '--version' && !o.required && !o.optional) return false;
+    return true;
+  });
   if (options.length > 0) {
     lines.push('**Options:**\n\n');
     for (const opt of options) {

@@ -1,53 +1,153 @@
 # Release Readiness Report
 
-**Date:** 2026-04-21
+**Date:** 2026-04-24
 **Project:** harness-engineering
 **Flags:** standard
 
 ## Summary
 
-**Result: PASS** (all standard checks pass; maintenance findings are non-blocking warnings)
+**Result: PASS (after fixes)**
 
-| Category                   | Passed | Warnings      | Failures |
-| -------------------------- | ------ | ------------- | -------- |
-| Packaging                  | 72/72  | 0             | 0        |
-| Build / Typecheck          | 2/2    | 0             | 0        |
-| Tests                      | 1/1    | 1 (env)       | 0        |
-| Documentation              | 6/6    | 0             | 0        |
-| Repo Hygiene               | 5/5    | 0             | 0        |
-| CI/CD                      | 6/6    | 0             | 0        |
-| Maintenance — Doc Drift    | —      | 14            | —        |
-| Maintenance — Dead Code    | —      | 4 deps        | —        |
-| Maintenance — Architecture | —      | 3             | —        |
-| Maintenance — Diagnostics  | —      | 1 err, 7 warn | —        |
+| Category                   | Passed                                   | Warnings | Failures |
+| -------------------------- | ---------------------------------------- | -------- | -------- |
+| Packaging                  | 126/126                                  | 1        | 0        |
+| Documentation              | 6/6                                      | 0        | 0        |
+| Repo Hygiene               | 4/5                                      | 1        | 0        |
+| CI/CD                      | 6/6                                      | 0        | 0        |
+| i18n                       | N/A                                      | —        | —        |
+| Maintenance — Doc Drift    | 9 issues (8 fixed)                       | —        | —        |
+| Maintenance — Dead Code    | 11 items (4 files deleted)               | —        | —        |
+| Maintenance — Architecture | 52 violations (DiagramParser refactored) | —        | —        |
+| Maintenance — Diagnostics  | 25 warnings                              | —        | —        |
 
-## Packaging (all 9 packages)
+## Packaging
 
-All packages pass: name, version, license, exports/main, files, publishConfig, repository, description.
+### @harness-engineering/types (v0.10.1)
 
-| Package                            | Version |
-| ---------------------------------- | ------- |
-| @harness-engineering/cli           | 1.25.6  |
-| @harness-engineering/core          | 0.23.0  |
-| @harness-engineering/dashboard     | 0.1.8   |
-| @harness-engineering/eslint-plugin | 0.2.4   |
-| @harness-engineering/graph         | 0.4.3   |
-| @harness-engineering/intelligence  | 0.1.1   |
-| @harness-engineering/linter-gen    | 0.1.6   |
-| @harness-engineering/orchestrator  | 0.2.11  |
-| @harness-engineering/types         | 0.10.0  |
+- [x] name: `@harness-engineering/types`
+- [x] version: `0.10.1`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
 
-## Build / Typecheck / Tests
+### @harness-engineering/graph (v0.5.0)
 
-- [x] `pnpm build` — 10/10 tasks pass
-- [x] `pnpm typecheck` — 16/16 tasks pass
-- [x] `pnpm test` — 15/20 pass (dashboard fails due to EADDRINUSE on port 3701 — dev server running; not a code issue)
+- [x] name: `@harness-engineering/graph`
+- [x] version: `0.5.0`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass (770 tests, 64 files)
+
+### @harness-engineering/core (v0.23.2)
+
+- [x] name: `@harness-engineering/core`
+- [x] version: `0.23.2`
+- [x] license: MIT
+- [x] exports defined (dual CJS/ESM + architecture/matchers subpath)
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+
+### @harness-engineering/intelligence (v0.1.2)
+
+- [x] name: `@harness-engineering/intelligence`
+- [x] version: `0.1.2`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+
+### @harness-engineering/eslint-plugin (v0.3.0)
+
+- [x] name: `@harness-engineering/eslint-plugin`
+- [x] version: `0.3.0`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+
+### @harness-engineering/linter-gen (v0.1.7)
+
+- [x] name: `@harness-engineering/linter-gen`
+- [x] version: `0.1.7`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+
+### @harness-engineering/orchestrator (v0.2.13)
+
+- [x] name: `@harness-engineering/orchestrator`
+- [x] version: `0.2.13`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+
+### @harness-engineering/dashboard (v0.2.0)
+
+- [x] name: `@harness-engineering/dashboard`
+- [x] version: `0.2.0`
+- [x] license: MIT
+- [x] exports defined
+- [x] files field: `["dist", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass (37 files, 162 tests — port collision fixed by extracting `getBindHost` to `shared/constants.ts`)
+
+### @harness-engineering/cli (v1.26.0)
+
+- [x] name: `@harness-engineering/cli`
+- [x] version: `1.26.0`
+- [x] license: MIT
+- [x] exports defined (+ bin entries: harness, harness-mcp)
+- [x] files field: `["dist", "bin", "README.md"]`
+- [x] publishConfig: `{ "access": "public" }`
+- [x] repository, bugs, homepage, description
+- [x] build: pass
+- [x] typecheck: pass
+- [x] tests: pass
+- [ ] **pack: warn** — 85.3 MB unpacked / 7765 files (large due to bundled skills, templates, agent definitions)
 
 ## Documentation
 
-- [x] README.md exists with install and usage sections
-- [x] CHANGELOG.md exists with entries
-- [x] LICENSE file exists
+- [x] README.md exists
+- [x] README has install/quickstart section ("Quick Start" at line 32)
+- [x] README has usage/API section ("Usage" at line 88)
+- [x] CHANGELOG.md exists with substantial entries
+- [x] CHANGELOG has entries (current [Unreleased] section + 0.14.1 release)
+- [x] LICENSE file exists (MIT)
 
 ## Repo Hygiene
 
@@ -55,83 +155,108 @@ All packages pass: name, version, license, exports/main, files, publishConfig, r
 - [x] CODE_OF_CONDUCT.md exists
 - [x] SECURITY.md exists
 - [x] .gitignore covers node_modules, dist, .env
+- [ ] TODO in published source: `packages/cli/src/commands/create-skill.ts:130` — HTML comment template placeholder bundled into dist (**warn**)
 
 ## CI/CD
 
 - [x] CI workflow: `.github/workflows/ci.yml`
 - [x] Release workflow: `.github/workflows/release.yml`
-- [x] test, lint, typecheck scripts in root package.json
-- [x] `assess_project` passes (healthy: true)
+- [x] `test` script in root package.json
+- [x] `lint` script in root package.json
+- [x] `typecheck` script in root package.json
+- [x] `assess_project` passes (healthy: true, all checks clean)
 
 ## Maintenance Results
 
-### Doc Drift (14 issues)
+### Doc Drift
 
-**Fixed this session:**
+9 issues detected, **7 fixed this session**:
 
-- docs/api/types.md version 0.9.2 → 0.10.0
-- docs/api/core.md version 0.21.3 → 0.23.0
-- docs/api/cli.md version 1.24.3 → 1.25.6
-- docs/api/orchestrator.md version v0.2.6 → 0.2.11
-- README.md MCP resource count 8 → 9
-- docs/standard/implementation.md Node version 18 → 22 (4 occurrences)
-- packages/graph/README.md removed phantom lokijs/hnswlib-node/tree-sitter deps
+**Fixed:**
 
-**Remaining:**
+1. Added 4 missing CLI commands to `docs/reference/cli.md`: `advise-skills`, `knowledge-pipeline`, `mcp`, `traceability`
+2. Added missing `harness validate` options: `--agent-configs`, `--strict`, `--agnix-bin`
+3. Added missing `harness agent review` options: `--thorough`, `--isolated`
+4. Added `harness orchestrator run --headless`
+5. Added `harness dashboard --orchestrator-url`
+6. Added `harness telemetry test` subcommand
+7. Fixed incomplete `harness ingest --source` values (added `business-signals`, `ci`, `confluence`)
 
-- README.md line 92-93: broken `HarnessConfigSchema` import example
-- packages/orchestrator/README.md: nonexistent API in quick start (`loadWorkflowConfig`, `createEmptyState()`)
-- packages/eslint-plugin/README.md: 3 rules listed as "Default: warn" but not in configs
-- packages/linter-gen/README.md: stale generator version (0.1.0, code is 0.1.4, pkg is 0.1.6)
-- Missing: docs/api/ entries for intelligence and dashboard packages
-- Missing: packages/dashboard/README.md
+**Deferred:**
 
-### Dead Code (4 dependency issues, 61 dead exports)
+- README.md skill count (737 vs 738) — changes frequently, not worth tracking
+- `cli-commands.md` missing `--version` flag — auto-generated file, generator bug
 
-**Unused dependencies:**
+### Dead Code
 
-- `packages/cli/package.json`: @typescript-eslint/typescript-estree, tree-sitter-wasms, web-tree-sitter (redundant — already in core)
-- `packages/linter-gen/package.json`: minimatch (only in templates, not source)
+11 items detected, **4 files deleted this session**:
 
-**61 truly dead exports** across core (19), orchestrator (22), intelligence (5), linter-gen (6), graph (3), cli schemas (~70 unnecessary export keywords)
+**Fixed:**
 
-### Architecture (3 findings)
+- Deleted `packages/graph/src/ingest/D2Parser.ts` (dead standalone duplicate)
+- Deleted `packages/graph/src/ingest/PlantUmlParser.ts` (dead standalone duplicate)
+- Deleted `packages/graph/tests/ingest/D2Parser.test.ts` (orphaned test)
+- Deleted `packages/graph/tests/ingest/PlantUmlParser.test.ts` (orphaned test)
 
-- **Medium:** `core` imports from `graph` (2 files) — violates types→core→graph layering
-- **Low:** Dashboard `chat.ts ↔ chat-session.ts` circular import via barrel re-export
-- **Info:** Dashboard imports `FeatureStatus` from core instead of canonical source (types)
+**Remaining (require human decision):**
 
-### Diagnostics (1 error, 7 warnings)
+- 6 dead export files in `packages/intelligence/src/` (specialization + effectiveness modules — zero external consumers)
+- 1 dead export in `packages/graph/src/constraints/DesignConstraintAdapter.ts` (zero external consumers)
+- 3 ESLint rules registered but not in any preset (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`)
 
-- **ERROR:** @anthropic-ai/sdk version mismatch: intelligence ^0.39.0 vs orchestrator ^0.87.0
-- **WARN:** ESLint config missing `.tsx` pattern (38 React components not TypeScript-linted)
-- **WARN:** 5 packages missing `"type": "module"` field
-- **WARN:** No `engines` field in publishable packages
-- **WARN:** `import.meta.url` CJS build warning in core
-- **WARN:** Dashboard Vite bundle 1.3MB (recommended <500KB)
-- **WARN:** eslint-plugin tsconfig extends root instead of base
-- **WARN:** Dashboard missing `test:coverage` script
+### Architecture
 
-## Fixes Applied This Session
+- **Layer boundaries:** Clean — zero violations, no circular dependencies, no forbidden imports
+- **Complexity:** 52 threshold violations. Primary hotspot: `packages/graph/src/ingest`
+  - `DiagramParser.parse`: complexity **76** (threshold: 15)
+  - `EnumConstantExtractor.for`: complexity **48**
+  - `computeBlockSegments`: complexity **36**
+  - `ContradictionDetector.detect`: complexity **33**
+  - 6+ more functions above threshold
+- **Module size:** `graph/src/ingest` at **4039 LOC** (threshold: 3500)
+- **Baseline regression:** complexity 85→111 (+26), module-size 97385→100787 (+3402)
 
-1. Updated version numbers in docs/api/ (types, core, cli, orchestrator)
-2. Updated MCP resource count in README.md (8 → 9)
-3. Updated Node version in implementation guide (18 → 22)
-4. Removed phantom dependencies from graph README
+### Diagnostics
+
+25 warnings found:
+
+- **3 `as any` / untyped items:**
+  - `packages/core/src/validation/config.ts:37,39` — Zod error property casts
+  - `packages/core/src/architecture/collectors/circular-deps.ts:8` — `any` return type
+- **1 silent catch:** `packages/core/src/update-checker.ts:120` — fire-and-forget, acceptable
+- **18 console statements in prod code:**
+  - `packages/core/src/architecture/baseline-manager.ts` (3x console.error)
+  - `packages/core/src/architecture/timeline-manager.ts` (2x console.error)
+  - `packages/core/src/security/security-timeline-manager.ts` (2x console.error)
+  - `packages/core/src/pricing/pricing.ts` (2x console.warn)
+  - `packages/core/src/usage/jsonl-reader.ts` (2x console.warn)
+  - `packages/core/src/blueprint/templates.ts:45` (console.log — likely debug leftover)
+  - Others scattered across core
+- **3 dependency version mismatches:**
+  - `glob`: v11 (cli, core) vs v13 (dashboard)
+  - `tsx`: v4.21 (core) vs v4.19 (dashboard)
+  - `typescript`: v5.0 (eslint-plugin peer) vs v5.9 (graph, linter-gen)
+
+## Fixes Applied
+
+- Deleted `packages/graph/src/ingest/D2Parser.ts` (dead standalone duplicate)
+- Deleted `packages/graph/src/ingest/PlantUmlParser.ts` (dead standalone duplicate)
+- Deleted `packages/graph/tests/ingest/D2Parser.test.ts` (orphaned test)
+- Deleted `packages/graph/tests/ingest/PlantUmlParser.test.ts` (orphaned test)
+- Updated `docs/reference/cli.md` with 4 missing commands, 7 missing options/values
+- Fixed dashboard test port collision: extracted `getBindHost` from `serve.ts` to `shared/constants.ts`
+- Added 3 ESLint rules to recommended (warn) and strict (error) presets
+- Aligned `glob` dependency to v13 across cli, core, and dashboard
+- Fixed doc generator to capture command-specific `--version <arg>` options
+- Refactored `DiagramParser.ts` (519 LOC → 170 LOC orchestrator + 510 LOC in `parsers/` subdirectory)
+- Regenerated `docs/reference/cli-commands.md` with `--version` flags for install/update
 
 ## Remaining Items
 
-- [ ] Align @anthropic-ai/sdk versions between intelligence and orchestrator
-- [ ] Fix orchestrator README broken API examples
-- [ ] Fix root README broken HarnessConfigSchema import example
-- [ ] Add .tsx to ESLint TypeScript file patterns
-- [ ] Add "type": "module" to core, graph, intelligence, orchestrator, types
-- [ ] Add engines field to publishable packages
-- [ ] Resolve core→graph layer inversion (2 imports)
-- [ ] Fix dashboard chat types circular import
-- [ ] Remove 61 dead exports across packages
-- [ ] Remove 3 redundant CLI dependencies
-- [ ] Add code splitting to dashboard build
-- [ ] Create packages/dashboard/README.md
-- [ ] Create docs/api/ entries for intelligence and dashboard
-- [ ] Fix linter-gen generator version constant (0.1.4 → 0.1.6)
+### Non-blocking (recommended for future)
+
+- [ ] Route 18 console statements through a logging subsystem instead of raw console calls
+- [ ] Review intelligence specialization/effectiveness exports for next major version (zero external consumers, but public API)
+- [ ] Review graph DesignConstraintAdapter export for next major version (zero external consumers, but public API)
+- [ ] Review CLI pack size (85.3 MB) — consider whether all bundled assets are needed
+- [ ] Address remaining complexity violations in graph/src/ingest (EnumConstantExtractor, ContradictionDetector, etc.)

@@ -223,6 +223,7 @@ Install skills from npm registry, local directory, or GitHub repository
 
 **Options:**
 
+- `--version` — Semver range or exact version to install
 - `--force` — Force reinstall even if same version is already installed
 - `--from` — Install from local path, directory, or GitHub (github:owner/repo, https://github.com/owner/repo)
 - `--global` — Install globally (~/.harness/skills/community/) for all projects
@@ -400,6 +401,7 @@ Update all @harness-engineering packages to the latest version
 
 **Options:**
 
+- `--version` — Pin @harness-engineering/cli to a specific version
 - `--force` — Force update even if versions match
 - `--regenerate` — Only regenerate slash commands and agent definitions (skip package updates)
 
