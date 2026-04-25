@@ -112,7 +112,7 @@ export class KnowledgeDocMaterializer {
       const basename = this.generateFilename(entry.name);
       const filename = await this.resolveCollision(domainDir, basename);
       const content = this.formatDoc(node, domain);
-      const filePath = path.join('docs', 'knowledge', domain, filename);
+      const filePath = ['docs', 'knowledge', domain, filename].join('/');
 
       await fs.writeFile(path.join(options.projectDir, filePath), content, 'utf-8');
 
