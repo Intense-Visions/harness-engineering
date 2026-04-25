@@ -93,6 +93,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
    - `phase.complexityOverride !== null`
    - Handoff `concerns` non-empty
    - Task count > 15
+   - Knowledge gaps: `harness knowledge-pipeline --domain <phase-domain>` reports `totalGaps > 0` and `--fix` was not run during planning
 5. **Auto-approve:** emit report (mode, complexity, concerns, task count). Record decision with signal snapshot in `decisions[]`. → EXECUTE.
 6. **Pause:** show triggered signals. Ask "Approve? (yes / revise / skip phase / stop)." Record decision. Route accordingly.
 
