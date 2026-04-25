@@ -32,6 +32,7 @@ import { createExtractionRunner } from './extractors/index.js';
 import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisExtractor.js';
 import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
 import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
+import type { MaterializeResult } from './KnowledgeDocMaterializer.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_concept',
@@ -83,6 +84,7 @@ export interface KnowledgePipelineResult {
   readonly remediations: readonly string[];
   readonly contradictions: ContradictionResult;
   readonly coverage: CoverageReport;
+  readonly materialization?: MaterializeResult;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────────────
@@ -120,7 +122,8 @@ export class KnowledgePipelineRunner {
       gapReport,
       remediations,
       contradictions,
-      coverage
+      coverage,
+      undefined
     );
   }
 
@@ -168,7 +171,8 @@ export class KnowledgePipelineRunner {
     gaps: GapReport,
     remediations: readonly string[],
     contradictions: ContradictionResult,
-    coverage: CoverageReport
+    coverage: CoverageReport,
+    materialization?: MaterializeResult
   ): KnowledgePipelineResult {
     return {
       verdict: this.computeVerdict(driftResult),
@@ -180,6 +184,7 @@ export class KnowledgePipelineRunner {
       remediations,
       contradictions,
       coverage,
+      ...(materialization ? { materialization } : {}),
     };
   }
 
