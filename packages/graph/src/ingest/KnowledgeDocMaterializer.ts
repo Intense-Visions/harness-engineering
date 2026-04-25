@@ -53,6 +53,13 @@ const MAX_COLLISION_SUFFIX = 10;
 
 // ─── Implementation ─────────────────────────────────────────────────────────
 
+interface ResolvedEntry {
+  readonly node: GraphNode;
+  readonly domain: string;
+  readonly domainDir: string;
+  readonly nameKey: string;
+}
+
 export class KnowledgeDocMaterializer {
   constructor(private readonly store: GraphStore) {}
 
@@ -63,50 +70,23 @@ export class KnowledgeDocMaterializer {
     const maxDocs = options.maxDocs ?? DEFAULT_MAX_DOCS;
     const created: MaterializedDoc[] = [];
     const skipped: SkippedEntry[] = [];
-    const createdNames = new Set<string>(); // track names created in this run
+    const createdNames = new Set<string>();
 
     for (const entry of gapEntries) {
-      // 1. Skip if no content flag
-      if (!entry.hasContent) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'no_content' });
+      const resolved = await this.resolveEntry(
+        entry,
+        created.length,
+        maxDocs,
+        createdNames,
+        options
+      );
+
+      if ('reason' in resolved) {
+        skipped.push(resolved);
         continue;
       }
 
-      // 2. Look up node
-      const node = this.store.getNode(entry.nodeId);
-      if (!node || !node.content || node.content.trim().length < 10) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'no_content' });
-        continue;
-      }
-
-      // 3. Infer domain
-      const domain = this.inferDomain(node);
-      if (!domain) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'no_domain' });
-        continue;
-      }
-
-      // 4. Check cap
-      if (created.length >= maxDocs) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'cap_reached' });
-        continue;
-      }
-
-      // 5. Check if already documented (defense-in-depth for unfiltered callers)
-      const domainDir = path.join(options.projectDir, 'docs', 'knowledge', domain);
-      const nameKey = `${domain}:${entry.name.toLowerCase().trim()}`;
-      if (!createdNames.has(nameKey) && (await this.hasExistingDoc(domainDir, entry.name))) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'already_documented' });
-        continue;
-      }
-
-      // 6. Dry run
-      if (options.dryRun) {
-        skipped.push({ nodeId: entry.nodeId, name: entry.name, reason: 'dry_run' });
-        continue;
-      }
-
-      // 7. Generate filename, resolve collisions, write
+      const { node, domain, domainDir, nameKey } = resolved;
       await fs.mkdir(domainDir, { recursive: true });
 
       const basename = this.generateFilename(entry.name);
@@ -121,6 +101,44 @@ export class KnowledgeDocMaterializer {
     }
 
     return { created, skipped };
+  }
+
+  private async resolveEntry(
+    entry: GapEntry,
+    createdCount: number,
+    maxDocs: number,
+    createdNames: ReadonlySet<string>,
+    options: MaterializeOptions
+  ): Promise<SkippedEntry | ResolvedEntry> {
+    if (!entry.hasContent) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'no_content' };
+    }
+
+    const node = this.store.getNode(entry.nodeId);
+    if (!node || !node.content || node.content.trim().length < 10) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'no_content' };
+    }
+
+    const domain = this.inferDomain(node);
+    if (!domain) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'no_domain' };
+    }
+
+    if (createdCount >= maxDocs) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'cap_reached' };
+    }
+
+    const domainDir = path.join(options.projectDir, 'docs', 'knowledge', domain);
+    const nameKey = `${domain}:${entry.name.toLowerCase().trim()}`;
+    if (!createdNames.has(nameKey) && (await this.hasExistingDoc(domainDir, entry.name))) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'already_documented' };
+    }
+
+    if (options.dryRun) {
+      return { nodeId: entry.nodeId, name: entry.name, reason: 'dry_run' };
+    }
+
+    return { node, domain, domainDir, nameKey };
   }
 
   inferDomain(node: GraphNode): string | null {
