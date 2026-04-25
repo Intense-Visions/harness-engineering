@@ -274,7 +274,7 @@ export class KnowledgePipelineRunner {
   private async detect(options: KnowledgePipelineOptions): Promise<GapReport> {
     const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
     const aggregator = new KnowledgeStagingAggregator(options.projectDir);
-    const gapReport = await aggregator.generateGapReport(knowledgeDir);
+    const gapReport = await aggregator.generateGapReport(knowledgeDir, this.store);
     await aggregator.writeGapReport(gapReport);
     return gapReport;
   }
