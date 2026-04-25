@@ -32,7 +32,7 @@ import { createExtractionRunner } from './extractors/index.js';
 import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisExtractor.js';
 import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
 import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
-import type { MaterializeResult } from './KnowledgeDocMaterializer.js';
+import { KnowledgeDocMaterializer, type MaterializeResult } from './KnowledgeDocMaterializer.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_concept',
@@ -103,9 +103,19 @@ export class KnowledgePipelineRunner {
     const coverage = new CoverageScorer().score(this.store);
 
     // Phase 4: Remediate (convergence loop)
-    const iterations = options.fix
-      ? await this.runRemediationLoop(options, driftResult, gapReport, remediations)
-      : 1;
+    let materialization: MaterializeResult | undefined;
+    let iterations = 1;
+
+    if (options.fix) {
+      const loopResult = await this.runRemediationLoop(
+        options,
+        driftResult,
+        gapReport,
+        remediations
+      );
+      iterations = loopResult.iterations;
+      materialization = loopResult.materialization;
+    }
 
     // Re-read final state after remediation loop may have mutated driftResult/gapReport
     if (options.fix && iterations > 1) {
@@ -123,7 +133,7 @@ export class KnowledgePipelineRunner {
       remediations,
       contradictions,
       coverage,
-      undefined
+      materialization
     );
   }
 
@@ -134,33 +144,47 @@ export class KnowledgePipelineRunner {
     return this.reconcile(preSnapshot, postSnapshot);
   }
 
-  /** Run the remediation convergence loop; returns total iteration count. */
+  /** Run the remediation convergence loop; returns iteration count and accumulated materialization. */
   private async runRemediationLoop(
     options: KnowledgePipelineOptions,
     driftResult: DriftResult,
-    _gapReport: GapReport,
+    gapReport: GapReport,
     remediations: string[]
-  ): Promise<number> {
+  ): Promise<{ iterations: number; materialization?: MaterializeResult }> {
     const maxIterations = options.maxIterations ?? 5;
     let iterations = 1;
     let currentDrift = driftResult;
+    let currentGapReport = gapReport;
     let previousFindingCount = currentDrift.findings.length;
+    let accumulatedMaterialization: MaterializeResult | undefined;
 
     while (iterations < maxIterations) {
-      if (currentDrift.findings.length === 0) break;
+      if (currentDrift.findings.length === 0 && currentGapReport.totalGaps === 0) break;
 
-      this.remediate(currentDrift, remediations, options);
+      const matResult = await this.remediate(currentDrift, remediations, options, currentGapReport);
+
+      // Accumulate materialization results across iterations
+      if (matResult) {
+        if (!accumulatedMaterialization) {
+          accumulatedMaterialization = matResult;
+        } else {
+          accumulatedMaterialization = {
+            created: [...accumulatedMaterialization.created, ...matResult.created],
+            skipped: [...accumulatedMaterialization.skipped, ...matResult.skipped],
+          };
+        }
+      }
 
       await this.extract(options);
       currentDrift = this.runReconciliation(options);
-      await this.detect(options);
+      currentGapReport = await this.detect(options);
 
       iterations++;
       if (currentDrift.findings.length >= previousFindingCount) break;
       previousFindingCount = currentDrift.findings.length;
     }
 
-    return iterations;
+    return { iterations, materialization: accumulatedMaterialization };
   }
 
   /** Assemble the final pipeline result. */
@@ -281,11 +305,12 @@ export class KnowledgePipelineRunner {
 
   // ── Phase 4: REMEDIATE ────────────────────────────────────────────────────
 
-  private remediate(
+  private async remediate(
     driftResult: DriftResult,
     remediations: string[],
-    options: KnowledgePipelineOptions
-  ): void {
+    options: KnowledgePipelineOptions,
+    gapReport: GapReport
+  ): Promise<MaterializeResult | undefined> {
     for (const finding of driftResult.findings) {
       switch (finding.classification) {
         case 'stale':
@@ -307,6 +332,24 @@ export class KnowledgePipelineRunner {
           break;
       }
     }
+
+    // Materialize docs for undocumented entries (non-CI only)
+    if (!options.ci) {
+      const allGapEntries = gapReport.domains.flatMap((d) => d.gapEntries);
+      const materializable = allGapEntries.filter((e) => e.hasContent);
+      if (materializable.length > 0) {
+        const materializer = new KnowledgeDocMaterializer(this.store);
+        const matResult = await materializer.materialize(materializable, {
+          projectDir: options.projectDir,
+          dryRun: false,
+        });
+        for (const doc of matResult.created) {
+          remediations.push(`created doc: ${doc.filePath}`);
+        }
+        return matResult;
+      }
+    }
+    return undefined;
   }
 
   private async stageNewFindings(
