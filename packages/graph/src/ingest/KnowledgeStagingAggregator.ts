@@ -212,6 +212,7 @@ export class KnowledgeStagingAggregator {
     const gapsDir = path.join(this.projectDir, '.harness', 'knowledge');
     await fs.mkdir(gapsDir, { recursive: true });
 
+    const hasDifferential = report.totalExtracted > 0;
     const lines: string[] = [
       '# Knowledge Gaps Report',
       '',
@@ -219,15 +220,34 @@ export class KnowledgeStagingAggregator {
       '',
       '## Coverage by Domain',
       '',
-      '| Domain | Entries |',
-      '| ------ | ------- |',
     ];
 
-    for (const domain of report.domains) {
-      lines.push(`| ${domain.domain} | ${domain.entryCount} |`);
+    if (hasDifferential) {
+      lines.push(
+        '| Domain | Documented | Extracted | Gaps |',
+        '| ------ | ---------- | --------- | ---- |'
+      );
+      for (const domain of report.domains) {
+        lines.push(
+          `| ${domain.domain} | ${domain.entryCount} | ${domain.extractedCount} | ${domain.gapCount} |`
+        );
+      }
+      lines.push(
+        '',
+        `## Summary`,
+        '',
+        `- **Total Documented:** ${report.totalEntries}`,
+        `- **Total Extracted:** ${report.totalExtracted}`,
+        `- **Total Gaps:** ${report.totalGaps}`,
+        ''
+      );
+    } else {
+      lines.push('| Domain | Entries |', '| ------ | ------- |');
+      for (const domain of report.domains) {
+        lines.push(`| ${domain.domain} | ${domain.entryCount} |`);
+      }
+      lines.push('', `## Total Entries: ${report.totalEntries}`, '');
     }
-
-    lines.push('', `## Total Entries: ${report.totalEntries}`, '');
 
     await fs.writeFile(path.join(gapsDir, 'gaps.md'), lines.join('\n'), 'utf-8');
   }
