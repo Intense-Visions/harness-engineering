@@ -8,6 +8,8 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { NodeType } from '../types.js';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { GraphStore } from '../store/GraphStore.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,14 +24,27 @@ export interface StagedEntry {
   readonly timestamp: string;
 }
 
+export interface GapEntry {
+  readonly nodeId: string;
+  readonly name: string;
+  readonly nodeType: NodeType;
+  readonly source: string;
+  readonly hasContent: boolean;
+}
+
 export interface DomainCoverage {
   readonly domain: string;
   readonly entryCount: number;
+  readonly extractedCount: number;
+  readonly gapCount: number;
+  readonly gapEntries: readonly GapEntry[];
 }
 
 export interface GapReport {
   readonly domains: readonly DomainCoverage[];
   readonly totalEntries: number;
+  readonly totalExtracted: number;
+  readonly totalGaps: number;
   readonly generatedAt: string;
 }
 
