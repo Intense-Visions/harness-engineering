@@ -85,6 +85,7 @@ export type { DomainCoverageScore, CoverageReport } from './ingest/CoverageScore
 export { KnowledgeStagingAggregator } from './ingest/KnowledgeStagingAggregator.js';
 export type {
   StagedEntry,
+  GapEntry,
   GapReport,
   DomainCoverage,
   AggregateResult,
