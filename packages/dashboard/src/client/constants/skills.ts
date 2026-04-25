@@ -97,6 +97,14 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     category: 'code-quality',
     slashCommand: '/harness:detect-doc-drift',
   },
+  {
+    id: 'harness:knowledge-pipeline',
+    name: 'Knowledge Pipeline',
+    description:
+      'Extract business knowledge, detect drift, materialize docs, and report coverage gaps.',
+    category: 'code-quality',
+    slashCommand: '/harness:knowledge-pipeline',
+  },
 
   // Workflow
   {
