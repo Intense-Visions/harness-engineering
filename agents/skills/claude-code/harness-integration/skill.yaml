@@ -1,0 +1,64 @@
+name: harness-integration
+version: "1.0.0"
+description: Verify system wiring, materialize knowledge artifacts, and update project metadata after execution
+stability: static
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-integration
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
+      required: false
+    - name: fast
+      description: WIRE only -- defaults, auto-approve, no ADR drafting
+      required: false
+    - name: thorough
+      description: Full checks + human reviews every ADR draft + force knowledge graph verification
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-integration
+    path: string
+# Autopilot dispatch: subagent_type: "harness-verifier" (reuses verification agent persona)
+type: rigid
+tier: 1
+phases:
+  - name: wire
+    description: Verify barrel exports, entry point reachability, skill discovery, and route mounts
+    required: true
+  - name: materialize
+    description: Draft ADRs from decisions, enrich knowledge graph, verify documentation tasks
+    required: false
+  - name: update
+    description: Sync roadmap, verify changelog, annotate spec cross-references
+    required: false
+  - name: report
+    description: Produce combined integration report with pass/fail per sub-phase
+    required: true
+state:
+  persistent: false
+  files:
+    - .harness/sessions/*/integration-wiring.json
+    - .harness/sessions/*/integration-materialization.json
+    - .harness/sessions/*/integration-updates.json
+depends_on:
+  - harness-verification
