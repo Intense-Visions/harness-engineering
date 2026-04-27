@@ -103,6 +103,6 @@ high-quality, architecturally sound delivery:
 - Always verify your changes with `harness validate`.
 - Adhere to the architectural constraints defined in `harness.config.json`.
 - Document your progress and any learnings in `.harness/learnings.md`.
-- Step 6 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
+- Step 7 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
 
 Attempt Number: {{ attempt }}

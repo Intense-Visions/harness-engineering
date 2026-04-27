@@ -38,10 +38,10 @@ Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`
 
 ```
 INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE → REVIEW → PHASE_COMPLETE
-                                                                    │
-                                                             [next phase?]
-                                                              │           │
-                                                           ASSESS   FINAL_REVIEW → DONE
+                                                                                  │
+                                                                           [next phase?]
+                                                                            │           │
+                                                                         ASSESS   FINAL_REVIEW → DONE
 ```
 
 ---
@@ -153,7 +153,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
    - `"thorough"`: Full checks + human reviews every ADR draft + force knowledge graph verification.
 4. Pass → REVIEW.
 5. Fail → report incomplete items. Ask "fix / skip integration / stop":
-   - **fix:** re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE.
+   - **fix:** re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE. Retry budget resets.
    - **skip:** record decision in `decisions[]`, proceed to REVIEW (human override).
    - **stop:** save state and exit.
 
