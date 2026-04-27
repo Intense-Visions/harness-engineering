@@ -108,8 +108,18 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    - Overview and goals
    - Decisions made (with rationale from brainstorming)
    - Technical design (data structures, APIs, file layout)
+   - Integration points (entry points, registrations, docs, decisions, knowledge impact)
    - Success criteria (observable, testable outcomes)
    - Implementation order (high-level phases, not detailed tasks)
+
+   The **Integration Points** section is required in every spec. It defines how the feature connects to the existing system. Populate it with five subsections:
+   - **Entry Points** -- Which system entry points does this feature touch or create? (e.g., new CLI command, new MCP tool, new skill, new API route, new barrel export)
+   - **Registrations Required** -- What registrations are needed for the feature to be discoverable? (e.g., barrel export regeneration, skill tier assignment, route registration)
+   - **Documentation Updates** -- What docs need updating to reflect the new capability? (e.g., AGENTS.md section, API docs, README, guides)
+   - **Architectural Decisions** -- What decisions warrant ADRs? List the decision and a one-line rationale. Only for medium/large tier changes -- omit for small changes.
+   - **Knowledge Impact** -- What domain concepts, patterns, or relationships should enter the knowledge graph?
+
+   If the feature is a small change (bug fix, config tweak, < 3 files), the section may contain only Entry Points and Registrations Required with "None" for the others. The section must still be present.
 
 2. **Run soundness review.** Invoke `harness-soundness-review --mode spec` against the draft. Do not write to `docs/` until the review converges with no remaining issues.
 
@@ -309,7 +319,7 @@ Apply when output includes specific behavioral expectations.
 
 ## Success Criteria
 
-- Spec exists in `docs/` with all required sections (overview, decisions, technical design, success criteria, implementation order)
+- Spec exists in `docs/` with all required sections (overview, decisions, technical design, integration points, success criteria, implementation order)
 - Human explicitly approved before any implementation
 - YAGNI applied: no speculative features in the spec
 - 2-3 approaches presented with honest tradeoffs before decision
