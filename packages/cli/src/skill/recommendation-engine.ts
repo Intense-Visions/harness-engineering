@@ -318,6 +318,10 @@ export function sequenceRecommendations(
 export interface RecommendOptions {
   /** Maximum number of recommendations to return (default 5). */
   top?: number;
+  /** Filter to skills declaring this trigger (e.g. 'on_pr', 'on_milestone'). When set, only skills whose triggers array includes this value are returned. */
+  trigger?: string;
+  /** Map of skill name → triggers array for trigger-based filtering. Populated from skill.yaml metadata. */
+  skillTriggers?: Map<string, string[]>;
 }
 
 /**
@@ -358,7 +362,16 @@ export function recommend(
 
   // Merge: hard rules take precedence
   const hardSkills = new Set(hardRecs.map((r) => r.skillName));
-  const merged = [...hardRecs, ...softRecs.filter((r) => !hardSkills.has(r.skillName))];
+  let merged = [...hardRecs, ...softRecs.filter((r) => !hardSkills.has(r.skillName))];
+
+  // Filter by trigger if specified — only keep skills that declare the requested trigger
+  const { trigger, skillTriggers } = options;
+  if (trigger && skillTriggers) {
+    merged = merged.filter((r) => {
+      const triggers = skillTriggers.get(r.skillName);
+      return triggers ? triggers.includes(trigger) : true; // keep skills with unknown triggers (fallback rules)
+    });
+  }
 
   // Sort by score descending before limiting to top N
   merged.sort((a, b) => b.score - a.score);
