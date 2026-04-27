@@ -385,3 +385,176 @@ After all applicable sub-phases complete, produce the combined integration repor
    - **fix:** Record fix tasks in handoff. The autopilot re-enters EXECUTE with those tasks.
    - **skip:** Record the skip decision in `decisions[]` in handoff. Proceed to REVIEW.
    - **stop:** Write handoff with current state and stop.
+
+---
+
+### Handoff
+
+Write handoff to the session-scoped path when session slug is known, otherwise fall back to global:
+
+- Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+- Global (fallback, **deprecated**): `.harness/handoff.json`
+
+> **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always write to `.harness/sessions/<slug>/handoff.json` to prevent cross-session contamination.
+
+```json
+{
+  "fromSkill": "harness-integration",
+  "phase": "COMPLETE",
+  "summary": "<verdict summary>",
+  "tier": "<effective-tier>",
+  "artifacts": ["<report paths>", "<ADR paths if any>"],
+  "verdict": "pass | fail",
+  "gaps": ["<gap descriptions if any>"],
+  "decisions": [{ "what": "<decision>", "why": "<rationale>" }]
+}
+```
+
+**Session summary (if session known):** Update via `writeSessionSummary` with skill, status (`Integration <PASS|FAIL>. Tier: <tier>. <N> checks, <N> gaps.`), keyContext, and nextStep.
+
+## Session State
+
+| Section       | Read | Write | Purpose                                                                  |
+| ------------- | ---- | ----- | ------------------------------------------------------------------------ |
+| terminology   | yes  | no    | Consistent language in integration reports                               |
+| decisions     | yes  | yes   | Reads all phase decisions for ADR drafting; writes integration decisions |
+| constraints   | yes  | no    | Respect existing constraints during checks                               |
+| risks         | yes  | yes   | Reads risks; writes integration risks discovered during checks           |
+| openQuestions | yes  | yes   | Reads questions; resolves those answered by integration evidence         |
+| evidence      | yes  | yes   | Prior evidence; writes wiring, materialization, and update evidence      |
+
+**When to write:** After each sub-phase, append evidence entries. After ADR drafting, write decisions.
+
+**When to read:** During Context Loading via `gather_context` with `include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"]`.
+
+## Evidence Requirements
+
+Every pass/fail assertion in the integration report MUST include concrete evidence:
+
+1. **File reference:** `file:line` with observed content (e.g., `src/index.ts:12` -- "exports NotificationService")
+2. **Command output:** Actual command and output (e.g., `pnpm run generate-barrel-exports --check` -- "No changes detected")
+3. **Harness output:** `harness validate` output
+4. **Git diff evidence:** `git diff --name-only` output for barrel export checks
+5. **Discovery evidence:** `harness skill list` output for skill discovery verification
+6. **Session evidence:** Write to `evidence` section via `manage_state` after each sub-phase
+
+**When to cite:** At every check. Each pass/fail in the wiring, materialization, and update reports must be backed by evidence.
+
+**Uncited claims:** Any integration assertion without direct evidence is an integration failure. This skill does not use `[UNVERIFIED]` -- if evidence cannot be produced, verdict is FAIL.
+
+## Harness Integration
+
+- **`gather_context`** -- Load session-scoped state, learnings, handoff, and validation before sub-phases. `session` parameter scopes to session directory.
+- **`harness validate`** -- Run during WIRE default checks. Must pass.
+- **`harness check-deps`** -- Run during WIRE if new modules were added.
+- **`ingest_source`** -- Run during MATERIALIZE to enrich knowledge graph with decision nodes.
+- **`manage_roadmap`** -- Run during UPDATE to sync roadmap status. Use `sync` with `apply: true`.
+- **`emit_interaction`** -- Tier escalation notification, ADR review (thorough mode), fail/skip/stop decision, transition to REVIEW on pass.
+- **Session directory** -- `.harness/sessions/<slug>/` contains all report files. Do not write to global `.harness/` when session slug is known.
+
+## Success Criteria
+
+- WIRE default checks run for every tier (including small) -- barrel exports current, harness validate passes
+- All planned integration tasks verified with evidence
+- ADRs drafted for large-tier architectural decisions with correct format and sequential numbering
+- Knowledge graph enriched with decision nodes (medium + large tiers)
+- Documentation tasks verified as complete (medium + large tiers)
+- Roadmap synced, changelog verified (medium + large tiers)
+- Combined report written with pass/fail per sub-phase
+- Tier derivation correctly escalates when execution exceeds plan estimates
+- Fast rigor completes in seconds (WIRE only, no ADRs, no graph enrichment)
+- Failure report includes specific fix instructions for each incomplete item
+
+## Red Flags
+
+| Flag                                                                          | Corrective Action                                                                                                                        |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| "Barrel exports probably have not changed, so I will skip the check"          | STOP. WIRE default checks always run. "Probably" is forbidden. Run the check and report the result.                                      |
+| "The ADR looks correct from the decision text, no need to present for review" | STOP. In thorough mode, every ADR draft requires human review. In standard mode, auto-approve but log. Do not skip the review protocol.  |
+| "Integration tasks are just bureaucracy, I will mark them as passed"          | STOP. Integration tasks exist because brainstorming and planning identified real connection points. Each must be verified with evidence. |
+| "The knowledge graph enrichment failed but it is not critical"                | STOP. In thorough mode, graph enrichment failure is a FAIL. In standard mode, log the failure and include in the report.                 |
+| "I will fix the missing barrel export myself to make WIRE pass"               | STOP. Integration identifies gaps -- integration never fills them. Record as FAIL with fix instructions. The executor fixes it.          |
+
+## Rationalizations to Reject
+
+| Rationalization                                                                        | Reality                                                                                                                                                                |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "WIRE passed so the feature is properly integrated"                                    | WIRE checks wiring only. For medium/large tiers, MATERIALIZE and UPDATE must also pass. Partial integration is not integration.                                        |
+| "This is a small change, so I can skip tier derivation and just use the plan estimate" | Tier derivation is mandatory. Even if the plan says small, execution may have produced more changes than expected. Always derive and compare.                          |
+| "The ADR format is close enough, no need to match the exact frontmatter schema"        | ADRs must match the spec format exactly (number, title, date, status, tier, source, supersedes). The knowledge pipeline depends on consistent frontmatter for parsing. |
+| "Integration tasks were not in the plan, so there is nothing to check"                 | WIRE default checks always run regardless of planned integration tasks (D8). If the plan has no integration tasks, WIRE still checks barrel exports and runs validate. |
+| "I found an integration gap but it is minor, so I will mark it as pass with a note"    | A gap is a FAIL, not a conditional pass. Record the gap, report it, and let the human decide whether to fix or skip.                                                   |
+
+## Examples
+
+### Example: Small Tier Integration (Bug Fix)
+
+```
+## Integration Report
+
+**Tier:** small (plan: small, derived: small)
+**Rigor:** standard
+
+### WIRE
+- [PASS] Barrel exports: `pnpm run generate-barrel-exports --check` -- no changes
+- [PASS] Harness validate: passes
+- No integration tasks to verify
+
+### MATERIALIZE
+- [SKIPPED] Small tier -- no materialization required
+
+### UPDATE
+- [SKIPPED] Small tier -- no updates required
+
+### Verdict: PASS
+```
+
+### Example: Large Tier Integration (New Skill)
+
+```
+## Integration Report
+
+**Tier:** large (plan: medium, derived: large -- escalated due to new package)
+**Rigor:** standard
+
+### WIRE
+- [PASS] Barrel exports: regenerated, git diff shows no changes
+- [PASS] Harness validate: passes
+- [PASS] Skill discovery: harness-integration/skill.yaml exists, SKILL.md exists (420 lines)
+- [PASS] Entry point: skill appears in harness skill list output
+- [FAIL] Route mount: /api/integration not mounted in router
+
+### MATERIALIZE
+- [PASS] ADR 0001-tiered-integration-rigor.md drafted and auto-approved
+- [PASS] Knowledge graph: 3 decision nodes created via ingest_source
+- [PASS] AGENTS.md updated with integration phase description
+
+### UPDATE
+- [PASS] Roadmap synced: integration-phase moved to in-progress
+- [FAIL] Changelog: no entry in CHANGELOG.md for integration phase
+- [PASS] Spec cross-reference: annotated with implementation file links
+
+### Verdict: FAIL -- 2 items incomplete
+1. Route mount /api/integration not found in router configuration
+   Fix: Add route import and mount in src/api/routes/index.ts
+2. Changelog entry missing
+   Fix: Add entry under Unreleased: "Added integration phase with tiered wiring verification"
+```
+
+## Gates
+
+- **No skipping WIRE defaults.** Barrel export check and harness validate run for every tier, every rigor level. No exceptions.
+- **No skipping tier derivation.** Always derive tier from execution results and compare with plan estimate. Higher tier wins.
+- **No fixing during integration.** Integration identifies gaps. Integration never fills them. Record as FAIL and report.
+- **No auto-passing MATERIALIZE in thorough mode.** Every ADR draft must be presented for human review in thorough mode.
+- **No integration without a plan.** If no plan exists, there are no integration tasks to verify. Run WIRE defaults only and note the absence.
+- **No forbidden hedging language.** "Should", "probably", "seems to" are forbidden. Use evidence or state "not verified."
+
+## Escalation
+
+- **Barrel export generation command not found:** Record as FAIL. Instruct: "The project does not have a `generate-barrel-exports` script. Add it to package.json or skip barrel export verification."
+- **Knowledge graph tools unavailable:** If `ingest_source` is not available, record materialization as skipped with reason. Do not block on tooling absence for medium tier. For large tier in thorough mode, escalate.
+- **ADR directory does not exist:** Create `docs/knowledge/decisions/` on first ADR write. This is expected for projects that have not used ADRs before.
+- **Plan has no integration tier:** Default to small. Run WIRE defaults only.
+- **Tier derivation signals ambiguous:** When git diff counts are borderline (e.g., exactly 5 new exports), use the plan estimate as tiebreaker.
+- **Integration fails repeatedly after fix attempts:** After 2 fix cycles, escalate: "Integration has failed <N> times. The integration tasks may need redesign. Review the plan's integration section."
