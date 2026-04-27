@@ -162,3 +162,104 @@ For each integration task tagged `category: "integration"` that relates to wirin
      "verdict": "pass|fail"
    }
    ```
+
+---
+
+### Sub-Phase 2: MATERIALIZE (medium + large tiers)
+
+Report progress: `**[MATERIALIZE]** Checking knowledge materialization`
+
+Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers:
+
+#### Decision Harvesting
+
+1. **Read handoff decisions.** Load `{sessionDir}/handoff.json` from all phases in this session. Collect all entries from the `decisions` array.
+
+2. **Classify decisions.** For each decision:
+   - **Architectural** (large tier): Decisions that affect system structure, introduce new patterns, or change integration boundaries. These warrant ADRs.
+   - **Minor** (medium + large tier): Decisions about implementation approach, naming, or local design. These enrich the knowledge graph directly without an ADR.
+
+#### ADR Auto-Drafting (large tier only)
+
+3. **Auto-draft ADRs** from architectural decisions. For each architectural decision:
+
+   a. **Assign ADR number.** Scan `docs/knowledge/decisions/` for existing ADR files matching `NNNN-*.md`. Take the highest number and increment by 1. If the directory does not exist, create it and start at `0001`.
+
+   b. **Generate slug.** Convert the decision title to a URL-safe slug (lowercase, hyphens, no special characters).
+
+   c. **Write ADR** to `docs/knowledge/decisions/NNNN-<slug>.md`:
+
+   ```markdown
+   ---
+   number: NNNN
+   title: <decision title>
+   date: <ISO date>
+   status: accepted
+   tier: large
+   source: <spec path or session slug>
+   supersedes: <prior ADR number, if any>
+   ---
+
+   ## Context
+
+   <What situation prompted this decision? What constraints existed?>
+
+   ## Decision
+
+   <What was decided and why?>
+
+   ## Consequences
+
+   <What follows from this decision -- positive, negative, and neutral?>
+   ```
+
+   d. **Present for review.** In `thorough` rigor, present each ADR draft via `emit_interaction` (type: `confirmation`) and wait for human approval. In `standard` rigor, auto-approve but log the draft for review.
+
+#### Knowledge Graph Enrichment (medium + large tiers)
+
+4. **Enrich knowledge graph.** For each decision (both architectural and minor):
+   - Call `ingest_source` with the decision metadata so decisions become queryable graph nodes
+   - For ADR-sourced decisions, the ADR file path is the source
+   - For minor decisions, the handoff.json decision text is the content
+
+#### Documentation Task Verification
+
+5. **Verify documentation integration tasks.** For each integration task tagged `category: "integration"` that relates to documentation:
+   - Verify the specified document was updated (file exists, content includes expected additions)
+   - Verify AGENTS.md was updated if the task required it
+   - Verify guides were written if the task required it
+
+6. **Produce materialization report.** Write `{sessionDir}/integration-materialization.json`:
+
+   ```json
+   {
+     "subPhase": "materialize",
+     "tier": "<effective-tier>",
+     "timestamp": "<ISO-8601>",
+     "decisions": {
+       "total": 0,
+       "architectural": 0,
+       "minor": 0
+     },
+     "adrs": [
+       {
+         "number": "NNNN",
+         "title": "<title>",
+         "path": "docs/knowledge/decisions/NNNN-<slug>.md",
+         "status": "drafted|approved"
+       }
+     ],
+     "graphEnrichment": {
+       "nodesCreated": 0,
+       "status": "pass|fail|skipped"
+     },
+     "documentationChecks": [
+       {
+         "taskRef": "Task N: <name>",
+         "status": "pass|fail",
+         "evidence": "<description>"
+       }
+     ],
+     "verdict": "pass|fail|skipped"
+   }
+   ```
