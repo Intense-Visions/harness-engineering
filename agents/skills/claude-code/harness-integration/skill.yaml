@@ -18,6 +18,7 @@ tools:
   - Glob
   - Grep
   - emit_interaction
+  - manage_state
 cli:
   command: harness skill run harness-integration
   args:

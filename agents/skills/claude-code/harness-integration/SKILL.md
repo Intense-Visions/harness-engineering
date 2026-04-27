@@ -8,7 +8,7 @@
 - When the autopilot state machine reaches the INTEGRATE state
 - When validating that a feature is properly wired into the system (barrel exports, skill discovery, route mounts)
 - When materializing architectural decisions as durable ADRs
-- When `on_commit` or `on_pr` triggers fire and integration verification is needed
+- When invoked standalone to check integration completeness of a feature branch
 - NOT as a replacement for verification (verification checks code correctness; integration checks system connectivity)
 - NOT for discovering integration work (integration work is planned upfront in brainstorming and planning)
 - NOT for implementing fixes (integration identifies gaps; the executor fixes them)
@@ -43,7 +43,7 @@ Before running sub-phases, resolve the effective integration tier:
 
 1. **Read plan-time tier.** Extract `integrationTier` from the plan header (small, medium, or large). If absent, default to `small`.
 
-2. **Derive execution-time tier.** Analyze the git diff from the execution phase:
+2. **Derive execution-time tier.** Read the execution start commit from the session handoff (`startCommit` field in `{sessionDir}/handoff.json`). If unavailable, use the autopilot's `startingCommit` from `{sessionDir}/autopilot-state.json`. Diff `startCommit..HEAD` to analyze the execution phase:
 
    ```
    newPackages > 0                    -> large
@@ -436,7 +436,7 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 3. **Harness output:** `harness validate` output
 4. **Git diff evidence:** `git diff --name-only` output for barrel export checks
 5. **Discovery evidence:** `harness skill list` output for skill discovery verification
-6. **Session evidence:** Write to `evidence` section via `manage_state` after each sub-phase
+6. **Session evidence:** Record evidence in the sub-phase report JSON files written to the session directory
 
 **When to cite:** At every check. Each pass/fail in the wiring, materialization, and update reports must be backed by evidence.
 
