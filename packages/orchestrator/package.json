@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/orchestrator",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Orchestrator daemon for dispatching coding agents to issues",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

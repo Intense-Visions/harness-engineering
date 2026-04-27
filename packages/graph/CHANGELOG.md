@@ -1,5 +1,27 @@
 # @harness-engineering/graph
 
+## 0.6.0
+
+### Minor Changes
+
+- Knowledge document materialization pipeline
+
+  **@harness-engineering/graph:**
+  - Add KnowledgeDocMaterializer that generates markdown knowledge docs from graph gap analysis
+  - Wire KnowledgeDocMaterializer into pipeline convergence loop
+  - Pass store to generateGapReport for differential gap analysis
+  - Add materialization field to KnowledgePipelineResult
+  - Fix filePath normalization to forward slashes for Windows compatibility
+  - Fix conditional spread for exactOptionalPropertyTypes compatibility
+  - Address review findings in knowledge pipeline
+  - Add integration tests for pipeline materialization
+
+  **@harness-engineering/cli:**
+  - Display differential gaps and materialization results in knowledge-pipeline output
+
+  **@harness-engineering/dashboard:**
+  - Add knowledge pipeline to skill registry
+
 ## 0.5.0
 
 ### Minor Changes
