@@ -252,11 +252,27 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    - `[checkpoint:decision]` — Pause, present options, wait for choice
    - `[checkpoint:human-action]` — Pause, instruct human on required action
 
+7. **Derive integration tasks from the spec's Integration Points section.** If the spec contains an Integration Points section, create tasks for each integration point. Integration tasks are normal plan tasks but tagged with `category: "integration"` in their description. They appear at the end of the task list, after all implementation tasks.
+
+   For each subsection of Integration Points, derive tasks:
+
+   | Integration Point                               | Example Derived Task                                                       |
+   | ----------------------------------------------- | -------------------------------------------------------------------------- |
+   | Entry Points: "New CLI command"                 | "Regenerate barrel exports. Verify new command appears in `_registry.ts`." |
+   | Registrations Required: "Skill at tier 2"       | "Add skill to tier list in `AGENTS.md`. Generate slash commands."          |
+   | Documentation Updates: "AGENTS.md capabilities" | "Update AGENTS.md to describe the feature."                                |
+   | Architectural Decisions: "ADR for approach X"   | "Write ADR `docs/knowledge/decisions/NNNN-<slug>.md`."                     |
+   | Knowledge Impact: "Domain concept Y"            | "Enrich knowledge graph with concept node."                                |
+
+   Integration tasks follow the same atomic task rules (2-5 minutes, exact file paths, exact code). Tag each with `**Category:** integration` in the task header.
+
+   If the spec has no Integration Points section, skip this step.
+
 ---
 
 ### Phase 3: SEQUENCE — Order Tasks and Identify Dependencies
 
-1. **Order by dependency.** Types before implementations. Implementations before integrations. Tests alongside implementations (same task, TDD style).
+1. **Order by dependency.** Types before implementations. Implementations before integrations. Integration tasks (tagged `category: "integration"`) after all implementation tasks. Tests alongside implementations (same task, TDD style).
 2. **Identify parallel opportunities.** Tasks touching different subsystems with no shared state can be marked parallelizable.
 3. **Number tasks sequentially.** Use `Task 1`, `Task 2`, etc. Dependencies reference task numbers.
 4. **Estimate total time.** Sum 2-5 minutes per task. If total exceeds available time, identify a milestone boundary for pausing.
