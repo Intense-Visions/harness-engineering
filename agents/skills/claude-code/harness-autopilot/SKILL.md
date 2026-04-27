@@ -12,12 +12,13 @@
 
 ## Persona Agents
 
-| Skill                | `subagent_type`         | State(s)             |
-| -------------------- | ----------------------- | -------------------- |
-| harness-planning     | `harness-planner`       | PLAN                 |
-| harness-execution    | `harness-task-executor` | EXECUTE              |
-| harness-verification | `harness-verifier`      | VERIFY               |
-| harness-code-review  | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
+| Skill                   | `subagent_type`         | State(s)             |
+| ----------------------- | ----------------------- | -------------------- |
+| harness-planning        | `harness-planner`       | PLAN                 |
+| harness-execution       | `harness-task-executor` | EXECUTE              |
+| harness-verification    | `harness-verifier`      | VERIFY               |
+| **harness-integration** | **`harness-verifier`**  | **INTEGRATE**        |
+| harness-code-review     | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
 
 **Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents.
 
@@ -31,11 +32,12 @@ Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`
 | APPROVE_PLAN | Auto-approve, skip signals | Signal-based          | Force human review            |
 | EXECUTE      | Skip scratchpad            | Scratchpad >500 words | Verbose scratchpad            |
 | VERIFY       | `harness validate` only    | Full pipeline         | Expanded checks               |
+| INTEGRATE    | WIRE only, auto-approve    | Full tier-appropriate | Full + human ADR review       |
 
 ## State Machine
 
 ```
-INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE
+INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE → REVIEW → PHASE_COMPLETE
                                                                     │
                                                              [next phase?]
                                                               │           │
