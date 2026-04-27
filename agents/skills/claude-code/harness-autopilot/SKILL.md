@@ -217,9 +217,11 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
 3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
-5. **VERIFY → REVIEW** — Dispatch harness-verifier and harness-code-reviewer, fix blocking findings.
-6. **PHASE_COMPLETE** — Summarize, sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
-7. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
+5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
+6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
+7. **REVIEW** — Dispatch harness-code-reviewer, fix blocking findings.
+8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
+9. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
 
 ---
 
@@ -234,9 +236,9 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Gates
 
-- **No reimplementing delegated skills.** Writing planning/execution/verification/review logic → STOP. Delegate via `subagent_type`.
+- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`.
 - **No executing without plan approval.** Every plan passes APPROVE_PLAN. No exceptions.
-- **No skipping VERIFY or REVIEW.** Human can override findings; steps cannot be skipped.
+- **No skipping VERIFY, INTEGRATE, or REVIEW.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
 - **No infinite retries.** EXECUTE budget: 3 attempts. FINAL_REVIEW: 3 cycles. If exhausted, stop and surface.
 - **No modifying state files manually.** If corrupted, start fresh.
 
