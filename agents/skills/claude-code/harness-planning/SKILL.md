@@ -293,7 +293,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 ```markdown
 # Plan: <Feature Name>
 
-**Date:** YYYY-MM-DD | **Spec:** (if applicable) | **Tasks:** N | **Time:** N min
+**Date:** YYYY-MM-DD | **Spec:** (if applicable) | **Tasks:** N | **Time:** N min | **Integration Tier:** small | medium | large
 
 ## Goal
 
@@ -330,6 +330,18 @@ One sentence.
 
 [checkpoint:human-verify] ...
 ```
+
+### Integration Tier Heuristics
+
+When a spec contains an **Integration Points** section, set the plan's `integrationTier` field based on scope:
+
+| Tier       | Signal                                                               | Integration Requirements                                                 |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **small**  | Bug fix, config change, < 3 files, no new exports                    | Wiring checks only (defaults always run)                                 |
+| **medium** | New feature within existing package, new exports, 3-15 files         | Wiring + project updates (roadmap, changelog, graph enrichment)          |
+| **large**  | New package, new skill, new public API surface, architectural change | Wiring + project updates + knowledge materialization (ADRs, doc updates) |
+
+If the spec has no Integration Points section, omit the `integrationTier` field from the plan header.
 
 ## Session State
 
