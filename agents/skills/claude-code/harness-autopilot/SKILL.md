@@ -51,7 +51,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 3. Check for existing state: read `{sessionDir}/autopilot-state.json`. If present and not DONE: report "Resuming from `{currentState}`, phase {N}: {name}." Apply schema migration if `schemaVersion < 5` (backfill missing fields). Jump to recorded state.
 4. Fresh start: read spec, parse `## Implementation Order` for phases (`### Phase N: Name` + `<!-- complexity: low|medium|high -->`, default: `medium`). Capture `startingCommit` via `git rev-parse HEAD`. Write `autopilot-state.json` (schemaVersion: 5, currentState: "ASSESS", currentPhase: 0).
 5. Flags: `--fast` → `rigorLevel: "fast"`. `--thorough` → `rigorLevel: "thorough"`. `--review-plans` → `reviewPlans: true`. Both flags together → reject with error.
-6. Call `gather_context({ path, skill: "harness-autopilot", session: slug, include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "validation"] })`.
+6. Call `gather_context({ path, skill: "harness-autopilot", session: slug, include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"] })`.
 7. → ASSESS.
 
 ---

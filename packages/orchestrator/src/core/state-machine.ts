@@ -3,6 +3,7 @@ import type {
   WorkflowConfig,
   AgentEvent,
   EscalationConfig,
+  ConcernSignal,
 } from '@harness-engineering/types';
 import type { OrchestratorState, LiveSession, RunAttemptPhase } from '../types/internal';
 import type {
@@ -597,7 +598,8 @@ function handleRetryFired(
   issueId: string,
   candidates: Issue[],
   config: WorkflowConfig,
-  nowMs: number
+  nowMs: number,
+  concernSignals?: Map<string, ConcernSignal[]>
 ): ApplyEventResult {
   const next = cloneState(state);
   const effects: SideEffect[] = [];
@@ -673,10 +675,10 @@ function handleRetryFired(
   }
 
   // Re-route through model router to preserve backend assignment
-  // Note: retry path does not have intelligence pipeline signals — retries use empty signals
   const escalationConfig = resolveEscalationConfig(config);
   const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-  const decision = routeIssue(scopeTier, [], escalationConfig);
+  const signals = [...(concernSignals?.get(issue.id) ?? [])];
+  const decision = routeIssue(scopeTier, signals, escalationConfig);
 
   if (decision.action === 'needs-human') {
     effects.push(
@@ -785,7 +787,14 @@ export function applyEvent(
     case 'agent_update':
       return handleAgentUpdate(state, event.issueId, event.event);
     case 'retry_fired':
-      return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
+      return handleRetryFired(
+        state,
+        event.issueId,
+        event.candidates,
+        config,
+        event.nowMs,
+        event.concernSignals
+      );
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
     case 'claim_rejected':

@@ -144,11 +144,49 @@ export interface AgentEventMessage {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  Maintenance WebSocket event payloads                               */
+/* ------------------------------------------------------------------ */
+
+/** Payload for `maintenance:started` events. */
+export interface MaintenanceStartedPayload {
+  taskId: string;
+  startedAt: string;
+}
+
+/** Payload for `maintenance:error` events. */
+export interface MaintenanceErrorPayload {
+  taskId: string;
+  error?: string;
+}
+
+/** Payload for `maintenance:completed` events (full RunResult shape). */
+export interface MaintenanceCompletedPayload {
+  taskId: string;
+  startedAt: string;
+  completedAt: string;
+  status: 'success' | 'failure' | 'skipped' | 'no-issues';
+  findings: number;
+  fixed: number;
+  prUrl: string | null;
+  prUpdated: boolean;
+  error?: string;
+}
+
+/** Union of all maintenance event payloads for convenience. */
+export type MaintenanceEvent =
+  | { type: 'maintenance:started'; data: MaintenanceStartedPayload }
+  | { type: 'maintenance:error'; data: MaintenanceErrorPayload }
+  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload };
+
 /** Discriminated union for WebSocket messages from the orchestrator server. */
 export type WebSocketMessage =
   | { type: 'state_change'; data: OrchestratorSnapshot }
   | { type: 'interaction_new'; data: PendingInteraction }
-  | { type: 'agent_event'; data: AgentEventMessage };
+  | { type: 'agent_event'; data: AgentEventMessage }
+  | { type: 'maintenance:started'; data: MaintenanceStartedPayload }
+  | { type: 'maintenance:error'; data: MaintenanceErrorPayload }
+  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload };
 
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =

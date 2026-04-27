@@ -369,7 +369,23 @@ export class IntelligencePipelineRunner {
     const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
     try {
       const result = await this.ctx.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
-      if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
+      // Augment concern signals with SEL unknowns/ambiguities when thresholds are exceeded
+      const signals = [...result.signals];
+      if (result.spec) {
+        if (result.spec.unknowns.length > 3) {
+          signals.push({
+            name: 'high-unknowns',
+            reason: `Enriched spec has ${result.spec.unknowns.length} unknowns (threshold: 3)`,
+          });
+        }
+        if (result.spec.ambiguities.length > 5) {
+          signals.push({
+            name: 'high-ambiguities',
+            reason: `Enriched spec has ${result.spec.ambiguities.length} ambiguities (threshold: 5)`,
+          });
+        }
+      }
+      if (signals.length > 0) concernSignals.set(issue.id, signals);
       if (result.spec) {
         enrichedSpecs.set(issue.id, result.spec);
         this.ctx.enrichedSpecsByIssue.set(issue.id, result.spec);

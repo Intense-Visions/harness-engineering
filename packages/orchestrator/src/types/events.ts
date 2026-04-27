@@ -56,6 +56,8 @@ export interface RetryFiredEvent {
   candidates: Issue[];
   /** Caller-supplied wall clock (ms since epoch). Keeps state machine pure. */
   nowMs: number;
+  /** Pre-computed concern signals from intelligence pipeline (issueId → signals) */
+  concernSignals?: Map<string, ConcernSignal[]>;
 }
 
 export interface StallDetectedEvent {

@@ -70,14 +70,16 @@ Work backward from the goal. Start with "what must be true when we are done?"
 
 Store the parsed skill list for use in Phase 2 task annotation.
 
-2. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
+2. **Review prior decisions.** Check `decisions` from the prior brainstorming session (loaded via `sessions` in gather_context). Do not re-decide what was already decided — build on those choices.
+
+3. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
    - BAD: "The API handles errors"
    - GOOD: "GET /api/users/nonexistent returns 404 with `{ error: 'User not found' }` body"
-3. **Derive required artifacts.** For each truth, what files must exist? What functions? What tests pass? List exact file paths.
-4. **Identify key links.** How do artifacts connect? What imports what? What calls what?
-5. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
+4. **Derive required artifacts.** For each truth, what files must exist? What functions? What tests pass? List exact file paths.
+5. **Identify key links.** How do artifacts connect? What imports what? What calls what?
+6. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
-6. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
+7. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
    - **Blocking:** Cannot decompose tasks without resolving this. Escalate to user.
    - **Assumption:** Can proceed with a stated assumption. Document it. If wrong, specific tasks will need revision.
    - **Deferrable:** Does not affect task decomposition. Note for execution phase.
@@ -91,7 +93,7 @@ Store the parsed skill list for use in Phase 2 task annotation.
    - [DEFERRABLE] Exact error message wording. (Can be finalized during implementation.)
    ```
 
-   **Read-only constraint:** Steps 1-5 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
+   **Read-only constraint:** Steps 1-6 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
 
    When scope is ambiguous, use `emit_interaction`:
 

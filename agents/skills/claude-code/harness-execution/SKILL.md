@@ -45,27 +45,29 @@ When no arguments are provided (standalone invocation), discover plan from `docs
      intent: "Execute plan tasks starting from current position",
      skill: "harness-execution",
      session: "<session-slug-if-known>",
-     include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "validation"]
+     include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"]
    })
    ```
 
    If session slug is known, include `session` to scope reads/writes to `.harness/sessions/<slug>/`. If unknown, omit it — falls back to `.harness/`. Returns `state` (current position, null = fresh start), `learnings` (prior insights — do not ignore), `handoff` (context from previous skill), `graph` (business_fact nodes and module dependencies), `businessKnowledge` (documented domain knowledge from `docs/knowledge/`), `validation` (project health). Use graph and businessKnowledge context to inform implementation decisions — especially when tasks reference domain rules or business logic. Failed constituents return null with errors in `meta.errors`.
 
-3. **Load session summary for cold start.** If resuming (session slug known):
+3. **Review prior decisions and questions.** Check `decisions` and `openQuestions` from the planning session (loaded via `sessions` in gather_context). Resolved questions provide context for task execution. Open questions may require escalation before proceeding.
+
+4. **Load session summary for cold start.** If resuming (session slug known):
    - Call `listActiveSessions()` to read the session index.
    - Call `loadSessionSummary()` for the target session.
    - If ambiguous, present the index and ask which session to resume.
 
-4. **Check for known dead ends.** Review `learnings` tagged `[outcome:failure]`. Warn if any match current plan approaches.
+5. **Check for known dead ends.** Review `learnings` tagged `[outcome:failure]`. Warn if any match current plan approaches.
 
-5. **Verify prerequisites** for the current task:
+6. **Verify prerequisites** for the current task:
    - Dependency tasks marked complete in state?
    - Referenced files exist?
    - Test suite passes? Run `harness validate` for clean baseline.
 
-5b. **Knowledge health check.** If `docs/knowledge/` exists and the knowledge graph is available, run the knowledge pipeline in detect-only mode for domains touched by the current plan. If contradictions exist (severity: critical), treat as a blocker — knowledge must be reconciled before implementation. If gaps exist, surface as a warning but do not block execution.
+6b. **Knowledge health check.** If `docs/knowledge/` exists and the knowledge graph is available, run the knowledge pipeline in detect-only mode for domains touched by the current plan. If contradictions exist (severity: critical), treat as a blocker — knowledge must be reconciled before implementation. If gaps exist, surface as a warning but do not block execution.
 
-6. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
+7. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ### Graph-Enhanced Context (when available)
 
@@ -105,6 +107,8 @@ For each task, starting from current position:
 - For `apply` tier skills: note the skill name in the task context. The skill may provide patterns or approaches to follow during implementation.
 - For `reference` tier skills (type: `knowledge`): load the skill's SKILL.md content as supplementary context. Cap at 3 reference skills per task to manage context budget.
 - Use the skill content to inform implementation decisions but follow the plan's exact instructions as written. Skill context provides background knowledge, not overriding instructions.
+
+1c. **Auto-inject knowledge skills.** If the plan was produced with skill recommendations (`docs/changes/<feature>/SKILLS.md`), run `recommend_skills` for the current task domain. If the response includes `autoInjectKnowledge` entries, load those knowledge skills as supplementary context alongside any explicitly annotated skills. This ensures domain-specific business rules, API patterns, and framework conventions are available during implementation without manual annotation on every task.
 
 2. **Follow instructions exactly.** The plan contains exact file paths, code, and commands. Execute as written.
 

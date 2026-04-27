@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { KpiCard } from '../components/KpiCard';
+import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 
 /* ------------------------------------------------------------------ */
 /*  Inline types for the maintenance API responses                     */
@@ -132,6 +133,7 @@ export function Maintenance() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+  const { maintenanceEvent, connected } = useOrchestratorSocket();
 
   const load = useCallback(async () => {
     try {
@@ -155,6 +157,12 @@ export function Maintenance() {
     void load();
   }, [load]);
 
+  // Refetch status and history when a maintenance event arrives via WebSocket
+  useEffect(() => {
+    if (!maintenanceEvent) return;
+    void load();
+  }, [maintenanceEvent, load]);
+
   const handleTrigger = () => {
     setTriggering(true);
     triggerRun()
@@ -165,10 +173,19 @@ export function Maintenance() {
       .finally(() => setTriggering(false));
   };
 
+  const activeTask =
+    maintenanceEvent?.type === 'maintenance:started' ? maintenanceEvent.data.taskId : null;
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Maintenance</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Maintenance</h1>
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-gray-600'}`}
+            title={connected ? 'WebSocket connected' : 'WebSocket disconnected'}
+          />
+        </div>
         <button
           onClick={handleTrigger}
           disabled={triggering}
@@ -177,6 +194,24 @@ export function Maintenance() {
           {triggering ? 'Running...' : 'Trigger Run'}
         </button>
       </div>
+
+      {activeTask && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
+          <span className="text-sm text-blue-300">
+            Running task: <span className="font-mono font-semibold">{activeTask}</span>
+          </span>
+        </div>
+      )}
+
+      {maintenanceEvent?.type === 'maintenance:error' && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2">
+          <span className="text-sm text-red-300">
+            Task <span className="font-mono font-semibold">{maintenanceEvent.data.taskId}</span>{' '}
+            failed{maintenanceEvent.data.error ? `: ${maintenanceEvent.data.error}` : ''}
+          </span>
+        </div>
+      )}
 
       {loading && !status && <p className="text-sm text-gray-500">Loading maintenance status...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}

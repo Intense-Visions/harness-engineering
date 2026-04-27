@@ -622,6 +622,7 @@ export class Orchestrator extends EventEmitter {
         issueId,
         candidates,
         nowMs,
+        ...(concernSignals !== undefined && { concernSignals }),
       };
       const result = applyEvent(this.state, retryEvent, this.config);
       this.state = result.nextState;
