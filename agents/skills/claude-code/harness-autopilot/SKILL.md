@@ -138,6 +138,27 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 
 ---
 
+### INTEGRATE
+
+1. Resolve tier: `max(plan.integrationTier, derived-from-execution)`. If tier escalated: notify human with "Tier escalated from `{planned}` to `{derived}`: {reason}."
+2. Dispatch harness-integration skill:
+   ```
+   subagent_type: "harness-verifier"
+   prompt: "Phase {N}: {name}. Session: {sessionSlug}. Tier: {tier}.
+            Plan: {planPath}. Verify integration per harness-integration skill."
+   ```
+3. **Rigor interaction:**
+   - `"fast"`: WIRE sub-phase only, auto-approve, no ADR drafting.
+   - `"standard"`: Full tier-appropriate checks (WIRE + MATERIALIZE + UPDATE per tier).
+   - `"thorough"`: Full checks + human reviews every ADR draft + force knowledge graph verification.
+4. Pass → REVIEW.
+5. Fail → report incomplete items. Ask "fix / skip integration / stop":
+   - **fix:** re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE.
+   - **skip:** record decision in `decisions[]`, proceed to REVIEW (human override).
+   - **stop:** save state and exit.
+
+---
+
 ### REVIEW
 
 Dispatch harness-code-reviewer:
