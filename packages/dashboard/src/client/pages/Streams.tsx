@@ -170,7 +170,12 @@ export function Streams() {
       setSessions(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Network error');
+      const msg = e instanceof Error ? e.message : 'Network error';
+      if (msg.includes('404') || msg.includes('502')) {
+        setError('Orchestrator not running. Start with: pnpm orchestrator:dev');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
