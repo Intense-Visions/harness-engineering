@@ -37,6 +37,8 @@
 
 ### Phase 2: MAP — Understand the Codebase Structure
 
+Use `code_outline` to get structural overviews of key modules (functions, classes, exports) without reading full source files. Use `code_search` to locate patterns, symbols, or conventions across the codebase.
+
 1. **Map the technology stack.** Identify from package files, configuration, and code:
    - Language(s) and version(s)
    - Framework(s) and major libraries
@@ -92,6 +94,8 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 - `get_relationships` — show layer dependencies and module structure as a traversable graph
 
 Graph queries produce a complete architecture map in seconds, including transitive relationships that directory inspection misses. Fall back to file-based commands if no graph is available.
+
+When deep-diving into specific modules to explain architecture, use `code_unfold` to expand specific symbols to their full implementation with dependency context.
 
 ### Phase 3: ORIENT — Identify Adoption Level and Maturity
 

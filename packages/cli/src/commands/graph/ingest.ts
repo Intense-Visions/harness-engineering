@@ -54,6 +54,8 @@ export async function runIngest(
     SlackConnector,
     CIConnector,
     ConfluenceConnector,
+    FigmaConnector,
+    MiroConnector,
   } = await import('@harness-engineering/graph');
   const graphDir = path.join(projectPath, '.harness', 'graph');
   const store = new GraphStore();
@@ -78,6 +80,8 @@ export async function runIngest(
       slack: () => new SlackConnector(),
       ci: () => new CIConnector(),
       confluence: () => new ConfluenceConnector(),
+      figma: () => new FigmaConnector(),
+      miro: () => new MiroConnector(),
     };
     // Load connector configs and register
     for (const [name, factory] of Object.entries(connectorMap)) {
@@ -117,10 +121,10 @@ export async function runIngest(
     }
     default: {
       // Check if source is a known external connector before trying to instantiate
-      const knownConnectors = ['jira', 'slack', 'ci', 'confluence'];
+      const knownConnectors = ['jira', 'slack', 'ci', 'confluence', 'figma', 'miro'];
       if (!knownConnectors.includes(source)) {
         throw new Error(
-          `Unknown source: ${source}. Available: code, knowledge, git, business-signals, jira, slack, ci, confluence`
+          `Unknown source: ${source}. Available: code, knowledge, git, business-signals, jira, slack, ci, confluence, figma, miro`
         );
       }
       if (!SyncManager) {
@@ -135,6 +139,8 @@ export async function runIngest(
         slack: () => new SlackConnector(),
         ci: () => new CIConnector(),
         confluence: () => new ConfluenceConnector(),
+        figma: () => new FigmaConnector(),
+        miro: () => new MiroConnector(),
       };
       const factory = extConnectorMap[source]!;
       const config = await loadConnectorConfig(projectPath, source);
@@ -153,7 +159,7 @@ export function createIngestCommand(): Command {
     .description('Ingest data into the knowledge graph')
     .option(
       '--source <name>',
-      'Source to ingest (code, knowledge, git, business-signals, jira, slack, ci, confluence)'
+      'Source to ingest (code, knowledge, git, business-signals, jira, slack, ci, confluence, figma, miro)'
     )
     .option('--all', 'Run all sources (code, knowledge, git, and configured connectors)')
     .option('--full', 'Force full re-ingestion')

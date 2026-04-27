@@ -26,7 +26,9 @@
 
 2. **Run `harness cleanup --type dead-code --json`** for machine-readable output focused specifically on unused code.
 
-3. **Review the report summary.** Note the total count and distribution. A few dead exports are normal; dozens suggest accumulated entropy from incomplete refactorings.
+3. **Check for stale constraints.** Run `detect_stale_constraints` to identify architectural constraints referencing removed code that should also be cleaned up.
+
+4. **Review the report summary.** Note the total count and distribution. A few dead exports are normal; dozens suggest accumulated entropy from incomplete refactorings.
 
 ### Graph-Enhanced Context (when available)
 

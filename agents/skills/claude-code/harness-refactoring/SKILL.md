@@ -28,9 +28,11 @@ If tests are not green before you start, you are not refactoring — you are deb
 
 2. **Run `harness validate`** and **`harness check-deps`**. Both must pass. You are establishing a clean baseline. If either reports issues, fix those first (that is a separate task, not part of this refactoring).
 
-3. **Identify the refactoring target.** Be specific: which file, function, class, or module? What is wrong with the current structure? What will be better after refactoring?
+3. **Run `compute_blast_radius` on target files** to understand downstream impact before refactoring. This reveals which modules, tests, and consumers will be affected by structural changes.
 
-4. **Plan the steps.** Break the refactoring into the smallest possible individual changes. Each step should be independently committable and verifiable. If you cannot describe a step in one sentence, it is too large.
+4. **Identify the refactoring target.** Be specific: which file, function, class, or module? What is wrong with the current structure? What will be better after refactoring?
+
+5. **Plan the steps.** Break the refactoring into the smallest possible individual changes. Each step should be independently committable and verifiable. If you cannot describe a step in one sentence, it is too large.
 
 ### Graph-Enhanced Context (when available)
 
@@ -81,6 +83,10 @@ For EACH step in the plan:
 
 2. **Run `harness validate` and `harness check-deps` one final time.** Clean output.
 
+3. **Run `detect_stale_constraints`** to verify architectural constraints are still valid after structural changes. Refactoring can render existing constraints obsolete or misaligned.
+
+4. **Run `check_traceability`** to confirm refactoring didn't break requirement-to-implementation mappings. Moved or renamed code may orphan traceability links.
+
 ### Graph Refresh
 
 If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
@@ -91,9 +97,9 @@ harness scan [path]
 
 Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
 
-3. **Review the cumulative diff.** Does the final state match the intended improvement? Is the code genuinely better, or just different?
+5. **Review the cumulative diff.** Does the final state match the intended improvement? Is the code genuinely better, or just different?
 
-4. **If the refactoring introduced no improvement,** revert the entire sequence. Refactoring for its own sake is churn.
+6. **If the refactoring introduced no improvement,** revert the entire sequence. Refactoring for its own sake is churn.
 
 ## Common Refactoring Patterns
 
@@ -133,6 +139,9 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - **`harness check-deps`** — Run after each step, especially when moving code between files or layers. Catches dependency violations introduced by structural changes.
 - **`harness check-docs`** — Run after renaming or moving public APIs. Catches documentation that references old names or locations.
 - **`harness cleanup`** — Run after completing a refactoring sequence. Detects dead code that the refactoring may have created (unused exports, orphaned files).
+- **`compute_blast_radius`** — Run in Phase 1 PREPARE before making changes. Reveals downstream impact of target files so you understand what the refactoring will affect.
+- **`detect_stale_constraints`** — Run in Phase 3 VERIFY after refactoring. Checks whether architectural constraints are still valid after structural changes.
+- **`check_traceability`** — Run in Phase 3 VERIFY after refactoring. Confirms requirement-to-implementation mappings were not broken by moved or renamed code.
 
 ## Success Criteria
 

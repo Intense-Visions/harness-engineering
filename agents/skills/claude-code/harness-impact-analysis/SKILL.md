@@ -41,6 +41,8 @@ enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ### Phase 2: ANALYZE — Query Graph for Impact
 
+Run `compute_blast_radius` on target files to simulate failure propagation and identify all downstream modules affected. Run `predict_failures` to forecast which architectural constraints are most at risk from the proposed changes.
+
 For each changed file:
 
 1. **Direct dependents**: Use `get_impact` MCP tool to find all files that import or call the changed file.

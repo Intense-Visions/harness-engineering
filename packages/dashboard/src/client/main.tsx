@@ -11,6 +11,7 @@ import { Orchestrator } from './pages/Orchestrator';
 import { Attention } from './pages/Attention';
 import { Analyze } from './pages/Analyze';
 import { Chat } from './pages/Chat';
+import { Adoption } from './pages/Adoption';
 import { ProjectPulseProvider } from './hooks/useProjectPulse';
 import './index.css';
 
@@ -31,6 +32,7 @@ if (root) {
               <Route path="/orchestrator/attention" element={<Attention />} />
               <Route path="/orchestrator/analyze" element={<Analyze />} />
               <Route path="/orchestrator/chat" element={<Chat />} />
+              <Route path="/adoption" element={<Adoption />} />
             </Routes>
           </Layout>
         </BrowserRouter>

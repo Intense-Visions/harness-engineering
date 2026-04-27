@@ -71,9 +71,11 @@ If you find yourself writing production code first, STOP. Delete it. Write the t
 
 2. **Run `harness validate`** to verify the full project health. This catches architectural drift, documentation gaps, and constraint violations.
 
-3. **If either check fails,** fix the issue before committing. The fix may require another RED-GREEN-REFACTOR cycle if it involves behavioral changes.
+3. **Run `check_traceability`** to verify new tests map to specific requirements, ensuring test coverage aligns with spec expectations. This catches tests that exist in isolation without a traced requirement.
 
-4. **Commit the cycle.** Each RED-GREEN-REFACTOR-VALIDATE cycle produces one atomic commit. The commit message references what behavior was added (not "add test" — describe the behavior).
+4. **If any check fails,** fix the issue before committing. The fix may require another RED-GREEN-REFACTOR cycle if it involves behavioral changes.
+
+5. **Commit the cycle.** Each RED-GREEN-REFACTOR-VALIDATE cycle produces one atomic commit. The commit message references what behavior was added (not "add test" — describe the behavior).
 
 ### Graph Refresh
 
@@ -111,6 +113,7 @@ Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycle
 - **`harness check-deps`** — Run in VALIDATE phase after each cycle. Catches forbidden imports and layer boundary violations introduced by new code.
 - **`harness validate`** — Run in VALIDATE phase after each cycle. Full project health check including architecture, documentation, and constraints.
 - **`harness cleanup`** — Run periodically (every 3-5 cycles) to detect entropy accumulation. Address any issues before they compound.
+- **`check_traceability`** — Run in VALIDATE phase after tests are written. Verifies new tests map to specific requirements so test coverage aligns with spec expectations.
 - **Test runner** — Use the project's configured test runner. Harness does not prescribe a test framework but the test must actually execute and report results.
 
 ## Success Criteria

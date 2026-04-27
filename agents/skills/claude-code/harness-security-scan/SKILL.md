@@ -34,7 +34,9 @@
    - `warning`: errors and warnings (default)
    - `info`: all findings
 
-6. **Output report.** Present findings grouped by severity:
+6. **Check security trends.** Check `get_security_trends` to compare current scan results against the project's security posture history and identify trajectory changes.
+
+7. **Output report.** Present findings grouped by severity:
 
    ```
    Security Scan: [PASS/FAIL]

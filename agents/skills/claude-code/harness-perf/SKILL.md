@@ -22,26 +22,28 @@ Tier 1 violations are non-negotiable blockers. If a Tier 1 violation is detected
 
 ### Phase 1: ANALYZE — Structural and Coupling Checks
 
-1. **Run structural checks.** Execute `harness check-perf --structural` to compute complexity metrics for all changed files:
+1. **Assess current performance posture.** Run `check_performance` to evaluate current performance metrics against defined budgets. Run `get_critical_paths` to identify performance-critical functions and hot paths.
+
+2. **Run structural checks.** Execute `harness check-perf --structural` to compute complexity metrics for all changed files:
    - Cyclomatic complexity per function
    - Nesting depth per function
    - File length (lines of code)
    - Parameter count per function
 
-2. **Run coupling checks.** Execute `harness check-perf --coupling` to compute coupling metrics:
+3. **Run coupling checks.** Execute `harness check-perf --coupling` to compute coupling metrics:
    - Fan-in and fan-out per module
    - Afferent and efferent coupling
    - Transitive dependency depth
    - Circular dependency detection
 
-3. **Classify violations by tier:**
+4. **Classify violations by tier:**
    - **Tier 1 (error, block commit):** Cyclomatic complexity > 15, circular dependencies, hotspot in top 5%
    - **Tier 2 (warning, block merge):** Complexity > 10, nesting > 4, fan-out > 10, size budget exceeded
    - **Tier 3 (info, no gate):** File length > 300, fan-in > 20, transitive depth > 30
 
-4. **If Tier 1 violations found,** report them immediately and STOP. Do not proceed to benchmarks. The violations must be fixed first.
+5. **If Tier 1 violations found,** report them immediately and STOP. Do not proceed to benchmarks. The violations must be fixed first.
 
-5. **If no violations found,** proceed to Phase 2.
+6. **If no violations found,** proceed to Phase 2.
 
 ---
 
@@ -83,7 +85,7 @@ This phase runs only when `.bench.ts` files exist in the project. If none are fo
 
 4. **Run benchmarks.** Execute `harness perf bench` to run all benchmark suites.
 
-5. **Load baselines.** Read `.harness/perf/baselines.json` for previous benchmark results. If no baselines exist, treat this as a baseline-capture run.
+5. **Load baselines.** Load existing baselines via `get_perf_baselines` before running new benchmarks. Read `.harness/perf/baselines.json` for previous benchmark results. If no baselines exist, treat this as a baseline-capture run.
 
 6. **Compare results against baselines** using the `RegressionDetector`:
    - Calculate percentage change for each benchmark
@@ -100,7 +102,7 @@ This phase runs only when `.bench.ts` files exist in the project. If none are fo
    - **Tier 2:** >10% regression on a non-critical-path benchmark
    - **Tier 3:** >5% regression on a non-critical-path benchmark (within noise margin consideration)
 
-9. **If this is a baseline-capture run,** report results without regression comparison. Recommend running `harness perf baselines update` to persist.
+9. **If this is a baseline-capture run,** report results without regression comparison. Recommend running `harness perf baselines update` to persist. After benchmarks pass, update baselines via `update_perf_baselines` to record new performance targets.
 
 ---
 

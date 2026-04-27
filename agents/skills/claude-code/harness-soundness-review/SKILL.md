@@ -47,6 +47,10 @@ Every finding conforms to this structure:
 
 Execute all checks for the active mode. Classify each finding as `autoFixable: true` or `false`. Record total issue count.
 
+#### Traceability and Cross-Check Tools
+
+Run `check_traceability` to verify that all requirements in the spec/plan have corresponding implementation artifacts. Run `validate_cross_check` to verify plan-to-implementation alignment as part of the soundness assessment.
+
 #### Graph Detection and Fallback
 
 Before running checks, determine graph availability:
