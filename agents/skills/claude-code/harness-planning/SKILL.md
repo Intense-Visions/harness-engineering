@@ -29,6 +29,7 @@ The `rigorLevel` is passed by autopilot (or set via `--fast`/`--thorough` flags)
 | Phase     | `fast`                                             | `standard` (default)                       | `thorough`                                          |
 | --------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
 | SCOPE     | No change.                                         | No change.                                 | No change.                                          |
+| KNOWLEDGE | Skip entirely.                                     | Run detect; fix if gaps found.             | Run detect; fix if gaps found.                      |
 | DECOMPOSE | Skip skeleton. Full tasks directly after file map. | Skeleton if tasks >= 8; full tasks if < 8. | Always skeleton. Require approval before expanding. |
 | SEQUENCE  | No change.                                         | No change.                                 | No change.                                          |
 | VALIDATE  | No change.                                         | No change.                                 | No change.                                          |
@@ -162,6 +163,22 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 - `get_impact` — estimate which modules a feature touches
 
 Fall back to file-based commands if no graph is available.
+
+---
+
+### Phase 1.5: KNOWLEDGE BASELINE — Materialize Domain Knowledge
+
+Before decomposing into tasks, ensure domain knowledge from PRDs and specs is documented. **Skip this phase** when no PRDs, specs, or business domain documents exist in the project, or when rigor level is `fast`.
+
+1. **Run knowledge pipeline in detect mode.** Execute `harness knowledge-pipeline --domain <feature-domain>` to produce a differential gap report comparing extracted business rules against documented knowledge in `docs/knowledge/`.
+
+2. **If gaps exist and `--fix` is appropriate,** run `harness knowledge-pipeline --fix --domain <feature-domain>` to materialize `docs/knowledge/{domain}/*.md` files from extracted findings. This creates the knowledge baseline from PRDs before any tasks are written.
+
+3. **Cross-check uncertainties against materialized knowledge:**
+   - Remove "assumptions" from the uncertainty list that are now documented facts in `docs/knowledge/`
+   - Escalate if contradictions exist between PRDs and existing knowledge docs
+
+4. **Reference materialized knowledge in Phase 2 task decomposition.** Tasks should reference specific knowledge docs they implement. Observable truths should map back to documented business rules.
 
 ---
 

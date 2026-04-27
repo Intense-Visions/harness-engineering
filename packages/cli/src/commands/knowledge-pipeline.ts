@@ -86,6 +86,8 @@ export function createKnowledgePipelineCommand(): Command {
                 gaps: {
                   domains: result.gaps.domains.length,
                   totalEntries: result.gaps.totalEntries,
+                  totalExtracted: result.gaps.totalExtracted,
+                  totalGaps: result.gaps.totalGaps,
                 },
                 remediations: result.remediations,
                 contradictions: {
@@ -97,6 +99,17 @@ export function createKnowledgePipelineCommand(): Command {
                   overallGrade: result.coverage.overallGrade,
                   domains: result.coverage.domains.length,
                 },
+                ...(result.materialization
+                  ? {
+                      materialization: {
+                        created: result.materialization.created.length,
+                        skipped: result.materialization.skipped.length,
+                        files: result.materialization.created.map(
+                          (d: { filePath: string }) => d.filePath
+                        ),
+                      },
+                    }
+                  : {}),
               },
               null,
               2
@@ -121,13 +134,23 @@ export function createKnowledgePipelineCommand(): Command {
             `  Extraction: ${result.extraction.codeSignals} code signals, ${result.extraction.diagrams} diagrams, ${result.extraction.linkerFacts} linker facts, ${result.extraction.businessKnowledge} business knowledge, ${result.extraction.images} images`
           );
           console.log(
-            `  Gaps: ${result.gaps.domains.length} domains, ${result.gaps.totalEntries} total entries`
+            `  Gaps: ${result.gaps.domains.length} domains — ${result.gaps.totalEntries} documented / ${result.gaps.totalExtracted} extracted / ${result.gaps.totalGaps} undocumented`
           );
           if (result.iterations > 1) {
             console.log(`  Convergence: ${result.iterations} iterations`);
           }
           if (result.remediations.length > 0) {
             console.log(`  Remediations: ${result.remediations.length} applied`);
+          }
+
+          if (result.materialization) {
+            const mat = result.materialization;
+            console.log(
+              `  Materialization: ${mat.created.length} docs created, ${mat.skipped.length} skipped`
+            );
+            for (const doc of mat.created) {
+              console.log(`    ${chalk.green('+')} ${doc.filePath}`);
+            }
           }
 
           // Contradiction report

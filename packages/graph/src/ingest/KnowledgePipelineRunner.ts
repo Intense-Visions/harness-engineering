@@ -32,6 +32,7 @@ import { createExtractionRunner } from './extractors/index.js';
 import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisExtractor.js';
 import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
 import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
+import { KnowledgeDocMaterializer, type MaterializeResult } from './KnowledgeDocMaterializer.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_concept',
@@ -83,6 +84,7 @@ export interface KnowledgePipelineResult {
   readonly remediations: readonly string[];
   readonly contradictions: ContradictionResult;
   readonly coverage: CoverageReport;
+  readonly materialization?: MaterializeResult;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────────────
@@ -93,21 +95,38 @@ export class KnowledgePipelineRunner {
   async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult> {
     const remediations: string[] = [];
 
-    // Phases 1-3: Extract, Reconcile, Detect
+    // Phase 1: Capture pre-extraction snapshot, then extract
+    const preSnapshot = this.buildSnapshot(options.domain);
     const extraction = await this.extract(options);
-    let driftResult = this.runReconciliation(options);
+
+    // Phase 2: Reconcile pre vs post extraction
+    const postSnapshot = this.buildSnapshot(options.domain);
+    let driftResult = this.reconcile(preSnapshot, postSnapshot);
     const contradictions = new ContradictionDetector().detect(this.store);
+
+    // Phase 3: Detect gaps
     let gapReport = await this.detect(options);
     const coverage = new CoverageScorer().score(this.store);
 
     // Phase 4: Remediate (convergence loop)
-    const iterations = options.fix
-      ? await this.runRemediationLoop(options, driftResult, gapReport, remediations)
-      : 1;
+    let materialization: MaterializeResult | undefined;
+    let iterations = 1;
 
-    // Re-read final state after remediation loop may have mutated driftResult/gapReport
+    if (options.fix) {
+      const loopResult = await this.runRemediationLoop(
+        options,
+        driftResult,
+        gapReport,
+        remediations
+      );
+      iterations = loopResult.iterations;
+      materialization = loopResult.materialization;
+    }
+
+    // Re-read final state after remediation loop
     if (options.fix && iterations > 1) {
-      driftResult = this.runReconciliation(options);
+      const finalSnapshot = this.buildSnapshot(options.domain);
+      driftResult = this.reconcile(preSnapshot, finalSnapshot);
       gapReport = await this.detect(options);
     }
 
@@ -120,44 +139,59 @@ export class KnowledgePipelineRunner {
       gapReport,
       remediations,
       contradictions,
-      coverage
+      coverage,
+      materialization
     );
   }
 
-  /** Run phases 1-2 (extract snapshot, reconcile) and return drift result. */
-  private runReconciliation(options: KnowledgePipelineOptions): DriftResult {
-    const preSnapshot = this.buildSnapshot(options.domain);
-    const postSnapshot = this.buildSnapshot(options.domain);
-    return this.reconcile(preSnapshot, postSnapshot);
-  }
-
-  /** Run the remediation convergence loop; returns total iteration count. */
+  /** Run the remediation convergence loop; returns iteration count and accumulated materialization. */
   private async runRemediationLoop(
     options: KnowledgePipelineOptions,
     driftResult: DriftResult,
-    _gapReport: GapReport,
+    gapReport: GapReport,
     remediations: string[]
-  ): Promise<number> {
+  ): Promise<{ iterations: number; materialization?: MaterializeResult }> {
     const maxIterations = options.maxIterations ?? 5;
     let iterations = 1;
     let currentDrift = driftResult;
-    let previousFindingCount = currentDrift.findings.length;
+    let currentGapReport = gapReport;
+    let previousIssueCount = currentDrift.findings.length + currentGapReport.totalGaps;
+    let accumulatedMaterialization: MaterializeResult | undefined;
 
     while (iterations < maxIterations) {
-      if (currentDrift.findings.length === 0) break;
+      if (currentDrift.findings.length === 0 && currentGapReport.totalGaps === 0) break;
 
-      this.remediate(currentDrift, remediations, options);
+      const matResult = await this.remediate(currentDrift, remediations, options, currentGapReport);
 
+      // Accumulate materialization results across iterations
+      if (matResult) {
+        if (!accumulatedMaterialization) {
+          accumulatedMaterialization = matResult;
+        } else {
+          accumulatedMaterialization = {
+            created: [...accumulatedMaterialization.created, ...matResult.created],
+            skipped: [...accumulatedMaterialization.skipped, ...matResult.skipped],
+          };
+        }
+      }
+
+      // Re-run extraction and detection with proper pre/post snapshot separation
+      const preSnapshot = this.buildSnapshot(options.domain);
       await this.extract(options);
-      currentDrift = this.runReconciliation(options);
-      await this.detect(options);
+      const postSnapshot = this.buildSnapshot(options.domain);
+      currentDrift = this.reconcile(preSnapshot, postSnapshot);
+      currentGapReport = await this.detect(options);
 
       iterations++;
-      if (currentDrift.findings.length >= previousFindingCount) break;
-      previousFindingCount = currentDrift.findings.length;
+      const currentIssueCount = currentDrift.findings.length + currentGapReport.totalGaps;
+      if (currentIssueCount >= previousIssueCount) break;
+      previousIssueCount = currentIssueCount;
     }
 
-    return iterations;
+    return {
+      iterations,
+      ...(accumulatedMaterialization ? { materialization: accumulatedMaterialization } : {}),
+    };
   }
 
   /** Assemble the final pipeline result. */
@@ -168,7 +202,8 @@ export class KnowledgePipelineRunner {
     gaps: GapReport,
     remediations: readonly string[],
     contradictions: ContradictionResult,
-    coverage: CoverageReport
+    coverage: CoverageReport,
+    materialization?: MaterializeResult
   ): KnowledgePipelineResult {
     return {
       verdict: this.computeVerdict(driftResult),
@@ -180,6 +215,7 @@ export class KnowledgePipelineRunner {
       remediations,
       contradictions,
       coverage,
+      ...(materialization ? { materialization } : {}),
     };
   }
 
@@ -269,18 +305,19 @@ export class KnowledgePipelineRunner {
   private async detect(options: KnowledgePipelineOptions): Promise<GapReport> {
     const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
     const aggregator = new KnowledgeStagingAggregator(options.projectDir);
-    const gapReport = await aggregator.generateGapReport(knowledgeDir);
+    const gapReport = await aggregator.generateGapReport(knowledgeDir, this.store);
     await aggregator.writeGapReport(gapReport);
     return gapReport;
   }
 
   // ── Phase 4: REMEDIATE ────────────────────────────────────────────────────
 
-  private remediate(
+  private async remediate(
     driftResult: DriftResult,
     remediations: string[],
-    options: KnowledgePipelineOptions
-  ): void {
+    options: KnowledgePipelineOptions,
+    gapReport: GapReport
+  ): Promise<MaterializeResult | undefined> {
     for (const finding of driftResult.findings) {
       switch (finding.classification) {
         case 'stale':
@@ -302,6 +339,24 @@ export class KnowledgePipelineRunner {
           break;
       }
     }
+
+    // Materialize docs for undocumented entries (non-CI only)
+    if (!options.ci) {
+      const allGapEntries = gapReport.domains.flatMap((d) => d.gapEntries);
+      const materializable = allGapEntries.filter((e) => e.hasContent);
+      if (materializable.length > 0) {
+        const materializer = new KnowledgeDocMaterializer(this.store);
+        const matResult = await materializer.materialize(materializable, {
+          projectDir: options.projectDir,
+          dryRun: false,
+        });
+        for (const doc of matResult.created) {
+          remediations.push(`created doc: ${doc.filePath}`);
+        }
+        return matResult;
+      }
+    }
+    return undefined;
   }
 
   private async stageNewFindings(

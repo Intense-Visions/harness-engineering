@@ -188,6 +188,37 @@ describe('telemetry-reporter', { timeout: 30000 }, () => {
     expect(result.exitCode).toBe(0);
   });
 
+  // --- Cursor-based dedup ---
+
+  it('preserves adoption.jsonl after sending (no truncation)', () => {
+    writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+    const result = runHook(STDIN_INPUT, tmpDir);
+    expect(result.exitCode).toBe(0);
+    // adoption.jsonl should still contain the record
+    const content = readFileSync(join(tmpDir, '.harness', 'metrics', 'adoption.jsonl'), 'utf-8');
+    expect(content).toContain('harness-brainstorming');
+  });
+
+  it('writes cursor file after sending', () => {
+    writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+    const result = runHook(STDIN_INPUT, tmpDir);
+    expect(result.exitCode).toBe(0);
+    const cursorPath = join(tmpDir, '.harness', 'metrics', '.telemetry-cursor');
+    expect(existsSync(cursorPath)).toBe(true);
+    const cursor = JSON.parse(readFileSync(cursorPath, 'utf-8'));
+    expect(typeof cursor.offset).toBe('number');
+    expect(cursor.offset).toBeGreaterThan(0);
+  });
+
+  it('does not re-send records on second run (cursor dedup)', () => {
+    writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+    runHook(STDIN_INPUT, tmpDir);
+    // Second run with same adoption.jsonl
+    const result = runHook(STDIN_INPUT, tmpDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('No new adoption records');
+  });
+
   // --- Malformed adoption.jsonl ---
 
   it('skips malformed lines in adoption.jsonl', () => {
