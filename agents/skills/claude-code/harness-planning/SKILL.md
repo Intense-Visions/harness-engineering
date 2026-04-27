@@ -252,7 +252,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    - `[checkpoint:decision]` — Pause, present options, wait for choice
    - `[checkpoint:human-action]` — Pause, instruct human on required action
 
-7. **Derive integration tasks from the spec's Integration Points section.** If the spec contains an Integration Points section, create tasks for each integration point. Integration tasks are normal plan tasks but tagged with `category: "integration"` in their description. They appear at the end of the task list, after all implementation tasks.
+7. **Derive integration tasks from the spec's Integration Points section.** If the spec contains an Integration Points section, create tasks for each non-empty integration point. Skip subsections marked "None" — do not derive tasks from them. Integration tasks are normal plan tasks but tagged with `category: "integration"` in their description. They appear at the end of the task list, after all implementation tasks.
 
    For each subsection of Integration Points, derive tasks:
 
@@ -264,7 +264,13 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    | Architectural Decisions: "ADR for approach X"   | "Write ADR `docs/knowledge/decisions/NNNN-<slug>.md`."                     |
    | Knowledge Impact: "Domain concept Y"            | "Enrich knowledge graph with concept node."                                |
 
-   Integration tasks follow the same atomic task rules (2-5 minutes, exact file paths, exact code). Tag each with `**Category:** integration` in the task header.
+   Integration tasks follow the same atomic task rules (2-5 minutes, exact file paths, exact code). Use the `**Category:** integration` tag in the task header, e.g.:
+
+   ```
+   ### Task N: Update AGENTS.md with new feature description
+
+   **Depends on:** Task N-1 | **Files:** `AGENTS.md` | **Category:** integration
+   ```
 
    If the spec has no Integration Points section, skip this step.
 
