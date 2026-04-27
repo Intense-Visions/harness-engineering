@@ -128,13 +128,13 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 
 ### VERIFY
 
-- `"fast"`: run `harness validate`. Pass → REVIEW. Fail → surface to user.
+- `"fast"`: run `harness validate`. Pass → INTEGRATE. Fail → surface to user.
 - `"standard"`/`"thorough"`: dispatch harness-verifier:
   ```
   subagent_type: "harness-verifier"
   prompt: "Phase {N}: {name}. Session: {sessionSlug}. Rigor: {rigorLevel}. Verify and report pass/fail with findings."
   ```
-  Pass → REVIEW. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
+  Pass → INTEGRATE. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
 
 ---
 
