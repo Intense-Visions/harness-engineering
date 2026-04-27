@@ -45,11 +45,11 @@ When no arguments are provided (standalone invocation), discover plan from `docs
      intent: "Execute plan tasks starting from current position",
      skill: "harness-execution",
      session: "<session-slug-if-known>",
-     include: ["state", "learnings", "handoff", "validation"]
+     include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "validation"]
    })
    ```
 
-   If session slug is known, include `session` to scope reads/writes to `.harness/sessions/<slug>/`. If unknown, omit it — falls back to `.harness/`. Returns `state` (current position, null = fresh start), `learnings` (prior insights — do not ignore), `handoff` (context from previous skill), `validation` (project health). Failed constituents return null with errors in `meta.errors`.
+   If session slug is known, include `session` to scope reads/writes to `.harness/sessions/<slug>/`. If unknown, omit it — falls back to `.harness/`. Returns `state` (current position, null = fresh start), `learnings` (prior insights — do not ignore), `handoff` (context from previous skill), `graph` (business_fact nodes and module dependencies), `businessKnowledge` (documented domain knowledge from `docs/knowledge/`), `validation` (project health). Use graph and businessKnowledge context to inform implementation decisions — especially when tasks reference domain rules or business logic. Failed constituents return null with errors in `meta.errors`.
 
 3. **Load session summary for cold start.** If resuming (session slug known):
    - Call `listActiveSessions()` to read the session index.

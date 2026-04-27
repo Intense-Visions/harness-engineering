@@ -223,7 +223,7 @@ export async function handleGatherContext(input: {
   }
 
   const includeSet = new Set<IncludeKey>(
-    input.include ?? ['state', 'learnings', 'handoff', 'graph', 'validation']
+    input.include ?? ['state', 'learnings', 'handoff', 'graph', 'validation', 'businessKnowledge']
   );
 
   const errors: string[] = [];

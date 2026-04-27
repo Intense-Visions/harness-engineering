@@ -42,7 +42,7 @@ The skeleton pass is the primary rigor lever. Fast mode goes straight to full de
 
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
-1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>", include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"] })`. All handoff writes go to `{sessionDir}/handoff.json`.
 2. **Spec path:** If `spec-path` argument provided, read spec from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream brainstorming output) or prompt the user.
 3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
 
@@ -174,11 +174,12 @@ Before decomposing into tasks, ensure domain knowledge from PRDs and specs is do
 
 2. **If gaps exist and `--fix` is appropriate,** run `harness knowledge-pipeline --fix --domain <feature-domain>` to materialize `docs/knowledge/{domain}/*.md` files from extracted findings. This creates the knowledge baseline from PRDs before any tasks are written.
 
-3. **Cross-check uncertainties against materialized knowledge:**
+3. **Cross-check uncertainties against materialized knowledge** (from `businessKnowledge` loaded in gather_context and freshly materialized docs):
    - Remove "assumptions" from the uncertainty list that are now documented facts in `docs/knowledge/`
    - Escalate if contradictions exist between PRDs and existing knowledge docs
+   - Use `business_fact` nodes from the graph context to validate domain assumptions
 
-4. **Reference materialized knowledge in Phase 2 task decomposition.** Tasks should reference specific knowledge docs they implement. Observable truths should map back to documented business rules.
+4. **Reference materialized knowledge in Phase 2 task decomposition.** Tasks should reference specific knowledge docs they implement. Observable truths should map back to documented business rules. Use the `businessKnowledge` context (domains, tags, documented facts) loaded in Phase 1 to ground task instructions in verified domain knowledge rather than assumptions.
 
 ---
 
@@ -328,7 +329,7 @@ One sentence.
 
 **When to write:** Phase 1 — constraints and risks. Phase 2 — decisions about task structure. Phase 4 — resolve questions.
 
-**When to read:** Start of Phase 1 via `gather_context` with `include: ["sessions"]` to inherit brainstorming context.
+**When to read:** Start of Phase 1 via `gather_context` with `include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"]` to inherit brainstorming context and load documented business knowledge.
 
 ## Evidence Requirements
 

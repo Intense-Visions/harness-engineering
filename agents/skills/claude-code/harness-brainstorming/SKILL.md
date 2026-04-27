@@ -35,10 +35,11 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 ### Phase 1: EXPLORE -- Gather Context
 
-1. **Read the existing codebase.** Understand architecture, constraints, and conventions. Check AGENTS.md, existing specs in `docs/`, and relevant source files.
-2. **Identify the problem boundary.** What exactly needs solving? What is out of scope? Write both down.
-3. **Check for prior art.** Has this been partially solved elsewhere? Are there patterns to follow or deliberately break?
-4. **Assess scope.** If the problem spans >3 major subsystems or >2 weeks to implement, decompose into sub-projects first.
+1. **Load project context.** Call `gather_context({ path: "<project-root>", intent: "<feature description>", skill: "harness-brainstorming", session: "<session-slug-if-known>", include: ["graph", "businessKnowledge", "sessions", "validation"] })`. The `graph` context surfaces `business_fact` nodes relevant to the feature domain. The `businessKnowledge` context loads documented domain knowledge from `docs/knowledge/`. Use both to ground exploration in verified facts rather than assumptions.
+2. **Read the existing codebase.** Understand architecture, constraints, and conventions. Check AGENTS.md, existing specs in `docs/`, and relevant source files.
+3. **Identify the problem boundary.** What exactly needs solving? What is out of scope? Write both down. Cross-reference `businessKnowledge` domains — if documented business rules constrain the problem, note them.
+4. **Check for prior art.** Has this been partially solved elsewhere? Are there patterns to follow or deliberately break?
+5. **Assess scope.** If the problem spans >3 major subsystems or >2 weeks to implement, decompose into sub-projects first.
 
 ---
 
