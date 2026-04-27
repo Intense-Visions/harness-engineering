@@ -47,6 +47,7 @@ export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
 export { BusinessKnowledgeIngestor } from './ingest/BusinessKnowledgeIngestor.js';
+export { DecisionIngestor } from './ingest/DecisionIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 
 // Knowledge Pipeline

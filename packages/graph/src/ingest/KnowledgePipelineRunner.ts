@@ -33,6 +33,7 @@ import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisEx
 import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
 import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
 import { KnowledgeDocMaterializer, type MaterializeResult } from './KnowledgeDocMaterializer.js';
+import { DecisionIngestor } from './DecisionIngestor.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
   'business_concept',
@@ -46,6 +47,7 @@ const BUSINESS_NODE_TYPES: readonly NodeType[] = [
 /** Node types included in snapshot for drift detection (Phase 5 adds design + image types). */
 const SNAPSHOT_NODE_TYPES: readonly NodeType[] = [
   ...BUSINESS_NODE_TYPES,
+  'decision',
   'design_token',
   'design_constraint',
   'aesthetic_intent',
@@ -71,6 +73,7 @@ export interface ExtractionCounts {
   readonly diagrams: number;
   readonly linkerFacts: number;
   readonly businessKnowledge: number;
+  readonly decisions: number;
   readonly images: number;
 }
 
@@ -261,6 +264,23 @@ export class KnowledgePipelineRunner {
       };
     }
 
+    // Decision ADRs from docs/knowledge/decisions/
+    const decisionsDir = path.join(options.projectDir, 'docs', 'knowledge', 'decisions');
+    const decisionIngestor = new DecisionIngestor(this.store);
+    let decisionResult: IngestResult;
+    try {
+      decisionResult = await decisionIngestor.ingest(decisionsDir);
+    } catch {
+      decisionResult = {
+        nodesAdded: 0,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: [],
+        durationMs: 0,
+      };
+    }
+
     // Knowledge linker (scans connector-ingested nodes for business signals)
     const linker = new KnowledgeLinker(this.store, extractedDir);
     const linkResult = await linker.link();
@@ -270,6 +290,7 @@ export class KnowledgePipelineRunner {
       diagrams: diagramResult.nodesAdded,
       linkerFacts: linkResult.factsCreated,
       businessKnowledge: bkResult.nodesAdded,
+      decisions: decisionResult.nodesAdded,
       images: imageCount,
     };
   }
