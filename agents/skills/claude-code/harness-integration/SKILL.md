@@ -99,3 +99,66 @@ Load the plan, identify integration tasks (tagged `category: "integration"`), an
 - **WIRE tasks:** Entry point registration, barrel exports, skill discovery, route mounts
 - **MATERIALIZE tasks:** ADR writing, knowledge graph enrichment, documentation updates
 - **UPDATE tasks:** Roadmap sync, changelog, spec cross-references
+
+---
+
+### Sub-Phase 1: WIRE (all tiers)
+
+Report progress: `**[WIRE]** Checking system wiring`
+
+WIRE always runs, regardless of tier. It has two parts: default checks (always) and task-specific checks (when integration tasks exist).
+
+#### Default Checks (always run)
+
+These run even with zero explicit integration tasks (D8: barrel exports and validation are cheap and catch real problems).
+
+1. **Barrel export check.** Run `pnpm run generate-barrel-exports --check`. If the `--check` flag is not supported, fall back to:
+   - Run `pnpm run generate-barrel-exports`
+   - Run `git diff --name-only`
+   - If barrel files changed, the previous execution missed this step. Record as FAIL with the list of changed barrel files.
+   - If no changes, barrel exports are current. Record as PASS.
+
+2. **Harness validate.** Run `pnpm harness validate`. Must pass. Record result.
+
+#### Task-Specific Checks (when integration tasks exist)
+
+For each integration task tagged `category: "integration"` that relates to wiring:
+
+3. **Entry point reachability.** Trace from known entry points to new code:
+   - CLI: search for the new command/function in the `createProgram()` registration chain
+   - MCP: search for the new tool in `getToolDefinitions()` or tool registration files
+   - Skill: verify `skill.yaml` + `SKILL.md` exist at the expected path and skill appears in `harness skill list` output or discovery glob results
+   - If the task claims a new entry point, verify it is reachable from at least one system entry point. An unreachable entry point is dead code.
+
+4. **Skill discovery verification.** If a new skill was created:
+   - Verify `agents/skills/claude-code/<skill-name>/skill.yaml` exists and has valid YAML
+   - Verify `agents/skills/claude-code/<skill-name>/SKILL.md` exists and is non-empty
+   - Verify the skill appears in `harness skill list` output (or would appear based on glob pattern)
+
+5. **Route mount verification.** If a new API route was added:
+   - Verify the route handler file exists
+   - Verify the route is imported and mounted in the router/app configuration
+   - Verify a request to the route path would be handled (trace the mount chain)
+
+6. **Produce wiring report.** Write `{sessionDir}/integration-wiring.json`:
+
+   ```json
+   {
+     "subPhase": "wire",
+     "tier": "<effective-tier>",
+     "timestamp": "<ISO-8601>",
+     "defaultChecks": {
+       "barrelExports": { "status": "pass|fail", "detail": "<description>" },
+       "harnessValidate": { "status": "pass|fail", "detail": "<output summary>" }
+     },
+     "taskChecks": [
+       {
+         "taskRef": "Task N: <name>",
+         "check": "<what was verified>",
+         "status": "pass|fail",
+         "evidence": "<file:line or command output>"
+       }
+     ],
+     "verdict": "pass|fail"
+   }
+   ```
