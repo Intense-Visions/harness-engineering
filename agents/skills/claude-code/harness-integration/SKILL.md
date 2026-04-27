@@ -263,3 +263,125 @@ Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers
      "verdict": "pass|fail|skipped"
    }
    ```
+
+---
+
+### Sub-Phase 3: UPDATE (medium + large tiers)
+
+Report progress: `**[UPDATE]** Checking project metadata updates`
+
+Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers:
+
+1. **Roadmap sync.** If `docs/roadmap.md` exists, call `manage_roadmap` with `sync` and `apply: true` to update feature status. If `manage_roadmap` is unavailable, fall back to noting the roadmap needs manual sync.
+
+2. **Changelog verification.** If `CHANGELOG.md` exists at the project root:
+   - Read the file and check for a new entry matching the current feature
+   - If no entry exists, record as FAIL with instruction: "Add a changelog entry for this feature under the Unreleased section."
+   - If no `CHANGELOG.md` exists, skip silently (not all projects use changelogs)
+
+3. **Spec cross-reference annotation.** Read the spec at its path (from the plan or handoff):
+   - For each phase in the spec's Implementation Order, check if implementation files can be linked
+   - If the spec does not have file annotations, note this as an improvement suggestion (not a failure)
+
+4. **Produce update report.** Write `{sessionDir}/integration-updates.json`:
+
+   ```json
+   {
+     "subPhase": "update",
+     "tier": "<effective-tier>",
+     "timestamp": "<ISO-8601>",
+     "roadmap": { "status": "synced|skipped|failed", "detail": "<description>" },
+     "changelog": { "status": "pass|fail|skipped", "detail": "<description>" },
+     "specCrossRef": { "status": "annotated|skipped", "detail": "<description>" },
+     "verdict": "pass|fail|skipped"
+   }
+   ```
+
+---
+
+### Combined Report and Verdict
+
+After all applicable sub-phases complete, produce the combined integration report:
+
+1. **Write combined report.** Write `{sessionDir}/phase-{N}-integration.json`:
+
+   ```json
+   {
+     "phase": "integration",
+     "tier": "<effective-tier>",
+     "rigor": "<fast|standard|thorough>",
+     "timestamp": "<ISO-8601>",
+     "subPhases": {
+       "wire": { "verdict": "pass|fail", "reportPath": "{sessionDir}/integration-wiring.json" },
+       "materialize": {
+         "verdict": "pass|fail|skipped",
+         "reportPath": "{sessionDir}/integration-materialization.json"
+       },
+       "update": {
+         "verdict": "pass|fail|skipped",
+         "reportPath": "{sessionDir}/integration-updates.json"
+       }
+     },
+     "verdict": "pass|fail",
+     "failures": [
+       {
+         "subPhase": "<wire|materialize|update>",
+         "taskRef": "Task N: <name>",
+         "issue": "<what is incomplete>",
+         "fix": "<specific fix instruction>"
+       }
+     ]
+   }
+   ```
+
+2. **Report verdict.** Summarize pass/fail per sub-phase. On failure, list exactly which integration tasks are incomplete with specific fix instructions.
+
+3. **On PASS:** Write handoff and emit transition to REVIEW:
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "transition",
+     transition: {
+       completedPhase: "integration",
+       suggestedNext: "review",
+       reason: "Integration passed at all applicable sub-phases",
+       artifacts: ["<report paths>"],
+       requiresConfirmation: false,
+       summary: "Integration passed: tier <tier>. WIRE passed. MATERIALIZE <passed|skipped>. UPDATE <passed|skipped>.",
+       qualityGate: {
+         checks: [
+           { "name": "wire-checks", "passed": true },
+           { "name": "materialize-checks", "passed": true },
+           { "name": "update-checks", "passed": true },
+           { "name": "harness-validate", "passed": true }
+         ],
+         allPassed: true
+       }
+     }
+   })
+   ```
+
+   Immediately invoke harness-code-review without waiting for user input.
+
+4. **On FAIL:** Do NOT emit a transition. Report incomplete items with fix instructions. Present options via `emit_interaction`:
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "question",
+     question: {
+       text: "Integration failed. <N> items incomplete. How to proceed?",
+       options: [
+         { "label": "fix -- Re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE", "risk": "low", "effort": "medium" },
+         { "label": "skip -- Record decision and proceed to REVIEW (human override)", "risk": "medium", "effort": "low" },
+         { "label": "stop -- Save state and exit", "risk": "low", "effort": "low" }
+       ],
+       recommendation: { "optionIndex": 0, "reason": "Fixing integration gaps now prevents review rework.", "confidence": "high" }
+     }
+   })
+   ```
+
+   - **fix:** Record fix tasks in handoff. The autopilot re-enters EXECUTE with those tasks.
+   - **skip:** Record the skip decision in `decisions[]` in handoff. Proceed to REVIEW.
+   - **stop:** Write handoff with current state and stop.
