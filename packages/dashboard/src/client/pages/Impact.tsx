@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { useApi } from '../hooks/useApi';
 import type {
   AnomalyData,
@@ -13,7 +13,7 @@ import { BlastRadiusGraph } from '../components/BlastRadiusGraph';
 const DEPTH_OPTIONS = [1, 2, 3, 4, 5] as const;
 const DEFAULT_DEPTH = 3;
 
-function AnomalyList({
+const AnomalyList = memo(function AnomalyList({
   loading,
   fetchError,
   anomalies,
@@ -110,9 +110,9 @@ function AnomalyList({
       )}
     </div>
   );
-}
+});
 
-function BlastRadiusPanel({
+const BlastRadiusPanel = memo(function BlastRadiusPanel({
   selectedNodeId,
   blastRadiusState,
   blastRadiusError,
@@ -164,9 +164,9 @@ function BlastRadiusPanel({
       )}
     </div>
   );
-}
+});
 
-function SearchBar({
+const SearchBar = memo(function SearchBar({
   searchText,
   depth,
   onSearchTextChange,
@@ -212,7 +212,7 @@ function SearchBar({
       </label>
     </div>
   );
-}
+});
 
 function useAnomalies() {
   const [anomalies, setAnomalies] = useState<AnomalyData | null>(null);
@@ -289,7 +289,7 @@ function useImpactExplorer() {
     [queryBlastRadius]
   );
 
-  const { sortedAPs, sortedOutliers } = sortAnomalyData(anomalies);
+  const { sortedAPs, sortedOutliers } = useMemo(() => sortAnomalyData(anomalies), [anomalies]);
   const brData = blastRadius.data?.data;
   const brIsData = !!brData && isBlastRadiusData(brData);
 

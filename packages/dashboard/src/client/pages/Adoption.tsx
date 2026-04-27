@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { KpiCard } from '../components/KpiCard';
 import type { AdoptionSnapshot, SkillAdoptionSummary } from '@shared/types';
 
@@ -18,7 +18,7 @@ function successAccentClass(rate: number): string {
   return 'text-red-400';
 }
 
-function SkillRow({ skill }: { skill: SkillAdoptionSummary }) {
+const SkillRow = memo(function SkillRow({ skill }: { skill: SkillAdoptionSummary }) {
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
       <td className="py-2 px-3 font-mono text-xs text-gray-200">{skill.skill}</td>
@@ -32,7 +32,7 @@ function SkillRow({ skill }: { skill: SkillAdoptionSummary }) {
       <td className="py-2 px-3 text-right text-xs text-gray-500">{skill.lastUsed.slice(0, 10)}</td>
     </tr>
   );
-}
+});
 
 function SkillsTable({ skills }: { skills: SkillAdoptionSummary[] }) {
   if (skills.length === 0) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { KpiCard } from '../components/KpiCard';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 
@@ -45,7 +45,7 @@ function formatTime(iso: string | null): string {
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function HistoryRow({ entry }: { entry: HistoryEntry }) {
+const HistoryRow = memo(function HistoryRow({ entry }: { entry: HistoryEntry }) {
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
       <td className="py-2 px-3 font-mono text-xs text-gray-200">{entry.task}</td>
@@ -58,7 +58,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       </td>
     </tr>
   );
-}
+});
 
 function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
   if (entries.length === 0) {

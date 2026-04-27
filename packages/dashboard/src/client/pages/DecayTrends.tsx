@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { KpiCard } from '../components/KpiCard';
 
 type Direction = 'improving' | 'stable' | 'declining';
@@ -55,7 +55,7 @@ function formatCategory(name: string): string {
     .join(' ');
 }
 
-function CategoryRow({ name, trend }: { name: string; trend: TrendLine }) {
+const CategoryRow = memo(function CategoryRow({ name, trend }: { name: string; trend: TrendLine }) {
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
       <td className="py-2 px-3 font-mono text-xs text-gray-200">{formatCategory(name)}</td>
@@ -73,12 +73,16 @@ function CategoryRow({ name, trend }: { name: string; trend: TrendLine }) {
       </td>
     </tr>
   );
-}
+});
 
 function CategoriesTable({ categories }: { categories: Record<string, TrendLine> }) {
-  const entries = Object.entries(categories);
+  // Sort by absolute delta descending (most change first)
+  const sorted = useMemo(
+    () => Object.entries(categories).sort((a, b) => Math.abs(b[1].delta) - Math.abs(a[1].delta)),
+    [categories]
+  );
 
-  if (entries.length === 0) {
+  if (sorted.length === 0) {
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
         <p className="text-sm text-gray-500">
@@ -87,9 +91,6 @@ function CategoriesTable({ categories }: { categories: Record<string, TrendLine>
       </div>
     );
   }
-
-  // Sort by absolute delta descending (most change first)
-  const sorted = [...entries].sort((a, b) => Math.abs(b[1].delta) - Math.abs(a[1].delta));
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-900">

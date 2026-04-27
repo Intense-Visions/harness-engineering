@@ -122,9 +122,12 @@ export class CodeIngestor {
     // Track callable names → defining files for the calls-edge pass
     const nameToFiles = new Map<string, Set<string>>();
 
+    // Cache file content so each file is read from disk only once
+    const contentCache = new Map<string, string>();
+
     for (const filePath of files) {
       try {
-        const result = await this.processFile(filePath, rootDir, nameToFiles);
+        const result = await this.processFile(filePath, rootDir, nameToFiles, contentCache);
         nodesAdded += result.nodesAdded;
         edgesAdded += result.edgesAdded;
       } catch (err) {
@@ -132,11 +135,12 @@ export class CodeIngestor {
       }
     }
 
-    // Second pass: extract calls edges
+    // Second pass: extract calls edges (reuses cached content)
     for (const filePath of files) {
       try {
         const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
-        const content = await fs.readFile(filePath, 'utf-8');
+        const content = contentCache.get(filePath);
+        if (content === undefined) continue;
         const callsEdges = this.extractCallsEdgesForFile(relativePath, content, nameToFiles);
         for (const edge of callsEdges) {
           this.store.addEdge(edge);
@@ -147,10 +151,11 @@ export class CodeIngestor {
       }
     }
 
-    // Third pass: extract @req annotations and create verified_by edges
+    // Third pass: extract @req annotations and create verified_by edges (reuses cached content)
     for (const filePath of files) {
       try {
-        const content = await fs.readFile(filePath, 'utf-8');
+        const content = contentCache.get(filePath);
+        if (content === undefined) continue;
         edgesAdded += this.extractReqAnnotationsForFile(filePath, content, rootDir);
       } catch {
         // Skip errors in third pass
@@ -170,13 +175,15 @@ export class CodeIngestor {
   private async processFile(
     filePath: string,
     rootDir: string,
-    nameToFiles: Map<string, Set<string>>
+    nameToFiles: Map<string, Set<string>>,
+    contentCache: Map<string, string>
   ): Promise<{ nodesAdded: number; edgesAdded: number }> {
     let nodesAdded = 0;
     let edgesAdded = 0;
 
     const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
     const content = await fs.readFile(filePath, 'utf-8');
+    contentCache.set(filePath, content);
     const stat = await fs.stat(filePath);
     const fileId = `file:${relativePath}`;
 

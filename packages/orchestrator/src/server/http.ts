@@ -1,4 +1,5 @@
 import * as http from 'node:http';
+import * as net from 'node:net';
 import * as path from 'node:path';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
@@ -19,6 +20,44 @@ import type { InteractionQueue, PendingInteraction } from '../core/interaction-q
 import type { AnalysisArchive } from '../core/analysis-archive';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
+
+/* ── In-memory per-IP rate limiter (no external deps) ── */
+const RATE_LIMIT = Number(process.env['HARNESS_RATE_LIMIT']) || 100; // requests per window
+const WINDOW_MS = 60_000; // 1-minute sliding window
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+// Prune expired entries every 60 s to prevent unbounded growth
+const ratePruneTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, bucket] of rateBuckets) {
+    if (bucket.resetAt <= now) rateBuckets.delete(ip);
+  }
+}, 60_000);
+ratePruneTimer.unref(); // don't keep process alive
+
+function isLocalhost(ip: string): boolean {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function checkRateLimit(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const ip = (req.socket as net.Socket).remoteAddress ?? 'unknown';
+  if (!process.env['HARNESS_RATE_LIMIT_LOCALHOST'] && isLocalhost(ip)) return true;
+
+  const now = Date.now();
+  let bucket = rateBuckets.get(ip);
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + WINDOW_MS };
+    rateBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  if (bucket.count > RATE_LIMIT) {
+    const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
+    res.end(JSON.stringify({ error: 'Too Many Requests' }));
+    return false;
+  }
+  return true;
+}
 
 /**
  * Returns the host address the server should bind to.
@@ -146,6 +185,11 @@ export class OrchestratorServer {
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
     if (this.handleStateEndpoint(req, res)) {
+      return;
+    }
+
+    // Per-IP rate limiting (state/health-check endpoint is exempt above)
+    if (!checkRateLimit(req, res)) {
       return;
     }
 

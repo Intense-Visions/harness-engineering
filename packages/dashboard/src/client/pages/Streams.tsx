@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
 
 /* ------------------------------------------------------------------ */
@@ -85,7 +85,7 @@ async function fetchStreams(): Promise<StreamSession[]> {
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function OutcomeBadge({ outcome }: { outcome: string | null }) {
+const OutcomeBadge = memo(function OutcomeBadge({ outcome }: { outcome: string | null }) {
   if (!outcome) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium bg-blue-900/50 text-blue-400">
@@ -105,7 +105,7 @@ function OutcomeBadge({ outcome }: { outcome: string | null }) {
       {outcome}
     </span>
   );
-}
+});
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -113,7 +113,13 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-function SessionRow({ session, onSelect }: { session: StreamSession; onSelect: () => void }) {
+const SessionRow = memo(function SessionRow({
+  session,
+  onSelect,
+}: {
+  session: StreamSession;
+  onSelect: () => void;
+}) {
   const lastAttempt = session.attempts.at(-1);
   const startedAt = lastAttempt?.startedAt;
   const outcome = lastAttempt?.outcome ?? null;
@@ -152,7 +158,7 @@ function SessionRow({ session, onSelect }: { session: StreamSession; onSelect: (
       </td>
     </tr>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */

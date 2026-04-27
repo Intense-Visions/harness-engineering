@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { KpiCard } from '../components/KpiCard';
 
 // --- Inline types matching the server gather shape ---
@@ -87,7 +87,7 @@ function coverageAccent(pct: number): 'green' | 'yellow' | 'red' {
 
 // --- Sub-components ---
 
-function RequirementRow({ req }: { req: TraceabilityRequirement }) {
+const RequirementRow = memo(function RequirementRow({ req }: { req: TraceabilityRequirement }) {
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
       <td className="py-2 px-3">
@@ -114,7 +114,7 @@ function RequirementRow({ req }: { req: TraceabilityRequirement }) {
       </td>
     </tr>
   );
-}
+});
 
 function RequirementsTable({ requirements }: { requirements: TraceabilityRequirement[] }) {
   if (requirements.length === 0) {
