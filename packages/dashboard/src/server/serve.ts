@@ -37,3 +37,15 @@ const server = serve({
 if (getOrchestratorTarget()) {
   attachWsProxy(server);
 }
+
+// Graceful shutdown — close server and exit cleanly on termination signals
+function shutdown() {
+  console.log('Dashboard shutting down...');
+  server.close(() => {
+    process.exit(0);
+  });
+  // Force exit if server doesn't close within 5 seconds
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

@@ -107,19 +107,21 @@ function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
 async function fetchStatus(): Promise<SchedulerStatus> {
   const res = await fetch('/api/maintenance/status');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { data: SchedulerStatus };
-  return body.data;
+  return (await res.json()) as SchedulerStatus;
 }
 
 async function fetchHistory(): Promise<HistoryEntry[]> {
   const res = await fetch('/api/maintenance/history');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { data: HistoryEntry[] };
-  return body.data;
+  return (await res.json()) as HistoryEntry[];
 }
 
-async function triggerRun(): Promise<void> {
-  const res = await fetch('/api/maintenance/trigger', { method: 'POST' });
+async function triggerRun(taskId: string): Promise<void> {
+  const res = await fetch('/api/maintenance/trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId }),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
@@ -144,7 +146,7 @@ export function Maintenance() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Network error';
       if (msg.includes('404') || msg.includes('502')) {
-        setError('Orchestrator not running. Start with: pnpm orchestrator:dev');
+        setError('Orchestrator not running. Start with: harness orchestrator run');
       } else {
         setError(msg);
       }
@@ -164,8 +166,9 @@ export function Maintenance() {
   }, [maintenanceEvent, load]);
 
   const handleTrigger = () => {
+    const taskId = 'project-health';
     setTriggering(true);
-    triggerRun()
+    triggerRun(taskId)
       .then(() => load())
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : 'Failed to trigger maintenance run');

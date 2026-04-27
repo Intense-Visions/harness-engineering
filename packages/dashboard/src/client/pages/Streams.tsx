@@ -172,7 +172,7 @@ export function Streams() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Network error';
       if (msg.includes('404') || msg.includes('502')) {
-        setError('Orchestrator not running. Start with: pnpm orchestrator:dev');
+        setError('Orchestrator not running. Start with: harness orchestrator run');
       } else {
         setError(msg);
       }

@@ -50,7 +50,10 @@ export async function saveState(
     const statePath = path.join(stateDir, STATE_FILE);
 
     fs.mkdirSync(stateDir, { recursive: true });
-    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+    // Atomic write: write to temp file then rename to prevent corruption on crash
+    const tmpPath = statePath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2));
+    fs.renameSync(tmpPath, statePath);
     return Ok(undefined);
   } catch (error) {
     return Err(
