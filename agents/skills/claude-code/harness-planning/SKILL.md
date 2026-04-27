@@ -161,8 +161,21 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 
 - `query_graph` — discover module dependencies for realistic task decomposition
 - `get_impact` — estimate which modules a feature touches
+- `compute_blast_radius` — simulate failure propagation from target files to understand scope
+- `predict_failures` — forecast which architectural constraints are at risk from planned changes, informing where extra test coverage or smaller tasks are needed
+- `detect_anomalies` — identify structural irregularities in the affected area before planning tasks around them
 
 Fall back to file-based commands if no graph is available.
+
+### Intelligence Signals (when orchestrator is available)
+
+If the orchestrator is running, request intelligence analysis via `POST /api/analyze` with the feature title/description before decomposing. The pipeline returns:
+
+- **SEL** (Spec Enrichment) — affected systems and blast radius derived from the graph
+- **CML** (Complexity Modeling) — structural, semantic, and historical complexity scores. Use `structuralComplexity > 0.7` to flag areas needing smaller, more cautious tasks.
+- **PESL** (Pre-Execution Simulation) — simulated risk score. Use `riskScore > 0.6` to add extra checkpoints or split risky tasks further.
+
+If no orchestrator, `predict_failures` and `compute_blast_radius` MCP tools provide equivalent directional signals.
 
 ---
 

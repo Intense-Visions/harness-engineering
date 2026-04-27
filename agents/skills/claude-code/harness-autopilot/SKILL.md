@@ -60,10 +60,15 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 1. Read current phase at `currentPhase`.
 2. If `planPath` set and file exists: → APPROVE_PLAN.
-3. Complexity routing:
+3. **Intelligence-enhanced complexity assessment.** Before routing by complexity, refine the annotation with signals from available tools:
+   - Run `predict_failures` on the phase domain to check if constraints are trending toward violation — high failure probability suggests upgrading complexity.
+   - Run `compute_blast_radius` on files the phase is likely to touch — large blast radius (>15 affected modules) suggests upgrading to `high`.
+   - If the orchestrator is running, request intelligence analysis via `POST /api/analyze` with the phase title/description to get CML complexity scores and PESL simulation results. Use CML `structuralComplexity > 0.7` or PESL `riskScore > 0.6` as triggers to upgrade complexity routing.
+   - If no orchestrator, the MCP tool signals above are sufficient.
+4. Complexity routing:
    - `low`/`medium`: auto-plan via harness-planner → PLAN.
    - `high`: pause. Instruct: "Run `/harness:planning` interactively, then re-invoke `/harness:autopilot`." Wait for re-invocation.
-4. Update `currentState: "PLAN"`.
+5. Update `currentState: "PLAN"`.
 
 ---
 

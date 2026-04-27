@@ -73,6 +73,8 @@ When a knowledge graph exists at `.harness/graph/`:
 
 - `query_graph` — check file overlap between tasks for conflict detection
 - `get_impact` — understand blast radius before executing a task
+- `compute_blast_radius` — before executing tasks that touch shared modules, simulate failure propagation to anticipate side effects
+- `predict_failures` — before risky tasks (large blast radius, many file touches), check which constraints are trending toward violation
 
 Fall back to file-based commands if no graph is available.
 
