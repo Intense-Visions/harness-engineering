@@ -12,6 +12,8 @@ import { buildAdoptionRouter } from './routes/adoption';
 import { buildActionsRouter } from './routes/actions';
 import { buildCIRouter } from './routes/ci';
 import { buildImpactRouter } from './routes/impact';
+import { buildDecayTrendsRouter } from './routes/decay-trends';
+import { buildTraceabilityRouter } from './routes/traceability';
 import { buildContext, type ServerContext } from './context';
 import { SSEManager } from './sse';
 import { DASHBOARD_PORT } from '../shared/constants';
@@ -50,6 +52,8 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildActionsRouter(ctx));
   app.route('/api', buildCIRouter(ctx));
   app.route('/api', buildImpactRouter(ctx));
+  app.route('/api', buildDecayTrendsRouter(ctx));
+  app.route('/api', buildTraceabilityRouter(ctx));
 
   // Serve built client static files (assets, etc.)
   const clientRoot = process.env['DASHBOARD_CLIENT_ROOT'];

@@ -34,6 +34,7 @@ export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 
 // Query
 export { ContextQL } from './query/ContextQL.js';
+/** @experimental Projection API — has tests but no external consumers yet. */
 export { project } from './query/Projection.js';
 export { groupNodesByImpact, classifyNodeCategory } from './query/groupImpact.js';
 export type { ImpactGroups, NodeCategory } from './query/groupImpact.js';

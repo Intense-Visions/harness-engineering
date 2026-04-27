@@ -26,7 +26,7 @@ export const NODE_TYPES = [
   'build',
   'test_result',
   'execution_outcome',
-  // Observability (future)
+  // Observability — reserved for future tracing/metrics integration
   'span',
   'metric',
   'log',
@@ -78,7 +78,7 @@ export const EDGE_TYPES = [
   'triggered_by',
   'failed_in',
   'outcome_of',
-  // Execution relationships (future)
+  // Execution relationships — reserved for future observability integration
   'executed_by',
   'measured_by',
   // Design relationships
