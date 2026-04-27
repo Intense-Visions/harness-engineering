@@ -3,6 +3,7 @@ import type {
   EnrichedSpec,
   ComplexityScore,
   SimulationResult,
+  WeightedRecommendation,
 } from '@harness-engineering/intelligence';
 
 /**
@@ -31,6 +32,8 @@ export interface TickEvent {
   complexityScores?: Map<string, ComplexityScore>;
   /** Pre-computed PESL simulation results from intelligence pipeline (issueId -> result) */
   simulationResults?: Map<string, SimulationResult>;
+  /** Pre-computed persona recommendations from specialization scorer (issueId -> recommendations) */
+  personaRecommendations?: Map<string, WeightedRecommendation[]>;
 }
 
 export interface WorkerExitEvent {
@@ -149,4 +152,6 @@ export interface ClaimEffect {
   backend?: 'local' | 'primary';
   /** Retry attempt number, if this is a retry dispatch */
   attempt: number | null;
+  /** Persona recommended by specialization scoring, if available */
+  suggestedPersona?: string;
 }

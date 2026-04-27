@@ -4,7 +4,9 @@ import type {
   EnrichedSpec,
   SimulationResult,
   ComplexityScore,
+  WeightedRecommendation,
 } from '@harness-engineering/intelligence';
+import { weightedRecommendPersona } from '@harness-engineering/intelligence';
 import {
   GitHubIssuesSyncAdapter,
   loadTrackerSyncConfig,
@@ -76,6 +78,7 @@ export class IntelligencePipelineRunner {
     enrichedSpecs: Map<string, EnrichedSpec>;
     complexityScores: Map<string, ComplexityScore>;
     simulationResults: Map<string, SimulationResult>;
+    personaRecommendations: Map<string, WeightedRecommendation[]>;
   }> {
     const concernSignals = new Map<string, ConcernSignal[]>();
     const enrichedSpecs = new Map<string, EnrichedSpec>();
@@ -134,7 +137,17 @@ export class IntelligencePipelineRunner {
       this.ctx.logger.warn('Auto-publish analyses failed', { error: String(err) });
     }
 
-    return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
+    // Persona scoring via specialization (non-fatal)
+    setTickActivity('analyzing', 'Scoring persona recommendations');
+    const personaRecommendations = this.computePersonaRecommendations(candidates);
+
+    return {
+      concernSignals,
+      enrichedSpecs,
+      complexityScores,
+      simulationResults,
+      personaRecommendations,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -409,6 +422,40 @@ export class IntelligencePipelineRunner {
       if (this.ctx.enrichedSpecsByIssue.has(issue.id)) return false;
       return true;
     });
+  }
+
+  /**
+   * Compute persona recommendations for each candidate using the specialization
+   * scorer. Extracts system node IDs from issue labels prefixed with `system:`
+   * or `module:`. Failures are non-fatal — returns an empty map on error.
+   */
+  private computePersonaRecommendations(
+    candidates: Issue[]
+  ): Map<string, WeightedRecommendation[]> {
+    const results = new Map<string, WeightedRecommendation[]>();
+    if (!this.ctx.graphStore) return results;
+
+    try {
+      for (const issue of candidates) {
+        const systemNodeIds = issue.labels
+          .filter((l) => l.startsWith('system:') || l.startsWith('module:'))
+          .map((l) => l.split(':')[1]!)
+          .filter((id) => id.length > 0);
+
+        if (systemNodeIds.length === 0) continue;
+
+        const recs = weightedRecommendPersona(this.ctx.graphStore, { systemNodeIds });
+        if (recs.length > 0) {
+          results.set(issue.id, recs);
+        }
+      }
+    } catch (err) {
+      this.ctx.logger.warn('Persona recommendation scoring failed', {
+        error: String(err),
+      });
+    }
+
+    return results;
   }
 
   private async analyzeCandidates(

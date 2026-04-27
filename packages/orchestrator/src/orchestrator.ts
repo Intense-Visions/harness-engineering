@@ -588,8 +588,13 @@ export class Orchestrator extends EventEmitter {
         )
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
-    const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
-      pipelineResult ?? {};
+    const {
+      concernSignals,
+      enrichedSpecs,
+      complexityScores,
+      simulationResults,
+      personaRecommendations,
+    } = pipelineResult ?? {};
 
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
@@ -601,6 +606,7 @@ export class Orchestrator extends EventEmitter {
       ...(enrichedSpecs !== undefined && { enrichedSpecs }),
       ...(complexityScores !== undefined && { complexityScores }),
       ...(simulationResults !== undefined && { simulationResults }),
+      ...(personaRecommendations !== undefined && { personaRecommendations }),
     };
 
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
