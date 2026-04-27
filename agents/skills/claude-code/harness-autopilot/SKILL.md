@@ -174,8 +174,8 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ### PHASE_COMPLETE
 
-1. Present summary: name, tasks completed, retries used, verification result, review findings count, elapsed time.
-2. Record in `history[]`: phase index, name, startedAt, completedAt, tasksCompleted, retriesUsed, verificationPassed, reviewFindings.
+1. Present summary: name, tasks completed, retries used, verification result, integration report (`{sessionDir}/phase-{N}-integration.json`), review findings count, elapsed time.
+2. Record in `history[]`: phase index, name, startedAt, completedAt, tasksCompleted, retriesUsed, verificationPassed, integrationPassed, reviewFindings.
 3. Mark phase `complete` in state. Clear scratchpad: `clearScratchpad({ session, phase, projectPath })`.
 4. Sync roadmap: `manage_roadmap sync apply:true` (skip if no roadmap; never `force_sync: true`).
 5. Write session summary: `writeSessionSummary(projectPath, sessionSlug, { session, lastActive, skill: "harness-autopilot", phase, status, spec, plan, keyContext, nextStep })`.
@@ -262,7 +262,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Success Criteria
 
-- All phases in the spec are executed in order with plan → execute → verify → review per phase
+- All phases in the spec are executed in order with plan → execute → verify → integrate → review per phase
 - Every plan approval is recorded in `decisions[]` (auto or manual)
 - Retry budget (3 attempts) is enforced — exhausted retries surface to user, never silently continue
 - FINAL_REVIEW runs on `startingCommit..HEAD` diff and catches cross-phase coherence issues
