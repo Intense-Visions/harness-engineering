@@ -51,6 +51,15 @@ export class ConfluenceConnector implements GraphConnector {
 
     const baseUrlEnv = config.baseUrlEnv ?? 'CONFLUENCE_BASE_URL';
     const baseUrl = process.env[baseUrlEnv] ?? '';
+    // Validate base URL to prevent SSRF — reject non-HTTPS and private/internal IPs
+    try {
+      const parsed = new URL(baseUrl);
+      if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
+        return missingApiKeyResult(`${baseUrlEnv} must use HTTPS`, start);
+      }
+    } catch {
+      return missingApiKeyResult(`${baseUrlEnv} is not a valid URL`, start);
+    }
     const spaceKey = (config.spaceKey as string) ?? '';
     const counts = await this.fetchAllPagesHandled(
       store,

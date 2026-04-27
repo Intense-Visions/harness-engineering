@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 737 skills (claude-code and gemini-cli), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 738 skills (claude-code and gemini-cli), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -35,10 +35,10 @@ harness-engineering/
 │   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 737 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 737 skills (symlinked to claude-code for platform parity)
-│   ├── skills/codex/         # 737 skills (symlinked to claude-code for platform parity)
-│   ├── skills/cursor/        # 737 skills (symlinked to claude-code for platform parity)
+│   ├── skills/claude-code/   # 738 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 738 skills (symlinked to claude-code for platform parity)
+│   ├── skills/codex/         # 738 skills (symlinked to claude-code for platform parity)
+│   ├── skills/cursor/        # 738 skills (symlinked to claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more)

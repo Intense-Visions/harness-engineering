@@ -98,6 +98,15 @@ export class JiraConnector implements GraphConnector {
         start
       );
     }
+    // Validate base URL to prevent SSRF — reject non-HTTPS and private/internal IPs
+    try {
+      const parsed = new URL(baseUrl);
+      if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
+        return buildIngestResult(0, 0, [`${baseUrlEnv} must use HTTPS`], start);
+      }
+    } catch {
+      return buildIngestResult(0, 0, [`${baseUrlEnv} is not a valid URL`], start);
+    }
 
     const jql = buildJql(config);
     const headers = { Authorization: `Basic ${apiKey}`, 'Content-Type': 'application/json' };

@@ -19,7 +19,10 @@ export async function saveHandoff(
     const handoffPath = path.join(stateDir, HANDOFF_FILE);
 
     fs.mkdirSync(stateDir, { recursive: true });
-    fs.writeFileSync(handoffPath, JSON.stringify(handoff, null, 2));
+    // Atomic write: write to temp file then rename to prevent corruption on crash
+    const tmpPath = handoffPath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(handoff, null, 2));
+    fs.renameSync(tmpPath, handoffPath);
     return Ok(undefined);
   } catch (error) {
     return Err(
