@@ -427,6 +427,32 @@ Beyond the core Result, Config, and ValidationError types:
 
 The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, CascadeSimulator (probabilistic failure propagation via `compute_blast_radius` MCP tool), and 4 external connectors (Jira, Slack, Confluence, CI).
 
+### Integration Phase
+
+The integration phase (INTEGRATE) is a verification gate between Verification and Code Review in the standard workflow. It confirms that planned integration tasks -- wiring, knowledge materialization, and documentation updates -- actually completed after execution.
+
+**Position in workflow:** `VERIFY -> INTEGRATE -> REVIEW`
+
+**Three sub-phases:**
+
+- **WIRE** (all tiers): Verifies barrel exports are current (`pnpm run generate:barrels:check`), `harness validate` passes, and entry points are reachable. Always runs, even for small changes.
+- **MATERIALIZE** (medium + large tiers): Verifies ADRs are written for architectural decisions, knowledge graph is enriched with decision nodes, and documentation tasks are complete.
+- **UPDATE** (medium + large tiers): Verifies roadmap sync, changelog entries, and spec cross-references.
+
+**Tiered rigor model:**
+
+| Tier       | Signal                                            | Integration Requirements                                               |
+| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| **small**  | Bug fix, config change, < 3 files, no new exports | WIRE only (default checks always run)                                  |
+| **medium** | New feature, new exports, 3-15 files              | WIRE + project updates (roadmap, changelog, graph enrichment)          |
+| **large**  | New package, new skill, architectural change      | WIRE + project updates + knowledge materialization (ADRs, doc updates) |
+
+The tier is estimated during planning and confirmed from execution results. The effective tier is `max(planned, derived)` -- the higher tier always wins.
+
+**Skill:** `harness-integration` (Tier 1 workflow skill). Invoked via `/harness:integration` or dispatched by autopilot at the INTEGRATE state.
+
+**ADRs:** Architectural decisions are recorded as markdown files in `docs/knowledge/decisions/` using sequential 4-digit numbering (e.g., `0001-decision-name.md`). ADRs are ingested by the knowledge pipeline as queryable `decision` graph nodes.
+
 ### Skill Tier System
 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
@@ -777,6 +803,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-04-24
+**Last Updated**: 2026-04-27
 **Version**: 1.2
 **Maintained By**: AI Agents and Engineering Team
