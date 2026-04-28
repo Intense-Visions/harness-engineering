@@ -1,4 +1,4 @@
-import { Plus, FlaskConical } from 'lucide-react';
+import { Plus, FlaskConical, Waves } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { SidebarSection } from '../sidebar/SidebarSection';
 import { SystemNavItem } from '../sidebar/SystemNavItem';
@@ -34,8 +34,21 @@ export function ThreadSidebar() {
 
   return (
     <aside className="flex h-screen w-[280px] flex-shrink-0 flex-col border-r border-white/[0.06] bg-neutral-surface/20 backdrop-blur-xl">
-      {/* Header with action buttons */}
-      <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-3">
+      {/* Branding */}
+      <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-4 py-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-500/10 border border-primary-500/20">
+          <Waves size={14} className="text-primary-500" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[11px] font-black tracking-tight text-neutral-text">Harness</span>
+          <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-primary-500/70">
+            Engineering
+          </span>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
         <button
           onClick={handleNewChat}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-500/10 border border-primary-500/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-500 hover:bg-primary-500/20 transition-colors"

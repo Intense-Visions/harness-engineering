@@ -41,6 +41,10 @@ describe('threadStore', () => {
         issueId: 'issue-2',
         identifier: 'feat/thing',
         phase: 'StreamingTurn',
+        issueTitle: 'Test Agent',
+        issueDescription: null,
+        startedAt: new Date().toISOString(),
+        backendName: 'claude',
       });
       expect(thread.type).toBe('agent');
       expect(thread.avatar).toBe('organism');
@@ -141,6 +145,10 @@ describe('threadStore', () => {
         issueId: 'issue-2',
         identifier: 'feat/x',
         phase: 'Thinking',
+        issueTitle: 'Test Agent',
+        issueDescription: null,
+        startedAt: new Date().toISOString(),
+        backendName: 'claude',
       });
 
       const sections = selectSidebarSections(useThreadStore.getState());

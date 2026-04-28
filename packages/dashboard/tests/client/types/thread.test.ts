@@ -64,6 +64,10 @@ describe('Thread types', () => {
         issueId: 'issue-2',
         identifier: 'feat/thing',
         phase: 'StreamingTurn',
+        issueTitle: 'Agent Session',
+        issueDescription: null,
+        startedAt: new Date().toISOString(),
+        backendName: 'claude',
       } satisfies AgentMeta,
     };
     expect(thread.type).toBe('agent');

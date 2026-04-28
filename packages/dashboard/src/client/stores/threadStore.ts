@@ -69,7 +69,7 @@ function defaultTitle(type: ThreadType, meta: ThreadMeta): string {
     case 'analysis':
       return (meta as AnalysisMeta).analysisTitle;
     case 'agent':
-      return `Agent: ${(meta as AgentMeta).identifier}`;
+      return (meta as AgentMeta).issueTitle || (meta as AgentMeta).identifier;
     case 'system':
       return 'System';
     default:

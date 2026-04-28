@@ -28,6 +28,10 @@ export interface AgentMeta {
   issueId: string;
   identifier: string;
   phase: string;
+  issueTitle: string;
+  issueDescription: string | null;
+  startedAt: string;
+  backendName: string | null;
 }
 
 export interface SystemMeta {
