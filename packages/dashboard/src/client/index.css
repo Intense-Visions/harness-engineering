@@ -37,6 +37,24 @@
   --animate-scanline: scanline 2s linear infinite;
 }
 
+/* --- Deep Ocean Plankton --- */
+
+@keyframes plankton-drift {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(var(--drift-x), var(--drift-y)) scale(var(--drift-scale)); opacity: 0; }
+}
+
+.plankton {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: plankton-drift var(--drift-duration) var(--drift-delay) infinite ease-in-out;
+  opacity: 0;
+}
+
 /* --- High-Fidelity Tactical Polish --- */
 
 .neural-noise {

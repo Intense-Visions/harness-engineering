@@ -10,8 +10,9 @@ import { useChatContext } from '../../hooks/useChatContext';
 import { generateSystemPrompt } from '../../utils/context-to-prompt';
 import { SKILL_REGISTRY } from '../../constants/skills';
 import { useThreadStore } from '../../stores/threadStore';
+import { extractTodosFromBlocks } from '../../utils/block-filter';
 import type { Thread, ChatMeta } from '../../types/thread';
-import type { UserMessage, AssistantMessage } from '../../types/chat';
+import type { UserMessage, AssistantMessage, ContentBlock } from '../../types/chat';
 import type { ChatSession } from '../../types/chat-session';
 import type { SkillEntry } from '../../types/skills';
 
@@ -31,6 +32,20 @@ export function ChatThreadView({ thread }: Props) {
   const meta = thread.meta as ChatMeta;
   const messages = useThreadStore((s) => s.messages.get(thread.id) ?? []);
   const storeApi = useThreadStore;
+
+  // Extract todos from messages and push to context panel
+  useEffect(() => {
+    const allBlocks: ContentBlock[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'assistant') {
+        allBlocks.push(...msg.blocks);
+      }
+    }
+    const todos = extractTodosFromBlocks(allBlocks);
+    if (todos.length > 0) {
+      useThreadStore.getState().updatePanelState(thread.id, { todos });
+    }
+  }, [messages, thread.id]);
 
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);

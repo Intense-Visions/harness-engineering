@@ -1,6 +1,42 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useProjectPulse } from '../../hooks/useProjectPulse';
+
+interface PlanktonData {
+  id: number;
+  left: string;
+  top: string;
+  size: number;
+  color: string;
+  driftX: string;
+  driftY: string;
+  driftScale: number;
+  duration: string;
+  delay: string;
+}
+
+const PLANKTON_COLORS = [
+  'rgba(12, 106, 158, 0.4)',
+  'rgba(14, 143, 160, 0.35)',
+  'rgba(10, 80, 120, 0.3)',
+  'rgba(16, 185, 129, 0.25)',
+  'rgba(8, 104, 120, 0.3)',
+];
+
+function generatePlankton(count: number): PlanktonData[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: `${Math.random() * 100}%`,
+    top: `${Math.random() * 100}%`,
+    size: 1.5 + Math.random() * 3,
+    color: PLANKTON_COLORS[i % PLANKTON_COLORS.length]!,
+    driftX: `${(Math.random() - 0.5) * 120}px`,
+    driftY: `${(Math.random() - 0.5) * 80 - 30}px`,
+    driftScale: 0.6 + Math.random() * 0.8,
+    duration: `${15 + Math.random() * 25}s`,
+    delay: `${Math.random() * -20}s`,
+  }));
+}
 
 interface Props {
   mouseX: number;
@@ -9,6 +45,7 @@ interface Props {
 
 export function AuraBackground({ mouseX, mouseY }: Props) {
   const { pulse } = useProjectPulse();
+  const plankton = useMemo(() => generatePlankton(18), []);
   const springConfig = { damping: 50, stiffness: 100 };
   const x = useSpring(0, springConfig);
   const y = useSpring(0, springConfig);
@@ -174,6 +211,29 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
             'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(1, 4, 8, 0.5) 100%)',
         }}
       />
+
+      {/* Plankton — CSS-animated particles, zero JS overhead */}
+      {plankton.map((p) => (
+        <div
+          key={p.id}
+          className="plankton"
+          style={
+            {
+              left: p.left,
+              top: p.top,
+              width: p.size,
+              height: p.size,
+              backgroundColor: p.color,
+              boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+              '--drift-x': p.driftX,
+              '--drift-y': p.driftY,
+              '--drift-scale': p.driftScale,
+              '--drift-duration': p.duration,
+              '--drift-delay': p.delay,
+            } as React.CSSProperties
+          }
+        />
+      ))}
 
       {/* Stress pulse overlay */}
       {pulse.stressLevel > 0.7 && (

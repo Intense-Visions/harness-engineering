@@ -5,6 +5,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { ChatMessage } from '../../types/chat';
 import { AssistantBlocks } from './AssistantBlocks';
 import { NeuralOrganism } from './NeuralOrganism';
+import { filterStreamBlocks } from '../../utils/block-filter';
 
 interface Props {
   messages: ChatMessage[];
@@ -180,7 +181,7 @@ export function MessageStream({ messages, streaming, className }: Props) {
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="px-1 py-1">
                   <AssistantBlocks
-                    blocks={msg.blocks}
+                    blocks={filterStreamBlocks(msg.blocks)}
                     isStreaming={streaming && i === messages.length - 1}
                   />
                 </div>
