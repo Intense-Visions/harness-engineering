@@ -30,7 +30,14 @@ async function withFileLock(path: string, fn: () => Promise<void>): Promise<void
 }
 
 // --- Finding 6: Valid status values ---
-const VALID_STATUSES = new Set<string>(['done', 'in-progress', 'planned', 'blocked', 'backlog']);
+const VALID_STATUSES = new Set<string>([
+  'done',
+  'in-progress',
+  'planned',
+  'blocked',
+  'backlog',
+  'needs-human',
+]);
 
 // --- Finding 14: Rate limit for validate ---
 let validating = false;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { DashboardFeature, MilestoneProgress } from '@shared/types';
 import { FeatureRow } from './FeatureRow';
+import { isWorkable } from './utils';
 
 interface Props {
   features: DashboardFeature[];
@@ -10,14 +11,6 @@ interface Props {
   workableOnly: boolean;
   identity: string | null;
   onClaim: (feature: DashboardFeature) => void;
-}
-
-const EM_DASH = '\u2014';
-
-function isWorkable(f: DashboardFeature): boolean {
-  return (
-    (f.status === 'planned' || f.status === 'backlog') && (!f.assignee || f.assignee === EM_DASH)
-  );
 }
 
 function MilestoneSection({

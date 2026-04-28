@@ -1,26 +1,12 @@
 import { useState } from 'react';
 import type { DashboardFeature, ClaimResponse } from '@shared/types';
-
-type ClaimWorkflow = 'brainstorming' | 'planning' | 'execution';
+import { detectWorkflow, type ClaimWorkflow } from './utils';
 
 interface Props {
   feature: DashboardFeature;
   identity: string;
   onConfirm: (response: ClaimResponse) => void;
   onCancel: () => void;
-}
-
-const EM_DASH = '\u2014';
-
-function detectWorkflow(feature: DashboardFeature): ClaimWorkflow {
-  if (!feature.spec || feature.spec === 'none' || feature.spec === EM_DASH) return 'brainstorming';
-  if (
-    !feature.plans ||
-    feature.plans.length === 0 ||
-    (feature.plans.length === 1 && feature.plans[0] === EM_DASH)
-  )
-    return 'planning';
-  return 'execution';
 }
 
 const WORKFLOW_LABELS: Record<ClaimWorkflow, { label: string; description: string }> = {

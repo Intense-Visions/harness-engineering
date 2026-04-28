@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import type { DashboardFeature } from '@shared/types';
 import { STATUS_COLOR } from '../../utils/statusColors';
+import { EM_DASH, isWorkable, externalIdToUrl } from './utils';
 
 interface Props {
   feature: DashboardFeature;
   identity: string | null;
   onClaim: (feature: DashboardFeature) => void;
 }
-
-const EM_DASH = '\u2014';
 
 function StatusBadge({ status }: { status: DashboardFeature['status'] }) {
   const color = STATUS_COLOR[status] ?? '#71717a';
@@ -35,19 +34,6 @@ function PriorityBadge({ priority }: { priority: string }) {
     >
       {priority}
     </span>
-  );
-}
-
-function externalIdToUrl(externalId: string): string | null {
-  const match = externalId.match(/^github:(.+)#(\d+)$/);
-  if (!match) return null;
-  return `https://github.com/${match[1]}/issues/${match[2]}`;
-}
-
-function isWorkable(feature: DashboardFeature): boolean {
-  return (
-    (feature.status === 'planned' || feature.status === 'backlog') &&
-    (!feature.assignee || feature.assignee === EM_DASH)
   );
 }
 
