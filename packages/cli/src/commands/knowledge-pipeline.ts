@@ -16,7 +16,7 @@ export function createKnowledgePipelineCommand(): Command {
     .option('--check-contradictions', 'Display cross-source contradiction report')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const projectDir = globalOpts.cwd ?? process.cwd();
+      const projectDir = process.cwd();
 
       try {
         const graphDir = path.join(projectDir, '.harness', 'graph');
@@ -57,8 +57,17 @@ export function createKnowledgePipelineCommand(): Command {
             const intelligence = (await import(
               '@harness-engineering/intelligence' as string
             )) as Record<string, unknown>;
-            const ProviderClass = intelligence.AnthropicAnalysisProvider as new () => unknown;
-            pipelineOpts.analysisProvider = new ProviderClass();
+            const Provider = intelligence.AnthropicAnalysisProvider as new (opts: {
+              apiKey: string;
+            }) => unknown;
+            const apiKey = process.env.ANTHROPIC_API_KEY;
+            if (!apiKey) {
+              logger.error(
+                'ANTHROPIC_API_KEY environment variable is required for --analyze-images'
+              );
+              process.exit(1);
+            }
+            pipelineOpts.analysisProvider = new Provider({ apiKey });
           } catch {
             logger.error(
               'Image analysis requires @harness-engineering/intelligence with ANTHROPIC_API_KEY set.'

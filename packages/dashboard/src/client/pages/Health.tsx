@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { useChatPanel } from '../hooks/useChatPanel';
 import { useSSE } from '../hooks/useSSE';
@@ -18,7 +18,7 @@ import type {
   CheckResult,
 } from '@shared/types';
 
-function CollapsibleSection({
+const CollapsibleSection = memo(function CollapsibleSection({
   title,
   defaultOpen = false,
   children,
@@ -46,7 +46,7 @@ function CollapsibleSection({
       {open && children}
     </section>
   );
-}
+});
 
 function FixButton({ command }: { command: string }) {
   const [, setSearchParams] = useSearchParams();
@@ -64,7 +64,7 @@ function FixButton({ command }: { command: string }) {
   );
 }
 
-function SecuritySection({ data }: { data: SecurityData }) {
+const SecuritySection = memo(function SecuritySection({ data }: { data: SecurityData }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -109,9 +109,9 @@ function SecuritySection({ data }: { data: SecurityData }) {
       )}
     </div>
   );
-}
+});
 
-function PerfSection({ data }: { data: PerfData }) {
+const PerfSection = memo(function PerfSection({ data }: { data: PerfData }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -147,9 +147,9 @@ function PerfSection({ data }: { data: PerfData }) {
       )}
     </div>
   );
-}
+});
 
-function ArchSection({ data }: { data: ArchData }) {
+const ArchSection = memo(function ArchSection({ data }: { data: ArchData }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -187,7 +187,7 @@ function ArchSection({ data }: { data: ArchData }) {
       )}
     </div>
   );
-}
+});
 
 function EntropySection({ healthData }: { healthData: HealthData }) {
   return (
@@ -392,7 +392,7 @@ function timeAgo(iso: string): string {
   return `${hours}h ago`;
 }
 
-function CheckBadge({
+const CheckBadge = memo(function CheckBadge({
   name,
   result,
   expanded,
@@ -459,7 +459,7 @@ function CheckBadge({
       )}
     </div>
   );
-}
+});
 
 function buildCheckMap(ciData: CIData | null): Map<string, CheckResult> {
   const map = new Map<string, CheckResult>();
@@ -517,7 +517,7 @@ function CISection() {
     });
   };
 
-  const checkMap = buildCheckMap(ciData);
+  const checkMap = useMemo(() => buildCheckMap(ciData), [ciData]);
 
   return (
     <section>

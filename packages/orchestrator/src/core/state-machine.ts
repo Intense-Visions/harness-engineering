@@ -3,9 +3,16 @@ import type {
   WorkflowConfig,
   AgentEvent,
   EscalationConfig,
+  ConcernSignal,
 } from '@harness-engineering/types';
 import type { OrchestratorState, LiveSession, RunAttemptPhase } from '../types/internal';
-import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent } from '../types/events';
+import type {
+  OrchestratorEvent,
+  SideEffect,
+  EscalateEffect,
+  ClaimEffect,
+  TickEvent,
+} from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
@@ -345,7 +352,30 @@ function handleTick(
 
     // Route via model router (three-way: local / primary / human)
     const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-    const signals = event.concernSignals?.get(issue.id) ?? [];
+    const signals = [...(event.concernSignals?.get(issue.id) ?? [])];
+
+    // Augment signals with persona/specialization scoring when available
+    let suggestedPersona: string | undefined;
+    try {
+      const personaRecs = event.personaRecommendations?.get(issue.id);
+      if (personaRecs && personaRecs.length > 0) {
+        suggestedPersona = personaRecs[0]!.persona;
+        if (personaRecs[0]!.weightedScore < 0.3) {
+          signals.push({
+            name: 'lowExpertise',
+            reason: `Top persona "${suggestedPersona}" scored ${personaRecs[0]!.weightedScore.toFixed(2)} (below 0.3 threshold)`,
+          });
+        }
+      } else if (personaRecs && personaRecs.length === 0) {
+        signals.push({
+          name: 'noPersonaMatch',
+          reason: "No persona recommendations available for this issue's systems",
+        });
+      }
+    } catch {
+      // Persona scoring augmentation is non-fatal — proceed with existing signals
+    }
+
     const decision = routeIssue(scopeTier, signals, escalationConfig);
 
     if (decision.action === 'needs-human') {
@@ -363,6 +393,14 @@ function handleTick(
 
     const backend = resolveBackend(decision.action, !!config.agent.localBackend);
     claimAndDispatch(next, issue, backend, nowMs, effects);
+
+    // Attach suggested persona to the claim effect we just pushed
+    if (suggestedPersona) {
+      const lastEffect = effects[effects.length - 1];
+      if (lastEffect && lastEffect.type === 'claim') {
+        (lastEffect as ClaimEffect).suggestedPersona = suggestedPersona;
+      }
+    }
   }
 
   pruneCompleted(next);
@@ -560,7 +598,8 @@ function handleRetryFired(
   issueId: string,
   candidates: Issue[],
   config: WorkflowConfig,
-  nowMs: number
+  nowMs: number,
+  concernSignals?: Map<string, ConcernSignal[]>
 ): ApplyEventResult {
   const next = cloneState(state);
   const effects: SideEffect[] = [];
@@ -636,10 +675,10 @@ function handleRetryFired(
   }
 
   // Re-route through model router to preserve backend assignment
-  // Note: retry path does not have intelligence pipeline signals — retries use empty signals
   const escalationConfig = resolveEscalationConfig(config);
   const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-  const decision = routeIssue(scopeTier, [], escalationConfig);
+  const signals = [...(concernSignals?.get(issue.id) ?? [])];
+  const decision = routeIssue(scopeTier, signals, escalationConfig);
 
   if (decision.action === 'needs-human') {
     effects.push(
@@ -748,7 +787,14 @@ export function applyEvent(
     case 'agent_update':
       return handleAgentUpdate(state, event.issueId, event.event);
     case 'retry_fired':
-      return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
+      return handleRetryFired(
+        state,
+        event.issueId,
+        event.candidates,
+        config,
+        event.nowMs,
+        event.concernSignals
+      );
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
     case 'claim_rejected':

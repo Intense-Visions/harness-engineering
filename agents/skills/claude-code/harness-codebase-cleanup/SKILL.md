@@ -34,6 +34,8 @@
 3. **Compute top 10% threshold.** Sort all files by commit count. The file at the 90th percentile defines the threshold. Files above this threshold are "high churn."
 4. **Store as HotspotContext** for use in Phase 3 (CLASSIFY).
 
+Run `detect_stale_constraints` to find architectural constraints referencing removed or restructured code. Run `detect_anomalies` to identify structural irregularities that should be addressed during cleanup.
+
 ### Phase 2: DETECT -- Run Both Concerns in Parallel
 
 1. **Dead code detection** (skip if `--architecture-only`):

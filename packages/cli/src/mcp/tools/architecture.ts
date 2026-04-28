@@ -68,6 +68,40 @@ export async function handleCheckDependencies(input: { path: string }) {
       parser,
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
+
+    // Run design constraint checks when design tokens exist in the graph
+    let designViolations: Array<{
+      code: string;
+      file: string;
+      message: string;
+      severity: string;
+    }> = [];
+    if (store) {
+      const designTokenNodes = store.findNodes({ type: 'design_token' as never });
+      if (designTokenNodes.length > 0) {
+        const { DesignConstraintAdapter } = await import('@harness-engineering/graph');
+        const designAdapter = new DesignConstraintAdapter(store);
+        const fileNodes = store.findNodes({ type: 'file' });
+        for (const fileNode of fileNodes) {
+          const filePath = fileNode.path ?? fileNode.id;
+          if (!/\.(tsx?|jsx?|css|scss|less|vue|svelte)$/.test(filePath)) continue;
+          const source =
+            typeof fileNode.metadata?.source === 'string' ? fileNode.metadata.source : '';
+          if (!source) continue;
+          designViolations.push(...designAdapter.checkAll(source, filePath));
+        }
+      }
+    }
+
+    // Merge design violations into the result when present
+    if (result.ok && designViolations.length > 0) {
+      const merged = {
+        ...result.value,
+        designViolations,
+      };
+      return resultToMcpResponse({ ok: true, value: merged });
+    }
+
     return resultToMcpResponse(result);
   } catch (error) {
     return {

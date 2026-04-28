@@ -13,7 +13,7 @@
       "@shared/*": ["./src/shared/*"]
     }
   },
-  "references": [],
+  "references": [{ "path": "../types" }, { "path": "../graph" }, { "path": "../core" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

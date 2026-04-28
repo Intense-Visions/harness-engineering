@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 737 skills (claude-code and gemini-cli), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 738 skills (claude-code and gemini-cli), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -35,10 +35,10 @@ harness-engineering/
 │   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 737 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 737 skills (symlinked to claude-code for platform parity)
-│   ├── skills/codex/         # 737 skills (symlinked to claude-code for platform parity)
-│   ├── skills/cursor/        # 737 skills (symlinked to claude-code for platform parity)
+│   ├── skills/claude-code/   # 738 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 738 skills (symlinked to claude-code for platform parity)
+│   ├── skills/codex/         # 738 skills (symlinked to claude-code for platform parity)
+│   ├── skills/cursor/        # 738 skills (symlinked to claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more)
@@ -427,6 +427,32 @@ Beyond the core Result, Config, and ValidationError types:
 
 The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, CascadeSimulator (probabilistic failure propagation via `compute_blast_radius` MCP tool), and 4 external connectors (Jira, Slack, Confluence, CI).
 
+### Integration Phase
+
+The integration phase (INTEGRATE) is a verification gate between Verification and Code Review in the standard workflow. It confirms that planned integration tasks -- wiring, knowledge materialization, and documentation updates -- actually completed after execution.
+
+**Position in workflow:** `VERIFY -> INTEGRATE -> REVIEW`
+
+**Three sub-phases:**
+
+- **WIRE** (all tiers): Verifies barrel exports are current (`pnpm run generate:barrels:check`), `harness validate` passes, and entry points are reachable. Always runs, even for small changes.
+- **MATERIALIZE** (medium + large tiers): Verifies ADRs are written for architectural decisions, knowledge graph is enriched with decision nodes, and documentation tasks are complete.
+- **UPDATE** (medium + large tiers): Verifies roadmap sync, changelog entries, and spec cross-references.
+
+**Tiered rigor model:**
+
+| Tier       | Signal                                            | Integration Requirements                                               |
+| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| **small**  | Bug fix, config change, < 3 files, no new exports | WIRE only (default checks always run)                                  |
+| **medium** | New feature, new exports, 3-15 files              | WIRE + project updates (roadmap, changelog, graph enrichment)          |
+| **large**  | New package, new skill, architectural change      | WIRE + project updates + knowledge materialization (ADRs, doc updates) |
+
+The tier is estimated during planning and confirmed from execution results. The effective tier is `max(planned, derived)` -- the higher tier always wins.
+
+**Skill:** `harness-integration` (Tier 1 workflow skill). Invoked via `/harness:integration` or dispatched by autopilot at the INTEGRATE state.
+
+**ADRs:** Architectural decisions are recorded as markdown files in `docs/knowledge/decisions/` using sequential 4-digit numbering (e.g., `0001-decision-name.md`). ADRs are ingested by the knowledge pipeline as queryable `decision` graph nodes.
+
 ### Skill Tier System
 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
@@ -777,6 +803,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-04-24
+**Last Updated**: 2026-04-27
 **Version**: 1.2
 **Maintained By**: AI Agents and Engineering Team

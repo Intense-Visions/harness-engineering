@@ -293,6 +293,14 @@ Generate agent definition files from personas for Claude Code and Gemini CLI
 
 **CLI equivalent:** [`harness generate-agent-definitions`](cli-commands.md#harness-generate-agent-definitions)
 
+### `generate_blueprint`
+
+Scan a project and return its blueprint data (modules, hotspots, dependencies). Returns the scan results as JSON without writing files.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root directory
+
 ### `generate_linter`
 
 Generate an ESLint rule from YAML configuration
@@ -392,6 +400,7 @@ Recommend an optimal skill sequence based on what changed in the codebase. Combi
 - `commitMessage` (string, optional) — Commit message for change-type detection (auto-detected from git log if omitted)
 - `fresh` (boolean, optional) — Force a fresh health snapshot capture (default: false, uses cached)
 - `limit` (number, optional) — Maximum number of skills to return (default: 5)
+- `trigger` (string, optional) — Filter to skills declaring this trigger (e.g. on_pr, on_commit, on_milestone, on_task_complete, on_refactor, on_review). Only skills whose triggers array includes this value are returned.
 
 ### `gather_context`
 
@@ -607,6 +616,15 @@ Run an agent task using the harness CLI
 - `timeout` (number, optional) — Timeout in milliseconds
 
 **CLI equivalent:** [`harness agent run`](cli-commands.md#harness-agent-run-task)
+
+### `run_ci_checks`
+
+Run CI/CD validation checks on a harness project. Returns pass/fail results per check with issues. Checks: validate, deps, docs, entropy, security, perf, phase-gate, arch, traceability.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root directory
+- `checks` (array, optional) — Subset of checks to run (default: all)
 
 ### `run_code_review`
 

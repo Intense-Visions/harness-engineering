@@ -8,6 +8,13 @@
     "incremental": false,
     "composite": false
   },
+  "references": [
+    { "path": "../types" },
+    { "path": "../core" },
+    { "path": "../graph" },
+    { "path": "../orchestrator" },
+    { "path": "../linter-gen" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

@@ -29,11 +29,13 @@ export type { NodeQuery, EdgeQuery } from './store/GraphStore.js';
 export { VectorStore } from './store/VectorStore.js';
 export type { VectorSearchResult } from './store/VectorStore.js';
 export { saveGraph, loadGraph } from './store/Serializer.js';
+export type { LoadGraphResult } from './store/Serializer.js';
 export { PackedSummaryCache, normalizeIntent } from './store/PackedSummaryCache.js';
 export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 
 // Query
 export { ContextQL } from './query/ContextQL.js';
+/** @experimental Projection API — has tests but no external consumers yet. */
 export { project } from './query/Projection.js';
 export { groupNodesByImpact, classifyNodeCategory } from './query/groupImpact.js';
 export type { ImpactGroups, NodeCategory } from './query/groupImpact.js';
@@ -46,6 +48,7 @@ export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
 export { BusinessKnowledgeIngestor } from './ingest/BusinessKnowledgeIngestor.js';
+export { DecisionIngestor } from './ingest/DecisionIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 
 // Knowledge Pipeline
@@ -235,4 +238,4 @@ export type {
   CascadeResult,
 } from './blast-radius/index.js';
 
-export const VERSION = '0.4.3';
+export const VERSION = '0.6.0';

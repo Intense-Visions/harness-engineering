@@ -123,6 +123,10 @@ After review, consider suggesting `.harness/review-learnings.md` creation if you
 
 ## Pipeline Phases
 
+### Pre-Pipeline: Self-Review Baseline
+
+Generate a self-review checklist via `create_self_review` to establish baseline expectations before deeper analysis. This checklist feeds into Phase 4 subagents as an additional input.
+
 ### Phase 1: GATE
 
 **Tier:** fast | **Mode:** CI only (`--ci`). Skip when invoked manually.
@@ -154,10 +158,11 @@ Run mechanical checks to establish an exclusion boundary. Issues caught here are
 **Checks:**
 
 1. **Harness validation:** `assess_project({ path, checks: ["validate", "deps", "docs"], mode: "detailed" })` — runs checks in parallel.
-2. **Security scan:** `run_security_scan` on changed files. Record findings with rule ID, file, line.
-3. **Type checking:** Run `tsc --noEmit`. Record errors.
-4. **Linting:** Run linter. Record violations.
-5. **Tests:** Run test suite. Record failures.
+2. **Diff analysis:** Run `analyze_diff` to get a structured breakdown of changes by file, category, and risk level.
+3. **Security scan:** `run_security_scan` on changed files. Record findings with rule ID, file, line.
+4. **Type checking:** Run `tsc --noEmit`. Record errors.
+5. **Linting:** Run linter. Record violations.
+6. **Tests:** Run test suite. Record failures.
 
 **Output:** Set of mechanical findings (file, line, tool, message) forming the exclusion list for Phase 5.
 
@@ -196,6 +201,8 @@ Determine change type to shape review focus:
 | **Bug Detection** | Changed files + dependencies via `query_graph`            | Changed files + imported files (`grep import`)            |
 | **Security**      | Security paths + data flow via `query_graph`              | Changed files + files with auth/crypto/SQL/shell patterns |
 | **Architecture**  | Layer boundaries + imports via `query_graph`/`get_impact` | Changed files + `harness check-deps` output               |
+
+Run `compute_blast_radius` on changed files to identify downstream modules that may be affected and should be included in context bundles.
 
 #### 1:1 Context Ratio Rule
 
@@ -342,7 +349,9 @@ Invokes `harness-security-review` in changed-files mode as the security fan-out 
 
 2. **Stack-adaptive:** Node.js (prototype pollution, ReDoS, path traversal), React (XSS, dangerouslySetInnerHTML), Go (race conditions, integer overflow, unsafe pointer), Python (pickle, SSTI, command injection)
 
-3. **CWE/OWASP references:** All findings include `cweId`, `owaspCategory`, `remediation`.
+3. **Security posture alignment:** Check `get_security_trends` to see if the changes align with or diverge from the project's security posture trajectory.
+
+4. **CWE/OWASP references:** All findings include `cweId`, `owaspCategory`, `remediation`.
 
 Confirmed vulnerabilities are always `severity: 'critical'`.
 
@@ -383,7 +392,8 @@ Reviews architectural violations, dependency direction, and design pattern compl
 
 1. **Mechanical exclusion:** Discard AI findings where same file + line range already flagged by Phase 2.
 2. **Graph reachability (if available):** Verify claimed dependency paths via `query_graph`. Discard findings with invalid reachability claims.
-3. **Import-chain heuristic (fallback):** Follow imports 2 levels deep. If claimed impact unreachable within 2 hops, downgrade to `suggestion`.
+3. **Stale constraint check:** Run `detect_stale_constraints` to check if architectural constraints are still valid after the reviewed changes. Findings referencing invalidated constraints are downgraded.
+4. **Import-chain heuristic (fallback):** Follow imports 2 levels deep. If claimed impact unreachable within 2 hops, downgrade to `suggestion`.
 
 **Exit:** Validated finding set. Continue to Phase 6.
 
@@ -595,6 +605,11 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 ## Harness Integration
 
 - **`assess_project`** — Phase 2: run validate/deps/docs in parallel. Failures are Critical and stop pipeline.
+- **`analyze_diff`** — Phase 2: structured breakdown of changes by file, category, and risk level.
+- **`create_self_review`** — Pre-pipeline: generate a self-review checklist as baseline expectations.
+- **`compute_blast_radius`** — Phase 3/5: run on changed files to identify downstream modules that may be affected by the changes.
+- **`detect_stale_constraints`** — Phase 5: check if architectural constraints are still valid after the reviewed changes.
+- **`get_security_trends`** — Phase 4 (Security Agent): check if changes align with or diverge from the project's security posture trajectory.
 - **`gather_context`** — Phase 3: parallel context assembly. Session parameter scopes to session directory.
 - **`harness cleanup`** — Optional Phase 2 check for entropy in changed files.
 - **Graph queries** — Phase 3 (dependency context) and Phase 5 (reachability verification). Graceful fallback.

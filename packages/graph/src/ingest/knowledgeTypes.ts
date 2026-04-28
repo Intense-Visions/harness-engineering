@@ -8,6 +8,7 @@ export const KNOWLEDGE_NODE_TYPES: readonly NodeType[] = [
   'business_term',
   'business_concept',
   'business_metric',
+  'decision',
   'design_token',
   'design_constraint',
   'aesthetic_intent',

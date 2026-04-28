@@ -12,12 +12,13 @@
 
 ## Persona Agents
 
-| Skill                | `subagent_type`         | State(s)             |
-| -------------------- | ----------------------- | -------------------- |
-| harness-planning     | `harness-planner`       | PLAN                 |
-| harness-execution    | `harness-task-executor` | EXECUTE              |
-| harness-verification | `harness-verifier`      | VERIFY               |
-| harness-code-review  | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
+| Skill                   | `subagent_type`         | State(s)             |
+| ----------------------- | ----------------------- | -------------------- |
+| harness-planning        | `harness-planner`       | PLAN                 |
+| harness-execution       | `harness-task-executor` | EXECUTE              |
+| harness-verification    | `harness-verifier`      | VERIFY               |
+| **harness-integration** | **`harness-verifier`**  | **INTEGRATE**        |
+| harness-code-review     | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
 
 **Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents.
 
@@ -31,15 +32,16 @@ Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`
 | APPROVE_PLAN | Auto-approve, skip signals | Signal-based          | Force human review            |
 | EXECUTE      | Skip scratchpad            | Scratchpad >500 words | Verbose scratchpad            |
 | VERIFY       | `harness validate` only    | Full pipeline         | Expanded checks               |
+| INTEGRATE    | WIRE only, auto-approve    | Full tier-appropriate | Full + human ADR review       |
 
 ## State Machine
 
 ```
-INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE
-                                                                    │
-                                                             [next phase?]
-                                                              │           │
-                                                           ASSESS   FINAL_REVIEW → DONE
+INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE → REVIEW → PHASE_COMPLETE
+                                                                                  │
+                                                                           [next phase?]
+                                                                            │           │
+                                                                         ASSESS   FINAL_REVIEW → DONE
 ```
 
 ---
@@ -51,7 +53,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 3. Check for existing state: read `{sessionDir}/autopilot-state.json`. If present and not DONE: report "Resuming from `{currentState}`, phase {N}: {name}." Apply schema migration if `schemaVersion < 5` (backfill missing fields). Jump to recorded state.
 4. Fresh start: read spec, parse `## Implementation Order` for phases (`### Phase N: Name` + `<!-- complexity: low|medium|high -->`, default: `medium`). Capture `startingCommit` via `git rev-parse HEAD`. Write `autopilot-state.json` (schemaVersion: 5, currentState: "ASSESS", currentPhase: 0).
 5. Flags: `--fast` → `rigorLevel: "fast"`. `--thorough` → `rigorLevel: "thorough"`. `--review-plans` → `reviewPlans: true`. Both flags together → reject with error.
-6. Call `gather_context({ path, skill: "harness-autopilot", session: slug, include: ["state", "learnings", "handoff", "validation"] })`.
+6. Call `gather_context({ path, skill: "harness-autopilot", session: slug, include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"] })`.
 7. → ASSESS.
 
 ---
@@ -60,10 +62,15 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 1. Read current phase at `currentPhase`.
 2. If `planPath` set and file exists: → APPROVE_PLAN.
-3. Complexity routing:
+3. **Intelligence-enhanced complexity assessment.** Before routing by complexity, refine the annotation with signals from available tools:
+   - Run `predict_failures` on the phase domain to check if constraints are trending toward violation — high failure probability suggests upgrading complexity.
+   - Run `compute_blast_radius` on files the phase is likely to touch — large blast radius (>15 affected modules) suggests upgrading to `high`.
+   - If the orchestrator is running, request intelligence analysis via `POST /api/analyze` with the phase title/description to get CML complexity scores and PESL simulation results. Use CML `structuralComplexity > 0.7` or PESL `riskScore > 0.6` as triggers to upgrade complexity routing.
+   - If no orchestrator, the MCP tool signals above are sufficient.
+4. Complexity routing:
    - `low`/`medium`: auto-plan via harness-planner → PLAN.
    - `high`: pause. Instruct: "Run `/harness:planning` interactively, then re-invoke `/harness:autopilot`." Wait for re-invocation.
-4. Update `currentState: "PLAN"`.
+5. Update `currentState: "PLAN"`.
 
 ---
 
@@ -121,13 +128,34 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 
 ### VERIFY
 
-- `"fast"`: run `harness validate`. Pass → REVIEW. Fail → surface to user.
+- `"fast"`: run `harness validate`. Pass → INTEGRATE. Fail → surface to user.
 - `"standard"`/`"thorough"`: dispatch harness-verifier:
   ```
   subagent_type: "harness-verifier"
   prompt: "Phase {N}: {name}. Session: {sessionSlug}. Rigor: {rigorLevel}. Verify and report pass/fail with findings."
   ```
-  Pass → REVIEW. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
+  Pass → INTEGRATE. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
+
+---
+
+### INTEGRATE
+
+1. Resolve tier: `max(plan.integrationTier, derived-from-execution)`. If tier escalated: notify human with "Tier escalated from `{planned}` to `{derived}`: {reason}."
+2. Dispatch harness-integration skill:
+   ```
+   subagent_type: "harness-verifier"
+   prompt: "Phase {N}: {name}. Session: {sessionSlug}. Tier: {tier}.
+            Plan: {planPath}. Verify integration per harness-integration skill."
+   ```
+3. **Rigor interaction:**
+   - `"fast"`: WIRE sub-phase only, auto-approve, no ADR drafting.
+   - `"standard"`: Full tier-appropriate checks (WIRE + MATERIALIZE + UPDATE per tier).
+   - `"thorough"`: Full checks + human reviews every ADR draft + force knowledge graph verification.
+4. Pass → REVIEW.
+5. Fail → report incomplete items. Ask "fix / skip integration / stop":
+   - **fix:** re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE. Retry budget resets.
+   - **skip:** record decision in `decisions[]`, proceed to REVIEW (human override).
+   - **stop:** save state and exit.
 
 ---
 
@@ -146,8 +174,8 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ### PHASE_COMPLETE
 
-1. Present summary: name, tasks completed, retries used, verification result, review findings count, elapsed time.
-2. Record in `history[]`: phase index, name, startedAt, completedAt, tasksCompleted, retriesUsed, verificationPassed, reviewFindings.
+1. Present summary: name, tasks completed, retries used, verification result, integration report (`{sessionDir}/phase-{N}-integration.json`), review findings count, elapsed time.
+2. Record in `history[]`: phase index, name, startedAt, completedAt, tasksCompleted, retriesUsed, verificationPassed, integrationPassed, reviewFindings.
 3. Mark phase `complete` in state. Clear scratchpad: `clearScratchpad({ session, phase, projectPath })`.
 4. Sync roadmap: `manage_roadmap sync apply:true` (skip if no roadmap; never `force_sync: true`).
 5. Write session summary: `writeSessionSummary(projectPath, sessionSlug, { session, lastActive, skill: "harness-autopilot", phase, status, spec, plan, keyContext, nextStep })`.
@@ -189,9 +217,11 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
 3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
-5. **VERIFY → REVIEW** — Dispatch harness-verifier and harness-code-reviewer, fix blocking findings.
-6. **PHASE_COMPLETE** — Summarize, sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
-7. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
+5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
+6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
+7. **REVIEW** — Dispatch harness-code-reviewer, fix blocking findings.
+8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
+9. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
 
 ---
 
@@ -206,9 +236,9 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Gates
 
-- **No reimplementing delegated skills.** Writing planning/execution/verification/review logic → STOP. Delegate via `subagent_type`.
+- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`.
 - **No executing without plan approval.** Every plan passes APPROVE_PLAN. No exceptions.
-- **No skipping VERIFY or REVIEW.** Human can override findings; steps cannot be skipped.
+- **No skipping VERIFY, INTEGRATE, or REVIEW.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
 - **No infinite retries.** EXECUTE budget: 3 attempts. FINAL_REVIEW: 3 cycles. If exhausted, stop and surface.
 - **No modifying state files manually.** If corrupted, start fresh.
 
@@ -232,7 +262,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Success Criteria
 
-- All phases in the spec are executed in order with plan → execute → verify → review per phase
+- All phases in the spec are executed in order with plan → execute → verify → integrate → review per phase
 - Every plan approval is recorded in `decisions[]` (auto or manual)
 - Retry budget (3 attempts) is enforced — exhausted retries surface to user, never silently continue
 - FINAL_REVIEW runs on `startingCommit..HEAD` diff and catches cross-phase coherence issues

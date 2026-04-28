@@ -386,6 +386,10 @@ Task: "Create UserService with CRUD operations."
 - **`harness check-deps`** -- Run during Level 3 (WIRED) to verify dependency boundaries.
 - **`harness check-docs`** -- Verify documentation updated for new artifacts. Missing docs for public APIs is a gap.
 - **Test runner** -- Must be run fresh (not cached) during Level 3. Read actual output, check exit codes.
+- **`check_traceability`** -- Run during Level 3 (WIRED) to verify every requirement in the spec maps to at least one implemented artifact and test.
+- **`validate_cross_check`** -- Run after Level 3 against the plan to verify implementation matches planned file map and task descriptions.
+- **`check_phase_gate`** -- Run before producing the verification report to validate the current phase meets all gate criteria before marking complete.
+- **`detect_anomalies`** -- Run during the Anti-Pattern Scan to identify structural inconsistencies (orphaned files, missing tests, unusual coupling) introduced during execution.
 - **`emit_interaction`** -- Auto-transition to harness-code-review on PASS verdict only.
 - **Session directory** -- `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec path, plan path, file lists from execution). Do not write to global `.harness/handoff.json` when session slug is known.
 

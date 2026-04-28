@@ -75,8 +75,9 @@ function inlineScan(text) {
     if (/(?:auto[- ]?approve|--no-verify|--dangerously-skip-permissions)/i.test(line)) {
       findings.push({ severity: 'high', ruleId: 'INJ-PERM-003', match: line.trim(), line: i + 1 });
     }
-    // HIGH: INJ-ENC-001 — Suspicious base64
-    if (/(?<!Bearer\s)(?<![:])(?<![A-Za-z0-9/])(?!eyJ)(?:[A-Za-z0-9+/]{4}){7,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/.test(line)) {
+    // HIGH: INJ-ENC-001 — Suspicious base64 (skip lines that look like file paths or CLI commands)
+    if (!/^[\s]*(?:cd |git |node |pnpm |npm |\/|packages\/|agents\/|src\/)/.test(line) &&
+        /(?<!Bearer\s)(?<![:])(?<![A-Za-z0-9/])(?!eyJ)(?:[A-Za-z0-9+/]{4}){7,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/.test(line)) {
       findings.push({ severity: 'high', ruleId: 'INJ-ENC-001', match: line.trim(), line: i + 1 });
     }
     // MEDIUM: INJ-CTX-001 — System prompt claims

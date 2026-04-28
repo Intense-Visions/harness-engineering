@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/cli",
-  "version": "1.26.1",
+  "version": "1.27.0",
   "description": "CLI for Harness Engineering toolkit",
   "type": "module",
   "bin": {
@@ -53,6 +53,14 @@
     "web-tree-sitter": "^0.24.7",
     "yaml": "^2.8.3",
     "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@harness-engineering/intelligence": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@harness-engineering/intelligence": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.19.15",

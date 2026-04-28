@@ -109,6 +109,8 @@ Rules:
 
 - Chains harness-verify (mechanical) and harness-code-review (AI) into a unified pipeline
 - Follows Principle 7 — deterministic checks always run first
+- **`check_traceability`** — Include as part of the integrity gate to verify requirement coverage (every spec requirement maps to an implemented artifact and test).
+- **`validate_cross_check`** — Run against the plan to verify plan-to-implementation alignment before producing the final report.
 - Consumes change-type detection from harness-code-review for per-type checklists
 - Output can be written to `.harness/integrity-report.md` for CI integration
 - Invokes `harness-design` and `harness-accessibility` for design health when `design` config exists

@@ -226,10 +226,14 @@ export class KnowledgeLinker {
     );
     if (!duplicate) return false;
 
+    // Merge the new source into the stored node via addNode (which calls safeMerge
+    // for existing IDs), rather than mutating the shallow copy from findNodes().
     const existingSources = (duplicate.metadata.sources as string[]) ?? [];
     if (!existingSources.includes(candidate.sourceNodeId)) {
-      existingSources.push(candidate.sourceNodeId);
-      duplicate.metadata.sources = existingSources;
+      this.store.addNode({
+        ...duplicate,
+        metadata: { ...duplicate.metadata, sources: [...existingSources, candidate.sourceNodeId] },
+      });
     }
     return true;
   }

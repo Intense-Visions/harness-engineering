@@ -106,6 +106,9 @@ importers:
       '@harness-engineering/graph':
         specifier: workspace:*
         version: link:../graph
+      '@harness-engineering/intelligence':
+        specifier: workspace:*
+        version: link:../intelligence
       '@harness-engineering/linter-gen':
         specifier: workspace:*
         version: link:../linter-gen

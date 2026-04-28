@@ -25,7 +25,24 @@ function convertNullable(def: ZodDef): Record<string, unknown> {
 
 const ZOD_CONVERTERS: Record<string, Converter> = {
   ZodString: () => ({ type: 'string' }),
-  ZodNumber: () => ({ type: 'number' }),
+  ZodNumber: (def) => {
+    const result: Record<string, unknown> = { type: 'number' };
+    const checks = def['checks'] as
+      | Array<{ kind: string; value: number; inclusive?: boolean }>
+      | undefined;
+    if (checks) {
+      for (const check of checks) {
+        if (check.kind === 'min') {
+          result[check.inclusive === false ? 'exclusiveMinimum' : 'minimum'] = check.value;
+        }
+        if (check.kind === 'max') {
+          result[check.inclusive === false ? 'exclusiveMaximum' : 'maximum'] = check.value;
+        }
+        if (check.kind === 'int') result['type'] = 'integer';
+      }
+    }
+    return result;
+  },
   ZodBoolean: () => ({ type: 'boolean' }),
   ZodLiteral: (def) => ({ type: typeof def['value'], const: def['value'] }),
   ZodEnum: (def) => ({ type: 'string', enum: def['values'] as string[] }),

@@ -53,6 +53,10 @@ Store answers in: .harness/architecture/<topic>/discovery.md
 
 Read the codebase to understand the current state. Do not propose solutions yet — gather facts.
 
+#### Step 0: Discover Constraints and Trends
+
+Run `detect_constraint_emergence` to discover implicit architectural patterns that should be formalized as constraints. Run `detect_stale_constraints` to identify constraints that no longer apply or need updating. Check `get_decay_trends` to understand how architectural health has evolved and which areas are degrading fastest. Run `predict_failures` to forecast which constraints are most likely to be violated based on current trends.
+
 #### Step 1: Map Existing Patterns
 
 Search for how the codebase currently handles similar concerns:

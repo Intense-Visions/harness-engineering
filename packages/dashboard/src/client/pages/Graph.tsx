@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
@@ -24,7 +25,33 @@ function GraphNotConnected({ reason }: { reason?: string | undefined }) {
   );
 }
 
-function NodeTypeTable({ nodesByType, nodeCount }: Pick<GraphData, 'nodesByType' | 'nodeCount'>) {
+const NodeTypeRow = memo(function NodeTypeRow({
+  type,
+  count,
+  pct,
+}: {
+  type: string;
+  count: number;
+  pct: string;
+}) {
+  return (
+    <tr className="hover:bg-gray-900">
+      <td className="px-4 py-2.5 text-gray-300">{type}</td>
+      <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{count}</td>
+      <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">{pct}%</td>
+    </tr>
+  );
+});
+
+const NodeTypeTable = memo(function NodeTypeTable({
+  nodesByType,
+  nodeCount,
+}: Pick<GraphData, 'nodesByType' | 'nodeCount'>) {
+  const sortedNodes = useMemo(
+    () => [...nodesByType].sort((a, b) => b.count - a.count),
+    [nodesByType]
+  );
+
   if (nodesByType.length === 0) return null;
   return (
     <section>
@@ -41,28 +68,18 @@ function NodeTypeTable({ nodesByType, nodeCount }: Pick<GraphData, 'nodesByType'
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800 bg-gray-950">
-            {[...nodesByType]
-              .sort((a, b) => b.count - a.count)
-              .map((row) => {
-                const pct = nodeCount > 0 ? ((row.count / nodeCount) * 100).toFixed(1) : '0';
-                return (
-                  <tr key={row.type} className="hover:bg-gray-900">
-                    <td className="px-4 py-2.5 text-gray-300">{row.type}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">
-                      {row.count}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">{pct}%</td>
-                  </tr>
-                );
-              })}
+            {sortedNodes.map((row) => {
+              const pct = nodeCount > 0 ? ((row.count / nodeCount) * 100).toFixed(1) : '0';
+              return <NodeTypeRow key={row.type} type={row.type} count={row.count} pct={pct} />;
+            })}
           </tbody>
         </table>
       </div>
     </section>
   );
-}
+});
 
-function GraphMetrics({ graphData }: { graphData: GraphData }) {
+const GraphMetrics = memo(function GraphMetrics({ graphData }: { graphData: GraphData }) {
   return (
     <div className="space-y-8">
       <section>
@@ -78,7 +95,7 @@ function GraphMetrics({ graphData }: { graphData: GraphData }) {
       <NodeTypeTable nodesByType={graphData.nodesByType} nodeCount={graphData.nodeCount} />
     </div>
   );
-}
+});
 
 export function Graph() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');

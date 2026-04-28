@@ -50,17 +50,56 @@ async function updateRoadmapContent(
     return { error: 'Could not read roadmap file', code: 500 };
   }
 
-  const escapedName = feature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Finding 12: Add (?=\s|$) to prevent prefix collisions
-  const sectionPattern = new RegExp(
-    `(###\\s+${escapedName}(?=\\s|$)[\\s\\S]*?\\*\\*Status:\\*\\*\\s*)([^\\n]+)`
-  );
+  // Finding 12 + ReDoS fix: use indexOf instead of regex to avoid catastrophic backtracking
+  // Find the heading line that matches "### <feature>" with a word boundary
+  const headingPrefix = '### ';
+  let headingIdx = -1;
+  let searchFrom = 0;
+  while (searchFrom < content.length) {
+    const idx = content.indexOf(headingPrefix, searchFrom);
+    if (idx === -1) break;
+    const nameStart = idx + headingPrefix.length;
+    // Allow optional extra whitespace between ### and feature name
+    let nameActual = nameStart;
+    while (nameActual < content.length && content[nameActual] === ' ') nameActual++;
+    if (content.startsWith(feature, nameActual)) {
+      const afterFeature = nameActual + feature.length;
+      // Ensure word boundary: next char must be whitespace, newline, or end of string
+      if (
+        afterFeature >= content.length ||
+        content[afterFeature] === ' ' ||
+        content[afterFeature] === '\n' ||
+        content[afterFeature] === '\r'
+      ) {
+        headingIdx = idx;
+        break;
+      }
+    }
+    // Move past this heading line
+    const nextNewline = content.indexOf('\n', idx);
+    searchFrom = nextNewline === -1 ? content.length : nextNewline + 1;
+  }
 
-  if (!sectionPattern.test(content)) {
+  if (headingIdx === -1) {
     return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
   }
 
-  const updated = content.replace(sectionPattern, `$1${status}`);
+  // From the heading, find the next "**Status:**" marker
+  const statusMarker = '**Status:**';
+  const statusIdx = content.indexOf(statusMarker, headingIdx);
+  if (statusIdx === -1) {
+    return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
+  }
+
+  // Skip past the marker and any trailing whitespace (but not newlines)
+  let valueStart = statusIdx + statusMarker.length;
+  while (valueStart < content.length && content[valueStart] === ' ') valueStart++;
+
+  // Find the end of the status value (next newline or end of string)
+  let valueEnd = content.indexOf('\n', valueStart);
+  if (valueEnd === -1) valueEnd = content.length;
+
+  const updated = content.slice(0, valueStart) + status + content.slice(valueEnd);
   try {
     await writeFile(roadmapPath, updated, 'utf-8');
   } catch {

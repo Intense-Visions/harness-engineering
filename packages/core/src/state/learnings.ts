@@ -34,6 +34,49 @@ import { loadRelevantLearnings, invalidateLearningsCacheEntry } from './learning
 import { checkOverlap } from './learnings-overlap';
 import type { OverlapResult } from './learnings-overlap';
 
+// --- File-based lock helpers ---
+
+const LOCK_RETRIES = 3;
+const LOCK_BACKOFFS = [50, 100, 200]; // ms
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Acquire a file-based lock by creating a `.lock` file with O_CREAT | O_EXCL.
+ * Retries with exponential backoff on contention.
+ */
+async function acquireFileLock(lockPath: string): Promise<void> {
+  for (let attempt = 0; attempt < LOCK_RETRIES; attempt++) {
+    try {
+      const fd = fs.openSync(
+        lockPath,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY
+      );
+      fs.closeSync(fd);
+      return; // lock acquired
+    } catch (err: unknown) {
+      const isExist =
+        err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EEXIST';
+      if (!isExist) throw err; // unexpected error — propagate
+      if (attempt < LOCK_RETRIES - 1) {
+        await sleep(LOCK_BACKOFFS[attempt]!);
+      }
+    }
+  }
+  throw new Error(`Failed to acquire lock after ${LOCK_RETRIES} attempts: ${lockPath}`);
+}
+
+/** Release a file-based lock by deleting the `.lock` file. */
+function releaseFileLock(lockPath: string): void {
+  try {
+    fs.unlinkSync(lockPath);
+  } catch {
+    // Lock file already removed — nothing to do
+  }
+}
+
 // --- Core CRUD ---
 
 export interface AppendLearningResult {
@@ -108,60 +151,67 @@ export async function appendLearning(
 
     fs.mkdirSync(stateDir, { recursive: true });
 
-    // Content deduplication
-    const normalizedContent = normalizeLearningContent(learning);
-    const contentHash = computeContentHash(normalizedContent);
-    const contentHashes = loadOrRebuildHashes(stateDir, learningsPath);
+    // Acquire file lock to prevent concurrent append races
+    const lockPath = learningsPath + '.lock';
+    await acquireFileLock(lockPath);
+    try {
+      // Content deduplication
+      const normalizedContent = normalizeLearningContent(learning);
+      const contentHash = computeContentHash(normalizedContent);
+      const contentHashes = loadOrRebuildHashes(stateDir, learningsPath);
 
-    if (contentHashes[contentHash]) {
-      return Ok({ appended: false });
+      if (contentHashes[contentHash]) {
+        return Ok({ appended: false });
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0]!;
+      const bulletLine = formatBulletLine(
+        timestamp,
+        learning,
+        skillName,
+        outcome,
+        rootCause,
+        triedAndFailed
+      );
+
+      // Build frontmatter
+      const fmTags: string[] = [];
+      if (skillName) fmTags.push(skillName);
+      if (outcome) fmTags.push(outcome);
+      const hash = crypto.createHash('sha256').update(bulletLine).digest('hex').slice(0, 8);
+      const tagsStr = fmTags.length > 0 ? ` tags:${fmTags.join(',')}` : '';
+      const entry = `\n<!-- hash:${hash}${tagsStr} -->\n${bulletLine}\n`;
+
+      // Write entry and check overlap (single file read)
+      let overlapResult: OverlapResult | undefined;
+      let existingLineCount: number;
+      if (!fs.existsSync(learningsPath)) {
+        fs.writeFileSync(learningsPath, `# Learnings\n${entry}`);
+        existingLineCount = 1;
+      } else {
+        const existingContent = fs.readFileSync(learningsPath, 'utf-8');
+        const existingEntries = existingContent
+          .split('\n')
+          .filter((line) => /^- \*\*\d{4}-\d{2}-\d{2}/.test(line));
+        const overlap = checkOverlap(bulletLine, existingEntries);
+        if (overlap.score >= 0.7) overlapResult = overlap;
+        existingLineCount = existingContent.split('\n').length;
+        fs.appendFileSync(learningsPath, entry);
+      }
+
+      // Update content hash index
+      const bulletLineNum = existingLineCount + 2;
+      contentHashes[contentHash] = { date: timestamp ?? '', line: bulletLineNum };
+      saveContentHashes(stateDir, contentHashes);
+      invalidateLearningsCacheEntry(learningsPath);
+
+      return Ok({
+        appended: true,
+        ...(overlapResult ? { overlap: overlapResult } : {}),
+      });
+    } finally {
+      releaseFileLock(lockPath);
     }
-
-    const timestamp = new Date().toISOString().split('T')[0]!;
-    const bulletLine = formatBulletLine(
-      timestamp,
-      learning,
-      skillName,
-      outcome,
-      rootCause,
-      triedAndFailed
-    );
-
-    // Build frontmatter
-    const fmTags: string[] = [];
-    if (skillName) fmTags.push(skillName);
-    if (outcome) fmTags.push(outcome);
-    const hash = crypto.createHash('sha256').update(bulletLine).digest('hex').slice(0, 8);
-    const tagsStr = fmTags.length > 0 ? ` tags:${fmTags.join(',')}` : '';
-    const entry = `\n<!-- hash:${hash}${tagsStr} -->\n${bulletLine}\n`;
-
-    // Write entry and check overlap (single file read)
-    let overlapResult: OverlapResult | undefined;
-    let existingLineCount: number;
-    if (!fs.existsSync(learningsPath)) {
-      fs.writeFileSync(learningsPath, `# Learnings\n${entry}`);
-      existingLineCount = 1;
-    } else {
-      const existingContent = fs.readFileSync(learningsPath, 'utf-8');
-      const existingEntries = existingContent
-        .split('\n')
-        .filter((line) => /^- \*\*\d{4}-\d{2}-\d{2}/.test(line));
-      const overlap = checkOverlap(bulletLine, existingEntries);
-      if (overlap.score >= 0.7) overlapResult = overlap;
-      existingLineCount = existingContent.split('\n').length;
-      fs.appendFileSync(learningsPath, entry);
-    }
-
-    // Update content hash index
-    const bulletLineNum = existingLineCount + 2;
-    contentHashes[contentHash] = { date: timestamp ?? '', line: bulletLineNum };
-    saveContentHashes(stateDir, contentHashes);
-    invalidateLearningsCacheEntry(learningsPath);
-
-    return Ok({
-      appended: true,
-      ...(overlapResult ? { overlap: overlapResult } : {}),
-    });
   } catch (error) {
     return Err(
       new Error(

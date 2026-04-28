@@ -6,6 +6,7 @@ import { MessageStream } from './MessageStream';
 import { ChatInput } from './ChatInput';
 import { CommandPalette } from './CommandPalette';
 import { ChatContextPane } from './ChatContextPane';
+import { BriefingPanel } from './BriefingPanel';
 import { SessionTabBar } from './SessionTabBar';
 import { NeuralOrganism } from './NeuralOrganism';
 import { streamChat, applyChunk } from '../../utils/chat-stream';
@@ -81,6 +82,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillEntry | null>(null);
+  const [showBriefing, setShowBriefing] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
   // Guards against double-fires (React strict mode, dep changes)
@@ -304,6 +306,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     const args = pendingCommandArgsRef.current;
     const command = args ? `${selectedSkill.slashCommand} ${args}` : selectedSkill.slashCommand;
     pendingCommandArgsRef.current = null;
+    setShowBriefing(false);
     void handleSend(command, systemPrompt);
     setSelectedSkill(null);
   }, [selectedSkill, context.data, handleSend]);
@@ -326,10 +329,13 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
     }
   }, [interaction, activeSession, streaming, handleSend]);
 
-  // Auto-execute skill for command deep-links (e.g. Health "Fix It")
+  // Auto-execute skill for command deep-links (e.g. Health "Fix It").
+  // When the user selects a skill from the CommandPalette, showBriefing is
+  // true and we display the BriefingPanel instead of auto-executing.
   useEffect(() => {
     if (
       selectedSkill &&
+      !showBriefing &&
       activeSession &&
       activeSession.messages.length === 0 &&
       !streaming &&
@@ -339,11 +345,19 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       autoExecutedRef.current.add(activeSession.sessionId);
       handleExecuteSkill();
     }
-  }, [selectedSkill, activeSession, streaming, context.isLoading, handleExecuteSkill]);
+  }, [
+    selectedSkill,
+    showBriefing,
+    activeSession,
+    streaming,
+    context.isLoading,
+    handleExecuteSkill,
+  ]);
 
   const handleSkillSelect = useCallback(
     (skill: SkillEntry) => {
       setSelectedSkill(skill);
+      setShowBriefing(true);
       // Reuse the current session if it exists and has no messages yet (the user
       // just opened a tab and is picking a skill from the palette). Only create a
       // new session when there is no valid active session — e.g. stale ID after
@@ -520,19 +534,31 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Loading indicator while auto-execute prepares */}
-          {selectedSkill && (!activeSession || activeSession.messages.length === 0) && (
-            <div className="border-b border-white/10 px-6 py-3 flex items-center gap-3 bg-primary-500/5 flex-shrink-0">
-              <Loader2 size={14} className="animate-spin text-primary-400" />
-              <p className="text-sm text-gray-400">
-                Starting <span className="text-white font-medium">{selectedSkill.name}</span>...
-              </p>
-            </div>
-          )}
+          {/* Loading indicator while deep-link auto-execute prepares (no briefing) */}
+          {selectedSkill &&
+            !showBriefing &&
+            (!activeSession || activeSession.messages.length === 0) && (
+              <div className="border-b border-white/10 px-6 py-3 flex items-center gap-3 bg-primary-500/5 flex-shrink-0">
+                <Loader2 size={14} className="animate-spin text-primary-400" />
+                <p className="text-sm text-gray-400">
+                  Starting <span className="text-white font-medium">{selectedSkill.name}</span>...
+                </p>
+              </div>
+            )}
 
-          {/* Messages / Command Palette */}
+          {/* Messages / Command Palette / Briefing */}
           <div className="flex-1 overflow-hidden">
-            {(!activeSession || activeSession.messages.length === 0) && !selectedSkill ? (
+            {showBriefing && selectedSkill ? (
+              <BriefingPanel
+                skill={selectedSkill}
+                context={context}
+                onExecute={handleExecuteSkill}
+                onCancel={() => {
+                  setShowBriefing(false);
+                  setSelectedSkill(null);
+                }}
+              />
+            ) : (!activeSession || activeSession.messages.length === 0) && !selectedSkill ? (
               <div className="p-4 h-full">
                 <CommandPalette onSelect={handleSkillSelect} />
               </div>

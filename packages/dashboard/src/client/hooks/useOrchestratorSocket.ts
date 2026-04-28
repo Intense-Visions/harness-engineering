@@ -4,6 +4,7 @@ import type {
   PendingInteraction,
   AgentEventMessage,
   WebSocketMessage,
+  MaintenanceEvent,
 } from '../types/orchestrator';
 import type { ContentBlock } from '../types/chat';
 import { applyAgentEvent } from '../utils/agent-events';
@@ -20,6 +21,8 @@ export interface OrchestratorSocketState {
   /** Accumulated content blocks per agent issueId. */
   agentEvents: Record<string, ContentBlock[]>;
   connected: boolean;
+  /** Most recent maintenance event received via WebSocket. */
+  maintenanceEvent: MaintenanceEvent | null;
   /** Manually remove an interaction (after claim/resolve). */
   removeInteraction: (id: string) => void;
   /** Replace interactions list (after fetch from API). */
@@ -70,7 +73,8 @@ function handleMessage(
   msg: WebSocketMessage,
   setSnapshot: (s: OrchestratorSnapshot) => void,
   setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>,
-  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>
+  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>,
+  setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>
 ): void {
   switch (msg.type) {
     case 'state_change':
@@ -82,6 +86,15 @@ function handleMessage(
     case 'agent_event':
       setAgentEvents((prev) => coalesceAgentEvent(prev, msg.data));
       break;
+    case 'maintenance:started':
+      setMaintenanceEvent({ type: 'maintenance:started', data: msg.data });
+      break;
+    case 'maintenance:error':
+      setMaintenanceEvent({ type: 'maintenance:error', data: msg.data });
+      break;
+    case 'maintenance:completed':
+      setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
+      break;
   }
 }
 
@@ -92,7 +105,8 @@ function createSocket(
   setConnected: (v: boolean) => void,
   setSnapshot: (s: OrchestratorSnapshot) => void,
   setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>,
-  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>
+  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>,
+  setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>
 ): WebSocket {
   const ws = new WebSocket(getWsUrl());
 
@@ -109,7 +123,7 @@ function createSocket(
       const raw: unknown = JSON.parse(event.data);
       if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
       const msg = raw as WebSocketMessage;
-      handleMessage(msg, setSnapshot, setInteractions, setAgentEvents);
+      handleMessage(msg, setSnapshot, setInteractions, setAgentEvents, setMaintenanceEvent);
     } catch {
       // ignore malformed messages
     }
@@ -129,7 +143,8 @@ function createSocket(
           setConnected,
           setSnapshot,
           setInteractions,
-          setAgentEvents
+          setAgentEvents,
+          setMaintenanceEvent
         ),
       delay
     );
@@ -151,6 +166,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
   const [snapshot, setSnapshot] = useState<OrchestratorSnapshot | null>(null);
   const [interactions, setInteractions] = useState<PendingInteraction[]>([]);
   const [agentEvents, setAgentEvents] = useState<Record<string, ContentBlock[]>>({});
+  const [maintenanceEvent, setMaintenanceEvent] = useState<MaintenanceEvent | null>(null);
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
@@ -168,7 +184,8 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
       setConnected,
       setSnapshot,
       setInteractions,
-      setAgentEvents
+      setAgentEvents,
+      setMaintenanceEvent
     );
 
     return () => {
@@ -184,5 +201,13 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
     setAgentEvents((prev) => pruneStaleAgents(prev, runningIds));
   }, [snapshot]);
 
-  return { snapshot, interactions, agentEvents, connected, removeInteraction, setInteractions };
+  return {
+    snapshot,
+    interactions,
+    agentEvents,
+    maintenanceEvent,
+    connected,
+    removeInteraction,
+    setInteractions,
+  };
 }

@@ -13,17 +13,33 @@ import type { ProtectedRegionMap } from '../../annotations';
 import type { AST } from '../../shared/parsers';
 import { dirname, resolve } from 'path';
 
+/** Build a Map keyed by file path for O(1) lookups. */
+function buildFileIndex(
+  snapshot: CodebaseSnapshot
+): Map<string, CodebaseSnapshot['files'][number]> {
+  const index = new Map<string, CodebaseSnapshot['files'][number]>();
+  for (const file of snapshot.files) {
+    index.set(file.path, file);
+  }
+  return index;
+}
+
 /**
  * Resolve import source to absolute path
  */
 function resolveImportToFile(
   importSource: string,
   fromFile: string,
-  snapshot: CodebaseSnapshot
+  snapshot: CodebaseSnapshot,
+  fileIndex?: Map<string, CodebaseSnapshot['files'][number]>
 ): string | null {
   if (!importSource.startsWith('.')) {
     return null; // External package
   }
+
+  const hasFile = fileIndex
+    ? (p: string) => fileIndex.has(p)
+    : (p: string) => snapshot.files.some((f) => f.path === p);
 
   const fromDir = dirname(fromFile);
   let resolved = resolve(fromDir, importSource);
@@ -31,16 +47,16 @@ function resolveImportToFile(
   // Try with .ts extension
   if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
     const withTs = resolved + '.ts';
-    if (snapshot.files.some((f) => f.path === withTs)) {
+    if (hasFile(withTs)) {
       return withTs;
     }
     const withIndex = resolve(resolved, 'index.ts');
-    if (snapshot.files.some((f) => f.path === withIndex)) {
+    if (hasFile(withIndex)) {
       return withIndex;
     }
   }
 
-  if (snapshot.files.some((f) => f.path === resolved)) {
+  if (hasFile(resolved)) {
     return resolved;
   }
 
@@ -52,11 +68,12 @@ function enqueueResolved(
   current: string,
   snapshot: CodebaseSnapshot,
   visited: Set<string>,
-  queue: string[]
+  queue: string[],
+  fileIndex?: Map<string, CodebaseSnapshot['files'][number]>
 ): void {
   for (const item of sources) {
     if (!item.source) continue;
-    const resolved = resolveImportToFile(item.source, current, snapshot);
+    const resolved = resolveImportToFile(item.source, current, snapshot, fileIndex);
     if (resolved && !visited.has(resolved)) {
       queue.push(resolved);
     }
@@ -68,18 +85,22 @@ function processReachabilityNode(
   snapshot: CodebaseSnapshot,
   reachability: Map<string, boolean>,
   visited: Set<string>,
-  queue: string[]
+  queue: string[],
+  fileIndex?: Map<string, CodebaseSnapshot['files'][number]>
 ): void {
   reachability.set(current, true);
-  const sourceFile = snapshot.files.find((f) => f.path === current);
+  const sourceFile = fileIndex
+    ? fileIndex.get(current)
+    : snapshot.files.find((f) => f.path === current);
   if (!sourceFile) return;
 
-  enqueueResolved(sourceFile.imports, current, snapshot, visited, queue);
+  enqueueResolved(sourceFile.imports, current, snapshot, visited, queue, fileIndex);
   const reExports = sourceFile.exports.filter((e) => e.isReExport);
-  enqueueResolved(reExports, current, snapshot, visited, queue);
+  enqueueResolved(reExports, current, snapshot, visited, queue, fileIndex);
 }
 
 export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, boolean> {
+  const fileIndex = buildFileIndex(snapshot);
   const reachability = new Map<string, boolean>();
   for (const file of snapshot.files) {
     reachability.set(file.path, false);
@@ -92,7 +113,7 @@ export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, bo
     const current = queue.shift()!;
     if (visited.has(current)) continue;
     visited.add(current);
-    processReachabilityNode(current, snapshot, reachability, visited, queue);
+    processReachabilityNode(current, snapshot, reachability, visited, queue, fileIndex);
   }
 
   return reachability;
@@ -105,6 +126,7 @@ export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, bo
 function buildExportUsageMap(
   snapshot: CodebaseSnapshot
 ): Map<string, { importers: string[]; isReExported: boolean }> {
+  const fileIndex = buildFileIndex(snapshot);
   const usageMap = new Map<string, { importers: string[]; isReExported: boolean }>();
 
   // Initialize all exports with empty usage
@@ -118,11 +140,11 @@ function buildExportUsageMap(
   // Track which exports are imported
   for (const file of snapshot.files) {
     for (const imp of file.imports) {
-      const resolvedFile = resolveImportToFile(imp.source, file.path, snapshot);
+      const resolvedFile = resolveImportToFile(imp.source, file.path, snapshot, fileIndex);
       if (!resolvedFile) continue;
 
       // Find the source file to match imports with exports
-      const sourceFile = snapshot.files.find((f) => f.path === resolvedFile);
+      const sourceFile = fileIndex.get(resolvedFile);
       if (!sourceFile) continue;
 
       for (const specifier of imp.specifiers) {

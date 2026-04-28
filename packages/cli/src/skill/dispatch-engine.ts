@@ -276,7 +276,7 @@ export function computeParallelSafe(prevTriggeredBy: string[], currTriggeredBy: 
  */
 export function dispatchSkills(
   context: DispatchContext,
-  options: { limit?: number } = {}
+  options: { limit?: number; trigger?: string; skillTriggers?: Map<string, string[]> } = {}
 ): DispatchResult {
   const { snapshot, changeType, domains, allSignals } = context;
   const limit = options.limit ?? 5;
@@ -285,7 +285,12 @@ export function dispatchSkills(
   const enrichedSnapshot: HealthSnapshot = { ...snapshot, signals: allSignals };
 
   // Run recommendation engine (uses fallback rules -- no skill index files needed)
-  const recResult = recommend(enrichedSnapshot, {}, { top: limit });
+  const recOpts: { top: number; trigger?: string; skillTriggers?: Map<string, string[]> } = {
+    top: limit,
+  };
+  if (options.trigger) recOpts.trigger = options.trigger;
+  if (options.skillTriggers) recOpts.skillTriggers = options.skillTriggers;
+  const recResult = recommend(enrichedSnapshot, {}, recOpts);
 
   // Build the skill address index to get dependsOn info
   const addressIndex = buildSkillAddressIndex({});
@@ -332,7 +337,12 @@ export function dispatchSkills(
  */
 export async function dispatchSkillsFromGit(
   projectPath: string,
-  options: { fresh?: boolean; limit?: number } = {}
+  options: {
+    fresh?: boolean;
+    limit?: number;
+    trigger?: string;
+    skillTriggers?: Map<string, string[]>;
+  } = {}
 ): Promise<DispatchResult> {
   // Check for git repository
   const diffInfo = buildDiffInfoFromGit(projectPath);
@@ -364,7 +374,10 @@ export async function dispatchSkillsFromGit(
   if (options.fresh) enrichOpts.fresh = options.fresh;
   const ctx = await enrichSnapshotForDispatch(projectPath, enrichOpts);
 
-  const dispatchOpts: { limit?: number } = {};
+  const dispatchOpts: { limit?: number; trigger?: string; skillTriggers?: Map<string, string[]> } =
+    {};
   if (options.limit !== undefined) dispatchOpts.limit = options.limit;
+  if (options.trigger) dispatchOpts.trigger = options.trigger;
+  if (options.skillTriggers) dispatchOpts.skillTriggers = options.skillTriggers;
   return dispatchSkills(ctx, dispatchOpts);
 }

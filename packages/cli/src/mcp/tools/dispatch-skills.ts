@@ -33,6 +33,11 @@ export const dispatchSkillsDefinition = {
         type: 'number',
         description: 'Maximum number of skills to return (default: 5)',
       },
+      trigger: {
+        type: 'string',
+        description:
+          'Filter to skills declaring this trigger (e.g. on_pr, on_commit, on_milestone, on_task_complete, on_refactor, on_review). Only skills whose triggers array includes this value are returned.',
+      },
     },
     required: [],
   },
@@ -55,21 +60,39 @@ async function dispatchWithExplicitInput(
   files: string[] | undefined,
   commitMessage: string | undefined,
   fresh: boolean,
-  limit: number
+  limit: number,
+  trigger?: string,
+  skillTriggers?: Map<string, string[]>
 ) {
   const ctx = await enrichSnapshotForDispatch(
     projectRoot,
     buildEnrichOpts(files, commitMessage, fresh)
   );
-  const dispatchOpts: { limit?: number } = {};
+  const dispatchOpts: { limit?: number; trigger?: string; skillTriggers?: Map<string, string[]> } =
+    {};
   if (limit !== 5) dispatchOpts.limit = limit;
+  if (trigger) dispatchOpts.trigger = trigger;
+  if (skillTriggers) dispatchOpts.skillTriggers = skillTriggers;
   return dispatchSkills(ctx, dispatchOpts);
 }
 
-async function dispatchFromGit(projectRoot: string, fresh: boolean, limit: number) {
-  const opts: { fresh?: boolean; limit?: number } = {};
+async function dispatchFromGit(
+  projectRoot: string,
+  fresh: boolean,
+  limit: number,
+  trigger?: string,
+  skillTriggers?: Map<string, string[]>
+) {
+  const opts: {
+    fresh?: boolean;
+    limit?: number;
+    trigger?: string;
+    skillTriggers?: Map<string, string[]>;
+  } = {};
   if (fresh) opts.fresh = fresh;
   if (limit !== 5) opts.limit = limit;
+  if (trigger) opts.trigger = trigger;
+  if (skillTriggers) opts.skillTriggers = skillTriggers;
   return dispatchSkillsFromGit(projectRoot, opts);
 }
 
@@ -81,12 +104,36 @@ export async function handleDispatchSkills(
   const commitMessage = input.commitMessage as string | undefined;
   const fresh = (input.fresh as boolean) ?? false;
   const limit = (input.limit as number) ?? 5;
+  const trigger = input.trigger as string | undefined;
 
   try {
+    // Load skill triggers map for trigger-based filtering
+    let skillTriggers: Map<string, string[]> | undefined;
+    if (trigger) {
+      try {
+        const { loadOrRebuildIndex } = await import('../../skill/index-builder.js');
+        const index = loadOrRebuildIndex('claude-code', projectRoot);
+        skillTriggers = new Map<string, string[]>();
+        for (const [name, entry] of Object.entries(index.skills)) {
+          skillTriggers.set(name, entry.triggers ?? ['manual']);
+        }
+      } catch {
+        // Index unavailable — skip trigger filtering
+      }
+    }
+
     const hasExplicitInput = files !== undefined || commitMessage !== undefined;
     const result = hasExplicitInput
-      ? await dispatchWithExplicitInput(projectRoot, files, commitMessage, fresh, limit)
-      : await dispatchFromGit(projectRoot, fresh, limit);
+      ? await dispatchWithExplicitInput(
+          projectRoot,
+          files,
+          commitMessage,
+          fresh,
+          limit,
+          trigger,
+          skillTriggers
+        )
+      : await dispatchFromGit(projectRoot, fresh, limit, trigger, skillTriggers);
 
     if (result.skills.length > limit) {
       result.skills = result.skills.slice(0, limit);

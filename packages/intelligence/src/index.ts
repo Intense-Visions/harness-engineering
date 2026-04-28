@@ -61,6 +61,7 @@ export { IntelligencePipeline } from './pipeline.js';
 export type { PreprocessResult } from './pipeline.js';
 
 // Effectiveness — agent introspection and persona routing
+// Used by orchestrator pipeline-runner via weightedRecommendPersona for persona-aware dispatch
 export {
   computePersonaEffectiveness,
   detectBlindSpots,
@@ -73,6 +74,7 @@ export type {
 } from './effectiveness/types.js';
 
 // Specialization — persistent agent expertise tracking
+// Wired into orchestrator pipeline-runner: refreshProfiles called on startup and after each analysis pass
 export {
   computeSpecialization,
   computeExpertiseLevel,

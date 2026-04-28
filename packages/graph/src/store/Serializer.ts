@@ -33,7 +33,7 @@ function streamGraphJson(
       stream.write(JSON.stringify(edges[i]));
     }
     stream.write(']}');
-    stream.end(resolve);
+    stream.end(() => resolve());
   });
 }
 
@@ -57,7 +57,12 @@ export async function saveGraph(
   ]);
 }
 
-export async function loadGraph(dirPath: string): Promise<SerializedGraph | null> {
+export type LoadGraphResult =
+  | { status: 'loaded'; graph: SerializedGraph }
+  | { status: 'not_found' }
+  | { status: 'schema_mismatch'; found: number; expected: number };
+
+export async function loadGraph(dirPath: string): Promise<LoadGraphResult> {
   const metaPath = join(dirPath, 'metadata.json');
   const graphPath = join(dirPath, 'graph.json');
 
@@ -66,17 +71,21 @@ export async function loadGraph(dirPath: string): Promise<SerializedGraph | null
     await access(metaPath);
     await access(graphPath);
   } catch {
-    return null; // Files don't exist — expected for first run
+    return { status: 'not_found' }; // Files don't exist — expected for first run
   }
 
   // Parse metadata — let parse errors propagate
   const metaContent = await readFile(metaPath, 'utf-8');
   const metadata: GraphMetadata = JSON.parse(metaContent);
   if (metadata.schemaVersion !== CURRENT_SCHEMA_VERSION) {
-    return null; // Schema mismatch — caller should rebuild
+    return {
+      status: 'schema_mismatch',
+      found: metadata.schemaVersion,
+      expected: CURRENT_SCHEMA_VERSION,
+    };
   }
 
   // Parse graph — let parse errors propagate
   const graphContent = await readFile(graphPath, 'utf-8');
-  return JSON.parse(graphContent) as SerializedGraph;
+  return { status: 'loaded', graph: JSON.parse(graphContent) as SerializedGraph };
 }

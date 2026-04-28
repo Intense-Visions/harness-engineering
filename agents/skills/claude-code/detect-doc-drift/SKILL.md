@@ -20,7 +20,9 @@
 
 2. **Run `harness cleanup --type drift`** for a deeper analysis that cross-references code changes against documentation references.
 
-3. **Optionally, run `git diff` against a baseline** (last release, last sprint, etc.) to identify which code files changed. This helps prioritize — docs for recently changed files are most likely to be drifted.
+3. **Check for stale constraints.** Run `detect_stale_constraints` alongside drift detection to find architectural constraints that no longer match the codebase.
+
+4. **Optionally, run `git diff` against a baseline** (last release, last sprint, etc.) to identify which code files changed. This helps prioritize — docs for recently changed files are most likely to be drifted.
 
 ### Graph-Enhanced Context (when available)
 

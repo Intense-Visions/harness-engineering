@@ -147,6 +147,8 @@ import {
   detectConstraintEmergenceDefinition,
   handleDetectConstraintEmergence,
 } from './tools/constraint-emergence.js';
+import { runCIChecksDefinition, handleRunCIChecks } from './tools/ci.js';
+import { generateBlueprintDefinition, handleGenerateBlueprint } from './tools/blueprint.js';
 
 export type ToolDefinition = {
   name: string;
@@ -222,6 +224,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   dispatchSkillsDefinition,
   compactToolDefinition,
   detectConstraintEmergenceDefinition,
+  runCIChecksDefinition,
+  generateBlueprintDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -283,6 +287,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   dispatch_skills: handleDispatchSkills as ToolHandler,
   compact: handleCompact as ToolHandler,
   detect_constraint_emergence: handleDetectConstraintEmergence as ToolHandler,
+  run_ci_checks: handleRunCIChecks as ToolHandler,
+  generate_blueprint: handleGenerateBlueprint as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

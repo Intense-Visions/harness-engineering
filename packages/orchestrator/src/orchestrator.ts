@@ -103,6 +103,11 @@ export class Orchestrator extends EventEmitter {
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
   /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
   private analysisFailureCache: Map<string, number> = new Map();
+  /** Abort controllers and PIDs for running agent tasks — used by stopIssue to cancel in-flight work.
+   *  The PID is stored here because the running entry may be deleted by the state machine
+   *  before the stop effect executes (e.g., stall_detected removes the entry first). */
+  private abortControllers: Map<string, { controller: AbortController; pid: number | null }> =
+    new Map();
   /** Guards against overlapping ticks when a tick takes longer than the polling interval */
   private tickInProgress = false;
   /** Timestamp of the last stale branch sweep (at most once per hour) */
@@ -270,39 +275,71 @@ export class Orchestrator extends EventEmitter {
 
   /**
    * Creates a TaskRunner for the maintenance scheduler.
-   * Provides stub implementations for check/agent/command execution.
-   * Phase 4 (PRManager) and Phase 5 (Reporter) will enhance these.
+   * CheckCommandRunner and CommandExecutor use real child_process execution.
+   * AgentDispatcher remains stubbed (requires full skill dispatch integration).
    */
   private createMaintenanceTaskRunner(
     maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
   ): TaskRunner {
-    this.logger.warn(
-      'Maintenance task runner using stub implementations — tasks will not execute real checks or dispatch agents. ' +
-        'Real implementations will be wired in a follow-up.'
-    );
+    const logger = this.logger;
 
     const checkRunner: CheckCommandRunner = {
       run: async (command: string[], cwd: string) => {
-        this.logger.info('Maintenance check runner invoked (stub)', { command, cwd });
-        return { passed: true, findings: 0, output: '' };
+        const { execFile } = await import('node:child_process');
+        const { promisify } = await import('node:util');
+        const execFileAsync = promisify(execFile);
+        const [cmd, ...args] = command;
+        if (!cmd) return { passed: true, findings: 0, output: '' };
+
+        try {
+          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          // Try to extract a findings count from the output (common patterns: "N findings", "N issues")
+          const findingsMatch = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
+          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 0;
+          return { passed: findings === 0, findings, output: stdout };
+        } catch (err) {
+          const error = err as { stdout?: string; stderr?: string; code?: number };
+          const output = [error.stdout, error.stderr].filter(Boolean).join('\n');
+          const findingsMatch = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
+          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 1;
+          return { passed: false, findings, output };
+        }
       },
     };
 
     const agentDispatcher: AgentDispatcher = {
       dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
-        this.logger.info('Maintenance agent dispatcher invoked (stub)', {
-          skill,
-          branch,
-          backendName,
-          cwd,
-        });
+        logger.info(
+          'Maintenance agent dispatcher invoked (stub — skill dispatch integration pending)',
+          {
+            skill,
+            branch,
+            backendName,
+            cwd,
+          }
+        );
         return { producedCommits: false, fixed: 0 };
       },
     };
 
     const commandExecutor: CommandExecutor = {
       exec: async (command: string[], cwd: string) => {
-        this.logger.info('Maintenance command executor invoked (stub)', { command, cwd });
+        const { execFile } = await import('node:child_process');
+        const { promisify } = await import('node:util');
+        const execFileAsync = promisify(execFile);
+        const [cmd, ...args] = command;
+        if (!cmd) return;
+
+        try {
+          await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+        } catch (err) {
+          logger.warn('Maintenance command execution failed', {
+            command,
+            cwd,
+            error: String(err),
+          });
+          throw err;
+        }
       },
     };
 
@@ -338,21 +375,20 @@ export class Orchestrator extends EventEmitter {
       historyProvider: reporter,
       onTaskDue: async (task) => {
         this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
-        this.server?.broadcastMaintenance('maintenance:started', {
-          taskId: task.id,
-          startedAt: new Date().toISOString(),
-        });
+        const startPayload = { taskId: task.id, startedAt: new Date().toISOString() };
+        this.server?.broadcastMaintenance('maintenance:started', startPayload);
+        this.emit('maintenance:started', startPayload);
 
         const result = await taskRunner.run(task);
         await reporter.record(result);
 
         if (result.status === 'failure') {
-          this.server?.broadcastMaintenance('maintenance:error', {
-            taskId: task.id,
-            error: result.error,
-          });
+          const errorPayload = { taskId: task.id, error: result.error };
+          this.server?.broadcastMaintenance('maintenance:error', errorPayload);
+          this.emit('maintenance:error', errorPayload);
         } else {
           this.server?.broadcastMaintenance('maintenance:completed', result);
+          this.emit('maintenance:completed', result);
         }
 
         this.logger.info(`Maintenance task completed: ${task.id}`, {
@@ -588,8 +624,13 @@ export class Orchestrator extends EventEmitter {
         )
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
-    const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
-      pipelineResult ?? {};
+    const {
+      concernSignals,
+      enrichedSpecs,
+      complexityScores,
+      simulationResults,
+      personaRecommendations,
+    } = pipelineResult ?? {};
 
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
@@ -601,6 +642,7 @@ export class Orchestrator extends EventEmitter {
       ...(enrichedSpecs !== undefined && { enrichedSpecs }),
       ...(complexityScores !== undefined && { complexityScores }),
       ...(simulationResults !== undefined && { simulationResults }),
+      ...(personaRecommendations !== undefined && { personaRecommendations }),
     };
 
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
@@ -616,6 +658,7 @@ export class Orchestrator extends EventEmitter {
         issueId,
         candidates,
         nowMs,
+        ...(concernSignals !== undefined && { concernSignals }),
       };
       const result = applyEvent(this.state, retryEvent, this.config);
       this.state = result.nextState;
@@ -625,6 +668,41 @@ export class Orchestrator extends EventEmitter {
     // 6. Handle effects
     for (const effect of effects) {
       await this.handleEffect(effect);
+    }
+
+    // 6b. Check for stalled agents — emit stall_detected if an agent hasn't
+    //     produced any event within the configured stallTimeoutMs window.
+    //     Snapshot stalled IDs first because applyEvent replaces this.state,
+    //     invalidating any live Map iterator.
+    const stallTimeoutMs = this.config.agent.stallTimeoutMs;
+    if (stallTimeoutMs > 0) {
+      const stalledIds: string[] = [];
+      for (const [runId, runEntry] of this.state.running) {
+        const lastTs = runEntry.session?.lastTimestamp;
+        if (!lastTs) continue; // No events yet — still initializing
+        const silentMs = nowMs - new Date(lastTs).getTime();
+        if (silentMs >= stallTimeoutMs) {
+          stalledIds.push(runId);
+        }
+      }
+      for (const runId of stalledIds) {
+        // Re-read from current state — a prior stall may have already removed this entry
+        const runEntry = this.state.running.get(runId);
+        if (!runEntry) continue;
+        this.logger.warn(
+          `Agent stalled for ${runEntry.identifier}: ${Math.round((nowMs - new Date(runEntry.session?.lastTimestamp ?? 0).getTime()) / 1000)}s since last event`,
+          { issueId: runId }
+        );
+        const stallEvent: OrchestratorEvent = {
+          type: 'stall_detected',
+          issueId: runId,
+        };
+        const stallResult = applyEvent(this.state, stallEvent, this.config);
+        this.state = stallResult.nextState;
+        for (const eff of stallResult.effects) {
+          await this.handleEffect(eff);
+        }
+      }
     }
 
     // 7. Sweep expired stream recordings
@@ -680,9 +758,6 @@ export class Orchestrator extends EventEmitter {
    */
   private async handleEffect(effect: SideEffect): Promise<void> {
     switch (effect.type) {
-      case 'dispatch':
-        await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
-        break;
       case 'stop':
         await this.stopIssue(effect.issueId);
         break;
@@ -694,6 +769,13 @@ export class Orchestrator extends EventEmitter {
         break;
       case 'releaseClaim':
         // Pure state update
+        break;
+      case 'scheduleRetry':
+        // Retry entry is already stored in state by the state machine;
+        // the orchestrator polls dueAtMs on each tick. Log for observability.
+        this.logger.info(
+          `Retry scheduled for ${effect.issueId} (attempt ${effect.attempt}, delay ${effect.delayMs}ms)`
+        );
         break;
       case 'cleanWorkspace':
         await this.cleanWorkspaceWithGuard(effect.identifier, effect.issueId);
@@ -723,6 +805,7 @@ export class Orchestrator extends EventEmitter {
           `Branch "${branch}" not found on remote for ${identifier}, cleaning up worktree`,
           { issueId }
         );
+        await this.runBeforeRemoveHook(identifier);
         await this.workspace.removeWorkspace(identifier);
         return;
       }
@@ -761,7 +844,17 @@ export class Orchestrator extends EventEmitter {
         return;
       }
     }
+    await this.runBeforeRemoveHook(identifier);
     await this.workspace.removeWorkspace(identifier);
+  }
+
+  /** Run the beforeRemove hook for a workspace. Failures are logged but non-fatal. */
+  private async runBeforeRemoveHook(identifier: string): Promise<void> {
+    const wsPath = this.workspace.resolvePath(identifier);
+    const result = await this.hooks.beforeRemove(wsPath);
+    if (!result.ok) {
+      this.logger.warn(`beforeRemove hook failed for ${identifier}: ${result.error.message}`);
+    }
   }
 
   /**
@@ -959,8 +1052,12 @@ export class Orchestrator extends EventEmitter {
       if (!result.ok) {
         this.logger.warn(`Lifecycle comment failed for ${identifier}: ${result.error.message}`);
       }
-    } catch {
-      // Best-effort: never block the caller
+    } catch (err) {
+      // Best-effort: never block the caller, but log for diagnostics
+      this.logger.debug('Lifecycle comment failed (best-effort)', {
+        identifier,
+        error: String(err),
+      });
     }
   }
 
@@ -984,6 +1081,14 @@ export class Orchestrator extends EventEmitter {
       const workspaceResult = await this.workspace.ensureWorkspace(issue.identifier);
       if (!workspaceResult.ok) throw workspaceResult.error;
       const workspacePath = workspaceResult.value;
+
+      // 1b. Run afterCreate hook (workspace just created/recreated)
+      const afterCreateResult = await this.hooks.afterCreate(workspacePath);
+      if (!afterCreateResult.ok) {
+        this.logger.warn(
+          `afterCreate hook failed for ${issue.identifier}: ${afterCreateResult.error.message}`
+        );
+      }
 
       // 2. Run hooks (might generate/modify config files)
       const hookResult = await this.hooks.beforeRun(workspacePath);
@@ -1131,21 +1236,64 @@ export class Orchestrator extends EventEmitter {
   ): void {
     const activeRunner = runner ?? this.runner;
     this.logger.info(`Starting background task for ${issue.identifier}`);
+
+    // Create abort controller for this issue so stopIssue() can cancel it.
+    // PID starts null and is updated when the session reports agentPid.
+    const abortController = new AbortController();
+    this.abortControllers.set(issue.id, { controller: abortController, pid: null });
+
     (async () => {
       try {
         this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
         const sessionGen = activeRunner.runSession(issue, workspacePath, prompt);
         for await (const event of sessionGen) {
+          // Check if this issue was stopped via stopIssue()
+          if (abortController.signal.aborted) {
+            this.logger.info(`Agent session aborted for ${issue.identifier}`);
+            break;
+          }
+          // Propagate agent PID from session_started events so stopIssue can SIGTERM it
+          if (event.type === 'session_started' && event.content) {
+            const pid = (event.content as { pid?: number }).pid;
+            if (pid) {
+              const tracked = this.abortControllers.get(issue.id);
+              if (tracked) tracked.pid = pid;
+            }
+          }
           await this.processAgentEvent(issue, event);
           if (event.type === 'turn_start') {
             await this.awaitRateLimitClearance(issue.identifier);
           }
         }
         this.logger.info(`Session generator finished for ${issue.identifier}`);
-        await this.emitWorkerExit(issue.id, 'normal', attempt);
+        const afterRunResult = await this.hooks.afterRun(workspacePath);
+        if (!afterRunResult.ok) {
+          this.logger.warn(
+            `afterRun hook failed for ${issue.identifier}: ${afterRunResult.error.message}`
+          );
+        }
+        if (abortController.signal.aborted) {
+          // Only emit worker exit if the issue is still tracked in state.
+          // stall_detected already processes the state transition and effects —
+          // firing emitWorkerExit again would cause double-escalation.
+          if (this.state.running.has(issue.id)) {
+            await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
+          }
+        } else {
+          await this.emitWorkerExit(issue.id, 'normal', attempt);
+        }
       } catch (error) {
         this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });
+        // Best-effort afterRun even on failure
+        const afterRunResult = await this.hooks.afterRun(workspacePath);
+        if (!afterRunResult.ok) {
+          this.logger.warn(
+            `afterRun hook failed for ${issue.identifier}: ${afterRunResult.error.message}`
+          );
+        }
         await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
+      } finally {
+        this.abortControllers.delete(issue.id);
       }
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
@@ -1174,7 +1322,27 @@ export class Orchestrator extends EventEmitter {
    */
   private async stopIssue(issueId: string): Promise<void> {
     this.logger.info(`Stopping issue: ${issueId}`);
-    // Implementation for stopping active runs
+
+    const tracked = this.abortControllers.get(issueId);
+
+    // 1. Abort the background task generator loop
+    if (tracked) {
+      tracked.controller.abort();
+      this.logger.info(`Abort signal sent for ${issueId}`);
+    }
+
+    // 2. Kill the agent subprocess if we have a PID.
+    //    Read from tracked map (not running entry) because the state machine
+    //    may have already removed the running entry (e.g., stall_detected).
+    const pid = tracked?.pid ?? this.state.running.get(issueId)?.session?.agentPid;
+    if (pid) {
+      try {
+        process.kill(pid, 'SIGTERM');
+        this.logger.info(`Sent SIGTERM to agent PID ${pid} for ${issueId}`);
+      } catch {
+        // Process may have already exited — safe to ignore
+      }
+    }
   }
 
   /**

@@ -141,10 +141,12 @@ export function loadContentHashes(stateDir: string): ContentHashIndex {
   }
 }
 
-/** Save content hash index to sidecar file. */
+/** Save content hash index to sidecar file (atomic write). */
 export function saveContentHashes(stateDir: string, index: ContentHashIndex): void {
   const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
-  fs.writeFileSync(hashesPath, JSON.stringify(index, null, 2) + '\n');
+  const tmpPath = hashesPath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(index, null, 2) + '\n');
+  fs.renameSync(tmpPath, hashesPath);
 }
 
 /**

@@ -103,6 +103,12 @@ vi.mock('@harness-engineering/graph', () => ({
   ConfluenceConnector: class {
     name = 'confluence';
   },
+  FigmaConnector: class {
+    name = 'figma';
+  },
+  MiroConnector: class {
+    name = 'miro';
+  },
   createExtractionRunner: () => ({ run: mockExtractionRun }),
 }));
 
@@ -268,8 +274,8 @@ describe('runIngest', () => {
       expect(mockKnowledgeIngest).toHaveBeenCalled();
       expect(mockGitIngest).toHaveBeenCalled();
       expect(mockSyncAll).toHaveBeenCalled();
-      // 4 connectors registered
-      expect(mockRegisterConnector).toHaveBeenCalledTimes(4);
+      // 6 connectors registered (jira, slack, ci, confluence, figma, miro)
+      expect(mockRegisterConnector).toHaveBeenCalledTimes(6);
       expect(mockStore.save).toHaveBeenCalled();
       // Merged totals: 10+3+20+4+5 = 42 (code+knowledge+git+signals+connectors)
       expect(result.nodesAdded).toBe(42);

@@ -7,7 +7,12 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "jsx": "react-jsx"
   },
-  "references": [{ "path": "../types" }],
+  "references": [
+    { "path": "../types" },
+    { "path": "../core" },
+    { "path": "../graph" },
+    { "path": "../intelligence" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

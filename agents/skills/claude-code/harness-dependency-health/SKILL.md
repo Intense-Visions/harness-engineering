@@ -79,6 +79,8 @@ When no graph is available, use static analysis to approximate structural metric
 
 > Fallback completeness: ~60% — cannot compute transitive depth beyond what import parsing reveals; coupling metrics are approximate.
 
+6. **Detect structural anomalies**: Run `detect_anomalies` to identify structural irregularities (orphaned modules, unusual coupling patterns) that indicate dependency health issues.
+
 ### Phase 2: SCORE — Calculate Health Score
 
 Compute a weighted health score (0-100):
@@ -92,6 +94,8 @@ Compute a weighted health score (0-100):
 | Cohesion (avg)    | 15%    | >0.7 = 100, 0.5-0.7 = 70, <0.5 = 30       |
 
 **Grades**: A (90-100), B (75-89), C (60-74), D (40-59), F (<40)
+
+Check `get_decay_trends` to see how dependency health metrics have changed over time and whether current trends are improving or degrading.
 
 ### Phase 3: RECOMMEND — Generate Recommendations
 

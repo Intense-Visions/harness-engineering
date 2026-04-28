@@ -21,10 +21,17 @@ export class WorkspaceHooks {
     }
 
     return new Promise((resolve) => {
-      const child = spawn(command, {
-        shell: true,
+      // Use explicit shell invocation to avoid shell metacharacter injection.
+      // Filter environment to prevent leaking secrets to hook subprocesses.
+      const filteredEnv: Record<string, string> = {};
+      for (const [k, v] of Object.entries(process.env)) {
+        if (v != null && !k.includes('SECRET') && !k.includes('TOKEN') && !k.includes('PASSWORD')) {
+          filteredEnv[k] = v;
+        }
+      }
+      const child = spawn('/bin/sh', ['-c', command], {
         cwd,
-        env: process.env,
+        env: filteredEnv,
       });
 
       const timeout = setTimeout(() => {

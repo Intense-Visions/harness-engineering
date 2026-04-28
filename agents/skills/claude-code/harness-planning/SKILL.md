@@ -42,7 +42,7 @@ The skeleton pass is the primary rigor lever. Fast mode goes straight to full de
 
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
-1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>", include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"] })`. All handoff writes go to `{sessionDir}/handoff.json`.
 2. **Spec path:** If `spec-path` argument provided, read spec from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream brainstorming output) or prompt the user.
 3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
 
@@ -70,14 +70,16 @@ Work backward from the goal. Start with "what must be true when we are done?"
 
 Store the parsed skill list for use in Phase 2 task annotation.
 
-2. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
+2. **Review prior decisions.** Check `decisions` from the prior brainstorming session (loaded via `sessions` in gather_context). Do not re-decide what was already decided — build on those choices.
+
+3. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
    - BAD: "The API handles errors"
    - GOOD: "GET /api/users/nonexistent returns 404 with `{ error: 'User not found' }` body"
-3. **Derive required artifacts.** For each truth, what files must exist? What functions? What tests pass? List exact file paths.
-4. **Identify key links.** How do artifacts connect? What imports what? What calls what?
-5. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
+4. **Derive required artifacts.** For each truth, what files must exist? What functions? What tests pass? List exact file paths.
+5. **Identify key links.** How do artifacts connect? What imports what? What calls what?
+6. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
-6. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
+7. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
    - **Blocking:** Cannot decompose tasks without resolving this. Escalate to user.
    - **Assumption:** Can proceed with a stated assumption. Document it. If wrong, specific tasks will need revision.
    - **Deferrable:** Does not affect task decomposition. Note for execution phase.
@@ -91,7 +93,7 @@ Store the parsed skill list for use in Phase 2 task annotation.
    - [DEFERRABLE] Exact error message wording. (Can be finalized during implementation.)
    ```
 
-   **Read-only constraint:** Steps 1-5 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
+   **Read-only constraint:** Steps 1-6 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
 
    When scope is ambiguous, use `emit_interaction`:
 
@@ -161,8 +163,21 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 
 - `query_graph` — discover module dependencies for realistic task decomposition
 - `get_impact` — estimate which modules a feature touches
+- `compute_blast_radius` — simulate failure propagation from target files to understand scope
+- `predict_failures` — forecast which architectural constraints are at risk from planned changes, informing where extra test coverage or smaller tasks are needed
+- `detect_anomalies` — identify structural irregularities in the affected area before planning tasks around them
 
 Fall back to file-based commands if no graph is available.
+
+### Intelligence Signals (when orchestrator is available)
+
+If the orchestrator is running, request intelligence analysis via `POST /api/analyze` with the feature title/description before decomposing. The pipeline returns:
+
+- **SEL** (Spec Enrichment) — affected systems and blast radius derived from the graph
+- **CML** (Complexity Modeling) — structural, semantic, and historical complexity scores. Use `structuralComplexity > 0.7` to flag areas needing smaller, more cautious tasks.
+- **PESL** (Pre-Execution Simulation) — simulated risk score. Use `riskScore > 0.6` to add extra checkpoints or split risky tasks further.
+
+If no orchestrator, `predict_failures` and `compute_blast_radius` MCP tools provide equivalent directional signals.
 
 ---
 
@@ -174,11 +189,12 @@ Before decomposing into tasks, ensure domain knowledge from PRDs and specs is do
 
 2. **If gaps exist and `--fix` is appropriate,** run `harness knowledge-pipeline --fix --domain <feature-domain>` to materialize `docs/knowledge/{domain}/*.md` files from extracted findings. This creates the knowledge baseline from PRDs before any tasks are written.
 
-3. **Cross-check uncertainties against materialized knowledge:**
+3. **Cross-check uncertainties against materialized knowledge** (from `businessKnowledge` loaded in gather_context and freshly materialized docs):
    - Remove "assumptions" from the uncertainty list that are now documented facts in `docs/knowledge/`
    - Escalate if contradictions exist between PRDs and existing knowledge docs
+   - Use `business_fact` nodes from the graph context to validate domain assumptions
 
-4. **Reference materialized knowledge in Phase 2 task decomposition.** Tasks should reference specific knowledge docs they implement. Observable truths should map back to documented business rules.
+4. **Reference materialized knowledge in Phase 2 task decomposition.** Tasks should reference specific knowledge docs they implement. Observable truths should map back to documented business rules. Use the `businessKnowledge` context (domains, tags, documented facts) loaded in Phase 1 to ground task instructions in verified domain knowledge rather than assumptions.
 
 ---
 
@@ -236,11 +252,33 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    - `[checkpoint:decision]` — Pause, present options, wait for choice
    - `[checkpoint:human-action]` — Pause, instruct human on required action
 
+7. **Derive integration tasks from the spec's Integration Points section.** If the spec contains an Integration Points section, create tasks for each non-empty integration point. Skip subsections marked "None" — do not derive tasks from them. Integration tasks are normal plan tasks but tagged with `category: "integration"` in their description. They appear at the end of the task list, after all implementation tasks.
+
+   For each subsection of Integration Points, derive tasks:
+
+   | Integration Point                               | Example Derived Task                                                       |
+   | ----------------------------------------------- | -------------------------------------------------------------------------- |
+   | Entry Points: "New CLI command"                 | "Regenerate barrel exports. Verify new command appears in `_registry.ts`." |
+   | Registrations Required: "Skill at tier 2"       | "Add skill to tier list in `AGENTS.md`. Generate slash commands."          |
+   | Documentation Updates: "AGENTS.md capabilities" | "Update AGENTS.md to describe the feature."                                |
+   | Architectural Decisions: "ADR for approach X"   | "Write ADR `docs/knowledge/decisions/NNNN-<slug>.md`."                     |
+   | Knowledge Impact: "Domain concept Y"            | "Enrich knowledge graph with concept node."                                |
+
+   Integration tasks follow the same atomic task rules (2-5 minutes, exact file paths, exact code). Use the `**Category:** integration` tag in the task header, e.g.:
+
+   ```
+   ### Task N: Update AGENTS.md with new feature description
+
+   **Depends on:** Task N-1 | **Files:** `AGENTS.md` | **Category:** integration
+   ```
+
+   If the spec has no Integration Points section, skip this step.
+
 ---
 
 ### Phase 3: SEQUENCE — Order Tasks and Identify Dependencies
 
-1. **Order by dependency.** Types before implementations. Implementations before integrations. Tests alongside implementations (same task, TDD style).
+1. **Order by dependency.** Types before implementations. Implementations before integrations. Integration tasks (tagged `category: "integration"`) after all implementation tasks. Tests alongside implementations (same task, TDD style).
 2. **Identify parallel opportunities.** Tasks touching different subsystems with no shared state can be marked parallelizable.
 3. **Number tasks sequentially.** Use `Task 1`, `Task 2`, etc. Dependencies reference task numbers.
 4. **Estimate total time.** Sum 2-5 minutes per task. If total exceeds available time, identify a milestone boundary for pausing.
@@ -277,7 +315,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 ```markdown
 # Plan: <Feature Name>
 
-**Date:** YYYY-MM-DD | **Spec:** (if applicable) | **Tasks:** N | **Time:** N min
+**Date:** YYYY-MM-DD | **Spec:** (if applicable) | **Tasks:** N | **Time:** N min | **Integration Tier:** small | medium | large
 
 ## Goal
 
@@ -315,6 +353,18 @@ One sentence.
 [checkpoint:human-verify] ...
 ```
 
+### Integration Tier Heuristics
+
+When a spec contains an **Integration Points** section, set the plan's `integrationTier` field based on scope:
+
+| Tier       | Signal                                                               | Integration Requirements                                                 |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **small**  | Bug fix, config change, < 3 files, no new exports                    | Wiring checks only (defaults always run)                                 |
+| **medium** | New feature within existing package, new exports, 3-15 files         | Wiring + project updates (roadmap, changelog, graph enrichment)          |
+| **large**  | New package, new skill, new public API surface, architectural change | Wiring + project updates + knowledge materialization (ADRs, doc updates) |
+
+If the spec has no Integration Points section, omit the `integrationTier` field from the plan header.
+
 ## Session State
 
 | Section       | Read | Write | Purpose                                                           |
@@ -328,7 +378,7 @@ One sentence.
 
 **When to write:** Phase 1 — constraints and risks. Phase 2 — decisions about task structure. Phase 4 — resolve questions.
 
-**When to read:** Start of Phase 1 via `gather_context` with `include: ["sessions"]` to inherit brainstorming context.
+**When to read:** Start of Phase 1 via `gather_context` with `include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation"]` to inherit brainstorming context and load documented business knowledge.
 
 ## Evidence Requirements
 

@@ -15,11 +15,15 @@ const NAV_ITEMS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/roadmap', label: 'Roadmap' },
   { to: '/health', label: 'Health' },
+  { to: '/decay-trends', label: 'Decay Trends' },
+  { to: '/traceability', label: 'Traceability' },
   { to: '/graph', label: 'Graph' },
   { to: '/impact', label: 'Impact' },
   { to: '/orchestrator', label: 'Agents', end: true },
   { to: '/orchestrator/attention', label: 'Attention' },
   { to: '/orchestrator/analyze', label: 'Analyze' },
+  { to: '/orchestrator/maintenance', label: 'Maintenance' },
+  { to: '/orchestrator/streams', label: 'Streams' },
   { to: '/adoption', label: 'Adoption' },
 ] as const;
 

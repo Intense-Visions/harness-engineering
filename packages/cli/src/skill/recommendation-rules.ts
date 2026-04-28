@@ -5,8 +5,9 @@ import type { SkillAddress } from './schema.js';
  * `addresses` in their skill.yaml. Skill-declared addresses take precedence
  * over these fallback entries.
  *
- * Keys are skill names without the "harness-" prefix (matching index-builder
- * convention where skills are indexed by directory name).
+ * Keys use canonical short names (without "harness-" prefix). The lookup in
+ * recommendation-engine.ts normalizes skill names by stripping the prefix
+ * before consulting this map, so both "harness-tdd" and "tdd" resolve here.
  */
 export const FALLBACK_RULES: Record<string, SkillAddress[]> = {
   'enforce-architecture': [

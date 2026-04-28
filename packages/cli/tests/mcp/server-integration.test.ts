@@ -47,7 +47,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('compact');
     expect(names).toContain('detect_constraint_emergence');
     expect(names).toContain('get_security_trends');
-    expect(tools).toHaveLength(59);
+    expect(names).toContain('run_ci_checks');
+    expect(names).toContain('generate_blueprint');
+    expect(tools).toHaveLength(61);
   });
 
   it('all tool definitions have inputSchema', () => {

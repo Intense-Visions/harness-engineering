@@ -11,6 +11,11 @@ import { Orchestrator } from './pages/Orchestrator';
 import { Attention } from './pages/Attention';
 import { Analyze } from './pages/Analyze';
 import { Chat } from './pages/Chat';
+import { Adoption } from './pages/Adoption';
+import { Traceability } from './pages/Traceability';
+import { DecayTrends } from './pages/DecayTrends';
+import { Maintenance } from './pages/Maintenance';
+import { Streams } from './pages/Streams';
 import { ProjectPulseProvider } from './hooks/useProjectPulse';
 import './index.css';
 
@@ -31,6 +36,11 @@ if (root) {
               <Route path="/orchestrator/attention" element={<Attention />} />
               <Route path="/orchestrator/analyze" element={<Analyze />} />
               <Route path="/orchestrator/chat" element={<Chat />} />
+              <Route path="/orchestrator/maintenance" element={<Maintenance />} />
+              <Route path="/orchestrator/streams" element={<Streams />} />
+              <Route path="/adoption" element={<Adoption />} />
+              <Route path="/traceability" element={<Traceability />} />
+              <Route path="/decay-trends" element={<DecayTrends />} />
             </Routes>
           </Layout>
         </BrowserRouter>

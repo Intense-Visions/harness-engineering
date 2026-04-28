@@ -110,7 +110,11 @@ git diff HEAD~5
 
 What changed recently? Many bugs are caused by the most recent change. Compare the failing state to the last known working state.
 
-#### Step 5: Trace Data Flow Backward
+#### Step 5: Explore Code Structure
+
+Use `code_outline` to get a structural overview of suspect modules (functions, classes, exports) without reading full source. Use `code_search` to locate symbol usages, error strings, or patterns across the codebase. Use `code_unfold` to expand a specific symbol to its full implementation with dependency context. These tools let you navigate efficiently without reading entire files.
+
+#### Step 6: Trace Data Flow Backward
 
 Start at the error location and trace backward:
 
@@ -148,6 +152,10 @@ Look for:
 - Test fixtures that exercise the same code path
 - Documentation or comments that describe expected behavior
 ```
+
+#### Step 1b: Run Anomaly Detection
+
+Run `detect_anomalies` to identify structural irregularities (orphaned files, missing tests, unusual coupling) that may relate to the bug. Anomalies near the failure site often point to the root cause.
 
 #### Step 2: Read Reference Implementations Completely
 
@@ -306,6 +314,10 @@ Update the session status to `resolved`.
 - **`harness validate`** — Run in Phase 4 VERIFY after applying the fix. Confirms the fix does not break project-wide constraints.
 - **`harness check-deps`** — Run in Phase 4 VERIFY. Confirms the fix does not introduce dependency violations.
 - **`harness state learn`** — Run after resolution to capture learnings for future sessions.
+- **`code_outline`** — Use in Phase 1 INVESTIGATE to get a structural overview of suspect modules without reading full source.
+- **`code_search`** — Use in Phase 1 INVESTIGATE to locate symbol usages, error strings, or patterns across the codebase.
+- **`code_unfold`** — Use in Phase 1 INVESTIGATE to expand a specific symbol to its full implementation with dependency context.
+- **`detect_anomalies`** — Run in Phase 2 ANALYZE to identify structural irregularities (orphaned files, missing tests, unusual coupling) near the failure site.
 - **Debug session files** — Stored in `.harness/debug/active/` (in progress) and `.harness/debug/resolved/` (completed). These persist across context resets.
 
 ## Success Criteria

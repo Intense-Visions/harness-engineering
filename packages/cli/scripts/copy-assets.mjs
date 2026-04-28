@@ -16,11 +16,13 @@ const assets = [
 
 await mkdir(resolve(root, 'dist'), { recursive: true });
 
-/** Skip node_modules and agents/commands directories */
+/** Skip node_modules, agents/commands, and TypeScript source files in hooks */
 const filter = (src) => {
   const name = basename(src);
   if (name === 'node_modules') return false;
   if (name === 'commands' && src.includes('agents')) return false;
+  // Exclude .ts source files from hooks — only .js scripts should be copied
+  if (src.endsWith('.ts') && !src.endsWith('.d.ts') && src.includes('hooks')) return false;
   return true;
 };
 

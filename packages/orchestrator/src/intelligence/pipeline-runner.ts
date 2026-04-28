@@ -4,7 +4,9 @@ import type {
   EnrichedSpec,
   SimulationResult,
   ComplexityScore,
+  WeightedRecommendation,
 } from '@harness-engineering/intelligence';
+import { weightedRecommendPersona, refreshProfiles } from '@harness-engineering/intelligence';
 import {
   GitHubIssuesSyncAdapter,
   loadTrackerSyncConfig,
@@ -62,6 +64,7 @@ export class IntelligencePipelineRunner {
 
     await this.loadGraphStore();
     await this.hydrateSpecCache();
+    this.refreshSpecializationProfiles();
   }
 
   /**
@@ -76,6 +79,7 @@ export class IntelligencePipelineRunner {
     enrichedSpecs: Map<string, EnrichedSpec>;
     complexityScores: Map<string, ComplexityScore>;
     simulationResults: Map<string, SimulationResult>;
+    personaRecommendations: Map<string, WeightedRecommendation[]>;
   }> {
     const concernSignals = new Map<string, ConcernSignal[]>();
     const enrichedSpecs = new Map<string, EnrichedSpec>();
@@ -134,12 +138,45 @@ export class IntelligencePipelineRunner {
       this.ctx.logger.warn('Auto-publish analyses failed', { error: String(err) });
     }
 
-    return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
+    // Refresh specialization profiles after archiving (new outcomes may exist)
+    this.refreshSpecializationProfiles();
+
+    // Persona scoring via specialization (non-fatal)
+    setTickActivity('analyzing', 'Scoring persona recommendations');
+    const personaRecommendations = this.computePersonaRecommendations(candidates);
+
+    return {
+      concernSignals,
+      enrichedSpecs,
+      complexityScores,
+      simulationResults,
+      personaRecommendations,
+    };
   }
 
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Refresh specialization profiles from the graph store. This recomputes
+   * expertise scores for all personas with execution_outcome nodes and
+   * persists them to .harness/specialization-profiles.json. Non-fatal.
+   */
+  private refreshSpecializationProfiles(): void {
+    if (!this.ctx.graphStore) return;
+    try {
+      const store = refreshProfiles(this.ctx.projectRoot, this.ctx.graphStore);
+      const personaCount = Object.keys(store.profiles).length;
+      if (personaCount > 0) {
+        this.ctx.logger.info(`Refreshed specialization profiles for ${personaCount} persona(s)`);
+      }
+    } catch (err) {
+      this.ctx.logger.warn('Failed to refresh specialization profiles', {
+        error: String(err),
+      });
+    }
+  }
 
   private async loadGraphStore(): Promise<void> {
     try {
@@ -356,7 +393,23 @@ export class IntelligencePipelineRunner {
     const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
     try {
       const result = await this.ctx.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
-      if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
+      // Augment concern signals with SEL unknowns/ambiguities when thresholds are exceeded
+      const signals = [...result.signals];
+      if (result.spec) {
+        if (result.spec.unknowns.length > 3) {
+          signals.push({
+            name: 'high-unknowns',
+            reason: `Enriched spec has ${result.spec.unknowns.length} unknowns (threshold: 3)`,
+          });
+        }
+        if (result.spec.ambiguities.length > 5) {
+          signals.push({
+            name: 'high-ambiguities',
+            reason: `Enriched spec has ${result.spec.ambiguities.length} ambiguities (threshold: 5)`,
+          });
+        }
+      }
+      if (signals.length > 0) concernSignals.set(issue.id, signals);
       if (result.spec) {
         enrichedSpecs.set(issue.id, result.spec);
         this.ctx.enrichedSpecsByIssue.set(issue.id, result.spec);
@@ -409,6 +462,40 @@ export class IntelligencePipelineRunner {
       if (this.ctx.enrichedSpecsByIssue.has(issue.id)) return false;
       return true;
     });
+  }
+
+  /**
+   * Compute persona recommendations for each candidate using the specialization
+   * scorer. Extracts system node IDs from issue labels prefixed with `system:`
+   * or `module:`. Failures are non-fatal — returns an empty map on error.
+   */
+  private computePersonaRecommendations(
+    candidates: Issue[]
+  ): Map<string, WeightedRecommendation[]> {
+    const results = new Map<string, WeightedRecommendation[]>();
+    if (!this.ctx.graphStore) return results;
+
+    try {
+      for (const issue of candidates) {
+        const systemNodeIds = issue.labels
+          .filter((l) => l.startsWith('system:') || l.startsWith('module:'))
+          .map((l) => l.split(':')[1]!)
+          .filter((id) => id.length > 0);
+
+        if (systemNodeIds.length === 0) continue;
+
+        const recs = weightedRecommendPersona(this.ctx.graphStore, { systemNodeIds });
+        if (recs.length > 0) {
+          results.set(issue.id, recs);
+        }
+      }
+    } catch (err) {
+      this.ctx.logger.warn('Persona recommendation scoring failed', {
+        error: String(err),
+      });
+    }
+
+    return results;
   }
 
   private async analyzeCandidates(
