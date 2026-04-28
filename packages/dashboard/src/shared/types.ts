@@ -42,7 +42,7 @@ export interface MilestoneProgress {
   backlog: number;
 }
 
-/** Projected feature for API consumption — excludes filesystem paths */
+/** Projected feature for API consumption */
 export interface DashboardFeature {
   name: string;
   status: FeatureStatus;
@@ -51,12 +51,29 @@ export interface DashboardFeature {
   blockedBy: string[];
   assignee: string | null;
   priority: string | null;
+  /** Relative path to spec file, or null */
+  spec: string | null;
+  /** Relative paths to plan files */
+  plans: string[];
+  /** External tracker ID (e.g. "github:owner/repo#42"), or null */
+  externalId: string | null;
+  /** ISO timestamp of last update, or null */
+  updatedAt: string | null;
+}
+
+/** Assignment history record */
+export interface DashboardAssignmentRecord {
+  feature: string;
+  assignee: string;
+  action: 'assigned' | 'completed' | 'unassigned';
+  date: string;
 }
 
 /** Roadmap gatherer result */
 export interface RoadmapData {
   milestones: MilestoneProgress[];
   features: DashboardFeature[];
+  assignmentHistory: DashboardAssignmentRecord[];
   totalFeatures: number;
   totalDone: number;
   totalInProgress: number;
@@ -71,6 +88,32 @@ export interface RoadmapError {
 }
 
 export type RoadmapResult = RoadmapData | RoadmapError;
+
+// --- Claim types ---
+
+/** POST /api/actions/roadmap/claim request body */
+export interface ClaimRequest {
+  feature: string;
+  assignee: string;
+}
+
+/** POST /api/actions/roadmap/claim response body */
+export interface ClaimResponse {
+  ok: boolean;
+  feature: string;
+  status: 'in-progress';
+  assignee: string;
+  workflow: 'brainstorming' | 'planning' | 'execution';
+  githubSynced: boolean;
+}
+
+// --- Identity types ---
+
+/** GET /api/identity response body */
+export interface IdentityResponse {
+  username: string;
+  source: 'github-api' | 'gh-cli' | 'git-config';
+}
 
 // --- Health types ---
 

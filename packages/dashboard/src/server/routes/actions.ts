@@ -2,12 +2,15 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
+import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
+import { resolveIdentity } from '../identity';
 import { gatherSecurity } from '../gather/security';
 import { gatherPerf } from '../gather/perf';
 import { gatherArch } from '../gather/arch';
 import { gatherAnomalies } from '../gather/anomalies';
-import type { ChecksData, SSEEvent } from '../../shared/types';
+import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
 
 // --- Finding 3: File lock to prevent TOCTOU races ---
 const fileLocks = new Map<string, Promise<void>>();
@@ -279,11 +282,133 @@ async function handleRefreshChecks(c: Context, ctx: ServerContext): Promise<Resp
   return c.json({ ok: true, checks: checksData });
 }
 
+type ClaimWorkflow = 'brainstorming' | 'planning' | 'execution';
+
+function detectWorkflow(spec: string | null, plans: string[]): ClaimWorkflow {
+  if (!spec || spec === 'none' || spec === '\u2014') return 'brainstorming';
+  if (!plans || plans.length === 0 || (plans.length === 1 && plans[0] === '\u2014'))
+    return 'planning';
+  return 'execution';
+}
+
+function findFeature(roadmap: Roadmap, name: string): RoadmapFeature | undefined {
+  for (const m of roadmap.milestones) {
+    for (const f of m.features) {
+      if (f.name === name) return f;
+    }
+  }
+  return undefined;
+}
+
+function validateClaimable(feat: RoadmapFeature): string | null {
+  if (feat.status !== 'planned' && feat.status !== 'backlog') {
+    return `Feature '${feat.name}' is not claimable (status: ${feat.status})`;
+  }
+  if (feat.assignee && feat.assignee !== '\u2014') {
+    return `Feature '${feat.name}' is already assigned to ${feat.assignee}`;
+  }
+  return null;
+}
+
+function applyClaimToRoadmap(
+  roadmap: Roadmap,
+  feat: RoadmapFeature,
+  assignee: string
+): ClaimWorkflow {
+  const workflow = detectWorkflow(feat.spec, feat.plans);
+  const now = new Date().toISOString();
+  feat.status = 'in-progress';
+  feat.assignee = assignee;
+  feat.updatedAt = now;
+  roadmap.assignmentHistory.push({
+    feature: feat.name,
+    assignee,
+    action: 'assigned',
+    date: now.split('T')[0]!,
+  });
+  roadmap.frontmatter.lastManualEdit = now;
+  return workflow;
+}
+
+async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
+  const body = await c.req.json<ClaimRequest>();
+  const { feature, assignee } = body;
+  if (!feature || !assignee) {
+    return c.json({ error: 'feature and assignee are required' }, 400);
+  }
+
+  let result: Response | undefined;
+
+  await withFileLock(ctx.roadmapPath, async () => {
+    let content: string;
+    try {
+      content = await readFile(ctx.roadmapPath, 'utf-8');
+    } catch {
+      result = c.json({ error: 'Could not read roadmap file' }, 500);
+      return;
+    }
+
+    const parsed = parseRoadmap(content);
+    if (!parsed.ok) {
+      result = c.json({ error: 'Failed to parse roadmap' }, 500);
+      return;
+    }
+
+    const roadmap = parsed.value;
+    const feat = findFeature(roadmap, feature);
+    if (!feat) {
+      result = c.json({ error: `Feature '${feature}' not found` }, 404);
+      return;
+    }
+
+    const validationError = validateClaimable(feat);
+    if (validationError) {
+      result = c.json({ error: validationError }, 409);
+      return;
+    }
+
+    const workflow = applyClaimToRoadmap(roadmap, feat, assignee);
+
+    try {
+      await writeFile(ctx.roadmapPath, serializeRoadmap(roadmap), 'utf-8');
+    } catch {
+      result = c.json({ error: 'Could not write roadmap file' }, 500);
+      return;
+    }
+
+    ctx.cache.invalidate('roadmap');
+    ctx.cache.invalidate('overview');
+
+    const response: ClaimResponse = {
+      ok: true,
+      feature,
+      status: 'in-progress',
+      assignee,
+      workflow,
+      githubSynced: false,
+    };
+
+    result = c.json(response);
+  });
+
+  return result!;
+}
+
+async function handleIdentity(c: Context): Promise<Response> {
+  const identity = await resolveIdentity();
+  if (!identity) {
+    return c.json({ error: 'Could not resolve GitHub identity' }, 503);
+  }
+  return c.json(identity);
+}
+
 export function buildActionsRouter(ctx: ServerContext): Hono {
   const router = new Hono();
   router.post('/actions/roadmap-status', (c) => handleRoadmapStatus(c, ctx));
+  router.post('/actions/roadmap/claim', (c) => handleClaim(c, ctx));
   router.post('/actions/validate', (c) => handleValidate(c, ctx));
   router.post('/actions/regen-charts', (c) => handleRegenCharts(c, ctx));
   router.post('/actions/refresh-checks', (c) => handleRefreshChecks(c, ctx));
+  router.get('/identity', (c) => handleIdentity(c));
   return router;
 }

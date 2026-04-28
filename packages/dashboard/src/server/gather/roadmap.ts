@@ -4,6 +4,7 @@ import type {
   RoadmapResult,
   MilestoneProgress,
   DashboardFeature,
+  DashboardAssignmentRecord,
   FeatureStatus,
 } from '../../shared/types';
 
@@ -24,10 +25,19 @@ export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult>
     const allFeatures = projectFeatures(roadmap.milestones);
     const milestones = buildMilestoneProgress(roadmap.milestones);
     const totals = countByStatus(allFeatures.map((f) => f.status));
+    const assignmentHistory: DashboardAssignmentRecord[] = (roadmap.assignmentHistory ?? []).map(
+      (r) => ({
+        feature: r.feature,
+        assignee: r.assignee,
+        action: r.action,
+        date: r.date,
+      })
+    );
 
     return {
       milestones,
       features: allFeatures,
+      assignmentHistory,
       totalFeatures: allFeatures.length,
       totalDone: totals.done,
       totalInProgress: totals.inProgress,
@@ -51,6 +61,10 @@ function projectFeatures(
       blockedBy: string[];
       assignee?: string | null;
       priority?: string | null;
+      spec?: string | null;
+      plans?: string[];
+      externalId?: string | null;
+      updatedAt?: string | null;
     }[];
   }[]
 ): DashboardFeature[] {
@@ -63,6 +77,10 @@ function projectFeatures(
       blockedBy: f.blockedBy,
       assignee: f.assignee ?? null,
       priority: f.priority ?? null,
+      spec: f.spec ?? null,
+      plans: f.plans ?? [],
+      externalId: f.externalId ?? null,
+      updatedAt: f.updatedAt ?? null,
     }))
   );
 }
