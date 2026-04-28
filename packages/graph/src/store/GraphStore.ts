@@ -220,9 +220,17 @@ export class GraphStore {
   }
 
   async load(dirPath: string): Promise<boolean> {
-    const data = await loadGraph(dirPath);
-    if (!data) return false;
+    const result = await loadGraph(dirPath);
+    if (result.status === 'not_found') return false;
+    if (result.status === 'schema_mismatch') {
+      console.warn(
+        `[graph] Schema version mismatch: graph was saved with v${result.found} but current is v${result.expected}. ` +
+          'Graph will be rebuilt from scratch. Run `harness graph scan` to repopulate.'
+      );
+      return false;
+    }
 
+    const data = result.graph;
     this.clear();
     for (const node of data.nodes) {
       this.nodeMap.set(node.id, { ...node });

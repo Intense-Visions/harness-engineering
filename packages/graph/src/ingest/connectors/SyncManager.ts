@@ -79,7 +79,9 @@ export class SyncManager {
       combined.durationMs += result.durationMs;
     }
 
-    // Post-sync: run KnowledgeLinker to extract business knowledge
+    // Post-sync: run KnowledgeLinker once over the full graph to extract
+    // business knowledge. Running it here (not per-connector) avoids O(N*C)
+    // redundant scanning and inflated nodesAdded counts.
     try {
       const linker = new KnowledgeLinker(this.store);
       const linkResult = await linker.link();

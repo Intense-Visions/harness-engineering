@@ -111,6 +111,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'dispatch_skills',
   'compact',
   'detect_constraint_emergence',
+  'run_ci_checks',
+  'generate_blueprint',
 ];
 
 /**
@@ -305,7 +307,7 @@ function printMcpResult(configured: string[], skipped: string[], trustedFolder: 
     `  - ${ALL_MCP_TOOLS.length} tools for validation, entropy detection, skill execution, graph querying, and more`
   );
   console.log(
-    '  - 8 resources for project context, skills, rules, learnings, state, and graph data'
+    '  - 9 resources for project context, skills, rules, learnings, state, graph, and business knowledge data'
   );
   console.log('');
   console.log(`Run ${chalk.cyan('harness skill list')} to see available skills.`);

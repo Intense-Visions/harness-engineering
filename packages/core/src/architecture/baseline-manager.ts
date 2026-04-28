@@ -40,6 +40,11 @@ export class ArchBaselineManager {
       }
     }
 
+    // Deduplicate violationIds per category
+    for (const baseline of Object.values(metrics)) {
+      baseline.violationIds = [...new Set(baseline.violationIds)];
+    }
+
     return {
       version: 1,
       updatedAt: new Date().toISOString(),

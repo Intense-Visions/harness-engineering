@@ -115,7 +115,7 @@ export async function handleDispatchSkills(
         const index = loadOrRebuildIndex('claude-code', projectRoot);
         skillTriggers = new Map<string, string[]>();
         for (const [name, entry] of Object.entries(index.skills)) {
-          skillTriggers.set(name, (entry as { triggers?: string[] }).triggers ?? ['manual']);
+          skillTriggers.set(name, entry.triggers ?? ['manual']);
         }
       } catch {
         // Index unavailable — skip trigger filtering

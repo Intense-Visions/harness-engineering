@@ -73,7 +73,12 @@ export function buildSkillAddressIndex(
 
   // First, add all skills from the skills index
   for (const [name, entry] of Object.entries(skills)) {
-    const addresses = entry.addresses.length > 0 ? entry.addresses : (FALLBACK_RULES[name] ?? []);
+    // Normalize name: strip harness- prefix to match canonical FALLBACK_RULES keys
+    const canonicalName = name.replace(/^harness-/, '');
+    const addresses =
+      entry.addresses.length > 0
+        ? entry.addresses
+        : (FALLBACK_RULES[name] ?? FALLBACK_RULES[canonicalName] ?? []);
     index.set(name, { addresses, dependsOn: entry.dependsOn });
   }
 

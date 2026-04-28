@@ -54,6 +54,14 @@
     "yaml": "^2.8.3",
     "zod": "^3.25.76"
   },
+  "peerDependencies": {
+    "@harness-engineering/intelligence": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@harness-engineering/intelligence": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^22.19.15",
     "@types/semver": "^7.7.1",

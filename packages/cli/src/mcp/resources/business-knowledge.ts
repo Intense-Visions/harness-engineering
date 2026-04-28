@@ -74,14 +74,14 @@ function parseFrontmatter(raw: string): {
   frontmatter: { type: string; domain: string; tags?: string[] };
   body: string;
 } | null {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) return null;
 
   const yamlBlock = match[1]!;
   const body = match[2]!;
 
   const fm: Record<string, unknown> = {};
-  for (const line of yamlBlock.split('\n')) {
+  for (const line of yamlBlock.split(/\r?\n/)) {
     const kvMatch = line.match(/^(\w+):\s*(.+)$/);
     if (!kvMatch) continue;
     const key = kvMatch[1]!;

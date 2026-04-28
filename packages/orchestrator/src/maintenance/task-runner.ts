@@ -216,8 +216,9 @@ export class TaskRunner {
         const prResult = await this.prManager.ensurePR(task, summary);
         prUrl = prResult.prUrl;
         prUpdated = prResult.prUpdated;
-      } catch {
-        // PR creation failed but agent work is preserved on branch — swallow to avoid discarding results
+      } catch (err) {
+        // PR creation failed but agent work is preserved on branch
+        console.warn(`[maintenance] PR creation failed for task ${task.id}: ${String(err)}`);
       }
     }
 
@@ -273,8 +274,9 @@ export class TaskRunner {
         const prResult = await this.prManager.ensurePR(task, summary);
         prUrl = prResult.prUrl;
         prUpdated = prResult.prUpdated;
-      } catch {
-        // PR creation failed but agent work is preserved on branch — swallow to avoid discarding results
+      } catch (err) {
+        // PR creation failed but agent work is preserved on branch
+        console.warn(`[maintenance] PR creation failed for task ${task.id}: ${String(err)}`);
       }
     }
 

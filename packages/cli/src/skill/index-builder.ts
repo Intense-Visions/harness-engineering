@@ -19,6 +19,7 @@ export interface SkillIndexEntry {
   source: 'bundled' | 'community' | 'project';
   addresses: SkillAddress[];
   dependsOn: string[];
+  triggers: string[];
   contextBudget?: { maxTokens: number; priority: number };
 }
 
@@ -80,6 +81,7 @@ function parseSkillEntry(
     source,
     addresses: meta.addresses ?? [],
     dependsOn: meta.depends_on ?? [],
+    triggers: meta.triggers ?? ['manual'],
     ...(meta.context_budget && {
       contextBudget: {
         maxTokens: meta.context_budget.max_tokens,

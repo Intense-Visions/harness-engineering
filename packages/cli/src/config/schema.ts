@@ -361,6 +361,13 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
+  /** Graph ingest and connector settings */
+  graph: z
+    .object({
+      /** Per-connector configuration (keyed by connector name: jira, slack, ci, confluence, figma, miro) */
+      connectors: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    })
+    .optional(),
 });
 
 /**

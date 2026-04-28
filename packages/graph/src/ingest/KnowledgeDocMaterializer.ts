@@ -120,7 +120,7 @@ export class KnowledgeDocMaterializer {
     }
 
     const domain = this.inferDomain(node);
-    if (!domain) {
+    if (!domain || /[/\\]|\.\.|\0/.test(domain)) {
       return { nodeId: entry.nodeId, name: entry.name, reason: 'no_domain' };
     }
 
@@ -154,6 +154,14 @@ export class KnowledgeDocMaterializer {
 
       const srcMatch = node.path.match(/^src\/([^/]+)/);
       if (srcMatch) return srcMatch[1]!;
+    }
+
+    // KnowledgeLinker-produced facts have metadata.source but no path —
+    // derive domain from connectorName or fall back to 'general'
+    if (node.metadata?.source === 'knowledge-linker' || node.metadata?.source === 'connector') {
+      const connector = node.metadata.connectorName;
+      if (typeof connector === 'string') return connector;
+      return 'general';
     }
 
     return null;
@@ -196,21 +204,23 @@ export class KnowledgeDocMaterializer {
 
   formatDoc(node: GraphNode, domain: string): string {
     const mappedType = this.mapNodeType(node);
-    const lines: string[] = ['---', `type: ${mappedType}`, `domain: ${domain}`];
+    const sanitize = (s: string) => s.replace(/[\n\r]/g, ' ').replace(/:/g, '-');
+    const lines: string[] = ['---', `type: ${sanitize(mappedType)}`, `domain: ${sanitize(domain)}`];
 
-    // Tags
+    // Tags — sanitize each element to prevent YAML injection
     const tags = node.metadata?.tags;
     if (Array.isArray(tags) && tags.length > 0) {
-      lines.push(`tags: [${tags.join(', ')}]`);
+      lines.push(`tags: [${tags.map((t: string) => sanitize(String(t))).join(', ')}]`);
     }
 
-    // Related
+    // Related — sanitize each element
     const related = node.metadata?.related;
     if (Array.isArray(related) && related.length > 0) {
-      lines.push(`related: [${related.join(', ')}]`);
+      lines.push(`related: [${related.map((r: string) => sanitize(String(r))).join(', ')}]`);
     }
 
-    lines.push('---', '', `# ${node.name}`, '', node.content ?? '', '');
+    const title = (node.name ?? '').replace(/[\n\r]/g, ' ');
+    lines.push('---', '', `# ${title}`, '', node.content ?? '', '');
 
     return lines.join('\n');
   }

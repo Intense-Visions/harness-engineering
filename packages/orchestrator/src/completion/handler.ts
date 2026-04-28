@@ -74,12 +74,34 @@ export class CompletionHandler {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Infer a TaskType from issue labels.
+   * Looks for common label patterns: bug/bugfix → 'bugfix', feat/feature → 'feature', etc.
+   */
+  private inferTaskType(labels: string[]): ExecutionOutcome['taskType'] {
+    const joined = labels.map((l) => l.toLowerCase()).join(' ');
+    if (/\bbug(fix)?\b/.test(joined)) return 'bugfix';
+    if (/\bfeat(ure)?\b/.test(joined)) return 'feature';
+    if (/\brefactor\b/.test(joined)) return 'refactor';
+    if (/\bdoc(s|umentation)?\b/.test(joined)) return 'docs';
+    if (/\btest(s|ing)?\b/.test(joined)) return 'test';
+    if (/\bchore\b/.test(joined)) return 'chore';
+    return undefined;
+  }
+
   private async recordOutcomeIfPipelineEnabled(
     issueId: string,
     reason: 'normal' | 'error',
     attempt: number | null,
     error: string | undefined,
-    entry: { identifier: string; startedAt: string } | undefined
+    entry:
+      | {
+          identifier: string;
+          startedAt: string;
+          session?: { backendName?: string };
+          issue?: { labels?: string[] };
+        }
+      | undefined
   ): Promise<void> {
     if (!this.ctx.pipeline) return;
 
@@ -89,6 +111,14 @@ export class CompletionHandler {
           .filter((s) => s.graphNodeId !== null)
           .map((s) => s.graphNodeId!)
       : [];
+
+    // Derive agentPersona from the already-captured entry (avoids re-fetching
+    // from state which may have been mutated by handleCompletionSideEffects)
+    const agentPersona = entry?.session?.backendName ?? this.ctx.config.agent.backend ?? 'default';
+
+    // Derive taskType from issue labels
+    const labels = entry?.issue?.labels ?? [];
+    const taskType = this.inferTaskType(labels);
 
     const outcome: ExecutionOutcome = {
       id: `outcome:${issueId}:${attempt ?? 0}`,
@@ -101,6 +131,8 @@ export class CompletionHandler {
       linkedSpecId: enrichedSpec?.id ?? null,
       affectedSystemNodeIds,
       timestamp: new Date().toISOString(),
+      agentPersona,
+      ...(taskType ? { taskType } : {}),
     };
 
     try {

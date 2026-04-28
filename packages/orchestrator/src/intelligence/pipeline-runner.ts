@@ -6,7 +6,7 @@ import type {
   ComplexityScore,
   WeightedRecommendation,
 } from '@harness-engineering/intelligence';
-import { weightedRecommendPersona } from '@harness-engineering/intelligence';
+import { weightedRecommendPersona, refreshProfiles } from '@harness-engineering/intelligence';
 import {
   GitHubIssuesSyncAdapter,
   loadTrackerSyncConfig,
@@ -64,6 +64,7 @@ export class IntelligencePipelineRunner {
 
     await this.loadGraphStore();
     await this.hydrateSpecCache();
+    this.refreshSpecializationProfiles();
   }
 
   /**
@@ -137,6 +138,9 @@ export class IntelligencePipelineRunner {
       this.ctx.logger.warn('Auto-publish analyses failed', { error: String(err) });
     }
 
+    // Refresh specialization profiles after archiving (new outcomes may exist)
+    this.refreshSpecializationProfiles();
+
     // Persona scoring via specialization (non-fatal)
     setTickActivity('analyzing', 'Scoring persona recommendations');
     const personaRecommendations = this.computePersonaRecommendations(candidates);
@@ -153,6 +157,26 @@ export class IntelligencePipelineRunner {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Refresh specialization profiles from the graph store. This recomputes
+   * expertise scores for all personas with execution_outcome nodes and
+   * persists them to .harness/specialization-profiles.json. Non-fatal.
+   */
+  private refreshSpecializationProfiles(): void {
+    if (!this.ctx.graphStore) return;
+    try {
+      const store = refreshProfiles(this.ctx.projectRoot, this.ctx.graphStore);
+      const personaCount = Object.keys(store.profiles).length;
+      if (personaCount > 0) {
+        this.ctx.logger.info(`Refreshed specialization profiles for ${personaCount} persona(s)`);
+      }
+    } catch (err) {
+      this.ctx.logger.warn('Failed to refresh specialization profiles', {
+        error: String(err),
+      });
+    }
+  }
 
   private async loadGraphStore(): Promise<void> {
     try {
