@@ -21,31 +21,31 @@ export function Sigil({ size = 32 }: { size?: number }) {
     >
       {/* CSS glow halo — bleeds beyond SVG bounds */}
       <motion.div
-        className="absolute inset-[-6px] rounded-full"
+        className="absolute inset-[-4px] rounded-full"
         style={{
-          background: `radial-gradient(circle, hsla(${hue}, 95%, 60%, 0.4) 0%, hsla(${hue}, 90%, 45%, 0.15) 50%, transparent 75%)`,
+          background: `radial-gradient(circle, hsla(${hue}, 95%, 60%, 0.2) 0%, hsla(${hue}, 90%, 45%, 0.1) 50%, transparent 75%)`,
         }}
         {...(animate
           ? {
-              animate: { scale: [1, 1.25, 1], opacity: [0.6, 1, 0.6] },
-              transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as const },
+              animate: { scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] },
+              transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' as const },
             }
           : {})}
       />
 
-      {/* Bioluminescent flash — periodic bright flare */}
+      {/* Bioluminescent flash — softer, less frequent flare */}
       {animate && (
         <motion.div
-          className="absolute inset-[-12px] rounded-full"
+          className="absolute inset-[-8px] rounded-full"
           style={{
-            background: `radial-gradient(circle, hsla(${hue}, 100%, 75%, 0.5) 0%, transparent 60%)`,
+            background: `radial-gradient(circle, hsla(${hue}, 100%, 75%, 0.3) 0%, transparent 60%)`,
           }}
           animate={{
-            scale: [0.8, 1.6, 0.8],
-            opacity: [0, 0.7, 0],
+            scale: [0.9, 1.4, 0.9],
+            opacity: [0, 0.4, 0],
           }}
           transition={{
-            duration: 4,
+            duration: 6,
             repeat: Infinity,
             ease: 'easeInOut',
             times: [0, 0.3, 1],
@@ -64,7 +64,7 @@ export function Sigil({ size = 32 }: { size?: number }) {
           </radialGradient>
 
           <filter id="sig-glow">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
           </filter>
         </defs>
 
@@ -84,8 +84,8 @@ export function Sigil({ size = 32 }: { size?: number }) {
             cy="50"
             r="42"
             fill="none"
-            stroke={`hsla(${hue}, 90%, 65%, 0.3)`}
-            strokeWidth="4"
+            stroke={`hsla(${hue}, 90%, 65%, 0.15)`}
+            strokeWidth="3"
             strokeDasharray="10 5"
             filter="url(#sig-glow)"
           />
@@ -95,8 +95,8 @@ export function Sigil({ size = 32 }: { size?: number }) {
             cy="50"
             r="42"
             fill="none"
-            stroke={`hsla(${hue}, 85%, 72%, 0.75)`}
-            strokeWidth="1.8"
+            stroke={`hsla(${hue}, 85%, 72%, 0.6)`}
+            strokeWidth="1.6"
             strokeDasharray="10 5"
           />
         </motion.g>
@@ -116,8 +116,8 @@ export function Sigil({ size = 32 }: { size?: number }) {
             cy="50"
             r="28"
             fill="none"
-            stroke={`hsla(${hue + 20}, 80%, 68%, 0.3)`}
-            strokeWidth="3.5"
+            stroke={`hsla(${hue + 20}, 80%, 68%, 0.15)`}
+            strokeWidth="2.5"
             strokeDasharray="6 8"
             filter="url(#sig-glow)"
           />
@@ -126,8 +126,8 @@ export function Sigil({ size = 32 }: { size?: number }) {
             cy="50"
             r="28"
             fill="none"
-            stroke={`hsla(${hue + 20}, 80%, 74%, 0.6)`}
-            strokeWidth="1.5"
+            stroke={`hsla(${hue + 20}, 80%, 74%, 0.5)`}
+            strokeWidth="1.2"
             strokeDasharray="6 8"
           />
         </motion.g>
@@ -141,11 +141,11 @@ export function Sigil({ size = 32 }: { size?: number }) {
           filter="url(#sig-glow)"
           {...(animate
             ? {
-                animate: { r: [16, 20, 16], opacity: [0.75, 1, 0.75] },
-                transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as const },
+                animate: { r: [16, 20, 16], opacity: [0.5, 0.8, 0.5] },
+                transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' as const },
               }
             : {})}
-          opacity={0.85}
+          opacity={0.6}
         />
 
         {/* Crisp core body */}
