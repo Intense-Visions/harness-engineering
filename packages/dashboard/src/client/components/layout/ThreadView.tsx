@@ -59,10 +59,19 @@ function ThreadPlaceholder({ type, title }: { type: string; title: string }) {
 export function ThreadRoute() {
   const { threadId } = useParams<{ threadId: string }>();
   const thread = useThreadStore((s) => (threadId ? s.threads.get(threadId) : undefined));
+  const hydrated = useThreadStore((s) => s.hydrated);
   // Keep activeThreadId in sync with the route
   useEffect(() => {
     if (threadId) useThreadStore.getState().setActiveThread(threadId);
   }, [threadId]);
+
+  if (!thread && !hydrated) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center text-neutral-muted">
+        <p className="text-xs animate-pulse">Loading thread…</p>
+      </div>
+    );
+  }
 
   if (!thread) {
     return (

@@ -68,9 +68,14 @@ function handleNoStore(mode: OutputModeType): never {
 
 function handleEmptyResults(mode: OutputModeType): never {
   if (mode === OutputMode.JSON) {
-    console.log(JSON.stringify({ results: [], message: 'No requirements found in graph.' }));
+    console.log(
+      JSON.stringify({
+        results: [],
+        message: 'No requirements found in graph. Run `harness scan` to ingest spec requirements.',
+      })
+    );
   } else if (mode !== OutputMode.QUIET) {
-    logger.info('No requirements found in graph. Run `harness scan` to index spec files.');
+    logger.info('No requirements found in graph. Run `harness scan` to ingest spec requirements.');
   }
   process.exit(ExitCode.SUCCESS);
 }

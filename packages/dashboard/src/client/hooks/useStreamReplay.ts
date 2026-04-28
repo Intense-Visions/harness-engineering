@@ -6,6 +6,7 @@ export interface StreamManifest {
   issueId: string;
   externalId: number | string | null;
   identifier: string;
+  title?: string;
   attempts: Array<{
     attempt: number;
     startedAt: string;

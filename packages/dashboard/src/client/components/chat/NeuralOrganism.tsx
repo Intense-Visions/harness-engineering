@@ -569,14 +569,14 @@ function NeuralAxon({
               opacity: [0.25, 0.18, 0.06, 0],
             }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{ filter: 'blur(0.5px)' }}
+            style={{ strokeOpacity: 0.15 }}
           />
           {/* Secondary glow — wider, dimmer, follow-through */}
           <motion.path
             key={`whip-b-${hitCount}`}
             d={d}
             stroke={color}
-            strokeWidth={traceWidth + 2}
+            strokeWidth={traceWidth + 3}
             fill="none"
             strokeLinecap="round"
             strokeDasharray={`4 6`}
@@ -586,20 +586,20 @@ function NeuralAxon({
               opacity: [0.12, 0.08, 0.03, 0],
             }}
             transition={{ duration: 0.7, ease: 'easeOut', delay: 0.08 }}
-            style={{ filter: 'blur(2px)' }}
+            style={{ strokeOpacity: 0.05 }}
           />
         </>
       )}
       <motion.path
         d={d}
         stroke={color}
-        strokeWidth={pulseWidth + 2}
+        strokeWidth={pulseWidth + 4}
         fill="none"
         strokeLinecap="round"
         strokeDasharray={`6 ${len + 6}`}
         animate={{ strokeDashoffset: [8, -(len + 8)] }}
         transition={{ duration, delay, repeat: Infinity, ease: AXON_EASE, repeatDelay }}
-        style={{ opacity: 0.1, filter: 'blur(1.5px)' }}
+        style={{ opacity: 0.04 }}
       />
       <motion.path
         d={d}
@@ -1573,7 +1573,7 @@ export function NeuralOrganism({
         );
       }, 180);
 
-      const baseDelay = tier === 'full' ? 600 + Math.random() * 2000 : 1000 + Math.random() * 3500;
+      const baseDelay = tier === 'full' ? 1200 + Math.random() * 4000 : 2500 + Math.random() * 6000;
       const nextDelay = baseDelay / genome.sparkRate;
       setTimeout(fire, nextDelay);
     };

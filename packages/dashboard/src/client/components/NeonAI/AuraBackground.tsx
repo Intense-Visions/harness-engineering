@@ -28,11 +28,11 @@ function generatePlankton(count: number): PlanktonData[] {
     id: i,
     left: `${Math.random() * 100}%`,
     top: `${Math.random() * 100}%`,
-    size: 1.5 + Math.random() * 3,
+    size: 2.5 + Math.random() * 6,
     color: PLANKTON_COLORS[i % PLANKTON_COLORS.length]!,
-    driftX: `${(Math.random() - 0.5) * 120}px`,
-    driftY: `${(Math.random() - 0.5) * 80 - 30}px`,
-    driftScale: 0.6 + Math.random() * 0.8,
+    driftX: `${(Math.random() - 0.5) * 200}px`,
+    driftY: `${(Math.random() - 0.5) * 150 - 50}px`,
+    driftScale: 0.7 + Math.random() * 0.9,
     duration: `${15 + Math.random() * 25}s`,
     delay: `${Math.random() * -20}s`,
   }));
@@ -45,7 +45,7 @@ interface Props {
 
 export function AuraBackground({ mouseX, mouseY }: Props) {
   const { pulse } = useProjectPulse();
-  const plankton = useMemo(() => generatePlankton(18), []);
+  const plankton = useMemo(() => generatePlankton(85), []);
   const springConfig = { damping: 50, stiffness: 100 };
   const x = useSpring(0, springConfig);
   const y = useSpring(0, springConfig);
@@ -78,8 +78,9 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           x: moveX,
           y: moveY,
           background: isStressed
-            ? 'radial-gradient(ellipse, rgba(180, 80, 20, 0.08) 0%, rgba(120, 40, 10, 0.03) 50%, transparent 70%)'
-            : 'radial-gradient(ellipse, rgba(12, 106, 158, 0.08) 0%, rgba(8, 104, 120, 0.03) 50%, transparent 70%)',
+            ? 'radial-gradient(circle at center, rgba(180, 80, 20, 0.12) 0%, rgba(120, 40, 10, 0.04) 40%, transparent 80%)'
+            : 'radial-gradient(circle at center, rgba(12, 106, 158, 0.12) 0%, rgba(8, 104, 120, 0.04) 40%, transparent 80%)',
+          transform: 'translate3d(0,0,0)',
         }}
         animate={{
           scale: [1, 1.12, 0.95, 1.05, 1],
@@ -92,7 +93,7 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute -left-[10%] -top-[10%] h-[65%] w-[65%] rounded-full blur-[120px] transition-all duration-[2s]"
+        className="absolute -left-[10%] -top-[10%] h-[65%] w-[65%] rounded-full transition-all duration-[2s]"
       />
 
       {/* Abyssal glow — drifting bottom right */}
@@ -101,8 +102,9 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           x: moveXDeep,
           y: moveYDeep,
           background: isStressed
-            ? 'radial-gradient(ellipse, rgba(120, 40, 10, 0.06) 0%, rgba(180, 80, 20, 0.02) 50%, transparent 70%)'
-            : 'radial-gradient(ellipse, rgba(8, 104, 120, 0.06) 0%, rgba(10, 80, 60, 0.02) 50%, transparent 70%)',
+            ? 'radial-gradient(circle at center, rgba(120, 40, 10, 0.08) 0%, rgba(180, 80, 20, 0.02) 40%, transparent 80%)'
+            : 'radial-gradient(circle at center, rgba(8, 104, 120, 0.08) 0%, rgba(10, 80, 60, 0.02) 40%, transparent 80%)',
+          transform: 'translate3d(0,0,0)',
         }}
         animate={{
           scale: [1.1, 0.9, 1.15, 0.95, 1.1],
@@ -115,7 +117,7 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute -bottom-[15%] -right-[10%] h-[70%] w-[70%] rounded-full blur-[140px] transition-all duration-[2s]"
+        className="absolute -bottom-[15%] -right-[10%] h-[70%] w-[70%] rounded-full transition-all duration-[2s]"
       />
 
       {/* Mid-depth wandering glow */}
@@ -124,7 +126,8 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           x: moveXAbyss,
           y: moveYAbyss,
           background:
-            'radial-gradient(ellipse, rgba(12, 106, 158, 0.04) 0%, rgba(8, 68, 80, 0.015) 50%, transparent 70%)',
+            'radial-gradient(circle at center, rgba(12, 106, 158, 0.06) 0%, rgba(8, 68, 80, 0.02) 40%, transparent 80%)',
+          transform: 'translate3d(0,0,0)',
         }}
         animate={{
           scale: [1, 1.3, 0.85, 1.15, 1],
@@ -137,7 +140,7 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute left-[15%] top-[25%] h-[55%] w-[55%] rounded-full blur-[160px]"
+        className="absolute left-[15%] top-[25%] h-[55%] w-[55%] rounded-full"
       />
 
       {/* Drifting shadow mass — large, slow, dark */}
@@ -153,10 +156,11 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute left-[40%] top-[50%] h-[40%] w-[50%] rounded-full blur-[180px]"
+        className="absolute left-[40%] top-[50%] h-[40%] w-[50%] rounded-full"
         style={{
           background:
-            'radial-gradient(ellipse, rgba(2, 8, 20, 0.6) 0%, rgba(1, 4, 8, 0.3) 50%, transparent 70%)',
+            'radial-gradient(circle at center, rgba(2, 8, 20, 0.7) 0%, rgba(1, 4, 8, 0.35) 40%, transparent 80%)',
+          transform: 'translate3d(0,0,0)',
         }}
       />
 
@@ -174,10 +178,11 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
           ease: 'easeInOut',
           delay: 8,
         }}
-        className="absolute left-[-5%] top-[10%] h-[50%] w-[45%] rounded-full blur-[160px]"
+        className="absolute left-[-5%] top-[10%] h-[50%] w-[45%] rounded-full"
         style={{
           background:
-            'radial-gradient(ellipse, rgba(2, 12, 24, 0.5) 0%, rgba(1, 6, 12, 0.2) 50%, transparent 70%)',
+            'radial-gradient(circle at center, rgba(2, 12, 24, 0.6) 0%, rgba(1, 6, 12, 0.25) 40%, transparent 80%)',
+          transform: 'translate3d(0,0,0)',
         }}
       />
 
@@ -200,6 +205,7 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
             radial-gradient(ellipse 350px 100px at 75% 12%, rgba(12, 106, 158, 0.08), transparent)
           `,
           backgroundSize: '200% 200%',
+          transform: 'translate3d(0,0,0)',
         }}
       />
 
@@ -209,6 +215,7 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
         style={{
           background:
             'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(1, 4, 8, 0.5) 100%)',
+          transform: 'translate3d(0,0,0)',
         }}
       />
 
@@ -224,12 +231,12 @@ export function AuraBackground({ mouseX, mouseY }: Props) {
               width: p.size,
               height: p.size,
               backgroundColor: p.color,
-              boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
               '--drift-x': p.driftX,
               '--drift-y': p.driftY,
               '--drift-scale': p.driftScale,
               '--drift-duration': p.duration,
               '--drift-delay': p.delay,
+              transform: 'translate3d(0,0,0)',
             } as React.CSSProperties
           }
         />

@@ -15,6 +15,9 @@ import type { PanelState } from '../components/layout/ContextPanel';
 
 const LAST_THREAD_KEY = 'harness-last-thread-id';
 
+/** Number of async sources that must call markSourceHydrated() before the store is considered ready. */
+let _hydrationPending = 2; // agents + attention
+
 function readLastThreadId(): string | null {
   try {
     return globalThis.localStorage?.getItem(LAST_THREAD_KEY) ?? null;
@@ -55,6 +58,20 @@ function defaultStatus(type: ThreadType): ThreadStatus {
       return 'pending';
     default:
       return 'active';
+  }
+}
+
+/** Derive a deterministic thread ID from the type and meta so URLs survive page reloads. */
+function deriveThreadId(type: ThreadType, meta: ThreadMeta): string {
+  switch (type) {
+    case 'agent':
+      return `agent:${(meta as AgentMeta).issueId}`;
+    case 'attention':
+      return `attn:${(meta as AttentionMeta).interactionId}`;
+    case 'chat':
+      return `chat:${(meta as ChatMeta).sessionId}`;
+    default:
+      return crypto.randomUUID();
   }
 }
 
@@ -117,6 +134,8 @@ export interface ThreadStore {
   threads: Map<string, Thread>;
   activeThreadId: string | null;
   lastThreadId: string | null;
+  /** True once all async hydration sources (agents, attention) have completed their initial fetch. */
+  hydrated: boolean;
 
   // Per-thread messages (owned by store, not component state)
   messages: Map<string, ChatMessage[]>;
@@ -129,6 +148,8 @@ export interface ThreadStore {
   dismissThread(id: string): void;
   setActiveThread(id: string | null): void;
   updateThread(id: string, patch: Partial<Thread>): void;
+  /** Called by each sync hook when its initial fetch completes (success or failure). */
+  markSourceHydrated(): void;
 
   // Message management
   setMessages(threadId: string, messages: ChatMessage[]): void;
@@ -144,17 +165,22 @@ export function selectSidebarSections(state: ThreadStore): SidebarSections {
   return deriveSidebarSections(state.threads);
 }
 
-export const useThreadStore = create<ThreadStore>((set, _get) => ({
+export const useThreadStore = create<ThreadStore>((set, get) => ({
   threads: new Map(),
   activeThreadId: null,
   lastThreadId: readLastThreadId(),
+  hydrated: false,
   messages: new Map(),
   panelState: new Map(),
 
   createThread(type: ThreadType, meta: ThreadMeta): Thread {
+    const id = deriveThreadId(type, meta);
+    const existing = get().threads.get(id);
+    if (existing) return existing;
+
     const now = Date.now();
     const thread: Thread = {
-      id: crypto.randomUUID(),
+      id,
       type,
       title: defaultTitle(type, meta),
       status: defaultStatus(type),
@@ -234,6 +260,13 @@ export const useThreadStore = create<ThreadStore>((set, _get) => ({
       threads.set(id, updated);
       return { threads };
     });
+  },
+
+  markSourceHydrated(): void {
+    _hydrationPending--;
+    if (_hydrationPending <= 0) {
+      set({ hydrated: true });
+    }
   },
 
   setMessages(threadId: string, msgs: ChatMessage[]): void {

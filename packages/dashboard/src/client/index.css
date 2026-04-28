@@ -40,10 +40,11 @@
 /* --- Deep Ocean Plankton --- */
 
 @keyframes plankton-drift {
-  0% { transform: translate(0, 0) scale(1); opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { transform: translate(var(--drift-x), var(--drift-y)) scale(var(--drift-scale)); opacity: 0; }
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0; }
+  8% { opacity: 0.8; }
+  50% { opacity: 1; }
+  92% { opacity: 0.8; }
+  100% { transform: translate3d(var(--drift-x), var(--drift-y), 0) scale(var(--drift-scale)); opacity: 0; }
 }
 
 .plankton {
@@ -53,6 +54,61 @@
   will-change: transform, opacity;
   animation: plankton-drift var(--drift-duration) var(--drift-delay) infinite ease-in-out;
   opacity: 0;
+}
+
+/* --- Floating Organism --- */
+
+@keyframes organism-drift {
+  0%   { transform: translate3d(0, 0, 0); }
+  15%  { transform: translate3d(30vw, 15vh, 0); }
+  30%  { transform: translate3d(55vw, -5vh, 0); }
+  45%  { transform: translate3d(40vw, 40vh, 0); }
+  60%  { transform: translate3d(15vw, 55vh, 0); }
+  75%  { transform: translate3d(50vw, 30vh, 0); }
+  90%  { transform: translate3d(10vw, 10vh, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.organism-float {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.6;
+  animation: organism-drift 240s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Second organism — different path, hatches later, smaller & dimmer */
+@keyframes organism-drift-2 {
+  0%   { transform: translate3d(0, 0, 0); }
+  12%  { transform: translate3d(-20vw, -25vh, 0); }
+  28%  { transform: translate3d(-40vw, 10vh, 0); }
+  42%  { transform: translate3d(-15vw, -35vh, 0); }
+  58%  { transform: translate3d(10vw, -20vh, 0); }
+  72%  { transform: translate3d(-30vw, -10vh, 0); }
+  88%  { transform: translate3d(-5vw, -30vh, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.organism-float-2 {
+  opacity: 0.4;
+  animation: organism-drift-2 280s ease-in-out infinite;
+}
+
+/* Third organism — another path, hatches even later, smallest */
+@keyframes organism-drift-3 {
+  0%   { transform: translate3d(0, 0, 0); }
+  18%  { transform: translate3d(25vw, 20vh, 0); }
+  35%  { transform: translate3d(-10vw, 35vh, 0); }
+  50%  { transform: translate3d(35vw, 10vh, 0); }
+  68%  { transform: translate3d(5vw, -15vh, 0); }
+  82%  { transform: translate3d(20vw, 25vh, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.organism-float-3 {
+  opacity: 0.3;
+  animation: organism-drift-3 320s ease-in-out infinite;
 }
 
 /* --- High-Fidelity Tactical Polish --- */

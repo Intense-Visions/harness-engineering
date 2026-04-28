@@ -50,7 +50,8 @@ export function useAttentionSync(socket: OrchestratorSocketState) {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => useThreadStore.getState().markSourceHydrated());
   }, []);
 
   // Watch for new WebSocket interactions

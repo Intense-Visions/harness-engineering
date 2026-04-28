@@ -1,14 +1,15 @@
-import { useState, useEffect, createContext, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { createContext, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AuraBackground } from '../NeonAI/AuraBackground';
-import { ThreadSidebar } from './ThreadSidebar';
-import { ContextPanel, type PanelState } from './ContextPanel';
-import { useThreadStore } from '../../stores/threadStore';
-import { useOrchestratorSocket } from '../../hooks/useOrchestratorSocket';
-import { useAttentionSync } from '../../hooks/useAttentionSync';
 import { useAgentSync } from '../../hooks/useAgentSync';
+import { useAttentionSync } from '../../hooks/useAttentionSync';
+import { useOrchestratorSocket } from '../../hooks/useOrchestratorSocket';
+import { useThreadStore } from '../../stores/threadStore';
 import type { ContentBlock } from '../../types/chat';
+import { AuraBackground } from '../NeonAI/AuraBackground';
+import { NeuralOrganism } from '../chat/NeuralOrganism';
+import { ContextPanel, type PanelState } from './ContextPanel';
+import { ThreadSidebar } from './ThreadSidebar';
 
 /** Context providing per-agent ContentBlock[] from the WebSocket. */
 export const AgentEventsContext = createContext<Record<string, ContentBlock[]>>({});
@@ -46,11 +47,22 @@ export function ChatLayout({ children }: Props) {
 
   return (
     <div
-      className="h-screen flex text-neutral-text selection:bg-primary-500/30 overflow-hidden"
+      className="h-screen flex text-neutral-text selection:bg-primary-500/30 overflow-hidden relative"
       onMouseMove={handleMouseMove}
     >
       <div className="neural-noise" />
       <AuraBackground mouseX={mousePos.x} mouseY={mousePos.y} />
+
+      {/* Floating organisms — hatch at staggered intervals and drift */}
+      <div className="organism-float" style={{ left: 200, top: 10 }}>
+        <NeuralOrganism size={50} growthDuration={18} />
+      </div>
+      <div className="organism-float organism-float-2" style={{ left: '60%', top: '70%' }}>
+        <NeuralOrganism size={80} growthDuration={25} />
+      </div>
+      <div className="organism-float organism-float-3" style={{ left: '30%', top: '40%' }}>
+        <NeuralOrganism size={60} growthDuration={30} />
+      </div>
 
       {/* Left: Thread Sidebar */}
       <ThreadSidebar />

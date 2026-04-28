@@ -49,6 +49,7 @@ export async function runIngest(
     TopologicalLinker,
     KnowledgeIngestor,
     GitIngestor,
+    RequirementIngestor,
     SyncManager,
     JiraConnector,
     SlackConnector,
@@ -66,6 +67,9 @@ export async function runIngest(
     const codeResult = await new CodeIngestor(store).ingest(projectPath);
     new TopologicalLinker(store).link();
     const knowledgeResult = await new KnowledgeIngestor(store).ingestAll(projectPath);
+    const reqResult = await new RequirementIngestor(store).ingestSpecs(
+      path.join(projectPath, 'docs', 'changes')
+    );
     const gitResult = await new GitIngestor(store).ingest(projectPath);
 
     // Run code signal extractors (business-signals)
@@ -94,6 +98,7 @@ export async function runIngest(
     const merged = mergeResults(
       codeResult,
       knowledgeResult,
+      reqResult,
       gitResult,
       signalsResult,
       connectorResult
@@ -113,6 +118,11 @@ export async function runIngest(
     case 'git':
       result = await new GitIngestor(store).ingest(projectPath);
       break;
+    case 'requirements':
+      result = await new RequirementIngestor(store).ingestSpecs(
+        path.join(projectPath, 'docs', 'changes')
+      );
+      break;
     case 'business-signals': {
       const { createExtractionRunner } = await import('@harness-engineering/graph');
       const extractedDir = path.join(projectPath, '.harness', 'knowledge', 'extracted');
@@ -124,7 +134,7 @@ export async function runIngest(
       const knownConnectors = ['jira', 'slack', 'ci', 'confluence', 'figma', 'miro'];
       if (!knownConnectors.includes(source)) {
         throw new Error(
-          `Unknown source: ${source}. Available: code, knowledge, git, business-signals, jira, slack, ci, confluence, figma, miro`
+          `Unknown source: ${source}. Available: code, knowledge, git, requirements, business-signals, jira, slack, ci, confluence, figma, miro`
         );
       }
       if (!SyncManager) {
@@ -159,7 +169,7 @@ export function createIngestCommand(): Command {
     .description('Ingest data into the knowledge graph')
     .option(
       '--source <name>',
-      'Source to ingest (code, knowledge, git, business-signals, jira, slack, ci, confluence, figma, miro)'
+      'Source to ingest (code, knowledge, git, requirements, business-signals, jira, slack, ci, confluence, figma, miro)'
     )
     .option('--all', 'Run all sources (code, knowledge, git, and configured connectors)')
     .option('--full', 'Force full re-ingestion')

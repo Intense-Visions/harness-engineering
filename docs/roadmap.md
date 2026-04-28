@@ -1002,11 +1002,15 @@ last_manual_edit: 2026-04-28T10:44:42.631Z
 
 ### Dashboard Reorganization — Chat-First Architecture with Expandable Domain Navigation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/dashboard-reorganization/proposal.md
 - **Summary:** Restructure dashboard from 13 flat nav items to 4 expandable domain pills, elevate chat to persistent right column, replace KPI-wall overview with triage feed.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** orchestrator-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-28T11:58:15.870Z
 
 ### Chat-First Dashboard Rewrite
 
@@ -1018,7 +1022,7 @@ last_manual_edit: 2026-04-28T10:44:42.631Z
 - **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** —
-- **Updated-At:** 2026-04-28T11:17:27.271Z
+- **Updated-At:** 2026-04-28T16:42:31.892Z
 
 ## v3.0 Graph Intelligence
 

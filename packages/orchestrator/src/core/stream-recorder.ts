@@ -6,6 +6,7 @@ export interface StreamManifest {
   issueId: string;
   externalId: number | string | null;
   identifier: string;
+  title?: string;
   attempts: AttemptRecord[];
   pr: PRLink | null;
   retention: RetentionInfo;
@@ -100,7 +101,8 @@ export class StreamRecorder {
     externalId: number | string | null,
     identifier: string,
     backend: string,
-    attempt: number
+    attempt: number,
+    title?: string
   ): void {
     const issueDir = path.join(this.streamsDir, issueId);
     fs.mkdirSync(issueDir, { recursive: true });
@@ -121,7 +123,11 @@ export class StreamRecorder {
 
     // Initialize or update manifest
     const manifest =
-      this.readManifest(issueId) ?? this.createManifest(issueId, externalId, identifier);
+      this.readManifest(issueId) ?? this.createManifest(issueId, externalId, identifier, title);
+    // Backfill title on existing manifests that lack it
+    if (title && !manifest.title) {
+      manifest.title = title;
+    }
 
     // Avoid duplicate attempt records on crash/restart
     if (!manifest.attempts.some((a) => a.attempt === attempt)) {
@@ -398,12 +404,14 @@ export class StreamRecorder {
   private createManifest(
     issueId: string,
     externalId: number | string | null,
-    identifier: string
+    identifier: string,
+    title?: string
   ): StreamManifest {
     return {
       issueId,
       externalId,
       identifier,
+      ...(title ? { title } : {}),
       attempts: [],
       pr: null,
       retention: { strategy: 'orphan', orphanExpiresAt: null },

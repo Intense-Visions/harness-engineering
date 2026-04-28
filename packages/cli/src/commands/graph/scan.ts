@@ -4,8 +4,14 @@ import * as path from 'path';
 export async function runScan(
   projectPath: string
 ): Promise<{ nodeCount: number; edgeCount: number; durationMs: number }> {
-  const { GraphStore, CodeIngestor, TopologicalLinker, KnowledgeIngestor, GitIngestor } =
-    await import('@harness-engineering/graph');
+  const {
+    GraphStore,
+    CodeIngestor,
+    TopologicalLinker,
+    KnowledgeIngestor,
+    GitIngestor,
+    RequirementIngestor,
+  } = await import('@harness-engineering/graph');
   const store = new GraphStore();
   const start = Date.now();
 
@@ -16,6 +22,10 @@ export async function runScan(
   // Knowledge ingestion
   const knowledgeIngestor = new KnowledgeIngestor(store);
   await knowledgeIngestor.ingestAll(projectPath);
+
+  // Requirement ingestion (spec traceability)
+  const specsDir = path.join(projectPath, 'docs', 'changes');
+  await new RequirementIngestor(store).ingestSpecs(specsDir);
 
   // Git ingestion (may fail if not a git repo)
   try {

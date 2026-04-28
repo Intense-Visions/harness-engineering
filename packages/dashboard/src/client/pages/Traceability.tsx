@@ -121,7 +121,11 @@ function RequirementsTable({ requirements }: { requirements: TraceabilityRequire
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
         <p className="text-sm text-gray-500">
-          No requirements found. Ingest specs with RequirementIngestor first.
+          No requirements found in graph. Run{' '}
+          <code className="rounded bg-gray-800 px-1 py-0.5 text-xs font-mono text-gray-300">
+            harness scan
+          </code>{' '}
+          to ingest spec requirements.
         </p>
       </div>
     );
@@ -222,9 +226,9 @@ export function Traceability() {
           <p className="text-sm text-gray-400">
             No traceability data available. Run{' '}
             <code className="rounded bg-gray-800 px-1.5 py-0.5 text-xs font-mono text-gray-300">
-              harness graph scan
+              harness scan
             </code>{' '}
-            and ingest specs with RequirementIngestor first.
+            to build the knowledge graph with requirement nodes from spec files.
           </p>
         </div>
       )}

@@ -1181,7 +1181,8 @@ export class Orchestrator extends EventEmitter {
         issue.externalId ?? null,
         issue.identifier,
         this.config.agent.backend,
-        attempt ?? 1
+        attempt ?? 1,
+        issue.title
       );
 
       const activeRunner = backend === 'local' && this.localRunner ? this.localRunner : this.runner;

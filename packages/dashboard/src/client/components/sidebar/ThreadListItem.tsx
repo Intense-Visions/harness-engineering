@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Bot, MessageSquare, Settings, X } from 'lucide-react';
 import { useThreadStore } from '../../stores/threadStore';
-import { NeuralOrganism } from '../chat/NeuralOrganism';
 import type { Thread } from '../../types/thread';
 
 interface Props {
@@ -10,29 +9,31 @@ interface Props {
 }
 
 function ThreadAvatar({ thread }: { thread: Thread }) {
+  const base = 'h-5 w-5 flex-shrink-0 rounded-md flex items-center justify-center';
+
   switch (thread.avatar) {
     case 'organism':
       return (
-        <div className="flex-shrink-0">
-          <NeuralOrganism size={20} growthDuration={5} />
+        <div className={`${base} bg-secondary-400/15`}>
+          <Bot size={12} className="text-secondary-400" />
         </div>
       );
     case 'alert':
       return (
-        <div className="h-5 w-5 flex-shrink-0 flex items-center justify-center">
-          <AlertTriangle size={14} className="text-semantic-warning" />
+        <div className={`${base} bg-semantic-warning/15`}>
+          <AlertTriangle size={12} className="text-semantic-warning" />
         </div>
       );
     case 'user':
       return (
-        <div className="h-5 w-5 flex-shrink-0 rounded-full bg-primary-500/20 flex items-center justify-center">
-          <span className="text-[8px] font-bold text-primary-500">U</span>
+        <div className={`${base} bg-primary-500/15`}>
+          <MessageSquare size={12} className="text-primary-500" />
         </div>
       );
     default:
       return (
-        <div className="h-5 w-5 flex-shrink-0 rounded-full bg-white/[0.08] flex items-center justify-center">
-          <span className="text-[8px] font-bold text-neutral-muted">S</span>
+        <div className={`${base} bg-white/[0.06]`}>
+          <Settings size={12} className="text-neutral-muted" />
         </div>
       );
   }

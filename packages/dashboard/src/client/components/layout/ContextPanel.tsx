@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelRightClose } from 'lucide-react';
+import { AgentStatsSection, type AgentStats } from '../panel/AgentStatsSection';
 import { TodoSection, type TodoItem } from '../panel/TodoSection';
 import { StatusSection } from '../panel/StatusSection';
 import { ArtifactsSection, type ArtifactItem } from '../panel/ArtifactsSection';
@@ -12,6 +13,7 @@ export interface PanelState {
   startedAt: number | null;
   artifacts: ArtifactItem[];
   contextSources: ContextSource[];
+  agentStats?: AgentStats | null;
 }
 
 const EMPTY_STATE: PanelState = {
@@ -34,7 +36,8 @@ function hasContent(state: PanelState): boolean {
     state.phase !== null ||
     state.skill !== null ||
     state.artifacts.length > 0 ||
-    state.contextSources.length > 0
+    state.contextSources.length > 0 ||
+    state.agentStats != null
   );
 }
 
@@ -70,12 +73,15 @@ export function ContextPanel({ state, onClose }: Props) {
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto px-4 py-3 no-scrollbar flex flex-col gap-3">
+              {panelState.agentStats && <AgentStatsSection stats={panelState.agentStats} />}
               <TodoSection todos={panelState.todos} />
-              <StatusSection
-                phase={panelState.phase}
-                skill={panelState.skill}
-                startedAt={panelState.startedAt}
-              />
+              {!panelState.agentStats && (
+                <StatusSection
+                  phase={panelState.phase}
+                  skill={panelState.skill}
+                  startedAt={panelState.startedAt}
+                />
+              )}
               <ArtifactsSection artifacts={panelState.artifacts} />
               <ContextSourcesSection sources={panelState.contextSources} />
             </div>
