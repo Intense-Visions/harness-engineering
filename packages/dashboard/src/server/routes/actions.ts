@@ -291,6 +291,35 @@ function detectWorkflow(spec: string | null, plans: string[]): ClaimWorkflow {
   return 'execution';
 }
 
+/**
+ * Parse a github externalId like "github:owner/repo#42" and assign the issue.
+ * Returns true if assignment succeeded, false otherwise.
+ */
+async function assignGithubIssue(externalId: string, assignee: string): Promise<boolean> {
+  const token = process.env['GITHUB_TOKEN'];
+  if (!token) return false;
+
+  const match = externalId.match(/^github:(.+?)#(\d+)$/);
+  if (!match) return false;
+
+  const [, repo, issueNum] = match;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNum}/assignees`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'harness-dashboard',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ assignees: [assignee] }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 function findFeature(roadmap: Roadmap, name: string): RoadmapFeature | undefined {
   for (const m of roadmap.milestones) {
     for (const f of m.features) {
@@ -379,13 +408,19 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
     ctx.cache.invalidate('roadmap');
     ctx.cache.invalidate('overview');
 
+    // Attempt GitHub issue assignment if applicable
+    let githubSynced = false;
+    if (feat.externalId) {
+      githubSynced = await assignGithubIssue(feat.externalId, assignee);
+    }
+
     const response: ClaimResponse = {
       ok: true,
       feature,
       status: 'in-progress',
       assignee,
       workflow,
-      githubSynced: false,
+      githubSynced,
     };
 
     result = c.json(response);

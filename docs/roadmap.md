@@ -1026,7 +1026,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 
 ### Roadmap Page Enhancement: Feature Table with Claim Workflow
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/roadmap-page-enhancement/proposal.md
 - **Summary:** Replace Gantt chart with milestone-grouped feature table, stats bar, assignment history, and inline claim workflow with smart routing to brainstorming/planning/execution based on feature state. GitHub identity resolution and tracker sync on claim.
 - **Blockers:** —
