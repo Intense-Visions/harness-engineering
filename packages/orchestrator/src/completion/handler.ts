@@ -98,7 +98,7 @@ export class CompletionHandler {
       | {
           identifier: string;
           startedAt: string;
-          session?: { backendName?: string };
+          session?: { backendName?: string } | null;
           issue?: { labels?: string[] };
         }
       | undefined
