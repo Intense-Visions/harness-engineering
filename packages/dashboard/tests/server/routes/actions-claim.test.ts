@@ -241,3 +241,35 @@ describe('POST /api/actions/roadmap/claim', () => {
     expect(res.status).toBe(500);
   });
 });
+
+describe('GET /api/identity', () => {
+  let app: Hono;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    const ctx = makeContext();
+    app = new Hono();
+    app.route('/api', buildActionsRouter(ctx));
+  });
+
+  it('returns 200 with identity when resolution succeeds', async () => {
+    const { resolveIdentity } = await import('../../../src/server/identity');
+    vi.mocked(resolveIdentity).mockResolvedValueOnce({ username: 'octocat', source: 'github-api' });
+
+    const res = await app.request('/api/identity');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.username).toBe('octocat');
+    expect(body.source).toBe('github-api');
+  });
+
+  it('returns 503 when identity resolution fails', async () => {
+    const { resolveIdentity } = await import('../../../src/server/identity');
+    vi.mocked(resolveIdentity).mockResolvedValueOnce(null);
+
+    const res = await app.request('/api/identity');
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+  });
+});
