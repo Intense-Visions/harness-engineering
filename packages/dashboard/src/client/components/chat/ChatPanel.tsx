@@ -445,7 +445,7 @@ export function ChatPanel({ isOpen, onClose, maximized = false, mode = 'overlay'
           <div className="flex items-center gap-3">
             {maximized && (
               <button
-                onClick={() => void navigate('/orchestrator/attention')}
+                onClick={() => void navigate('/agents/attention')}
                 className="mr-2 rounded-full p-2 text-neutral-muted hover:bg-white/5 hover:text-white transition-colors"
               >
                 <ArrowLeft size={20} />
