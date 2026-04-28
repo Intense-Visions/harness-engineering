@@ -170,7 +170,7 @@ describe('FeatureRow', () => {
     expect(screen.queryByText('Start Working')).toBeNull();
   });
 
-  it('hides "Start Working" when identity is null', () => {
+  it('shows disabled "Start Working" when identity is null', () => {
     render(
       <FeatureRow
         feature={makeFeature({ status: 'planned', assignee: null })}
@@ -178,7 +178,8 @@ describe('FeatureRow', () => {
         onClaim={vi.fn()}
       />
     );
-    expect(screen.queryByText('Start Working')).toBeNull();
+    const btn = screen.getByText('Start Working');
+    expect(btn.closest('button')!.disabled).toBe(true);
   });
 
   it('hides "Start Working" for backlog feature with assignee', () => {
@@ -201,5 +202,32 @@ describe('FeatureRow', () => {
       />
     );
     expect(screen.getByText('Start Working')).toBeDefined();
+  });
+
+  it('shows disabled "Start Working" with tooltip when identity is null and feature is workable', () => {
+    render(
+      <FeatureRow
+        feature={makeFeature({ status: 'planned', assignee: null })}
+        identity={null}
+        onClaim={vi.fn()}
+      />
+    );
+    const btn = screen.getByText('Start Working');
+    expect(btn).toBeDefined();
+    expect(btn.closest('button')!.disabled).toBe(true);
+    expect(btn.closest('button')!.title).toBe('Could not resolve your identity');
+  });
+
+  it('does not call onClaim when disabled button is clicked', () => {
+    const onClaim = vi.fn();
+    render(
+      <FeatureRow
+        feature={makeFeature({ status: 'planned', assignee: null })}
+        identity={null}
+        onClaim={onClaim}
+      />
+    );
+    fireEvent.click(screen.getByText('Start Working'));
+    expect(onClaim).not.toHaveBeenCalled();
   });
 });

@@ -84,13 +84,19 @@ export function FeatureRow({ feature, identity, onClaim }: Props) {
         >
           {feature.summary}
         </span>
-        {workable && identity && (
+        {workable && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onClaim(feature);
+              if (identity) onClaim(feature);
             }}
-            className="ml-auto rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all whitespace-nowrap"
+            disabled={!identity}
+            title={identity ? undefined : 'Could not resolve your identity'}
+            className={`ml-auto rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap ${
+              identity
+                ? 'bg-primary-500/10 text-primary-400 border-primary-500/20 hover:bg-primary-500 hover:text-white'
+                : 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed'
+            }`}
           >
             Start Working
           </button>
