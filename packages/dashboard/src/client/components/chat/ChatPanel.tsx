@@ -22,6 +22,7 @@ interface Props {
   isOpen: boolean;
   onClose?: () => void;
   maximized?: boolean;
+  mode?: 'overlay' | 'column';
 }
 
 function buildInteractionSystemPrompt(interaction: PendingInteraction): string {
@@ -57,7 +58,7 @@ function buildInteractionSystemPrompt(interaction: PendingInteraction): string {
   return parts.join('\n');
 }
 
-export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
+export function ChatPanel({ isOpen, onClose, maximized = false, mode = 'overlay' }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const commandParam = searchParams.get('command');
@@ -587,6 +588,16 @@ export function ChatPanel({ isOpen, onClose, maximized = false }: Props) {
       </div>
     </>
   );
+
+  /* ── Column: persistent right panel in layout ───────────────── */
+
+  if (mode === 'column') {
+    return (
+      <div className="flex flex-col h-full bg-[#1a1a1f]/95 backdrop-blur-3xl border-l border-white/[0.08]">
+        {dialogContent}
+      </div>
+    );
+  }
 
   /* ── Maximized: full-screen (from /orchestrator/chat route) ── */
 

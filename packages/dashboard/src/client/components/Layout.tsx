@@ -1,11 +1,11 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MessageSquare, MessageSquareOff } from 'lucide-react';
 import { AuraBackground } from './NeonAI/AuraBackground';
 import { useChatPanel } from '../hooks/useChatPanel';
 import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import { ChatPanel } from './chat/ChatPanel';
-import { ChatPanelTrigger } from './chat/ChatPanelTrigger';
 
 interface Props {
   children: ReactNode;
@@ -32,7 +32,6 @@ export function Layout({ children }: Props) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isNavigating, setIsNavigating] = useState(false);
   const { isOpen: isChatOpen, toggle: toggleChat } = useChatPanel();
-  const isChatPage = location.pathname === '/orchestrator/chat';
 
   useKeyboardShortcut('j', toggleChat, { meta: true, ctrl: true });
 
@@ -55,7 +54,7 @@ export function Layout({ children }: Props) {
       <AuraBackground mouseX={mousePos.x} mouseY={mousePos.y} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative min-w-0">
         {/* Global Neural Progress Bar */}
         <AnimatePresence>
           {isNavigating && (
@@ -113,6 +112,18 @@ export function Layout({ children }: Props) {
                 </NavLink>
               ))}
             </nav>
+
+            {/* Chat toggle */}
+            <button
+              onClick={toggleChat}
+              className="flex items-center gap-1.5 border-l border-white/10 pl-4 text-neutral-muted hover:text-white transition-colors"
+              title={isChatOpen ? 'Hide chat (⌘⌃J)' : 'Show chat (⌘⌃J)'}
+            >
+              {isChatOpen ? <MessageSquareOff size={14} /> : <MessageSquare size={14} />}
+              <span className="text-[9px] font-bold uppercase tracking-widest">
+                {isChatOpen ? 'Hide' : 'Chat'}
+              </span>
+            </button>
           </div>
         </header>
 
@@ -132,9 +143,22 @@ export function Layout({ children }: Props) {
         </main>
       </div>
 
-      {/* Chat Panel and Trigger — suppressed on /orchestrator/chat to avoid dual instances */}
-      {!isChatPage && <ChatPanel isOpen={isChatOpen} onClose={toggleChat} />}
-      {!isChatPage && <ChatPanelTrigger isOpen={isChatOpen} onClick={toggleChat} />}
+      {/* Persistent Chat Column */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 420, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="relative flex-shrink-0 h-screen sticky top-0 overflow-hidden"
+          >
+            <div className="w-[420px] h-full">
+              <ChatPanel isOpen={true} onClose={toggleChat} mode="column" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
