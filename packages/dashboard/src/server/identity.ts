@@ -15,6 +15,26 @@ function execAsync(cmd: string, args: string[]): Promise<string> {
   });
 }
 
+async function resolveFromGithubApi(): Promise<IdentityResponse | null> {
+  const token = process.env['GITHUB_TOKEN'];
+  if (!token) return null;
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'harness-dashboard',
+      },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { login?: string };
+    if (data.login) return { username: data.login, source: 'github-api' };
+  } catch {
+    // Network error or token invalid
+  }
+  return null;
+}
+
 async function resolveFromGhCli(): Promise<IdentityResponse | null> {
   try {
     const login = await execAsync('gh', ['api', 'user', '--jq', '.login']);
@@ -37,12 +57,13 @@ async function resolveFromGitConfig(): Promise<IdentityResponse | null> {
 
 /**
  * Resolve the current user's GitHub identity.
- * Waterfall: gh CLI -> git config. Cached for server lifetime.
+ * Waterfall: GitHub API -> gh CLI -> git config. Cached for server lifetime.
  */
 export async function resolveIdentity(): Promise<IdentityResponse | null> {
   if (cached) return cached;
 
-  const result = (await resolveFromGhCli()) ?? (await resolveFromGitConfig());
+  const result =
+    (await resolveFromGithubApi()) ?? (await resolveFromGhCli()) ?? (await resolveFromGitConfig());
   if (result) cached = result;
   return result;
 }
