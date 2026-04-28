@@ -14,6 +14,7 @@ vi.mock('../../../src/server/gather/roadmap', () => ({
     totalPlanned: 1,
     totalBlocked: 0,
     totalBacklog: 0,
+    totalNeedsHuman: 0,
   }),
 }));
 vi.mock('../../../src/server/gather/health', () => ({

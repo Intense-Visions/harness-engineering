@@ -14,12 +14,13 @@ function makeRoadmapData(overrides?: Partial<RoadmapData>): RoadmapData {
     totalPlanned: 6,
     totalBlocked: 3,
     totalBacklog: 3,
+    totalNeedsHuman: 0,
     ...overrides,
   };
 }
 
 describe('StatsBar', () => {
-  it('renders all six stat labels', () => {
+  it('renders all stat labels', () => {
     const data = makeRoadmapData();
     render(<StatsBar data={data} />);
     expect(screen.getByText('Total')).toBeDefined();
@@ -27,6 +28,7 @@ describe('StatsBar', () => {
     expect(screen.getByText('In Progress')).toBeDefined();
     expect(screen.getByText('Planned')).toBeDefined();
     expect(screen.getByText('Blocked')).toBeDefined();
+    expect(screen.getByText('Needs Human')).toBeDefined();
     expect(screen.getByText('Backlog')).toBeDefined();
   });
 
@@ -59,7 +61,7 @@ describe('StatsBar', () => {
     });
     const { container } = render(<StatsBar data={data} />);
     const zeros = container.querySelectorAll('.text-lg');
-    expect(zeros.length).toBe(6);
+    expect(zeros.length).toBe(7);
     zeros.forEach((el) => expect(el.textContent).toBe('0'));
   });
 });

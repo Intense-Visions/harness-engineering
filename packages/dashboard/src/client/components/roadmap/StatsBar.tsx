@@ -10,6 +10,7 @@ const stats = [
   { key: 'totalInProgress', label: 'In Progress', color: 'text-blue-400' },
   { key: 'totalPlanned', label: 'Planned', color: 'text-gray-400' },
   { key: 'totalBlocked', label: 'Blocked', color: 'text-red-400' },
+  { key: 'totalNeedsHuman', label: 'Needs Human', color: 'text-amber-400' },
   { key: 'totalBacklog', label: 'Backlog', color: 'text-gray-500' },
 ] as const;
 

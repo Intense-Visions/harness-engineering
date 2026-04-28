@@ -40,6 +40,7 @@ export interface MilestoneProgress {
   planned: number;
   blocked: number;
   backlog: number;
+  needsHuman: number;
 }
 
 /** Projected feature for API consumption */
@@ -80,6 +81,7 @@ export interface RoadmapData {
   totalPlanned: number;
   totalBlocked: number;
   totalBacklog: number;
+  totalNeedsHuman: number;
 }
 
 /** Roadmap gatherer error result */

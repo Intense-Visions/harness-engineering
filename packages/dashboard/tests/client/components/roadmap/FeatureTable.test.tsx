@@ -30,6 +30,7 @@ function makeMilestone(overrides?: Partial<MilestoneProgress>): MilestoneProgres
     planned: 1,
     blocked: 1,
     backlog: 0,
+    needsHuman: 0,
     ...overrides,
   };
 }

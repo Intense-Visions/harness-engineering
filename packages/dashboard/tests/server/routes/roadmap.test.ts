@@ -51,6 +51,7 @@ const FAKE_ROADMAP_DATA = {
   totalPlanned: 1,
   totalBlocked: 0,
   totalBacklog: 0,
+  totalNeedsHuman: 0,
 };
 
 vi.mock('../../../src/server/gather/roadmap', () => ({

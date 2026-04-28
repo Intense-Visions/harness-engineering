@@ -44,6 +44,7 @@ export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult>
       totalPlanned: totals.planned,
       totalBlocked: totals.blocked,
       totalBacklog: totals.backlog,
+      totalNeedsHuman: totals.needsHuman,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -102,12 +103,14 @@ function countByStatus(statuses: FeatureStatus[]): {
   planned: number;
   blocked: number;
   backlog: number;
+  needsHuman: number;
 } {
   let done = 0;
   let inProgress = 0;
   let planned = 0;
   let blocked = 0;
   let backlog = 0;
+  let needsHuman = 0;
 
   for (const s of statuses) {
     switch (s) {
@@ -126,8 +129,11 @@ function countByStatus(statuses: FeatureStatus[]): {
       case 'backlog':
         backlog++;
         break;
+      case 'needs-human':
+        needsHuman++;
+        break;
     }
   }
 
-  return { done, inProgress, planned, blocked, backlog };
+  return { done, inProgress, planned, blocked, backlog, needsHuman };
 }
