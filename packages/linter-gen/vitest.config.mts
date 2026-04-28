@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
+    testTimeout: 15_000,
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
