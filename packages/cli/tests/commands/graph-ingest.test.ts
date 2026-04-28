@@ -36,6 +36,15 @@ const mockGitIngest = vi.fn().mockResolvedValue({
   durationMs: 80,
 });
 
+const mockRequirementIngest = vi.fn().mockResolvedValue({
+  nodesAdded: 2,
+  nodesUpdated: 0,
+  edgesAdded: 1,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 30,
+});
+
 const mockExtractionRun = vi.fn().mockResolvedValue({
   nodesAdded: 4,
   nodesUpdated: 0,
@@ -84,6 +93,10 @@ vi.mock('@harness-engineering/graph', () => ({
   GitIngestor: class {
     constructor() {}
     ingest = mockGitIngest;
+  },
+  RequirementIngestor: class {
+    constructor() {}
+    ingestSpecs = mockRequirementIngest;
   },
   SyncManager: class {
     constructor() {}
@@ -152,6 +165,14 @@ beforeEach(() => {
     edgesUpdated: 0,
     errors: [],
     durationMs: 80,
+  });
+  mockRequirementIngest.mockResolvedValue({
+    nodesAdded: 2,
+    nodesUpdated: 0,
+    edgesAdded: 1,
+    edgesUpdated: 0,
+    errors: [],
+    durationMs: 30,
   });
   mockSyncAll.mockResolvedValue({
     nodesAdded: 5,
@@ -277,10 +298,10 @@ describe('runIngest', () => {
       // 6 connectors registered (jira, slack, ci, confluence, figma, miro)
       expect(mockRegisterConnector).toHaveBeenCalledTimes(6);
       expect(mockStore.save).toHaveBeenCalled();
-      // Merged totals: 10+3+20+4+5 = 42 (code+knowledge+git+signals+connectors)
-      expect(result.nodesAdded).toBe(42);
-      // Merged edges: 5+2+15+0+3 = 25
-      expect(result.edgesAdded).toBe(25);
+      // Merged totals: 10+3+2+20+4+5 = 44 (code+knowledge+requirements+git+signals+connectors)
+      expect(result.nodesAdded).toBe(44);
+      // Merged edges: 5+2+1+15+0+3 = 26
+      expect(result.edgesAdded).toBe(26);
     });
 
     it('accumulates errors from all sources', async () => {
