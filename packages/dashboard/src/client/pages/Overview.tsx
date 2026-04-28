@@ -3,9 +3,19 @@ import { GlowCard } from '../components/NeonAI/GlowCard';
 import { ScrambleText } from '../components/NeonAI/ScrambleText';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { ActionButton } from '../components/ActionButton';
-import { motion, animate } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { Activity, ShieldCheck, Zap, Share2, Compass, type LucideIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import {
+  AlertTriangle,
+  Ban,
+  ShieldAlert,
+  Zap,
+  Activity,
+  Compass,
+  ShieldCheck,
+  Share2,
+  CheckCircle2,
+} from 'lucide-react';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { useProjectPulse } from '../hooks/useProjectPulse';
 import { NeuralOrganism } from '../components/chat/NeuralOrganism';
@@ -16,39 +26,13 @@ import {
   isSecurityData,
   isPerfData,
 } from '../utils/typeGuards';
-
-function SectionHeader({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
-  return (
-    <div className="mb-4 flex items-center gap-2">
-      <div className="rounded-lg bg-primary-500/10 p-1.5 text-primary-500 shadow-[0_0_10px_var(--color-primary-500)]">
-        <Icon size={16} />
-      </div>
-      <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-muted">
-        <ScrambleText text={title} />
-      </h2>
-    </div>
-  );
-}
-
-function SectionUnavailable({ data }: { data: unknown }) {
-  return (
-    <div className="rounded-xl border border-neutral-border bg-neutral-surface/20 p-6 text-center backdrop-blur-sm">
-      <p className="text-sm text-neutral-muted font-mono">
-        {data && typeof data === 'object' && 'error' in data
-          ? `ERR: ${(data as { error: string }).error}`
-          : 'MODULE_OFFLINE'}
-      </p>
-    </div>
-  );
-}
+import { Link } from 'react-router';
 
 const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
+    transition: { staggerChildren: 0.05 },
   },
 };
 
@@ -57,145 +41,200 @@ const item = {
   show: { opacity: 1, y: 0, scale: 1 },
 };
 
-import { HoloTooltip } from '../components/NeonAI/HoloTooltip';
-
-function RoadmapSection({ roadmap }: { roadmap: unknown }) {
-  return (
-    <motion.section variants={item}>
-      <SectionHeader title="Strategic Roadmap" icon={Compass} />
-      {roadmap && isRoadmapData(roadmap) ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-          <GlowCard
-            uid="RM_CORE_01"
-            delay={0.1}
-            className="col-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-center"
-          >
-            <HoloTooltip content="Aggregated feature count across all active milestones and backlog.">
-              <Stat label="Total Features" value={roadmap.totalFeatures} size="text-5xl" />
-            </HoloTooltip>
-          </GlowCard>
-
-          <GlowCard uid="RM_STAT_02" delay={0.2} className="col-span-1 lg:col-span-2">
-            <Stat label="Done" value={roadmap.totalDone} color="text-emerald-400" />
-          </GlowCard>
-          <GlowCard uid="RM_STAT_03" delay={0.3} className="col-span-1 lg:col-span-2">
-            <Stat label="In Progress" value={roadmap.totalInProgress} color="text-primary-500" />
-          </GlowCard>
-          <GlowCard uid="RM_STAT_04" delay={0.4} className="col-span-1 lg:col-span-2">
-            <Stat label="Planned" value={roadmap.totalPlanned} />
-          </GlowCard>
-          <GlowCard uid="RM_STAT_05" delay={0.5} className="col-span-1 lg:col-span-2">
-            <Stat
-              label="Blocked"
-              value={roadmap.totalBlocked}
-              color={roadmap.totalBlocked > 0 ? 'text-red-400 animate-pulse' : 'text-neutral-text'}
-            />
-          </GlowCard>
-        </div>
-      ) : (
-        <SectionUnavailable data={roadmap} />
-      )}
-    </motion.section>
-  );
-}
-
-function HealthSection({ health }: { health: unknown }) {
-  return (
-    <motion.section variants={item}>
-      <SectionHeader title="Codebase Health" icon={Activity} />
-      {health && isHealthData(health) ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <GlowCard
-            uid="HLTH_CORE_99"
-            delay={0.1}
-            className="col-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-center bg-gradient-to-br from-neutral-surface/40 to-primary-500/5"
-          >
-            <Stat
-              label="Total Issues"
-              value={health.totalIssues}
-              color={health.totalIssues > 0 ? 'text-amber-400' : 'text-emerald-400'}
-              size="text-6xl"
-            />
-          </GlowCard>
-          <GlowCard uid="HLTH_ERR_01" delay={0.2} className="col-span-1 lg:col-span-2">
-            <Stat
-              label="Errors"
-              value={health.errors}
-              color={health.errors > 0 ? 'text-red-400' : 'text-neutral-text'}
-            />
-          </GlowCard>
-          <GlowCard uid="HLTH_WRN_02" delay={0.3} className="col-span-1">
-            <Stat
-              label="Warnings"
-              value={health.warnings}
-              color={health.warnings > 0 ? 'text-amber-400' : 'text-neutral-text'}
-            />
-          </GlowCard>
-          <GlowCard uid="HLTH_FIX_03" delay={0.4} className="col-span-2 lg:col-span-1">
-            <Stat
-              label="Auto-fixable"
-              value={health.fixableCount}
-              sub={`${health.durationMs}ms scan`}
-            />
-          </GlowCard>
-        </div>
-      ) : (
-        <SectionUnavailable data={health} />
-      )}
-    </motion.section>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  color = 'text-neutral-text',
-  size = 'text-3xl',
-  sub,
-}: {
+interface Alert {
+  id: string;
+  icon: typeof AlertTriangle;
   label: string;
   value: string | number;
-  color?: string;
-  size?: string;
-  sub?: string;
-}) {
-  const [displayValue, setDisplayValue] = useState<string | number>(
-    typeof value === 'number' ? 0 : value
-  );
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  link: string;
+}
 
-  useEffect(() => {
-    if (typeof value === 'number') {
-      const controls = animate(0, value, {
-        duration: 1.5,
-        ease: 'circOut',
-        onUpdate: (latest) => setDisplayValue(Math.floor(latest)),
-      });
-      return () => controls.stop();
-    } else {
-      setDisplayValue(value);
-    }
-  }, [value]);
+function buildAlerts(roadmap: unknown, health: unknown, security: unknown, perf: unknown): Alert[] {
+  const alerts: Alert[] = [];
+
+  if (isHealthData(health) && health.errors > 0) {
+    alerts.push({
+      id: 'health-errors',
+      icon: AlertTriangle,
+      label: 'Health Errors',
+      value: health.errors,
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/5',
+      borderColor: 'border-red-500/20',
+      link: '/intelligence/health',
+    });
+  }
+
+  if (isRoadmapData(roadmap) && roadmap.totalBlocked > 0) {
+    alerts.push({
+      id: 'blocked-features',
+      icon: Ban,
+      label: 'Blocked Features',
+      value: roadmap.totalBlocked,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/5',
+      borderColor: 'border-amber-500/20',
+      link: '/roadmap',
+    });
+  }
+
+  if (isSecurityData(security) && security.stats.errorCount > 0) {
+    alerts.push({
+      id: 'security-threats',
+      icon: ShieldAlert,
+      label: 'Security Threats',
+      value: security.stats.errorCount,
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/5',
+      borderColor: 'border-red-500/20',
+      link: '/intelligence/health',
+    });
+  }
+
+  if (isPerfData(perf) && perf.stats.violationCount > 0) {
+    alerts.push({
+      id: 'perf-anomalies',
+      icon: Zap,
+      label: 'Perf Violations',
+      value: perf.stats.violationCount,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/5',
+      borderColor: 'border-amber-500/20',
+      link: '/intelligence/health',
+    });
+  }
+
+  return alerts;
+}
+
+function AlertCard({ alert }: { alert: Alert }) {
+  const Icon = alert.icon;
+  return (
+    <Link to={alert.link}>
+      <GlowCard uid={`ALERT_${alert.id}`} delay={0.1} className="h-full">
+        <div className={`flex items-center gap-4 ${alert.bgColor} rounded-lg p-1 -m-1`}>
+          <div
+            className={`flex-shrink-0 rounded-lg p-2 ${alert.color} ${alert.borderColor} border`}
+          >
+            <Icon size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-muted block">
+              {alert.label}
+            </span>
+            <span className={`text-2xl font-black tracking-tighter ${alert.color}`}>
+              {alert.value}
+            </span>
+          </div>
+        </div>
+      </GlowCard>
+    </Link>
+  );
+}
+
+interface StatusItem {
+  icon: typeof Activity;
+  label: string;
+  value: string;
+  healthy: boolean;
+}
+
+function StatusStrip({
+  roadmap,
+  health,
+  security,
+  perf,
+  graph,
+}: {
+  roadmap: unknown;
+  health: unknown;
+  security: unknown;
+  perf: unknown;
+  graph: unknown;
+}) {
+  const items: StatusItem[] = [];
+
+  if (isRoadmapData(roadmap)) {
+    const pct =
+      roadmap.totalFeatures > 0 ? Math.round((roadmap.totalDone / roadmap.totalFeatures) * 100) : 0;
+    items.push({
+      icon: Compass,
+      label: 'Roadmap',
+      value: `${pct}% done · ${roadmap.totalInProgress} active`,
+      healthy: roadmap.totalBlocked === 0,
+    });
+  }
+
+  if (isHealthData(health)) {
+    items.push({
+      icon: Activity,
+      label: 'Health',
+      value:
+        health.totalIssues === 0
+          ? 'Clean'
+          : `${health.totalIssues} issues · ${health.fixableCount} fixable`,
+      healthy: health.totalIssues === 0,
+    });
+  }
+
+  if (isSecurityData(security)) {
+    items.push({
+      icon: ShieldCheck,
+      label: 'Security',
+      value: security.valid ? 'Verified' : `${security.stats.errorCount} threats`,
+      healthy: security.valid,
+    });
+  }
+
+  if (isPerfData(perf)) {
+    items.push({
+      icon: Zap,
+      label: 'Performance',
+      value: perf.valid ? 'Optimal' : `${perf.stats.violationCount} violations`,
+      healthy: perf.valid,
+    });
+  }
+
+  if (isGraphData(graph)) {
+    items.push({
+      icon: Share2,
+      label: 'Knowledge',
+      value: `${graph.nodeCount} nodes · ${graph.edgeCount} edges`,
+      healthy: true,
+    });
+  }
+
+  if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-muted">
-        {label}
-      </span>
-      <motion.span
-        key={value}
-        initial={{ opacity: 0, filter: 'blur(4px)', y: 10 }}
-        animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-        transition={{ duration: 0.6 }}
-        className={`${size} font-black tracking-tighter ${color}`}
-      >
-        {displayValue}
-      </motion.span>
-      {sub && (
-        <span className="text-[10px] text-neutral-muted font-mono mt-1 border-t border-neutral-border pt-1 inline-block">
-          {sub}
-        </span>
-      )}
-    </div>
+    <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {items.map((s) => {
+        const Icon = s.icon;
+        return (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-neutral-surface/20 px-4 py-3 backdrop-blur-sm"
+          >
+            <div
+              className={`rounded-md p-1.5 ${s.healthy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}
+            >
+              <Icon size={14} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block">
+                {s.label}
+              </span>
+              <span className="text-xs font-semibold text-neutral-text truncate block">
+                {s.value}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </motion.div>
   );
 }
 
@@ -210,11 +249,12 @@ export function Overview() {
   const security = checksData ? checksData.security : null;
   const perf = checksData ? checksData.perf : null;
 
-  // Broadcast Project Pulse
+  const alerts = buildAlerts(roadmap, health, security, perf);
+
   useEffect(() => {
     if (health && isHealthData(health)) {
       const issues = health.totalIssues || 0;
-      const stress = Math.min(issues / 20, 1); // Normalize stress (20 issues = max stress)
+      const stress = Math.min(issues / 20, 1);
       setPulse({
         stressLevel: stress,
         isHealthy: issues === 0,
@@ -225,16 +265,15 @@ export function Overview() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">
+      {/* Header */}
       <div className="mb-10 flex items-start justify-between border-b border-neutral-border pb-8">
         <div className="flex items-start gap-8">
-          {/* Living organism — glass containment field, always visible */}
           <motion.div
             className="relative flex-shrink-0 mt-1"
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Outer atmospheric glow */}
             <motion.div
               className="absolute inset-0 -m-6 rounded-full pointer-events-none"
               animate={{
@@ -247,7 +286,6 @@ export function Overview() {
                 filter: 'blur(14px)',
               }}
             />
-            {/* Glass containment ring */}
             <div
               className="relative rounded-full p-3"
               style={{
@@ -289,6 +327,7 @@ export function Overview() {
         </div>
       </div>
 
+      {/* Loading state */}
       {!data && !error && (
         <div className="flex flex-col items-center justify-center py-16 text-neutral-muted">
           <motion.p
@@ -303,87 +342,118 @@ export function Overview() {
       )}
 
       {data && (
-        <div className="space-y-12 pb-20">
-          <RoadmapSection roadmap={roadmap} />
-          <HealthSection health={health} />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <motion.section variants={item} className="h-full flex flex-col">
-              <SectionHeader title="Security Audit" icon={ShieldCheck} />
-              {security && isSecurityData(security) ? (
-                <div className="grid grid-cols-2 gap-4 flex-1">
-                  <GlowCard uid="SEC_TRUST_01" delay={0.1} className="h-full">
-                    <Stat
-                      label="System Trust"
-                      value={security.valid ? 'Verified' : 'Compromised'}
-                      color={
-                        security.valid ? 'text-emerald-400 text-shadow-emerald' : 'text-red-400'
-                      }
-                    />
-                  </GlowCard>
-                  <GlowCard uid="SEC_THR_02" delay={0.2} className="h-full">
-                    <Stat
-                      label="Threats"
-                      value={security.stats.errorCount}
-                      color={security.stats.errorCount > 0 ? 'text-red-400' : 'text-neutral-text'}
-                    />
-                  </GlowCard>
+        <div className="space-y-8 pb-20">
+          {/* Alerts — only shown when there are actionable items */}
+          {alerts.length > 0 && (
+            <motion.section variants={item}>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="rounded-lg bg-red-500/10 p-1.5 text-red-400">
+                  <AlertTriangle size={14} />
                 </div>
-              ) : (
-                <SectionUnavailable data={security} />
-              )}
-            </motion.section>
-
-            <motion.section variants={item} className="h-full flex flex-col">
-              <SectionHeader title="System Perf" icon={Zap} />
-              {perf && isPerfData(perf) ? (
-                <div className="grid grid-cols-2 gap-4 flex-1">
-                  <GlowCard uid="PRF_EFF_01" delay={0.1} className="h-full">
-                    <Stat
-                      label="Efficiency"
-                      value={perf.valid ? 'Optimal' : 'Degraded'}
-                      color={perf.valid ? 'text-emerald-400' : 'text-amber-400'}
-                    />
-                  </GlowCard>
-                  <GlowCard uid="PRF_ANM_02" delay={0.2} className="h-full">
-                    <Stat
-                      label="Anomalies"
-                      value={perf.stats.violationCount}
-                      color={perf.stats.violationCount > 0 ? 'text-red-400' : 'text-neutral-text'}
-                    />
-                  </GlowCard>
-                </div>
-              ) : (
-                <SectionUnavailable data={perf} />
-              )}
-            </motion.section>
-          </div>
-
-          <motion.section variants={item}>
-            <SectionHeader title="Knowledge Mesh" icon={Share2} />
-            {graph && isGraphData(graph) ? (
+                <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-muted">
+                  Requires Attention
+                </h2>
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <GlowCard uid="GRPH_NOD_01" delay={0.1} className="col-span-2 lg:col-span-1">
-                  <Stat label="Neurons" value={graph.nodeCount} />
+                {alerts.map((a) => (
+                  <AlertCard key={a.id} alert={a} />
+                ))}
+              </div>
+            </motion.section>
+          )}
+
+          {/* All-clear banner when no alerts */}
+          {alerts.length === 0 && (
+            <motion.div
+              variants={item}
+              className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-6 py-4"
+            >
+              <CheckCircle2 size={20} className="text-emerald-400 flex-shrink-0" />
+              <div>
+                <span className="text-sm font-bold text-emerald-400">All Systems Nominal</span>
+                <span className="text-xs text-neutral-muted ml-3">
+                  No errors, blockers, threats, or violations detected.
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Status strip — compact domain health at a glance */}
+          <StatusStrip
+            roadmap={roadmap}
+            health={health}
+            security={security}
+            perf={perf}
+            graph={graph}
+          />
+
+          {/* Roadmap progress — compact summary */}
+          {isRoadmapData(roadmap) && (
+            <motion.section variants={item}>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="rounded-lg bg-primary-500/10 p-1.5 text-primary-500 shadow-[0_0_10px_var(--color-primary-500)]">
+                  <Compass size={14} />
+                </div>
+                <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-muted">
+                  Roadmap Progress
+                </h2>
+              </div>
+              <div className="grid grid-cols-5 gap-3">
+                <GlowCard uid="TRI_RM_TOTAL" delay={0.1}>
+                  <div className="text-center">
+                    <span className="text-3xl font-black tracking-tighter text-neutral-text">
+                      {roadmap.totalFeatures}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block mt-1">
+                      Total
+                    </span>
+                  </div>
                 </GlowCard>
-                <GlowCard uid="GRPH_EDG_02" delay={0.2} className="col-span-2 lg:col-span-1">
-                  <Stat label="Synapses" value={graph.edgeCount} />
+                <GlowCard uid="TRI_RM_DONE" delay={0.15}>
+                  <div className="text-center">
+                    <span className="text-3xl font-black tracking-tighter text-emerald-400">
+                      {roadmap.totalDone}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block mt-1">
+                      Done
+                    </span>
+                  </div>
                 </GlowCard>
-                <GlowCard uid="GRPH_TOP_03" delay={0.3} className="col-span-2 lg:col-span-2">
-                  <Stat
-                    label="Topology"
-                    value={`${graph.nodesByType.length} Types`}
-                    sub={graph.nodesByType
-                      .map((n) => `${n.type}: ${n.count}`)
-                      .slice(0, 3)
-                      .join(' · ')}
-                  />
+                <GlowCard uid="TRI_RM_PROG" delay={0.2}>
+                  <div className="text-center">
+                    <span className="text-3xl font-black tracking-tighter text-primary-500">
+                      {roadmap.totalInProgress}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block mt-1">
+                      Active
+                    </span>
+                  </div>
+                </GlowCard>
+                <GlowCard uid="TRI_RM_PLAN" delay={0.25}>
+                  <div className="text-center">
+                    <span className="text-3xl font-black tracking-tighter text-neutral-text">
+                      {roadmap.totalPlanned}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block mt-1">
+                      Planned
+                    </span>
+                  </div>
+                </GlowCard>
+                <GlowCard uid="TRI_RM_BLOCK" delay={0.3}>
+                  <div className="text-center">
+                    <span
+                      className={`text-3xl font-black tracking-tighter ${roadmap.totalBlocked > 0 ? 'text-red-400 animate-pulse' : 'text-neutral-text'}`}
+                    >
+                      {roadmap.totalBlocked}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-muted block mt-1">
+                      Blocked
+                    </span>
+                  </div>
                 </GlowCard>
               </div>
-            ) : (
-              <SectionUnavailable data={graph} />
-            )}
-          </motion.section>
+            </motion.section>
+          )}
         </div>
       )}
     </motion.div>
