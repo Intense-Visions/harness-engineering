@@ -1,8 +1,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router';
+import { useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, MessageSquareOff } from 'lucide-react';
 import { AuraBackground } from './NeonAI/AuraBackground';
+import { DomainNav } from './DomainNav';
 import { useChatPanel } from '../hooks/useChatPanel';
 import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import { ChatPanel } from './chat/ChatPanel';
@@ -10,22 +11,6 @@ import { ChatPanel } from './chat/ChatPanel';
 interface Props {
   children: ReactNode;
 }
-
-const NAV_ITEMS = [
-  { to: '/', label: 'Overview', end: true },
-  { to: '/roadmap', label: 'Roadmap' },
-  { to: '/health', label: 'Health' },
-  { to: '/decay-trends', label: 'Decay Trends' },
-  { to: '/traceability', label: 'Traceability' },
-  { to: '/graph', label: 'Graph' },
-  { to: '/impact', label: 'Impact' },
-  { to: '/orchestrator', label: 'Agents', end: true },
-  { to: '/orchestrator/attention', label: 'Attention' },
-  { to: '/orchestrator/analyze', label: 'Analyze' },
-  { to: '/orchestrator/maintenance', label: 'Maintenance' },
-  { to: '/orchestrator/streams', label: 'Streams' },
-  { to: '/adoption', label: 'Adoption' },
-] as const;
 
 export function Layout({ children }: Props) {
   const location = useLocation();
@@ -77,41 +62,7 @@ export function Layout({ children }: Props) {
               </span>
             </div>
 
-            <nav className="flex gap-1 relative group/nav">
-              {/* Nav Spotlight */}
-              <div
-                className="pointer-events-none absolute -inset-2 z-0 opacity-0 transition-opacity duration-500 group-hover/nav:opacity-100"
-                style={{
-                  background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.1), transparent 40%)`,
-                }}
-              />
-              {NAV_ITEMS.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  {...('end' in item ? { end: item.end } : {})}
-                  className={({ isActive }) =>
-                    [
-                      'relative rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all duration-300',
-                      isActive ? 'text-white' : 'text-neutral-muted hover:text-neutral-text',
-                    ].join(' ')
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <span className="relative z-10">{item.label}</span>
-                      {isActive && (
-                        <motion.div
-                          layoutId="nav-pill"
-                          className="absolute inset-0 z-0 rounded-full bg-white/5 border border-white/10"
-                          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                        />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </nav>
+            <DomainNav />
 
             {/* Chat toggle */}
             <button
