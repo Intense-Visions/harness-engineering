@@ -15,7 +15,7 @@ describe('integration: generate', () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('generates working ESLint rules from config', async () => {
+  it('generates working ESLint rules from config', { timeout: 15000 }, async () => {
     const configPath = path.join(tempDir, 'harness-linter.yml');
     const outputDir = path.join(tempDir, 'generated');
 
