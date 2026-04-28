@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-04-23T02:02:33.199Z
+last_manual_edit: 2026-04-27T23:54:25.164Z
 ---
 
 # Roadmap
@@ -991,6 +991,14 @@ last_manual_edit: 2026-04-23T02:02:33.199Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#231
 - **Updated-At:** 2026-04-21T17:39:54.491Z
+
+### Integration Phase
+
+- **Status:** done
+- **Spec:** docs/changes/integration-phase/proposal.md
+- **Summary:** New INTEGRATE state between VERIFY and REVIEW — shifts integration design left into brainstorming/planning, adds tiered wiring verification, ADR materialization in docs/knowledge/decisions/, and knowledge graph enrichment
+- **Blockers:** —
+- **Plan:** —
 
 ## v3.0 Graph Intelligence
 
