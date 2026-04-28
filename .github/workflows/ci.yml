@@ -139,4 +139,5 @@ jobs:
               --head "$BRANCH"
           fi
         env:
+          HUSKY: '0'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

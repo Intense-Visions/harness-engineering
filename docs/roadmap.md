@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-04-27T23:54:25.164Z
+last_manual_edit: 2026-04-28T01:58:43.534Z
 ---
 
 # Roadmap
@@ -997,6 +997,14 @@ last_manual_edit: 2026-04-27T23:54:25.164Z
 - **Status:** done
 - **Spec:** docs/changes/integration-phase/proposal.md
 - **Summary:** New INTEGRATE state between VERIFY and REVIEW — shifts integration design left into brainstorming/planning, adds tiered wiring verification, ADR materialization in docs/knowledge/decisions/, and knowledge graph enrichment
+- **Blockers:** —
+- **Plan:** —
+
+### Dashboard Reorganization — Chat-First Architecture with Expandable Domain Navigation
+
+- **Status:** planned
+- **Spec:** docs/changes/dashboard-reorganization/proposal.md
+- **Summary:** Restructure dashboard from 13 flat nav items to 4 expandable domain pills, elevate chat to persistent right column, replace KPI-wall overview with triage feed.
 - **Blockers:** —
 - **Plan:** —
 
