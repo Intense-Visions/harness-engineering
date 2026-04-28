@@ -37,7 +37,7 @@ export function ThreadSidebar() {
     <aside className="flex h-screen w-[280px] flex-shrink-0 flex-col border-r border-white/[0.06]">
       {/* Branding */}
       <div className="flex items-center border-b border-white/[0.06] px-4 py-3">
-        <Sigil size={30} />
+        <Sigil size={32} />
         <div className="flex flex-col flex-1">
           <span className="text-[11px] font-black tracking-tight text-neutral-text">Harness</span>
           <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-primary-500/70">

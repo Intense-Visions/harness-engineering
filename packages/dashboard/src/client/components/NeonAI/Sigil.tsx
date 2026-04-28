@@ -2,212 +2,203 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useMemo } from 'react';
 
 /**
- * Sigil — The app's identity mark for the sidebar header.
+ * Sigil — The app's living bioluminescent identity mark.
  *
- * A stylized bioluminescent nautilus / chambered spiral with breathing
- * radial arms and a pulsing core. Designed to feel like a living logo
- * rather than a generic icon — the kind of deep-sea organism you'd find
- * illuminating a volcanic vent.
- *
- * Visually distinct from ThreadMote (thread list icons) by being:
- * - Larger and more detailed (spiral geometry, multiple layers)
- * - Asymmetric and directional (spiral, not radially symmetric)
- * - Warmer bioluminescence (teal/cyan core with secondary magenta)
+ * Bold shapes with deep-sea bioluminescence: a vivid cyan-teal glow
+ * that bleeds outward like light from a living creature. Periodic
+ * bright flares mimic the flash patterns of real bioluminescent organisms.
  */
-export function Sigil({ size = 28 }: { size?: number }) {
+export function Sigil({ size = 32 }: { size?: number }) {
   const prefersReduced = useReducedMotion();
+  const animate = !prefersReduced;
 
-  // Stable randomized geometry per mount
-  const genome = useMemo(() => {
-    const spiralTightness = 0.7 + Math.random() * 0.3;
-    const armWobble = 0.4 + Math.random() * 0.6;
-    return { spiralTightness, armWobble };
-  }, []);
-
-  // Generate a chambered spiral path
-  const spiralPath = useMemo(() => {
-    const cx = 50,
-      cy = 50;
-    const turns = 1.8 * genome.spiralTightness;
-    const points: string[] = [];
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const angle = t * turns * Math.PI * 2 - Math.PI / 2;
-      const r = 4 + t * 26;
-      const x = cx + Math.cos(angle) * r;
-      const y = cy + Math.sin(angle) * r;
-      points.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
-    }
-    return `M ${points.join(' L ')}`;
-  }, [genome.spiralTightness]);
-
-  // Generate radial chamber lines
-  const chambers = useMemo(() => {
-    const cx = 50,
-      cy = 50;
-    const count = 5;
-    return Array.from({ length: count }, (_, i) => {
-      const t = (i + 1) / (count + 1);
-      const angle = t * 1.8 * genome.spiralTightness * Math.PI * 2 - Math.PI / 2;
-      const rInner = 4 + t * 26 * 0.3;
-      const rOuter = 4 + t * 26;
-      const wobble = (Math.random() - 0.5) * genome.armWobble * 4;
-      const perpAngle = angle + Math.PI / 2;
-      return {
-        x1: cx + Math.cos(angle) * rInner,
-        y1: cy + Math.sin(angle) * rInner,
-        x2: cx + Math.cos(angle) * rOuter + Math.cos(perpAngle) * wobble,
-        y2: cy + Math.sin(angle) * rOuter + Math.sin(perpAngle) * wobble,
-        delay: i * 0.3,
-      };
-    });
-  }, [genome]);
-
-  const breathDuration = prefersReduced ? 0 : 4;
+  const hue = useMemo(() => 185 + Math.floor(Math.random() * 12) - 6, []);
 
   return (
     <div
       className="relative flex items-center justify-center shrink-0 mr-3"
       style={{ width: size, height: size }}
     >
-      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+      {/* CSS glow halo — bleeds beyond SVG bounds */}
+      <motion.div
+        className="absolute inset-[-6px] rounded-full"
+        style={{
+          background: `radial-gradient(circle, hsla(${hue}, 95%, 60%, 0.4) 0%, hsla(${hue}, 90%, 45%, 0.15) 50%, transparent 75%)`,
+        }}
+        {...(animate
+          ? {
+              animate: { scale: [1, 1.25, 1], opacity: [0.6, 1, 0.6] },
+              transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as const },
+            }
+          : {})}
+      />
+
+      {/* Bioluminescent flash — periodic bright flare */}
+      {animate && (
+        <motion.div
+          className="absolute inset-[-12px] rounded-full"
+          style={{
+            background: `radial-gradient(circle, hsla(${hue}, 100%, 75%, 0.5) 0%, transparent 60%)`,
+          }}
+          animate={{
+            scale: [0.8, 1.6, 0.8],
+            opacity: [0, 0.7, 0],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            times: [0, 0.3, 1],
+          }}
+        />
+      )}
+
+      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible relative z-10">
         <defs>
-          {/* Core glow gradient */}
-          <radialGradient id="sigil-core-grad" cx="50%" cy="50%">
-            <stop offset="0%" stopColor="#e0f7fa" />
-            <stop offset="35%" stopColor="#06b6d4" />
-            <stop offset="70%" stopColor="#0891b2" />
-            <stop offset="100%" stopColor="#064e3b" stopOpacity="0" />
+          {/* Bioluminescent core — bright teal center fading to deep ocean */}
+          <radialGradient id="sigil-bio-core">
+            <stop offset="0%" stopColor={`hsl(${hue + 10}, 100%, 95%)`} />
+            <stop offset="25%" stopColor={`hsl(${hue}, 100%, 72%)`} />
+            <stop offset="55%" stopColor={`hsl(${hue - 5}, 90%, 50%)`} />
+            <stop offset="100%" stopColor={`hsl(${hue - 15}, 80%, 22%)`} />
           </radialGradient>
 
-          {/* Spiral stroke gradient */}
-          <linearGradient id="sigil-spiral-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.9" />
-            <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.4" />
-          </linearGradient>
-
-          {/* Ambient haze */}
-          <filter id="sigil-glow">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" />
-          </filter>
-          <filter id="sigil-glow-soft">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
+          <filter id="sig-glow">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
           </filter>
         </defs>
 
-        {/* Background haze — soft ambient light */}
-        <motion.circle
-          cx="50"
-          cy="50"
-          r="30"
-          fill="url(#sigil-core-grad)"
-          filter="url(#sigil-glow-soft)"
-          animate={breathDuration ? { opacity: [0.15, 0.3, 0.15], r: [28, 34, 28] } : undefined}
-          transition={
-            breathDuration
-              ? { duration: breathDuration * 1.5, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
-          opacity={0.2}
-        />
-
-        {/* Chamber walls — internal structure lines */}
-        {chambers.map((c, i) => (
-          <motion.line
-            key={i}
-            x1={c.x1}
-            y1={c.y1}
-            x2={c.x2}
-            y2={c.y2}
-            stroke="#22d3ee"
-            strokeWidth="0.8"
-            strokeLinecap="round"
-            opacity={0.15}
-            animate={
-              breathDuration
-                ? { opacity: [0.08, 0.22, 0.08], x2: [c.x2 - 1, c.x2 + 1, c.x2 - 1] }
-                : undefined
-            }
-            transition={
-              breathDuration
-                ? { duration: breathDuration, delay: c.delay, repeat: Infinity, ease: 'easeInOut' }
-                : undefined
-            }
+        {/* Outer ring — bold, slow clockwise */}
+        <motion.g
+          {...(animate
+            ? {
+                animate: { rotate: 360 },
+                transition: { duration: 45, repeat: Infinity, ease: 'linear' as const },
+              }
+            : {})}
+          style={{ transformOrigin: '50px 50px' }}
+        >
+          {/* Ring glow */}
+          <circle
+            cx="50"
+            cy="50"
+            r="42"
+            fill="none"
+            stroke={`hsla(${hue}, 90%, 65%, 0.3)`}
+            strokeWidth="4"
+            strokeDasharray="10 5"
+            filter="url(#sig-glow)"
           />
-        ))}
+          {/* Crisp ring */}
+          <circle
+            cx="50"
+            cy="50"
+            r="42"
+            fill="none"
+            stroke={`hsla(${hue}, 85%, 72%, 0.75)`}
+            strokeWidth="1.8"
+            strokeDasharray="10 5"
+          />
+        </motion.g>
 
-        {/* Main spiral — the nautilus shell */}
-        <motion.path
-          d={spiralPath}
-          fill="none"
-          stroke="url(#sigil-spiral-grad)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          filter="url(#sigil-glow)"
-          animate={
-            breathDuration ? { opacity: [0.5, 0.85, 0.5], strokeWidth: [2, 2.8, 2] } : undefined
-          }
-          transition={
-            breathDuration
-              ? { duration: breathDuration, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
-          opacity={0.6}
-        />
-        {/* Crisp spiral overlay */}
-        <motion.path
-          d={spiralPath}
-          fill="none"
-          stroke="#22d3ee"
-          strokeWidth="1"
-          strokeLinecap="round"
-          animate={breathDuration ? { opacity: [0.4, 0.7, 0.4] } : undefined}
-          transition={
-            breathDuration
-              ? { duration: breathDuration, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
-          opacity={0.5}
-        />
+        {/* Inner ring — counter-clockwise */}
+        <motion.g
+          {...(animate
+            ? {
+                animate: { rotate: -360 },
+                transition: { duration: 28, repeat: Infinity, ease: 'linear' as const },
+              }
+            : {})}
+          style={{ transformOrigin: '50px 50px' }}
+        >
+          <circle
+            cx="50"
+            cy="50"
+            r="28"
+            fill="none"
+            stroke={`hsla(${hue + 20}, 80%, 68%, 0.3)`}
+            strokeWidth="3.5"
+            strokeDasharray="6 8"
+            filter="url(#sig-glow)"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="28"
+            fill="none"
+            stroke={`hsla(${hue + 20}, 80%, 74%, 0.6)`}
+            strokeWidth="1.5"
+            strokeDasharray="6 8"
+          />
+        </motion.g>
 
-        {/* Central eye / nucleus */}
+        {/* Core glow — the bioluminescent organ */}
         <motion.circle
           cx="50"
           cy="50"
-          r="5"
-          fill="#e0f7fa"
-          filter="url(#sigil-glow)"
-          animate={breathDuration ? { r: [4, 6, 4], opacity: [0.6, 1, 0.6] } : undefined}
-          transition={
-            breathDuration
-              ? { duration: breathDuration * 0.8, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
-          opacity={0.8}
+          r="18"
+          fill="url(#sigil-bio-core)"
+          filter="url(#sig-glow)"
+          {...(animate
+            ? {
+                animate: { r: [16, 20, 16], opacity: [0.75, 1, 0.75] },
+                transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
+          opacity={0.85}
         />
-        <circle cx="50" cy="50" r="2" fill="white" opacity={0.9} />
 
-        {/* Accent spark — tiny secondary flash at shell tip */}
+        {/* Crisp core body */}
         <motion.circle
-          cx="76"
+          cx="50"
           cy="50"
-          r="1.5"
-          fill="#a78bfa"
-          animate={breathDuration ? { opacity: [0, 0.8, 0], r: [1, 2.5, 1] } : undefined}
-          transition={
-            breathDuration
-              ? {
-                  duration: breathDuration * 1.2,
-                  delay: breathDuration * 0.4,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }
-              : undefined
-          }
-          opacity={0}
+          r="14"
+          fill="url(#sigil-bio-core)"
+          {...(animate
+            ? {
+                animate: { r: [13, 15, 13] },
+                transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
         />
+
+        {/* Bright photophore center */}
+        <motion.circle
+          cx="50"
+          cy="50"
+          r="6"
+          fill={`hsl(${hue + 10}, 100%, 90%)`}
+          {...(animate
+            ? {
+                animate: { r: [5, 7, 5], opacity: [0.9, 1, 0.9] },
+                transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
+        />
+
+        {/* White-hot point */}
+        <circle cx="50" cy="50" r="2.5" fill="white" />
+
+        {/* Orbiting motes — like drifting plankton */}
+        {animate &&
+          [0, 120, 240].map((startAngle, i) => (
+            <motion.g
+              key={startAngle}
+              animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
+              transition={{ duration: 8 + i * 4, repeat: Infinity, ease: 'linear' }}
+              style={{ transformOrigin: '50px 50px' }}
+            >
+              <motion.circle
+                cx={50 + 36}
+                cy="50"
+                r={2.5 - i * 0.3}
+                fill={`hsla(${hue + i * 40}, 95%, 78%, 1)`}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.8, delay: i * 0.4, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transform: `rotate(${startAngle}deg)`, transformOrigin: '50px 50px' }}
+              />
+            </motion.g>
+          ))}
       </svg>
     </div>
   );

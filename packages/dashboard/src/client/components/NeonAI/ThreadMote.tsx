@@ -93,10 +93,12 @@ function Dinoflagellate({
           r="24"
           fill="#06b6d4"
           filter="url(#dino-glow)"
-          animate={breathDur ? { opacity: [0.1, 0.25, 0.1] } : undefined}
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+          {...(breathDur
+            ? {
+                animate: { opacity: [0.1, 0.25, 0.1] },
+                transition: { duration: breathDur, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
           opacity={isActive ? 0.25 : 0.12}
         />
 
@@ -104,17 +106,15 @@ function Dinoflagellate({
         <motion.path
           d={bodyPath}
           fill="url(#dino-grad)"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   scale: [1, 1.06, 1],
                   opacity: isActive ? [0.8, 1, 0.8] : [0.5, 0.7, 0.5],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: { duration: breathDur, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
           opacity={isActive ? 0.85 : 0.55}
           style={{ transformOrigin: '50px 50px' }}
         />
@@ -126,15 +126,15 @@ function Dinoflagellate({
           stroke="#22d3ee"
           strokeWidth="2"
           strokeLinecap="round"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   d: ['M 50 78 Q 55 88 48 96', 'M 50 78 Q 45 90 52 98', 'M 50 78 Q 55 88 48 96'],
                   opacity: [0.3, 0.6, 0.3],
-                }
-              : undefined
-          }
-          transition={breathDur ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : undefined}
+                },
+                transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
           opacity={0.4}
         />
 
@@ -144,12 +144,16 @@ function Dinoflagellate({
           cy="48"
           r="6"
           fill="#e0f7fa"
-          animate={breathDur ? { opacity: [0.6, 1, 0.6], r: [5, 7, 5] } : undefined}
-          transition={
-            breathDur
-              ? { duration: breathDur * 0.7, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
+          {...(breathDur
+            ? {
+                animate: { opacity: [0.6, 1, 0.6], r: [5, 7, 5] },
+                transition: {
+                  duration: breathDur * 0.7,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={0.7}
         />
         <circle cx="50" cy="48" r="2.5" fill="white" opacity={0.9} />
@@ -209,17 +213,15 @@ function Ctenophore({
           fill="url(#cteno-grad)"
           stroke="rgba(150, 210, 255, 0.25)"
           strokeWidth="1"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   ry: [28, 32, 28],
                   opacity: isActive ? [0.6, 0.85, 0.6] : [0.35, 0.55, 0.35],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: { duration: breathDur, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
           opacity={isActive ? 0.65 : 0.4}
           style={{ transformOrigin: '50px 48px' }}
         />
@@ -235,9 +237,9 @@ function Ctenophore({
             stroke={`hsla(${c.hue}, 80%, 70%, 0.7)`}
             strokeWidth="1.5"
             strokeLinecap="round"
-            animate={
-              breathDur
-                ? {
+            {...(breathDur
+              ? {
+                  animate: {
                     stroke: [
                       `hsla(${c.hue}, 80%, 70%, 0.5)`,
                       `hsla(${(c.hue + 60) % 360}, 85%, 75%, 0.9)`,
@@ -245,19 +247,15 @@ function Ctenophore({
                     ],
                     x1: [c.x1, c.x1 - 1, c.x1],
                     x2: [c.x2, c.x2 + 1, c.x2],
-                  }
-                : undefined
-            }
-            transition={
-              breathDur
-                ? {
+                  },
+                  transition: {
                     duration: 1.8,
                     delay: c.delay,
                     repeat: Infinity,
-                    ease: 'easeInOut',
-                  }
-                : undefined
-            }
+                    ease: 'easeInOut' as const,
+                  },
+                }
+              : {})}
           />
         ))}
 
@@ -268,12 +266,16 @@ function Ctenophore({
           r="5"
           fill="white"
           filter="url(#cteno-glow)"
-          animate={breathDur ? { opacity: [0.3, 0.7, 0.3], r: [4, 6, 4] } : undefined}
-          transition={
-            breathDur
-              ? { duration: breathDur * 0.8, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
+          {...(breathDur
+            ? {
+                animate: { opacity: [0.3, 0.7, 0.3], r: [4, 6, 4] },
+                transition: {
+                  duration: breathDur * 0.8,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={0.4}
         />
 
@@ -284,16 +286,14 @@ function Ctenophore({
           stroke="rgba(180, 220, 255, 0.3)"
           strokeWidth="1"
           strokeLinecap="round"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   d: ['M 42 76 Q 40 88 38 96', 'M 42 76 Q 44 90 40 98', 'M 42 76 Q 40 88 38 96'],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' as const },
+              }
+            : {})}
         />
         <motion.path
           d="M 58 76 Q 60 88 62 96"
@@ -301,18 +301,19 @@ function Ctenophore({
           stroke="rgba(180, 220, 255, 0.3)"
           strokeWidth="1"
           strokeLinecap="round"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   d: ['M 58 76 Q 60 88 62 96', 'M 58 76 Q 56 90 60 98', 'M 58 76 Q 60 88 62 96'],
-                }
-              : undefined
-          }
-          transition={
-            breathDur
-              ? { duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }
-              : undefined
-          }
+                },
+                transition: {
+                  duration: 2.8,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                  delay: 0.3,
+                },
+              }
+            : {})}
         />
       </svg>
     </Wrapper>
@@ -354,17 +355,19 @@ function Pyrosome({
           r="30"
           fill="#f59e0b"
           filter="url(#pyro-glow)"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   opacity: [0.1, 0.35, 0.1],
                   r: [26, 36, 26],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: {
+                  duration: breathDur,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={0.15}
         />
 
@@ -372,17 +375,19 @@ function Pyrosome({
         <motion.path
           d="M 50 20 L 75 45 Q 78 50 75 55 L 50 80 L 25 55 Q 22 50 25 45 Z"
           fill="url(#pyro-grad)"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   scale: isActive ? [1, 1.12, 1] : [1, 1.06, 1],
                   opacity: isActive ? [0.75, 1, 0.75] : [0.5, 0.75, 0.5],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: {
+                  duration: breathDur,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={isActive ? 0.8 : 0.55}
           style={{ transformOrigin: '50px 50px' }}
         />
@@ -400,23 +405,17 @@ function Pyrosome({
             stroke="#fef3c7"
             strokeWidth="1.2"
             strokeLinecap="round"
-            animate={
-              breathDur
-                ? {
-                    opacity: [0.15, 0.5, 0.15],
-                  }
-                : undefined
-            }
-            transition={
-              breathDur
-                ? {
+            {...(breathDur
+              ? {
+                  animate: { opacity: [0.15, 0.5, 0.15] },
+                  transition: {
                     duration: breathDur * 0.8,
                     delay: ch.delay,
                     repeat: Infinity,
-                    ease: 'easeInOut',
-                  }
-                : undefined
-            }
+                    ease: 'easeInOut' as const,
+                  },
+                }
+              : {})}
             opacity={0.2}
           />
         ))}
@@ -427,19 +426,19 @@ function Pyrosome({
           cy="50"
           r="6"
           fill="#fef3c7"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   opacity: [0.7, 1, 0.7],
                   r: [5, 8, 5],
-                }
-              : undefined
-          }
-          transition={
-            breathDur
-              ? { duration: breathDur * 0.6, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
+                },
+                transition: {
+                  duration: breathDur * 0.6,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={0.8}
         />
         <circle cx="50" cy="50" r="2.5" fill="white" opacity={0.95} />
@@ -503,17 +502,17 @@ function Radiolarian({
                 stroke="#818cf8"
                 strokeWidth="1"
                 strokeLinecap="round"
-                animate={breathDur ? { opacity: [0.15, 0.35, 0.15] } : undefined}
-                transition={
-                  breathDur
-                    ? {
+                {...(breathDur
+                  ? {
+                      animate: { opacity: [0.15, 0.35, 0.15] },
+                      transition: {
                         duration: breathDur,
                         delay: i * 0.2,
                         repeat: Infinity,
-                        ease: 'easeInOut',
-                      }
-                    : undefined
-                }
+                        ease: 'easeInOut' as const,
+                      },
+                    }
+                  : {})}
                 opacity={0.2}
               />
               {/* Perimeter connection */}
@@ -525,17 +524,17 @@ function Radiolarian({
                 stroke="#a5b4fc"
                 strokeWidth="0.8"
                 strokeLinecap="round"
-                animate={breathDur ? { opacity: [0.1, 0.3, 0.1] } : undefined}
-                transition={
-                  breathDur
-                    ? {
+                {...(breathDur
+                  ? {
+                      animate: { opacity: [0.1, 0.3, 0.1] },
+                      transition: {
                         duration: breathDur,
                         delay: i * 0.2 + 0.1,
                         repeat: Infinity,
-                        ease: 'easeInOut',
-                      }
-                    : undefined
-                }
+                        ease: 'easeInOut' as const,
+                      },
+                    }
+                  : {})}
                 opacity={0.15}
               />
               {/* Node at spoke tip */}
@@ -544,24 +543,20 @@ function Radiolarian({
                 cy={s.y}
                 r="2"
                 fill="#a5b4fc"
-                animate={
-                  breathDur
-                    ? {
+                {...(breathDur
+                  ? {
+                      animate: {
                         opacity: [0.2, 0.6, 0.2],
                         r: [1.5, 2.5, 1.5],
-                      }
-                    : undefined
-                }
-                transition={
-                  breathDur
-                    ? {
+                      },
+                      transition: {
                         duration: breathDur,
                         delay: i * 0.3,
                         repeat: Infinity,
-                        ease: 'easeInOut',
-                      }
-                    : undefined
-                }
+                        ease: 'easeInOut' as const,
+                      },
+                    }
+                  : {})}
                 opacity={0.3}
               />
             </g>
@@ -574,17 +569,19 @@ function Radiolarian({
           cy="50"
           r="10"
           fill="url(#radio-grad)"
-          animate={
-            breathDur
-              ? {
+          {...(breathDur
+            ? {
+                animate: {
                   scale: [1, 1.08, 1],
                   opacity: isActive ? [0.6, 0.9, 0.6] : [0.35, 0.55, 0.35],
-                }
-              : undefined
-          }
-          transition={
-            breathDur ? { duration: breathDur, repeat: Infinity, ease: 'easeInOut' } : undefined
-          }
+                },
+                transition: {
+                  duration: breathDur,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={isActive ? 0.65 : 0.4}
           style={{ transformOrigin: '50px 50px' }}
         />
@@ -595,12 +592,16 @@ function Radiolarian({
           cy="50"
           r="4"
           fill="#c7d2fe"
-          animate={breathDur ? { opacity: [0.4, 0.8, 0.4] } : undefined}
-          transition={
-            breathDur
-              ? { duration: breathDur * 0.6, repeat: Infinity, ease: 'easeInOut' }
-              : undefined
-          }
+          {...(breathDur
+            ? {
+                animate: { opacity: [0.4, 0.8, 0.4] },
+                transition: {
+                  duration: breathDur * 0.6,
+                  repeat: Infinity,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
           opacity={0.5}
         />
         <circle cx="50" cy="50" r="1.5" fill="white" opacity={0.8} />

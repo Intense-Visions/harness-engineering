@@ -208,6 +208,35 @@ src/client/
 - `Attention.tsx` (as standalone page) -- replaced by AttentionThreadView
 - `Analyze.tsx` (as standalone page) -- replaced by AnalysisThreadView
 
+## Integration Points
+
+### Entry Points
+
+- **Dashboard client entry** -- `packages/dashboard/src/client/main.tsx` -- new router setup with `/t/:threadId`, `/s/:systemPage`, `/` routes replacing old flat routes
+- **Layout root** -- `packages/dashboard/src/client/components/layout/ChatLayout.tsx` -- new three-column layout root replacing `Layout.tsx`
+- **Thread store** -- `packages/dashboard/src/client/stores/threadStore.ts` -- new zustand store as single source of truth for all thread state
+
+### Registrations Required
+
+- **Legacy route redirects** -- 39 redirect mappings in `main.tsx` for backward compatibility with old `/intelligence/*`, `/agents/*`, `/orchestrator/*`, and flat routes
+- **System page entries** -- `SYSTEM_PAGES` constant in `types/thread.ts` registering all 10 dashboard pages as system thread entries
+
+### Documentation Updates
+
+- **Spec document** -- `docs/changes/dashboard-reorganization/proposal.md` (this file)
+- **Roadmap** -- Feature registered in `docs/roadmap.md` under current milestone
+
+### Architectural Decisions
+
+- **D10: Big-bang migration** -- Clean cut over hybrid state; full experience ships at once with legacy redirects for backward compat
+- **D11: Ground-up UI rewrite** -- Thread-first from day one with unified state management, no adapter layers between old and new
+
+### Knowledge Impact
+
+- **Thread model** -- Universal abstraction: every view is a thread or thread-adjacent (chat, attention, analysis, agent, system)
+- **Panel event separation** -- Mutable state (todos, artifacts, status) routes to right context panel; narrative content (text, thinking, tool use) stays in message stream
+- **Sidebar section derivation** -- Thread status drives sidebar grouping (attention, active, recent, system) via zustand selectors
+
 ## Success Criteria
 
 1. **Three-column layout renders** -- sidebar (280px), center thread (flex), right context panel (320px) with proper resize behavior
