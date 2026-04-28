@@ -303,6 +303,7 @@ async function assignGithubIssue(externalId: string, assignee: string): Promise<
   if (!match) return false;
 
   const [, repo, issueNum] = match;
+  const cleanAssignee = assignee.startsWith('@') ? assignee.slice(1) : assignee;
   try {
     const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNum}/assignees`, {
       method: 'POST',
@@ -312,7 +313,7 @@ async function assignGithubIssue(externalId: string, assignee: string): Promise<
         'User-Agent': 'harness-dashboard',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ assignees: [assignee] }),
+      body: JSON.stringify({ assignees: [cleanAssignee] }),
     });
     return res.ok;
   } catch {
@@ -365,8 +366,13 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
   if (!feature || !assignee) {
     return c.json({ error: 'feature and assignee are required' }, 400);
   }
+  if (feature.length > 200 || assignee.length > 100) {
+    return c.json({ error: 'feature or assignee exceeds maximum length' }, 400);
+  }
 
   let result: Response | undefined;
+  let externalId: string | null = null;
+  let workflow: ClaimWorkflow = 'brainstorming';
 
   await withFileLock(ctx.roadmapPath, async () => {
     let content: string;
@@ -396,7 +402,9 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
       return;
     }
 
-    const workflow = applyClaimToRoadmap(roadmap, feat, assignee);
+    // Capture before mutation for GitHub sync outside the lock
+    externalId = feat.externalId ?? null;
+    workflow = applyClaimToRoadmap(roadmap, feat, assignee);
 
     try {
       await writeFile(ctx.roadmapPath, serializeRoadmap(roadmap), 'utf-8');
@@ -407,26 +415,25 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
 
     ctx.cache.invalidate('roadmap');
     ctx.cache.invalidate('overview');
-
-    // Attempt GitHub issue assignment if applicable
-    let githubSynced = false;
-    if (feat.externalId) {
-      githubSynced = await assignGithubIssue(feat.externalId, assignee);
-    }
-
-    const response: ClaimResponse = {
-      ok: true,
-      feature,
-      status: 'in-progress',
-      assignee,
-      workflow,
-      githubSynced,
-    };
-
-    result = c.json(response);
   });
 
-  return result!;
+  // If the lock callback set an error response, return it
+  if (result) return result;
+
+  // GitHub sync runs outside the file lock to avoid holding it during network I/O
+  let githubSynced = false;
+  if (externalId) {
+    githubSynced = await assignGithubIssue(externalId, assignee);
+  }
+
+  return c.json({
+    ok: true,
+    feature,
+    status: 'in-progress',
+    assignee,
+    workflow,
+    githubSynced,
+  } satisfies ClaimResponse);
 }
 
 async function handleIdentity(c: Context): Promise<Response> {

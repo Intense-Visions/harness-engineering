@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import type { IdentityResponse } from '../shared/types';
 
-let cached: IdentityResponse | null = null;
+let pending: Promise<IdentityResponse | null> | null = null;
 
 function execAsync(cmd: string, args: string[]): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -55,20 +55,25 @@ async function resolveFromGitConfig(): Promise<IdentityResponse | null> {
   return null;
 }
 
+async function resolveInner(): Promise<IdentityResponse | null> {
+  return (
+    (await resolveFromGithubApi()) ?? (await resolveFromGhCli()) ?? (await resolveFromGitConfig())
+  );
+}
+
 /**
  * Resolve the current user's GitHub identity.
  * Waterfall: GitHub API -> gh CLI -> git config. Cached for server lifetime.
+ * Concurrent calls share the same in-flight promise to avoid redundant API calls.
  */
 export async function resolveIdentity(): Promise<IdentityResponse | null> {
-  if (cached) return cached;
-
-  const result =
-    (await resolveFromGithubApi()) ?? (await resolveFromGhCli()) ?? (await resolveFromGitConfig());
-  if (result) cached = result;
-  return result;
+  if (!pending) {
+    pending = resolveInner();
+  }
+  return pending;
 }
 
 /** Clear cached identity (for testing). */
 export function clearIdentityCache(): void {
-  cached = null;
+  pending = null;
 }
