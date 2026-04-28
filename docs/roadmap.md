@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-04-28T01:58:43.534Z
+last_manual_edit: 2026-04-28T10:44:42.631Z
 ---
 
 # Roadmap
@@ -1002,15 +1002,23 @@ last_manual_edit: 2026-04-28T01:58:43.534Z
 
 ### Dashboard Reorganization — Chat-First Architecture with Expandable Domain Navigation
 
-- **Status:** in-progress
+- **Status:** planned
 - **Spec:** docs/changes/dashboard-reorganization/proposal.md
 - **Summary:** Restructure dashboard from 13 flat nav items to 4 expandable domain pills, elevate chat to persistent right column, replace KPI-wall overview with triage feed.
+- **Blockers:** —
+- **Plan:** —
+
+### Chat-First Dashboard Rewrite
+
+- **Status:** in-progress
+- **Spec:** docs/changes/dashboard-reorganization/proposal.md
+- **Summary:** Thread-centric messaging-app layout replacing the page-based dashboard. Five thread types (chat, attention, analysis, agent, system), zustand ThreadStore, right context panel for live session state, big-bang delivery.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** orchestrator-8565381d
 - **Priority:** —
 - **External-ID:** —
-- **Updated-At:** 2026-04-28T10:07:52.835Z
+- **Updated-At:** 2026-04-28T11:17:27.271Z
 
 ## v3.0 Graph Intelligence
 

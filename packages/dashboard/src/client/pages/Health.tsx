@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo, useMemo } from 'react';
-import { useSearchParams } from 'react-router';
-import { useChatPanel } from '../hooks/useChatPanel';
+import { useNavigate } from 'react-router';
+import { useThreadStore } from '../stores/threadStore';
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
@@ -49,13 +49,15 @@ const CollapsibleSection = memo(function CollapsibleSection({
 });
 
 function FixButton({ command }: { command: string }) {
-  const [, setSearchParams] = useSearchParams();
-  const { open: openChat } = useChatPanel();
+  const navigate = useNavigate();
   return (
     <button
       onClick={() => {
-        setSearchParams({ command });
-        openChat();
+        const thread = useThreadStore.getState().createThread('chat', {
+          sessionId: crypto.randomUUID(),
+          command,
+        });
+        navigate(`/t/${thread.id}`);
       }}
       className="rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all"
     >

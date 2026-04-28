@@ -1,202 +1,294 @@
-# Dashboard Reorganization — Chat-First Architecture with Expandable Domain Navigation
+# Chat-First Dashboard Rewrite
 
 ## Overview
 
-The harness dashboard has grown to 13 flat navigation items and treats chat as a secondary slide-over panel. This reorganization inverts the hierarchy: chat becomes a persistent, always-visible column; the triage feed becomes the landing experience; and navigation collapses from 13 items into 4 expandable domain pills that preserve the existing floating pill-bar identity.
+Replace the current page-based dashboard with a chat-first, thread-centric interface. Chat becomes the primary surface. Agent sessions, attention items, and analysis requests all manifest as threads. Dashboard data views (Health, Graph, Roadmap, etc.) live in a System navigation section. A right context panel shows live session state (todos, artifacts, status) alongside threads.
 
 ### Goals
 
-1. Elevate chat from side panel to persistent primary interface
-2. Replace the flat 13-item nav with 4 expandable domain pills
-3. Transform the overview from a KPI wall into an attention-driven triage feed
-4. Establish a layout architecture that scales without adding nav items
-5. Preserve the existing glassmorphic visual identity (GlowCards, AuraBackground, animations)
+1. Every interaction with the system happens through a thread or is one click from a thread
+2. Attention items, agent sessions, manual chats, and analysis requests are all thread types with a unified rendering pipeline
+3. Dashboard data views remain fully functional, accessed via a System section in the sidebar
+4. The message stream contains only narrative content (text, thinking, tool use, code); mutable session state (todos, artifacts, status) lives in the right context panel
+5. The layout follows messaging-app conventions: thread list on left, active thread in center, context on right
 
 ### Non-Goals
 
-- Visual redesign or new design system components
-- New backend APIs or data sources
-- Changes to the chat system's functionality (message streaming, skill execution, sessions)
-- Mobile-first responsive design (desktop-first, reasonable narrow-viewport fallback)
+- Backend API changes (existing endpoints, SSE streams, and WebSocket connections are reused)
+- Streaming protocol changes
+- Skill system rework
+- Mobile/responsive layout (desktop-first)
 
 ## Decisions
 
-| #   | Decision                                              | Rationale                                                                                                                                                   |
-| --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Chat-first architecture                               | Chat is the primary way users interact with harness. Metrics views are contextual intelligence, not the main event.                                         |
-| D2  | Persistent right column for chat (~35% / 420px width) | Always visible, no toggle required to start interacting. Collapsible via `Cmd+Ctrl+J` for data-heavy pages.                                                 |
-| D3  | Landing page is triage feed + chat                    | `/` shows what needs attention (anomalies, blockers, status changes) in the content area with chat ready beside it. Replaces the current KPI-wall overview. |
-| D4  | 4 domain pills replace 13 flat nav items              | Overview, Intelligence, Agents, Roadmap. Each domain expands inline to reveal sub-pages. No second nav row, no sidebar.                                     |
-| D5  | Expanding pill interaction                            | Clicking a domain pill smoothly expands it to show sub-page tabs. Other pills compress/slide aside. Uses existing Framer Motion `layoutId` patterns.        |
-| D6  | Route restructure under domain prefixes               | `/intelligence/health`, `/agents/streams`, etc. Old flat routes (`/health`, `/orchestrator/streams`) get redirects for bookmarks.                           |
-| D7  | Full-screen `/orchestrator/chat` page removed         | Chat lives everywhere as the right column. Dedicated chat page is redundant.                                                                                |
-| D8  | Preserve visual identity wholesale                    | GlowCards, AuraBackground, ScrambleText, neural organism, color tokens, animation patterns — all retained.                                                  |
-| D9  | Full restructure in one pass                          | No incremental migration. Layout, nav, routing, and overview redesign ship together.                                                                        |
+| #   | Decision                | Choice                                             | Rationale                                                                                                                |
+| --- | ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Top-level layout        | Chat-list (Slack/Discord style)                    | Fully commits to chat-as-main-surface. Three columns: sidebar, center thread, right context panel                        |
+| D2  | Sidebar organization    | Pinned sections: Attention, Active, Recent, System | Attention stays prominent at top. Clear lifecycle (attention -> active -> recent). System section houses dashboard pages |
+| D3  | Attention item UX       | Collapsible briefing card + chat thread            | Rich context without dominating. Collapses on interaction. Explicit claim/dismiss before committing                      |
+| D4  | Agent session identity  | Organism avatar (NeuralOrganism)                   | Brand-consistent. Distinguishes agent-initiated from human-initiated threads                                             |
+| D5  | Analyze integration     | Dedicated thread type with form card               | Mirrors attention pattern (briefing card -> chat). "New Analysis" button in sidebar                                      |
+| D6  | Dashboard pages         | System section in sidebar, full center column      | Heavy visualizations get proper space. No cramming into side panels                                                      |
+| D7  | Right context panel     | Todos, session status, artifacts, context sources  | Mutable state updates in place. Message stream stays clean with narrative content only                                   |
+| D8  | Message stream content  | Text, thinking, tool use, code blocks only         | State that changes over time -> panel. Narrative of what happened -> stream                                              |
+| D9  | Home state              | Auto-open last thread, empty state fallback        | Messaging app behavior. Quick actions + command palette when nothing's active                                            |
+| D10 | Migration strategy      | Big bang                                           | Clean cut, no hybrid state. Full experience ships at once                                                                |
+| D11 | Implementation approach | Ground-up UI rewrite                               | Thread-first from day one. Unified state management. No adapter layers                                                   |
 
 ## Technical Design
 
-### Layout Architecture
+### Core Abstractions
 
-The current single-column layout with optional slide-over chat becomes a two-column shell:
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  ··· Expanding Domain Pills ···                    [⌘J] │  ← floating pill bar
-├───────────────────────────────────┬─────────────────────┤
-│                                   │                     │
-│         Content Area              │    Chat Panel       │
-│         (flex-1)                  │    (~35% / 420px)   │
-│                                   │                     │
-│                                   │                     │
-│                                   │                     │
-└───────────────────────────────────┴─────────────────────┘
-```
-
-- Shell: `flex` row. Content area is `flex-1`, chat column is fixed-width (`w-[420px]`).
-- When chat is collapsed, content area expands to full width. Collapse animated with Framer Motion.
-- Chat column renders `ChatPanel` directly — no longer a positioned overlay. Removes the `ChatPanelTrigger` floating button; replaced by a compact toggle in the pill bar.
-
-### Navigation Component
-
-The `NAV_ITEMS` flat array becomes a domain-grouped structure:
+**Thread** -- the universal unit. Every view in the app is a thread or thread-adjacent.
 
 ```typescript
-const NAV_DOMAINS = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    to: '/',
-    // No children — single page, no expansion
-  },
-  {
-    id: 'intelligence',
-    label: 'Intelligence',
-    to: '/intelligence/health', // default child
-    children: [
-      { to: '/intelligence/health', label: 'Health' },
-      { to: '/intelligence/graph', label: 'Graph' },
-      { to: '/intelligence/impact', label: 'Impact' },
-      { to: '/intelligence/decay', label: 'Decay' },
-      { to: '/intelligence/traceability', label: 'Traceability' },
-    ],
-  },
-  {
-    id: 'agents',
-    label: 'Agents',
-    to: '/agents', // default child
-    children: [
-      { to: '/agents', label: 'Dashboard', end: true },
-      { to: '/agents/attention', label: 'Attention' },
-      { to: '/agents/analyze', label: 'Analyze' },
-      { to: '/agents/maintenance', label: 'Maintenance' },
-      { to: '/agents/streams', label: 'Streams' },
-    ],
-  },
-  {
-    id: 'roadmap',
-    label: 'Roadmap',
-    to: '/roadmap',
-    children: [
-      { to: '/roadmap', label: 'Roadmap', end: true },
-      { to: '/roadmap/adoption', label: 'Adoption' },
-    ],
-  },
-] as const;
+type ThreadType = 'chat' | 'attention' | 'analysis' | 'agent' | 'system';
+
+interface Thread {
+  id: string;
+  type: ThreadType;
+  title: string;
+  status: 'pending' | 'active' | 'completed' | 'dismissed';
+  createdAt: number;
+  updatedAt: number;
+  avatar: ThreadAvatar; // 'user' | 'organism' | 'alert' | 'system'
+  unread: boolean;
+  meta: ChatMeta | AttentionMeta | AnalysisMeta | AgentMeta | SystemMeta;
+}
 ```
 
-#### Expanding Pill Behavior
+**ThreadStore** -- single zustand store managing all thread state:
 
-1. **Domains without children** (Overview) — standard `NavLink`, no expansion.
-2. **Domains with children** — clicking the domain pill expands it. The pill widens with `layout` animation to reveal child tabs as smaller inline links. Other domain pills slide aside via `layoutId`.
-3. **Active domain** stays expanded while any child route is active. Navigating to a different domain collapses the previous, expands the new.
-4. **Animation** uses `AnimatePresence` + `motion.div` with `layout` prop for smooth width transitions.
+```typescript
+interface ThreadStore {
+  threads: Map<string, Thread>;
+  activeThreadId: string | null;
+  lastThreadId: string | null; // for auto-reopen on launch
 
-### Route Structure
+  // Thread CRUD
+  createThread(type: ThreadType, meta: ThreadMeta): Thread;
+  closeThread(id: string): void;
+  claimThread(id: string): void; // attention -> active transition
 
-```
-/                          → Triage feed (new Overview)
-/intelligence/health       → Health page
-/intelligence/graph        → Graph page
-/intelligence/impact       → Impact page
-/intelligence/decay        → DecayTrends page
-/intelligence/traceability → Traceability page
-/agents                    → Orchestrator page
-/agents/attention          → Attention page
-/agents/analyze            → Analyze page
-/agents/maintenance        → Maintenance page
-/agents/streams            → Streams page
-/roadmap                   → Roadmap page
-/roadmap/adoption          → Adoption page
-```
+  // Messages (per-thread)
+  messages: Map<string, Message[]>;
+  appendMessage(threadId: string, message: Message): void;
 
-#### Legacy Redirects
+  // Panel state (per-thread)
+  panelState: Map<string, PanelState>;
+  updateTodos(threadId: string, todos: Todo[]): void;
+  updateArtifacts(threadId: string, artifacts: Artifact[]): void;
+  updateStatus(threadId: string, status: SessionStatus): void;
 
-All old routes redirect to their new equivalents to preserve bookmarks:
-
-```
-/health           → /intelligence/health
-/graph            → /intelligence/graph
-/impact           → /intelligence/impact
-/decay-trends     → /intelligence/decay
-/traceability     → /intelligence/traceability
-/orchestrator     → /agents
-/orchestrator/*   → /agents/*
+  // Sidebar (derived)
+  sidebarSections: { attention: Thread[]; active: Thread[]; recent: Thread[]; system: Thread[] };
+}
 ```
 
-### Triage Feed (New Overview at `/`)
+### Component Tree
 
-The current Overview's 5 KPI sections are replaced with an attention-driven feed. Same SSE data sources, different presentation:
+```
+App
++-- ThreadSidebar (left, ~280px)
+|   +-- SidebarHeader (new chat / new analysis buttons)
+|   +-- SidebarSection label="Attention"
+|   |   +-- ThreadListItem[] (alert icon, title, badge)
+|   +-- SidebarSection label="Active"
+|   |   +-- ThreadListItem[] (user/organism avatar, title, status dot)
+|   +-- SidebarSection label="Recent"
+|   |   +-- ThreadListItem[] (dimmed, timestamp)
+|   +-- SidebarSection label="System" collapsible
+|       +-- SystemNavItem[] (Health, Graph, Impact, Roadmap, etc.)
+|
++-- ThreadView (center, flex-1)
+|   +-- ThreadHeader (title, thread type badge, actions)
+|   +-- [switches on thread type]
+|   |   +-- ChatThreadView -> MessageStream + ChatInput
+|   |   +-- AttentionThreadView -> BriefingCard (collapsible) + MessageStream + ChatInput
+|   |   +-- AnalysisThreadView -> AnalysisFormCard (collapsible) + MessageStream + ChatInput
+|   |   +-- AgentThreadView -> MessageStream (read-only until interaction needed)
+|   |   +-- SystemThreadView -> existing page component (Health, Graph, etc.)
+|   +-- EmptyState (when no thread selected -- quick actions + command palette)
+|
++-- ContextPanel (right, ~320px, conditional)
+    +-- TodoSection (live checklist)
+    +-- StatusSection (phase, skill, elapsed)
+    +-- ArtifactsSection (files created/modified)
+    +-- ContextSourcesSection (skill metadata, data sources)
+```
 
-- **Alert cards** at the top: anything requiring action — errors > 0, blocked features, security threats, perf anomalies. Each card links to the relevant detail page.
-- **Status strip** below: condensed single-row summary of all domains (roadmap progress, health score, graph connectivity, security status). Not the current 5 full grid sections — a compact at-a-glance row.
-- **Recent activity / changelog** at the bottom: what changed since last visit (features shipped, issues resolved, new findings). Data sourced from existing SSE streams.
-- Neural organism and "Command Center" branding retained in the header area.
+### Message Types
 
-### Files Modified
+```typescript
+// Stream content -- renders in MessageStream
+type StreamBlock = TextBlock | ThinkingBlock | ToolUseBlock | CodeBlock;
 
-| File                                              | Change                                                          |
-| ------------------------------------------------- | --------------------------------------------------------------- |
-| `src/client/main.tsx`                             | New route structure with domain prefixes, legacy redirects      |
-| `src/client/components/Layout.tsx`                | Two-column shell, expandable domain nav, chat integration       |
-| `src/client/pages/Overview.tsx`                   | Rewrite as triage feed                                          |
-| `src/client/components/chat/ChatPanel.tsx`        | Adapt from slide-over to column layout                          |
-| `src/client/components/chat/ChatPanelTrigger.tsx` | Remove (replaced by pill-bar toggle)                            |
-| `src/client/hooks/useChatPanel.ts`                | Simplify — chat is open by default, toggle collapses the column |
+// Panel content -- renders in ContextPanel, not in stream
+type PanelEvent = TodoUpdate | StatusUpdate | ArtifactUpdate | ContextSourceUpdate;
 
-### New Files
+// Assistant message carries both stream and panel content
+interface AssistantMessage {
+  role: 'assistant';
+  blocks: StreamBlock[]; // -> MessageStream
+  panelEvents: PanelEvent[]; // -> ContextPanel (filtered out of stream)
+}
+```
 
-| File                                        | Purpose                                     |
-| ------------------------------------------- | ------------------------------------------- |
-| `src/client/components/DomainNav.tsx`       | Expandable domain pill navigation component |
-| `src/client/components/LegacyRedirects.tsx` | Redirect routes for old URLs                |
+### Routing
 
-### Unchanged
+```typescript
+'/t/:threadId'; // all thread types -- type determines rendering
+'/s/:systemPage'; // system views (health, graph, impact, etc.)
+'/'; // home -- auto-opens lastThreadId or shows EmptyState
+```
 
-All page components except `Overview.tsx` are untouched internally — they are re-routed to new paths but their content, data fetching, and rendering remain identical.
+### Data Flow
+
+- **Attention items:** `useOrchestratorSocket` -> WebSocket escalation events -> `ThreadStore.createThread('attention', ...)` -> appears in Attention section
+- **Agent sessions:** `useRecentSessions` + WebSocket -> `ThreadStore.createThread('agent', ...)` -> appears in Active section
+- **Manual chats:** User clicks "New Chat" -> `ThreadStore.createThread('chat', ...)` -> appears in Active section
+- **Analysis:** User clicks "New Analysis" -> `ThreadStore.createThread('analysis', ...)` -> form card renders -> submit triggers SSE pipeline -> results stream as messages
+- **System pages:** Static entries in System section -> clicking navigates to `/s/:page` -> renders existing page component
+
+### File Structure
+
+```
+src/client/
++-- stores/
+|   +-- threadStore.ts          # zustand store
++-- components/
+|   +-- layout/
+|   |   +-- ChatLayout.tsx      # root three-column layout
+|   |   +-- ThreadSidebar.tsx   # left sidebar
+|   |   +-- ThreadView.tsx      # center column router
+|   |   +-- ContextPanel.tsx    # right panel
+|   |   +-- EmptyState.tsx      # home/no-selection state
+|   +-- sidebar/
+|   |   +-- SidebarSection.tsx  # collapsible section
+|   |   +-- ThreadListItem.tsx  # thread entry in sidebar
+|   |   +-- SystemNavItem.tsx   # system page entry
+|   +-- threads/
+|   |   +-- ChatThreadView.tsx
+|   |   +-- AttentionThreadView.tsx
+|   |   +-- AnalysisThreadView.tsx
+|   |   +-- AgentThreadView.tsx
+|   |   +-- SystemThreadView.tsx
+|   +-- cards/
+|   |   +-- BriefingCard.tsx    # attention context card
+|   |   +-- AnalysisFormCard.tsx # analysis input form card
+|   +-- panel/
+|       +-- TodoSection.tsx
+|       +-- StatusSection.tsx
+|       +-- ArtifactsSection.tsx
+|       +-- ContextSourcesSection.tsx
++-- types/
+|   +-- thread.ts               # Thread, ThreadType, meta types
++-- main.tsx                     # new router setup
+```
+
+### Components Reused (internals transplanted)
+
+- `MessageStream.tsx` -- virtual scrolling, block rendering (stripped of panel content)
+- `ChatInput.tsx` -- textarea, slash autocomplete, send
+- `CommandPalette.tsx` -- skill discovery (moves into EmptyState)
+- `SlashAutocomplete.tsx` -- inline suggestions
+- All page components (Health, Graph, Impact, etc.) -- rendered inside SystemThreadView
+- `EnrichedSpecPanel` / `ComplexityScorePanel` -- used inside BriefingCard
+- `NeuralOrganism` -- avatar for agent threads
+- `GlowCard`, `AuraBackground`, design system tokens -- visual layer stays
+
+### Components Removed
+
+- `Layout.tsx` -- replaced by ChatLayout.tsx
+- `DomainNav.tsx` -- replaced by sidebar sections + System nav
+- `ChatPanel.tsx` (as side panel) -- internals redistributed into thread views
+- `SessionTabBar.tsx` -- replaced by sidebar thread selection
+- `ChatContextPane.tsx` -- replaced by ContextPanel
+- `Overview.tsx` -- replaced by EmptyState + sidebar Attention section
+- `Attention.tsx` (as standalone page) -- replaced by AttentionThreadView
+- `Analyze.tsx` (as standalone page) -- replaced by AnalysisThreadView
 
 ## Success Criteria
 
-| #    | Criterion                                                                                                   | Verification                                                                                              |
-| ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| SC1  | Nav shows exactly 4 domain pills (Overview, Intelligence, Agents, Roadmap)                                  | Visual inspection — no more than 4 top-level items visible at any time                                    |
-| SC2  | Clicking a domain pill expands it inline to reveal sub-page tabs with smooth animation                      | Click each domain, verify expansion/collapse transitions use Framer Motion layout animations without jank |
-| SC3  | Chat panel is visible by default on all routes as a right column                                            | Navigate to every route — chat column is rendered without user action                                     |
-| SC4  | `Cmd+Ctrl+J` collapses/expands the chat column and content area fills the freed space                       | Toggle shortcut, verify layout reflows smoothly                                                           |
-| SC5  | `/` renders a triage feed with alert cards, status strip, and recent activity — not the old KPI wall        | Load the app, verify the landing page shows attention-driven content                                      |
-| SC6  | All 13 original pages are accessible under their new domain-prefixed routes                                 | Navigate to every route in the new structure, verify each page renders correctly                          |
-| SC7  | Legacy routes (`/health`, `/orchestrator/streams`, etc.) redirect to their new equivalents                  | Visit each old URL, verify redirect to the correct new path                                               |
-| SC8  | Full-screen `/orchestrator/chat` page is removed without loss of functionality                              | Chat features (sessions, skills, command palette, streaming) all work in the persistent column            |
-| SC9  | Visual identity preserved — GlowCards, AuraBackground, neural organism, color tokens, animations all intact | Side-by-side comparison of detail pages (e.g., Health, Graph) before/after — visual parity                |
-| SC10 | No page component internals modified (except Overview)                                                      | Git diff shows page files only changed their export location or imports, not content                      |
+1. **Three-column layout renders** -- sidebar (280px), center thread (flex), right context panel (320px) with proper resize behavior
+2. **Sidebar sections populate** -- Attention shows pending escalations from WebSocket, Active shows running agents + open chats, Recent shows completed threads, System shows all dashboard pages
+3. **Chat thread works** -- new chat creates a thread, messages stream via SSE, thinking/tool-use/text blocks render in MessageStream, slash commands and command palette function
+4. **Attention thread works** -- clicking an attention item opens a thread with collapsible briefing card (title, escalation reasons, SEL/CML data), interacting collapses the card to one-line summary, first message claims the item (status transitions from pending to active, moves from Attention to Active section)
+5. **Agent thread works** -- agent sessions appear with organism avatar, message stream shows agent activity, read-only until escalation/interaction is needed
+6. **Analysis thread works** -- "New Analysis" creates a thread with form card (title, description, labels), submitting runs SEL/CML/PESL pipeline, results stream as structured message blocks, action buttons (Add to Roadmap, Dispatch, Refine) appear as message actions
+7. **System views work** -- all 10 dashboard pages (Health, Graph, Impact, Decay, Traceability, Orchestrator, Roadmap, Adoption, Maintenance, Streams) render in center column via System nav, full-width, fully functional
+8. **Right context panel works** -- todos update in real-time as tasks are created/completed, artifacts accumulate as files are created/modified, session status shows current phase/skill/elapsed, sections appear/disappear based on relevance
+9. **Message stream is clean** -- no todo blocks, status blocks, or artifact blocks in the stream; only text, thinking, tool use, and code blocks
+10. **Home state works** -- opening the dashboard auto-opens last active thread; if no threads exist, shows empty state with "New Chat" / "New Analysis" buttons and command palette
+11. **Thread lifecycle works** -- threads transition correctly: attention pending -> claimed -> active -> completed/dismissed; chat active -> completed; agent active -> completed
+12. **Existing functionality preserved** -- all skills execute correctly, all SSE/WebSocket streams connect, all dashboard data displays accurately, all API endpoints are consumed
 
 ## Implementation Order
 
-| Phase                | What                                                                                                                                                                                                                                         | Dependencies |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 1. Layout shell      | Build the two-column layout (`Layout.tsx` rewrite). Content area + chat column side-by-side. Chat open by default, collapsible. Remove `ChatPanelTrigger`. Adapt `ChatPanel` from slide-over to column. Update `useChatPanel` default state. | None         |
-| 2. Domain nav        | Create `DomainNav.tsx` — the expandable pill component. Wire up `NAV_DOMAINS` data structure. Implement expand/collapse with Framer Motion `layout` + `AnimatePresence`. Replace `NAV_ITEMS` in the pill bar.                                | Phase 1      |
-| 3. Route migration   | Restructure `main.tsx` routes under domain prefixes. Create `LegacyRedirects.tsx` for old URLs. No page component changes — just new paths pointing to existing components.                                                                  | Phase 2      |
-| 4. Triage feed       | Rewrite `Overview.tsx` as the attention-driven landing page. Alert cards for actionable items, compact status strip, recent activity section. Same SSE data sources, different presentation.                                                 | Phase 1      |
-| 5. Polish and verify | Test every route, verify legacy redirects, confirm chat functionality in column mode, check animation performance, verify keyboard shortcut, visual comparison against current pages.                                                        | Phases 1–4   |
+### Phase 1: Foundation -- Thread model, store, and three-column shell
 
-**Risk mitigation:** Phases 1–3 are structural and can be verified independently of content changes. If Phase 4 (triage feed) proves more complex than expected, the restructure still ships with a simplified overview — the architectural value is in phases 1–3.
+- `thread.ts` types (Thread, ThreadType, meta variants)
+- `threadStore.ts` zustand store (CRUD, section derivation, active thread tracking)
+- `ChatLayout.tsx` three-column flexbox shell
+- `ThreadSidebar.tsx` with four collapsible sections (hardcoded system entries, empty for dynamic sections)
+- `ThreadView.tsx` center column with type-based routing
+- `EmptyState.tsx` with quick action buttons and command palette
+- New router setup in `main.tsx`
+
+### Phase 2: Chat threads -- Core messaging in the new layout
+
+- `ChatThreadView.tsx` wiring MessageStream + ChatInput
+- Refactor MessageStream to filter out panel events from the block stream
+- Refactor `useChatPanel` -> `useChatThread` (thread-oriented instead of panel-oriented)
+- SSE streaming connected to ThreadStore message append
+- Slash commands and command palette working in context
+
+### Phase 3: Context panel -- Right panel with live state
+
+- `ContextPanel.tsx` container with conditional sections
+- `TodoSection.tsx` -- live checklist, updates from PanelEvent stream
+- `StatusSection.tsx` -- phase, skill name, elapsed timer
+- `ArtifactsSection.tsx` -- accumulating file list
+- `ContextSourcesSection.tsx` -- skill metadata and data sources
+- PanelEvent filtering: todo/status/artifact updates routed to panel, not stream
+
+### Phase 4: Attention threads -- Escalations as conversations
+
+- `AttentionThreadView.tsx` with BriefingCard + MessageStream + ChatInput
+- `BriefingCard.tsx` -- collapsible card with escalation summary, SEL/CML panels, claim/dismiss actions
+- WebSocket escalation events -> ThreadStore creates attention threads
+- Claim interaction: first message collapses card, moves thread from Attention to Active
+- Dismiss action: marks thread as dismissed, moves to Recent
+
+### Phase 5: Agent threads -- Sessions with organism avatar
+
+- `AgentThreadView.tsx` -- MessageStream (read-only by default) + ChatInput (enabled on escalation)
+- Agent session events -> ThreadStore creates agent threads with organism avatar
+- Wire `useRecentSessions` and WebSocket data into thread creation
+- Running agents show status dot in sidebar, completed agents move to Recent
+
+### Phase 6: Analysis threads -- Pipeline in conversation form
+
+- `AnalysisThreadView.tsx` with AnalysisFormCard + MessageStream + ChatInput
+- `AnalysisFormCard.tsx` -- interactive form (title, description, labels) that collapses after submit
+- Submit triggers SEL/CML/PESL pipeline via SSE
+- Results stream as structured message blocks (SEL block, CML block, PESL block)
+- Action buttons (Add to Roadmap, Dispatch, Refine) as message actions
+- Refine pre-populates form for re-analysis
+
+### Phase 7: System views -- Dashboard pages in the new shell
+
+- `SystemThreadView.tsx` -- renders existing page components at full center-column width
+- `SystemNavItem.tsx` entries for all 10 pages
+- Route handling for `/s/:page`
+- Strip layout/nav wrappers from page components (they inherit from ChatLayout now)
+- Right context panel hides or shows related threads for system views
+
+### Phase 8: Polish and cleanup
+
+- Remove old components (Layout, DomainNav, ChatPanel as side panel, SessionTabBar, Overview, Attention page, Analyze page)
+- Remove old routes
+- Thread persistence (lastThreadId in localStorage for auto-reopen)
+- Keyboard shortcuts (new chat, switch threads, toggle context panel)
+- Transition animations (sidebar selection, briefing card collapse, thread switching)
+- Unread indicators and badge counts on sidebar sections

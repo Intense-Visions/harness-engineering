@@ -3,18 +3,18 @@
 
 /* Token values sourced from ../../design-system/tokens.json — keep in sync. */
 @theme {
-  --color-neutral-bg: #09090b;
-  --color-neutral-surface: #18181b;
-  --color-neutral-text: #fafafa;
-  --color-neutral-muted: #71717a;
-  --color-neutral-border: #27272a;
-  --color-primary-50: #eef2ff;
-  --color-primary-500: #4f46e5;
-  --color-primary-900: #312e81;
-  --color-secondary-50: #ecfeff;
-  --color-secondary-400: #22d3ee;
-  --color-secondary-900: #164e63;
-  --color-accent-500: #d946ef;
+  --color-neutral-bg: #010408;
+  --color-neutral-surface: #030b14;
+  --color-neutral-text: #b0cceb;
+  --color-neutral-muted: #4a6a8a;
+  --color-neutral-border: #081828;
+  --color-primary-50: #a0c8e8;
+  --color-primary-500: #0c6a9e;
+  --color-primary-900: #062840;
+  --color-secondary-50: #a0d8d8;
+  --color-secondary-400: #0e7a88;
+  --color-secondary-900: #082830;
+  --color-accent-500: #086878;
   --color-semantic-success: #10b981;
   --color-semantic-warning: #f59e0b;
   --color-semantic-error: #ef4444;
@@ -44,16 +44,17 @@
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.015;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0%200%20200%20200'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter%20id='noiseFilter'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.65'%20numOctaves='3'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
 }
 
 .text-glow-primary {
-  text-shadow: 0 0 12px var(--color-primary-500);
+  text-shadow: 0 0 12px var(--color-primary-500), 0 0 30px rgba(14, 165, 233, 0.2);
 }
 
 .text-gradient-neon {
-  background: linear-gradient(to bottom right, #fff 30%, var(--color-primary-500));
+  background: linear-gradient(to bottom right, #e0f2fe 30%, var(--color-primary-500));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -61,9 +62,9 @@
 /* --- High-Fidelity Global Overrides --- */
 
 ::selection {
-  background: rgba(79, 70, 229, 0.3);
-  color: #fff;
-  text-shadow: 0 0 8px rgba(79, 70, 229, 0.5);
+  background: rgba(12, 106, 158, 0.3);
+  color: #c8daf0;
+  text-shadow: 0 0 8px rgba(12, 106, 158, 0.5);
 }
 
 /* Custom Neon Scrollbar */
@@ -73,23 +74,23 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #010408;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #081828;
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4f46e5;
-  box-shadow: 0 0 10px #4f46e5;
+  background: #0c6a9e;
+  box-shadow: 0 0 10px #0c6a9e;
 }
 
 /* Smooth internal scrolling */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #27272a #09090b;
+  scrollbar-color: #081828 #010408;
 }
 
 /* Hide scrollbar but keep scrolling */

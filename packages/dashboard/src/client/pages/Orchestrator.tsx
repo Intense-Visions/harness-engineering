@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
 import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
+import { useThreadStore } from '../stores/threadStore';
+import type { AgentMeta } from '../types/thread';
 import type { ContentBlock } from '../types/chat';
 import type { StreamManifest } from '../hooks/useStreamReplay';
 import type { OrchestratorSnapshot, RunningAgent, TickActivity } from '../types/orchestrator';
@@ -556,6 +559,7 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 
 export function Orchestrator() {
   const { snapshot, agentEvents, connected } = useOrchestratorSocket();
+  const navigate = useNavigate();
   const [drawerIssueId, setDrawerIssueId] = useState<string | null>(null);
 
   // Derive the drawer agent from the live snapshot so stats update in real-time.
@@ -568,6 +572,15 @@ export function Orchestrator() {
   }, [drawerIssueId, snapshot]);
 
   const openDrawerForAgent = (agent: RunningAgent) => {
+    // Navigate to the matching agent thread
+    const store = useThreadStore.getState();
+    for (const thread of store.threads.values()) {
+      if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === agent.issueId) {
+        navigate(`/t/${thread.id}`);
+        return;
+      }
+    }
+    // Fallback: open the drawer if no thread exists yet
     setDrawerIssueId(agent.issueId);
   };
 

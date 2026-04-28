@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useSearchParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
-import { useChatPanel } from '../hooks/useChatPanel';
+import { useThreadStore } from '../stores/threadStore';
 import { Search, X, Loader2 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import type {
@@ -360,8 +360,7 @@ export function Attention() {
   const [loaded, setLoaded] = useState(false);
   const [allInteractions, setAllInteractions] = useState<PendingInteraction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [, setSearchParams] = useSearchParams();
-  const { open: openChat } = useChatPanel();
+  const navigate = useNavigate();
 
   // Fire browser notifications for new escalations
   useNotifications(allInteractions);
@@ -413,10 +412,24 @@ export function Attention() {
 
   const handleClaim = useCallback(
     (id: string) => {
-      setSearchParams({ interactionId: id });
-      openChat();
+      // Find existing attention thread or create new one
+      const store = useThreadStore.getState();
+      let threadId: string | undefined;
+      for (const thread of store.threads.values()) {
+        if (
+          thread.type === 'attention' &&
+          'interactionId' in thread.meta &&
+          thread.meta.interactionId === id
+        ) {
+          threadId = thread.id;
+          break;
+        }
+      }
+      if (threadId) {
+        navigate(`/t/${threadId}`);
+      }
     },
-    [openChat, setSearchParams]
+    [navigate]
   );
 
   // Filter and sort interactions

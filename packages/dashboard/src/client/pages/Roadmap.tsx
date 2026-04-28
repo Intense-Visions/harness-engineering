@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router';
-import { useChatPanel } from '../hooks/useChatPanel';
+import { useNavigate } from 'react-router';
+import { useThreadStore } from '../stores/threadStore';
 import { useSSE } from '../hooks/useSSE';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { ProgressChart } from '../components/ProgressChart';
@@ -57,13 +57,15 @@ const btnClass =
   'rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all';
 
 function RoadmapActionButton({ command, label }: { command: string; label: string }) {
-  const [, setSearchParams] = useSearchParams();
-  const { open: openChat } = useChatPanel();
+  const navigate = useNavigate();
   return (
     <button
       onClick={() => {
-        setSearchParams({ command });
-        openChat();
+        const thread = useThreadStore.getState().createThread('chat', {
+          sessionId: crypto.randomUUID(),
+          command,
+        });
+        navigate(`/t/${thread.id}`);
       }}
       className={btnClass}
     >
@@ -73,8 +75,7 @@ function RoadmapActionButton({ command, label }: { command: string; label: strin
 }
 
 function AddToRoadmapButton() {
-  const [, setSearchParams] = useSearchParams();
-  const { open: openChat } = useChatPanel();
+  const navigate = useNavigate();
   const [showDialog, setShowDialog] = useState(false);
   const [description, setDescription] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,8 +87,11 @@ function AddToRoadmapButton() {
   const handleSubmit = () => {
     const text = description.trim();
     if (!text) return;
-    setSearchParams({ command: 'harness:roadmap-add', commandArgs: text });
-    openChat();
+    const thread = useThreadStore.getState().createThread('chat', {
+      sessionId: crypto.randomUUID(),
+      command: 'harness:roadmap-add',
+    });
+    navigate(`/t/${thread.id}`);
     setShowDialog(false);
     setDescription('');
   };
