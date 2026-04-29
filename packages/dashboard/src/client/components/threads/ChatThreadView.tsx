@@ -177,6 +177,19 @@ export function ChatThreadView({ thread }: Props) {
     [input, streaming, messages, meta, orchestratorSessionId, thread]
   );
 
+  // Wire up interaction-block buttons (`Confirm & Proceed`, `Approve All`, etc.)
+  // dispatched from AssistantBlocks via window CustomEvent('chat-action-send').
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === 'string' && detail.length > 0 && !streaming) {
+        void handleSend(detail);
+      }
+    };
+    window.addEventListener('chat-action-send', handler);
+    return () => window.removeEventListener('chat-action-send', handler);
+  }, [handleSend, streaming]);
+
   const handleExecuteSkill = useCallback(() => {
     if (!selectedSkill) return;
     const systemPrompt = generateSystemPrompt(selectedSkill, context.data);
