@@ -59,7 +59,7 @@ export async function handleCheckTraceability(input: {
             text: JSON.stringify({
               status: 'no-requirements',
               message:
-                'No requirement nodes found in graph. Ingest specs with RequirementIngestor first.',
+                'No requirement nodes found in graph. Run `harness scan` to ingest spec requirements.',
             }),
           },
         ],

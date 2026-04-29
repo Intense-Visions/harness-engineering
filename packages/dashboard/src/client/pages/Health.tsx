@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo, useMemo } from 'react';
-import { useSearchParams } from 'react-router';
-import { useChatPanel } from '../hooks/useChatPanel';
+import { useNavigate } from 'react-router';
+import { useThreadStore } from '../stores/threadStore';
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
@@ -18,44 +18,43 @@ import type {
   CheckResult,
 } from '@shared/types';
 
-const CollapsibleSection = memo(function CollapsibleSection({
+const CollapsibleFindings = memo(function CollapsibleFindings({
   title,
-  defaultOpen = false,
+  count,
   children,
-  action,
 }: {
   title: string;
-  defaultOpen?: boolean;
+  count: number;
   children: React.ReactNode;
-  action?: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(false);
   return (
-    <section>
-      <div className="mb-3 flex w-full items-center justify-between">
-        <button
-          onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 text-left"
-          aria-expanded={open}
-        >
-          <span className="text-xs text-gray-500">{open ? '\u25BC' : '\u25B6'}</span>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">{title}</h2>
-        </button>
-        {action}
-      </div>
+    <div className="space-y-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-left transition-opacity hover:opacity-80"
+        aria-expanded={open}
+      >
+        <span className="text-[10px] text-gray-600">{open ? '\u25BC' : '\u25B6'}</span>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+          {title} ({count})
+        </p>
+      </button>
       {open && children}
-    </section>
+    </div>
   );
 });
 
 function FixButton({ command }: { command: string }) {
-  const [, setSearchParams] = useSearchParams();
-  const { open: openChat } = useChatPanel();
+  const navigate = useNavigate();
   return (
     <button
       onClick={() => {
-        setSearchParams({ command });
-        openChat();
+        const thread = useThreadStore.getState().createThread('chat', {
+          sessionId: crypto.randomUUID(),
+          command,
+        });
+        navigate(`/t/${thread.id}`);
       }}
       className="rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all"
     >
@@ -82,30 +81,29 @@ const SecuritySection = memo(function SecuritySection({ data }: { data: Security
         <KpiCard label="Files Scanned" value={data.stats.filesScanned} />
       </div>
       {data.findings.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-            Top Findings
-          </p>
-          {data.findings.slice(0, 10).map((f, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
-              <span
-                className={
-                  f.severity === 'error'
-                    ? 'text-red-400'
-                    : f.severity === 'warning'
-                      ? 'text-yellow-400'
-                      : 'text-gray-400'
-                }
-              >
-                [{f.severity}]
-              </span>
-              <span className="text-gray-300">
-                {f.file}:{f.line}
-              </span>
-              <span className="text-gray-500">{f.message}</span>
-            </div>
-          ))}
-        </div>
+        <CollapsibleFindings title="Top Findings" count={data.findings.length}>
+          <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
+            {data.findings.slice(0, 10).map((f, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <span
+                  className={
+                    f.severity === 'error'
+                      ? 'text-red-400'
+                      : f.severity === 'warning'
+                        ? 'text-yellow-400'
+                        : 'text-gray-400'
+                  }
+                >
+                  [{f.severity}]
+                </span>
+                <span className="text-gray-300">
+                  {f.file}:{f.line}
+                </span>
+                <span className="text-gray-500">{f.message}</span>
+              </div>
+            ))}
+          </div>
+        </CollapsibleFindings>
       )}
     </div>
   );
@@ -128,22 +126,21 @@ const PerfSection = memo(function PerfSection({ data }: { data: PerfData }) {
         />
       </div>
       {data.violations.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-            Violations
-          </p>
-          {data.violations.map((v, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
-              <span className={v.severity === 'error' ? 'text-red-400' : 'text-yellow-400'}>
-                [{v.severity}]
-              </span>
-              <span className="text-gray-300">{v.file}</span>
-              <span className="text-gray-500">
-                {v.metric}: {v.value} (threshold: {v.threshold})
-              </span>
-            </div>
-          ))}
-        </div>
+        <CollapsibleFindings title="Violations" count={data.violations.length}>
+          <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
+            {data.violations.map((v, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <span className={v.severity === 'error' ? 'text-red-400' : 'text-yellow-400'}>
+                  [{v.severity}]
+                </span>
+                <span className="text-gray-300">{v.file}</span>
+                <span className="text-gray-500">
+                  {v.metric}: {v.value} (threshold: {v.threshold})
+                </span>
+              </div>
+            ))}
+          </div>
+        </CollapsibleFindings>
       )}
     </div>
   );
@@ -170,20 +167,19 @@ const ArchSection = memo(function ArchSection({ data }: { data: ArchData }) {
         />
       </div>
       {data.newViolations.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-            New Violations
-          </p>
-          {data.newViolations.map((v, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
-              <span className={v.severity === 'error' ? 'text-red-400' : 'text-yellow-400'}>
-                [{v.severity}]
-              </span>
-              <span className="text-gray-300">{v.file}</span>
-              <span className="text-gray-500">{v.detail}</span>
-            </div>
-          ))}
-        </div>
+        <CollapsibleFindings title="New Violations" count={data.newViolations.length}>
+          <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-4">
+            {data.newViolations.map((v, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <span className={v.severity === 'error' ? 'text-red-400' : 'text-yellow-400'}>
+                  [{v.severity}]
+                </span>
+                <span className="text-gray-300">{v.file}</span>
+                <span className="text-gray-500">{v.detail}</span>
+              </div>
+            ))}
+          </div>
+        </CollapsibleFindings>
       )}
     </div>
   );
@@ -270,15 +266,7 @@ function CheckSection<T>({
   Section: React.ComponentType<{ data: T }>;
   fixCommand?: string;
 }) {
-  if (raw === undefined || raw === null) {
-    return (
-      <CollapsibleSection title={title}>
-        <p className="text-sm text-gray-500">Awaiting first scan...</p>
-      </CollapsibleSection>
-    );
-  }
-
-  const rec = raw as Record<string, unknown>;
+  const rec = raw as Record<string, unknown> | null | undefined;
   const stats =
     typeof rec === 'object' && rec !== null && 'stats' in rec
       ? (rec.stats as Record<string, number> | undefined)
@@ -286,26 +274,29 @@ function CheckSection<T>({
   const hasIssues =
     guard(raw) &&
     ((stats != null && (stats.errorCount ?? 0) + (stats.warningCount ?? 0) > 0) ||
-      ('totalViolations' in rec && (rec.totalViolations as number) > 0) ||
+      (rec != null && 'totalViolations' in rec && (rec.totalViolations as number) > 0) ||
       (stats != null && (stats.violationCount ?? 0) > 0));
 
   const action = hasIssues && fixCommand ? <FixButton command={fixCommand} /> : undefined;
 
-  if (!guard(raw)) {
-    return (
-      <CollapsibleSection title={title}>
+  return (
+    <section>
+      <div className="mb-3 flex w-full items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">{title}</h2>
+        {action}
+      </div>
+      {raw === undefined || raw === null ? (
+        <p className="text-sm text-gray-500">Awaiting first scan...</p>
+      ) : !guard(raw) ? (
         <p className="text-sm text-red-400">
           {'error' in (raw as Record<string, unknown>)
             ? String((raw as Record<string, string>).error)
             : 'Unavailable'}
         </p>
-      </CollapsibleSection>
-    );
-  }
-  return (
-    <CollapsibleSection title={title} action={action}>
-      <Section data={raw} />
-    </CollapsibleSection>
+      ) : (
+        <Section data={raw} />
+      )}
+    </section>
   );
 }
 

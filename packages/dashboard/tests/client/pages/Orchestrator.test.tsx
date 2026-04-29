@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { Orchestrator } from '../../../src/client/pages/Orchestrator';
 import type { OrchestratorSnapshot } from '../../../src/client/types/orchestrator';
 
@@ -47,21 +48,33 @@ function makeSnapshot(overrides?: Partial<OrchestratorSnapshot>): OrchestratorSn
 
 describe('Orchestrator (Agent Monitor) page', () => {
   it('shows connecting message when no snapshot', () => {
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText(/Connecting to orchestrator/i)).toBeDefined();
   });
 
   it('shows rate limit section when snapshot present', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText('Rate Limits')).toBeDefined();
   });
 
   it('shows token totals', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText('Token Usage')).toBeDefined();
     expect(screen.getByText('1,000')).toBeDefined(); // inputTokens formatted
   });
@@ -69,14 +82,22 @@ describe('Orchestrator (Agent Monitor) page', () => {
   it('shows concurrency info', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText('Concurrency')).toBeDefined();
   });
 
   it('shows no agents message when running is empty', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText(/No active agents/i)).toBeDefined();
   });
 
@@ -100,7 +121,11 @@ describe('Orchestrator (Agent Monitor) page', () => {
       ],
     });
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     // Identifier appears in both the agent card and the snapshot table; use getAllByText
     expect(screen.getAllByText('fix-login-bug').length).toBeGreaterThan(0);
     expect(screen.getAllByText('local').length).toBeGreaterThan(0);
@@ -110,7 +135,11 @@ describe('Orchestrator (Agent Monitor) page', () => {
   it('shows COOLDOWN status when globalCooldownUntilMs is in the future', () => {
     mockHook.snapshot = makeSnapshot({ globalCooldownUntilMs: Date.now() + 60000 });
     mockHook.connected = true;
-    render(<Orchestrator />);
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
     expect(screen.getByText('COOLDOWN')).toBeDefined();
   });
 });

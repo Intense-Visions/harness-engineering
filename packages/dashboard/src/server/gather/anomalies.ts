@@ -15,7 +15,7 @@ export async function gatherAnomalies(projectPath: string): Promise<AnomalyResul
     if (!loaded) {
       return {
         available: false,
-        reason: 'Graph data not found. Run "harness graph scan" to build the knowledge graph.',
+        reason: 'Graph data not found. Run "harness scan" to build the knowledge graph.',
       };
     }
 

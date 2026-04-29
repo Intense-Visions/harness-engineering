@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
+import { useNavigate } from 'react-router';
+import { useThreadStore } from '../stores/threadStore';
+import type { AgentMeta } from '../types/thread';
 
 /* ------------------------------------------------------------------ */
 /*  Inline types — mirrors StreamManifest from useStreamReplay        */
@@ -26,6 +28,7 @@ interface StreamSession {
   issueId: string;
   externalId: number | string | null;
   identifier: string;
+  title?: string;
   attempts: Attempt[];
   pr: { number: number; linkedAt: string; status: string } | null;
   highlights: {
@@ -132,10 +135,12 @@ const SessionRow = memo(function SessionRow({
       onClick={onSelect}
       className="border-b border-gray-800 cursor-pointer transition-colors hover:bg-gray-800/40"
     >
-      <td className="py-3 px-3 font-mono text-xs text-gray-200 max-w-[180px] truncate">
-        {session.issueId}
+      <td className="py-3 px-3 text-sm text-white truncate max-w-[260px]">
+        {session.title ?? session.identifier}
       </td>
-      <td className="py-3 px-3 text-sm text-white truncate max-w-[220px]">{session.identifier}</td>
+      <td className="py-3 px-3 font-mono text-xs text-gray-400 max-w-[180px] truncate">
+        {session.identifier}
+      </td>
       <td className="py-3 px-3">
         <OutcomeBadge outcome={outcome} />
       </td>
@@ -164,11 +169,35 @@ const SessionRow = memo(function SessionRow({
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
+function findOrCreateAgentThread(session: StreamSession): string {
+  const store = useThreadStore.getState();
+  for (const thread of store.threads.values()) {
+    if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === session.issueId) {
+      return thread.id;
+    }
+  }
+  const lastAttempt = session.attempts.at(-1);
+  const isRunning = lastAttempt != null && !lastAttempt.endedAt;
+  const thread = store.createThread('agent', {
+    issueId: session.issueId,
+    identifier: session.identifier,
+    phase: isRunning ? 'running' : 'completed',
+    issueTitle: session.title ?? session.identifier,
+    issueDescription: null,
+    startedAt: lastAttempt?.startedAt ?? new Date().toISOString(),
+    backendName: null,
+  } satisfies AgentMeta);
+  if (!isRunning) {
+    store.updateThread(thread.id, { status: 'completed' });
+  }
+  return thread.id;
+}
+
 export function Streams() {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<StreamSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [drawerIssueId, setDrawerIssueId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -194,7 +223,14 @@ export function Streams() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const closeDrawer = () => setDrawerIssueId(null);
+  const openStream = useCallback(
+    (session: StreamSession) => {
+      const threadId = findOrCreateAgentThread(session);
+      useThreadStore.getState().setActiveThread(threadId);
+      navigate(`/t/${threadId}`);
+    },
+    [navigate]
+  );
 
   return (
     <div>
@@ -240,7 +276,7 @@ export function Streams() {
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-900/60">
                   <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
-                    Session ID
+                    Title
                   </th>
                   <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
                     Identifier
@@ -270,19 +306,13 @@ export function Streams() {
               </thead>
               <tbody>
                 {sessions.map((s) => (
-                  <SessionRow
-                    key={s.issueId}
-                    session={s}
-                    onSelect={() => setDrawerIssueId(s.issueId)}
-                  />
+                  <SessionRow key={s.issueId} session={s} onSelect={() => openStream(s)} />
                 ))}
               </tbody>
             </table>
           </div>
         </section>
       )}
-
-      <AgentStreamDrawer agent={null} issueId={drawerIssueId} blocks={[]} onClose={closeDrawer} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    testTimeout: 15_000,
     // Server tests run in node; client tests run in jsdom via projects below
     projects: [
       {

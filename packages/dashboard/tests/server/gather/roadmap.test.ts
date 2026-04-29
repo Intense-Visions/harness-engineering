@@ -61,6 +61,7 @@ describe('gatherRoadmap', () => {
     expect(result.totalPlanned).toBe(1);
     expect(result.totalBlocked).toBe(1);
     expect(result.totalBacklog).toBe(1);
+    expect(result.assignmentHistory).toEqual([]);
     expect(result.milestones).toHaveLength(2);
     expect(result.milestones[0]!.name).toBe('MVP');
     expect(result.milestones[0]!.total).toBe(3);
@@ -97,9 +98,10 @@ describe('gatherRoadmap', () => {
     expect(auth.status).toBe('done');
     expect(auth.summary).toBe('Authentication system');
     expect(auth.milestone).toBe('MVP');
-    // Verify no filesystem paths leak through
-    expect(auth).not.toHaveProperty('spec');
-    expect(auth).not.toHaveProperty('plans');
-    expect(auth).not.toHaveProperty('externalId');
+    // Spec and plans are now passed through for workflow routing
+    expect(auth.spec).toBe('docs/auth.md');
+    expect(auth.plans).toEqual([]);
+    expect(auth.externalId).toBeNull();
+    expect(auth.updatedAt).toBeNull();
   });
 });

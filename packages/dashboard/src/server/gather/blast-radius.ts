@@ -20,7 +20,7 @@ export async function gatherBlastRadius(
 
     if (!loaded) {
       return {
-        error: 'Graph data not found. Run "harness graph scan" to build the knowledge graph.',
+        error: 'Graph data not found. Run "harness scan" to build the knowledge graph.',
       };
     }
 

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
-import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
+import { useThreadStore } from '../stores/threadStore';
+import type { AgentMeta } from '../types/thread';
 import type { ContentBlock } from '../types/chat';
 import type { StreamManifest } from '../hooks/useStreamReplay';
 import type { OrchestratorSnapshot, RunningAgent, TickActivity } from '../types/orchestrator';
@@ -478,7 +480,9 @@ function SessionRow({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-medium text-white">{session.identifier}</span>
+          <span className="truncate font-medium text-white">
+            {session.title ?? session.identifier}
+          </span>
           <OutcomeBadge outcome={outcome} />
           {session.pr && <span className="text-xs text-blue-400">PR #{session.pr.number}</span>}
         </div>
@@ -556,28 +560,61 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 
 export function Orchestrator() {
   const { snapshot, agentEvents, connected } = useOrchestratorSocket();
-  const [drawerIssueId, setDrawerIssueId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // Derive the drawer agent from the live snapshot so stats update in real-time.
-  // Previously, the agent was captured once at click-time and never refreshed,
-  // causing session stats (tokens, turns) to appear frozen.
-  const drawerAgent = useMemo(() => {
-    if (!drawerIssueId || !snapshot) return null;
-    const entry = snapshot.running.find(([id]) => id === drawerIssueId);
-    return entry ? entry[1] : null;
-  }, [drawerIssueId, snapshot]);
+  const navigateToAgent = useCallback(
+    (agent: RunningAgent) => {
+      const store = useThreadStore.getState();
+      for (const thread of store.threads.values()) {
+        if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === agent.issueId) {
+          store.setActiveThread(thread.id);
+          navigate(`/t/${thread.id}`);
+          return;
+        }
+      }
+      // Create thread if it doesn't exist yet (e.g. just started)
+      const thread = store.createThread('agent', {
+        issueId: agent.issueId,
+        identifier: agent.identifier,
+        phase: agent.phase,
+        issueTitle: agent.issue?.title ?? agent.identifier,
+        issueDescription: agent.issue?.description ?? null,
+        startedAt: agent.startedAt,
+        backendName: agent.session?.backendName ?? null,
+      } satisfies AgentMeta);
+      store.setActiveThread(thread.id);
+      navigate(`/t/${thread.id}`);
+    },
+    [navigate]
+  );
 
-  const openDrawerForAgent = (agent: RunningAgent) => {
-    setDrawerIssueId(agent.issueId);
-  };
-
-  const openDrawerForSession = (issueId: string) => {
-    setDrawerIssueId(issueId);
-  };
-
-  const closeDrawer = () => {
-    setDrawerIssueId(null);
-  };
+  const navigateToSession = useCallback(
+    (issueId: string) => {
+      // Find the session from recent sessions to get full manifest data
+      const store = useThreadStore.getState();
+      for (const thread of store.threads.values()) {
+        if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === issueId) {
+          store.setActiveThread(thread.id);
+          navigate(`/t/${thread.id}`);
+          return;
+        }
+      }
+      // Minimal fallback — create from issueId alone
+      const thread = store.createThread('agent', {
+        issueId,
+        identifier: issueId,
+        phase: 'completed',
+        issueTitle: issueId,
+        issueDescription: null,
+        startedAt: new Date().toISOString(),
+        backendName: null,
+      } satisfies AgentMeta);
+      store.updateThread(thread.id, { status: 'completed' });
+      store.setActiveThread(thread.id);
+      navigate(`/t/${thread.id}`);
+    },
+    [navigate]
+  );
 
   if (!snapshot) {
     return (
@@ -586,8 +623,7 @@ export function Orchestrator() {
         <p className="text-sm text-gray-500">
           {connected ? 'Waiting for first state update...' : 'Connecting to orchestrator...'}
         </p>
-        <RecentSessions onViewStream={openDrawerForSession} />
-        <AgentStreamDrawer agent={null} issueId={drawerIssueId} blocks={[]} onClose={closeDrawer} />
+        <RecentSessions onViewStream={navigateToSession} />
       </div>
     );
   }
@@ -621,19 +657,12 @@ export function Orchestrator() {
 
       <section>
         <SectionHeader title="Active Agents" />
-        <AgentsList agents={agents} agentEvents={agentEvents} onViewStream={openDrawerForAgent} />
+        <AgentsList agents={agents} agentEvents={agentEvents} onViewStream={navigateToAgent} />
       </section>
 
       <RetryQueue snapshot={snapshot} />
 
-      <RecentSessions onViewStream={openDrawerForSession} />
-
-      <AgentStreamDrawer
-        agent={drawerAgent}
-        issueId={drawerIssueId}
-        blocks={drawerAgent ? (agentEvents[drawerAgent.issueId] ?? []) : []}
-        onClose={closeDrawer}
-      />
+      <RecentSessions onViewStream={navigateToSession} />
     </div>
   );
 }

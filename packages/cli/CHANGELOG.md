@@ -1,5 +1,12 @@
 # @harness-engineering/cli
 
+## 1.27.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/dashboard@0.3.0
+
 ## 1.27.0
 
 ### Minor Changes

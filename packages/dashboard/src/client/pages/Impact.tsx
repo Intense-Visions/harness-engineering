@@ -39,8 +39,7 @@ const AnomalyList = memo(function AnomalyList({
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
           <p className="text-base font-medium text-gray-300">No anomalies detected</p>
           <p className="mt-2 text-sm text-gray-500">
-            Run &quot;harness graph scan&quot; to build the knowledge graph, then restart the
-            dashboard.
+            Run &quot;harness scan&quot; to build the knowledge graph, then restart the dashboard.
           </p>
         </div>
       )}

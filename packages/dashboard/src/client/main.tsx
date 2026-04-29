@@ -1,23 +1,42 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router';
-import { Layout } from './components/Layout';
-import { Overview } from './pages/Overview';
-import { Roadmap } from './pages/Roadmap';
-import { Health } from './pages/Health';
-import { Graph } from './pages/Graph';
-import { Impact } from './pages/Impact';
-import { Orchestrator } from './pages/Orchestrator';
-import { Attention } from './pages/Attention';
-import { Analyze } from './pages/Analyze';
-import { Chat } from './pages/Chat';
-import { Adoption } from './pages/Adoption';
-import { Traceability } from './pages/Traceability';
-import { DecayTrends } from './pages/DecayTrends';
-import { Maintenance } from './pages/Maintenance';
-import { Streams } from './pages/Streams';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { ChatLayout } from './components/layout/ChatLayout';
+import { HomeRoute, ThreadRoute, SystemRoute } from './components/layout/ThreadView';
 import { ProjectPulseProvider } from './hooks/useProjectPulse';
 import './index.css';
+
+// Legacy route redirects: map old domain-prefixed and flat routes to /s/:page
+const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
+  // Intelligence domain
+  { from: '/intelligence/health', to: '/s/health' },
+  { from: '/intelligence/graph', to: '/s/graph' },
+  { from: '/intelligence/impact', to: '/s/impact' },
+  { from: '/intelligence/decay', to: '/s/decay' },
+  { from: '/intelligence/traceability', to: '/s/traceability' },
+  // Agents domain
+  { from: '/agents', to: '/s/orchestrator' },
+  { from: '/agents/attention', to: '/s/attention' },
+  { from: '/agents/analyze', to: '/s/analyze' },
+  { from: '/agents/maintenance', to: '/s/maintenance' },
+  { from: '/agents/streams', to: '/s/streams' },
+  // Roadmap domain
+  { from: '/roadmap', to: '/s/roadmap' },
+  { from: '/roadmap/adoption', to: '/s/adoption' },
+  // Flat legacy routes
+  { from: '/health', to: '/s/health' },
+  { from: '/graph', to: '/s/graph' },
+  { from: '/impact', to: '/s/impact' },
+  { from: '/decay-trends', to: '/s/decay' },
+  { from: '/traceability', to: '/s/traceability' },
+  { from: '/orchestrator', to: '/s/orchestrator' },
+  { from: '/orchestrator/attention', to: '/s/attention' },
+  { from: '/orchestrator/analyze', to: '/s/analyze' },
+  { from: '/orchestrator/chat', to: '/' },
+  { from: '/orchestrator/maintenance', to: '/s/maintenance' },
+  { from: '/orchestrator/streams', to: '/s/streams' },
+  { from: '/adoption', to: '/s/adoption' },
+];
 
 const root = document.getElementById('root');
 if (root) {
@@ -25,24 +44,19 @@ if (root) {
     <StrictMode>
       <ProjectPulseProvider>
         <BrowserRouter>
-          <Layout>
+          <ChatLayout>
             <Routes>
-              <Route path="/" element={<Overview />} />
-              <Route path="/roadmap" element={<Roadmap />} />
-              <Route path="/health" element={<Health />} />
-              <Route path="/graph" element={<Graph />} />
-              <Route path="/impact" element={<Impact />} />
-              <Route path="/orchestrator" element={<Orchestrator />} />
-              <Route path="/orchestrator/attention" element={<Attention />} />
-              <Route path="/orchestrator/analyze" element={<Analyze />} />
-              <Route path="/orchestrator/chat" element={<Chat />} />
-              <Route path="/orchestrator/maintenance" element={<Maintenance />} />
-              <Route path="/orchestrator/streams" element={<Streams />} />
-              <Route path="/adoption" element={<Adoption />} />
-              <Route path="/traceability" element={<Traceability />} />
-              <Route path="/decay-trends" element={<DecayTrends />} />
+              {/* Core chat-first routes */}
+              <Route path="/" element={<HomeRoute />} />
+              <Route path="/t/:threadId" element={<ThreadRoute />} />
+              <Route path="/s/:systemPage" element={<SystemRoute />} />
+
+              {/* Legacy redirects */}
+              {LEGACY_REDIRECTS.map(({ from, to }) => (
+                <Route key={from} path={from} element={<Navigate to={to} replace />} />
+              ))}
             </Routes>
-          </Layout>
+          </ChatLayout>
         </BrowserRouter>
       </ProjectPulseProvider>
     </StrictMode>

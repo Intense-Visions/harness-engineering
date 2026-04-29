@@ -7,12 +7,14 @@ vi.mock('../../../src/server/gather/roadmap', () => ({
   gatherRoadmap: vi.fn().mockResolvedValue({
     milestones: [],
     features: [],
+    assignmentHistory: [],
     totalFeatures: 3,
     totalDone: 1,
     totalInProgress: 1,
     totalPlanned: 1,
     totalBlocked: 0,
     totalBacklog: 0,
+    totalNeedsHuman: 0,
   }),
 }));
 vi.mock('../../../src/server/gather/health', () => ({

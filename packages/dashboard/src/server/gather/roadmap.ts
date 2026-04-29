@@ -4,6 +4,7 @@ import type {
   RoadmapResult,
   MilestoneProgress,
   DashboardFeature,
+  DashboardAssignmentRecord,
   FeatureStatus,
 } from '../../shared/types';
 
@@ -24,16 +25,26 @@ export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult>
     const allFeatures = projectFeatures(roadmap.milestones);
     const milestones = buildMilestoneProgress(roadmap.milestones);
     const totals = countByStatus(allFeatures.map((f) => f.status));
+    const assignmentHistory: DashboardAssignmentRecord[] = (roadmap.assignmentHistory ?? []).map(
+      (r) => ({
+        feature: r.feature,
+        assignee: r.assignee,
+        action: r.action,
+        date: r.date,
+      })
+    );
 
     return {
       milestones,
       features: allFeatures,
+      assignmentHistory,
       totalFeatures: allFeatures.length,
       totalDone: totals.done,
       totalInProgress: totals.inProgress,
       totalPlanned: totals.planned,
       totalBlocked: totals.blocked,
       totalBacklog: totals.backlog,
+      totalNeedsHuman: totals.needsHuman,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -51,6 +62,10 @@ function projectFeatures(
       blockedBy: string[];
       assignee?: string | null;
       priority?: string | null;
+      spec?: string | null;
+      plans?: string[];
+      externalId?: string | null;
+      updatedAt?: string | null;
     }[];
   }[]
 ): DashboardFeature[] {
@@ -63,6 +78,10 @@ function projectFeatures(
       blockedBy: f.blockedBy,
       assignee: f.assignee ?? null,
       priority: f.priority ?? null,
+      spec: f.spec ?? null,
+      plans: f.plans ?? [],
+      externalId: f.externalId ?? null,
+      updatedAt: f.updatedAt ?? null,
     }))
   );
 }
@@ -84,12 +103,14 @@ function countByStatus(statuses: FeatureStatus[]): {
   planned: number;
   blocked: number;
   backlog: number;
+  needsHuman: number;
 } {
   let done = 0;
   let inProgress = 0;
   let planned = 0;
   let blocked = 0;
   let backlog = 0;
+  let needsHuman = 0;
 
   for (const s of statuses) {
     switch (s) {
@@ -108,8 +129,11 @@ function countByStatus(statuses: FeatureStatus[]): {
       case 'backlog':
         backlog++;
         break;
+      case 'needs-human':
+        needsHuman++;
+        break;
     }
   }
 
-  return { done, inProgress, planned, blocked, backlog };
+  return { done, inProgress, planned, blocked, backlog, needsHuman };
 }

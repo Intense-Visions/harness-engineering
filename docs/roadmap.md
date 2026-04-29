@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-04-28T01:58:43.534Z
+last_manual_edit: 2026-04-28T22:17:29.797Z
 ---
 
 # Roadmap
@@ -1002,11 +1002,39 @@ last_manual_edit: 2026-04-28T01:58:43.534Z
 
 ### Dashboard Reorganization — Chat-First Architecture with Expandable Domain Navigation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/dashboard-reorganization/proposal.md
 - **Summary:** Restructure dashboard from 13 flat nav items to 4 expandable domain pills, elevate chat to persistent right column, replace KPI-wall overview with triage feed.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** orchestrator-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-28T11:58:15.870Z
+
+### Chat-First Dashboard Rewrite
+
+- **Status:** done
+- **Spec:** docs/changes/dashboard-reorganization/proposal.md
+- **Summary:** Thread-centric messaging-app layout replacing the page-based dashboard. Five thread types (chat, attention, analysis, agent, system), zustand ThreadStore, right context panel for live session state, big-bang delivery.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** orchestrator-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-28T21:15:07.038Z
+
+### Roadmap Page Enhancement: Feature Table with Claim Workflow
+
+- **Status:** done
+- **Spec:** docs/changes/roadmap-page-enhancement/proposal.md
+- **Summary:** Replace Gantt chart with milestone-grouped feature table, stats bar, assignment history, and inline claim workflow with smart routing to brainstorming/planning/execution based on feature state. GitHub identity resolution and tracker sync on claim.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** orchestrator-8565381d
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-04-28T22:17:57.331Z
 
 ## v3.0 Graph Intelligence
 

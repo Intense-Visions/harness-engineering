@@ -28,6 +28,7 @@ export function ProgressChart({ milestones }: Props) {
       { value: m.done, color: STATUS_COLOR['done'] },
       { value: m.inProgress, color: STATUS_COLOR['in-progress'] },
       { value: m.blocked, color: STATUS_COLOR['blocked'] },
+      { value: m.needsHuman, color: STATUS_COLOR['needs-human'] },
       { value: m.planned + m.backlog, color: STATUS_COLOR['planned'] },
     ];
     let accum = 0;
