@@ -349,22 +349,18 @@ import * as fs from 'node:fs/promises';
 
 // Mock all gatherers used by actions router
 vi.mock('../../../src/server/gather/security', () => ({
-  gatherSecurity: vi
-    .fn()
-    .mockResolvedValue({
-      valid: true,
-      findings: [],
-      stats: { filesScanned: 0, errorCount: 0, warningCount: 0, infoCount: 0 },
-    }),
+  gatherSecurity: vi.fn().mockResolvedValue({
+    valid: true,
+    findings: [],
+    stats: { filesScanned: 0, errorCount: 0, warningCount: 0, infoCount: 0 },
+  }),
 }));
 vi.mock('../../../src/server/gather/perf', () => ({
-  gatherPerf: vi
-    .fn()
-    .mockResolvedValue({
-      valid: true,
-      violations: [],
-      stats: { filesAnalyzed: 0, violationCount: 0 },
-    }),
+  gatherPerf: vi.fn().mockResolvedValue({
+    valid: true,
+    violations: [],
+    stats: { filesAnalyzed: 0, violationCount: 0 },
+  }),
 }));
 vi.mock('../../../src/server/gather/arch', () => ({
   gatherArch: vi
