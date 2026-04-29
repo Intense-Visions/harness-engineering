@@ -12,9 +12,11 @@ import { SKILL_REGISTRY } from '../../constants/skills';
 import { useThreadStore } from '../../stores/threadStore';
 import { extractTodosFromBlocks } from '../../utils/block-filter';
 import type { Thread, ChatMeta } from '../../types/thread';
-import type { UserMessage, AssistantMessage, ContentBlock } from '../../types/chat';
+import type { UserMessage, AssistantMessage, ContentBlock, ChatMessage } from '../../types/chat';
 import type { ChatSession } from '../../types/chat-session';
 import type { SkillEntry } from '../../types/skills';
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 interface Props {
   thread: Thread;
@@ -30,7 +32,7 @@ function persistSession(session: ChatSession): void {
 
 export function ChatThreadView({ thread }: Props) {
   const meta = thread.meta as ChatMeta;
-  const messages = useThreadStore((s) => s.messages.get(thread.id) ?? []);
+  const messages = useThreadStore((s) => s.messages.get(thread.id) ?? EMPTY_MESSAGES);
   const storeApi = useThreadStore;
 
   // Extract todos from messages and push to context panel

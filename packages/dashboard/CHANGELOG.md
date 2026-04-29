@@ -1,27 +1,44 @@
 # @harness-engineering/dashboard
 
+## 0.3.0
+
+### Minor Changes
+
+- Roadmap page enhancement: feature table with claim workflow
+  - **Feature table** — Replace synthetic Gantt chart with milestone-grouped collapsible feature table showing full metadata (status, assignee, priority, spec, plan, blockers, external ID, updated-at)
+  - **Stats bar** — Horizontal summary strip with total/done/in-progress/planned/blocked/needs-human/backlog counts
+  - **Claim workflow** — Inline "Start Working" button on unassigned planned/backlog features with confirmation popover showing smart-routed workflow (brainstorming/planning/execution based on feature state)
+  - **Identity resolution** — Server-side GitHub identity waterfall (GitHub API → gh CLI → git config) cached for server lifetime, exposed via `GET /api/identity`
+  - **Claim endpoint** — `POST /api/actions/roadmap/claim` atomically updates roadmap.md (status, assignee, timestamp), syncs GitHub issue assignment, and returns detected workflow
+  - **Assignment history** — Table rendering the assignment history section from roadmap.md
+  - **needs-human status** — Full support across gatherer, types, StatsBar, and ProgressChart
+  - **Shared utilities** — Extracted `isWorkable`, `detectWorkflow`, `externalIdToUrl`, `EM_DASH` into `roadmap/utils.ts`
+  - **Dead code removal** — Deleted unused `GanttChart.tsx` (112 lines)
+  - **Test coverage** — 68 new tests across 7 test files (identity waterfall, claim endpoint, 5 client components)
+
 ## 0.2.2
+
+### Minor Changes
+
+- Chat-first dashboard rewrite — thread-centric messaging-app layout
+  - **Thread architecture** — Five thread types (chat, attention, analysis, agent, system) with Zustand ThreadStore, right context panel for live session state
+  - **Two-column layout** — Persistent chat column alongside content area
+  - **Attention-driven triage feed** — Replace KPI-wall overview with actionable triage items
+  - **Domain pill navigation** — Expandable domain-grouped navigation replacing 13 flat nav items
+  - **Route migration** — Domain-prefixed routes (`/s/roadmap`, `/t/:threadId`) with legacy redirects
+  - **Agent thread enrichment** — Issue title, stats, stream history in agent threads
+  - **Deep ocean theme** — Bioluminescent organisms, plankton particles, sidebar branding
+  - **New pages** — Maintenance, Streams, Decay Trends, Traceability
 
 ### Patch Changes
 
-- Knowledge document materialization pipeline
-
-  **@harness-engineering/graph:**
-  - Add KnowledgeDocMaterializer that generates markdown knowledge docs from graph gap analysis
-  - Wire KnowledgeDocMaterializer into pipeline convergence loop
-  - Pass store to generateGapReport for differential gap analysis
-  - Add materialization field to KnowledgePipelineResult
-  - Fix filePath normalization to forward slashes for Windows compatibility
-  - Fix conditional spread for exactOptionalPropertyTypes compatibility
-  - Address review findings in knowledge pipeline
-  - Add integration tests for pipeline materialization
-
-  **@harness-engineering/cli:**
-  - Display differential gaps and materialization results in knowledge-pipeline output
-
-  **@harness-engineering/dashboard:**
-  - Add knowledge pipeline to skill registry
-
+- Fix zustand selector stabilization to prevent infinite re-render loop
+- Show full analysis breakdown in attention BriefingCard
+- Add knowledge pipeline to skill registry
+- Add structural type guards for parsed WebSocket/SSE messages
+- Performance: React.memo on dashboard rows, HTTP rate limiting
+- Fix maintenance proxy, graceful shutdown, and atomic state writes
+- Remove dead Chat page and ChatPanelTrigger components
 - Updated dependencies
   - @harness-engineering/graph@0.6.0
   - @harness-engineering/core@0.23.3

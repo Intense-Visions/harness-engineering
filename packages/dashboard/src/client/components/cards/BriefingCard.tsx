@@ -18,33 +18,110 @@ const RISK_COLORS: Record<string, string> = {
 
 function EnrichedSpecSummary({ spec }: { spec: InteractionEnrichedSpec }) {
   return (
-    <div className="space-y-2 rounded-lg border border-primary-500/20 bg-primary-500/5 p-3">
+    <div className="space-y-3 rounded-lg border border-primary-500/20 bg-primary-500/5 p-3">
       <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-500">
         Enriched Spec (SEL)
       </h4>
-      <p className="text-xs text-neutral-text">{spec.intent}</p>
+      <div>
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-neutral-muted">
+          Intent
+        </span>
+        <p className="mt-0.5 text-xs text-white">{spec.intent}</p>
+      </div>
+      <div>
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-neutral-muted">
+          Summary
+        </span>
+        <p className="mt-0.5 text-xs text-neutral-text/80 leading-relaxed">{spec.summary}</p>
+      </div>
       {spec.affectedSystems.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {spec.affectedSystems.map((sys) => (
-            <span
-              key={sys.name}
-              className="rounded-md border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-400"
-            >
-              {sys.name} {Math.round(sys.confidence * 100)}%
-            </span>
-          ))}
+        <div>
+          <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-neutral-muted">
+            Affected Systems
+          </span>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {spec.affectedSystems.map((sys) => (
+              <span
+                key={sys.name}
+                className="rounded-md border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-400"
+                title={`Confidence: ${Math.round(sys.confidence * 100)}% | Tests: ${sys.testCoverage} | Deps: ${sys.transitiveDeps.length}`}
+              >
+                {sys.name}
+                {sys.graphNodeId && (
+                  <span className="ml-1 text-blue-500/50">{Math.round(sys.confidence * 100)}%</span>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
       )}
-      <div className="flex gap-3 text-[9px]">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         {spec.unknowns.length > 0 && (
-          <span className="text-amber-400">{spec.unknowns.length} unknowns</span>
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-amber-400">
+              Unknowns ({spec.unknowns.length})
+            </span>
+            <ul className="mt-0.5 space-y-0.5">
+              {spec.unknowns.map((u, i) => (
+                <li key={i} className="text-[11px] text-neutral-text/70">
+                  {u}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {spec.ambiguities.length > 0 && (
-          <span className="text-orange-400">{spec.ambiguities.length} ambiguities</span>
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-orange-400">
+              Ambiguities ({spec.ambiguities.length})
+            </span>
+            <ul className="mt-0.5 space-y-0.5">
+              {spec.ambiguities.map((a, i) => (
+                <li key={i} className="text-[11px] text-neutral-text/70">
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {spec.riskSignals.length > 0 && (
-          <span className="text-red-400">{spec.riskSignals.length} risks</span>
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-red-400">
+              Risk Signals ({spec.riskSignals.length})
+            </span>
+            <ul className="mt-0.5 space-y-0.5">
+              {spec.riskSignals.map((r, i) => (
+                <li key={i} className="text-[11px] text-neutral-text/70">
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const ROUTE_COLORS: Record<string, string> = {
+  local: 'text-emerald-400',
+  human: 'text-amber-400',
+  'simulation-required': 'text-purple-400',
+};
+
+function ScoreBar({ value, label, color }: { value: number; label: string; color: string }) {
+  const pct = Math.round(value * 100);
+  return (
+    <div className="space-y-0.5">
+      <div className="flex justify-between text-[10px]">
+        <span className="text-neutral-muted">{label}</span>
+        <span className={color}>{pct}%</span>
+      </div>
+      <div className="h-1 w-full rounded-full bg-white/[0.06]">
+        <div
+          className={`h-full rounded-full ${color.replace('text-', 'bg-')}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -52,29 +129,69 @@ function EnrichedSpecSummary({ spec }: { spec: InteractionEnrichedSpec }) {
 
 function ComplexityScoreSummary({ score }: { score: InteractionComplexityScore }) {
   return (
-    <div className="space-y-2 rounded-lg border border-secondary-400/20 bg-secondary-400/5 p-3">
+    <div className="space-y-3 rounded-lg border border-secondary-400/20 bg-secondary-400/5 p-3">
       <div className="flex items-center justify-between">
         <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary-400">
           Complexity (CML)
         </h4>
-        <span
-          className={`inline-block rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase ${RISK_COLORS[score.riskLevel] ?? RISK_COLORS.medium}`}
-        >
-          {score.riskLevel}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase ${RISK_COLORS[score.riskLevel] ?? RISK_COLORS.medium}`}
+          >
+            {score.riskLevel}
+          </span>
+          <span
+            className={`text-[10px] font-mono font-bold ${ROUTE_COLORS[score.recommendedRoute] ?? 'text-neutral-muted'}`}
+          >
+            {score.recommendedRoute}
+          </span>
+        </div>
       </div>
-      <div className="flex gap-3 text-[10px]">
-        <span className="text-neutral-muted">
-          Overall: <span className="text-white font-bold">{Math.round(score.overall * 100)}%</span>
-        </span>
-        <span className="text-neutral-muted">
-          Blast:{' '}
-          <span className="text-white font-bold">{score.blastRadius.filesEstimated} files</span>
-        </span>
-        <span className="text-neutral-muted">
-          Route: <span className="text-white font-bold">{score.recommendedRoute}</span>
-        </span>
+      <div className="space-y-1.5">
+        <ScoreBar value={score.overall} label="Overall" color="text-primary-500" />
+        <ScoreBar value={score.dimensions.structural} label="Structural" color="text-blue-400" />
+        <ScoreBar value={score.dimensions.semantic} label="Semantic" color="text-purple-400" />
+        <ScoreBar value={score.dimensions.historical} label="Historical" color="text-yellow-400" />
+        <ScoreBar value={score.confidence} label="Confidence" color="text-emerald-400" />
       </div>
+      <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] pt-2 md:grid-cols-4">
+        <div className="text-center">
+          <span className="block text-sm font-bold text-white">{score.blastRadius.services}</span>
+          <span className="text-[9px] uppercase tracking-widest text-neutral-muted">Services</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-sm font-bold text-white">{score.blastRadius.modules}</span>
+          <span className="text-[9px] uppercase tracking-widest text-neutral-muted">Modules</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-sm font-bold text-white">
+            {score.blastRadius.filesEstimated}
+          </span>
+          <span className="text-[9px] uppercase tracking-widest text-neutral-muted">Files</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-sm font-bold text-white">
+            {score.blastRadius.testFilesAffected}
+          </span>
+          <span className="text-[9px] uppercase tracking-widest text-neutral-muted">
+            Test Files
+          </span>
+        </div>
+      </div>
+      {score.reasoning.length > 0 && (
+        <div className="border-t border-white/[0.06] pt-2">
+          <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-neutral-muted">
+            Reasoning
+          </span>
+          <ul className="mt-0.5 space-y-0.5">
+            {score.reasoning.map((r, i) => (
+              <li key={i} className="text-[11px] text-neutral-text/70">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

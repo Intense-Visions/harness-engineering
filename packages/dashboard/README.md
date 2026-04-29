@@ -36,7 +36,7 @@ The dashboard has 10 pages:
 | **Adoption**     | `/adoption`     | Skill usage metrics: invocation counts, success rates, average duration, and last-used timestamps                |
 | **Health**       | `/health`       | Entropy-based project health with collapsible sections for security findings, perf checks, and arch violations   |
 | **Analyze**      | `/analyze`      | Interactive intelligence pipeline: submit a task description and stream SEL, CML, and PESL results in real time  |
-| **Roadmap**      | `/roadmap`      | Milestone progress bars, Gantt chart timeline, dependency graph, and feature status filtering                    |
+| **Roadmap**      | `/roadmap`      | Stats bar, milestone-grouped feature table with claim workflow, dependency graph, and assignment history         |
 | **Orchestrator** | `/orchestrator` | Live orchestrator state: running agents, rate limits, concurrency, token usage, tick activity, and agent streams |
 | **Impact**       | `/impact`       | Graph anomaly detection (articulation points, outliers) and interactive blast radius visualization               |
 | **Graph**        | `/graph`        | Knowledge graph statistics: node/edge counts, type breakdown, density, connected components                      |
@@ -49,7 +49,7 @@ packages/dashboard/
   src/
     client/              React SPA (Vite + Tailwind CSS)
       pages/             10 page components (one per route)
-      components/        Shared UI: KpiCard, GanttChart, BlastRadiusGraph, chat system
+      components/        Shared UI: KpiCard, BlastRadiusGraph, chat system, roadmap components
       hooks/             useSSE, useOrchestratorSocket, useApi, useChatContext, etc.
       utils/             Type guards, chat streaming, context-to-prompt
     server/              Hono API server

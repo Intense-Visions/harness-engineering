@@ -25,6 +25,10 @@ const FAKE_ROADMAP_DATA = {
       blockedBy: [],
       assignee: null,
       priority: null,
+      spec: null,
+      plans: [],
+      externalId: null,
+      updatedAt: null,
     },
     {
       name: 'feat-b',
@@ -34,14 +38,20 @@ const FAKE_ROADMAP_DATA = {
       blockedBy: ['feat-a'],
       assignee: null,
       priority: null,
+      spec: null,
+      plans: [],
+      externalId: null,
+      updatedAt: null,
     },
   ],
+  assignmentHistory: [],
   totalFeatures: 2,
   totalDone: 1,
   totalInProgress: 0,
   totalPlanned: 1,
   totalBlocked: 0,
   totalBacklog: 0,
+  totalNeedsHuman: 0,
 };
 
 vi.mock('../../../src/server/gather/roadmap', () => ({

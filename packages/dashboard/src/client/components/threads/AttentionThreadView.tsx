@@ -6,8 +6,10 @@ import { BriefingCard } from '../cards/BriefingCard';
 import { streamChat, applyChunk } from '../../utils/chat-stream';
 import { useThreadStore } from '../../stores/threadStore';
 import type { Thread, AttentionMeta } from '../../types/thread';
-import type { UserMessage, AssistantMessage } from '../../types/chat';
+import type { UserMessage, AssistantMessage, ChatMessage } from '../../types/chat';
 import type { PendingInteraction } from '../../types/orchestrator';
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 interface Props {
   thread: Thread;
@@ -36,7 +38,7 @@ function buildInteractionSystemPrompt(interaction: PendingInteraction): string {
 export function AttentionThreadView({ thread }: Props) {
   const meta = thread.meta as AttentionMeta;
   const storeApi = useThreadStore;
-  const messages = storeApi((s) => s.messages.get(thread.id) ?? []);
+  const messages = storeApi((s) => s.messages.get(thread.id) ?? EMPTY_MESSAGES);
 
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
