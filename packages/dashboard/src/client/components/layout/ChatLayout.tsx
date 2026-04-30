@@ -3,6 +3,7 @@ import { createContext, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { useAgentSync } from '../../hooks/useAgentSync';
 import { useAttentionSync } from '../../hooks/useAttentionSync';
+import { useChatSessionsSync } from '../../hooks/useChatSessionsSync';
 import { useOrchestratorSocket } from '../../hooks/useOrchestratorSocket';
 import { useThreadStore } from '../../stores/threadStore';
 import type { ContentBlock } from '../../types/chat';
@@ -28,6 +29,7 @@ export function ChatLayout({ children }: Props) {
   const socket = useOrchestratorSocket();
   useAttentionSync(socket);
   useAgentSync(socket);
+  useChatSessionsSync();
 
   // Panel state — null for system routes, read from ThreadStore for threads
   const storedPanelState = useThreadStore((s) =>

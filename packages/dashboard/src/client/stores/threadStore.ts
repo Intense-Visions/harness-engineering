@@ -16,7 +16,7 @@ import type { PanelState } from '../components/layout/ContextPanel';
 const LAST_THREAD_KEY = 'harness-last-thread-id';
 
 /** Number of async sources that must call markSourceHydrated() before the store is considered ready. */
-let _hydrationPending = 2; // agents + attention
+let _hydrationPending = 3; // agents + attention + chat sessions
 
 function readLastThreadId(): string | null {
   try {
@@ -163,6 +163,23 @@ export interface ThreadStore {
 /** Derive sidebar sections from the current thread map. */
 export function selectSidebarSections(state: ThreadStore): SidebarSections {
   return deriveSidebarSections(state.threads);
+}
+
+/**
+ * Return an existing draft chat thread (no command, zero messages) if one is
+ * already in the store; otherwise create a fresh one. Used by the "New Chat"
+ * button so navigating away and clicking New Chat to come back doesn't strand
+ * the user on a brand-new thread when an empty draft is already available.
+ */
+export function getOrCreateDraftChatThread(): Thread {
+  const state = useThreadStore.getState();
+  for (const thread of state.threads.values()) {
+    if (thread.type !== 'chat') continue;
+    if ((thread.meta as ChatMeta).command) continue;
+    const msgs = state.messages.get(thread.id);
+    if (!msgs || msgs.length === 0) return thread;
+  }
+  return state.createThread('chat', { sessionId: crypto.randomUUID(), command: null });
 }
 
 export const useThreadStore = create<ThreadStore>((set, get) => ({
