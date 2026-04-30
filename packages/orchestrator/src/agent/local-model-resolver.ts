@@ -167,17 +167,28 @@ export class LocalModelResolver {
     return status;
   }
 
-  // start() and stop() implemented in Task 5.
   async start(): Promise<void> {
-    // Reference probeIntervalMs and timer so TypeScript treats them as used
-    // until the lifecycle implementation lands in Task 5.
-    void this.probeIntervalMs;
-    void this.timer;
-    throw new Error('not implemented yet');
+    if (this.timer !== null) {
+      // Idempotent: already running.
+      return;
+    }
+    await this.probe();
+    this.timer = setInterval(() => {
+      // Fire-and-forget — errors are recorded in lastError by probe().
+      void this.probe();
+    }, this.probeIntervalMs);
+    // Some Node interval handles support unref so they don't keep the
+    // process alive on their own. Test environments without it (jsdom
+    // synthetic handles, etc.) safely no-op via the optional check.
+    const handle = this.timer as unknown as { unref?: () => void };
+    handle.unref?.();
   }
+
   stop(): void {
-    void this.timer;
-    throw new Error('not implemented yet');
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
   }
 
   private snapshotForDiff(): string {

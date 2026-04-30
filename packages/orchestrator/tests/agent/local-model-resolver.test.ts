@@ -85,3 +85,97 @@ describe('LocalModelResolver — single probe semantics (no timer)', () => {
     expect(status.detected).toEqual([]); // initial empty stays empty
   });
 });
+
+import { vi, beforeEach, afterEach } from 'vitest';
+
+describe('LocalModelResolver — lifecycle (fake timers)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('runs one probe before start() resolves (SC8)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+    expect(resolver.resolveModel()).toBe('a');
+    resolver.stop();
+  });
+
+  it('re-probes on every interval tick (SC9)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchModels).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchModels).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetchModels).toHaveBeenCalledTimes(5);
+
+    resolver.stop();
+  });
+
+  it('stop() clears the timer (SC12)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    resolver.stop();
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(fetchModels).toHaveBeenCalledTimes(1); // only the start() probe
+  });
+
+  it('start() is idempotent (no second timer)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    await resolver.start(); // should not schedule a second timer or re-probe immediately
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchModels).toHaveBeenCalledTimes(2); // exactly one tick, not two
+
+    resolver.stop();
+  });
+
+  it('stop() is idempotent (calling twice does not throw)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    resolver.stop();
+    expect(() => resolver.stop()).not.toThrow();
+  });
+});
