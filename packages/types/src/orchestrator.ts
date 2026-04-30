@@ -331,20 +331,51 @@ export interface AgentConfig {
   stallTimeoutMs: number;
   /** Local backend type */
   localBackend?: 'openai-compatible' | 'pi';
-  /** Model name for local backend */
-  localModel?: string;
+  /** Model name(s) for local backend. String form is normalized to a 1-element array internally. Non-empty array required when array form is used. */
+  localModel?: string | string[];
   /** Endpoint URL for local backend (e.g., http://localhost:11434/v1) */
   localEndpoint?: string;
   /** API key for local backend (some servers require a dummy key) */
   localApiKey?: string;
   /** Request timeout in ms for local backend calls (default: 90000) */
   localTimeoutMs?: number;
+  /** Probe interval in ms for local model availability (default: 30_000, minimum: 1_000). */
+  localProbeIntervalMs?: number;
   /** Escalation routing configuration */
   escalation?: Partial<EscalationConfig>;
   /** Container execution configuration (used when sandboxPolicy is 'docker') */
   container?: ContainerConfig;
   /** Secret injection configuration */
   secrets?: SecretConfig;
+}
+
+/**
+ * Snapshot of local-model availability, exposed to the dashboard and consumers.
+ *
+ * @remarks
+ * Produced by `LocalModelResolver.getStatus()`. Field semantics:
+ * - `available` flips true when at least one configured candidate appears in `detected`.
+ * - `resolved` is the first match in `configured` order; `null` when `available` is false.
+ * - `detected` is the list of model IDs returned by the most recent successful probe;
+ *   it retains its previous value across transient probe failures.
+ * - `lastError` is non-null when the most recent probe attempt failed (network, timeout,
+ *   non-2xx, malformed body). An empty `detected` array on a successful probe is NOT an error.
+ */
+export interface LocalModelStatus {
+  /** True when at least one configured candidate is loaded on the server. */
+  available: boolean;
+  /** The currently selected model ID, or null when none matched. */
+  resolved: string | null;
+  /** Configured candidate list, normalized to array. */
+  configured: string[];
+  /** Model IDs returned by the last successful probe. */
+  detected: string[];
+  /** ISO timestamp of the last successful probe, null if never succeeded. */
+  lastProbeAt: string | null;
+  /** Last probe error message, null when healthy. */
+  lastError: string | null;
+  /** Human-readable warnings (empty when healthy). */
+  warnings: string[];
 }
 
 /**
