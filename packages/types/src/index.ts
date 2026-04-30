@@ -123,6 +123,7 @@ export type {
   RoutingDecision,
   EscalationConfig,
   IntelligenceConfig,
+  LocalModelStatus,
 } from './orchestrator';
 
 // --- Container & Secrets ---
