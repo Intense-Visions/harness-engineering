@@ -420,10 +420,18 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createLocalBackend(): AgentBackend | null {
+    // Narrow string|string[] to the first candidate for the legacy direct-read path.
+    // Phase 3 of the local-model-fallback spec replaces these reads with LocalModelResolver.
+    const localModelFirst =
+      typeof this.config.agent.localModel === 'string'
+        ? this.config.agent.localModel
+        : Array.isArray(this.config.agent.localModel)
+          ? this.config.agent.localModel[0]
+          : undefined;
     if (this.config.agent.localBackend === 'openai-compatible') {
       const localConfig: import('./agent/backends/local').LocalBackendConfig = {};
       if (this.config.agent.localEndpoint) localConfig.endpoint = this.config.agent.localEndpoint;
-      if (this.config.agent.localModel) localConfig.model = this.config.agent.localModel;
+      if (localModelFirst) localConfig.model = localModelFirst;
       if (this.config.agent.localApiKey) localConfig.apiKey = this.config.agent.localApiKey;
       if (this.config.agent.localTimeoutMs)
         localConfig.timeoutMs = this.config.agent.localTimeoutMs;
@@ -431,7 +439,7 @@ export class Orchestrator extends EventEmitter {
     }
     if (this.config.agent.localBackend === 'pi') {
       return new PiBackend({
-        model: this.config.agent.localModel,
+        model: localModelFirst,
         endpoint: this.config.agent.localEndpoint,
         apiKey: this.config.agent.localApiKey,
       });
@@ -478,7 +486,15 @@ export class Orchestrator extends EventEmitter {
     ) {
       const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
       const apiKey = this.config.agent.localApiKey ?? 'ollama';
-      const model = selModel ?? this.config.agent.localModel;
+      // Narrow string|string[] to the first candidate for the legacy direct-read path.
+      // Phase 3 of the local-model-fallback spec replaces this read with LocalModelResolver.
+      const localModelFirst =
+        typeof this.config.agent.localModel === 'string'
+          ? this.config.agent.localModel
+          : Array.isArray(this.config.agent.localModel)
+            ? this.config.agent.localModel[0]
+            : undefined;
+      const model = selModel ?? localModelFirst;
       this.logger.info(`Intelligence pipeline using local backend at ${endpoint}`);
       return new OpenAICompatibleAnalysisProvider({
         apiKey,
