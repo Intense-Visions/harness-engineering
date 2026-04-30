@@ -1,7 +1,7 @@
 import { Plus, FlaskConical, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
-import { useThreadStore } from '../../stores/threadStore';
+import { getOrCreateDraftChatThread, useThreadStore } from '../../stores/threadStore';
 import { NeuralOrganism } from '../chat/NeuralOrganism';
 import { CommandPalette } from '../chat/CommandPalette';
 import type { SkillEntry } from '../../types/skills';
@@ -9,9 +9,8 @@ import type { SkillEntry } from '../../types/skills';
 export function EmptyState() {
   const navigate = useNavigate();
   const handleNewChat = () => {
-    const store = useThreadStore.getState();
-    const thread = store.createThread('chat', { sessionId: crypto.randomUUID(), command: null });
-    store.setActiveThread(thread.id);
+    const thread = getOrCreateDraftChatThread();
+    useThreadStore.getState().setActiveThread(thread.id);
     navigate(`/t/${thread.id}`);
   };
 

@@ -1,7 +1,11 @@
 import { FlaskConical, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { selectSidebarSections, useThreadStore } from '../../stores/threadStore';
+import {
+  getOrCreateDraftChatThread,
+  selectSidebarSections,
+  useThreadStore,
+} from '../../stores/threadStore';
 import { SYSTEM_PAGES } from '../../types/thread';
 import { Sigil } from '../NeonAI/Sigil';
 import { SidebarSection } from '../sidebar/SidebarSection';
@@ -16,9 +20,8 @@ export function ThreadSidebar() {
     [threads]
   );
   const handleNewChat = () => {
-    const store = useThreadStore.getState();
-    const thread = store.createThread('chat', { sessionId: crypto.randomUUID(), command: null });
-    store.setActiveThread(thread.id);
+    const thread = getOrCreateDraftChatThread();
+    useThreadStore.getState().setActiveThread(thread.id);
     navigate(`/t/${thread.id}`);
   };
 

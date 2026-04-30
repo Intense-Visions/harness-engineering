@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useThreadStore, selectSidebarSections } from '../../../src/client/stores/threadStore';
+import {
+  useThreadStore,
+  selectSidebarSections,
+  getOrCreateDraftChatThread,
+} from '../../../src/client/stores/threadStore';
 
 describe('threadStore', () => {
   beforeEach(() => {
@@ -7,6 +11,7 @@ describe('threadStore', () => {
       threads: new Map(),
       activeThreadId: null,
       lastThreadId: null,
+      messages: new Map(),
     });
   });
 
@@ -187,6 +192,38 @@ describe('threadStore', () => {
       const sections = selectSidebarSections(useThreadStore.getState());
       expect(sections.attention).toHaveLength(0);
       expect(sections.recent).toHaveLength(1);
+    });
+  });
+
+  describe('getOrCreateDraftChatThread', () => {
+    it('creates a fresh thread when no draft exists', () => {
+      const thread = getOrCreateDraftChatThread();
+      expect(thread.type).toBe('chat');
+      expect(useThreadStore.getState().threads.size).toBe(1);
+    });
+
+    it('reuses an existing empty chat thread instead of creating a new one', () => {
+      const first = getOrCreateDraftChatThread();
+      const second = getOrCreateDraftChatThread();
+      expect(second.id).toBe(first.id);
+      expect(useThreadStore.getState().threads.size).toBe(1);
+    });
+
+    it('creates a new thread when the existing chat has messages', () => {
+      const first = getOrCreateDraftChatThread();
+      useThreadStore.getState().setMessages(first.id, [{ role: 'user', content: 'hi' }]);
+      const second = getOrCreateDraftChatThread();
+      expect(second.id).not.toBe(first.id);
+      expect(useThreadStore.getState().threads.size).toBe(2);
+    });
+
+    it('skips chat threads seeded with a command (skill drafts)', () => {
+      const seeded = useThreadStore
+        .getState()
+        .createThread('chat', { sessionId: 'skill-seed', command: 'harness:tdd' });
+      const draft = getOrCreateDraftChatThread();
+      expect(draft.id).not.toBe(seeded.id);
+      expect(useThreadStore.getState().threads.size).toBe(2);
     });
   });
 });
