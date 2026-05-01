@@ -348,4 +348,82 @@ describe('PiBackend', () => {
       expect(result.ok).toBe(true);
     });
   });
+
+  describe('getModel callback', () => {
+    it('returns Err agent_not_found when getModel() returns null without invoking the pi SDK', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+        getModel: () => null,
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.category).toBe('agent_not_found');
+        expect(result.error.message).toBe('No local model available; check dashboard for details.');
+      }
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('passes the resolved model name to createAgentSession when getModel returns a string', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+        getModel: () => 'gemma-4-e4b',
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: expect.objectContaining({
+            id: 'gemma-4-e4b',
+            api: 'openai-completions',
+            baseUrl: 'http://localhost:1234/v1',
+          }),
+        })
+      );
+    });
+
+    it('falls back to static config.model when getModel is not provided (backward compat)', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        model: 'gemma-4-e4b',
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: expect.objectContaining({ id: 'gemma-4-e4b' }),
+        })
+      );
+    });
+  });
 });
