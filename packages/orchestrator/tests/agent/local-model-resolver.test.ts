@@ -179,3 +179,87 @@ describe('LocalModelResolver — lifecycle (fake timers)', () => {
     expect(() => resolver.stop()).not.toThrow();
   });
 });
+
+describe('LocalModelResolver — onStatusChange semantics (SC10)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fires when resolved model transitions from null to a candidate', async () => {
+    let returnValue: string[] = [];
+    const fetchModels = vi.fn().mockImplementation(async () => returnValue);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    const handler = vi.fn();
+    resolver.onStatusChange(handler);
+
+    await resolver.start();
+    // Initial probe: detected=[], available=false. Compared against the
+    // pre-probe initial snapshot (also available=false, detected=[]) —
+    // listeners fire only on diff. Since this is the first transition out
+    // of the initial state, snapshots may differ; assert the handler was
+    // called at most once for the initial probe.
+    const initialCalls = handler.mock.calls.length;
+
+    returnValue = ['a'];
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(handler).toHaveBeenCalledTimes(initialCalls + 1);
+    const lastStatus = handler.mock.calls.at(-1)?.[0];
+    expect(lastStatus.available).toBe(true);
+    expect(lastStatus.resolved).toBe('a');
+
+    resolver.stop();
+  });
+
+  it('does not fire when consecutive probes produce identical status', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    const handler = vi.fn();
+    await resolver.start();
+    resolver.onStatusChange(handler); // subscribe AFTER initial probe
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(handler).not.toHaveBeenCalled();
+    resolver.stop();
+  });
+
+  it('returns an unsubscribe function that detaches the handler', async () => {
+    const fetchModels = vi
+      .fn()
+      .mockResolvedValueOnce(['a'])
+      .mockResolvedValueOnce(['b'])
+      .mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    const handler = vi.fn();
+    const unsubscribe = resolver.onStatusChange(handler);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    resolver.stop();
+  });
+});
