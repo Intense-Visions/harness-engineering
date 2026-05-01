@@ -18,9 +18,22 @@ vi.mock('../../../src/client/hooks/useOrchestratorSocket', () => ({
   useOrchestratorSocket: () => mockHook,
 }));
 
+const mockLocalModelHook = {
+  status: null as import('../../../src/client/types/orchestrator').LocalModelStatus | null,
+  loading: false,
+  error: null as string | null,
+};
+
+vi.mock('../../../src/client/hooks/useLocalModelStatus', () => ({
+  useLocalModelStatus: () => mockLocalModelHook,
+}));
+
 beforeEach(() => {
   mockHook.snapshot = null;
   mockHook.connected = false;
+  mockLocalModelHook.status = null;
+  mockLocalModelHook.loading = false;
+  mockLocalModelHook.error = null;
 });
 
 afterEach(() => {
@@ -141,5 +154,63 @@ describe('Orchestrator (Agent Monitor) page', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('COOLDOWN')).toBeDefined();
+  });
+
+  it('renders LocalModelBanner when local model is unavailable (OT5 / SC19)', () => {
+    mockHook.snapshot = makeSnapshot();
+    mockHook.connected = true;
+    mockLocalModelHook.status = {
+      available: false,
+      resolved: null,
+      configured: ['gemma-4-e4b', 'qwen3:8b'],
+      detected: [],
+      lastProbeAt: '2026-04-30T12:00:00.000Z',
+      lastError: 'fetch failed',
+      warnings: ['No configured candidate is loaded.'],
+    };
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
+    const banner = screen.getByRole('alert');
+    expect(banner).toBeDefined();
+    expect(banner.textContent).toContain('Local model unavailable');
+    expect(banner.textContent).toContain('gemma-4-e4b');
+    expect(banner.textContent).toContain('qwen3:8b');
+    expect(banner.textContent).toContain('none detected');
+    expect(banner.textContent).toContain('fetch failed');
+  });
+
+  it('does not render LocalModelBanner when status.available is true (OT6)', () => {
+    mockHook.snapshot = makeSnapshot();
+    mockHook.connected = true;
+    mockLocalModelHook.status = {
+      available: true,
+      resolved: 'gemma-4-e4b',
+      configured: ['gemma-4-e4b'],
+      detected: ['gemma-4-e4b'],
+      lastProbeAt: '2026-04-30T12:00:00.000Z',
+      lastError: null,
+      warnings: [],
+    };
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('does not render LocalModelBanner when status is null (no local backend)', () => {
+    mockHook.snapshot = makeSnapshot();
+    mockHook.connected = true;
+    mockLocalModelHook.status = null;
+    render(
+      <MemoryRouter>
+        <Orchestrator />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

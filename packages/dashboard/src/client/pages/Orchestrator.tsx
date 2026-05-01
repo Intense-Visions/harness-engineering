@@ -2,12 +2,62 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
+import { useLocalModelStatus } from '../hooks/useLocalModelStatus';
+import type { LocalModelStatus } from '../types/orchestrator';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
 import { useThreadStore } from '../stores/threadStore';
 import type { AgentMeta } from '../types/thread';
 import type { ContentBlock } from '../types/chat';
 import type { StreamManifest } from '../hooks/useStreamReplay';
 import type { OrchestratorSnapshot, RunningAgent, TickActivity } from '../types/orchestrator';
+
+function formatProbeTime(iso: string | null): string {
+  if (!iso) return 'never';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString();
+}
+
+function LocalModelBanner({ status }: { status: LocalModelStatus }) {
+  const detectedLabel = status.detected.length > 0 ? status.detected.join(', ') : 'none detected';
+  return (
+    <div
+      role="alert"
+      className="mb-6 rounded-lg border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm"
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-red-300">Local model unavailable</p>
+          <p className="mt-1 text-red-200">
+            No configured candidate is currently loaded on the local server. The intelligence
+            pipeline and local agent dispatch are disabled until a candidate is loaded.
+          </p>
+          <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs text-red-200 sm:grid-cols-2">
+            <div className="flex gap-2">
+              <dt className="text-red-400">Configured:</dt>
+              <dd className="font-mono">{status.configured.join(', ') || '(none)'}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-red-400">Detected:</dt>
+              <dd className="font-mono">{detectedLabel}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-red-400">Last probe:</dt>
+              <dd className="font-mono">{formatProbeTime(status.lastProbeAt)}</dd>
+            </div>
+            {status.lastError && (
+              <div className="flex gap-2">
+                <dt className="text-red-400">Last error:</dt>
+                <dd className="font-mono">{status.lastError}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -560,6 +610,7 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 
 export function Orchestrator() {
   const { snapshot, agentEvents, connected } = useOrchestratorSocket();
+  const { status: localModelStatus } = useLocalModelStatus();
   const navigate = useNavigate();
 
   const navigateToAgent = useCallback(
@@ -619,6 +670,9 @@ export function Orchestrator() {
   if (!snapshot) {
     return (
       <div>
+        {localModelStatus && !localModelStatus.available && (
+          <LocalModelBanner status={localModelStatus} />
+        )}
         <h1 className="mb-6 text-2xl font-bold">Agent Monitor</h1>
         <p className="text-sm text-gray-500">
           {connected ? 'Waiting for first state update...' : 'Connecting to orchestrator...'}
@@ -632,6 +686,9 @@ export function Orchestrator() {
 
   return (
     <div>
+      {localModelStatus && !localModelStatus.available && (
+        <LocalModelBanner status={localModelStatus} />
+      )}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agent Monitor</h1>
         <div className="flex items-center gap-2 text-xs">
