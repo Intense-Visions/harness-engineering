@@ -184,4 +184,90 @@ describe('LocalBackend', () => {
       }
     });
   });
+
+  describe('getModel callback', () => {
+    it('returns Err agent_not_found when getModel() returns null', async () => {
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        getModel: () => null,
+      });
+
+      const result = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.category).toBe('agent_not_found');
+        expect(result.error.message).toBe('No local model available; check dashboard for details.');
+      }
+    });
+
+    it('uses the resolved model name in runTurn when getModel returns a string', async () => {
+      const openaiModule = await import('openai');
+      const mockChatCreate = (
+        openaiModule as unknown as { __mockChatCreate: ReturnType<typeof vi.fn> }
+      ).__mockChatCreate;
+      mockChatCreate.mockClear();
+
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        model: 'deepseek-coder-v2',
+        getModel: () => 'qwen3:8b',
+      });
+
+      const sessionResult = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      expect(sessionResult.ok).toBe(true);
+      if (!sessionResult.ok) return;
+
+      const gen = localBackend.runTurn(sessionResult.value, {
+        sessionId: sessionResult.value.sessionId,
+        prompt: 'Hi',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+
+      expect(mockChatCreate).toHaveBeenCalledWith(expect.objectContaining({ model: 'qwen3:8b' }));
+    });
+
+    it('falls back to static config.model when getModel is not provided (backward compat)', async () => {
+      const openaiModule = await import('openai');
+      const mockChatCreate = (
+        openaiModule as unknown as { __mockChatCreate: ReturnType<typeof vi.fn> }
+      ).__mockChatCreate;
+      mockChatCreate.mockClear();
+
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        model: 'deepseek-coder-v2',
+      });
+
+      const sessionResult = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const gen = localBackend.runTurn(sessionResult.value, {
+        sessionId: sessionResult.value.sessionId,
+        prompt: 'Hi',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+
+      expect(mockChatCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'deepseek-coder-v2' })
+      );
+    });
+  });
 });
