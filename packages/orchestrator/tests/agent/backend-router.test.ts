@@ -60,3 +60,36 @@ describe('BackendRouter — resolution', () => {
     expect(router.getBackendName('default', 'sel')).toBe('cloud');
   });
 });
+
+describe('BackendRouter — construction-time validation', () => {
+  it('throws when routing.default names a missing backend', () => {
+    const routing: RoutingConfig = { default: 'nope' };
+    expect(() => new BackendRouter({ backends: { cloud }, routing })).toThrowError(
+      /unknown backend.*nope/
+    );
+  });
+
+  it('throws when a tier scope names a missing backend', () => {
+    const routing: RoutingConfig = { default: 'cloud', diagnostic: 'ghost' };
+    expect(() => new BackendRouter({ backends: { cloud }, routing })).toThrowError(
+      /diagnostic.*ghost/
+    );
+  });
+
+  it('throws when an intelligence layer names a missing backend', () => {
+    const routing: RoutingConfig = {
+      default: 'cloud',
+      intelligence: { sel: 'phantom' },
+    };
+    expect(() => new BackendRouter({ backends: { cloud }, routing })).toThrowError(
+      /intelligence\.sel.*phantom/
+    );
+  });
+
+  it('lists known backends in the error for diagnostics', () => {
+    const routing: RoutingConfig = { default: 'nope' };
+    expect(() => new BackendRouter({ backends: { cloud, local }, routing })).toThrowError(
+      /Defined backends.*cloud.*local|Defined backends.*local.*cloud/
+    );
+  });
+});
