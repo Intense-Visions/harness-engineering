@@ -21,6 +21,8 @@ agent:
   localBackend: pi
   localEndpoint: http://localhost:1234/v1
   localModel: gemma-4-e4b
+  # Or, prefer-and-fallback list — first match wins after /v1/models probe:
+  # localModel: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
   # Escalation routing — controls what runs locally vs primary vs human
   escalation:
     alwaysHuman: [full-exploration]

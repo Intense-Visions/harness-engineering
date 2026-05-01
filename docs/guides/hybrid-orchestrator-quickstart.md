@@ -64,8 +64,12 @@ agent:
 
   # Local model configuration
   localBackend: pi
-  localModel: qwen3:8b # must match a model available on your server
+  localModel: qwen3:8b # single model, must match a model loaded on your server
+  # Or, prefer-and-fallback list — first match wins:
+  # localModel: [qwen3:8b, deepseek-coder-v2, gemma-4-e4b]
   localEndpoint: http://localhost:11434/v1
+  # Optional: probe interval for /v1/models availability check (default: 30000ms, min: 1000ms)
+  # localProbeIntervalMs: 30000
 
   # Escalation routing
   escalation:
@@ -205,6 +209,26 @@ diagnostic  change
 ```
 
 Routing is fully configurable via the `escalation` block in harness.orchestrator.md. Move scope tiers between `autoExecute` (local), `primaryExecute` (Claude), `signalGated`, and `alwaysHuman` to control where each type of work runs.
+
+## Multiple Model Fallback
+
+When `localModel` is an array, the orchestrator probes `/v1/models` periodically and picks the first configured candidate that is loaded on your server.
+
+```yaml
+agent:
+  localBackend: pi
+  localEndpoint: http://localhost:1234/v1
+  localModel: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
+```
+
+Behavior:
+
+- **First match wins.** The list is evaluated in priority order. If `gemma-4-e4b` is loaded, it's used; otherwise `qwen3:8b`; otherwise `deepseek-coder-v2`.
+- **Self-healing.** If no candidate is loaded at start, the orchestrator disables locally-routed paths (with a banner on the dashboard's Orchestrator page). Load any one of the configured models — within `localProbeIntervalMs` (default 30s), the resolver picks it up and re-enables the local backend without a restart.
+- **No silent cloud fallback.** If you've configured a local backend and no candidate is loaded, locally-tier work fails with `agent_not_found` rather than quietly running on Claude. Cloud-routed paths are unaffected.
+- **Dashboard banner.** The Orchestrator page surfaces a warning showing the configured list, the detected list (what your server reported), the endpoint, and the last error / probe time. The banner clears automatically once a candidate is loaded.
+
+The single-string form (`localModel: gemma-4-e4b`) continues to work — it's normalized internally to a 1-element array.
 
 ## Troubleshooting
 

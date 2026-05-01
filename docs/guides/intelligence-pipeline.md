@@ -260,9 +260,19 @@ console.log('Predicted failures:', sim.predictedFailures);
 
 **Provider resolution order** (when `intelligence.provider` is omitted):
 
-1. Local backend (`agent.localBackend: openai-compatible`) — uses `localEndpoint`, `localApiKey`, `localModel`
+1. Local backend (`agent.localBackend: openai-compatible` or `pi`) — uses `localEndpoint`, `localApiKey`, `localModel`
 2. Primary backend (`agent.backend: anthropic/claude`) — uses `agent.apiKey`, `agent.model`
 3. Primary backend (`agent.backend: openai`) — uses `agent.apiKey`, `agent.model`
+
+`agent.localModel` accepts either a string or an array of candidate model IDs. When given an array, the orchestrator probes `/v1/models` periodically and picks the first configured candidate that is loaded. See [hybrid-orchestrator-quickstart.md § Multiple Model Fallback](./hybrid-orchestrator-quickstart.md#multiple-model-fallback) for details.
+
+## Known Limitations
+
+**Intelligence pipeline does not auto-rebuild on local availability change.**
+
+When `agent.localBackend` is configured but no candidate from `agent.localModel` is loaded at orchestrator start, the intelligence pipeline does not initialize — `createAnalysisProvider()` returns null and a warn-level log records the disabled state. The agent backend self-heals on the next probe (subsequent `LocalBackend.startSession()` calls succeed once `available` flips to true), but the intelligence pipeline remains disabled until the orchestrator is restarted.
+
+To re-enable the intelligence pipeline after loading a model, restart the orchestrator. This is a deliberate trade-off — listening for resolver status changes inside `IntelligencePipeline` and re-constructing the analysis provider on flip would add lifecycle complexity disproportionate to the value at this iteration. Tracked as success criterion SC23 in `docs/changes/local-model-fallback/proposal.md`.
 
 ## Thinking Models
 
