@@ -1449,10 +1449,14 @@ export class Orchestrator extends EventEmitter {
    */
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localModelResolver) {
-      await this.localModelResolver.start();
+      // Subscribe BEFORE the initial probe so the first status diff
+      // (default empty state -> probe-1 result) is broadcast to the
+      // dashboard. SC21 relies on observing both initial-probe-failure
+      // and subsequent recovery as distinct broadcasts.
       this.localModelResolver.onStatusChange((status) => {
         this.server?.broadcastLocalModelStatus(status);
       });
+      await this.localModelResolver.start();
     }
     // Defer pipeline construction until after the resolver has observed the
     // server. createIntelligencePipeline() consults resolver.getStatus() via

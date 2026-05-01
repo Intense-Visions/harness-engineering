@@ -313,4 +313,180 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       }
     });
   });
+
+  describe('SC21 — resolver self-heals on next probe', () => {
+    it('OT7: probe[1]=[]; probe[2]=[gemma-4-e4b]; broadcast fires twice', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchModels = vi.fn().mockResolvedValueOnce([]).mockResolvedValue(['gemma-4-e4b']);
+        const broadcasts: import('@harness-engineering/types').LocalModelStatus[] = [];
+
+        const config = makeConfig({
+          localBackend: 'openai-compatible',
+          localModel: 'gemma-4-e4b',
+          localEndpoint: 'http://localhost:11434/v1',
+          localProbeIntervalMs: 1_000,
+        });
+        const orch = new Orchestrator(config, 'Prompt', {
+          tracker: makeMockTracker(),
+          backend: new MockBackend(),
+          execFileFn: noopExecFile,
+        });
+        // Inject a fake server stub so we can observe broadcast calls
+        // without spinning up the HTTP server. Implements the minimal subset
+        // of OrchestratorServer that orchestrator.start()/stop() touch.
+        (
+          orch as unknown as {
+            server: {
+              start: () => Promise<void>;
+              stop: () => void;
+              broadcastLocalModelStatus: (s: unknown) => void;
+            };
+          }
+        ).server = {
+          start: async () => {},
+          stop: () => {},
+          broadcastLocalModelStatus: (s: unknown) =>
+            broadcasts.push(s as import('@harness-engineering/types').LocalModelStatus),
+        };
+        const resolver = (
+          orch as unknown as {
+            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+          }
+        ).localModelResolver;
+        (
+          resolver as unknown as {
+            fetchModels: (e: string, k?: string) => Promise<string[]>;
+          }
+        ).fetchModels = fetchModels;
+
+        await orch.start(); // probe 1 → []
+        expect(resolver.resolveModel()).toBeNull();
+
+        // Advance to trigger probe 2 → [gemma-4-e4b]
+        await vi.advanceTimersByTimeAsync(1_000);
+        // Allow microtasks (the probe is fire-and-forget on the timer tick)
+        await vi.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+        expect(broadcasts.length).toBeGreaterThanOrEqual(2);
+        // First broadcast: not available; subsequent broadcast: available.
+        const lastBroadcast = broadcasts[broadcasts.length - 1]!;
+        expect(lastBroadcast.available).toBe(true);
+        expect(lastBroadcast.resolved).toBe('gemma-4-e4b');
+
+        await orch.stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('SC22 — post-self-heal sessions start successfully', () => {
+    it('OT8: LocalBackend.startSession returns Ok after resolver self-heals', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchModels = vi.fn().mockResolvedValueOnce([]).mockResolvedValue(['gemma-4-e4b']);
+
+        const config = makeConfig({
+          localBackend: 'openai-compatible',
+          localModel: 'gemma-4-e4b',
+          localEndpoint: 'http://localhost:11434/v1',
+          localProbeIntervalMs: 1_000,
+        });
+        const orch = new Orchestrator(config, 'Prompt', {
+          tracker: makeMockTracker(),
+          backend: new MockBackend(),
+          execFileFn: noopExecFile,
+        });
+        const resolver = (
+          orch as unknown as {
+            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+          }
+        ).localModelResolver;
+        (
+          resolver as unknown as {
+            fetchModels: (e: string, k?: string) => Promise<string[]>;
+          }
+        ).fetchModels = fetchModels;
+
+        await orch.start();
+
+        // Initially unavailable — startSession would fail. Confirm by
+        // pulling the localRunner's backend and inspecting the resolver-
+        // bound getModel callback.
+        expect(resolver.resolveModel()).toBeNull();
+
+        // Advance to trigger recovery probe.
+        await vi.advanceTimersByTimeAsync(1_000);
+        await vi.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+
+        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+
+        // Reach into the localRunner to grab the backend, then call
+        // startSession directly. The runner stores the backend internally;
+        // tests/agent/runner.test.ts shows the access pattern.
+        const localRunner = (
+          orch as unknown as {
+            localRunner: { backend: import('@harness-engineering/types').AgentBackend };
+          }
+        ).localRunner;
+        expect(localRunner).not.toBeNull();
+        const result = await localRunner.backend.startSession({
+          workspacePath: '/tmp/test',
+          systemPrompt: 'sys',
+        });
+        expect(result.ok).toBe(true);
+
+        await orch.stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('OT11 — stop() halts resolver probing', () => {
+    it('no further fetchModels calls after stop()', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+
+        const config = makeConfig({
+          localBackend: 'openai-compatible',
+          localModel: 'gemma-4-e4b',
+          localEndpoint: 'http://localhost:11434/v1',
+          localProbeIntervalMs: 1_000,
+        });
+        const orch = new Orchestrator(config, 'Prompt', {
+          tracker: makeMockTracker(),
+          backend: new MockBackend(),
+          execFileFn: noopExecFile,
+        });
+        const resolver = (
+          orch as unknown as {
+            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+          }
+        ).localModelResolver;
+        (
+          resolver as unknown as {
+            fetchModels: (e: string, k?: string) => Promise<string[]>;
+          }
+        ).fetchModels = fetchModels;
+
+        await orch.start();
+        expect(fetchModels).toHaveBeenCalledTimes(1);
+        await orch.stop();
+
+        const callsBefore = fetchModels.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(10_000);
+        await vi.runOnlyPendingTimersAsync();
+        expect(fetchModels.mock.calls.length).toBe(callsBefore);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
