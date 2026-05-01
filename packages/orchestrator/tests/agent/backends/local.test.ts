@@ -253,6 +253,7 @@ describe('LocalBackend', () => {
         workspacePath: '/tmp/workspace',
         permissionMode: 'full',
       });
+      expect(sessionResult.ok).toBe(true);
       if (!sessionResult.ok) return;
 
       const gen = localBackend.runTurn(sessionResult.value, {
