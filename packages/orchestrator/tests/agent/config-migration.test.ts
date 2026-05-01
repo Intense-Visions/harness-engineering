@@ -219,8 +219,13 @@ describe('migrateAgentConfig', () => {
     });
   });
 
-  describe('OT13 — both legacy and new: new wins, warn each ignored', () => {
-    it('returns input config unchanged and warns naming each ignored legacy field', () => {
+  describe('OT13 — case 1 (legacy + new): suppress required-by-type / local-group warnings', () => {
+    it('returns input config unchanged and emits zero warnings when only suppressed legacy fields are set', () => {
+      // The legacy fields here are all in the suppression list because:
+      //   - `agent.backend` is required-by-type (always present)
+      //   - `localBackend` / `localEndpoint` / `localModel` form a tightly
+      //     coupled unit — none meaningful without `localBackend`
+      // The user has migrated to `agent.backends`, so these are noise.
       const input = makeAgentConfig({
         backend: 'claude',
         localBackend: 'pi',
@@ -237,14 +242,37 @@ describe('migrateAgentConfig', () => {
       expect(result.config).toBe(input);
       expect(result.config.backends).toEqual(input.backends);
       expect(result.config.routing).toEqual(input.routing);
-      // Warnings name each ignored legacy field.
+      // No warnings — all the present legacy fields are in the suppression set.
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('still warns about non-suppressed legacy fields (agent.command, agent.model, agent.apiKey, agent.localProbeIntervalMs)', () => {
+      // These four are NOT in the suppression list because each represents
+      // a deliberate user choice that conflicts with the new `backends`
+      // shape (vs. being an inert / required-by-type artifact).
+      const input = makeAgentConfig({
+        backend: 'claude',
+        command: '/usr/local/bin/claude',
+        model: 'claude-sonnet-4',
+        apiKey: 'sk-ant-xxx',
+        localProbeIntervalMs: 5000,
+        backends: { cloud: { type: 'claude' } },
+        routing: { default: 'cloud' },
+      });
+      const result = migrateAgentConfig(input);
       const joined = result.warnings.join('\n');
-      expect(joined).toContain('agent.backend');
-      expect(joined).toContain('agent.localBackend');
-      expect(joined).toContain('agent.localEndpoint');
-      expect(joined).toContain('agent.localModel');
-      expect(joined).toContain('agent.backends');
-      expect(joined).toContain('precedence');
+      expect(joined).toContain('agent.command');
+      expect(joined).toContain('agent.model');
+      expect(joined).toContain('agent.apiKey');
+      expect(joined).toContain('agent.localProbeIntervalMs');
+      // Suppressed field (agent.backend) must not appear.
+      expect(joined).not.toContain("'agent.backend'");
+      // Each warning carries the migration-guide pointer.
+      for (const w of result.warnings) {
+        expect(w).toContain('docs/guides/multi-backend-routing.md');
+        expect(w).toContain('precedence');
+      }
+      expect(result.warnings.length).toBe(4);
     });
   });
 

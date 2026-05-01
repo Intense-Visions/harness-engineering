@@ -73,8 +73,30 @@ export function migrateAgentConfig(agent: AgentConfig): MigrationResult {
   const presentLegacy = legacyFields.filter((f) => f.present).map((f) => f.path);
 
   // Case 1: `agent.backends` already set — new schema wins.
+  //
+  // The user has migrated. Some legacy fields are required-by-type
+  // (`agent.backend`) or sit in a tightly-coupled unit (the local* group:
+  // `localBackend` is the gate, and the others are inert without it).
+  // Warning about these would be noisy: every Spec-2-migrated config
+  // would see "Ignoring agent.backend" at boot just because the field
+  // is non-optional. Suppress those specifically so case 1 stays quiet
+  // for the typical post-migration shape.
+  //
+  // Phase 3: once `AgentConfig.backend` becomes optional and the local*
+  // group can be unset, this suppression list can be removed and the
+  // warnings re-enabled (any presence at that point will be a true
+  // user-meaningful conflict).
+  const CASE1_SUPPRESSED = new Set([
+    'agent.backend',
+    'agent.localBackend',
+    'agent.localEndpoint',
+    'agent.localModel',
+    'agent.localApiKey',
+    'agent.localTimeoutMs',
+  ]);
   if (agent.backends !== undefined) {
     for (const path of presentLegacy) {
+      if (CASE1_SUPPRESSED.has(path)) continue;
       warnings.push(
         `Ignoring legacy field '${path}': 'agent.backends' is set and takes precedence. See ${MIGRATION_GUIDE}.`
       );
