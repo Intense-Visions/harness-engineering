@@ -192,6 +192,7 @@ function synthesizePrimary(agent: AgentConfig): BackendDef {
         model: agent.localModel,
       };
       if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
+      if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
       if (agent.localProbeIntervalMs !== undefined)
         def.probeIntervalMs = agent.localProbeIntervalMs;
       return def;
@@ -219,6 +220,7 @@ function synthesizeLocal(agent: AgentConfig): BackendDef {
       model: agent.localModel,
     };
     if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
+    if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
     if (agent.localProbeIntervalMs !== undefined) def.probeIntervalMs = agent.localProbeIntervalMs;
     return def;
   }

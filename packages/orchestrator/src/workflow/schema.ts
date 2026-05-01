@@ -56,6 +56,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       endpoint: z.string().url(),
       model: z.union([z.string().min(1), z.array(z.string().min(1)).nonempty()]),
       apiKey: z.string().optional(),
+      timeoutMs: z.number().int().positive().optional(),
       probeIntervalMs: z.number().int().min(1000).optional(),
     })
     .strict(),

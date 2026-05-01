@@ -356,6 +356,8 @@ export interface PiBackendDef {
   endpoint: string;
   model: string | string[];
   apiKey?: string;
+  /** Per-request timeout in ms. Default: 90_000. */
+  timeoutMs?: number;
   /** Probe interval in ms for resolver. Default: 30_000. Minimum: 1_000. */
   probeIntervalMs?: number;
 }
