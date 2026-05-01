@@ -124,6 +124,17 @@ export type {
   EscalationConfig,
   IntelligenceConfig,
   LocalModelStatus,
+  // --- Spec 2: Multi-Backend Routing ---
+  BackendDef,
+  MockBackendDef,
+  ClaudeBackendDef,
+  AnthropicBackendDef,
+  OpenAIBackendDef,
+  GeminiBackendDef,
+  LocalBackendDef,
+  PiBackendDef,
+  RoutingConfig,
+  NamedLocalModelStatus,
 } from './orchestrator';
 
 // --- Container & Secrets ---
