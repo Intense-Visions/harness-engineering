@@ -107,6 +107,16 @@ export class LocalModelResolver {
 
   private timer: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<(status: LocalModelStatus) => void>();
+  /**
+   * Tracks an in-flight probe so concurrent invocations (interval tick while a
+   * slow probe is running, or a manual `probe()` call mid-flight) share the
+   * existing promise instead of racing to mutate `detected/resolved/lastError/
+   * warnings` non-atomically across `await` points. Applies to both the timer
+   * callback and direct `probe()` calls — any caller that arrives during an
+   * in-flight probe gets the same promise back. Cleared in `finally` so the
+   * next tick can start a fresh probe.
+   */
+  private probeInFlight: Promise<LocalModelStatus> | null = null;
 
   // Mutable status fields (composed into LocalModelStatus on demand).
   private resolved: string | null = null;
@@ -158,6 +168,21 @@ export class LocalModelResolver {
   }
 
   async probe(): Promise<LocalModelStatus> {
+    // If a probe is already in flight, share its promise instead of starting
+    // a second one. This applies uniformly to the interval-driven probe and
+    // any manual `probe()` callers (e.g. dashboard hot-refresh) — both face
+    // the same torn-state race if allowed to run concurrently.
+    if (this.probeInFlight !== null) {
+      return this.probeInFlight;
+    }
+    const inFlight = this.runProbe().finally(() => {
+      this.probeInFlight = null;
+    });
+    this.probeInFlight = inFlight;
+    return inFlight;
+  }
+
+  private async runProbe(): Promise<LocalModelStatus> {
     const before = this.snapshotForDiff();
     try {
       const detected = await this.fetchModels(this.endpoint, this.apiKey);

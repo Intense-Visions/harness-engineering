@@ -182,6 +182,51 @@ describe('LocalModelResolver — lifecycle (fake timers)', () => {
     resolver.stop();
     expect(() => resolver.stop()).not.toThrow();
   });
+
+  it('suppresses overlapping probes when a probe outlasts the interval', async () => {
+    // Build a fetchModels whose first call is held open until we explicitly
+    // resolve it, so we can simulate a probe that takes longer than the
+    // probe interval.
+    let releaseFirst: ((ids: string[]) => void) | null = null;
+    const firstCall = new Promise<string[]>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const fetchModels = vi
+      .fn()
+      .mockImplementationOnce(() => firstCall)
+      .mockResolvedValue(['a']);
+
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 1_000,
+      fetchModels,
+    });
+
+    // Kick off start(); this issues probe #1 which is now hung on firstCall.
+    const startPromise = resolver.start();
+    // Advance past several interval ticks while probe #1 is still in flight.
+    // Without the in-flight guard, each tick would call fetchModels again.
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    // Manual probe() during in-flight state must also be suppressed (share
+    // the same promise rather than launching a parallel probe).
+    const sharedManualProbe = resolver.probe();
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    // Release probe #1.
+    releaseFirst!(['a']);
+    await startPromise;
+    await sharedManualProbe;
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    // After completion a new tick is allowed to fetch again.
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetchModels).toHaveBeenCalledTimes(2);
+
+    resolver.stop();
+  });
 });
 
 describe('LocalModelResolver — onStatusChange semantics (SC10)', () => {
