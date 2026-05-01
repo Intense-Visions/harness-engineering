@@ -35,4 +35,28 @@ describe('BackendRouter — resolution', () => {
     expect(router.getBackend('quick-fix')).toBe(backends.local);
     expect(router.getBackend('guided-change')).toBe(backends.cloud);
   });
+
+  it('resolves intelligence-layer routes when set', () => {
+    const routing: RoutingConfig = {
+      default: 'cloud',
+      intelligence: { sel: 'local' },
+    };
+    const router = new BackendRouter({ backends: { cloud, local }, routing });
+    expect(router.getBackendName('default', 'sel')).toBe('local');
+  });
+
+  it('falls back to default when intelligence layer is unmapped', () => {
+    const routing: RoutingConfig = {
+      default: 'cloud',
+      intelligence: { sel: 'local' },
+    };
+    const router = new BackendRouter({ backends: { cloud, local }, routing });
+    expect(router.getBackendName('default', 'pesl')).toBe('cloud');
+  });
+
+  it('falls back to default when intelligence map is absent', () => {
+    const routing: RoutingConfig = { default: 'cloud' };
+    const router = new BackendRouter({ backends: { cloud }, routing });
+    expect(router.getBackendName('default', 'sel')).toBe('cloud');
+  });
 });
