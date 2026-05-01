@@ -1,3 +1,7 @@
+import type { LocalModelStatus } from '@harness-engineering/types';
+
+export type { LocalModelStatus };
+
 /** Minimal session info for display in the agent monitor. */
 export interface AgentSession {
   backendName: string;
@@ -186,7 +190,8 @@ export type WebSocketMessage =
   | { type: 'agent_event'; data: AgentEventMessage }
   | { type: 'maintenance:started'; data: MaintenanceStartedPayload }
   | { type: 'maintenance:error'; data: MaintenanceErrorPayload }
-  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload };
+  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload }
+  | { type: 'local-model:status'; data: LocalModelStatus };
 
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =
