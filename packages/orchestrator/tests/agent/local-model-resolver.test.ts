@@ -361,6 +361,62 @@ describe('defaultFetchModels — wire format', () => {
     globalThis.fetch = realFetch;
   });
 
+  it('aborts a hung fetch after the timeout and surfaces a timeout error', async () => {
+    // Simulate a hung TCP connection: fetch never resolves on its own, but
+    // honors the AbortSignal by rejecting with a TimeoutError when fired.
+    globalThis.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            const reason =
+              (signal as AbortSignal & { reason?: unknown }).reason ??
+              Object.assign(new Error('aborted'), { name: 'TimeoutError' });
+            reject(reason);
+          });
+        }
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(defaultFetchModels('http://localhost:11434/v1', 'lm-studio', 50)).rejects.toThrow(
+      /request timeout \(50ms\)/
+    );
+  });
+
+  it('LocalModelResolver records a timeout error when default fetch is hung', async () => {
+    vi.useFakeTimers();
+    try {
+      globalThis.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal;
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              const reason =
+                (signal as AbortSignal & { reason?: unknown }).reason ??
+                Object.assign(new Error('aborted'), { name: 'TimeoutError' });
+              reject(reason);
+            });
+          }
+        });
+      }) as unknown as typeof fetch;
+
+      const resolver = new LocalModelResolver({
+        endpoint: 'http://localhost:11434/v1',
+        configured: ['a'],
+        timeoutMs: 200,
+        // No fetchModels override — uses the bound default with timeout.
+      });
+      const probePromise = resolver.probe();
+      // Advance past the timeout so AbortSignal.timeout fires.
+      await vi.advanceTimersByTimeAsync(250);
+      const status = await probePromise;
+      expect(status.available).toBe(false);
+      expect(status.lastError).toMatch(/request timeout \(200ms\)/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('parses a valid /v1/models response into ID list', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,

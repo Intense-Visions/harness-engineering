@@ -3,6 +3,7 @@ import type { LocalModelStatus } from '@harness-engineering/types';
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
 const DEFAULT_API_KEY = 'lm-studio';
+const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 
 export interface ResolverLogger {
   info(message: string, context?: Record<string, unknown>): void;
@@ -16,6 +17,13 @@ export interface LocalModelResolverOptions {
   configured: string[];
   /** Probe cadence in ms; default 30_000, minimum 1_000. */
   probeIntervalMs?: number;
+  /**
+   * Per-request timeout for the default fetch implementation, in ms.
+   * Default: 5_000. Ignored when a custom `fetchModels` is provided
+   * (custom impls own their own timeout policy). Spec §3.1 line 136
+   * enumerates timeout as a supported failure mode.
+   */
+  timeoutMs?: number;
   /**
    * Injectable for tests. Default: GET `${endpoint}/models` with bearer apiKey.
    * Resolves to detected model IDs. Rejects on network/timeout/non-2xx/malformed.
@@ -40,13 +48,32 @@ const noopLogger: ResolverLogger = {
 
 /**
  * Default `fetchModels` — GET `${endpoint}/models` with bearer apiKey.
- * Throws on network failure, non-2xx, or malformed body.
+ * Throws on network failure, non-2xx, malformed body, or timeout.
+ *
+ * `timeoutMs` defaults to 5_000. A timeout aborts the in-flight request and
+ * surfaces as `Error('request timeout (Nms)')` so callers can distinguish it
+ * from generic network errors.
  */
-export async function defaultFetchModels(endpoint: string, apiKey?: string): Promise<string[]> {
+export async function defaultFetchModels(
+  endpoint: string,
+  apiKey?: string,
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<string[]> {
   const url = `${endpoint.replace(/\/$/, '')}/models`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey ?? DEFAULT_API_KEY}` },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey ?? DEFAULT_API_KEY}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    // AbortSignal.timeout produces a DOMException/Error with name 'TimeoutError'
+    // (Node 20+) or 'AbortError' (older runtimes). Map either to a clear message.
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new Error(`request timeout (${timeoutMs}ms)`, { cause: err });
+    }
+    throw err;
+  }
   if (!res.ok) {
     throw new Error(`probe failed: ${res.status} ${res.statusText}`);
   }
@@ -97,7 +124,13 @@ export class LocalModelResolver {
     this.configured = [...opts.configured];
     const interval = opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS;
     this.probeIntervalMs = Math.max(MIN_PROBE_INTERVAL_MS, interval);
-    this.fetchModels = opts.fetchModels ?? defaultFetchModels;
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+    // Bind timeout into the default impl. Custom `fetchModels` injections own
+    // their own timeout policy (typically the test harness), so we leave them
+    // untouched.
+    this.fetchModels =
+      opts.fetchModels ??
+      ((endpoint: string, apiKey?: string) => defaultFetchModels(endpoint, apiKey, timeoutMs));
     this.logger = opts.logger ?? noopLogger;
   }
 
