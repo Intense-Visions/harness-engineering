@@ -341,6 +341,7 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
               start: () => Promise<void>;
               stop: () => void;
               broadcastLocalModelStatus: (s: unknown) => void;
+              setPipeline: (p: unknown) => void;
             };
           }
         ).server = {
@@ -348,6 +349,7 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
           stop: () => {},
           broadcastLocalModelStatus: (s: unknown) =>
             broadcasts.push(s as import('@harness-engineering/types').LocalModelStatus),
+          setPipeline: () => {},
         };
         const resolver = (
           orch as unknown as {

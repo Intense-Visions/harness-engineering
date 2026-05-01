@@ -1444,8 +1444,7 @@ export class Orchestrator extends EventEmitter {
    *
    * Runs the initial probe (so resolver state reflects server availability)
    * before constructing the intelligence pipeline. Subscribes the dashboard
-   * broadcast stub to status changes. Idempotent: safe to call once from
-   * start().
+   * broadcast stub to status changes. Called exactly once from start().
    */
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localModelResolver) {
@@ -1462,6 +1461,9 @@ export class Orchestrator extends EventEmitter {
     // server. createIntelligencePipeline() consults resolver.getStatus() via
     // createAnalysisProvider() and returns null when local is unavailable.
     this.pipeline = this.createIntelligencePipeline();
+    // The server was built with pipeline=null at construction time; refresh
+    // the reference so /api/analyze sees the real pipeline.
+    this.server?.setPipeline(this.pipeline);
   }
 
   /**

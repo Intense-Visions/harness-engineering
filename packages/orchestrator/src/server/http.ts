@@ -171,17 +171,29 @@ export class OrchestratorServer {
   /**
    * Broadcast a local-model status change to dashboard clients.
    *
-   * Phase 3 stub: no-op (debug-level log). Phase 4 will replace this body
-   * with an SSE broadcast on the `local-model:status` topic.
+   * Phase 3 routes status events through the existing WebSocket broadcaster
+   * on topic `local-model:status` so test fixtures and dashboard consumers
+   * observe payloads immediately. The project broadcasts via WebSocket; the
+   * spec's "SSE topic" wording is approximate. Phase 4 widens the payload
+   * for multi-local backends but does not change the channel.
    */
   public broadcastLocalModelStatus(
     status: import('@harness-engineering/types').LocalModelStatus
   ): void {
-    // Phase 3 stub — Phase 4 of local-model-fallback will broadcast to SSE
-    // clients on topic 'local-model:status'. For now, route through the
-    // existing broadcaster so test fixtures that subscribe to all events
-    // observe a payload, satisfying SC18 instrumentation in Phase 4.
     this.broadcaster.broadcast('local-model:status', status);
+  }
+
+  /**
+   * Update the intelligence pipeline reference after construction.
+   *
+   * The orchestrator constructs the pipeline lazily inside `start()` (the
+   * resolver must observe the server before pipeline construction). The
+   * server is built in the orchestrator constructor with `pipeline: null`,
+   * so it must be told the real pipeline once it's been created — otherwise
+   * `/api/analyze` would always see a null pipeline and return 503.
+   */
+  public setPipeline(pipeline: IntelligencePipeline | null): void {
+    this.pipeline = pipeline;
   }
 
   /**
