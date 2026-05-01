@@ -165,4 +165,152 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       expect(src).not.toMatch(/PHASE3-REMOVE/);
     });
   });
+
+  describe('SC8 — start() probes once before resolving', () => {
+    it('OT3: fetchModels called exactly once when start() resolves', async () => {
+      const fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      const config = makeConfig({
+        localBackend: 'openai-compatible',
+        localModel: 'gemma-4-e4b',
+        localEndpoint: 'http://localhost:11434/v1',
+        localProbeIntervalMs: 60_000, // long interval — only the start() probe matters
+      });
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      // Inject the fetchModels stub onto the resolver before start().
+      const resolver = (
+        orch as unknown as {
+          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+        }
+      ).localModelResolver;
+      (
+        resolver as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      try {
+        expect(fetchModels).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
+  describe('SC13 — warn-level log on no candidate', () => {
+    it('OT4: createAnalysisProvider logs warn when resolver reports unavailable', async () => {
+      const fetchModels = vi.fn().mockResolvedValue(['some-other-model']);
+      const config = makeConfig({
+        localBackend: 'openai-compatible',
+        localModel: ['a', 'b'],
+        localEndpoint: 'http://localhost:11434/v1',
+        localProbeIntervalMs: 60_000,
+      });
+      // intelligence enabled so createAnalysisProvider is called
+      (config as WorkflowConfig & { intelligence?: { enabled: boolean } }).intelligence = {
+        enabled: true,
+      };
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const warnSpy = vi.fn();
+      (orch as unknown as { logger: { warn: typeof warnSpy } }).logger.warn = warnSpy;
+      const resolver = (
+        orch as unknown as {
+          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+        }
+      ).localModelResolver;
+      (
+        resolver as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      try {
+        const warnCalls = warnSpy.mock.calls.map((c) => c[0] as string);
+        const matched = warnCalls.find((m) => /Intelligence pipeline disabled/i.test(m));
+        expect(matched, `expected warn log; got: ${JSON.stringify(warnCalls)}`).toBeTruthy();
+        expect(matched).toContain('http://localhost:11434/v1');
+        expect(matched).toMatch(/Configured: \[a, b\]/);
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
+  describe('SC14 — intelligence pipeline disabled when local unavailable at startup', () => {
+    it('OT5: this.pipeline === null after start() when local unavailable', async () => {
+      const fetchModels = vi.fn().mockResolvedValue([]); // no models loaded
+      const config = makeConfig({
+        localBackend: 'openai-compatible',
+        localModel: 'gemma-4-e4b',
+        localEndpoint: 'http://localhost:11434/v1',
+        localProbeIntervalMs: 60_000,
+      });
+      (config as WorkflowConfig & { intelligence?: { enabled: boolean } }).intelligence = {
+        enabled: true,
+      };
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const resolver = (
+        orch as unknown as {
+          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
+        }
+      ).localModelResolver;
+      (
+        resolver as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      try {
+        const pipeline = (orch as unknown as { pipeline: unknown }).pipeline;
+        expect(pipeline).toBeNull();
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
+  describe('SC16 — cloud paths unaffected', () => {
+    it('OT6: anthropic backend does not touch resolver and does not log local warnings', async () => {
+      const config = makeConfig({
+        backend: 'anthropic',
+        apiKey: 'sk-test-key-not-real',
+      });
+      (config as WorkflowConfig & { intelligence?: { enabled: boolean } }).intelligence = {
+        enabled: true,
+      };
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const warnSpy = vi.fn();
+      (orch as unknown as { logger: { warn: typeof warnSpy } }).logger.warn = warnSpy;
+
+      const resolver = (orch as unknown as { localModelResolver: unknown }).localModelResolver;
+      expect(resolver).toBeNull();
+
+      await orch.start();
+      try {
+        const warnCalls = warnSpy.mock.calls.map((c) => c[0] as string);
+        expect(warnCalls.find((m) => /Intelligence pipeline disabled/i.test(m))).toBeUndefined();
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
 });
