@@ -169,6 +169,22 @@ export class OrchestratorServer {
   }
 
   /**
+   * Broadcast a local-model status change to dashboard clients.
+   *
+   * Phase 3 stub: no-op (debug-level log). Phase 4 will replace this body
+   * with an SSE broadcast on the `local-model:status` topic.
+   */
+  public broadcastLocalModelStatus(
+    status: import('@harness-engineering/types').LocalModelStatus
+  ): void {
+    // Phase 3 stub — Phase 4 of local-model-fallback will broadcast to SSE
+    // clients on topic 'local-model:status'. For now, route through the
+    // existing broadcaster so test fixtures that subscribe to all events
+    // observe a payload, satisfying SC18 instrumentation in Phase 4.
+    this.broadcaster.broadcast('local-model:status', status);
+  }
+
+  /**
    * Set (or update) the maintenance route dependencies after construction.
    * Called by the Orchestrator once the scheduler and reporter are ready.
    */

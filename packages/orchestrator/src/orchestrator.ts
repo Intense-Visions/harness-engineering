@@ -38,6 +38,7 @@ import { GeminiBackend } from './agent/backends/gemini';
 import { AnthropicBackend } from './agent/backends/anthropic';
 import { LocalBackend } from './agent/backends/local';
 import { PiBackend } from './agent/backends/pi';
+import { LocalModelResolver, normalizeLocalModel } from './agent/local-model-resolver';
 import { ContainerBackend } from './agent/backends/container';
 import { DockerRuntime } from './agent/runtime/docker';
 import { createSecretBackend } from './agent/secrets/index';
@@ -84,6 +85,7 @@ export class Orchestrator extends EventEmitter {
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
+  private localModelResolver: LocalModelResolver | null = null;
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
@@ -152,12 +154,40 @@ export class Orchestrator extends EventEmitter {
 
     this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
 
+    // Phase 3: construct LocalModelResolver before any code path that reads
+    // localModel resolution. createLocalBackend() and createAnalysisProvider()
+    // both consult this.localModelResolver; null means "no local backend
+    // configured" (cloud path). Initial probe runs in start() — at construction
+    // time the resolver exists but has not yet observed the server, so its
+    // status reports available: false. The intelligence pipeline construction
+    // is deferred to start() so SC14 (pipeline disabled on local-unavailable)
+    // can be observed without races.
+    if (this.config.agent.localBackend) {
+      const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
+      const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
+        endpoint,
+        configured: normalizeLocalModel(this.config.agent.localModel),
+        logger: this.logger,
+      };
+      if (this.config.agent.localApiKey !== undefined) {
+        resolverOpts.apiKey = this.config.agent.localApiKey;
+      }
+      if (this.config.agent.localProbeIntervalMs !== undefined) {
+        resolverOpts.probeIntervalMs = this.config.agent.localProbeIntervalMs;
+      }
+      if (this.config.agent.localTimeoutMs !== undefined) {
+        resolverOpts.timeoutMs = this.config.agent.localTimeoutMs;
+      }
+      this.localModelResolver = new LocalModelResolver(resolverOpts);
+    }
+
     const localBackend = this.createLocalBackend();
     this.localRunner = localBackend
       ? new AgentRunner(localBackend, { maxTurns: config.agent.maxTurns })
       : null;
 
-    this.pipeline = this.createIntelligencePipeline();
+    // Pipeline construction deferred to start() — see initLocalModelAndPipeline().
+    this.pipeline = null;
 
     this.orchestratorIdPromise = resolveOrchestratorId(config.orchestratorId);
 
@@ -1398,6 +1428,27 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Initialize the LocalModelResolver and intelligence pipeline.
+   *
+   * Runs the initial probe (so resolver state reflects server availability)
+   * before constructing the intelligence pipeline. Subscribes the dashboard
+   * broadcast stub to status changes. Idempotent: safe to call once from
+   * start().
+   */
+  private async initLocalModelAndPipeline(): Promise<void> {
+    if (this.localModelResolver) {
+      await this.localModelResolver.start();
+      this.localModelResolver.onStatusChange((status) => {
+        this.server?.broadcastLocalModelStatus(status);
+      });
+    }
+    // Defer pipeline construction until after the resolver has observed the
+    // server. createIntelligencePipeline() consults resolver.getStatus() via
+    // createAnalysisProvider() and returns null when local is unavailable.
+    this.pipeline = this.createIntelligencePipeline();
+  }
+
+  /**
    * Starts the polling loop and the internal HTTP server.
    * Runs startup reconciliation to release orphaned claims before the first tick.
    */
@@ -1405,6 +1456,8 @@ export class Orchestrator extends EventEmitter {
     if (this.server) {
       void this.server.start();
     }
+
+    await this.initLocalModelAndPipeline();
 
     // Resolve orchestrator identity and initialize ClaimManager before first tick
     await this.ensureClaimManager();
@@ -1468,6 +1521,9 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    if (this.localModelResolver) {
+      this.localModelResolver.stop();
     }
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
