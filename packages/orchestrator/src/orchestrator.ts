@@ -512,26 +512,36 @@ export class Orchestrator extends EventEmitter {
     }
 
     // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
-    if (
-      this.config.agent.localBackend === 'openai-compatible' ||
-      this.config.agent.localBackend === 'pi'
-    ) {
+    //    Consults the LocalModelResolver — the single source of truth for
+    //    local-model availability. Returns null (disabling the intelligence
+    //    pipeline for this orchestrator session) when no candidate is loaded
+    //    at startup. Per spec D2 + §3.5 line 247, re-enable on later status
+    //    change is deferred — operator must restart the orchestrator after
+    //    loading a model.
+    if (this.config.agent.localBackend && this.localModelResolver) {
+      const status = this.localModelResolver.getStatus();
+      if (!status.available) {
+        this.logger.warn(
+          `Intelligence pipeline disabled: no configured localModel loaded ` +
+            `at ${this.config.agent.localEndpoint ?? 'http://localhost:11434/v1'}. ` +
+            `Configured: [${status.configured.join(', ')}]. ` +
+            `Detected: [${status.detected.join(', ')}].`
+        );
+        return null;
+      }
       const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
       const apiKey = this.config.agent.localApiKey ?? 'ollama';
-      // Narrow string|string[] to the first candidate for the legacy direct-read path.
-      // Phase 3 of the local-model-fallback spec replaces this read with LocalModelResolver.
-      const localModelFirst =
-        typeof this.config.agent.localModel === 'string'
-          ? this.config.agent.localModel
-          : Array.isArray(this.config.agent.localModel)
-            ? this.config.agent.localModel[0]
-            : undefined;
-      const model = selModel ?? localModelFirst;
-      this.logger.info(`Intelligence pipeline using local backend at ${endpoint}`);
+      // selModel may override the resolver's pick (intelligence-specific model).
+      // When unset, we use the resolver's resolved value — the model the agent
+      // backend will also use, keeping intelligence and dispatch in sync.
+      const model = selModel ?? status.resolved;
+      this.logger.info(
+        `Intelligence pipeline using local backend at ${endpoint} (model: ${model})`
+      );
       return new OpenAICompatibleAnalysisProvider({
         apiKey,
         baseUrl: endpoint,
-        ...(model !== undefined && { defaultModel: model }),
+        ...(model !== undefined && model !== null && { defaultModel: model }),
         ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
         ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
         ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
