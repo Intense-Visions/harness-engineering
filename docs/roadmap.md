@@ -1083,6 +1083,22 @@ last_manual_edit: 2026-05-03T16:41:49.827Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#259
 
+### Local Model Array Fallback with Resolver Consolidation
+
+- **Status:** planned
+- **Spec:** docs/changes/local-model-fallback/proposal.md
+- **Summary:** Widen orchestrator agent.localModel to string|string[] with periodic /v1/models probe; consolidate local-config reads behind a LocalModelResolver; surface dashboard warning when no candidate is loaded.
+- **Blockers:** —
+- **Plan:** —
+
+### Multi-Backend Routing for the Orchestrator
+
+- **Status:** planned
+- **Spec:** docs/changes/multi-backend-routing/proposal.md
+- **Summary:** Redesign agent backend selection: agent.backends (named map) + agent.routing (per-use-case selection). Promotes local/pi to first-class backends. In-memory migration shim for legacy agent.backend / agent.localBackend. Reuses LocalModelResolver from Spec 1.
+- **Blockers:** Local Model Array Fallback with Resolver Consolidation
+- **Plan:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
