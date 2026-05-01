@@ -14,6 +14,8 @@ import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
+import { handleLocalModelRoute } from './routes/local-model';
+import type { GetLocalModelStatusFn } from './routes/local-model';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
@@ -93,6 +95,8 @@ export interface ServerDependencies {
   sessionsDir?: string;
   /** Maintenance scheduler + reporter deps for dashboard routes */
   maintenanceDeps?: MaintenanceRouteDeps | null;
+  /** Callback returning the current LocalModelStatus, or null when no local backend is configured. */
+  getLocalModelStatus?: GetLocalModelStatusFn;
 }
 
 export class OrchestratorServer {
@@ -110,6 +114,7 @@ export class OrchestratorServer {
   private dispatchAdHoc!: DispatchAdHocFn | null;
   private sessionsDir!: string;
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
+  private getLocalModelStatus: GetLocalModelStatusFn | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
@@ -138,6 +143,7 @@ export class OrchestratorServer {
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
+    this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
   }
 
   private wireEvents(): void {
@@ -294,6 +300,11 @@ export class OrchestratorServer {
 
     // Ad-hoc dispatch route
     if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return true;
+    }
+
+    // Local-model status route
+    if (handleLocalModelRoute(req, res, this.getLocalModelStatus)) {
       return true;
     }
 

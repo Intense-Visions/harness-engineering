@@ -240,6 +240,7 @@ export class Orchestrator extends EventEmitter {
         analysisArchive: this.analysisArchive,
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
+        getLocalModelStatus: () => this.localModelResolver?.getStatus() ?? null,
       });
 
       this.server.setRecorder(this.recorder);
