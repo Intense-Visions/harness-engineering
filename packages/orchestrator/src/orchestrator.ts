@@ -175,9 +175,11 @@ export class Orchestrator extends EventEmitter {
       if (this.config.agent.localProbeIntervalMs !== undefined) {
         resolverOpts.probeIntervalMs = this.config.agent.localProbeIntervalMs;
       }
-      if (this.config.agent.localTimeoutMs !== undefined) {
-        resolverOpts.timeoutMs = this.config.agent.localTimeoutMs;
-      }
+      // Note: agent.localTimeoutMs is the request timeout for chat-completion calls
+      // (default 90s) — NOT the probe timeout. The resolver uses its own 5s default
+      // for /v1/models probes so a hung server fails fast rather than blocking the
+      // probe loop for a minute and a half. If a dedicated probe timeout is ever
+      // needed, add `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
       this.localModelResolver = new LocalModelResolver(resolverOpts);
     }
 
