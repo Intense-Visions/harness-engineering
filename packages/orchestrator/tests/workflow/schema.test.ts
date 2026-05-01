@@ -60,6 +60,32 @@ describe('BackendDefSchema', () => {
     // The string|array union fails both branches; one of them is "too_small".
     expect(codes).toContain('too_small');
   });
+
+  it('OT16: produces actionable error message for non-string-non-array model', () => {
+    const result = BackendDefSchema.safeParse({
+      type: 'local',
+      endpoint: 'http://localhost:1234/v1',
+      model: 0,
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    // The union errorMap collapses opaque "Invalid input" into a message
+    // naming both accepted shapes.
+    const messages = result.error.issues.map((i) => i.message).join('\n');
+    expect(messages).toContain('non-empty string or array of strings');
+  });
+
+  it('OT16: same actionable message applies to pi variant', () => {
+    const result = BackendDefSchema.safeParse({
+      type: 'pi',
+      endpoint: 'http://localhost:1234/v1',
+      model: null,
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const messages = result.error.issues.map((i) => i.message).join('\n');
+    expect(messages).toContain('non-empty string or array of strings');
+  });
 });
 
 describe('RoutingConfigSchema', () => {
