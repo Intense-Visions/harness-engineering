@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeLocalModel, LocalModelResolver } from '../../src/agent/local-model-resolver';
+import {
+  normalizeLocalModel,
+  LocalModelResolver,
+  defaultFetchModels,
+} from '../../src/agent/local-model-resolver';
 
 describe('normalizeLocalModel', () => {
   it('returns [] when input is undefined', () => {
@@ -348,5 +352,86 @@ describe('LocalModelResolver — error and degraded modes', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(fetchModels).toHaveBeenCalledTimes(2);
     resolver.stop();
+  });
+});
+
+describe('defaultFetchModels — wire format', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('parses a valid /v1/models response into ID list', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: [
+          { id: 'gemma-4-e4b', object: 'model' },
+          { id: 'qwen3:8b', object: 'model' },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    const ids = await defaultFetchModels('http://localhost:11434/v1', 'lm-studio');
+    expect(ids).toEqual(['gemma-4-e4b', 'qwen3:8b']);
+  });
+
+  it('throws on non-2xx response', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: async () => ({}),
+    }) as unknown as typeof fetch;
+    await expect(defaultFetchModels('http://localhost:11434/v1')).rejects.toThrow(/503/);
+  });
+
+  it('throws "malformed" on missing data array', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ models: [] }),
+    }) as unknown as typeof fetch;
+    await expect(defaultFetchModels('http://localhost:11434/v1')).rejects.toThrow(/malformed/);
+  });
+
+  it('throws "malformed" on entry without id', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ data: [{ object: 'model' }] }),
+    }) as unknown as typeof fetch;
+    await expect(defaultFetchModels('http://localhost:11434/v1')).rejects.toThrow(/malformed/);
+  });
+
+  it('sends Authorization: Bearer with apiKey or default', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ data: [] }),
+    });
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    await defaultFetchModels('http://localhost:11434/v1', 'my-key');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://localhost:11434/v1/models',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer my-key' }),
+      })
+    );
+
+    fetchSpy.mockClear();
+    await defaultFetchModels('http://localhost:11434/v1');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://localhost:11434/v1/models',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer lm-studio' }),
+      })
+    );
   });
 });
