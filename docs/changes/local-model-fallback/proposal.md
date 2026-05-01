@@ -31,7 +31,7 @@ This spec widens `localModel` to accept an array of candidate model IDs evaluate
 - **Single orchestrator per local server:** Probe traffic is one GET per `localProbeIntervalMs` per orchestrator instance; concurrent orchestrators are not coordinated.
 - **Endpoint reachability:** The orchestrator host can reach `agent.localEndpoint`. Network reachability is the operator's responsibility; the resolver's only response to unreachability is to mark `available: false` and continue probing.
 - **Probe cadence is human-timescale:** Default 30s; minimum 1s enforced. Sub-second probes are out of scope.
-- **Dashboard SSE channel availability:** When `available` flips, the dashboard receives the update through the existing SSE infrastructure used for `maintenance:*` events. Reconnect on transient drop is handled by existing client code.
+- **Dashboard WebSocket channel availability:** When `available` flips, the dashboard receives the update through the existing WebSocket infrastructure used for `maintenance:*` events. Reconnect on transient drop is handled by existing client code.
 
 ### Success in plain terms
 
@@ -252,12 +252,12 @@ private createAnalysisProvider(): AnalysisProvider | null {
 **Server side** (`packages/orchestrator/src/server/`)
 
 - New endpoint: `GET /api/v1/local-model/status` returns `LocalModelStatus`
-- New SSE event topic: `local-model:status` — broadcast on every meaningful status change
+- New WebSocket event topic: `local-model:status` — broadcast on every meaningful status change
 
 **Client side** (`packages/dashboard/src/`)
 
 - New shared type `LocalModelStatus` re-exported from `@harness-engineering/types`
-- New `useLocalModelStatus()` hook (SSE subscription with HTTP fallback for initial load)
+- New `useLocalModelStatus()` hook (WebSocket subscription with HTTP fallback for initial load)
 - Warning banner on the existing **Orchestrator** page (`packages/dashboard/src/client/pages/Orchestrator.tsx`). Renders when `available === false`. Banner content: configured list, detected list, endpoint, last error, last probe time.
 
 ### File layout summary
@@ -269,8 +269,8 @@ private createAnalysisProvider(): AnalysisProvider | null {
 | `packages/orchestrator/src/agent/backends/local.ts`              | Add optional `getModel` callback to config; thread into `runTurn`      |
 | `packages/orchestrator/src/agent/backends/pi.ts`                 | Same                                                                   |
 | `packages/orchestrator/src/orchestrator.ts`                      | Construct/start/stop resolver; wire into the two consumer methods      |
-| `packages/orchestrator/src/server/routes.ts` (or equivalent)     | Add `/api/v1/local-model/status` route + SSE topic                     |
-| `packages/dashboard/src/client/hooks/useLocalModelStatus.ts`     | **NEW** — SSE-backed React hook                                        |
+| `packages/orchestrator/src/server/routes.ts` (or equivalent)     | Add `/api/v1/local-model/status` route + WebSocket topic               |
+| `packages/dashboard/src/client/hooks/useLocalModelStatus.ts`     | **NEW** — WebSocket-backed React hook                                  |
 | `packages/dashboard/src/client/pages/Orchestrator.tsx`           | Add warning banner                                                     |
 | `packages/orchestrator/tests/agent/local-model-resolver.test.ts` | **NEW** — unit tests for probe, status transitions, periodic loop      |
 
@@ -285,7 +285,7 @@ private createAnalysisProvider(): AnalysisProvider | null {
 ### Entry Points
 
 - **HTTP route:** `GET /api/v1/local-model/status` on the orchestrator HTTP server. Returns `LocalModelStatus` JSON.
-- **SSE topic:** `local-model:status` on the existing orchestrator SSE channel. Payload is `LocalModelStatus`.
+- **WebSocket topic:** `local-model:status` on the existing orchestrator WebSocket channel. Payload is `LocalModelStatus`.
 - **React hook:** `useLocalModelStatus()` at `packages/dashboard/src/client/hooks/useLocalModelStatus.ts`.
 - **Module:** `LocalModelResolver` exported from `packages/orchestrator/src/agent/local-model-resolver.ts`. Internal to the orchestrator package — not part of the public API.
 - **Type:** `LocalModelStatus` re-exported through `@harness-engineering/types` for dashboard consumption.
@@ -294,7 +294,7 @@ private createAnalysisProvider(): AnalysisProvider | null {
 
 - **Type barrel:** `packages/types/src/index.ts` re-exports `LocalModelStatus`. Existing barrel-generation script (`pnpm run generate:barrels`) handles the regeneration.
 - **Server route:** add `/api/v1/local-model/status` to the orchestrator HTTP route table. The dashboard's existing reverse proxy (`packages/dashboard/src/server/orchestrator-proxy.ts:18-32`) already forwards `/api/v1/*` — no proxy change needed.
-- **SSE topic enrollment:** register `local-model:status` in the orchestrator's broadcast manager alongside existing topics (`maintenance:*`, etc.).
+- **WebSocket topic enrollment:** register `local-model:status` in the orchestrator's broadcast manager alongside existing topics (`maintenance:*`, etc.).
 - **Dashboard route:** none — banner lives on the existing Orchestrator page.
 
 ### Documentation Updates
@@ -359,7 +359,7 @@ Filenames assigned at write time as `docs/knowledge/decisions/<NNNN>-local-model
 ### Dashboard surface
 
 - **SC17** — `GET /api/v1/local-model/status` returns a `LocalModelStatus` JSON shape matching the type.
-- **SC18** — When the resolver's status changes, an SSE event with topic `local-model:status` is broadcast carrying the new status.
+- **SC18** — When the resolver's status changes, an WebSocket event with topic `local-model:status` is broadcast carrying the new status.
 - **SC19** — When `available: false` and the user navigates to the Orchestrator page in the dashboard, a warning banner is visible showing the endpoint, configured list, detected list, and last error.
 - **SC20** — When the user loads a configured model on the local server and the next probe completes, the dashboard banner disappears within `localProbeIntervalMs + 1s`.
 
@@ -426,10 +426,10 @@ These are explicitly NOT success criteria for this spec:
 <!-- complexity: medium -->
 
 - Add `GET /api/v1/local-model/status` route on the orchestrator HTTP server
-- Add `local-model:status` SSE topic; broadcast on `onStatusChange`
-- Add `useLocalModelStatus()` hook with SSE subscription + HTTP fallback
+- Add `local-model:status` WebSocket topic; broadcast on `onStatusChange`
+- Add `useLocalModelStatus()` hook with WebSocket subscription + HTTP fallback
 - Add warning banner to `Orchestrator.tsx`; renders on `available === false`
-- Component test for the banner (SC19); server route test (SC17), SSE test (SC18); manual or scripted check for SC20
+- Component test for the banner (SC19); server route test (SC17), WebSocket test (SC18); manual or scripted check for SC20
 
 **Exit criteria:** SC17–SC20 green. Banner visible end-to-end with a misconfigured `localModel` array.
 

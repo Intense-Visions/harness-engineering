@@ -5,6 +5,7 @@ import type {
   AgentEventMessage,
   WebSocketMessage,
   MaintenanceEvent,
+  LocalModelStatus,
 } from '../types/orchestrator';
 import type { ContentBlock } from '../types/chat';
 import { applyAgentEvent } from '../utils/agent-events';
@@ -23,6 +24,8 @@ export interface OrchestratorSocketState {
   connected: boolean;
   /** Most recent maintenance event received via WebSocket. */
   maintenanceEvent: MaintenanceEvent | null;
+  /** Latest LocalModelStatus snapshot delivered via local-model:status, or null until first event. */
+  localModelStatus: LocalModelStatus | null;
   /** Manually remove an interaction (after claim/resolve). */
   removeInteraction: (id: string) => void;
   /** Replace interactions list (after fetch from API). */
@@ -69,31 +72,36 @@ function addInteraction(
   return [...prev, interaction];
 }
 
-function handleMessage(
-  msg: WebSocketMessage,
-  setSnapshot: (s: OrchestratorSnapshot) => void,
-  setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>,
-  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>,
-  setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>
-): void {
+interface MessageHandlers {
+  setSnapshot: (s: OrchestratorSnapshot) => void;
+  setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>;
+  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>;
+  setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>;
+  setLocalModelStatus: React.Dispatch<React.SetStateAction<LocalModelStatus | null>>;
+}
+
+function handleMessage(msg: WebSocketMessage, handlers: MessageHandlers): void {
   switch (msg.type) {
     case 'state_change':
-      setSnapshot(msg.data);
+      handlers.setSnapshot(msg.data);
       break;
     case 'interaction_new':
-      setInteractions((prev) => addInteraction(prev, msg.data));
+      handlers.setInteractions((prev) => addInteraction(prev, msg.data));
       break;
     case 'agent_event':
-      setAgentEvents((prev) => coalesceAgentEvent(prev, msg.data));
+      handlers.setAgentEvents((prev) => coalesceAgentEvent(prev, msg.data));
       break;
     case 'maintenance:started':
-      setMaintenanceEvent({ type: 'maintenance:started', data: msg.data });
+      handlers.setMaintenanceEvent({ type: 'maintenance:started', data: msg.data });
       break;
     case 'maintenance:error':
-      setMaintenanceEvent({ type: 'maintenance:error', data: msg.data });
+      handlers.setMaintenanceEvent({ type: 'maintenance:error', data: msg.data });
       break;
     case 'maintenance:completed':
-      setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
+      handlers.setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
+      break;
+    case 'local-model:status':
+      handlers.setLocalModelStatus(msg.data);
       break;
   }
 }
@@ -103,10 +111,7 @@ function createSocket(
   reconnectTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
   attempt: { current: number },
   setConnected: (v: boolean) => void,
-  setSnapshot: (s: OrchestratorSnapshot) => void,
-  setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>,
-  setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>,
-  setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>
+  handlers: MessageHandlers
 ): WebSocket {
   const ws = new WebSocket(getWsUrl());
 
@@ -123,7 +128,7 @@ function createSocket(
       const raw: unknown = JSON.parse(event.data);
       if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
       const msg = raw as WebSocketMessage;
-      handleMessage(msg, setSnapshot, setInteractions, setAgentEvents, setMaintenanceEvent);
+      handleMessage(msg, handlers);
     } catch {
       // ignore malformed messages
     }
@@ -135,17 +140,7 @@ function createSocket(
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt.current, RECONNECT_MAX_MS);
     attempt.current += 1;
     reconnectTimer.current = setTimeout(
-      () =>
-        createSocket(
-          mounted,
-          reconnectTimer,
-          attempt,
-          setConnected,
-          setSnapshot,
-          setInteractions,
-          setAgentEvents,
-          setMaintenanceEvent
-        ),
+      () => createSocket(mounted, reconnectTimer, attempt, setConnected, handlers),
       delay
     );
   };
@@ -167,6 +162,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
   const [interactions, setInteractions] = useState<PendingInteraction[]>([]);
   const [agentEvents, setAgentEvents] = useState<Record<string, ContentBlock[]>>({});
   const [maintenanceEvent, setMaintenanceEvent] = useState<MaintenanceEvent | null>(null);
+  const [localModelStatus, setLocalModelStatus] = useState<LocalModelStatus | null>(null);
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
@@ -177,16 +173,14 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
 
   useEffect(() => {
     const mounted = { current: true };
-    const ws = createSocket(
-      mounted,
-      reconnectTimer,
-      reconnectAttempt,
-      setConnected,
+    const handlers: MessageHandlers = {
       setSnapshot,
       setInteractions,
       setAgentEvents,
-      setMaintenanceEvent
-    );
+      setMaintenanceEvent,
+      setLocalModelStatus,
+    };
+    const ws = createSocket(mounted, reconnectTimer, reconnectAttempt, setConnected, handlers);
 
     return () => {
       mounted.current = false;
@@ -206,6 +200,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
     interactions,
     agentEvents,
     maintenanceEvent,
+    localModelStatus,
     connected,
     removeInteraction,
     setInteractions,

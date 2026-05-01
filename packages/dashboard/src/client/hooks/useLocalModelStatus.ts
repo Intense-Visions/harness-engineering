@@ -25,9 +25,12 @@ function getWsUrl(): string {
  * initial value, then opens a WebSocket on /ws and listens for status
  * events. WebSocket-delivered values always supersede the HTTP fallback.
  *
- * The hook owns its own WebSocket; if the dashboard later consolidates
- * onto a shared connection store, this hook can be refactored to read
- * from that store instead.
+ * **Standalone use only.** This hook owns its own WebSocket connection. If
+ * a parent component already calls `useOrchestratorSocket()`, prefer reading
+ * `localModelStatus` from that hook's return value instead — calling both
+ * hooks in the same render tree opens two WebSocket connections. This hook
+ * exists for components that need the status without a full orchestrator
+ * snapshot (e.g., a future minimal dashboard widget).
  */
 export function useLocalModelStatus(): UseLocalModelStatusResult {
   const [status, setStatus] = useState<LocalModelStatus | null>(null);
@@ -87,6 +90,9 @@ export function useLocalModelStatus(): UseLocalModelStatusResult {
           if (msg.type === 'local-model:status') {
             setStatus(msg.data);
             setLoading(false);
+            // Clear any stale HTTP fallback error — a fresh WebSocket message
+            // proves the backend is reachable, even if the initial GET 503'd.
+            setError(null);
           }
         } catch {
           // ignore malformed messages

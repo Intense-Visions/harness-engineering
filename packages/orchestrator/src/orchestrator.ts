@@ -86,6 +86,7 @@ export class Orchestrator extends EventEmitter {
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
   private localModelResolver: LocalModelResolver | null = null;
+  private localModelStatusUnsubscribe: (() => void) | null = null;
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
@@ -1455,7 +1456,7 @@ export class Orchestrator extends EventEmitter {
       // (default empty state -> probe-1 result) is broadcast to the
       // dashboard. SC21 relies on observing both initial-probe-failure
       // and subsequent recovery as distinct broadcasts.
-      this.localModelResolver.onStatusChange((status) => {
+      this.localModelStatusUnsubscribe = this.localModelResolver.onStatusChange((status) => {
         this.server?.broadcastLocalModelStatus(status);
       });
       await this.localModelResolver.start();
@@ -1542,6 +1543,10 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    if (this.localModelStatusUnsubscribe) {
+      this.localModelStatusUnsubscribe();
+      this.localModelStatusUnsubscribe = null;
     }
     if (this.localModelResolver) {
       this.localModelResolver.stop();

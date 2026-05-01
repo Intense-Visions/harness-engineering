@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
-import { useLocalModelStatus } from '../hooks/useLocalModelStatus';
 import type { LocalModelStatus } from '../types/orchestrator';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
 import { useThreadStore } from '../stores/threadStore';
@@ -609,8 +608,7 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 }
 
 export function Orchestrator() {
-  const { snapshot, agentEvents, connected } = useOrchestratorSocket();
-  const { status: localModelStatus } = useLocalModelStatus();
+  const { snapshot, agentEvents, connected, localModelStatus } = useOrchestratorSocket();
   const navigate = useNavigate();
 
   const navigateToAgent = useCallback(

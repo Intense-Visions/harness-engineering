@@ -4,12 +4,18 @@ import { MemoryRouter } from 'react-router';
 import { Orchestrator } from '../../../src/client/pages/Orchestrator';
 import type { OrchestratorSnapshot } from '../../../src/client/types/orchestrator';
 
-// Mock the hook
+// Mock the hook. localModelStatus is now exposed by useOrchestratorSocket
+// directly (FR2 fix) so tests no longer need to mock useLocalModelStatus
+// separately when the consumer reads from the socket hook.
 const mockHook = {
   snapshot: null as OrchestratorSnapshot | null,
   interactions: [],
   connected: false,
   agentEvents: {} as Record<string, unknown[]>,
+  maintenanceEvent: null,
+  localModelStatus: null as
+    | import('../../../src/client/types/orchestrator').LocalModelStatus
+    | null,
   removeInteraction: vi.fn(),
   setInteractions: vi.fn(),
 };
@@ -18,22 +24,10 @@ vi.mock('../../../src/client/hooks/useOrchestratorSocket', () => ({
   useOrchestratorSocket: () => mockHook,
 }));
 
-const mockLocalModelHook = {
-  status: null as import('../../../src/client/types/orchestrator').LocalModelStatus | null,
-  loading: false,
-  error: null as string | null,
-};
-
-vi.mock('../../../src/client/hooks/useLocalModelStatus', () => ({
-  useLocalModelStatus: () => mockLocalModelHook,
-}));
-
 beforeEach(() => {
   mockHook.snapshot = null;
   mockHook.connected = false;
-  mockLocalModelHook.status = null;
-  mockLocalModelHook.loading = false;
-  mockLocalModelHook.error = null;
+  mockHook.localModelStatus = null;
 });
 
 afterEach(() => {
@@ -159,7 +153,7 @@ describe('Orchestrator (Agent Monitor) page', () => {
   it('renders LocalModelBanner when local model is unavailable (OT5 / SC19)', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    mockLocalModelHook.status = {
+    mockHook.localModelStatus = {
       available: false,
       resolved: null,
       configured: ['gemma-4-e4b', 'qwen3:8b'],
@@ -185,7 +179,7 @@ describe('Orchestrator (Agent Monitor) page', () => {
   it('does not render LocalModelBanner when status.available is true (OT6)', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    mockLocalModelHook.status = {
+    mockHook.localModelStatus = {
       available: true,
       resolved: 'gemma-4-e4b',
       configured: ['gemma-4-e4b'],
@@ -205,7 +199,7 @@ describe('Orchestrator (Agent Monitor) page', () => {
   it('does not render LocalModelBanner when status is null (no local backend)', () => {
     mockHook.snapshot = makeSnapshot();
     mockHook.connected = true;
-    mockLocalModelHook.status = null;
+    mockHook.localModelStatus = null;
     render(
       <MemoryRouter>
         <Orchestrator />
