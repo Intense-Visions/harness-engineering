@@ -93,3 +93,26 @@ describe('BackendRouter — construction-time validation', () => {
     );
   });
 });
+
+describe('BackendRouter + createBackend integration', () => {
+  it('round-trips: router resolves def, factory builds matching backend class', async () => {
+    const { createBackend } = await import('../../src/agent/backend-factory.js');
+    const { ClaudeBackend } = await import('../../src/agent/backends/claude.js');
+    const { PiBackend } = await import('../../src/agent/backends/pi.js');
+
+    const routing: RoutingConfig = {
+      default: 'cloud',
+      'quick-fix': 'local',
+      intelligence: { sel: 'local' },
+    };
+    const router = new BackendRouter({ backends: { cloud, local }, routing });
+
+    const cloudDef = router.getBackend('guided-change');
+    const localDef = router.getBackend('quick-fix');
+    const intelDef = router.getBackend('default', 'sel');
+
+    expect(createBackend(cloudDef)).toBeInstanceOf(ClaudeBackend);
+    expect(createBackend(localDef)).toBeInstanceOf(PiBackend);
+    expect(createBackend(intelDef)).toBeInstanceOf(PiBackend);
+  });
+});
