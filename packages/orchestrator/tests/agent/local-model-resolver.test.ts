@@ -263,3 +263,90 @@ describe('LocalModelResolver — onStatusChange semantics (SC10)', () => {
     resolver.stop();
   });
 });
+
+describe('LocalModelResolver — error and degraded modes', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('records malformed response error from a custom fetchModels (SC11b)', async () => {
+    const fetchModels = vi.fn().mockRejectedValue(new Error('malformed /v1/models response'));
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      fetchModels,
+    });
+    await resolver.start();
+    const status = resolver.getStatus();
+    expect(status.available).toBe(false);
+    expect(status.lastError).toBe('malformed /v1/models response');
+    resolver.stop();
+  });
+
+  it('continues probing after a failure (SC11)', async () => {
+    const fetchModels = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+      .mockResolvedValueOnce(['a'])
+      .mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(resolver.getStatus().available).toBe(false);
+    expect(resolver.getStatus().lastError).toBe('ECONNREFUSED');
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchModels).toHaveBeenCalledTimes(2);
+    expect(resolver.getStatus().available).toBe(true);
+    expect(resolver.getStatus().lastError).toBeNull();
+
+    resolver.stop();
+  });
+
+  it('preserves prior detected list across a transient failure', async () => {
+    const fetchModels = vi
+      .fn()
+      .mockResolvedValueOnce(['a', 'b'])
+      .mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(resolver.getStatus().detected).toEqual(['a', 'b']);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    const after = resolver.getStatus();
+    expect(after.lastError).toBe('ECONNREFUSED');
+    expect(after.detected).toEqual(['a', 'b']); // retained per spec line 137
+    expect(after.available).toBe(false);
+
+    resolver.stop();
+  });
+
+  it('clamps probeIntervalMs below the 1_000ms minimum', async () => {
+    const fetchModels = vi.fn().mockResolvedValue([]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 100, // below MIN
+      fetchModels,
+    });
+    await resolver.start();
+    // Advance by 999ms — interval should not have fired (minimum is 1_000).
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchModels).toHaveBeenCalledTimes(2);
+    resolver.stop();
+  });
+});
