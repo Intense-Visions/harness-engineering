@@ -13,12 +13,14 @@ import {
 } from '@harness-engineering/types';
 
 export interface PiBackendConfig {
-  /** Model identifier (e.g., 'gemma-4-e4b') */
+  /** Static model identifier (e.g., 'gemma-4-e4b'). Ignored if `getModel` is provided. */
   model?: string | undefined;
   /** Endpoint URL for the model server (e.g., 'http://localhost:1234/v1') */
   endpoint?: string | undefined;
   /** API key for the model server (default: 'lm-studio') */
   apiKey?: string | undefined;
+  /** Lazy resolver. Called once at `startSession()`. Returning `null` causes `startSession()` to fail with typed `agent_not_found`. */
+  getModel?: (() => string | null) | undefined;
 }
 
 interface PiSession extends AgentSession {
@@ -180,8 +182,26 @@ export class PiBackend implements AgentBackend {
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
     try {
+      let resolvedModelName: string | undefined;
+      if (this.config.getModel) {
+        const candidate = this.config.getModel();
+        if (candidate === null) {
+          return Err({
+            category: 'agent_not_found',
+            message: 'No local model available; check dashboard for details.',
+          });
+        }
+        resolvedModelName = candidate;
+      } else {
+        resolvedModelName = this.config.model;
+      }
+
       const piSdk = await import('@mariozechner/pi-coding-agent');
-      const model = buildLocalModel(this.config);
+      const model = buildLocalModel({
+        model: resolvedModelName,
+        endpoint: this.config.endpoint,
+        apiKey: this.config.apiKey,
+      });
 
       const { session: piSession } = await piSdk.createAgentSession({
         cwd: params.workspacePath,
