@@ -166,6 +166,57 @@ describe('migrateAgentConfig', () => {
       const unique = new Set(result.warnings);
       expect(unique.size).toBe(result.warnings.length);
     });
+
+    it('emits warnings naming localApiKey and localTimeoutMs and carries them through (openai-compatible)', () => {
+      const input = makeAgentConfig({
+        backend: 'claude',
+        localBackend: 'openai-compatible',
+        localEndpoint: 'http://localhost:1234/v1',
+        localModel: 'a',
+        localApiKey: 'sk-local-test',
+        localTimeoutMs: 120000,
+        localProbeIntervalMs: 5000,
+      });
+      const result = migrateAgentConfig(input);
+      // Warnings should name every legacy field present.
+      const joined = result.warnings.join('\n');
+      expect(joined).toContain('agent.localApiKey');
+      expect(joined).toContain('agent.localTimeoutMs');
+      // Synthesized local backend (openai-compatible -> 'local' type) carries
+      // apiKey AND timeoutMs through.
+      expect(result.config.backends!.local).toEqual({
+        type: 'local',
+        endpoint: 'http://localhost:1234/v1',
+        model: 'a',
+        apiKey: 'sk-local-test',
+        timeoutMs: 120000,
+        probeIntervalMs: 5000,
+      });
+    });
+
+    it('emits warnings naming localApiKey and localTimeoutMs and carries them through (pi)', () => {
+      // Pins FU1 behavior: localTimeoutMs must propagate to the pi
+      // synthesized backend, not be silently dropped.
+      const input = makeAgentConfig({
+        backend: 'claude',
+        localBackend: 'pi',
+        localEndpoint: 'http://localhost:1234/v1',
+        localModel: 'a',
+        localApiKey: 'sk-pi-test',
+        localTimeoutMs: 60000,
+      });
+      const result = migrateAgentConfig(input);
+      const joined = result.warnings.join('\n');
+      expect(joined).toContain('agent.localApiKey');
+      expect(joined).toContain('agent.localTimeoutMs');
+      expect(result.config.backends!.local).toEqual({
+        type: 'pi',
+        endpoint: 'http://localhost:1234/v1',
+        model: 'a',
+        apiKey: 'sk-pi-test',
+        timeoutMs: 60000,
+      });
+    });
   });
 
   describe('OT13 — both legacy and new: new wins, warn each ignored', () => {
