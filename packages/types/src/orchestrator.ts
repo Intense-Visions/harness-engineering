@@ -287,6 +287,98 @@ export interface HooksConfig {
   timeoutMs: number;
 }
 
+// --- Backend Definitions (Spec 2: Multi-Backend Routing) ---
+
+/**
+ * Discriminated union of all backend definitions, keyed by `type`.
+ *
+ * Used by `agent.backends` (a named map of definitions) and consumed by
+ * `BackendRouter` and the backend-instantiation factory (Phase 2+).
+ */
+export type BackendDef =
+  | MockBackendDef
+  | ClaudeBackendDef
+  | AnthropicBackendDef
+  | OpenAIBackendDef
+  | GeminiBackendDef
+  | LocalBackendDef
+  | PiBackendDef;
+
+/** Mock backend (used in tests and dry runs). */
+export interface MockBackendDef {
+  type: 'mock';
+}
+
+/** Claude CLI subprocess backend (subscription-based, no token billing). */
+export interface ClaudeBackendDef {
+  type: 'claude';
+  /** Override for the `claude` CLI binary path. */
+  command?: string;
+}
+
+/** Anthropic API backend (token-billed). */
+export interface AnthropicBackendDef {
+  type: 'anthropic';
+  model: string;
+  apiKey?: string;
+}
+
+/** OpenAI API backend (token-billed). */
+export interface OpenAIBackendDef {
+  type: 'openai';
+  model: string;
+  apiKey?: string;
+}
+
+/** Google Gemini API backend (token-billed). */
+export interface GeminiBackendDef {
+  type: 'gemini';
+  model: string;
+  apiKey?: string;
+}
+
+/** OpenAI-compatible local backend (LM Studio, Ollama, vLLM, etc.). */
+export interface LocalBackendDef {
+  type: 'local';
+  endpoint: string;
+  /** Model name(s). Array form supports fallback resolution (Spec 1). */
+  model: string | string[];
+  apiKey?: string;
+  /** Per-request timeout in ms. Default: 90_000. */
+  timeoutMs?: number;
+  /** Probe interval in ms for resolver. Default: 30_000. Minimum: 1_000. */
+  probeIntervalMs?: number;
+}
+
+/** Pi-coding-agent backend pointing at a local OpenAI-compatible server. */
+export interface PiBackendDef {
+  type: 'pi';
+  endpoint: string;
+  model: string | string[];
+  apiKey?: string;
+  /** Probe interval in ms for resolver. Default: 30_000. Minimum: 1_000. */
+  probeIntervalMs?: number;
+}
+
+/**
+ * Routing configuration mapping use cases to named backends.
+ *
+ * Required: `default`. Optional: per-tier overrides and intelligence-layer
+ * overrides. Unknown keys are validation errors (`.strict()`).
+ */
+export interface RoutingConfig {
+  /** Backend name used when no specific rule matches. Required. */
+  default: string;
+  'quick-fix'?: string;
+  'guided-change'?: string;
+  'full-exploration'?: string;
+  diagnostic?: string;
+  intelligence?: {
+    sel?: string;
+    pesl?: string;
+  };
+}
+
 /**
  * Configuration for the agent runner.
  */
@@ -343,6 +435,21 @@ export interface AgentConfig {
   localProbeIntervalMs?: number;
   /** Escalation routing configuration */
   escalation?: Partial<EscalationConfig>;
+  /**
+   * Named backend definitions (Spec 2). When set, the legacy
+   * `backend` / `localBackend` / `localEndpoint` / `localModel` /
+   * `localApiKey` / `localTimeoutMs` / `localProbeIntervalMs` fields
+   * are ignored (with a deprecation warning). When unset, the
+   * orchestrator synthesizes this map at startup from the legacy
+   * fields via `migrateAgentConfig()`.
+   */
+  backends?: Record<string, BackendDef>;
+  /**
+   * Routing rules mapping use cases to backend names (Spec 2). Required
+   * when `backends` is set. Synthesized by `migrateAgentConfig()` for
+   * legacy configs.
+   */
+  routing?: RoutingConfig;
   /** Container execution configuration (used when sandboxPolicy is 'docker') */
   container?: ContainerConfig;
   /** Secret injection configuration */
@@ -376,6 +483,21 @@ export interface LocalModelStatus {
   lastError: string | null;
   /** Human-readable warnings (empty when healthy). */
   warnings: string[];
+}
+
+/**
+ * Per-backend snapshot of local-model availability. Adds `backendName`
+ * and `endpoint` to identify which local backend the status is for in
+ * multi-local configurations (Spec 2).
+ *
+ * Returned by `GET /api/v1/local-models/status` and the SSE
+ * `local-model:status` topic (payload widened in Phase 5).
+ */
+export interface NamedLocalModelStatus extends LocalModelStatus {
+  /** The key in `agent.backends` this status corresponds to. */
+  backendName: string;
+  /** The endpoint URL this backend probes. */
+  endpoint: string;
 }
 
 /**
