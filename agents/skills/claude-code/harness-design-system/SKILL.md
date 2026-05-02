@@ -25,7 +25,13 @@
    - CSS files with custom properties (`--color-*`, `--font-*`, `--space-*`)
    - `theme.ts`, `theme.js`, `styles/variables.*` -- CSS-in-JS or preprocessor variables
 
-2. **Check harness configuration.** Read `harness.config.json` for:
+2. **Check harness configuration.** Read `harness.config.json` and apply the `design.enabled` short-circuit _before_ doing anything else in Phase 1:
+   - If `design.enabled` is `false`: the project explicitly declined a design system during init. Log `"design.enabled is false in harness.config.json — project explicitly declined the design system. Skipping."` and stop. Do not run the rest of Phase 1, Phase 2, Phase 3, or Phase 4.
+   - If `design.enabled` is `true`: proceed normally with the rest of Phase 1.
+   - If `design.enabled` is absent (the field does not appear under `design`): the project has not decided yet. Surface a gentle prompt: "This project has not configured a design system. Would you like to enable one now? (yes / no / not now)". On `yes`, proceed with Phase 1. On `no` or `not now`, stop without writing anything to `harness.config.json` (the init skill is the canonical writer of that field).
+
+   After the gate, read the remaining design configuration fields:
+   - `design.enabled` -- tri-state design posture (`true` fires this skill, `false` permanent decline, absent prompts the user). Set during `initialize-harness-project` Phase 3 step 5b.
    - `design.strictness` -- enforcement level (`strict`, `standard`, `permissive`)
    - `design.platforms` -- which platforms are enabled (web, mobile)
    - `design.tokenPath` -- path to tokens file (default: `design-system/tokens.json`)
