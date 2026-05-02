@@ -115,17 +115,41 @@ export const PerformanceConfigSchema = z
 
 /**
  * Schema for design system and aesthetic consistency configuration.
+ *
+ * `enabled` is tri-state at runtime: `true`, `false`, or absent.
+ * - `true`  -> fire `harness-design-system` skill (full discover/define/generate/validate)
+ * - `false` -> permanent decline (skill skips silently)
+ * - absent  -> fire gentle prompt asking the user to decide (existing default behavior)
+ *
+ * When `enabled === true`, `platforms` must be a non-empty array.
  */
-export const DesignConfigSchema = z.object({
-  /** Strictness of design system enforcement */
-  strictness: z.enum(['strict', 'standard', 'permissive']).default('standard'),
-  /** Supported target platforms */
-  platforms: z.array(z.enum(['web', 'mobile'])).default([]),
-  /** Path to design tokens (e.g. JSON or CSS) */
-  tokenPath: z.string().optional(),
-  /** Brief description of the intended aesthetic direction */
-  aestheticIntent: z.string().optional(),
-});
+export const DesignConfigSchema = z
+  .object({
+    /**
+     * Whether design-system tooling is enabled for this project. Set during init.
+     * Tri-state semantics: omit the field to indicate "not configured."
+     * Do NOT add a `.default(...)` — preserving "absent" is required by the spec.
+     */
+    enabled: z.boolean().optional(),
+    /** Strictness of design system enforcement */
+    strictness: z.enum(['strict', 'standard', 'permissive']).default('standard'),
+    /** Supported target platforms */
+    platforms: z.array(z.enum(['web', 'mobile'])).default([]),
+    /** Path to design tokens (e.g. JSON or CSS) */
+    tokenPath: z.string().optional(),
+    /** Brief description of the intended aesthetic direction */
+    aestheticIntent: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.enabled === true && (!value.platforms || value.platforms.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['platforms'],
+        message:
+          'design.platforms must be a non-empty array of "web" | "mobile" when design.enabled is true',
+      });
+    }
+  });
 
 /**
  * Schema for i18n coverage requirements.
