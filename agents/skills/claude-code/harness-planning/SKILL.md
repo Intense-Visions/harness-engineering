@@ -293,7 +293,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 4. **Run `harness validate`** to verify project health before writing the plan.
 5. **Check failures log.** Read `.harness/failures.md`. If planned approaches match known failures, flag them.
 6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues.
-7. **Write the plan to `docs/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Create directory if needed.
+7. **Write the plan to `docs/changes/<topic>/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Resolve `<topic>` from the spec path — if the spec lives at `docs/changes/<topic>/proposal.md`, the plan goes in the sibling `plans/` directory. If the spec is not under `docs/changes/`, fall back to `docs/plans/` and flag the spec location for human review. Create directories as needed.
 8. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global path:
    - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
    - Global (fallback, **deprecated**): `.harness/handoff.json`
@@ -392,7 +392,7 @@ When referencing existing code in task specs, cite evidence using `file:line` fo
 
 - **`harness validate`** — Run in Phase 4 (before writing plan) and included in every task.
 - **`harness check-deps`** — Referenced in tasks adding imports or creating modules.
-- **Plan location** — `docs/plans/YYYY-MM-DD-<feature-name>-plan.md`.
+- **Plan location** — `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` when the spec lives under `docs/changes/<topic>/proposal.md`; otherwise `docs/plans/` as a fallback.
 - **Handoff** — Once approved, invoke harness-execution for task-by-task implementation.
 - **Session directory** — Session-scoped writes go to `.harness/sessions/<slug>/`. Structure: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and produced file lists). Global `.harness/handoff.json` is deprecated for session-aware invocations.
 - **`emit_interaction`** — Call at end of Phase 4 to suggest transitioning to execution (confirmed transition).
@@ -422,7 +422,7 @@ Only apply when modifying existing documented behavior. When `docs/changes/` exi
 
 ## Success Criteria
 
-- Plan document exists in `docs/plans/` with all required sections
+- Plan document exists at the resolved location (`docs/changes/<topic>/plans/` or `docs/plans/` fallback) with all required sections
 - Every task completable in 2-5 minutes (one context window)
 - Every task includes exact file paths, exact code, and exact commands
 - Every code-producing task follows TDD: test first, fail, implement, pass

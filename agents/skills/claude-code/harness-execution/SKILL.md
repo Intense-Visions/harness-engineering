@@ -27,15 +27,15 @@ Deviating mid-execution introduces untested assumptions, breaks atomicity, and m
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
 1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All state/handoff writes go to `{sessionDir}/`.
-2. **Plan path:** If `plan-path` argument provided, read plan from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream planning output) or search `docs/plans/`.
+2. **Plan path:** If `plan-path` argument provided, read plan from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream planning output) or search `docs/changes/<topic>/plans/` (preferred) and `docs/plans/` (legacy fallback).
 
-When no arguments are provided (standalone invocation), discover plan from `docs/plans/` or prompt. Global `.harness/` paths used as fallback.
+When no arguments are provided (standalone invocation), discover plan from `docs/changes/<topic>/plans/` (or legacy `docs/plans/`) or prompt. Global `.harness/` paths used as fallback.
 
 ---
 
 ### Phase 1: PREPARE — Load State and Verify Prerequisites
 
-1. **Load the plan.** If `plan-path` argument was resolved, read from that path. Otherwise read from `docs/plans/`. Identify total task count and checkpoints.
+1. **Load the plan.** If `plan-path` argument was resolved, read from that path. Otherwise read from the resolved discovery location (`docs/changes/<topic>/plans/` preferred, `docs/plans/` legacy fallback). Identify total task count and checkpoints.
 
 2. **Gather context in one call.** Use `gather_context` to load all working context:
 
@@ -384,7 +384,7 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 **Session Start (fresh):**
 
 ```
-Read plan: docs/plans/2026-03-14-notifications-plan.md (5 tasks)
+Read plan: docs/changes/notifications/plans/2026-03-14-notifications-plan.md (5 tasks)
 Read state: .harness/state.json — not found (fresh start, Task 1)
 Read learnings: .harness/learnings.md — not found
 Run: harness validate — passes. Clean baseline.

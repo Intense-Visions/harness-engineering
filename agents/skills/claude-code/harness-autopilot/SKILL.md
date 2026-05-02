@@ -80,12 +80,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE �
 
 ```
 subagent_type: "harness-planner"
-prompt: "Phase {N}: {name}. Spec: {specPath}. Session: {sessionSlug}. Rigor: {rigorLevel}. Follow harness-planning. Write plan to docs/plans/. Write {sessionDir}/handoff.json when done."
+prompt: "Phase {N}: {name}. Spec: {specPath}. Session: {sessionSlug}. Rigor: {rigorLevel}. Follow harness-planning. Write plan to docs/changes/<topic>/plans/ (topic from specPath; legacy docs/plans/ if spec is outside docs/changes/). Write {sessionDir}/handoff.json when done."
 ```
 
 On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override check: `low` + tasks>10 or checkpoints>3 → `"medium"`; tasks>20 or checkpoints>6 → `"high"`. Update state `planPath`. → APPROVE_PLAN.
 
-**Interactive plan (high):** Check for plan file at `docs/plans/*{phase-name}*` or `planPath` in handoff. If found: update `planPath` → APPROVE_PLAN. If not: remind and wait.
+**Interactive plan (high):** Check for plan file at `docs/changes/<topic>/plans/*{phase-name}*` (or legacy `docs/plans/*{phase-name}*`) or `planPath` in handoff. If found: update `planPath` → APPROVE_PLAN. If not: remind and wait.
 
 ---
 
@@ -275,7 +275,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 **INIT:** 3 phases found: Phase 1: Core Scanner (low), Phase 2: Rule Engine (high), Phase 3: CLI Integration (low).
 
-**Phase 1 — ASSESS → PLAN:** harness-planner dispatched. Returns plan: `docs/plans/2026-03-19-core-scanner-plan.md` (8 tasks).
+**Phase 1 — ASSESS → PLAN:** harness-planner dispatched. Returns plan: `docs/changes/security-scanner/plans/2026-03-19-core-scanner-plan.md` (8 tasks).
 
 **Phase 1 — APPROVE_PLAN (auto):** All signals false. "Auto-approved Phase 1: Core Scanner | auto | low | no concerns | 8 tasks."
 
@@ -287,7 +287,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 **Phase 2 — ASSESS:** High complexity. "Run `/harness:planning` interactively, then re-invoke." [User plans interactively. Re-invokes.]
 
-**INIT (resume):** "Resuming from PLAN, phase 2: Rule Engine. Found plan: docs/plans/2026-03-19-rule-engine-plan.md"
+**INIT (resume):** "Resuming from PLAN, phase 2: Rule Engine. Found plan: docs/changes/security-scanner/plans/2026-03-19-rule-engine-plan.md"
 
 **Phase 2 — APPROVE_PLAN (paused):** Complexity: high triggered. "Approve? → yes" **EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE.** 14 tasks, 1 retry.
 

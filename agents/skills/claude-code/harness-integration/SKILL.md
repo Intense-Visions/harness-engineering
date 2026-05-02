@@ -33,7 +33,7 @@ When invoked by autopilot (or with explicit arguments), resolve paths before sta
 2. **Plan path:** Discover from `{sessionDir}/handoff.json` (read upstream execution/verification output). The plan contains integration tasks tagged `category: "integration"` and the `integrationTier` field.
 3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
 
-When no arguments are provided (standalone invocation), discover plan from `docs/plans/` or prompt. Global `.harness/` paths used as fallback.
+When no arguments are provided (standalone invocation), discover plan from `docs/changes/<topic>/plans/` (preferred) or `docs/plans/` (legacy fallback) or prompt. Global `.harness/` paths used as fallback.
 
 ---
 

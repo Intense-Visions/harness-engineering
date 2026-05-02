@@ -207,7 +207,7 @@ i18n Process Validation
 =======================
 Mode:           gate (standard)
 Workflow:        planning
-Artifact:        docs/plans/2026-03-20-checkout-redesign-plan.md
+Artifact:        docs/changes/checkout-redesign/plans/2026-03-20-checkout-redesign-plan.md
 
 Checks:
 [PASS] Plan contains i18n-related task (Task 7: "Extract checkout strings")
@@ -319,7 +319,7 @@ i18n Process Validation
 =======================
 Mode:           gate (standard)
 Workflow:        planning
-Artifact:        docs/plans/2026-03-20-product-reviews-plan.md
+Artifact:        docs/changes/product-reviews/plans/2026-03-20-product-reviews-plan.md
 
 Checks:
 [FAIL] No i18n-related tasks found in plan
