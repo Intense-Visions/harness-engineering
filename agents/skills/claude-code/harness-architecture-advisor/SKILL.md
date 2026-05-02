@@ -23,6 +23,18 @@ If you find yourself writing implementation code, STOP. You have left advisory m
 
 ## Process
 
+### Storage Location
+
+Architecture artifacts (discovery, analysis, proposals, ADRs) are human-facing documentation and live under the project's docs directory — NOT under `.harness/` (which is reserved for tool state like debug sessions, graph data, and baselines).
+
+Resolve the storage root as follows:
+
+1. Read `docsDir` from `harness.config.json` at the project root. If present, use `<docsDir>/architecture/` (e.g. `docsDir: "./docs"` → `docs/architecture/`).
+2. If `harness.config.json` is absent or has no `docsDir`, default to `docs/architecture/`.
+3. If a legacy `.harness/architecture/` directory exists from a prior version of this skill, surface this to the human and offer to migrate it via `git mv .harness/architecture <docsDir>/architecture` before proceeding.
+
+All path references below use `<docs>/architecture/` as shorthand for the resolved location.
+
 ### Phase 1: DISCOVER — Understand the Problem Space
 
 **Gate: This phase requires human answers. Do not proceed to Phase 2 until the human has responded.**
@@ -42,7 +54,7 @@ Ask these 5 questions. Wait for answers before proceeding.
 Record the answers verbatim. Do not paraphrase or interpret at this stage.
 
 ```
-Store answers in: .harness/architecture/<topic>/discovery.md
+Store answers in: <docs>/architecture/<topic>/discovery.md
 ```
 
 ---
@@ -107,7 +119,7 @@ Look for existing issues that may affect the decision:
 ```
 
 ```
-Store analysis in: .harness/architecture/<topic>/analysis.md
+Store analysis in: <docs>/architecture/<topic>/analysis.md
 ```
 
 ### Graph-Enhanced Context (when available)
@@ -185,7 +197,7 @@ However, if <condition>, Option <Y> would be stronger.
 Present the options to the human and wait for their choice.
 
 ```
-Store proposal in: .harness/architecture/<topic>/proposal.md
+Store proposal in: <docs>/architecture/<topic>/proposal.md
 ```
 
 ---
@@ -251,7 +263,7 @@ discussion.>
 Save the ADR:
 
 ```
-.harness/architecture/<topic>/ADR-<number>.md
+<docs>/architecture/<topic>/ADR-<number>.md
 ```
 
 Also link from the project's ADR index if one exists.
@@ -261,7 +273,7 @@ Also link from the project's ADR index if one exists.
 - Extends the human-architect model — the skill is a thinking partner, not a decision maker
 - Respects architectural constraints defined in harness.config.json
 - Outputs structured ADR that other skills can reference
-- Reads prior ADRs from `.harness/architecture/` for consistency
+- Reads prior ADRs from `<docs>/architecture/` (resolved from `harness.config.json` `docsDir`, default `docs/architecture/`) for consistency
 
 ## Success Criteria
 

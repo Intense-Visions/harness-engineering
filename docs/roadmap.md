@@ -751,7 +751,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Security Rule Test Coverage
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Unit tests for 8+ untested security rule implementations (crypto, XSS, path traversal, deserialization, network, stack-specific). Enforce coverage thresholds in CI as blockers, not warnings. [E9/E10]
 - **Blockers:** —
 - **Plan:** —
@@ -1041,7 +1041,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Graph Anomaly Detection
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Z-score outlier detection over complexity, coupling, fanIn/fanOut metrics plus articulation point identification via knowledge graph. New MCP tool: detect_anomalies. [C15]
 - **Blockers:** —
 - **Plan:** —
@@ -1208,7 +1208,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Constraint Emergence from Patterns
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
 - **Blockers:** —
 - **Plan:** —
@@ -1231,7 +1231,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Community Detection
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Label propagation algorithm over import/call graph to auto-discover natural module boundaries. Validates or challenges existing layer definitions by revealing the actual clustering in the codebase. [C6]
 - **Blockers:** —
 - **Plan:** —
@@ -1243,7 +1243,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 
 - **Status:** done
 - **Spec:** docs/changes/knowledge-skills-schema-enrichment/proposal.md
-- **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: .harness/architecture/patternsdev-skills-adoption/ADR-001.md
+- **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: docs/architecture/patternsdev-skills-adoption/ADR-001.md
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1255,7 +1255,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Self-Improving Agent Skills
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Outcome attribution mapping review findings to actual bugs via issue tracker. Skill effectiveness baselines (like perf baselines). Dynamic prompt injection into skill preamble based on historical outcomes. Skills measurably improve over time. [D4/D5]
 - **Blockers:** —
 - **Plan:** —
@@ -1277,7 +1277,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Spec-to-Code Semantic Verification
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** EARS grammar parser for machine-verifiable requirements. Test assertion semantic analysis via Claude API. Detects gaps between what the spec says and what the tests actually assert. Extends spec-to-implementation traceability with behavioral matching. [E1]
 - **Blockers:** —
 - **Plan:** —
@@ -1288,7 +1288,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Trust Scoring for Agent Output
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Explicit confidence model per review finding: validation method (mechanical > graph > heuristic) x evidence quality x cross-agent agreement x historical accuracy. Every finding shows a visible confidence percentage for human triage. [E6]
 - **Blockers:** —
 - **Plan:** —
@@ -1300,7 +1300,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Skill Effectiveness Tracking
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Links review findings to actual bugs via git history and issue tracker. Builds effectiveness baselines per skill per task type. Feeds back into prompt selection. Quantifies which skills produce good outcomes and which need calibration. [D3/D9]
 - **Blockers:** —
 - **Plan:** —
@@ -1311,7 +1311,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Anti-Pattern Inference
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Failure feature extraction and clustering to auto-discover constraints from project history. Identifies patterns like 'when files matching X are changed without updating Y, failures occur 80% of the time.' Learned constraints, not hand-coded ones. [D7]
 - **Blockers:** —
 - **Plan:** —
@@ -1322,7 +1322,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Architectural Debt Quantification
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Cost model mapping violation types to developer-hours based on historical fix times. Compound interest calculation for deferred fixes. ROI scoring that translates abstract code quality into concrete dollar amounts. [J4]
 - **Blockers:** —
 - **Plan:** —
@@ -1333,7 +1333,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Developer Velocity Analysis
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Git history temporal analysis, PR/review time integration, and friction zone identification. Identifies which codebase areas slow development most and quantifies the productivity gains from targeted refactoring. [K1]
 - **Blockers:** —
 - **Plan:** —
@@ -1344,7 +1344,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Multi-Language Support
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Tree-sitter integration for Python, Go, Rust, and Java parsing. Language-agnostic constraint enforcement. Cross-language dependency tracking in knowledge graph. Same architectural rules apply regardless of implementation language. [B1/B6]
 - **Blockers:** —
 - **Plan:** —
@@ -1355,7 +1355,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Persistent Agent Specialization
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
 - **Blockers:** —
 - **Plan:** —
@@ -1367,7 +1367,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Security Posture Timeline
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Security metric snapshots over time with supply chain monitoring and vulnerability time-to-fix analysis. Tracks whether the codebase is getting more or less secure over months with trend attribution. [L6]
 - **Blockers:** —
 - **Plan:** —
@@ -1378,7 +1378,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Agent Effectiveness Introspection
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Domain-specific accuracy tracking and blind spot detection with automatic persona switching triggers. Identifies where agents consistently fail and routes to better-suited personas automatically. [L7]
 - **Blockers:** —
 - **Plan:** —
@@ -1391,7 +1391,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Community Infrastructure
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Discord community server, built-with-harness showcase gallery, social media presence, educational content series, GitHub Sponsors/Open Collective, and contribution gamification with badges and milestones. [H2/H4-H8]
 - **Blockers:** —
 - **Plan:** —
@@ -1413,7 +1413,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Platform Expansion
 
 - **Status:** done
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** VS Code extension with sidebar and skill launcher, multi-CI recipes (GitLab, Jenkins, CircleCI, Azure DevOps), per-package config overrides for monorepos, and config inheritance chain (global to org to project to package). [B3/B7-B9]
 - **Blockers:** —
 - **Plan:** —
@@ -1459,7 +1459,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Skill Discipline Upgrades — ACE Batch 2
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Add Rationalizations to Reject, Iron Laws, Red Flags, review-never-fixes, read-only research, TDD skill authoring, rubric compression, uncertainty surfacing, and comment replacement guards across 8+ discipline-enforcing skills. Inspired by Trail of Bits and Superpowers patterns. [ACE-Batch1]
 - **Blockers:** —
 - **Plan:** —
@@ -1493,7 +1493,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Usage & Cost Tracking: Orchestrator Aggregation
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Orchestrator and team-level cost aggregation, cross-project spend comparison, and dashboard export. Builds on the core Usage & Cost Tracking feature (Current Work section). [ACE-B1 phase 2]
 - **Blockers:** —
 - **Plan:** —
@@ -1527,7 +1527,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Hook Authoring & TDD Guard
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness generate hooks command with opinionated presets: --preset tdd (AST test counting via @ast-grep/napi, hook-based Red-Green-Refactor enforcement), --preset security (parry integration, file guard), --preset checkpoint (git stash auto-save on Stop), --preset audit (session logging). Node.js target for broad compatibility. Inspired by claude-hooks and TDD Guard. [ACE-B3/B4]
 - **Blockers:** —
 - **Plan:** —
@@ -1538,7 +1538,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Container Sandboxing
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
 - **Blockers:** —
 - **Plan:** —
@@ -1550,7 +1550,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Session Search & DX Tooling
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness sessions search with SQLite FTS5 indexing — searchable by phase, persona, skill, plan_id, content. Phrase boosting with recency-weighted ranking. Desktop notification hooks via node-notifier for autopilot/orchestrator completion. Git stash auto-checkpoint hook preset (non-destructive, max 10 with cleanup). Inspired by recall and CC Notify. [ACE-B5/B6/B7]
 - **Blockers:** —
 - **Plan:** —
@@ -1561,7 +1561,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Structured Learnings Enhancement
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Optional root_cause and tried_and_failed fields for learning entries. Semantic overlap check (5-dimension scoring) before creating new entries — prevents near-duplicate learnings with different wording. Active staleness detection auditing learnings against current code state. Learnings-researcher as always-on reviewer in code review pipeline. Inspired by Compound Engineering Plugin. [ACE-C5/C6]
 - **Blockers:** —
 - **Plan:** —
@@ -1573,7 +1573,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Advanced Review Pipeline
 
 - **Status:** done
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Spec:** docs/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Meta-judge pre-generation for --thorough review mode (task-specific rubric before seeing implementation). Two-stage isolated review splitting spec-compliance from code-quality with separate context. findParallelGroups algorithm for automatic parallelization from dependency graphs. Tiered MCP tool loading (core/standard/full, measure first). Triage routing for orchestrator dispatch. Inspired by Context Engineering Kit, Superpowers, sudocode, and Claude Task Master. [ACE-Batch6]
 - **Blockers:** —
 - **Plan:** —
@@ -1584,7 +1584,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Protected Code Regions
 
 - **Status:** done
-- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Spec:** docs/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
 - **Blockers:** —
 - **Plan:** —
@@ -1595,7 +1595,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Context Budget System
 
 - **Status:** done
-- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Spec:** docs/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** Explicit token budgets in skill.yaml (context_budget field) with 5-level progressive loading hierarchy (rules → spec → source → errors → history). Triggered when skill count approaches 100.
 - **Blockers:** —
 - **Plan:** —
@@ -1606,7 +1606,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### MCP Degraded Mode
 
 - **Status:** done
-- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Spec:** docs/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** Degraded mode spec in SKILL.md documenting fallback behavior for each MCP tool call. Skills remain functional (with reduced capabilities) without MCP server, enabling multi-platform export to Cursor, Gemini CLI, Windsurf.
 - **Blockers:** —
 - **Plan:** —
@@ -1718,7 +1718,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Phase 1: Knowledge Foundation
 
 - **Status:** done
-- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** Graph schema extensions (5 node types, 2 edge types), BusinessKnowledgeIngestor reading from docs/knowledge/, harness://business-knowledge MCP resource, gather_context integration, pilot authoring for 1-2 domains
 - **Blockers:** —
 - **Plan:** —
@@ -1754,7 +1754,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Phase 4: Knowledge Pipeline & Diagrams
 
 - **Status:** done
-- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
 - **Blockers:** —
 - **Plan:** docs/plans/2026-04-23-phase-4-knowledge-pipeline-diagrams-plan.md
@@ -1766,7 +1766,7 @@ last_manual_edit: 2026-04-28T22:17:29.797Z
 ### Phase 5: Visual & Advanced
 
 - **Status:** done
-- **Spec:** .harness/architecture/business-knowledge-system/ADR-001.md
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
 - **Summary:** Vision model analysis of image attachments, design tool API connectors (Figma, Miro), cross-source contradiction detection, knowledge coverage scoring per domain
 - **Blockers:** —
 - **Plan:** —
