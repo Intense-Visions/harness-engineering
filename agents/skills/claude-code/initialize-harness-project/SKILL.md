@@ -179,8 +179,8 @@ This creates the `.harness/graph/` directory and populates it with the project's
    ```
 
    Based on the answer:
-   - **Yes:** Call `manage_roadmap` with `action: init` to create `docs/roadmap.md` (fall back to `/harness:roadmap --create` if the MCP tool is unavailable, then warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."). Verify the file exists.
-     - **If `design.enabled === true` in `harness.config.json`** (set by Phase 3 step 5b), call `manage_roadmap` again with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `executor: "harness-design-system"`. Skip silently if `manage_roadmap show` reports a duplicate `(feature, milestone)` pair. This closes the loop between deferred design intent and visible planning work.
+   - **Yes:** Invoke `harness-roadmap` (skill) or run `/harness:roadmap --create` to create `docs/roadmap.md`. Verify the file exists. The `manage_roadmap` MCP tool is for managing entries in an existing roadmap, not for creating one.
+     - **If `design.enabled === true` in `harness.config.json`** (set by Phase 3 step 5b), call `manage_roadmap` with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens. Deferred from project init — fires on first design-touching feature via on_new_feature."`. Skip silently if `manage_roadmap show` reports a duplicate `(feature, milestone)` pair. This closes the loop between deferred design intent and visible planning work.
    - **No:** Skip silently. The user can still run `/harness:roadmap --create` later — that informational fallback remains valid.
 
 5. **Commit the initialization.** All generated and configured files in a single commit.
@@ -195,7 +195,8 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
 - **`harness-design-system` (deferred via `on_new_feature`)** — Phase 3 step 5b records `design.enabled` + `design.platforms` in `harness.config.json` but does NOT run the full design-system skill. Token generation defers to the first design-touching feature, where `harness-design-system` fires via `on_new_feature` and reads `design.enabled` to decide whether to proceed.
 - **`initialize-test-suite-project`** — Sub-skill. Invoked during Phase 3 step 6 when Phase 1 step 5 classified the project as a test suite. Owns archetype selection, shared-library vs in-repo decision, layer variants, tag taxonomy, reporter stack, custom report, and "prove the guards fire" verification.
-- **`manage_roadmap` MCP tool** — Phase 4 step 4 calls `manage_roadmap` with `action: init` to create `docs/roadmap.md` when the user opts in. When `design.enabled === true`, also calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item routed to executor `harness-design-system`. Falls back to `/harness:roadmap --create` if MCP is unavailable.
+- **`harness-roadmap` skill** — Phase 4 step 4 invokes this skill (or `/harness:roadmap --create`) when the user opts in to creating `docs/roadmap.md`. The `manage_roadmap` MCP tool does not create roadmaps; it manages entries in an existing one.
+- **`manage_roadmap` MCP tool** — Phase 4 step 4, when `design.enabled === true`, calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item under milestone `Current Work` with a summary describing the deferred work.
 
 ## Success Criteria
 
@@ -210,7 +211,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - i18n configuration is set if the human chose to enable it during init
 - For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
 - The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `manage_roadmap` (or the documented `/harness:roadmap --create` fallback).
-- When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with executor `harness-design-system`. The entry is absent in all other answer combinations.
+- When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with a summary describing the deferred work. The entry is absent in all other answer combinations.
 - For test suites: `initialize-test-suite-project` ran to completion and its Success Criteria are also met
 
 ## Rationalizations to Reject
@@ -309,12 +310,12 @@ Build initial knowledge graph: harness scan — graph populated.
 
 Step 4 (roadmap): "Set up a project roadmap now?"
   Human: "Yes."
-  manage_roadmap action: init — docs/roadmap.md created.
+  Invoke harness-roadmap (or /harness:roadmap --create) — docs/roadmap.md created.
   design.enabled === true detected → manage_roadmap action: add
     feature: "Set up design system"
     status: planned
     milestone: Current Work
-    executor: harness-design-system
+    summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens..."
   Result: docs/roadmap.md contains the planned design item.
 
 Step 5: commit.
