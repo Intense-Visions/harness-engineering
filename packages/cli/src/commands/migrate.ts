@@ -2,10 +2,12 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import chalk from 'chalk';
+import type { Result } from '@harness-engineering/core';
+import { Ok, Err } from '@harness-engineering/core';
 import { logger } from '../output/logger';
-import { ExitCode } from '../utils/errors';
+import { CLIError, ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
 
 interface MigrateOptions {
@@ -40,9 +42,19 @@ interface MigrationPlan {
   proposalTopics: Set<string>;
 }
 
+export interface MigrationResult {
+  movesPlanned: number;
+  movesApplied: number;
+  movesFailed: number;
+  orphansRemaining: number;
+  references: { files: number; replacements: number };
+  dryRun: boolean;
+  cancelled: boolean;
+}
+
 function isGitRepo(cwd: string): boolean {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { cwd, stdio: 'pipe' });
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' });
     return true;
   } catch {
     return false;
@@ -132,17 +144,31 @@ function extractTopicFromFilename(filename: string, proposalTopics: Set<string>)
   if (proposalTopics.has(stripped)) return stripped;
   let best: string | null = null;
   for (const topic of proposalTopics) {
-    if (stripped.startsWith(topic) && (!best || topic.length > best.length)) best = topic;
+    const matches = stripped === topic || stripped.startsWith(`${topic}-`);
+    if (matches && (!best || topic.length > best.length)) best = topic;
   }
   return best;
 }
 
 async function buildPlan(opts: MigrateOptions): Promise<MigrationPlan> {
   const cwd = opts.cwd ?? process.cwd();
-  const configResult = resolveConfig();
-  const docsDir = configResult.ok ? configResult.value.docsDir : './docs';
+  const configPath = path.join(cwd, 'harness.config.json');
+  const configResult = fs.existsSync(configPath) ? resolveConfig(configPath) : null;
+  let docsDir: string;
+  if (configResult?.ok) {
+    docsDir = configResult.value.docsDir;
+  } else if (configResult && !configResult.ok) {
+    docsDir = './docs';
+    logger.warn(
+      `  harness.config.json failed to load (${configResult.error.message}); defaulting docsDir to ./docs`
+    );
+  } else {
+    docsDir = './docs';
+  }
   const docsAbs = path.resolve(cwd, docsDir);
-  const docsRel = path.relative(cwd, docsAbs).replaceAll('\\', '/');
+  const relRaw = path.relative(cwd, docsAbs).replaceAll('\\', '/');
+  // Guard: when docsDir resolves to the repo root, avoid producing absolute-looking paths
+  const docsRel = relRaw === '' ? 'docs' : relRaw;
 
   const plan: MigrationPlan = {
     cwd,
@@ -227,7 +253,7 @@ function gitMv(cwd: string, src: string, dest: string, useGit: boolean): void {
   fs.mkdirSync(path.dirname(destAbs), { recursive: true });
   if (useGit) {
     try {
-      execSync(`git mv "${src}" "${dest}"`, { cwd, stdio: 'pipe' });
+      execFileSync('git', ['mv', src, dest], { cwd, stdio: 'pipe' });
       return;
     } catch {
       // fall through to plain rename
@@ -305,26 +331,42 @@ async function prompt(question: string, def = 'n'): Promise<string> {
   return (answer.trim() || def).toLowerCase();
 }
 
-async function resolveOrphans(plan: MigrationPlan, opts: MigrateOptions): Promise<void> {
-  if (plan.orphanPlans.length === 0) return;
+async function resolveOrphans(
+  plan: MigrationPlan,
+  opts: MigrateOptions
+): Promise<Result<{ bucketed: boolean }, CLIError>> {
+  if (plan.orphanPlans.length === 0) return Ok({ bucketed: false });
 
   const strategy = opts.orphanStrategy ?? 'ask';
+
+  // Dry-run never prompts. It applies non-interactive strategies (skip/bucket)
+  // and shows the resulting plan without moving files.
+  if (opts.dryRun && strategy === 'ask') {
+    logger.info(
+      `  Dry run + --orphan-strategy=ask: not prompting; ${plan.orphanPlans.length} orphan(s) would be asked about interactively.`
+    );
+    return Ok({ bucketed: false });
+  }
 
   if (strategy === 'skip' || (strategy === 'ask' && !process.stdin.isTTY)) {
     logger.warn(
       `  Leaving ${plan.orphanPlans.length} orphan plan(s) in docs/plans/ (no proposal match)`
     );
-    return;
+    return Ok({ bucketed: false });
   }
 
   if (strategy === 'bucket') {
     const topic = opts.orphanTopic;
     if (!topic) {
-      logger.error('--orphan-strategy=bucket requires --orphan-topic <name>');
-      throw new Error('orphan topic required');
+      return Err(
+        new CLIError(
+          '--orphan-strategy=bucket requires --orphan-topic <name>',
+          ExitCode.VALIDATION_FAILED
+        )
+      );
     }
     bucketOrphans(plan, topic);
-    return;
+    return Ok({ bucketed: true });
   }
 
   // strategy === 'ask' and TTY
@@ -340,9 +382,10 @@ async function resolveOrphans(plan: MigrationPlan, opts: MigrateOptions): Promis
   if (answer === 'b') {
     const topicAnswer = await prompt('Stub topic name (e.g., legacy-plans): ', 'legacy-plans');
     bucketOrphans(plan, topicAnswer);
-  } else {
-    logger.info(`  Leaving ${plan.orphanPlans.length} orphan plan(s) in docs/plans/`);
+    return Ok({ bucketed: true });
   }
+  logger.info(`  Leaving ${plan.orphanPlans.length} orphan plan(s) in docs/plans/`);
+  return Ok({ bucketed: false });
 }
 
 function bucketOrphans(plan: MigrationPlan, topic: string): void {
@@ -404,28 +447,48 @@ export async function detectLegacyArtifacts(
   return { adrLegacy, planLegacy };
 }
 
-export async function runMigrate(opts: MigrateOptions): Promise<number> {
+export async function runMigrate(opts: MigrateOptions): Promise<Result<MigrationResult, CLIError>> {
   const cwd = opts.cwd ?? process.cwd();
   const plan = await buildPlan({ ...opts, cwd });
 
   summarize(plan);
 
+  const empty: MigrationResult = {
+    movesPlanned: 0,
+    movesApplied: 0,
+    movesFailed: 0,
+    orphansRemaining: 0,
+    references: { files: 0, replacements: 0 },
+    dryRun: opts.dryRun ?? false,
+    cancelled: false,
+  };
+
   if (plan.adrMoves.length === 0 && plan.planMoves.length === 0 && plan.orphanPlans.length === 0) {
-    return ExitCode.SUCCESS;
+    return Ok(empty);
   }
 
-  await resolveOrphans(plan, opts);
+  const orphanResult = await resolveOrphans(plan, opts);
+  if (!orphanResult.ok) return orphanResult;
+
+  // Re-summarize when bucketing changed the plan composition
+  if (orphanResult.value.bucketed) summarize(plan);
+
+  const movesPlanned = plan.adrMoves.length + plan.planMoves.length;
 
   if (opts.dryRun) {
     logger.info('  Dry run — no files moved.');
-    return ExitCode.SUCCESS;
+    return Ok({
+      ...empty,
+      movesPlanned,
+      orphansRemaining: plan.orphanPlans.length,
+    });
   }
 
   if (!opts.yes && process.stdin.isTTY) {
     const answer = await prompt('Apply this migration? [y/N] ', 'n');
     if (answer !== 'y' && answer !== 'yes') {
       logger.info('  Cancelled.');
-      return ExitCode.SUCCESS;
+      return Ok({ ...empty, movesPlanned, cancelled: true });
     }
   }
 
@@ -434,10 +497,13 @@ export async function runMigrate(opts: MigrateOptions): Promise<number> {
   if (failed > 0) logger.error(`  Moved ${moved} file(s); ${failed} failed.`);
   else logger.success(`  Moved ${moved} file(s).`);
 
+  let references = { files: 0, replacements: 0 };
   if (!opts.skipReferences) {
-    const refs = updateReferences(plan);
-    if (refs.replacements > 0) {
-      logger.success(`  Updated ${refs.replacements} reference(s) across ${refs.files} file(s).`);
+    references = updateReferences(plan);
+    if (references.replacements > 0) {
+      logger.success(
+        `  Updated ${references.replacements} reference(s) across ${references.files} file(s).`
+      );
     } else {
       logger.info('  No reference updates needed.');
     }
@@ -445,7 +511,15 @@ export async function runMigrate(opts: MigrateOptions): Promise<number> {
 
   console.log('');
   logger.info('  Next: review changes with `git status` / `git diff`, then commit.');
-  return failed === 0 ? ExitCode.SUCCESS : ExitCode.ERROR;
+  return Ok({
+    movesPlanned,
+    movesApplied: moved,
+    movesFailed: failed,
+    orphansRemaining: plan.orphanPlans.length,
+    references,
+    dryRun: false,
+    cancelled: false,
+  });
 }
 
 export function createMigrateCommand(): Command {
@@ -461,7 +535,7 @@ export function createMigrateCommand(): Command {
     .option('--orphan-strategy <strategy>', 'How to handle orphan plans (ask|skip|bucket)', 'ask')
     .option('--orphan-topic <name>', 'Stub topic name when --orphan-strategy=bucket')
     .action(async (options) => {
-      const code = await runMigrate({
+      const result = await runMigrate({
         cwd: process.cwd(),
         dryRun: options.dryRun,
         yes: options.yes,
@@ -469,6 +543,10 @@ export function createMigrateCommand(): Command {
         orphanStrategy: options.orphanStrategy as MigrateOptions['orphanStrategy'],
         orphanTopic: options.orphanTopic,
       });
-      process.exit(code);
+      if (!result.ok) {
+        logger.error(result.error.message);
+        process.exit(result.error.exitCode);
+      }
+      process.exit(result.value.movesFailed === 0 ? ExitCode.SUCCESS : ExitCode.ERROR);
     });
 }

@@ -63,22 +63,29 @@ describe('runMigrate', () => {
   });
 
   it('reports nothing to do when no legacy artifacts exist', async () => {
-    const code = await runMigrate({ cwd: tmp, dryRun: true, yes: true, orphanStrategy: 'skip' });
-    expect(code).toBe(0);
+    const result = await runMigrate({ cwd: tmp, dryRun: true, yes: true, orphanStrategy: 'skip' });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.movesPlanned).toBe(0);
   });
 
   it('migrates a legacy ADR via dry run without moving files', async () => {
     writeFile(tmp, '.harness/architecture/foo/ADR-001.md', '# ADR\n');
-    const code = await runMigrate({ cwd: tmp, dryRun: true, yes: true, orphanStrategy: 'skip' });
-    expect(code).toBe(0);
+    const result = await runMigrate({ cwd: tmp, dryRun: true, yes: true, orphanStrategy: 'skip' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.dryRun).toBe(true);
+      expect(result.value.movesPlanned).toBe(1);
+      expect(result.value.movesApplied).toBe(0);
+    }
     expect(fs.existsSync(path.join(tmp, '.harness/architecture/foo/ADR-001.md'))).toBe(true);
     expect(fs.existsSync(path.join(tmp, 'docs/architecture/foo/ADR-001.md'))).toBe(false);
   });
 
   it('moves a legacy ADR to docs/architecture when applied', async () => {
     writeFile(tmp, '.harness/architecture/foo/ADR-001.md', '# ADR\n');
-    const code = await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
-    expect(code).toBe(0);
+    const result = await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.movesApplied).toBe(1);
     expect(fs.existsSync(path.join(tmp, '.harness/architecture/foo/ADR-001.md'))).toBe(false);
     expect(fs.existsSync(path.join(tmp, 'docs/architecture/foo/ADR-001.md'))).toBe(true);
   });
@@ -90,8 +97,8 @@ describe('runMigrate', () => {
       'docs/plans/2026-01-01-billing-phase1-plan.md',
       '# Plan\n\n**Spec:** docs/changes/billing/proposal.md\n'
     );
-    const code = await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
-    expect(code).toBe(0);
+    const result = await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
+    expect(result.ok).toBe(true);
     expect(
       fs.existsSync(path.join(tmp, 'docs/changes/billing/plans/2026-01-01-billing-phase1-plan.md'))
     ).toBe(true);
@@ -176,5 +183,49 @@ describe('runMigrate', () => {
     expect(
       fs.existsSync(path.join(tmp, 'docs/changes/wrong-topic/plans/2026-01-01-ambiguous-plan.md'))
     ).toBe(false);
+  });
+
+  it('matches plan via filename prefix when no autopilot or header signal exists', async () => {
+    writeFile(tmp, 'docs/changes/notifications/proposal.md', '# Notifications\n');
+    writeFile(tmp, 'docs/plans/2026-01-01-notifications-plan.md', '# Plan with no spec line\n');
+    await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
+    expect(
+      fs.existsSync(
+        path.join(tmp, 'docs/changes/notifications/plans/2026-01-01-notifications-plan.md')
+      )
+    ).toBe(true);
+  });
+
+  it('does not falsely match when filename only shares a prefix with a topic', async () => {
+    // Topic "auth" exists; plan "auth-helper-plan" should NOT match (auth-helper != auth)
+    writeFile(tmp, 'docs/changes/auth/proposal.md', '# Auth\n');
+    writeFile(tmp, 'docs/plans/2026-01-01-authhelper-plan.md', '# Plan\n');
+    await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
+    // Should remain in docs/plans/ as orphan (no word-boundary match)
+    expect(fs.existsSync(path.join(tmp, 'docs/plans/2026-01-01-authhelper-plan.md'))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmp, 'docs/changes/auth/plans/2026-01-01-authhelper-plan.md'))
+    ).toBe(false);
+  });
+
+  it('returns an error when --orphan-strategy=bucket is used without --orphan-topic', async () => {
+    writeFile(tmp, 'docs/plans/2026-01-01-mystery-plan.md', '# Plan\n');
+    const result = await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'bucket' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain('--orphan-topic');
+    }
+  });
+
+  it('respects custom docsDir from harness.config.json for ADR target', async () => {
+    writeFile(
+      tmp,
+      'harness.config.json',
+      JSON.stringify({ version: 1, name: 'test', docsDir: './documentation' })
+    );
+    writeFile(tmp, '.harness/architecture/foo/ADR-001.md', '# ADR\n');
+    await runMigrate({ cwd: tmp, yes: true, orphanStrategy: 'skip' });
+    expect(fs.existsSync(path.join(tmp, 'documentation/architecture/foo/ADR-001.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmp, 'docs/architecture/foo/ADR-001.md'))).toBe(false);
   });
 });
