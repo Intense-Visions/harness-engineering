@@ -150,7 +150,38 @@ harness scan [path]
 
 This creates the `.harness/graph/` directory and populates it with the project's dependency and relationship data. Subsequent graph queries (impact analysis, dependency health, test advisor) depend on this initial scan.
 
-4. **Mention roadmap.** After validation passes, inform the user: "When you are ready to set up a project roadmap, run `/harness:roadmap --create`. This creates a unified `docs/roadmap.md` that tracks features, milestones, and status across your specs and plans." This is informational only — do not create the roadmap automatically.
+4. **Set up project roadmap.** Ask: "Set up a project roadmap now? `docs/roadmap.md` tracks features, milestones, and status across your specs and plans." Use `emit_interaction`:
+
+   ```json
+   emit_interaction({
+     type: "question",
+     question: {
+       text: "Set up a project roadmap now?",
+       options: [
+         {
+           label: "Yes — create docs/roadmap.md now",
+           pros: ["Roadmap visible from day one", "Future specs auto-discovered on next sync"],
+           cons: ["Adds one file to the initial commit"],
+           risk: "low",
+           effort: "low"
+         },
+         {
+           label: "No — skip for now",
+           pros: ["Smaller initial footprint"],
+           cons: ["Run `/harness:roadmap --create` later when ready"],
+           risk: "low",
+           effort: "low"
+         }
+       ],
+       recommendation: { optionIndex: 0, reason: "Validation has just passed — a tangible 'project works' signal is the right moment to introduce planning artifacts", confidence: "medium" }
+     }
+   })
+   ```
+
+   Based on the answer:
+   - **Yes:** Call `manage_roadmap` with `action: init` to create `docs/roadmap.md` (fall back to `/harness:roadmap --create` if the MCP tool is unavailable, then warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."). Verify the file exists.
+     - **If `design.enabled === true` in `harness.config.json`** (set by Phase 3 step 5b), call `manage_roadmap` again with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `executor: "harness-design-system"`. Skip silently if `manage_roadmap show` reports a duplicate `(feature, milestone)` pair. This closes the loop between deferred design intent and visible planning work.
+   - **No:** Skip silently. The user can still run `/harness:roadmap --create` later — that informational fallback remains valid.
 
 5. **Commit the initialization.** All generated and configured files in a single commit.
 
