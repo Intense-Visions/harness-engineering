@@ -72,6 +72,42 @@ describe('DesignConfigSchema', () => {
     const result = DesignConfigSchema.safeParse({ aestheticIntent: 123 });
     expect(result.success).toBe(false);
   });
+
+  it('accepts enabled: true with platforms specified', () => {
+    const result = DesignConfigSchema.safeParse({
+      enabled: true,
+      platforms: ['web'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts enabled: false without platforms', () => {
+    const result = DesignConfigSchema.safeParse({ enabled: false });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts config without enabled field (tri-state: absent)', () => {
+    const result = DesignConfigSchema.parse({});
+    expect(result.enabled).toBeUndefined();
+  });
+
+  it('preserves enabled: true on parse', () => {
+    const result = DesignConfigSchema.parse({
+      enabled: true,
+      platforms: ['mobile'],
+    });
+    expect(result.enabled).toBe(true);
+  });
+
+  it('preserves enabled: false on parse', () => {
+    const result = DesignConfigSchema.parse({ enabled: false });
+    expect(result.enabled).toBe(false);
+  });
+
+  it('rejects non-boolean enabled value', () => {
+    const result = DesignConfigSchema.safeParse({ enabled: 'yes' });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('HarnessConfigSchema with design block', () => {
