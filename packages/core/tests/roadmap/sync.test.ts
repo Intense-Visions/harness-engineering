@@ -315,9 +315,7 @@ describe('syncRoadmap()', () => {
       expect(result.value).toEqual([]); // regression blocked
     });
 
-    it('allows blocked → planned (lateral, not a regression)', () => {
-      // No state files — inferStatus returns null, but if a blocker resolves
-      // and inferStatus returns 'planned', the lateral move should be allowed
+    it('unblocks blocked feature when its blocker is now done', () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -337,12 +335,69 @@ describe('syncRoadmap()', () => {
           summary: 'Was blocked, blocker now done',
         },
       ];
-      // Feature A is done, so Feature B's blocker is resolved — no blocked inference
       const result = syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      // No state files for Feature B, so inferStatus returns null — no change proposed
-      // This documents that blocked → planned requires state data or manual update
+      expect(result.value).toEqual([{ feature: 'Feature B', from: 'blocked', to: 'planned' }]);
+    });
+
+    it('unblocks only when ALL blockers are done (multi-blocker)', () => {
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Dep One',
+          status: 'done',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'd1',
+        },
+        {
+          name: 'Dep Two',
+          status: 'in-progress',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'd2',
+        },
+        {
+          name: 'Feature B',
+          status: 'blocked',
+          spec: null,
+          plans: [],
+          blockedBy: ['Dep One', 'Dep Two'],
+          summary: 'still blocked by Dep Two',
+        },
+      ];
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+    });
+
+    it('does not unblock features that were already non-blocked', () => {
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Feature A',
+          status: 'done',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep',
+        },
+        {
+          name: 'Feature B',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: ['Feature A'],
+          summary: 'Already planned, not blocked',
+        },
+      ];
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 

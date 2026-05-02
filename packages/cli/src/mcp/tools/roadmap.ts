@@ -239,7 +239,7 @@ function handleUpdate(
   input: ManageRoadmapInput,
   deps: RoadmapDeps
 ): McpResponse {
-  const { parseRoadmap, serializeRoadmap, Ok } = deps;
+  const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok } = deps;
 
   if (!input.feature) {
     return {
@@ -277,6 +277,13 @@ function handleUpdate(
       content: [{ type: 'text' as const, text: `Error: feature "${input.feature}" not found` }],
       isError: true,
     };
+  }
+
+  // Cascade: when this update marks a feature done (or otherwise resolves a
+  // blocker), flip dependents from blocked → planned in the same write.
+  const cascade = syncRoadmap({ projectPath, roadmap });
+  if (cascade.ok && cascade.value.length > 0) {
+    applySyncChanges(roadmap, cascade.value);
   }
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
