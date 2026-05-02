@@ -31,7 +31,6 @@
    - If `design.enabled` is absent (the field does not appear under `design`): the project has not decided yet. Surface a gentle prompt: "This project has not configured a design system. Would you like to enable one now? (yes / no / not sure)". On `yes`, proceed with Phase 1 — note that this answer is not persisted to `harness.config.json` (the init skill is the canonical writer of that field), so this prompt will fire again on the next `on_new_feature` invocation; run `harness initialize-harness-project --migrate` to make the choice permanent. On `no` or `not sure`, stop without writing anything to `harness.config.json`.
 
    After the gate, read the remaining design configuration fields:
-   - `design.enabled` -- tri-state design posture (`true` fires this skill, `false` permanent decline, absent prompts the user). Set during `initialize-harness-project` Phase 3 step 5b.
    - `design.strictness` -- enforcement level (`strict`, `standard`, `permissive`)
    - `design.platforms` -- which platforms are enabled (web, mobile)
    - `design.tokenPath` -- path to tokens file (default: `design-system/tokens.json`)
