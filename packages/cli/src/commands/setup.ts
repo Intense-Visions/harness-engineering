@@ -13,6 +13,7 @@ import { INTEGRATION_REGISTRY } from '../integrations/registry';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
 import { ensureTelemetryConfigured } from './telemetry-wizard';
+import { detectLegacyArtifacts } from './migrate';
 import type { StepResult } from './setup-types';
 
 export type { StepResult };
@@ -165,6 +166,20 @@ function ensureHooks(cwd: string): StepResult {
   }
 }
 
+async function detectLegacyLayout(cwd: string): Promise<StepResult> {
+  const { adrLegacy, planLegacy } = await detectLegacyArtifacts(cwd);
+  if (!adrLegacy && !planLegacy) {
+    return { status: 'pass', message: 'Layout up to date' };
+  }
+  const parts: string[] = [];
+  if (adrLegacy) parts.push('.harness/architecture/');
+  if (planLegacy) parts.push('docs/plans/');
+  return {
+    status: 'warn',
+    message: `Legacy paths detected (${parts.join(', ')}) — run \`harness migrate\` to upgrade`,
+  };
+}
+
 async function runInitialGraphScan(cwd: string): Promise<StepResult> {
   try {
     // Dynamic import to avoid cycles or failing immediately if graph framework isn't fully available yet
@@ -213,6 +228,10 @@ export async function runSetup(cwd: string): Promise<{ steps: StepResult[]; succ
   // Step 7: Initial Knowledge Graph scan
   const graphResult = await runInitialGraphScan(cwd);
   steps.push(graphResult);
+
+  // Step 8: Detect legacy artifact layout (non-destructive — just warns)
+  const legacyResult = await detectLegacyLayout(cwd);
+  steps.push(legacyResult);
 
   // Determine success: no 'fail' status in any step
   const success = steps.every((s) => s.status !== 'fail');
