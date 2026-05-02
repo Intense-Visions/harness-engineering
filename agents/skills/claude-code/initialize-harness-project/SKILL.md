@@ -210,7 +210,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
 - For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
-- The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `manage_roadmap` (or the documented `/harness:roadmap --create` fallback).
+- The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `harness-roadmap` (or the documented `/harness:roadmap --create` fallback).
 - When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with a summary describing the deferred work. The entry is absent in all other answer combinations.
 - For test suites: `initialize-test-suite-project` ran to completion and its Success Criteria are also met
 
