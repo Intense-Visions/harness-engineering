@@ -193,8 +193,9 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness validate`** — Verify the full project configuration is valid and complete.
 - **`harness check-deps`** — Verify dependency constraints match the actual codebase (intermediate and above).
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
+- **`harness-design-system` (deferred via `on_new_feature`)** — Phase 3 step 5b records `design.enabled` + `design.platforms` in `harness.config.json` but does NOT run the full design-system skill. Token generation defers to the first design-touching feature, where `harness-design-system` fires via `on_new_feature` and reads `design.enabled` to decide whether to proceed.
 - **`initialize-test-suite-project`** — Sub-skill. Invoked during Phase 3 step 6 when Phase 1 step 5 classified the project as a test suite. Owns archetype selection, shared-library vs in-repo decision, layer variants, tag taxonomy, reporter stack, custom report, and "prove the guards fire" verification.
-- **Roadmap nudge** — After successful initialization, inform the user about `/harness:roadmap --create` for setting up project-level feature tracking. Informational only; does not create the roadmap.
+- **`manage_roadmap` MCP tool** — Phase 4 step 4 calls `manage_roadmap` with `action: init` to create `docs/roadmap.md` when the user opts in. When `design.enabled === true`, also calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item routed to executor `harness-design-system`. Falls back to `/harness:roadmap --create` if MCP is unavailable.
 
 ## Success Criteria
 
@@ -207,6 +208,9 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - The adoption level matches what was agreed upon with the human
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
+- For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
+- The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `manage_roadmap` (or the documented `/harness:roadmap --create` fallback).
+- When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with executor `harness-design-system`. The entry is absent in all other answer combinations.
 - For test suites: `initialize-test-suite-project` ran to completion and its Success Criteria are also met
 
 ## Rationalizations to Reject
