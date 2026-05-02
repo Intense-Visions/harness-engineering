@@ -83,6 +83,48 @@
    - **No:** Set `i18n.enabled: false` in `harness.config.json`. The `harness-i18n-process` skill will still fire gentle prompts for unconfigured projects when features touch user-facing strings.
    - **Not sure yet:** Skip i18n configuration entirely. Do not set `i18n.enabled`. The project can enable i18n later by running `harness-i18n-workflow` directly.
 
+5b. **Configure design system (non-test-suite projects).** Ask: "Will this project have a UI requiring a design system?" Mirror the i18n step's three-way response shape. Use `emit_interaction`:
+
+    ```json
+    emit_interaction({
+      type: "question",
+      question: {
+        text: "Will this project have a UI requiring a design system?",
+        options: [
+          {
+            label: "Yes — capture design intent now",
+            pros: ["Records platforms in harness.config.json", "harness-design-system fires automatically on first design-touching feature"],
+            cons: ["One extra follow-up question (which platforms)"],
+            risk: "low",
+            effort: "low"
+          },
+          {
+            label: "No — this project has no UI",
+            pros: ["No future design nudges", "Permanent decline recorded"],
+            cons: ["Re-running init is required if a UI is added later"],
+            risk: "low",
+            effort: "low"
+          },
+          {
+            label: "Not sure yet",
+            pros: ["Decision deferred without commitment", "Can run harness-design-system later"],
+            cons: ["No design.enabled flag set; on_new_feature will prompt later"],
+            risk: "low",
+            effort: "low"
+          }
+        ],
+        recommendation: { optionIndex: 0, reason: "Most product/service projects benefit from a centralized design system", confidence: "medium" }
+      }
+    })
+    ```
+
+    Based on the answer:
+    - **Yes:** Ask a follow-up: "Which platforms? `web`, `mobile`, or both?" Write `design.enabled: true` and `design.platforms: [...]` (a non-empty array of `web` and/or `mobile`) to `harness.config.json`. Inform the user: "Design tokens will be generated when you start your first design-touching feature — `harness-design-system` fires automatically via `on_new_feature`."
+    - **No:** Write `design.enabled: false` to `harness.config.json`. Do not write `design.platforms`. The `on_new_feature` trigger respects this flag and will not fire `harness-design-system`.
+    - **Not sure yet:** Do not write `design.enabled` or `design.platforms`. The project can enable design later by running `harness-design-system` directly; `on_new_feature` will prompt gently when a feature touches user-facing UI.
+
+    **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects have already been routed via Phase 3 step 6 to `initialize-test-suite-project` and have no UI to govern.
+
 6. **Test-suite projects only — dispatch to `initialize-test-suite-project`.** If Phase 1 step 5 classified this as a test suite, invoke `initialize-test-suite-project` now and let it own archetype selection, shared-library decision, layer variants (A self-contained vs B consumer), ESLint flat-config fix, tag taxonomy, reporter stack, custom report, and the "prove the guards fire" verification. Return here for Phase 4 step 4+ (knowledge graph, roadmap, commit). Product and service projects skip this step entirely.
 
 ### Phase 4: VALIDATE — Confirm Everything Works
