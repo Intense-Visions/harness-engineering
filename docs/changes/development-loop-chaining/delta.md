@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-21
 **Proposal:** docs/changes/development-loop-chaining/proposal.md
-**Plan:** docs/plans/2026-03-21-development-loop-chaining-plan.md
+**Plan:** docs/changes/development-loop-chaining/plans/2026-03-21-development-loop-chaining-plan.md
 
 ## Changes to `packages/core/src/interaction/types.ts`
 

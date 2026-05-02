@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-19
 **Spec:** docs/changes/design-system-skills/proposal.md
-**Phase 1 plan:** docs/plans/2026-03-19-design-system-phase1-shared-foundation-plan.md
+**Phase 1 plan:** docs/changes/design-system-skills/plans/2026-03-19-design-system-phase1-shared-foundation-plan.md
 **Estimated tasks:** 8
 **Estimated time:** 60 minutes
 

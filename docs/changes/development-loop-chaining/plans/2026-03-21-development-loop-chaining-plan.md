@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-21
 **Spec:** docs/changes/development-loop-chaining/proposal.md
-**Depends on:** docs/plans/2026-03-21-interaction-surface-abstraction-plan.md (must be implemented first)
+**Depends on:** docs/changes/interaction-surface-abstraction/plans/2026-03-21-interaction-surface-abstraction-plan.md (must be implemented first)
 **Estimated tasks:** 9
 **Estimated time:** 35 minutes
 

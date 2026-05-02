@@ -577,7 +577,7 @@ _Skeleton not produced — rigor level is `fast`._
    # Delta: Session-Scoped Handoff (Phase 2)
 
    **Date:** 2026-04-10
-   **Plan:** docs/plans/2026-04-10-session-scoped-handoff-plan.md
+   **Plan:** docs/changes/pipeline-token-optimization/plans/2026-04-10-session-scoped-handoff-plan.md
 
    ## Changes
 

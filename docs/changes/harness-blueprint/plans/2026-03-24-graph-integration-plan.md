@@ -123,5 +123,5 @@ export interface BlueprintData {
 ## Harness Integration
 
 - **`harness validate`** — Run after each task.
-- **Plan location** — `docs/plans/2026-03-24-graph-integration-plan.md`.
+- **Plan location** — `docs/changes/harness-blueprint/plans/2026-03-24-graph-integration-plan.md`.
 - **Handoff** — `.harness/sessions/changes--harness-blueprint--proposal/handoff.json`.

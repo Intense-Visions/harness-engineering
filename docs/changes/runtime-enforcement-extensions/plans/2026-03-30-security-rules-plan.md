@@ -10,7 +10,7 @@ Extend the SecurityScanner with 18 new rules across 3 categories (expanded secre
 
 ## Finding
 
-Phase 1 is already fully implemented and tested. An earlier plan (`docs/plans/2026-03-30-phase1-security-rule-categories-plan.md`) was executed to completion. All artifacts exist and all 30 tests pass.
+Phase 1 is already fully implemented and tested. An earlier plan (`docs/changes/runtime-enforcement-extensions/plans/2026-03-30-phase1-security-rule-categories-plan.md`) was executed to completion. All artifacts exist and all 30 tests pass.
 
 ## Verification
 

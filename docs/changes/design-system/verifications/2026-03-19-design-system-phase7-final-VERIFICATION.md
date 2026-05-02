@@ -28,16 +28,16 @@ re_verification:
 | 2   | Test file covers all 15 success criteria (SC1-SC15) | VERIFIED | 15 describe('SC...') blocks confirmed via grep, covering SC1 through SC15                                                                    |
 | 3   | Validation tests pass                               | VERIFIED | 106 tests passed, 0 failed (vitest run output captured)                                                                                      |
 | 4   | Full monorepo test suite passes                     | VERIFIED | All 8 packages pass: skills(491), cli(514), graph(231), mcp-server(155), core(524), eslint-plugin(95), linter-gen(37), types(7) = 2054 total |
-| 5   | Verification report exists                          | VERIFIED | docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md exists with 15/15 PASS                                                            |
+| 5   | Verification report exists                          | VERIFIED | docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md exists with 15/15 PASS                              |
 
 **Score:** 5/5 truths verified
 
 ### Required Artifacts
 
-| Artifact                                                     | Expected                          | Status   | Details                                                     |
-| ------------------------------------------------------------ | --------------------------------- | -------- | ----------------------------------------------------------- |
-| `packages/cli/tests/design-system/validation.test.ts`        | Validation test covering SC1-SC15 | VERIFIED | 394 lines, 106 tests, 15 SC describe blocks, no stubs/TODOs |
-| `docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md` | Verification report               | VERIFIED | Exists, documents 15/15 pass with test counts               |
+| Artifact                                                                                   | Expected                          | Status   | Details                                                     |
+| ------------------------------------------------------------------------------------------ | --------------------------------- | -------- | ----------------------------------------------------------- |
+| `packages/cli/tests/design-system/validation.test.ts`                                      | Validation test covering SC1-SC15 | VERIFIED | 394 lines, 106 tests, 15 SC describe blocks, no stubs/TODOs |
+| `docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md` | Verification report               | VERIFIED | Exists, documents 15/15 pass with test counts               |
 
 ### Key Link Verification
 

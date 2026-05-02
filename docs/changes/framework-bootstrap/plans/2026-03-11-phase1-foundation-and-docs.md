@@ -2620,7 +2620,7 @@ harness-engineering/
 
 **Phase 1:** Foundation & Documentation Infrastructure
 
-- Plan: `docs/plans/2026-03-11-phase1-foundation-and-docs.md`
+- Plan: `docs/changes/framework-bootstrap/plans/2026-03-11-phase1-foundation-and-docs.md`
 - Status: In Progress (Chunk 3)
 
 **Next:** Core library modules (separate plans per module)

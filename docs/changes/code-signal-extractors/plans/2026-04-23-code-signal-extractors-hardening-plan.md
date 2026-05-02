@@ -1,6 +1,6 @@
 # Plan: Code Signal Extractors — Hardening
 
-**Date:** 2026-04-23 | **Spec:** docs/plans/2026-04-22-code-signal-extractors-plan.md (parent) | **Tasks:** 7 | **Time:** ~35 min
+**Date:** 2026-04-23 | **Spec:** docs/changes/code-signal-extractors/plans/2026-04-22-code-signal-extractors-plan.md (parent) | **Tasks:** 7 | **Time:** ~35 min
 
 ## Goal
 

@@ -370,7 +370,7 @@ Fix manually and continue / revise plan / stop?
 # Delta: Autopilot Orchestrator Refactor (Phase 3)
 
 **Date:** 2026-04-10
-**Plan:** docs/plans/2026-04-10-autopilot-orchestrator-refactor-plan.md
+**Plan:** docs/changes/pipeline-token-optimization/plans/2026-04-10-autopilot-orchestrator-refactor-plan.md
 
 ## Changes
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-21
 **Spec:** docs/changes/security-pipeline-unification/proposal.md
-**Plan:** docs/plans/2026-03-21-security-pipeline-unification-plan.md
+**Plan:** docs/changes/security-pipeline-unification/plans/2026-03-21-security-pipeline-unification-plan.md
 
 ## Changes to ReviewFinding (packages/core/src/review/types.ts)
 

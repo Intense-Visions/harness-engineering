@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-28
 **Spec:** docs/changes/efficient-context-pipeline/proposal.md (Section 5)
-**Prior plan:** docs/plans/2026-03-26-phase5-learnings-pruning-plan.md (Tasks 1-5 complete)
+**Prior plan:** docs/changes/efficient-context-pipeline/plans/2026-03-26-phase5-learnings-pruning-plan.md (Tasks 1-5 complete)
 **Estimated tasks:** 5
 **Estimated time:** 20 minutes
 

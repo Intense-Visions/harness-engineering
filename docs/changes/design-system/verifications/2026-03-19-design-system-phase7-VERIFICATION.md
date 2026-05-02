@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-19
 **Phase:** 7 of 7 (Final Validation)
-**Plan:** docs/plans/2026-03-19-design-system-phase7-validation-plan.md
+**Plan:** docs/changes/design-system-skills/plans/2026-03-19-design-system-phase7-validation-plan.md
 
 ## Success Criteria Results
 
@@ -87,4 +87,4 @@ None. All 15 success criteria met without modification.
 ### Phase 7: Validation
 
 - `packages/cli/tests/design-system/validation.test.ts` — 106 validation tests
-- `docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md` — this report
+- `docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md` — this report

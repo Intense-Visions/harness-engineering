@@ -15,12 +15,12 @@ Validate that all 15 success criteria from the design-system-skills spec are met
 2. When `npx vitest run packages/cli/tests/design-system/validation.test.ts` runs, all 15 groups pass.
 3. When `pnpm test` runs across the full monorepo, all existing tests continue to pass (no regressions).
 4. When `harness validate` runs, it passes cleanly.
-5. A verification report exists at `docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md` documenting the results.
+5. A verification report exists at `docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md` documenting the results.
 
 ## File Map
 
 - CREATE packages/cli/tests/design-system/validation.test.ts
-- CREATE docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md
+- CREATE docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md
 
 ## Tasks
 
@@ -475,9 +475,9 @@ describe('Design System Skills — Phase 7 Validation', () => {
 ### Task 5: Write verification report and update handoff
 
 **Depends on:** Tasks 1, 2, 3, 4
-**Files:** docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md, .harness/handoff.json
+**Files:** docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md, .harness/handoff.json
 
-1. Create `docs/plans/2026-03-19-design-system-phase7-VERIFICATION.md` documenting:
+1. Create `docs/changes/design-system/verifications/2026-03-19-design-system-phase7-VERIFICATION.md` documenting:
    - All 15 success criteria status (PASS/FAIL)
    - Test counts from `pnpm test`
    - Any issues found
