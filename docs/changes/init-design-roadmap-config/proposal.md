@@ -20,7 +20,7 @@ During project init, capture two decisions explicitly and act on them:
 
 ### Linkage
 
-If both answers are yes, automatically add a "Set up design system" item to the roadmap as `planned`, executor `harness-design-system`. Deferred design work becomes visible without forcing token generation during init.
+If both answers are yes, automatically add a "Set up design system" item to the roadmap as `planned`, with a summary describing the deferred design work. Deferred design work becomes visible without forcing token generation during init.
 
 ### Out of Scope
 
@@ -30,17 +30,17 @@ If both answers are yes, automatically add a "Set up design system" item to the 
 
 ## Decisions
 
-| #   | Decision                                                                                                                                              | Rationale                                                                                                                                                                                                                                                              |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Always ask the design question (mirror i18n pattern); do not auto-detect from stack signals                                                           | Greenfield projects have no code yet — auto-detection skips when design setup matters most. Human always knows the question is coming.                                                                                                                                 |
-| D2  | Configure-only at init time: set `design.enabled` + `design.platforms` in `harness.config.json`. Do NOT run the full design-system skill during init  | Palette/typography decisions made before any UI exists tend to be reworked. Defer creative decisions until `on_new_feature` fires the full skill with real product context. The i18n parallel breaks here: i18n scaffolding is mechanical; design tokens are creative. |
-| D3  | Three-way response for design question: `yes` / `no` / `not-sure`                                                                                     | Mirrors i18n exactly. `no` records a permanent decline (no future nudges). `not-sure` skips silently — can be enabled later.                                                                                                                                           |
-| D4  | Binary response for roadmap question: `yes` / `no`                                                                                                    | No "permanent decline" semantics needed — a roadmap can always be created later via `/harness:roadmap --create`.                                                                                                                                                       |
-| D5  | Roadmap question fires in Phase 4, after `harness validate` passes                                                                                    | Validation success gives the user a tangible "the project works" signal before introducing planning artifacts. Existing nudge already lives at this position — promote it to an active question.                                                                       |
-| D6  | If `design = yes` AND `roadmap = yes`, automatically add a `planned` roadmap item titled "Set up design system" with executor `harness-design-system` | Closes the loop: deferred design work becomes visible. Without this, design intent recorded in config has no surface in the workflow.                                                                                                                                  |
-| D7  | Bundle design + roadmap in one spec; do NOT introduce a generalized "capabilities" framework                                                          | YAGNI — three capabilities (i18n + design + roadmap) is below the threshold for abstraction. Each has genuinely different semantics.                                                                                                                                   |
-| D8  | Test-suite projects skip the design question; roadmap question still asked                                                                            | Phase 1 step 5 already dispatches test suites to `initialize-test-suite-project` before step 5b would fire. Test suites have no UI but do benefit from roadmap tracking.                                                                                               |
-| D9  | Existing i18n step in Phase 3 stays unchanged                                                                                                         | Working precedent. Don't refactor working code to chase symmetry.                                                                                                                                                                                                      |
+| #   | Decision                                                                                                                                                           | Rationale                                                                                                                                                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Always ask the design question (mirror i18n pattern); do not auto-detect from stack signals                                                                        | Greenfield projects have no code yet — auto-detection skips when design setup matters most. Human always knows the question is coming.                                                                                                                                 |
+| D2  | Configure-only at init time: set `design.enabled` + `design.platforms` in `harness.config.json`. Do NOT run the full design-system skill during init               | Palette/typography decisions made before any UI exists tend to be reworked. Defer creative decisions until `on_new_feature` fires the full skill with real product context. The i18n parallel breaks here: i18n scaffolding is mechanical; design tokens are creative. |
+| D3  | Three-way response for design question: `yes` / `no` / `not-sure`                                                                                                  | Mirrors i18n exactly. `no` records a permanent decline (no future nudges). `not-sure` skips silently — can be enabled later.                                                                                                                                           |
+| D4  | Binary response for roadmap question: `yes` / `no`                                                                                                                 | No "permanent decline" semantics needed — a roadmap can always be created later via `/harness:roadmap --create`.                                                                                                                                                       |
+| D5  | Roadmap question fires in Phase 4, after `harness validate` passes                                                                                                 | Validation success gives the user a tangible "the project works" signal before introducing planning artifacts. Existing nudge already lives at this position — promote it to an active question.                                                                       |
+| D6  | If `design = yes` AND `roadmap = yes`, automatically add a `planned` roadmap item titled "Set up design system" with a summary describing the deferred design work | Closes the loop: deferred design work becomes visible. Without this, design intent recorded in config has no surface in the workflow.                                                                                                                                  |
+| D7  | Bundle design + roadmap in one spec; do NOT introduce a generalized "capabilities" framework                                                                       | YAGNI — three capabilities (i18n + design + roadmap) is below the threshold for abstraction. Each has genuinely different semantics.                                                                                                                                   |
+| D8  | Test-suite projects skip the design question; roadmap question still asked                                                                                         | Phase 1 step 5 already dispatches test suites to `initialize-test-suite-project` before step 5b would fire. Test suites have no UI but do benefit from roadmap tracking.                                                                                               |
+| D9  | Existing i18n step in Phase 3 stays unchanged                                                                                                                      | Working precedent. Don't refactor working code to chase symmetry.                                                                                                                                                                                                      |
 
 ## Technical Design
 
@@ -56,7 +56,7 @@ If both answers are yes, automatically add a "Set up design system" item to the 
 
 No new files. No new skills. No deletions.
 
-### Phase 3 — New Step 5b (after current step 5 i18n, before step 6 test-suite dispatch)
+**Init skill Phase 3 — new step 5b** (after current step 5 i18n, before step 6 test-suite dispatch):
 
 > **Step 5b. Configure design system.** Ask: "Will this project have a UI requiring a design system?"
 >
@@ -68,12 +68,12 @@ No new files. No new skills. No deletions.
 
 Use `emit_interaction` with `type: question`, three structured options, recommendation index 0 with `confidence: medium`.
 
-### Phase 4 — Modified Step 4 (currently informational nudge)
+**Init skill Phase 4 — modified step 4** (currently informational nudge):
 
 > **Step 4. Set up project roadmap.** Ask: "Set up a project roadmap now? `docs/roadmap.md` tracks features, milestones, and status across specs and plans."
 >
-> - **Yes:** Call `manage_roadmap` with `action: init` (or run `/harness:roadmap --create` if MCP unavailable). Verify `docs/roadmap.md` is created.
->   - **If `design.enabled === true` in `harness.config.json`:** Call `manage_roadmap` with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`. Skip silently if duplicate.
+> - **Yes:** Invoke `harness-roadmap` (skill) or run `/harness:roadmap --create` to create `docs/roadmap.md`. Verify the file exists. The `manage_roadmap` MCP tool is for managing entries in an existing roadmap, not for creating one.
+>   - **If `design.enabled === true` in `harness.config.json`:** Call `manage_roadmap` with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens. Deferred from project init — fires on first design-touching feature via on_new_feature."`. Skip silently if duplicate.
 > - **No:** Skip silently. Existing informational nudge ("run `/harness:roadmap --create` when ready") still applies.
 
 Use `emit_interaction` with `type: question`, two structured options, recommendation index 0 with `confidence: medium`.
@@ -194,13 +194,17 @@ No special-casing needed — natural consequence of existing flow control.
 
 ## Implementation Order
 
-### Phase A — Schema & Config
+### Phase 1: Schema & Config
+
+<!-- complexity: low -->
 
 1. Add `design.enabled: boolean` and `design.platforms: ('web'|'mobile')[]` to `harness.config.json` schema.
 2. Update schema validation tests for valid combinations, optional `enabled`, and `platforms` required when `enabled=true`.
 3. Verify `harness validate` accepts both populated and empty `design` config.
 
-### Phase B — Init Skill Updates
+### Phase 2: Init Skill Updates
+
+<!-- complexity: low -->
 
 4. Add Phase 3 step 5b ("Configure design system") to `initialize-harness-project/SKILL.md` with `emit_interaction` example, three-way response handling, and skip-for-test-suite note.
 5. Modify Phase 4 step 4 from informational nudge to active question with binary response.
@@ -208,17 +212,23 @@ No special-casing needed — natural consequence of existing flow control.
 7. Update `skill.yaml` `depends_on` to include `harness-design-system`.
 8. Update Harness Integration, Success Criteria, and Examples sections of `SKILL.md`.
 
-### Phase C — Skill-Side Awareness
+### Phase 3: Skill-Side Awareness
+
+<!-- complexity: low -->
 
 9. Update `harness-design-system/SKILL.md` Phase 1 step 2 to read `design.enabled` and short-circuit when `false`.
 10. Verify `on_new_feature` trigger respects `design.enabled`.
 
-### Phase D — Docs & Catalog
+### Phase 4: Docs & Catalog
+
+<!-- complexity: low -->
 
 11. Update `docs/reference/skills-catalog.md` description for `initialize-harness-project`.
 12. Add a new Examples block showing the design+roadmap interaction.
 
-### Phase E — Verification
+### Phase 5: Verification
+
+<!-- complexity: medium -->
 
 13. Run `harness validate` against a freshly initialized test project for all 6 answer combinations.
 14. Run end-to-end test: init → answer yes/yes → confirm `design.enabled=true`, `docs/roadmap.md` exists, "Set up design system" item present.
@@ -226,7 +236,7 @@ No special-casing needed — natural consequence of existing flow control.
 
 ### Sequencing
 
-- Phase A → B is hard order (schema must exist before skill writes it).
-- Phase C is independent of B but must complete before user-facing release.
-- Phase D and E run last.
-- Phase B and C should merge together to avoid a window where init writes `design.enabled` but the consumer skill doesn't read it.
+- Phase 1 → 2 is hard order (schema must exist before skill writes it).
+- Phase 3 is independent of Phase 2 but must complete before user-facing release.
+- Phases 4 and 5 run last.
+- Phases 2 and 3 should merge together to avoid a window where init writes `design.enabled` but the consumer skill doesn't read it.
