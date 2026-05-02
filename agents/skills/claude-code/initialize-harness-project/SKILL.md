@@ -123,7 +123,7 @@
     - **No:** Write `design.enabled: false` to `harness.config.json`. Do not write `design.platforms`. The `on_new_feature` trigger respects this flag and will not fire `harness-design-system`.
     - **Not sure yet:** Do not write `design.enabled` or `design.platforms`. The project can enable design later by running `harness-design-system` directly; `on_new_feature` will prompt gently when a feature touches user-facing UI.
 
-    **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects have already been routed via Phase 3 step 6 to `initialize-test-suite-project` and have no UI to govern.
+    **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects will be dispatched at step 6 below to `initialize-test-suite-project` and have no UI to govern.
 
 6. **Test-suite projects only — dispatch to `initialize-test-suite-project`.** If Phase 1 step 5 classified this as a test suite, invoke `initialize-test-suite-project` now and let it own archetype selection, shared-library decision, layer variants (A self-contained vs B consumer), ESLint flat-config fix, tag taxonomy, reporter stack, custom report, and the "prove the guards fire" verification. Return here for Phase 4 step 4+ (knowledge graph, roadmap, commit). Product and service projects skip this step entirely.
 
