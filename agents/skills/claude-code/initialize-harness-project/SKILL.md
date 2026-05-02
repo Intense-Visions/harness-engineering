@@ -36,7 +36,7 @@
    - Config files like `playwright.config.*`, `cypress.config.*`, `wdio.conf.*`
    - No production runtime — build output consumed only by other test repos (shared library)
 
-   **If a test suite:** complete Phase 2 (scaffolding) here, then dispatch to `initialize-test-suite-project` for Phase 3 configuration and Phase 4 verification, then return here for Phase 4 step 4+ (knowledge graph, roadmap nudge, final commit). The test-suite skill owns archetype selection, layer variants, tags, reporters, and the custom report.
+   **If a test suite:** complete Phase 2 (scaffolding) here, then dispatch to `initialize-test-suite-project` for Phase 3 configuration and Phase 4 verification, then return here for Phase 4 step 4+ (knowledge graph, roadmap question, final commit). The test-suite skill owns archetype selection, layer variants, tags, reporters, and the custom report.
 
    **If a product/service:** continue with the rest of this skill as written.
 
