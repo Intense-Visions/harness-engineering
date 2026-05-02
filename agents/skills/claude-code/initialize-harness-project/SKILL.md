@@ -266,6 +266,67 @@ git add harness.config.json .harness/ AGENTS.md
 git commit -m "feat: initialize harness project at basic level"
 ```
 
+### Example: New TypeScript Web App with Design and Roadmap
+
+**ASSESS:**
+
+```
+Human: "I'm starting a new Next.js web app. Single-language, but it definitely needs a design system."
+Check for .harness/ — not found. Recommend: basic level.
+Phase 1 step 5 classification: not a test suite (Next.js app with src/, no playwright/cypress).
+```
+
+**SCAFFOLD:**
+
+```bash
+harness init --level basic --framework nextjs
+```
+
+**CONFIGURE (Phase 3):**
+
+```
+Step 5 (i18n): "Will this project support multiple languages?"
+  Human: "No, English only."
+  Result: i18n.enabled = false in harness.config.json.
+
+Step 5b (design): "Will this project have a UI requiring a design system?"
+  Human: "Yes."
+  Follow-up: "Which platforms? web, mobile, or both?"
+  Human: "Web."
+  Result: design.enabled = true, design.platforms = ["web"] in harness.config.json.
+  Inform: "Design tokens will be generated when you start your first design-touching
+  feature — harness-design-system fires automatically via on_new_feature."
+
+Step 6 (test-suite dispatch): skipped (not a test suite).
+```
+
+**VALIDATE (Phase 4):**
+
+```
+Step 1: harness validate — pass.
+Step 3: harness check-deps — pass (basic level, no constraints yet).
+Build initial knowledge graph: harness scan — graph populated.
+
+Step 4 (roadmap): "Set up a project roadmap now?"
+  Human: "Yes."
+  manage_roadmap action: init — docs/roadmap.md created.
+  design.enabled === true detected → manage_roadmap action: add
+    feature: "Set up design system"
+    status: planned
+    milestone: Current Work
+    executor: harness-design-system
+  Result: docs/roadmap.md contains the planned design item.
+
+Step 5: commit.
+```
+
+```bash
+git add harness.config.json .harness/ AGENTS.md docs/roadmap.md
+git commit -m "feat: initialize harness project with design and roadmap"
+```
+
+**Final state:** `harness.config.json` has `design.enabled: true` + `design.platforms: ["web"]`; `docs/roadmap.md` lists "Set up design system" as a `planned` item under `Current Work`; on the first feature touching UI, `on_new_feature` fires `harness-design-system` which reads `design.enabled` and runs the full discover/define/generate/validate flow.
+
 ### Example: Migrating Existing Project from Basic to Intermediate
 
 **ASSESS:**
