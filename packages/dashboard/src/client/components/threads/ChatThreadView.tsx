@@ -59,12 +59,18 @@ export function ChatThreadView({ thread }: Props) {
   const autoExecutedRef = useRef(new Set<string>());
   const pendingCommandArgsRef = useRef<string | null>(null);
 
-  // Load existing session messages on mount
+  // Load existing session messages on cold-mount only.
+  // If the store already has messages for this thread (e.g. user navigated away
+  // within the SPA and came back), skip the fetch — the in-memory state is
+  // newer than the server snapshot, which lags behind streaming replies.
   useEffect(() => {
+    const existing = storeApi.getState().messages.get(thread.id);
+    if (existing && existing.length > 0) return;
+
     fetch(`/api/sessions/${meta.sessionId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((session: ChatSession | null) => {
-        if (session) {
+        if (session && Array.isArray(session.messages)) {
           storeApi.getState().setMessages(thread.id, session.messages);
           if (session.orchestratorSessionId) {
             setOrchestratorSessionId(session.orchestratorSessionId);
@@ -74,7 +80,7 @@ export function ChatThreadView({ thread }: Props) {
       .catch(() => {
         // Session doesn't exist on server yet — that's fine for new threads
       });
-  }, [meta.sessionId, thread.id]);
+  }, [meta.sessionId, thread.id, storeApi]);
 
   // If thread was created with a command, resolve the skill
   useEffect(() => {

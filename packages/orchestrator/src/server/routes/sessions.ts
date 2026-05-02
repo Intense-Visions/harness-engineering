@@ -57,6 +57,24 @@ async function handleList(res: ServerResponse, sessionsDir: string): Promise<voi
   }
 }
 
+async function handleGet(res: ServerResponse, id: string, sessionsDir: string): Promise<void> {
+  if (!isSafeId(id)) {
+    jsonResponse(res, 400, { error: 'Invalid sessionId' });
+    return;
+  }
+  try {
+    // harness-ignore SEC-DES-001: reading self-written session.json from disk — trusted internal source
+    const content = await fs.readFile(path.join(sessionsDir, id, 'session.json'), 'utf-8');
+    jsonResponse(res, 200, JSON.parse(content));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      jsonResponse(res, 404, { error: 'Session not found' });
+      return;
+    }
+    jsonResponse(res, 500, { error: 'Failed to read session' });
+  }
+}
+
 async function handleCreate(
   req: IncomingMessage,
   res: ServerResponse,
@@ -134,9 +152,12 @@ export function handleSessionsRoute(
   if (!url?.startsWith(API_PREFIX)) return false;
 
   switch (method) {
-    case 'GET':
-      void handleList(res, sessionsDir);
+    case 'GET': {
+      const id = extractSessionId(url);
+      if (id) void handleGet(res, id, sessionsDir);
+      else void handleList(res, sessionsDir);
       return true;
+    }
     case 'POST':
       void handleCreate(req, res, sessionsDir);
       return true;
