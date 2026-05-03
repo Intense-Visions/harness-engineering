@@ -341,4 +341,44 @@ describe('KnowledgeDocMaterializer', () => {
     expect(result.created[0]!.domain).toBe('billing');
     expect(result.created[0]!.filePath).toBe('docs/knowledge/billing/path-inferred.md');
   });
+
+  describe('inferenceOptions plumbing (Phase 4)', () => {
+    it('with inferenceOptions.extraPatterns ["agents/<dir>"], doc materializes under docs/knowledge/skills/', async () => {
+      const cfgTmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mat-cfg-'));
+
+      try {
+        const cfgStore = new GraphStore();
+        cfgStore.addNode({
+          id: 'extracted:foo',
+          type: 'business_rule',
+          name: 'Foo Rule',
+          path: 'agents/skills/foo.ts',
+          metadata: { source: 'extractor' },
+          content: 'When the system encounters a foo, it shall do bar within 30 seconds.',
+        });
+
+        const cfgMaterializer = new KnowledgeDocMaterializer(cfgStore, {
+          extraPatterns: ['agents/<dir>'],
+        });
+        const result = await cfgMaterializer.materialize(
+          [
+            {
+              nodeId: 'extracted:foo',
+              name: 'Foo Rule',
+              nodeType: 'business_rule',
+              source: 'extractor',
+              hasContent: true,
+            },
+          ],
+          { projectDir: cfgTmpDir, dryRun: false }
+        );
+
+        expect(result.created).toHaveLength(1);
+        expect(result.created[0]!.domain).toBe('skills');
+        expect(result.created[0]!.filePath).toContain('docs/knowledge/skills/');
+      } finally {
+        await fs.rm(cfgTmpDir, { recursive: true });
+      }
+    });
+  });
 });
