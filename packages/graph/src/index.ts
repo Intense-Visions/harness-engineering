@@ -50,6 +50,8 @@ export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
 export { BusinessKnowledgeIngestor } from './ingest/BusinessKnowledgeIngestor.js';
 export { DecisionIngestor } from './ingest/DecisionIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
+export { inferDomain, DEFAULT_PATTERNS, DEFAULT_BLOCKLIST } from './ingest/domain-inference.js';
+export type { DomainInferenceOptions } from './ingest/domain-inference.js';
 
 // Knowledge Pipeline
 export { KnowledgePipelineRunner } from './ingest/KnowledgePipelineRunner.js';

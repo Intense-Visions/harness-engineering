@@ -36,7 +36,7 @@ last_manual_edit: 2026-04-02
 - **Spec:** docs/changes/auth/proposal.md
 - **Summary:** User authentication with OAuth2
 - **Blockers:** none
-- **Plan:** docs/plans/2026-03-15-auth-plan.md
+- **Plan:** docs/changes/auth/plans/2026-03-15-auth-plan.md
 
 ### API Gateway
 
@@ -44,7 +44,7 @@ last_manual_edit: 2026-04-02
 - **Spec:** docs/changes/api-gateway/proposal.md
 - **Summary:** REST API with rate limiting and versioning
 - **Blockers:** none
-- **Plan:** docs/plans/2026-04-01-api-gateway-plan.md
+- **Plan:** docs/changes/api-gateway/plans/2026-04-01-api-gateway-plan.md
 - **Assignee:** @alice
 - **Priority:** P0
 - **External-ID:** github:myorg/myproject#12
@@ -320,7 +320,7 @@ After enabling sync, your roadmap features gain three new optional fields:
 - **Spec:** docs/changes/my-feature/proposal.md
 - **Summary:** Implement the widget system
 - **Blockers:** —
-- **Plan:** docs/plans/2026-04-01-my-feature-plan.md
+- **Plan:** docs/changes/my-feature/plans/2026-04-01-my-feature-plan.md
 - **Assignee:** @username
 - **Priority:** P1
 - **External-ID:** github:owner/repo#42

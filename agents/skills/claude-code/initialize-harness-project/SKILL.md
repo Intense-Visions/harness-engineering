@@ -36,7 +36,7 @@
    - Config files like `playwright.config.*`, `cypress.config.*`, `wdio.conf.*`
    - No production runtime — build output consumed only by other test repos (shared library)
 
-   **If a test suite:** complete Phase 2 (scaffolding) here, then dispatch to `initialize-test-suite-project` for Phase 3 configuration and Phase 4 verification, then return here for Phase 4 step 4+ (knowledge graph, roadmap nudge, final commit). The test-suite skill owns archetype selection, layer variants, tags, reporters, and the custom report.
+   **If a test suite:** complete Phase 2 (scaffolding) here, then dispatch to `initialize-test-suite-project` for Phase 3 configuration and Phase 4 verification, then return here for Phase 4 step 4+ (knowledge graph, roadmap question, final commit). The test-suite skill owns archetype selection, layer variants, tags, reporters, and the custom report.
 
    **If a product/service:** continue with the rest of this skill as written.
 
@@ -83,6 +83,48 @@
    - **No:** Set `i18n.enabled: false` in `harness.config.json`. The `harness-i18n-process` skill will still fire gentle prompts for unconfigured projects when features touch user-facing strings.
    - **Not sure yet:** Skip i18n configuration entirely. Do not set `i18n.enabled`. The project can enable i18n later by running `harness-i18n-workflow` directly.
 
+5b. **Configure design system (non-test-suite projects).** Ask: "Will this project have a UI requiring a design system?" Mirror the i18n step's three-way response shape. Use `emit_interaction`:
+
+    ```json
+    emit_interaction({
+      type: "question",
+      question: {
+        text: "Will this project have a UI requiring a design system?",
+        options: [
+          {
+            label: "Yes — capture design intent now",
+            pros: ["Records platforms in harness.config.json", "harness-design-system fires automatically on first design-touching feature"],
+            cons: ["One extra follow-up question (which platforms)"],
+            risk: "low",
+            effort: "low"
+          },
+          {
+            label: "No — this project has no UI",
+            pros: ["No future design nudges", "Permanent decline recorded"],
+            cons: ["Re-running init is required if a UI is added later"],
+            risk: "low",
+            effort: "low"
+          },
+          {
+            label: "Not sure yet",
+            pros: ["Decision deferred without commitment", "Can run harness-design-system later"],
+            cons: ["No design.enabled flag set; on_new_feature will prompt later"],
+            risk: "low",
+            effort: "low"
+          }
+        ],
+        recommendation: { optionIndex: 0, reason: "Most product/service projects benefit from a centralized design system", confidence: "medium" }
+      }
+    })
+    ```
+
+    Based on the answer:
+    - **Yes:** Ask a follow-up: "Which platforms? `web`, `mobile`, or both?" Write `design.enabled: true` and `design.platforms: [...]` (a non-empty array of `web` and/or `mobile`) to `harness.config.json`. Inform the user: "Design tokens will be generated when you start your first design-touching feature — `harness-design-system` fires automatically via `on_new_feature`."
+    - **No:** Write `design.enabled: false` to `harness.config.json`. Do not write `design.platforms`. The `on_new_feature` trigger respects this flag and will not fire `harness-design-system`.
+    - **Not sure yet:** Do not write `design.enabled` or `design.platforms`. The project can enable design later by running `harness-design-system` directly; `on_new_feature` will prompt gently when a feature touches user-facing UI.
+
+    **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects will be dispatched at step 6 below to `initialize-test-suite-project` and have no UI to govern.
+
 6. **Test-suite projects only — dispatch to `initialize-test-suite-project`.** If Phase 1 step 5 classified this as a test suite, invoke `initialize-test-suite-project` now and let it own archetype selection, shared-library decision, layer variants (A self-contained vs B consumer), ESLint flat-config fix, tag taxonomy, reporter stack, custom report, and the "prove the guards fire" verification. Return here for Phase 4 step 4+ (knowledge graph, roadmap, commit). Product and service projects skip this step entirely.
 
 ### Phase 4: VALIDATE — Confirm Everything Works
@@ -108,7 +150,38 @@ harness scan [path]
 
 This creates the `.harness/graph/` directory and populates it with the project's dependency and relationship data. Subsequent graph queries (impact analysis, dependency health, test advisor) depend on this initial scan.
 
-4. **Mention roadmap.** After validation passes, inform the user: "When you are ready to set up a project roadmap, run `/harness:roadmap --create`. This creates a unified `docs/roadmap.md` that tracks features, milestones, and status across your specs and plans." This is informational only — do not create the roadmap automatically.
+4. **Set up project roadmap.** Ask: "Set up a project roadmap now? `docs/roadmap.md` tracks features, milestones, and status across your specs and plans." Use `emit_interaction`:
+
+   ```json
+   emit_interaction({
+     type: "question",
+     question: {
+       text: "Set up a project roadmap now?",
+       options: [
+         {
+           label: "Yes — create docs/roadmap.md now",
+           pros: ["Roadmap visible from day one", "Future specs auto-discovered on next sync"],
+           cons: ["Adds one file to the initial commit"],
+           risk: "low",
+           effort: "low"
+         },
+         {
+           label: "No — skip for now",
+           pros: ["Smaller initial footprint"],
+           cons: ["Run `/harness:roadmap --create` later when ready"],
+           risk: "low",
+           effort: "low"
+         }
+       ],
+       recommendation: { optionIndex: 0, reason: "Validation has just passed — a tangible 'project works' signal is the right moment to introduce planning artifacts", confidence: "medium" }
+     }
+   })
+   ```
+
+   Based on the answer:
+   - **Yes:** Invoke `harness-roadmap` (skill) or run `/harness:roadmap --create` to create `docs/roadmap.md`. Verify the file exists. The `manage_roadmap` MCP tool is for managing entries in an existing roadmap, not for creating one.
+     - **If `design.enabled === true` in `harness.config.json`** (set by Phase 3 step 5b), call `manage_roadmap` with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens. Deferred from project init — fires on first design-touching feature via on_new_feature."`. Skip silently if `manage_roadmap show` reports a duplicate `(feature, milestone)` pair. This closes the loop between deferred design intent and visible planning work.
+   - **No:** Skip silently. The user can still run `/harness:roadmap --create` later — that informational fallback remains valid.
 
 5. **Commit the initialization.** All generated and configured files in a single commit.
 
@@ -120,8 +193,10 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness validate`** — Verify the full project configuration is valid and complete.
 - **`harness check-deps`** — Verify dependency constraints match the actual codebase (intermediate and above).
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
+- **`harness-design-system` (deferred via `on_new_feature`)** — Phase 3 step 5b records `design.enabled` + `design.platforms` in `harness.config.json` but does NOT run the full design-system skill. Token generation defers to the first design-touching feature, where `harness-design-system` fires via `on_new_feature` and reads `design.enabled` to decide whether to proceed.
 - **`initialize-test-suite-project`** — Sub-skill. Invoked during Phase 3 step 6 when Phase 1 step 5 classified the project as a test suite. Owns archetype selection, shared-library vs in-repo decision, layer variants, tag taxonomy, reporter stack, custom report, and "prove the guards fire" verification.
-- **Roadmap nudge** — After successful initialization, inform the user about `/harness:roadmap --create` for setting up project-level feature tracking. Informational only; does not create the roadmap.
+- **`harness-roadmap` skill** — Phase 4 step 4 invokes this skill (or `/harness:roadmap --create`) when the user opts in to creating `docs/roadmap.md`. The `manage_roadmap` MCP tool does not create roadmaps; it manages entries in an existing one.
+- **`manage_roadmap` MCP tool** — Phase 4 step 4, when `design.enabled === true`, calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item under milestone `Current Work` with a summary describing the deferred work.
 
 ## Success Criteria
 
@@ -134,17 +209,21 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - The adoption level matches what was agreed upon with the human
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
+- For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
+- The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `harness-roadmap` (or the documented `/harness:roadmap --create` fallback).
+- When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with a summary describing the deferred work. The entry is absent in all other answer combinations.
 - For test suites: `initialize-test-suite-project` ran to completion and its Success Criteria are also met
 
 ## Rationalizations to Reject
 
-| Rationalization                                                          | Why It Is Wrong                                                                                                                                                                                                           |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.                                                                                         |
-| "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                          |
-| "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                     |
-| "Validation passed, so the project is ready"                             | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient.                                                                                    |
-| "This is a test suite, we'll configure layers in this skill"             | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas. |
+| Rationalization                                                          | Why It Is Wrong                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.                                                                                                                                               |
+| "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                                                                                |
+| "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                                                                           |
+| "I will skip the design-system question to keep setup fast"              | Phase 3 step 5b requires asking about design and recording the answer in `design.enabled`. Skipping creates ambiguity about whether the omission was intentional and bypasses the linkage between init and the deferred `harness-design-system` invocation on `on_new_feature`. |
+| "Validation passed, so the project is ready"                             | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient.                                                                                                                                          |
+| "This is a test suite, we'll configure layers in this skill"             | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas.                                                       |
 
 ## Examples
 
@@ -187,6 +266,67 @@ harness validate  # Pass — basic level checks satisfied
 git add harness.config.json .harness/ AGENTS.md
 git commit -m "feat: initialize harness project at basic level"
 ```
+
+### Example: New TypeScript Web App with Design and Roadmap
+
+**ASSESS:**
+
+```
+Human: "I'm starting a new Next.js web app. Single-language, but it definitely needs a design system."
+Check for .harness/ — not found. Recommend: basic level.
+Phase 1 step 5 classification: not a test suite (Next.js app with src/, no playwright/cypress).
+```
+
+**SCAFFOLD:**
+
+```bash
+harness init --level basic --framework nextjs
+```
+
+**CONFIGURE (Phase 3):**
+
+```
+Step 5 (i18n): "Will this project support multiple languages?"
+  Human: "No, English only."
+  Result: i18n.enabled = false in harness.config.json.
+
+Step 5b (design): "Will this project have a UI requiring a design system?"
+  Human: "Yes."
+  Follow-up: "Which platforms? web, mobile, or both?"
+  Human: "Web."
+  Result: design.enabled = true, design.platforms = ["web"] in harness.config.json.
+  Inform: "Design tokens will be generated when you start your first design-touching
+  feature — harness-design-system fires automatically via on_new_feature."
+
+Step 6 (test-suite dispatch): skipped (not a test suite).
+```
+
+**VALIDATE (Phase 4):**
+
+```
+Step 1: harness validate — pass.
+Step 3: harness check-deps — pass (basic level, no constraints yet).
+Build initial knowledge graph: harness scan — graph populated.
+
+Step 4 (roadmap): "Set up a project roadmap now?"
+  Human: "Yes."
+  Invoke harness-roadmap (or /harness:roadmap --create) — docs/roadmap.md created.
+  design.enabled === true detected → manage_roadmap action: add
+    feature: "Set up design system"
+    status: planned
+    milestone: Current Work
+    summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens..."
+  Result: docs/roadmap.md contains the planned design item.
+
+Step 5: commit.
+```
+
+```bash
+git add harness.config.json .harness/ AGENTS.md docs/roadmap.md
+git commit -m "feat: initialize harness project with design and roadmap"
+```
+
+**Final state:** `harness.config.json` has `design.enabled: true` + `design.platforms: ["web"]`; `docs/roadmap.md` lists "Set up design system" as a `planned` item under `Current Work`; on the first feature touching UI, `on_new_feature` fires `harness-design-system` which reads `design.enabled` and runs the full discover/define/generate/validate flow.
 
 ### Example: Migrating Existing Project from Basic to Intermediate
 

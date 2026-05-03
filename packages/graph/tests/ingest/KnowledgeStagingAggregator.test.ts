@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { GraphStore } from '../../src/store/GraphStore.js';
 import {
   KnowledgeStagingAggregator,
   type StagedEntry,
@@ -140,5 +141,65 @@ describe('KnowledgeStagingAggregator', () => {
     const nonexistent = path.join(tmpDir, 'docs', 'knowledge');
     const gapReport = await aggregator.generateGapReport(nonexistent);
     expect(gapReport.domains).toHaveLength(0);
+  });
+
+  describe('inferenceOptions path-bucketing (Phase 4)', () => {
+    let bucketDir: string;
+
+    beforeEach(async () => {
+      bucketDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agg-bucket-'));
+    });
+
+    afterEach(async () => {
+      try {
+        await fs.rm(bucketDir, { recursive: true });
+      } catch {
+        // best-effort cleanup
+      }
+    });
+
+    it('without inferenceOptions, agents/skills/foo buckets under "agents" (generic fallback)', async () => {
+      const knowledgeDir = path.join(bucketDir, 'docs', 'knowledge');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+
+      const store = new GraphStore();
+      store.addNode({
+        id: 'extracted:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet consectetur',
+      });
+
+      const aggregator = new KnowledgeStagingAggregator(bucketDir);
+      const report = await aggregator.generateGapReport(knowledgeDir, store);
+
+      expect(report.domains.map((d) => d.domain)).toContain('agents');
+      expect(report.domains.map((d) => d.domain)).not.toContain('skills');
+    });
+
+    it('with inferenceOptions.extraPatterns ["agents/<dir>"], same node buckets under "skills"', async () => {
+      const knowledgeDir = path.join(bucketDir, 'docs', 'knowledge');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+
+      const store = new GraphStore();
+      store.addNode({
+        id: 'extracted:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet consectetur',
+      });
+
+      const aggregator = new KnowledgeStagingAggregator(bucketDir, {
+        extraPatterns: ['agents/<dir>'],
+      });
+      const report = await aggregator.generateGapReport(knowledgeDir, store);
+
+      expect(report.domains.map((d) => d.domain)).toContain('skills');
+      expect(report.domains.map((d) => d.domain)).not.toContain('agents');
+    });
   });
 });

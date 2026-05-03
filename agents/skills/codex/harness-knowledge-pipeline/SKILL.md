@@ -70,6 +70,7 @@ Extract business knowledge from all available sources into a fresh snapshot.
 
 4. **Build Fresh Snapshot:** Collect all extraction results into a `KnowledgeSnapshot`.
    - Each entry has: `id`, `type`, `contentHash`, `source`, `name`
+   - Each entry's `domain` is resolved via path-based inference (`packages/<dir>`, `apps/<dir>`, etc.) unless an explicit `metadata.domain` is set; projects can extend or override via `knowledge.domainPatterns` and `knowledge.domainBlocklist` in `harness.config.json` — see [`docs/knowledge/graph/node-edge-taxonomy.md`](../../../../docs/knowledge/graph/node-edge-taxonomy.md#domain-inference) for full precedence.
 
 **Output:** `context.extractionSnapshot` populated.
 

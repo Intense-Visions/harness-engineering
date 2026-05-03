@@ -48,5 +48,5 @@ phases:
 state:
   persistent: true
   files:
-    - .harness/architecture/
+    - docs/architecture/
 depends_on: []

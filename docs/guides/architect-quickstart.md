@@ -54,7 +54,7 @@ Harness operates through **slash commands** (e.g., `/harness:enforce-architectur
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | "Our layer boundaries exist in a wiki nobody reads"                       | `/harness:enforce-architecture` validates layer dependencies mechanically on every change -- violations block merges       |
 | "I spend half my review time pointing out the same dependency violations" | `harness.config.json` encodes `allowedDependencies` and `forbiddenImports` -- the machine catches violations before review |
-| "Architecture decisions get lost in Slack threads"                        | `/harness:architecture-advisor` produces structured ADRs saved to `.harness/architecture/<topic>/ADR-<number>.md`          |
+| "Architecture decisions get lost in Slack threads"                        | `/harness:architecture-advisor` produces structured ADRs saved to `docs/architecture/<topic>/ADR-<number>.md`              |
 | "We don't know the blast radius of this refactor"                         | `/harness:impact-analysis` maps direct dependents, transitive dependents (3 levels), affected tests, and risk tier         |
 | "Some modules are ticking time bombs but nobody knows which"              | `/harness:hotspot-detector` identifies high-churn files, hidden coupling, and structural outliers via co-change analysis   |
 | "Dependencies form a tangled graph we can't reason about"                 | `/harness:dependency-health` scores your codebase 0-100 with hub detection, cycle detection, orphans, and deep chains      |
@@ -300,7 +300,7 @@ This runs a **4-phase interactive process**:
 | Effort          | 6-8 weeks                 | 3-4 weeks             | 1-2 weeks                      |
 | Risk            | High (team unfamiliarity) | Medium                | Low                            |
 
-4. **DOCUMENT** -- Saves the decision as an Architecture Decision Record at `.harness/architecture/<topic>/ADR-<number>.md`. The ADR includes context, options considered, decision rationale, and consequences -- all structured, all version-controlled.
+4. **DOCUMENT** -- Saves the decision as an Architecture Decision Record at `docs/architecture/<topic>/ADR-<number>.md`. The ADR includes context, options considered, decision rationale, and consequences -- all structured, all version-controlled.
 
 ADRs accumulate over time. When a new decision contradicts or supersedes an old one, the advisor flags it. When a developer asks "why is it done this way?", the ADR provides the answer.
 

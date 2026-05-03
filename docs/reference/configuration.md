@@ -440,6 +440,72 @@ Tracks which MCP peer integrations are enabled and which have been dismissed by 
 }
 ```
 
+## `knowledge`
+
+- **Type:** `KnowledgeConfig`
+- **Required:** No
+
+Configures the knowledge graph and domain inference. Domain inference classifies extracted nodes (files, signals, business facts) into a domain bucket (e.g. `payments`, `auth`, `skills`) used by drift detection, gap reporting, and the knowledge pipeline.
+
+### KnowledgeConfig Object
+
+| Field             | Type       | Default | Description                                                                   |
+| ----------------- | ---------- | ------- | ----------------------------------------------------------------------------- |
+| `domainPatterns`  | `string[]` | `[]`    | Additional path patterns whose captured directory becomes the inferred domain |
+| `domainBlocklist` | `string[]` | `[]`    | Additional directory names that should never be treated as domains            |
+
+Both fields **extend** (not replace) the built-in defaults.
+
+#### Pattern syntax
+
+Each entry in `domainPatterns` uses the form `prefix/<dir>` where `prefix` is a single path segment and `<dir>` is the literal placeholder that captures the next segment as the domain name. The full regex is `^[\w.-]+\/<dir>$`.
+
+Built-in patterns (always active):
+
+- `packages/<dir>` — e.g. `packages/auth/...` → `auth`
+- `apps/<dir>`
+- `services/<dir>`
+- `src/<dir>`
+- `lib/<dir>`
+
+Built-in blocklist (always active): `node_modules`, `.harness`, `dist`, `build`, `.git`, `coverage`, `.next`, `.turbo`, `.cache`, `out`, `tmp`.
+
+#### Precedence
+
+Domain inference resolves in this order (first match wins):
+
+1. Explicit `metadata.domain` on the node
+2. User-configured `knowledge.domainPatterns`
+3. Built-in patterns (`packages/<dir>`, `apps/<dir>`, etc.)
+4. Generic first-segment fallback (the leading directory of the path)
+5. `'unknown'` if every prior step fails
+
+Two refinements apply to all stages:
+
+- **Extension allowlist:** only files with `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, or `.cjs` extensions are inferred. Other extensions return `'unknown'`.
+- **Symmetric blocklist:** if a path matches a pattern but the captured segment is on the blocklist, the result is `'unknown'` directly — it does not fall through to later steps.
+
+The canonical implementation lives at `packages/graph/src/ingest/domain-inference.ts`.
+
+### Example
+
+A monorepo that publishes Claude Code skills under `agents/skills/<name>/` and wants those classified as the `skills` domain:
+
+```json
+{
+  "knowledge": {
+    "domainPatterns": ["agents/skills/<dir>"],
+    "domainBlocklist": ["fixtures", "examples"]
+  }
+}
+```
+
+With this config:
+
+- `agents/skills/harness-planning/SKILL.md` → domain `harness-planning`
+- `agents/skills/fixtures/sample.ts` → `'unknown'` (segment is blocklisted)
+- `packages/graph/src/ingest/domain-inference.ts` → domain `graph` (built-in pattern still wins for `packages/<dir>`)
+
 ## `architecture`
 
 - **Type:** `ArchConfig`

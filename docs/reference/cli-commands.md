@@ -269,6 +269,18 @@ Start the MCP (Model Context Protocol) server on stdio
 - `--tier` — Load a preset tool tier instead of all tools
 - `--budget-tokens` — Auto-select tier to fit this baseline token budget
 
+### `harness migrate`
+
+Migrate legacy harness artifact locations to current layout
+
+**Options:**
+
+- `--dry-run` — Show the migration plan without moving files
+- `--yes` — Skip confirmation prompt
+- `--skip-references` — Do not update path references in docs/sessions after moves
+- `--orphan-strategy` — How to handle orphan plans (ask|skip|bucket) (default: "ask")
+- `--orphan-topic` — Stub topic name when --orphan-strategy=bucket
+
 ### `harness predict`
 
 Predict which architectural constraints will break and when

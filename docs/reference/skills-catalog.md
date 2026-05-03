@@ -123,13 +123,13 @@ Test-driven development integrated with harness validation
 
 ### initialize-harness-project
 
-Scaffold a new harness-compliant project
+Scaffold a new harness-compliant project, including design system and roadmap configuration
 
 - **Triggers:** manual, on_project_init
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
-- **Depends on:** initialize-test-suite-project
+- **Depends on:** initialize-test-suite-project, harness-design-system
 
 ### initialize-test-suite-project
 

@@ -1,6 +1,6 @@
 name: initialize-harness-project
 version: "1.0.0"
-description: Scaffold a new harness-compliant project
+description: Scaffold a new harness-compliant project, including design system and roadmap configuration
 stability: static
 cognitive_mode: constructive-architect
 triggers:
@@ -34,3 +34,4 @@ state:
   files: []
 depends_on:
   - initialize-test-suite-project
+  - harness-design-system

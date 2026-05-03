@@ -90,6 +90,9 @@ function inferStatus(
       return !blocker || blocker.status !== 'done';
     });
     if (blockerNotDone) return 'blocked';
+    // All blockers are done. Unblock currently-blocked features so cascading
+    // completion frees downstream work without a manual edit.
+    if (feature.status === 'blocked') return 'planned';
   }
 
   // 2. If no plans linked, cannot infer

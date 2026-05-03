@@ -3,8 +3,8 @@
 import type { Command } from 'commander';
 
 import { createAddCommand } from './add';
-import { createAdviseSkillsCommand } from './advise-skills';
 import { createAdoptionCommand } from './adoption';
+import { createAdviseSkillsCommand } from './advise-skills';
 import { createAgentCommand } from './agent';
 import { createAuditProtectedCommand } from './audit-protected';
 import { createBlueprintCommand } from './blueprint';
@@ -36,6 +36,7 @@ import { createKnowledgePipelineCommand } from './knowledge-pipeline';
 import { createLearningsCommand } from './learnings';
 import { createLinterCommand } from './linter';
 import { createMcpCommand } from './mcp';
+import { createMigrateCommand } from './migrate';
 import { createOrchestratorCommand } from './orchestrator';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
@@ -67,8 +68,8 @@ import { createValidateCommand } from './validate';
  */
 export const commandCreators: Array<() => Command> = [
   createAddCommand,
-  createAdviseSkillsCommand,
   createAdoptionCommand,
+  createAdviseSkillsCommand,
   createAgentCommand,
   createAuditProtectedCommand,
   createBlueprintCommand,
@@ -100,6 +101,7 @@ export const commandCreators: Array<() => Command> = [
   createLearningsCommand,
   createLinterCommand,
   createMcpCommand,
+  createMigrateCommand,
   createOrchestratorCommand,
   createPerfCommand,
   createPersonaCommand,

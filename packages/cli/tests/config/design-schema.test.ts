@@ -72,6 +72,77 @@ describe('DesignConfigSchema', () => {
     const result = DesignConfigSchema.safeParse({ aestheticIntent: 123 });
     expect(result.success).toBe(false);
   });
+
+  it('accepts enabled: true with platforms specified', () => {
+    const result = DesignConfigSchema.safeParse({
+      enabled: true,
+      platforms: ['web'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts enabled: false without platforms', () => {
+    const result = DesignConfigSchema.safeParse({ enabled: false });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts config without enabled field (tri-state: absent)', () => {
+    const result = DesignConfigSchema.parse({});
+    expect(result.enabled).toBeUndefined();
+  });
+
+  it('preserves enabled: true on parse', () => {
+    const result = DesignConfigSchema.parse({
+      enabled: true,
+      platforms: ['mobile'],
+    });
+    expect(result.enabled).toBe(true);
+  });
+
+  it('preserves enabled: false on parse', () => {
+    const result = DesignConfigSchema.parse({ enabled: false });
+    expect(result.enabled).toBe(false);
+  });
+
+  it('rejects non-boolean enabled value', () => {
+    const result = DesignConfigSchema.safeParse({ enabled: 'yes' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects enabled: true without platforms', () => {
+    const result = DesignConfigSchema.safeParse({ enabled: true });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages.toLowerCase()).toContain('platforms');
+    }
+  });
+
+  it('rejects enabled: true with empty platforms array', () => {
+    const result = DesignConfigSchema.safeParse({
+      enabled: true,
+      platforms: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts enabled: true with both platforms', () => {
+    const result = DesignConfigSchema.safeParse({
+      enabled: true,
+      platforms: ['web', 'mobile'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts existing populated design config without enabled field (back-compat)', () => {
+    const result = DesignConfigSchema.safeParse({
+      strictness: 'standard',
+      platforms: ['web', 'mobile'],
+      tokenPath: 'design-system/tokens.json',
+      aestheticIntent: 'design-system/DESIGN.md',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('HarnessConfigSchema with design block', () => {
@@ -101,6 +172,30 @@ describe('HarnessConfigSchema with design block', () => {
     const result = HarnessConfigSchema.safeParse({
       ...baseConfig,
       design: { strictness: 'invalid' },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts design block with enabled: true and platforms', () => {
+    const result = HarnessConfigSchema.safeParse({
+      ...baseConfig,
+      design: { enabled: true, platforms: ['web'] },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts design block with enabled: false', () => {
+    const result = HarnessConfigSchema.safeParse({
+      ...baseConfig,
+      design: { enabled: false },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects design block with enabled: true and no platforms', () => {
+    const result = HarnessConfigSchema.safeParse({
+      ...baseConfig,
+      design: { enabled: true },
     });
     expect(result.success).toBe(false);
   });

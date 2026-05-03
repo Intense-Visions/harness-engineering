@@ -11,6 +11,10 @@ import * as path from 'node:path';
 import type { GraphNode, NodeType } from '../types.js';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GapEntry } from './KnowledgeStagingAggregator.js';
+import {
+  inferDomain as inferDomainShared,
+  type DomainInferenceOptions,
+} from './domain-inference.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +65,10 @@ interface ResolvedEntry {
 }
 
 export class KnowledgeDocMaterializer {
-  constructor(private readonly store: GraphStore) {}
+  constructor(
+    private readonly store: GraphStore,
+    private readonly inferenceOptions: DomainInferenceOptions = {}
+  ) {}
 
   async materialize(
     gapEntries: readonly GapEntry[],
@@ -142,29 +149,8 @@ export class KnowledgeDocMaterializer {
   }
 
   inferDomain(node: GraphNode): string | null {
-    // Check metadata.domain first
-    if (node.metadata?.domain && typeof node.metadata.domain === 'string') {
-      return node.metadata.domain;
-    }
-
-    // Check path for packages/{name} or src/{name}
-    if (node.path) {
-      const pkgMatch = node.path.match(/^packages\/([^/]+)/);
-      if (pkgMatch) return pkgMatch[1]!;
-
-      const srcMatch = node.path.match(/^src\/([^/]+)/);
-      if (srcMatch) return srcMatch[1]!;
-    }
-
-    // KnowledgeLinker-produced facts have metadata.source but no path —
-    // derive domain from connectorName or fall back to 'general'
-    if (node.metadata?.source === 'knowledge-linker' || node.metadata?.source === 'connector') {
-      const connector = node.metadata.connectorName;
-      if (typeof connector === 'string') return connector;
-      return 'general';
-    }
-
-    return null;
+    const result = inferDomainShared(node, this.inferenceOptions);
+    return result === 'unknown' ? null : result;
   }
 
   generateFilename(name: string): string {

@@ -259,7 +259,7 @@ State: Mid-execution on a 6-task notification feature plan
 
 ```
 Produce orientation with all sections. Getting Started for this context:
-1. Read the plan at docs/plans/2026-03-14-notifications-plan.md
+1. Read the plan at docs/changes/notifications/plans/2026-03-14-notifications-plan.md
 2. Resume execution at Task 4 (state shows Tasks 1-3 complete)
 3. Note the UTC normalization gotcha from learnings before working with dates
 ```

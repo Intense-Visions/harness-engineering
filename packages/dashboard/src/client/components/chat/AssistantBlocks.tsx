@@ -13,6 +13,9 @@ import type {
 } from '../../types/chat';
 import { NeuralOrganism } from './NeuralOrganism';
 import { isLogOutput, computeBlockSegments, segmentKey, type BlockSegment } from './block-segments';
+import { AdviseSkillsView, parseAdviseSkillsResult } from './AdviseSkillsView';
+import { FindingsView, parseFindingsResult } from './FindingsView';
+import { GraphImpactView, parseGraphImpactResult } from './GraphImpactView';
 
 const PROCESSING_PHRASES = [
   'Thinking deeply…',
@@ -547,13 +550,46 @@ function AgentBlockView({ block, children }: { block: ToolUseBlock; children?: R
             {promptText}
           </div>
         )}
-        {block.result && (
-          <div
-            className={`mt-2 pt-2 border-t ${borderDescClasses} text-xs text-neutral-muted prose prose-invert prose-xs max-h-[40vh] overflow-auto whitespace-pre-wrap`}
-          >
-            <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
-          </div>
-        )}
+        {block.result &&
+          (() => {
+            const advise = parseAdviseSkillsResult(block.result);
+            if (advise) {
+              return (
+                <div
+                  className={`mt-2 pt-2 border-t ${borderDescClasses} max-h-[60vh] overflow-auto`}
+                >
+                  <AdviseSkillsView payload={advise} />
+                </div>
+              );
+            }
+            const findings = parseFindingsResult(block.result);
+            if (findings) {
+              return (
+                <div
+                  className={`mt-2 pt-2 border-t ${borderDescClasses} max-h-[60vh] overflow-auto`}
+                >
+                  <FindingsView payload={findings} />
+                </div>
+              );
+            }
+            const impact = parseGraphImpactResult(block.result);
+            if (impact) {
+              return (
+                <div
+                  className={`mt-2 pt-2 border-t ${borderDescClasses} max-h-[60vh] overflow-auto`}
+                >
+                  <GraphImpactView payload={impact} />
+                </div>
+              );
+            }
+            return (
+              <div
+                className={`mt-2 pt-2 border-t ${borderDescClasses} text-xs text-neutral-muted prose prose-invert prose-xs max-h-[40vh] overflow-auto whitespace-pre-wrap`}
+              >
+                <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
+              </div>
+            );
+          })()}
         {children &&
           (Array.isArray(children) ? (children as React.ReactNode[]).length > 0 : true) && (
             <div className={`mt-2 pt-2 border-t ${borderDescClasses} flex flex-col gap-1`}>

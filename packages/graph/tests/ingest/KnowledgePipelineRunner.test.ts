@@ -253,4 +253,68 @@ describe('KnowledgePipelineRunner', () => {
       expect(result.coverage).toHaveProperty('generatedAt');
     });
   });
+
+  describe('inferenceOptions plumbing (Phase 4)', () => {
+    it('defaults to {} when no inferenceOptions field on options', async () => {
+      // Pre-seed graph with one node whose path lands under a non-default top-level dir.
+      store.addNode({
+        id: 'extracted:agents:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet',
+      });
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // Generic first-segment fallback: 'agents'
+      const domains = result.coverage.domains.map((d) => d.domain);
+      expect(domains).toContain('agents');
+      expect(domains).not.toContain('skills');
+    });
+
+    it('routes inferenceOptions.extraPatterns through to CoverageScorer', async () => {
+      store.addNode({
+        id: 'extracted:agents:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet',
+      });
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(
+        makeOptions({ inferenceOptions: { extraPatterns: ['agents/<dir>'] } })
+      );
+
+      const domains = result.coverage.domains.map((d) => d.domain);
+      expect(domains).toContain('skills');
+      expect(domains).not.toContain('agents');
+    });
+
+    it('routes inferenceOptions.extraBlocklist through to CoverageScorer (blocklisted segment falls through)', async () => {
+      store.addNode({
+        id: 'extracted:scratch:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'scratch/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet',
+      });
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(
+        makeOptions({ inferenceOptions: { extraBlocklist: ['scratch'] } })
+      );
+
+      // 'scratch' is now blocklisted → first non-blocklisted segment falls
+      // through. Load-bearing claim: blocklist is consulted, so the bucket
+      // is NOT 'scratch'.
+      const domains = result.coverage.domains.map((d) => d.domain);
+      expect(domains).not.toContain('scratch');
+    });
+  });
 });

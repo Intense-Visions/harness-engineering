@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'node:path';
 import chalk from 'chalk';
+import { resolveConfig } from '../config/loader';
 import { logger } from '../output/logger';
 
 export function createKnowledgePipelineCommand(): Command {
@@ -33,6 +34,26 @@ export function createKnowledgePipelineCommand(): Command {
           // Fresh graph
         }
 
+        // Resolve inference options from harness.config.json (knowledge.*).
+        // Mapping: knowledge.domainPatterns -> extraPatterns
+        //          knowledge.domainBlocklist -> extraBlocklist
+        // Absent / missing config: skip; runner defaults to {}.
+        const cfgResult = resolveConfig();
+        const cfgKnowledge = cfgResult.ok ? cfgResult.value.knowledge : undefined;
+        const inferenceOptions =
+          cfgKnowledge &&
+          ((cfgKnowledge.domainPatterns?.length ?? 0) > 0 ||
+            (cfgKnowledge.domainBlocklist?.length ?? 0) > 0)
+            ? {
+                ...((cfgKnowledge.domainPatterns?.length ?? 0) > 0
+                  ? { extraPatterns: cfgKnowledge.domainPatterns }
+                  : {}),
+                ...((cfgKnowledge.domainBlocklist?.length ?? 0) > 0
+                  ? { extraBlocklist: cfgKnowledge.domainBlocklist }
+                  : {}),
+              }
+            : undefined;
+
         // Build pipeline options
         const pipelineOpts: Record<string, unknown> = {
           projectDir,
@@ -41,6 +62,7 @@ export function createKnowledgePipelineCommand(): Command {
           ...(opts.domain ? { domain: opts.domain as string } : {}),
           graphDir,
           analyzeImages: Boolean(opts.analyzeImages),
+          ...(inferenceOptions ? { inferenceOptions } : {}),
         };
 
         // Parse image paths if provided

@@ -242,7 +242,7 @@ git diff --stat HEAD~1                    # measure diff size
 git diff HEAD~1 -- <file>                 # per-file diff
 grep -n "import\|require\|from " <file>   # find imports
 find . -name "*<module>*test*" -o -name "*<module>*spec*"
-grep -rl "<component>" docs/changes/ docs/design-docs/ docs/plans/
+grep -rl "<component>" docs/changes/ docs/design-docs/ docs/plans/   # docs/changes/*/plans/ covered by docs/changes/; docs/plans/ kept for legacy
 grep -rn "interface\|type\|schema" <changed-file> | head -20
 ```
 

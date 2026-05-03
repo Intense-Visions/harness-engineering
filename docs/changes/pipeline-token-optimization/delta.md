@@ -1,7 +1,7 @@
 # Delta: Session-Scoped Handoff (Phase 2)
 
 **Date:** 2026-04-10
-**Plan:** docs/plans/2026-04-10-session-scoped-handoff-plan.md
+**Plan:** docs/changes/pipeline-token-optimization/plans/2026-04-10-session-scoped-handoff-plan.md
 
 ## Changes
 
@@ -29,7 +29,7 @@
 # Delta: Autopilot Orchestrator Refactor (Phase 3)
 
 **Date:** 2026-04-10
-**Plan:** docs/plans/2026-04-10-autopilot-orchestrator-refactor-plan.md
+**Plan:** docs/changes/pipeline-token-optimization/plans/2026-04-10-autopilot-orchestrator-refactor-plan.md
 
 ## Changes
 
@@ -59,7 +59,7 @@
 # Delta: Pipeline Skill Updates (Phase 4)
 
 **Date:** 2026-04-10
-**Plan:** docs/plans/2026-04-10-pipeline-skill-updates-plan.md
+**Plan:** docs/changes/pipeline-token-optimization/plans/2026-04-10-pipeline-skill-updates-plan.md
 
 ## Changes
 

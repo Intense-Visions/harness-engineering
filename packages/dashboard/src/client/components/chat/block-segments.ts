@@ -7,13 +7,7 @@ export function isContainerTool(tool: string): boolean {
 }
 
 /** Check if text content appears to be log/terminal output rather than conversational prose. */
-export function isLogOutput(text: string, tool?: string): boolean {
-  const toolLower = tool?.toLowerCase();
-  const isCodeTool = toolLower === 'read' || toolLower === 'read_file' || toolLower === 'bash';
-
-  // For code/bash tools, we are very aggressive about pairing/collapsing
-  if (isCodeTool) return true;
-
+export function isLogOutput(text: string, _tool?: string): boolean {
   const logMarkers = [
     /^>\s/,
     /^\$\s/,

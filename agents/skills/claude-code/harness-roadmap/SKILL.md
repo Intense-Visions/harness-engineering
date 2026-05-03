@@ -32,7 +32,8 @@ If the human has not seen and approved the milestone groupings and feature list,
    - `docs/changes/*/proposal.md`
    - Record each spec's title, status (if detectable from frontmatter or content), and file path.
 3. Scan for plans:
-   - `docs/plans/*.md`
+   - `docs/changes/*/plans/*.md` (preferred — co-located with proposals)
+   - `docs/plans/*.md` (legacy fallback for plans not yet migrated)
    - Record each plan's title, estimated tasks, and file path.
 4. Match plans to specs:
    - Plans often reference their spec in frontmatter (`spec:`) or body text. Link them when a match is found.
@@ -112,7 +113,7 @@ Unmatched plans: N (flag for review)
    - **Spec:** docs/changes/feature-a/proposal.md
    - **Summary:** One-line description of the feature
    - **Blockers:** none
-   - **Plan:** docs/plans/2026-03-20-feature-a-plan.md
+   - **Plan:** docs/changes/feature-a/plans/2026-03-20-feature-a-plan.md
    ```
 
 3. Write to `docs/roadmap.md`.
@@ -436,7 +437,7 @@ Choice?
 
 ## Success Criteria
 
-1. `--create` discovers all specs (`docs/changes/*/proposal.md`) and plans (`docs/plans/*.md`)
+1. `--create` discovers all specs (`docs/changes/*/proposal.md`) and plans (`docs/changes/*/plans/*.md` and legacy `docs/plans/*.md`)
 2. `--create` proposes groupings and waits for human confirmation before writing
 3. `--create` produces a valid `docs/roadmap.md` that round-trips through `parseRoadmap`/`serializeRoadmap`
 4. `--add` collects all fields interactively (milestone, status, spec, summary, blockers, plan)

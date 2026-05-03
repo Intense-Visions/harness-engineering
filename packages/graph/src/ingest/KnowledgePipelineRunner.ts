@@ -33,6 +33,7 @@ import { ImageAnalysisExtractor, type AnalysisProvider } from './ImageAnalysisEx
 import { ContradictionDetector, type ContradictionResult } from './ContradictionDetector.js';
 import { CoverageScorer, type CoverageReport } from './CoverageScorer.js';
 import { KnowledgeDocMaterializer, type MaterializeResult } from './KnowledgeDocMaterializer.js';
+import type { DomainInferenceOptions } from './domain-inference.js';
 import { DecisionIngestor } from './DecisionIngestor.js';
 
 const BUSINESS_NODE_TYPES: readonly NodeType[] = [
@@ -66,6 +67,13 @@ export interface KnowledgePipelineOptions {
   readonly analyzeImages?: boolean;
   readonly analysisProvider?: AnalysisProvider;
   readonly imagePaths?: readonly string[];
+  /**
+   * Domain-inference overrides threaded into KnowledgeStagingAggregator,
+   * CoverageScorer, and KnowledgeDocMaterializer. Sourced by the CLI from
+   * `harness.config.json#knowledge.domainPatterns` (→ extraPatterns) and
+   * `knowledge.domainBlocklist` (→ extraBlocklist). Defaults to {} when absent.
+   */
+  readonly inferenceOptions?: DomainInferenceOptions;
 }
 
 export interface ExtractionCounts {
@@ -95,7 +103,11 @@ export interface KnowledgePipelineResult {
 export class KnowledgePipelineRunner {
   constructor(private readonly store: GraphStore) {}
 
+  /** Resolved per-`run()` inference options. Set on entry to `run()`. */
+  private inferenceOptions: DomainInferenceOptions = {};
+
   async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult> {
+    this.inferenceOptions = options.inferenceOptions ?? {};
     const remediations: string[] = [];
 
     // Phase 1: Capture pre-extraction snapshot, then extract
@@ -109,7 +121,7 @@ export class KnowledgePipelineRunner {
 
     // Phase 3: Detect gaps
     let gapReport = await this.detect(options);
-    const coverage = new CoverageScorer().score(this.store);
+    const coverage = new CoverageScorer(this.inferenceOptions).score(this.store);
 
     // Phase 4: Remediate (convergence loop)
     let materialization: MaterializeResult | undefined;
@@ -325,7 +337,7 @@ export class KnowledgePipelineRunner {
 
   private async detect(options: KnowledgePipelineOptions): Promise<GapReport> {
     const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
-    const aggregator = new KnowledgeStagingAggregator(options.projectDir);
+    const aggregator = new KnowledgeStagingAggregator(options.projectDir, this.inferenceOptions);
     const gapReport = await aggregator.generateGapReport(knowledgeDir, this.store);
     await aggregator.writeGapReport(gapReport);
     return gapReport;
@@ -366,7 +378,7 @@ export class KnowledgePipelineRunner {
       const allGapEntries = gapReport.domains.flatMap((d) => d.gapEntries);
       const materializable = allGapEntries.filter((e) => e.hasContent);
       if (materializable.length > 0) {
-        const materializer = new KnowledgeDocMaterializer(this.store);
+        const materializer = new KnowledgeDocMaterializer(this.store, this.inferenceOptions);
         const matResult = await materializer.materialize(materializable, {
           projectDir: options.projectDir,
           dryRun: false,
@@ -400,7 +412,7 @@ export class KnowledgePipelineRunner {
       }));
 
     if (stagedEntries.length > 0) {
-      const aggregator = new KnowledgeStagingAggregator(options.projectDir);
+      const aggregator = new KnowledgeStagingAggregator(options.projectDir, this.inferenceOptions);
       await aggregator.aggregate(stagedEntries, [], []);
     }
   }

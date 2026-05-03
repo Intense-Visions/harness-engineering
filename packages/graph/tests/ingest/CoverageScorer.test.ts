@@ -346,4 +346,42 @@ describe('CoverageScorer', () => {
     expect(report.overallScore).toBe(report.domains[0]!.score);
     expect(report.overallGrade).toBe(report.domains[0]!.grade);
   });
+
+  describe('inferenceOptions plumbing (Phase 4)', () => {
+    it('without inferenceOptions, agents/skills/foo lands in "agents" bucket', () => {
+      const store = new GraphStore();
+      store.addNode({
+        id: 'kn:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet',
+      });
+
+      const scorer = new CoverageScorer();
+      const report = scorer.score(store);
+
+      expect(report.domains.map((d) => d.domain)).toContain('agents');
+      expect(report.domains.map((d) => d.domain)).not.toContain('skills');
+    });
+
+    it('with inferenceOptions.extraPatterns ["agents/<dir>"], same node lands in "skills" bucket', () => {
+      const store = new GraphStore();
+      store.addNode({
+        id: 'kn:foo',
+        type: 'business_concept',
+        name: 'Foo',
+        path: 'agents/skills/foo.ts',
+        metadata: { source: 'extractor' },
+        content: 'lorem ipsum dolor sit amet',
+      });
+
+      const scorer = new CoverageScorer({ extraPatterns: ['agents/<dir>'] });
+      const report = scorer.score(store);
+
+      expect(report.domains.map((d) => d.domain)).toContain('skills');
+      expect(report.domains.map((d) => d.domain)).not.toContain('agents');
+    });
+  });
 });
