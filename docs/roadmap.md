@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-05-03T11:42:36.929Z
+last_manual_edit: 2026-05-03T16:41:49.827Z
 ---
 
 # Roadmap
@@ -1060,6 +1060,28 @@ last_manual_edit: 2026-05-03T11:42:36.929Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#257
+
+### Configurable Domain Inference for Knowledge Pipeline
+
+- **Status:** done
+- **Spec:** docs/changes/knowledge-domain-classifier/proposal.md
+- **Summary:** Extract inferDomain to a shared helper in @harness-engineering/graph; wire into KnowledgeStagingAggregator and CoverageScorer; add knowledge.domainPatterns and knowledge.domainBlocklist config schema. Closes the unknown-domain bucket (7,500 → <100 on this repo) and makes per-domain coverage grades meaningful. Configurable + sensible defaults + reserved blocklist for general-purpose use across projects.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#258
+
+### Diagnose pipeline node-path loss for domain inference
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Phase 6 verification of knowledge-domain-classifier showed SC#15 missed: real-repo unknown bucket went 7500 → 7553 instead of dropping to <100. Helper + wiring + config + integration test all pass; the gap is somewhere between KnowledgePipelineRunner.extract and KnowledgeStagingAggregator.generateGapReport — likely BusinessKnowledgeIngestor / DiagramParser / KnowledgeLinker creating business\_\* nodes without setting node.path. A 30-line diagnostic sampling business nodes post-extraction will localize it in minutes.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#259
 
 ## v3.0 Graph Intelligence
 
