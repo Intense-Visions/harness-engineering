@@ -43,6 +43,13 @@ export const DEFAULT_BLOCKLIST: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Known code-file extensions that should be stripped when <dir> happens to be
+ * a leaf filename (e.g., 'lib/parser.ts' → 'parser'). Directories with dots
+ * in their names (e.g., 'foo.bar') are preserved.
+ */
+const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as const;
+
+/**
  * Match a single pattern of the form 'prefix/<dir>' against a path.
  * Returns the captured `<dir>` segment, or null if no match.
  *
@@ -61,9 +68,12 @@ function matchPattern(filePath: string, pattern: string): string | null {
   let dir = pathParts[1]!;
   if (dir.length === 0) return null;
   // Strip file extension when <dir> happens to be a leaf filename
-  // (e.g., 'lib/parser.ts' → 'parser').
-  const dotIdx = dir.lastIndexOf('.');
-  if (dotIdx > 0) dir = dir.slice(0, dotIdx);
+  // (e.g., 'lib/parser.ts' → 'parser'). Only strip known code extensions
+  // so directories with dots in their names (e.g., 'foo.bar') are preserved.
+  if (CODE_EXTENSIONS.some((ext) => dir.endsWith(ext))) {
+    const dotIdx = dir.lastIndexOf('.');
+    if (dotIdx > 0) dir = dir.slice(0, dotIdx);
+  }
   if (dir.length === 0) return null;
   return dir;
 }
@@ -92,17 +102,26 @@ export function inferDomain(
   }
 
   if (filePath.length > 0) {
-    // 2. extraPatterns first (config wins over built-ins).
+    // 2. extraPatterns first (config wins over built-ins). If a pattern
+    //    matches but captures a blocklisted segment, return 'unknown'
+    //    immediately — symmetric with the leading-segment-blocklisted
+    //    case below. Explicit metadata.domain is the escape hatch.
     const extraPatterns = options.extraPatterns ?? [];
     for (const pattern of extraPatterns) {
       const dir = matchPattern(filePath, pattern);
-      if (dir !== null && !blocklist.has(dir)) return dir;
+      if (dir !== null) {
+        if (blocklist.has(dir)) return 'unknown';
+        return dir;
+      }
     }
 
-    // 3. Built-in patterns.
+    // 3. Built-in patterns. Same blocklist-on-capture semantics as above.
     for (const pattern of DEFAULT_PATTERNS) {
       const dir = matchPattern(filePath, pattern);
-      if (dir !== null && !blocklist.has(dir)) return dir;
+      if (dir !== null) {
+        if (blocklist.has(dir)) return 'unknown';
+        return dir;
+      }
     }
 
     // 4. Generic first-segment fallback. If the leading segment is

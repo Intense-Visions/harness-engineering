@@ -80,4 +80,36 @@ describe('inferDomain', () => {
       expect(inferDomain({ metadata: { source: 'knowledge-linker' } })).toBe('general');
     });
   });
+
+  describe('extension stripping (allowlist)', () => {
+    it('preserves directories with dots in their names (regression: OQ-13)', () => {
+      // 'src/foo.bar/baz.ts' must capture 'foo.bar' as the domain — the dot
+      // is part of a directory name, not a file extension.
+      expect(inferDomain({ path: 'src/foo.bar/baz.ts' })).toBe('foo.bar');
+    });
+
+    it('strips .tsx extension when <dir> is a leaf filename', () => {
+      expect(inferDomain({ path: 'lib/parser.tsx' })).toBe('parser');
+    });
+
+    it('strips .mjs extension when <dir> is a leaf filename', () => {
+      expect(inferDomain({ path: 'lib/parser.mjs' })).toBe('parser');
+    });
+
+    it('preserves dot-suffix when extension is not in the allowlist', () => {
+      // '.unknown' is not a known code extension, so the captured value is
+      // returned verbatim rather than truncated to 'parser'.
+      expect(inferDomain({ path: 'lib/parser.unknown' })).toBe('parser.unknown');
+    });
+  });
+
+  describe('blocklist symmetry on captured segment', () => {
+    it("returns 'unknown' when a built-in pattern captures a blocklisted segment (regression: Deviation A)", () => {
+      // 'packages/dist/foo.ts' matches the 'packages/<dir>' pattern but
+      // captures 'dist' which is blocklisted. Symmetric with the
+      // leading-segment-blocklisted case: should return 'unknown' rather
+      // than falling through to first-segment ('packages').
+      expect(inferDomain({ path: 'packages/dist/foo.ts' })).toBe('unknown');
+    });
+  });
 });
