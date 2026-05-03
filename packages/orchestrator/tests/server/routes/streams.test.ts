@@ -98,9 +98,10 @@ describe('streams routes', () => {
   });
 
   async function start(recorder: StreamRecorder): Promise<void> {
-    port = Math.floor(Math.random() * 10000) + 40000;
     server = createServer(recorder);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const addr = server.address();
+    port = typeof addr === 'object' && addr ? addr.port : 0;
   }
 
   it('returns false for non-stream URLs', async () => {
