@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-05-02T16:57:36.467Z
+last_manual_edit: 2026-05-03T11:42:36.929Z
 ---
 
 # Roadmap
@@ -1041,7 +1041,7 @@ last_manual_edit: 2026-05-02T16:57:36.467Z
 
 ### Init Skill — Design System & Roadmap Configuration
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/init-design-roadmap-config/proposal.md
 - **Summary:** Promote on_project_init triggers from declared-but-unused to actively invoked: ask 'Will this project have a UI?' (configure-only, sets design.enabled in harness.config.json) and 'Set up project roadmap now?' (creates docs/roadmap.md); auto-link 'Set up design system' as planned roadmap item when both yes.
 - **Blockers:** —
@@ -1049,6 +1049,17 @@ last_manual_edit: 2026-05-02T16:57:36.467Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#256
+
+### Init design + roadmap polish follow-ups
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Carry-forward polish from init-design-roadmap-config: (S2) refresh proposal.md:146 stale Registrations bullet to reflect harness-roadmap skill invocation, (S3) add harness-roadmap to initialize-harness-project skill.yaml depends_on for symmetry with harness-design-system, plus FINAL-S1 helper extraction, FINAL-S2 'not sure' vocabulary homogenization, FINAL-S3 catalog-consistency test docstring clarification.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#257
 
 ## v3.0 Graph Intelligence
 
