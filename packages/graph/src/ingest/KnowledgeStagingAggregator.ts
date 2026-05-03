@@ -9,6 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { NodeType } from '../types.js';
 import type { GraphStore } from '../store/GraphStore.js';
+import { inferDomain, type DomainInferenceOptions } from './domain-inference.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,10 @@ const BUSINESS_NODE_TYPES: readonly NodeType[] = [
 // ─── Implementation ─────────────────────────────────────────────────────────
 
 export class KnowledgeStagingAggregator {
-  constructor(private readonly projectDir: string) {}
+  constructor(
+    private readonly projectDir: string,
+    private readonly inferenceOptions: DomainInferenceOptions = {}
+  ) {}
 
   async aggregate(
     extractorResults: readonly StagedEntry[],
@@ -160,7 +164,7 @@ export class KnowledgeStagingAggregator {
     for (const nodeType of BUSINESS_NODE_TYPES) {
       const nodes = store.findNodes({ type: nodeType });
       for (const node of nodes) {
-        const domain = (node.metadata?.domain as string) ?? 'unknown';
+        const domain = inferDomain(node, this.inferenceOptions);
         const list = extractedByDomain.get(domain) ?? [];
         list.push(node);
         extractedByDomain.set(domain, list);
