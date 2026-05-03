@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { runInit } from '../../src/commands/init';
 import { runValidate } from '../../src/commands/validate';
-import { serializeRoadmap } from '@harness-engineering/core';
+import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
 
 type DesignAnswer = 'yes' | 'no' | 'not-sure';
 type RoadmapAnswer = 'yes' | 'no';
@@ -162,9 +162,27 @@ describe('harness init — design × roadmap matrix (6 paths)', () => {
         if (scenario.expectedConfig.platforms) {
           expect(reReadConfig.design.platforms).toEqual(scenario.expectedConfig.platforms);
         }
-        expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.md'))).toBe(
-          scenario.expectRoadmapFile
-        );
+        const roadmapPath = path.join(tmpDir, 'docs', 'roadmap.md');
+        expect(fs.existsSync(roadmapPath)).toBe(scenario.expectRoadmapFile);
+
+        // Step 6: roadmap-content assertions (spec #5: linked design item must
+        // NOT appear when either answer is no/not-sure). For scenarios that
+        // write a roadmap but should NOT contain the "Set up design system"
+        // entry, parse the file and assert the feature is genuinely absent.
+        // (For scenarios with no roadmap, file-existence assertion above
+        // already proves absence.)
+        if (scenario.expectRoadmapFile) {
+          const parseResult = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
+          expect(parseResult.ok).toBe(true);
+          if (!parseResult.ok) return;
+          const allFeatures = parseResult.value.milestones.flatMap((m) => m.features);
+          const designItem = allFeatures.find((f) => f.name === 'Set up design system');
+          if (scenario.expectDesignItemInRoadmap) {
+            expect(designItem).toBeDefined();
+          } else {
+            expect(designItem).toBeUndefined();
+          }
+        }
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
