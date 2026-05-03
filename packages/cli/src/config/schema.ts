@@ -280,6 +280,31 @@ export const RoadmapConfigSchema = z.object({
   tracker: TrackerConfigSchema.optional(),
 });
 
+/**
+ * Schema for knowledge-pipeline domain inference configuration.
+ *
+ * Both fields *extend* the built-in defaults shipped by
+ * `packages/graph/src/ingest/domain-inference.ts`:
+ *   - `domainPatterns` adds caller-supplied `<prefix>/<dir>` patterns
+ *     beyond `DEFAULT_PATTERNS` (packages, apps, services, src, lib).
+ *   - `domainBlocklist` adds caller-supplied segment names beyond
+ *     `DEFAULT_BLOCKLIST` (node_modules, .harness, dist, build, etc.).
+ *
+ * Pattern syntax: `prefix/<dir>` where `prefix` is a single path segment
+ * (word chars, dots, hyphens). `<dir>` is the literal placeholder string;
+ * the inferrer captures the path segment that lands at that position
+ * as the resolved domain. See proposal Decision D8.
+ */
+export const KnowledgeConfigSchema = z.object({
+  /** Caller-supplied domain patterns (e.g. `["agents/<dir>"]`). Extends defaults. */
+  domainPatterns: z
+    .array(z.string().regex(/^[\w.-]+\/<dir>$/))
+    .optional()
+    .default([]),
+  /** Caller-supplied blocklisted path segments (e.g. `["scratch", "fixtures"]`). Extends defaults. */
+  domainBlocklist: z.array(z.string().min(1)).optional().default([]),
+});
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -369,6 +394,8 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   /** Roadmap sync and tracker integration settings */
   roadmap: RoadmapConfigSchema.optional(),
+  /** Knowledge-pipeline domain-inference settings */
+  knowledge: KnowledgeConfigSchema.optional(),
   /** Adoption telemetry settings */
   adoption: z
     .object({
@@ -433,3 +460,8 @@ export type ArchConfigZod = z.infer<typeof ArchConfigSchema>;
  * Type for integrations-specific configuration.
  */
 export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
+
+/**
+ * Type for knowledge-pipeline-specific configuration.
+ */
+export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
