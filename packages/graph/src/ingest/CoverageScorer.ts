@@ -1,6 +1,7 @@
 import type { GraphStore } from '../store/GraphStore.js';
 import type { EdgeType, GraphNode, NodeType } from '../types.js';
 import { KNOWLEDGE_NODE_TYPES } from './knowledgeTypes.js';
+import { inferDomain, type DomainInferenceOptions } from './domain-inference.js';
 
 // --- Exported result types ---
 
@@ -58,14 +59,24 @@ function toGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
 
 // --- Helpers (module-level) ---
 
-/** Group nodes by domain, using a fallback resolver for nodes without explicit domain metadata. */
+/**
+ * Group nodes by domain. Domain resolution delegates to the shared
+ * `inferDomain` helper, which honours `metadata.domain` first and falls
+ * back to path-based / config-pattern / built-in-pattern resolution.
+ *
+ * @param fallback Deprecated. Ignored. Retained as an optional positional
+ *   parameter for source-level back-compat with callers that still pass it.
+ *   Will be removed in a future release. Use `options.extraPatterns` /
+ *   `options.extraBlocklist` instead.
+ */
 function groupByDomain(
   nodes: readonly GraphNode[],
-  fallback: (node: GraphNode) => string
+  /** @deprecated Ignored. */ _fallback?: (node: GraphNode) => string,
+  options: DomainInferenceOptions = {}
 ): Map<string, GraphNode[]> {
   const map = new Map<string, GraphNode[]>();
   for (const node of nodes) {
-    const domain = (node.metadata.domain as string) ?? fallback(node);
+    const domain = inferDomain(node, options);
     const group = map.get(domain) ?? [];
     group.push(node);
     map.set(domain, group);
@@ -150,12 +161,14 @@ function scoreDomain(
 // --- Scorer ---
 
 export class CoverageScorer {
+  constructor(private readonly inferenceOptions: DomainInferenceOptions = {}) {}
+
   score(store: GraphStore): CoverageReport {
     const knowledgeNodes = KNOWLEDGE_TYPES.flatMap((t) => store.findNodes({ type: t }));
-    const domainMap = groupByDomain(knowledgeNodes, () => 'unclassified');
+    const domainMap = groupByDomain(knowledgeNodes, undefined, this.inferenceOptions);
 
     const codeNodes = CODE_TYPES.flatMap((t) => store.findNodes({ type: t }));
-    const codeDomains = groupByDomain(codeNodes, (n) => this.domainFromPath(n.path));
+    const codeDomains = groupByDomain(codeNodes, undefined, this.inferenceOptions);
 
     const allDomains = new Set([...domainMap.keys(), ...codeDomains.keys()]);
     const domains: DomainCoverageScore[] = [];
@@ -177,15 +190,5 @@ export class CoverageScorer {
       overallGrade: toGrade(overallScore),
       generatedAt: new Date().toISOString(),
     };
-  }
-
-  private domainFromPath(filePath?: string): string {
-    if (!filePath) return 'unclassified';
-    const parts = filePath.split('/');
-    const pkgIdx = parts.indexOf('packages');
-    if (pkgIdx >= 0 && parts[pkgIdx + 1]) return parts[pkgIdx + 1]!;
-    const srcIdx = parts.indexOf('src');
-    if (srcIdx >= 0 && parts[srcIdx + 1]) return parts[srcIdx + 1]!;
-    return parts[0] ?? 'unclassified';
   }
 }
