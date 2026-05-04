@@ -39,6 +39,7 @@ import { AnthropicBackend } from './agent/backends/anthropic';
 import { LocalBackend } from './agent/backends/local';
 import { PiBackend } from './agent/backends/pi';
 import { LocalModelResolver, normalizeLocalModel } from './agent/local-model-resolver';
+import { migrateAgentConfig } from './agent/config-migration';
 import { ContainerBackend } from './agent/backends/container';
 import { DockerRuntime } from './agent/runtime/docker';
 import { createSecretBackend } from './agent/secrets/index';
@@ -139,6 +140,36 @@ export class Orchestrator extends EventEmitter {
     this.promptTemplate = promptTemplate;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
+
+    // Spec 2 / Task 9: Apply legacy → modern config migration eagerly so
+    // every downstream code path observes a uniform `agent.backends` +
+    // `agent.routing` shape. `migrateAgentConfig` is a no-op when
+    // `agent.backends` is already set; it synthesizes both fields when
+    // only legacy fields are set (Phase 0 SC9-SC11). After this block,
+    // `this.config.agent.backends` is guaranteed populated for migrated
+    // configs.
+    //
+    // Defensive fallback: legacy configs that lack the supplemental fields
+    // a synthesized BackendDef would need (e.g., `agent.backend='anthropic'`
+    // without `agent.model`) cause `migrateAgentConfig` to throw. The
+    // existing legacy `createBackend()` path (constructed below from
+    // `agent.backend` directly) is more permissive and tolerates these
+    // configs at runtime. Until autopilot Phase 4 retires the legacy
+    // `createBackend()` entry point entirely, we swallow synthesis errors
+    // and fall through to the legacy path with a warn so dispatch
+    // behavior is unchanged for these older configs.
+    try {
+      const migrationResult = migrateAgentConfig(this.config.agent);
+      if (migrationResult.warnings.length > 0) {
+        for (const w of migrationResult.warnings) this.logger.warn(w);
+      }
+      this.config = { ...this.config, agent: migrationResult.config };
+    } catch (err) {
+      this.logger.warn(
+        `migrateAgentConfig failed; continuing with legacy fields. ` +
+          `Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
     // Initialize adapters based on config or overrides
     this.tracker = overrides?.tracker || this.createTracker();
