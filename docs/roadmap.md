@@ -1085,7 +1085,7 @@ last_manual_edit: 2026-05-03T16:41:49.827Z
 
 ### Local Model Array Fallback with Resolver Consolidation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/local-model-fallback/proposal.md
 - **Summary:** Widen orchestrator agent.localModel to string|string[] with periodic /v1/models probe; consolidate local-config reads behind a LocalModelResolver; surface dashboard warning when no candidate is loaded.
 - **Blockers:** —
