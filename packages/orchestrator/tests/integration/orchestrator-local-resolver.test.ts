@@ -156,17 +156,17 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       ).toBe(0);
     });
 
-    it('OT10: createLocalBackend and createAnalysisProvider both reference localResolvers Map', () => {
-      // Phase 3 / Task 10: the single-resolver field has been replaced by
-      // a per-named-backend Map (SC37). Both consumer methods must
-      // reference the new field.
+    it('OT10: createAnalysisProvider references localResolvers; legacy createBackend/createLocalBackend gone', () => {
+      // Phase 3 / Tasks 10-12: the single-resolver field has been
+      // replaced by a per-named-backend Map (SC37) consumed by
+      // `createAnalysisProvider`. The legacy two-runner methods
+      // `createBackend()` and `createLocalBackend()` have been deleted
+      // outright (SC30) — the per-dispatch `OrchestratorBackendFactory`
+      // owns backend construction now.
       const src = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'orchestrator.ts'),
         'utf8'
       );
-      const localBackendMatch = src.match(/private createLocalBackend\(\)[\s\S]*?\n  \}/);
-      expect(localBackendMatch, 'createLocalBackend method not found').not.toBeNull();
-      expect(localBackendMatch![0]).toMatch(/this\.localResolvers/);
 
       const analysisProviderMatch = src.match(/private createAnalysisProvider\(\)[\s\S]*?\n  \}/);
       expect(analysisProviderMatch, 'createAnalysisProvider method not found').not.toBeNull();
@@ -176,6 +176,11 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       expect(src).not.toMatch(/PHASE3-REMOVE/);
       // The legacy single-resolver field must be gone (SC37).
       expect(src).not.toMatch(/private\s+localModelResolver\s*[:=]/);
+      // Spec 2 SC30: legacy two-runner builders must be gone.
+      expect(src).not.toMatch(/private\s+createBackend\s*\(/);
+      expect(src).not.toMatch(/private\s+createLocalBackend\s*\(/);
+      // Spec 2 SC30: per-dispatch factory must be wired.
+      expect(src).toMatch(/this\.backendFactory/);
     });
   });
 
@@ -428,16 +433,22 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
 
         expect(resolver!.resolveModel()).toBe('gemma-4-e4b');
 
-        // Reach into the localRunner to grab the backend, then call
-        // startSession directly. The runner stores the backend internally;
-        // tests/agent/runner.test.ts shows the access pattern.
-        const localRunner = (
+        // Spec 2 SC30 / Task 11: the Phase 1 `localRunner` field is
+        // gone. Build the backend through the factory the same way
+        // `dispatchIssue` does (quick-fix tier → routed-default in
+        // legacy single-backend configs → the synthesized `local`
+        // backend). startSession should now return Ok because the
+        // resolver-bound getModel returns the recovered model.
+        const factory = (
           orch as unknown as {
-            localRunner: { backend: import('@harness-engineering/types').AgentBackend };
+            backendFactory:
+              | import('../../src/agent/orchestrator-backend-factory').OrchestratorBackendFactory
+              | null;
           }
-        ).localRunner;
-        expect(localRunner).not.toBeNull();
-        const result = await localRunner.backend.startSession({
+        ).backendFactory;
+        expect(factory).not.toBeNull();
+        const backend = factory!.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+        const result = await backend.startSession({
           workspacePath: '/tmp/test',
           systemPrompt: 'sys',
         });
