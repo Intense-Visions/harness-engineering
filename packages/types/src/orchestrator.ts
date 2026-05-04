@@ -382,6 +382,20 @@ export interface RoutingConfig {
 }
 
 /**
+ * Discriminated union describing a single routing query (Spec 2 §3 / SC16-SC21).
+ *
+ * Consumed by `BackendRouter.resolve(useCase)` and
+ * `BackendRouter.resolveDefinition(useCase)`. Extensible — new use-case
+ * kinds (e.g., `agentic-tool`) can be added without breaking existing
+ * callers, since unknown kinds are not constructible.
+ */
+export type RoutingUseCase =
+  | { kind: 'tier'; tier: ScopeTier }
+  | { kind: 'intelligence'; layer: 'sel' | 'pesl' }
+  | { kind: 'maintenance' }
+  | { kind: 'chat' };
+
+/**
  * Configuration for the agent runner.
  */
 export interface AgentConfig {

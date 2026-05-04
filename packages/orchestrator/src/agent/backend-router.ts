@@ -1,4 +1,4 @@
-import type { BackendDef, RoutingConfig } from '@harness-engineering/types';
+import type { BackendDef, RoutingConfig, RoutingUseCase } from '@harness-engineering/types';
 
 export interface BackendRouterOptions {
   backends: Record<string, BackendDef>;
@@ -8,14 +8,17 @@ export interface BackendRouterOptions {
 /**
  * BackendRouter
  *
- * Owns the lookup from a routing scope (and optional intelligence layer)
- * to a named backend. Construction-time validation guarantees every name
- * referenced by `routing` is present in `backends` so runtime lookups are
- * total and never throw on unknown-name references (D6/D7).
+ * Owns the lookup from a `RoutingUseCase` (a discriminated query — tier,
+ * intelligence layer, maintenance, chat) to a named backend.
+ * Construction-time validation guarantees every name referenced by
+ * `routing` is present in `backends` so runtime lookups are total and
+ * never throw on unknown-name references (D6/D7).
  *
- * Lookups for unknown scope strings or scopes mapped to undefined fall
- * back to `routing.default` without throwing — this matches the spec's
- * "every use case inherits default unless explicitly routed" semantics.
+ * Lookups for tier/intelligence use cases that fall through to undefined
+ * mappings return `routing.default` without throwing — this matches the
+ * spec's "every use case inherits default unless explicitly routed"
+ * semantics. The `maintenance` and `chat` kinds always resolve to
+ * `routing.default` (SC19, SC20).
  */
 export class BackendRouter {
   private readonly backends: Record<string, BackendDef>;
@@ -28,19 +31,27 @@ export class BackendRouter {
   }
 
   /**
-   * Returns the backend name for a given scope. Optional intelligenceLayer
-   * routes through `routing.intelligence[layer]` instead of the top-level
-   * scope. Both fall back to `routing.default` when unmapped.
+   * Returns the backend name for a given use case.
+   *
+   * - `tier`: per-tier override, falling back to `routing.default`.
+   * - `intelligence`: per-layer override under `routing.intelligence`,
+   *   falling back to `routing.default`.
+   * - `maintenance` / `chat`: always `routing.default`.
    */
-  getBackendName(scope: string, intelligenceLayer?: string): string {
-    if (intelligenceLayer !== undefined) {
-      const intel = this.routing.intelligence as Record<string, string | undefined> | undefined;
-      const named = intel?.[intelligenceLayer];
-      return named ?? this.routing.default;
+  resolve(useCase: RoutingUseCase): string {
+    switch (useCase.kind) {
+      case 'tier': {
+        const named = (this.routing as unknown as Record<string, string | undefined>)[useCase.tier];
+        return named ?? this.routing.default;
+      }
+      case 'intelligence': {
+        const intel = this.routing.intelligence as Record<string, string | undefined> | undefined;
+        return intel?.[useCase.layer] ?? this.routing.default;
+      }
+      case 'maintenance':
+      case 'chat':
+        return this.routing.default;
     }
-    const top = this.routing as unknown as Record<string, string | undefined>;
-    const named = top[scope];
-    return named ?? this.routing.default;
   }
 
   /**
@@ -48,15 +59,15 @@ export class BackendRouter {
    * exact reference held in `backends` (no copy) so identity comparisons
    * succeed (SC21).
    */
-  getBackend(scope: string, intelligenceLayer?: string): BackendDef {
-    const name = this.getBackendName(scope, intelligenceLayer);
+  resolveDefinition(useCase: RoutingUseCase): BackendDef {
+    const name = this.resolve(useCase);
     const def = this.backends[name];
     if (!def) {
       // Should be unreachable thanks to construction-time validation, but
       // we throw rather than return a phantom undefined.
       throw new Error(
-        `BackendRouter.getBackend: routing target '${name}' is not in backends ` +
-          `(scope='${scope}'${intelligenceLayer ? `, intelligenceLayer='${intelligenceLayer}'` : ''}).`
+        `BackendRouter.resolveDefinition: routing target '${name}' is not in backends ` +
+          `(useCase=${JSON.stringify(useCase)}).`
       );
     }
     return def;

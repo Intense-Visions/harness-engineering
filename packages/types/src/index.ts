@@ -134,6 +134,7 @@ export type {
   LocalBackendDef,
   PiBackendDef,
   RoutingConfig,
+  RoutingUseCase,
   NamedLocalModelStatus,
 } from './orchestrator';
 
