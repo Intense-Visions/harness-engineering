@@ -8,8 +8,24 @@ import { MockBackend } from '../../src/agent/backends/mock';
 import type { WorkflowConfig, IssueTrackerClient } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { noopExecFile } from '../helpers/noop-exec-file';
+import type { LocalModelResolver } from '../../src/agent/local-model-resolver';
 
 let tmpDir: string;
+
+/**
+ * Spec 2 Phase 3 / Task 10: read the first registered LocalModelResolver
+ * from the orchestrator's per-named-backend Map. Returns `null` when no
+ * local resolver is registered (cloud-only configs). Replaces the
+ * Phase 1 `localModelResolver` field — the Map is now the single source
+ * of truth (SC37). Test-only: TypeScript private fields are
+ * structurally accessible at runtime.
+ */
+function firstResolver(orch: Orchestrator): LocalModelResolver | null {
+  const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+    .localResolvers;
+  const first = map.values().next();
+  return first.done ? null : first.value;
+}
 
 function makeMockTracker(): IssueTrackerClient {
   return {
@@ -86,35 +102,28 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       });
       // Access via test-only field exposure: TypeScript private fields are
       // structurally accessible at runtime — read with a typed cast.
-      const resolver = (
-        orch as unknown as {
-          localModelResolver:
-            | import('../../src/agent/local-model-resolver').LocalModelResolver
-            | null;
-        }
-      ).localModelResolver;
+      const resolver = firstResolver(orch);
       expect(resolver).not.toBeNull();
       expect(resolver!.getStatus().configured).toEqual(['gemma-4-e4b']);
     });
   });
 
   describe('SC2 — resolver gated by localBackend', () => {
-    it('OT2a: cloud-only config does NOT instantiate the resolver', () => {
+    it('OT2a: cloud-only config does NOT instantiate any resolver', () => {
       const config = makeConfig({ backend: 'mock' }); // no localBackend
       const orch = new Orchestrator(config, 'Prompt', {
         tracker: makeMockTracker(),
         backend: new MockBackend(),
         execFileFn: noopExecFile,
       });
-      const resolver = (
-        orch as unknown as {
-          localModelResolver: unknown;
-        }
-      ).localModelResolver;
-      expect(resolver).toBeNull();
+      // Spec 2 SC37: localResolvers Map should be empty for cloud-only configs.
+      const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+        .localResolvers;
+      expect(map.size).toBe(0);
+      expect(firstResolver(orch)).toBeNull();
     });
 
-    it('OT2b: claude/anthropic/openai/gemini configs do not instantiate the resolver', () => {
+    it('OT2b: claude/anthropic/openai/gemini configs do not instantiate any resolver', () => {
       for (const backend of ['claude', 'anthropic', 'openai', 'gemini'] as const) {
         const config = makeConfig({ backend, apiKey: 'test-key' });
         const orch = new Orchestrator(config, 'Prompt', {
@@ -122,47 +131,51 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
           backend: new MockBackend(),
           execFileFn: noopExecFile,
         });
-        const resolver = (
-          orch as unknown as {
-            localModelResolver: unknown;
-          }
-        ).localModelResolver;
-        expect(resolver, `resolver should be null for backend=${backend}`).toBeNull();
+        const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+          .localResolvers;
+        expect(map.size, `localResolvers should be empty for backend=${backend}`).toBe(0);
       }
     });
   });
 
-  describe('SC-CON1 / SC-CON2 — single read site, single resolver consumer', () => {
-    it('OT9: source has exactly one read of agent.localModel, at the resolver ctor site', () => {
+  describe('SC-CON1 / SC-CON2 — single read site, single resolver consumer (Phase 3)', () => {
+    it('OT9: source has zero direct reads of agent.localModel (consumed by migrateAgentConfig)', () => {
+      // Phase 3 / Task 9: migrateAgentConfig now consumes the legacy
+      // agent.localModel field at the constructor's start. The resolver
+      // ctor site reads `def.model` from the synthesized backends Map.
+      // Asserting zero direct reads catches accidental regressions to
+      // dual-path field consumption.
       const src = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'orchestrator.ts'),
         'utf8'
       );
-      const matches = src.match(/this\.config\.agent\.localModel/g) ?? [];
+      const matches = src.match(/this\.config\.agent\.localModel\b/g) ?? [];
       expect(
         matches.length,
-        `expected exactly 1 read of this.config.agent.localModel; got ${matches.length}`
-      ).toBe(1);
-      // The single read must live in a normalizeLocalModel(...) call.
-      expect(src).toMatch(/normalizeLocalModel\(\s*this\.config\.agent\.localModel\s*\)/);
+        `expected zero reads of this.config.agent.localModel after Phase 3 migration; got ${matches.length}`
+      ).toBe(0);
     });
 
-    it('OT10: createLocalBackend and createAnalysisProvider both reference localModelResolver', () => {
+    it('OT10: createLocalBackend and createAnalysisProvider both reference localResolvers Map', () => {
+      // Phase 3 / Task 10: the single-resolver field has been replaced by
+      // a per-named-backend Map (SC37). Both consumer methods must
+      // reference the new field.
       const src = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'orchestrator.ts'),
         'utf8'
       );
-      // Pull each method body individually and assert resolver references.
       const localBackendMatch = src.match(/private createLocalBackend\(\)[\s\S]*?\n  \}/);
       expect(localBackendMatch, 'createLocalBackend method not found').not.toBeNull();
-      expect(localBackendMatch![0]).toMatch(/this\.localModelResolver/);
+      expect(localBackendMatch![0]).toMatch(/this\.localResolvers/);
 
       const analysisProviderMatch = src.match(/private createAnalysisProvider\(\)[\s\S]*?\n  \}/);
       expect(analysisProviderMatch, 'createAnalysisProvider method not found').not.toBeNull();
-      expect(analysisProviderMatch![0]).toMatch(/this\.localModelResolver/);
+      expect(analysisProviderMatch![0]).toMatch(/this\.localResolvers/);
 
       // No PHASE3-REMOVE markers remain.
       expect(src).not.toMatch(/PHASE3-REMOVE/);
+      // The legacy single-resolver field must be gone (SC37).
+      expect(src).not.toMatch(/private\s+localModelResolver\s*[:=]/);
     });
   });
 
@@ -181,11 +194,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         execFileFn: noopExecFile,
       });
       // Inject the fetchModels stub onto the resolver before start().
-      const resolver = (
-        orch as unknown as {
-          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-        }
-      ).localModelResolver;
+      const resolver = firstResolver(orch);
+      expect(resolver).not.toBeNull();
       (
         resolver as unknown as {
           fetchModels: (e: string, k?: string) => Promise<string[]>;
@@ -195,7 +205,7 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       await orch.start();
       try {
         expect(fetchModels).toHaveBeenCalledTimes(1);
-        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+        expect(resolver!.resolveModel()).toBe('gemma-4-e4b');
       } finally {
         await orch.stop();
       }
@@ -222,11 +232,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       });
       const warnSpy = vi.fn();
       (orch as unknown as { logger: { warn: typeof warnSpy } }).logger.warn = warnSpy;
-      const resolver = (
-        orch as unknown as {
-          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-        }
-      ).localModelResolver;
+      const resolver = firstResolver(orch);
+      expect(resolver).not.toBeNull();
       (
         resolver as unknown as {
           fetchModels: (e: string, k?: string) => Promise<string[]>;
@@ -263,11 +270,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         backend: new MockBackend(),
         execFileFn: noopExecFile,
       });
-      const resolver = (
-        orch as unknown as {
-          localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-        }
-      ).localModelResolver;
+      const resolver = firstResolver(orch);
+      expect(resolver).not.toBeNull();
       (
         resolver as unknown as {
           fetchModels: (e: string, k?: string) => Promise<string[]>;
@@ -301,8 +305,10 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       const warnSpy = vi.fn();
       (orch as unknown as { logger: { warn: typeof warnSpy } }).logger.warn = warnSpy;
 
-      const resolver = (orch as unknown as { localModelResolver: unknown }).localModelResolver;
-      expect(resolver).toBeNull();
+      // Cloud-only config: localResolvers Map should be empty.
+      const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+        .localResolvers;
+      expect(map.size).toBe(0);
 
       await orch.start();
       try {
@@ -351,11 +357,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
             broadcasts.push(s as import('@harness-engineering/types').LocalModelStatus),
           setPipeline: () => {},
         };
-        const resolver = (
-          orch as unknown as {
-            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-          }
-        ).localModelResolver;
+        const resolver = firstResolver(orch);
+        expect(resolver).not.toBeNull();
         (
           resolver as unknown as {
             fetchModels: (e: string, k?: string) => Promise<string[]>;
@@ -363,7 +366,7 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         ).fetchModels = fetchModels;
 
         await orch.start(); // probe 1 → []
-        expect(resolver.resolveModel()).toBeNull();
+        expect(resolver!.resolveModel()).toBeNull();
 
         // Advance to trigger probe 2 → [gemma-4-e4b]
         await vi.advanceTimersByTimeAsync(1_000);
@@ -372,7 +375,7 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+        expect(resolver!.resolveModel()).toBe('gemma-4-e4b');
         expect(broadcasts.length).toBeGreaterThanOrEqual(2);
         // First broadcast: not available; subsequent broadcast: available.
         const lastBroadcast = broadcasts[broadcasts.length - 1]!;
@@ -403,11 +406,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
           backend: new MockBackend(),
           execFileFn: noopExecFile,
         });
-        const resolver = (
-          orch as unknown as {
-            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-          }
-        ).localModelResolver;
+        const resolver = firstResolver(orch);
+        expect(resolver).not.toBeNull();
         (
           resolver as unknown as {
             fetchModels: (e: string, k?: string) => Promise<string[]>;
@@ -419,14 +419,14 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         // Initially unavailable — startSession would fail. Confirm by
         // pulling the localRunner's backend and inspecting the resolver-
         // bound getModel callback.
-        expect(resolver.resolveModel()).toBeNull();
+        expect(resolver!.resolveModel()).toBeNull();
 
         // Advance to trigger recovery probe.
         await vi.advanceTimersByTimeAsync(1_000);
         await vi.runOnlyPendingTimersAsync();
         await Promise.resolve();
 
-        expect(resolver.resolveModel()).toBe('gemma-4-e4b');
+        expect(resolver!.resolveModel()).toBe('gemma-4-e4b');
 
         // Reach into the localRunner to grab the backend, then call
         // startSession directly. The runner stores the backend internally;
@@ -467,11 +467,8 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
           backend: new MockBackend(),
           execFileFn: noopExecFile,
         });
-        const resolver = (
-          orch as unknown as {
-            localModelResolver: import('../../src/agent/local-model-resolver').LocalModelResolver;
-          }
-        ).localModelResolver;
+        const resolver = firstResolver(orch);
+        expect(resolver).not.toBeNull();
         (
           resolver as unknown as {
             fetchModels: (e: string, k?: string) => Promise<string[]>;

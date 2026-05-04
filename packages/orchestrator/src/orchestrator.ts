@@ -38,7 +38,7 @@ import { GeminiBackend } from './agent/backends/gemini';
 import { AnthropicBackend } from './agent/backends/anthropic';
 import { LocalBackend } from './agent/backends/local';
 import { PiBackend } from './agent/backends/pi';
-import { LocalModelResolver, normalizeLocalModel } from './agent/local-model-resolver';
+import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { ContainerBackend } from './agent/backends/container';
 import { DockerRuntime } from './agent/runtime/docker';
@@ -86,7 +86,13 @@ export class Orchestrator extends EventEmitter {
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
-  private localModelResolver: LocalModelResolver | null = null;
+  /**
+   * Per-named-backend resolver map (Spec 2 SC37). Each `local`/`pi` entry
+   * in `agent.backends` spawns one `LocalModelResolver`. Legacy
+   * single-backend configs converge here via `migrateAgentConfig` (Task 9),
+   * so this map is the single source of truth post-migration.
+   */
+  private localResolvers = new Map<string, LocalModelResolver>();
   private localModelStatusUnsubscribe: (() => void) | null = null;
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
@@ -186,33 +192,35 @@ export class Orchestrator extends EventEmitter {
 
     this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
 
-    // Phase 3: construct LocalModelResolver before any code path that reads
-    // localModel resolution. createLocalBackend() and createAnalysisProvider()
-    // both consult this.localModelResolver; null means "no local backend
-    // configured" (cloud path). Initial probe runs in start() — at construction
-    // time the resolver exists but has not yet observed the server, so its
-    // status reports available: false. The intelligence pipeline construction
-    // is deferred to start() so SC14 (pipeline disabled on local-unavailable)
-    // can be observed without races.
-    if (this.config.agent.localBackend) {
-      const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
-      const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
-        endpoint,
-        configured: normalizeLocalModel(this.config.agent.localModel),
-        logger: this.logger,
-      };
-      if (this.config.agent.localApiKey !== undefined) {
-        resolverOpts.apiKey = this.config.agent.localApiKey;
+    // Spec 2 SC37 / Task 10: build per-named-backend LocalModelResolver
+    // Map. Each `local`/`pi` entry in `agent.backends` spawns one resolver.
+    // Legacy single-backend configs went through `migrateAgentConfig`
+    // (Task 9), so this branch is uniform whether the user wrote
+    // `agent.backends` or only legacy fields. Initial probe runs in
+    // start() — at construction time each resolver exists but has not yet
+    // observed its server, so status reports `available: false`. The
+    // intelligence pipeline construction is deferred to start() so SC14
+    // (pipeline disabled on local-unavailable) can be observed without
+    // races.
+    //
+    // Note: `agent.localTimeoutMs` is the request timeout for
+    // chat-completion calls (default 90s) — NOT the probe timeout. The
+    // resolver uses its own 5s default for /v1/models probes so a hung
+    // server fails fast rather than blocking the probe loop. If a
+    // dedicated probe timeout is ever needed, add
+    // `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
+    const backendsMap = this.config.agent.backends ?? {};
+    for (const [name, def] of Object.entries(backendsMap)) {
+      if (def.type === 'local' || def.type === 'pi') {
+        const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
+          endpoint: def.endpoint,
+          configured: typeof def.model === 'string' ? [def.model] : def.model,
+          logger: this.logger,
+        };
+        if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
+        if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
       }
-      if (this.config.agent.localProbeIntervalMs !== undefined) {
-        resolverOpts.probeIntervalMs = this.config.agent.localProbeIntervalMs;
-      }
-      // Note: agent.localTimeoutMs is the request timeout for chat-completion calls
-      // (default 90s) — NOT the probe timeout. The resolver uses its own 5s default
-      // for /v1/models probes so a hung server fails fast rather than blocking the
-      // probe loop for a minute and a half. If a dedicated probe timeout is ever
-      // needed, add `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
-      this.localModelResolver = new LocalModelResolver(resolverOpts);
     }
 
     const localBackend = this.createLocalBackend();
@@ -274,7 +282,13 @@ export class Orchestrator extends EventEmitter {
         analysisArchive: this.analysisArchive,
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
-        getLocalModelStatus: () => this.localModelResolver?.getStatus() ?? null,
+        getLocalModelStatus: () => {
+          // First-resolver compat: SC38-40 (multi-banner API surface) lands
+          // in autopilot Phase 4. For now, expose the first-registered
+          // resolver's status so single-banner consumers see correct data.
+          const first = this.localResolvers.values().next();
+          return first.done ? null : first.value.getStatus();
+        },
       });
 
       this.server.setRecorder(this.recorder);
@@ -485,7 +499,15 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createLocalBackend(): AgentBackend | null {
-    if (!this.localModelResolver) return null;
+    // First-resolver compat for legacy `agent.localBackend` path. The
+    // multi-resolver Map (SC37) replaces the single-resolver field; this
+    // legacy method picks the first resolver entry (typically the
+    // synthesized `local` backend produced by migrateAgentConfig).
+    // Returns null when no resolver is registered (cloud-only configs).
+    const firstEntry = this.localResolvers.values().next();
+    if (firstEntry.done) return null;
+    const firstResolver = firstEntry.value;
+    if (!this.config.agent.localBackend) return null;
     // Resolver-bound callback — invoked at session start by the backend.
     // Returning null causes startSession() to fail with typed agent_not_found
     // (per Phase 2 wiring); the orchestrator's escalation handler treats it
@@ -493,7 +515,7 @@ export class Orchestrator extends EventEmitter {
     // agent.localApiKey continue to be read here (transport configuration);
     // SC-CON1 specifically scopes the single-read-site contract to
     // agent.localModel, which now flows exclusively through the resolver.
-    const getModel = (): string | null => this.localModelResolver?.resolveModel() ?? null;
+    const getModel = (): string | null => firstResolver.resolveModel() ?? null;
     if (this.config.agent.localBackend === 'openai-compatible') {
       const localConfig: import('./agent/backends/local').LocalBackendConfig = {
         getModel,
@@ -547,14 +569,13 @@ export class Orchestrator extends EventEmitter {
     }
 
     // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
-    //    Consults the LocalModelResolver — the single source of truth for
-    //    local-model availability. Returns null (disabling the intelligence
-    //    pipeline for this orchestrator session) when no candidate is loaded
-    //    at startup. Per spec D2 + §3.5 line 247, re-enable on later status
-    //    change is deferred — operator must restart the orchestrator after
-    //    loading a model.
-    if (this.config.agent.localBackend && this.localModelResolver) {
-      const status = this.localModelResolver.getStatus();
+    //    Consults the first-registered LocalModelResolver — Task 13 (next)
+    //    refines this to a routing-driven lookup. Routing-driven analysis
+    //    selection (SC31-36) is autopilot Phase 3.
+    const firstEntryAnalysis = this.localResolvers.values().next();
+    if (this.config.agent.localBackend && !firstEntryAnalysis.done) {
+      const firstResolverAnalysis = firstEntryAnalysis.value;
+      const status = firstResolverAnalysis.getStatus();
       if (!status.available) {
         this.logger.warn(
           `Intelligence pipeline disabled: no configured localModel loaded ` +
@@ -1482,15 +1503,29 @@ export class Orchestrator extends EventEmitter {
    * broadcast stub to status changes. Called exactly once from start().
    */
   private async initLocalModelAndPipeline(): Promise<void> {
-    if (this.localModelResolver) {
-      // Subscribe BEFORE the initial probe so the first status diff
-      // (default empty state -> probe-1 result) is broadcast to the
-      // dashboard. SC21 relies on observing both initial-probe-failure
-      // and subsequent recovery as distinct broadcasts.
-      this.localModelStatusUnsubscribe = this.localModelResolver.onStatusChange((status) => {
-        this.server?.broadcastLocalModelStatus(status);
-      });
-      await this.localModelResolver.start();
+    if (this.localResolvers.size > 0) {
+      // First-resolver broadcast (legacy single-banner UX). Multi-status
+      // dashboard surface (SC38-40) widens this in autopilot Phase 4 to
+      // pass `backendName` + `endpoint` per resolver, but the channel
+      // and bind-before-probe ordering remain unchanged.
+      const first = this.localResolvers.values().next();
+      if (!first.done) {
+        const firstResolver = first.value;
+        // Subscribe BEFORE the initial probe so the first status diff
+        // (default empty state -> probe-1 result) is broadcast to the
+        // dashboard. SC21 relies on observing both initial-probe-failure
+        // and subsequent recovery as distinct broadcasts.
+        this.localModelStatusUnsubscribe = firstResolver.onStatusChange((status) => {
+          this.server?.broadcastLocalModelStatus(status);
+        });
+      }
+      // Probe each resolver independently — SC37 (multi-resolver
+      // independence): unreachable resolvers report `available: false`
+      // while reachable ones report `available: true` without
+      // cross-contamination.
+      for (const resolver of this.localResolvers.values()) {
+        await resolver.start();
+      }
     }
     // Defer pipeline construction until after the resolver has observed the
     // server. createIntelligencePipeline() consults resolver.getStatus() via
@@ -1579,8 +1614,8 @@ export class Orchestrator extends EventEmitter {
       this.localModelStatusUnsubscribe();
       this.localModelStatusUnsubscribe = null;
     }
-    if (this.localModelResolver) {
-      this.localModelResolver.stop();
+    for (const resolver of this.localResolvers.values()) {
+      resolver.stop();
     }
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
