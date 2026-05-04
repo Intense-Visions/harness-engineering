@@ -179,6 +179,37 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
     expect(result).toBeInstanceOf(OpenAICompatibleAnalysisProvider);
   });
 
+  // Spec 2 P3-IMP-2: cover the previously-uncovered openai null+warn
+  // branch (analysis-provider-factory.ts:147-152). Unlike type=anthropic
+  // which has a ClaudeCli fallback when no API key is configured, type=openai
+  // has no fallback — the factory returns null and warns. Mirrors the
+  // anthropic-without-key env-scrub pattern (vitest may inherit a real
+  // OPENAI_API_KEY from the user's shell).
+  it('P3-IMP-2: type=openai without apiKey returns null and warns', () => {
+    const warnSpy = vi.fn();
+    const def: BackendDef = { type: 'openai', model: 'gpt-4' };
+    const original = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const result = buildAnalysisProvider({
+        def,
+        backendName: 'cloud',
+        layer: 'sel',
+        getResolverStatusSnapshot: () => null,
+        intelligence: { enabled: true },
+        logger: { ...noopLogger, warn: warnSpy },
+      });
+      expect(result).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
+      const msg = String(warnSpy.mock.calls[0]?.[0]);
+      expect(msg).toMatch(/no API key configured/i);
+      expect(msg).toContain('cloud');
+      expect(msg).toMatch(/openai/);
+    } finally {
+      if (original !== undefined) process.env.OPENAI_API_KEY = original;
+    }
+  });
+
   it('SC36: type=mock returns null and warns naming backend + layer', () => {
     const warnSpy = vi.fn();
     const def: BackendDef = { type: 'mock' };
