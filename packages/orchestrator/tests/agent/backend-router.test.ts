@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { BackendDef, RoutingConfig } from '@harness-engineering/types';
+import type { BackendDef, RoutingConfig, RoutingUseCase } from '@harness-engineering/types';
 import { BackendRouter } from '../../src/agent/backend-router.js';
 
 const cloud: BackendDef = { type: 'claude', command: 'claude' };
@@ -13,27 +13,34 @@ describe('BackendRouter — resolution', () => {
   it('returns the named backend for a tier scope', () => {
     const routing: RoutingConfig = { default: 'cloud', 'quick-fix': 'local' };
     const router = new BackendRouter({ backends: { cloud, local }, routing });
-    expect(router.getBackendName('quick-fix')).toBe('local');
+    const useCase: RoutingUseCase = { kind: 'tier', tier: 'quick-fix' };
+    expect(router.resolve(useCase)).toBe('local');
   });
 
   it('falls back to default when a tier scope is not in routing', () => {
     const routing: RoutingConfig = { default: 'cloud', 'quick-fix': 'local' };
     const router = new BackendRouter({ backends: { cloud, local }, routing });
-    expect(router.getBackendName('guided-change')).toBe('cloud');
+    expect(router.resolve({ kind: 'tier', tier: 'guided-change' })).toBe('cloud');
   });
 
-  it('falls back to default for an unknown scope string (no throw)', () => {
+  it('falls back to default for the maintenance use case (always default per SC19)', () => {
     const routing: RoutingConfig = { default: 'cloud' };
     const router = new BackendRouter({ backends: { cloud }, routing });
-    expect(router.getBackendName('totally-made-up')).toBe('cloud');
+    expect(router.resolve({ kind: 'maintenance' })).toBe('cloud');
   });
 
-  it('returns the BackendDef reference (identity, not a copy) from getBackend', () => {
+  it('falls back to default for the chat use case (SC20)', () => {
+    const routing: RoutingConfig = { default: 'cloud', 'quick-fix': 'local' };
+    const router = new BackendRouter({ backends: { cloud, local }, routing });
+    expect(router.resolve({ kind: 'chat' })).toBe('cloud');
+  });
+
+  it('returns the BackendDef reference (identity, not a copy) from resolveDefinition', () => {
     const routing: RoutingConfig = { default: 'cloud', 'quick-fix': 'local' };
     const backends = { cloud, local };
     const router = new BackendRouter({ backends, routing });
-    expect(router.getBackend('quick-fix')).toBe(backends.local);
-    expect(router.getBackend('guided-change')).toBe(backends.cloud);
+    expect(router.resolveDefinition({ kind: 'tier', tier: 'quick-fix' })).toBe(backends.local);
+    expect(router.resolveDefinition({ kind: 'tier', tier: 'guided-change' })).toBe(backends.cloud);
   });
 
   it('resolves intelligence-layer routes when set', () => {
@@ -42,7 +49,7 @@ describe('BackendRouter — resolution', () => {
       intelligence: { sel: 'local' },
     };
     const router = new BackendRouter({ backends: { cloud, local }, routing });
-    expect(router.getBackendName('default', 'sel')).toBe('local');
+    expect(router.resolve({ kind: 'intelligence', layer: 'sel' })).toBe('local');
   });
 
   it('falls back to default when intelligence layer is unmapped', () => {
@@ -51,13 +58,13 @@ describe('BackendRouter — resolution', () => {
       intelligence: { sel: 'local' },
     };
     const router = new BackendRouter({ backends: { cloud, local }, routing });
-    expect(router.getBackendName('default', 'pesl')).toBe('cloud');
+    expect(router.resolve({ kind: 'intelligence', layer: 'pesl' })).toBe('cloud');
   });
 
   it('falls back to default when intelligence map is absent', () => {
     const routing: RoutingConfig = { default: 'cloud' };
     const router = new BackendRouter({ backends: { cloud }, routing });
-    expect(router.getBackendName('default', 'sel')).toBe('cloud');
+    expect(router.resolve({ kind: 'intelligence', layer: 'sel' })).toBe('cloud');
   });
 });
 
@@ -107,9 +114,9 @@ describe('BackendRouter + createBackend integration', () => {
     };
     const router = new BackendRouter({ backends: { cloud, local }, routing });
 
-    const cloudDef = router.getBackend('guided-change');
-    const localDef = router.getBackend('quick-fix');
-    const intelDef = router.getBackend('default', 'sel');
+    const cloudDef = router.resolveDefinition({ kind: 'tier', tier: 'guided-change' });
+    const localDef = router.resolveDefinition({ kind: 'tier', tier: 'quick-fix' });
+    const intelDef = router.resolveDefinition({ kind: 'intelligence', layer: 'sel' });
 
     expect(createBackend(cloudDef)).toBeInstanceOf(ClaudeBackend);
     expect(createBackend(localDef)).toBeInstanceOf(PiBackend);
