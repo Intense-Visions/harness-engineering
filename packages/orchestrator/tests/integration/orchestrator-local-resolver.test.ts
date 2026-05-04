@@ -293,6 +293,60 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
     });
   });
 
+  // Spec 2 P2-S4 fixup: createAnalysisProvider previously gated the
+  // local-resolver branch on legacy `agent.localBackend`, blocking
+  // pure-modern configs (only `agent.backends` set) from reaching the
+  // intelligence pipeline. Drop the legacy gate and confirm a pure-modern
+  // config with a healthy local resolver builds an OpenAICompatible
+  // analysis provider instead of falling through to the (warn-emitting)
+  // primary-backend branch.
+  describe('P2-S4 — pure-modern config reaches local intelligence pipeline', () => {
+    it('OT-P2S4: builds an OpenAICompatible analysis provider for agent.backends.local without legacy localBackend', async () => {
+      const fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      // Pure-modern config: backends + routing only; NO `agent.backend`,
+      // NO `agent.localBackend`.
+      const config = makeConfig({
+        backends: {
+          local: {
+            type: 'local',
+            endpoint: 'http://localhost:11434/v1',
+            model: 'gemma-4-e4b',
+          },
+        },
+        routing: { default: 'local' },
+      } as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+      (config as WorkflowConfig & { intelligence?: { enabled: boolean } }).intelligence = {
+        enabled: true,
+      };
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const resolver = firstResolver(orch);
+      expect(resolver, 'pure-modern config must register a local resolver').not.toBeNull();
+      (
+        resolver as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      try {
+        // The intelligence pipeline is a non-null IntelligencePipeline
+        // instance only when createAnalysisProvider returned non-null.
+        // Pre-fix-up, the legacy `&& agent.localBackend` gate would
+        // have returned null here (pipeline === null).
+        const pipeline = (orch as unknown as { pipeline: unknown }).pipeline;
+        expect(pipeline).not.toBeNull();
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
   describe('SC16 — cloud paths unaffected', () => {
     it('OT6: anthropic backend does not touch resolver and does not log local warnings', async () => {
       const config = makeConfig({

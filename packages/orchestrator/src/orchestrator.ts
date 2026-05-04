@@ -582,7 +582,15 @@ export class Orchestrator extends EventEmitter {
     //    analysis selection (SC31-36) is autopilot Phase 3 — this phase
     //    only redirects the existing single-resolver lookup to the new
     //    Map without changing intelligence-pipeline semantics.
-    if (this.localResolvers.size > 0 && this.config.agent.localBackend) {
+    //    Spec 2 P2-S4 fix-up: gate on `localResolvers.size > 0` only.
+    //    The earlier `&& this.config.agent.localBackend` clause blocked
+    //    pure-modern configs (only `agent.backends` set, no legacy
+    //    `agent.localBackend`) from reaching the local intelligence
+    //    branch even when a `local`/`pi` resolver was registered.
+    //    `localResolvers.size > 0` is sufficient: the Map is populated
+    //    from `agent.backends` (Task 10), so a non-empty Map implies a
+    //    local-typed backend exists in the migrated config.
+    if (this.localResolvers.size > 0) {
       const defaultName = this.config.agent.routing?.default;
       const defaultResolver =
         defaultName !== undefined ? this.localResolvers.get(defaultName) : undefined;
