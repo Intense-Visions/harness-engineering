@@ -22,3 +22,14 @@ export * from './agent/backends/mock';
 export * from './prompt/renderer';
 export * from './orchestrator';
 export * from './tui/launcher';
+// Spec 2 Phase 3 / Task 14: re-export the multi-backend-routing surface
+// so external consumers (CLI commands, tests, dashboards) can construct
+// routers, factories, and migration helpers without reaching into
+// internal paths.
+export { BackendRouter } from './agent/backend-router';
+export type { BackendRouterOptions } from './agent/backend-router';
+export { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+export type { OrchestratorBackendFactoryOptions } from './agent/orchestrator-backend-factory';
+export { migrateAgentConfig } from './agent/config-migration';
+export type { MigrationResult } from './agent/config-migration';
+export { createBackend } from './agent/backend-factory';
