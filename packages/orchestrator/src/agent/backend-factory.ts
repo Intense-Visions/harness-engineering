@@ -63,9 +63,7 @@ export function createBackend(def: BackendDef): AgentBackend {
         ...(typeof def.model === 'string' ? { model: def.model } : {}),
         ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
         ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-        // NOTE: timeoutMs is accepted by PiBackendDef (Phase 0) but not
-        // currently consumed by PiBackend's constructor. Wiring tracked as
-        // a Phase 2 (autopilot index 2) concern.
+        ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
       });
     }
     default: {

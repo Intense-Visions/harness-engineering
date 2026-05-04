@@ -21,6 +21,12 @@ export interface PiBackendConfig {
   apiKey?: string | undefined;
   /** Lazy resolver. Called once at `startSession()`. Returning `null` causes `startSession()` to fail with typed `agent_not_found`. */
   getModel?: (() => string | null) | undefined;
+  /**
+   * Per-request timeout in ms for chat-completion calls.
+   * Defaults to 90_000. Mirrors `LocalBackendConfig.timeoutMs` so callers
+   * can set the same value on either backend type.
+   */
+  timeoutMs?: number | undefined;
 }
 
 interface PiSession extends AgentSession {
@@ -175,9 +181,18 @@ function buildLocalModel(config: PiBackendConfig) {
 export class PiBackend implements AgentBackend {
   readonly name = 'pi';
   private config: PiBackendConfig;
+  /**
+   * Per-request timeout in ms (default 90_000). Stored as a public-readable
+   * field so the orchestrator and tests can introspect what value will be
+   * applied. Wiring into the underlying chat-completion fetch path is a
+   * follow-up; today the PiBackend's transport runs through pi-coding-agent
+   * which exposes its own timeout knobs.
+   */
+  readonly timeoutMs: number;
 
   constructor(config: PiBackendConfig = {}) {
     this.config = config;
+    this.timeoutMs = config.timeoutMs ?? 90_000;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {

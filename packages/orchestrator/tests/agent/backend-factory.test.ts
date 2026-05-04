@@ -77,6 +77,28 @@ describe('createBackend', () => {
     expect(createBackend(def)).toBeInstanceOf(PiBackend);
   });
 
+  it('propagates timeoutMs to PiBackend when set on the def (Spec 2 PFC-2)', () => {
+    const def: BackendDef = {
+      type: 'pi',
+      endpoint: 'http://pi.local:1234/v1',
+      model: 'gemma-4-e4b',
+      timeoutMs: 45_000,
+    };
+    const backend = createBackend(def) as PiBackend;
+    expect(backend).toBeInstanceOf(PiBackend);
+    expect((backend as unknown as { timeoutMs: number }).timeoutMs).toBe(45_000);
+  });
+
+  it('uses default 90_000 timeoutMs on PiBackend when not set on the def (Spec 2 PFC-2)', () => {
+    const def: BackendDef = {
+      type: 'pi',
+      endpoint: 'http://pi.local:1234/v1',
+      model: 'gemma-4-e4b',
+    };
+    const backend = createBackend(def) as PiBackend;
+    expect((backend as unknown as { timeoutMs: number }).timeoutMs).toBe(90_000);
+  });
+
   it('throws on unknown discriminant', () => {
     // @ts-expect-error intentionally invalid discriminant
     expect(() => createBackend({ type: 'bogus' })).toThrow(/unknown.*backend.*type/i);
