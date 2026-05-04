@@ -74,29 +74,41 @@ export function migrateAgentConfig(agent: AgentConfig): MigrationResult {
 
   // Case 1: `agent.backends` already set — new schema wins.
   //
-  // The user has migrated. Some legacy fields are required-by-type
-  // (`agent.backend`) or sit in a tightly-coupled unit (the local* group:
-  // `localBackend` is the gate, and the others are inert without it).
-  // Warning about these would be noisy: every Spec-2-migrated config
-  // would see "Ignoring agent.backend" at boot just because the field
-  // is non-optional. Suppress those specifically so case 1 stays quiet
-  // for the typical post-migration shape.
+  // Two-tier suppression for case 1 (NF-1, Spec 2 Phase 4):
   //
-  // Phase 3: once `AgentConfig.backend` becomes optional and the local*
-  // group can be unset, this suppression list can be removed and the
-  // warnings re-enabled (any presence at that point will be a true
-  // user-meaningful conflict).
-  const CASE1_SUPPRESSED = new Set([
-    'agent.backend',
+  // `CASE1_ALWAYS_SUPPRESS`: `agent.backend` is required-by-type today.
+  // Every Spec-2-migrated config has it set to a placeholder value, so
+  // warning about it would be unconditional noise. (Phase 5+ retires
+  // the field by making it optional.)
+  //
+  // `CASE1_LOCAL_GROUP`: the legacy local* fields. These are inert
+  // without `agent.localBackend` (which is the gate that activates
+  // them). We suppress them only when `agent.localBackend` IS itself
+  // set — i.e., the whole group is a coherent unit and the user is
+  // mid-migration with both shapes (suppress to avoid noisy boot
+  // logs). When `localBackend` is undefined, a stray local* field is
+  // genuine user-config drift (the user partially migrated and forgot
+  // to clean a legacy field) — we emit the warning so the drift is
+  // visible.
+  //
+  // NF-1 carry-forward from Phase 0: previously the local* group was
+  // unconditionally suppressed, which silently hid genuine user-config
+  // drift (e.g., `localEndpoint` set without `localBackend`).
+  const CASE1_ALWAYS_SUPPRESS = new Set(['agent.backend']);
+  const CASE1_LOCAL_GROUP = new Set([
     'agent.localBackend',
     'agent.localEndpoint',
     'agent.localModel',
     'agent.localApiKey',
     'agent.localTimeoutMs',
+    'agent.localProbeIntervalMs',
   ]);
+  const suppressLocalGroup = agent.localBackend !== undefined;
+
   if (agent.backends !== undefined) {
     for (const path of presentLegacy) {
-      if (CASE1_SUPPRESSED.has(path)) continue;
+      if (CASE1_ALWAYS_SUPPRESS.has(path)) continue;
+      if (suppressLocalGroup && CASE1_LOCAL_GROUP.has(path)) continue;
       warnings.push(
         `Ignoring legacy field '${path}': 'agent.backends' is set and takes precedence. See ${MIGRATION_GUIDE}.`
       );
