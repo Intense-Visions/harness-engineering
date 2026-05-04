@@ -38,6 +38,8 @@ import { PromptRenderer } from './prompt/renderer';
 import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { buildAnalysisProvider } from './agent/analysis-provider-factory';
+import type { BackendDef } from '@harness-engineering/types';
 import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
@@ -559,128 +561,77 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Create the AnalysisProvider for the intelligence pipeline.
+   * Create the AnalysisProvider for an intelligence-pipeline layer
+   * (`sel` by default; `pesl` when constructing a distinct PESL
+   * provider per Spec 2 SC35).
    *
-   * Resolution order:
-   * 1. Explicit `intelligence.provider` config (separate key/endpoint)
-   * 2. Local backend config (agent.localBackend + localEndpoint/localModel)
-   * 3. Primary agent backend config (agent.apiKey + agent.backend)
+   * Spec 2 Phase 4 (SC31–SC36) — resolution order:
+   *   1. Explicit `intelligence.provider` config wins (preserves Phase 0–3 behavior; SC33).
+   *   2. Otherwise, consult `agent.routing.intelligence.<layer>` (or
+   *      `routing.default`) to pick a `BackendDef` from `agent.backends`,
+   *      then translate via `buildAnalysisProvider` (the per-type factory).
+   *
+   * Closes the Phase 2 deferral (P2-DEF-638): the legacy
+   * `this.config.agent.backend` read at the bottom of this method is
+   * removed; routing is the sole source for non-explicit configs.
+   *
+   * Cyclomatic complexity: pre-Phase-4 was 33 (factory dispatch was
+   * inlined here). Phase 4 extracts the per-type tree into
+   * `buildAnalysisProvider`, dropping this method to ≤ 5 branches
+   * (under the 15 threshold).
    */
-  private createAnalysisProvider(): AnalysisProvider | null {
+  private createAnalysisProvider(layer: 'sel' | 'pesl' = 'sel'): AnalysisProvider | null {
     const intel = this.config.intelligence;
-    const selModel = intel?.models?.sel ?? this.config.agent.model;
+    if (!intel?.enabled) return null;
 
-    // 1. Explicit intelligence provider override
-    if (intel?.provider) {
-      return this.createProviderFromExplicitConfig(intel.provider, selModel);
-    }
-
-    // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
-    //    Spec 2 Phase 3 / Task 13: prefer the resolver bound to the
-    //    routing default backend when it is local; fall back to the
-    //    first-registered local resolver otherwise. Routing-driven
-    //    analysis selection (SC31-36) is autopilot Phase 3 — this phase
-    //    only redirects the existing single-resolver lookup to the new
-    //    Map without changing intelligence-pipeline semantics.
-    //    Spec 2 P2-S4 fix-up: gate on `localResolvers.size > 0` only.
-    //    The earlier `&& this.config.agent.localBackend` clause blocked
-    //    pure-modern configs (only `agent.backends` set, no legacy
-    //    `agent.localBackend`) from reaching the local intelligence
-    //    branch even when a `local`/`pi` resolver was registered.
-    //    `localResolvers.size > 0` is sufficient: the Map is populated
-    //    from `agent.backends` (Task 10), so a non-empty Map implies a
-    //    local-typed backend exists in the migrated config.
-    if (this.localResolvers.size > 0) {
-      const defaultName = this.config.agent.routing?.default;
-      const defaultResolver =
-        defaultName !== undefined ? this.localResolvers.get(defaultName) : undefined;
-      const fallbackResolverEntry = this.localResolvers.entries().next();
-      const [resolverName, resolver] =
-        defaultResolver !== undefined && defaultName !== undefined
-          ? ([defaultName, defaultResolver] as const)
-          : !fallbackResolverEntry.done
-            ? fallbackResolverEntry.value
-            : ([undefined, undefined] as const);
-      if (resolver === undefined || resolverName === undefined) {
-        return null;
-      }
-      // Read endpoint/apiKey from the resolved backend def (not legacy
-      // agent.localEndpoint), so multi-local configs report the correct
-      // origin in the warn log + provider config.
-      const def = this.config.agent.backends?.[resolverName];
-      const endpoint =
-        def !== undefined && (def.type === 'local' || def.type === 'pi')
-          ? def.endpoint
-          : (this.config.agent.localEndpoint ?? 'http://localhost:11434/v1');
-      const defApiKey =
-        def !== undefined && (def.type === 'local' || def.type === 'pi') ? def.apiKey : undefined;
-      const apiKey = defApiKey ?? this.config.agent.localApiKey ?? 'ollama';
-      const status = resolver.getStatus();
-      if (!status.available) {
-        this.logger.warn(
-          `Intelligence pipeline disabled: no configured localModel loaded ` +
-            `at ${endpoint}. ` +
-            `Configured: [${status.configured.join(', ')}]. ` +
-            `Detected: [${status.detected.join(', ')}].`
-        );
-        return null;
-      }
-      // selModel may override the resolver's pick (intelligence-specific model).
-      // When unset, we use the resolver's resolved value — the model the agent
-      // backend will also use, keeping intelligence and dispatch in sync.
-      const model = selModel ?? status.resolved;
-      this.logger.info(
-        `Intelligence pipeline using local backend at ${endpoint} (model: ${model})`
+    // 1. Explicit intelligence.provider override (SC33).
+    if (intel.provider) {
+      const layerModel = layer === 'sel' ? intel.models?.sel : intel.models?.pesl;
+      return this.createProviderFromExplicitConfig(
+        intel.provider,
+        layerModel ?? this.config.agent.model
       );
-      return new OpenAICompatibleAnalysisProvider({
-        apiKey,
-        baseUrl: endpoint,
-        ...(model !== undefined && model !== null && { defaultModel: model }),
-        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
-        ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
-        ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
-      });
     }
 
-    // 3. Primary agent backend (API key)
-    const backend = this.config.agent.backend;
-    if (backend === 'anthropic' || backend === 'claude') {
-      const apiKey = this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
-      if (apiKey) {
-        return new AnthropicAnalysisProvider({
-          apiKey,
-          ...(selModel !== undefined && { defaultModel: selModel }),
-        });
-      }
-      // No API key — fall through to Claude CLI fallback
-    }
+    // 2. Routing-driven selection (SC31, SC32, SC36).
+    const routed = this.resolveRoutedBackendForIntelligence(layer);
+    if (!routed) return null;
 
-    if (backend === 'openai') {
-      const apiKey = this.config.agent.apiKey ?? process.env.OPENAI_API_KEY;
-      if (apiKey) {
-        return new OpenAICompatibleAnalysisProvider({
-          apiKey,
-          baseUrl: 'https://api.openai.com/v1',
-          ...(selModel !== undefined && { defaultModel: selModel }),
-        });
-      }
-    }
+    const { name, def } = routed;
+    const resolver = this.localResolvers.get(name);
+    return buildAnalysisProvider({
+      def,
+      backendName: name,
+      layer,
+      getResolvedModel: () => resolver?.getStatus().resolved ?? null,
+      getResolverAvailable: () => resolver?.getStatus().available ?? false,
+      intelligence: intel,
+      logger: this.logger,
+    });
+  }
 
-    // 4. Claude CLI fallback — uses the CLI's own auth, no API key needed
-    if (backend === 'claude' || backend === 'anthropic') {
-      this.logger.info('Intelligence pipeline using Claude CLI (no API key configured)');
-      return new ClaudeCliAnalysisProvider({
-        command: this.config.agent.command,
-        ...(selModel !== undefined && { defaultModel: selModel }),
-        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
-      });
+  /**
+   * Look up the routed BackendDef for an intelligence layer, falling
+   * back through `routing.intelligence.<layer>` → `routing.default`
+   * → null. Returns the resolved name alongside the def so callers can
+   * key into the per-name resolver map.
+   */
+  private resolveRoutedBackendForIntelligence(
+    layer: 'sel' | 'pesl'
+  ): { name: string; def: BackendDef } | null {
+    const routing = this.config.agent.routing;
+    const backends = this.config.agent.backends;
+    if (!routing || !backends) return null;
+    const layerName = routing.intelligence?.[layer];
+    const name = layerName ?? routing.default;
+    const def = backends[name];
+    if (!def) {
+      this.logger.warn(
+        `Intelligence pipeline: routed backend '${name}' for layer '${layer}' is not in agent.backends.`
+      );
+      return null;
     }
-
-    this.logger.warn(
-      `Intelligence pipeline: unsupported backend "${backend}". ` +
-        'Supported: anthropic, claude, openai, or localBackend: openai-compatible / pi.'
-    );
-    return null;
+    return { name, def };
   }
 
   private createProviderFromExplicitConfig(
