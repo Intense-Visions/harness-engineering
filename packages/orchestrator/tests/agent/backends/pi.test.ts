@@ -37,6 +37,36 @@ describe('PiBackend', () => {
     it('has name "pi"', () => {
       expect(backend.name).toBe('pi');
     });
+
+    it('accepts timeoutMs in config without throwing (Spec 2 PFC-2)', () => {
+      expect(
+        () =>
+          new PiBackend({
+            endpoint: 'http://x:1234/v1',
+            model: 'm',
+            timeoutMs: 30_000,
+          })
+      ).not.toThrow();
+    });
+
+    it('exposes timeoutMs via the public timeoutMs accessor (Spec 2 PFC-2)', () => {
+      const b = new PiBackend({
+        endpoint: 'http://x:1234/v1',
+        model: 'm',
+        timeoutMs: 60_000,
+      });
+      // Cast to access the readonly field — this is the smallest assertion
+      // that the value flows from constructor input to instance state.
+      expect((b as unknown as { timeoutMs: number }).timeoutMs).toBe(60_000);
+    });
+
+    it('falls back to default timeoutMs (90_000) when not set (Spec 2 PFC-2)', () => {
+      const b = new PiBackend({
+        endpoint: 'http://x:1234/v1',
+        model: 'm',
+      });
+      expect((b as unknown as { timeoutMs: number }).timeoutMs).toBe(90_000);
+    });
   });
 
   describe('startSession', () => {
