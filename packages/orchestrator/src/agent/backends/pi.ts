@@ -182,11 +182,13 @@ export class PiBackend implements AgentBackend {
   readonly name = 'pi';
   private config: PiBackendConfig;
   /**
-   * Per-request timeout in ms (default 90_000). Stored as a public-readable
-   * field so the orchestrator and tests can introspect what value will be
-   * applied. Wiring into the underlying chat-completion fetch path is a
-   * follow-up; today the PiBackend's transport runs through pi-coding-agent
-   * which exposes its own timeout knobs.
+   * Per-request timeout in ms (default 90_000). Spec 2 P2-I1: enforced at
+   * the request boundary by `runTurn` racing `piSession.prompt()` against
+   * an `AbortController + setTimeout(timeoutMs)`. On timeout the
+   * underlying pi session is aborted and the turn returns a failed
+   * `TurnResult` carrying a timeout-tagged error message. Setting
+   * `timeoutMs: 0` disables the watchdog (preserves the pre-fix-up
+   * "no enforcement" behavior for callers that want the SDK default).
    */
   readonly timeoutMs: number;
 
@@ -270,15 +272,58 @@ export class PiBackend implements AgentBackend {
 
     (session as PiSession).unsubscribe = unsubscribe;
 
+    // Spec 2 P2-I1 / PFC-2: per-request timeout enforcement. We can't
+    // pass a timeout into `piSession.prompt()` (the pi-coding-agent SDK
+    // does not accept one) so we race the prompt against a watchdog
+    // timer. On timeout: abort the underlying session (releasing any
+    // in-flight chat-completion connection) and surface a typed
+    // timeout error in the TurnResult by setting `promptErrorMsg`.
+    // `timeoutMs <= 0` disables the watchdog, preserving the original
+    // "no enforcement" behavior for callers who need it.
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let timedOut = false;
+    if (this.timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        promptErrorMsg = `Pi backend request timed out after ${this.timeoutMs}ms`;
+        promptDone = true;
+        // Best-effort abort to release the underlying pi session's
+        // chat-completion connection. Errors are swallowed because
+        // the session may already be torn down.
+        try {
+          const maybeAbort = piSession.abort?.();
+          if (maybeAbort && typeof maybeAbort.catch === 'function') {
+            maybeAbort.catch(() => {});
+          }
+        } catch {
+          /* abort is best-effort */
+        }
+        signal();
+      }, this.timeoutMs);
+    }
+
+    const clearTimeoutHandle = () => {
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+    };
+
     const promptPromise = piSession.prompt(params.prompt).then(
       () => {
-        promptDone = true;
-        signal();
+        if (!timedOut) {
+          clearTimeoutHandle();
+          promptDone = true;
+          signal();
+        }
       },
       (err: Error) => {
-        promptErrorMsg = err.message;
-        promptDone = true;
-        signal();
+        if (!timedOut) {
+          clearTimeoutHandle();
+          promptErrorMsg = err.message;
+          promptDone = true;
+          signal();
+        }
       }
     );
 
@@ -297,13 +342,24 @@ export class PiBackend implements AgentBackend {
           }),
       });
     } finally {
+      // Clear the timeout watchdog if it has not already fired. Prevents
+      // a dangling timer from holding the event loop open after a
+      // successful turn.
+      clearTimeoutHandle();
       // Unblock any suspended waitForEvent() to prevent dangling promises
       // resolveWait is assigned inside a closure, so TS can't track it — cast is safe
       (resolveWait as (() => void) | null)?.();
       resolveWait = null;
       unsubscribe();
       (session as PiSession).unsubscribe = null;
-      await promptPromise.catch(() => {});
+      // Spec 2 P2-I1: when the watchdog fired, the underlying
+      // `piSession.prompt()` promise may never settle (the SDK doesn't
+      // expose a timeout knob). Skip the post-loop await in that case so
+      // we don't hang the turn. Otherwise, drain the prompt's
+      // resolution to ensure handlers ran before yielding control.
+      if (!timedOut) {
+        await promptPromise.catch(() => {});
+      }
     }
 
     const totalTokens = inputTokens + outputTokens;
