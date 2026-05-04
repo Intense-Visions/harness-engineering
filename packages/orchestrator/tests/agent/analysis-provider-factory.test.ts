@@ -24,8 +24,12 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'local',
       layer: 'sel',
-      getResolvedModel: () => 'gemma-4-e4b',
-      getResolverAvailable: () => true,
+      getResolverStatusSnapshot: () => ({
+        available: true,
+        resolved: 'gemma-4-e4b',
+        configured: ['gemma-4-e4b'],
+        detected: ['gemma-4-e4b'],
+      }),
       intelligence: { enabled: true },
       logger: noopLogger,
     });
@@ -42,8 +46,12 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'local',
       layer: 'sel',
-      getResolvedModel: () => 'a',
-      getResolverAvailable: () => true,
+      getResolverStatusSnapshot: () => ({
+        available: true,
+        resolved: 'a',
+        configured: ['a', 'b'],
+        detected: ['a'],
+      }),
       intelligence: { enabled: true },
       logger: noopLogger,
     });
@@ -61,8 +69,12 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'local',
       layer: 'sel',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => ({
+        available: false,
+        resolved: null,
+        configured: ['gemma-4-e4b'],
+        detected: [],
+      }),
       intelligence: { enabled: true },
       logger: { ...noopLogger, warn: warnSpy },
     });
@@ -71,14 +83,49 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
     expect(String(warnSpy.mock.calls[0]?.[0])).toMatch(/Intelligence pipeline disabled/i);
   });
 
+  // Spec 2 P3-IMP-1 fixup: the local-resolver-unavailable warn must
+  // include both `Configured: [...]` and `Detected: [...]` lists so
+  // operators have at-a-glance triage data without grepping resolver
+  // logs. Pre-Phase-4 createAnalysisProvider emitted these directly
+  // (orchestrator.ts pre-rewrite line 621-624); the Phase 4 factory
+  // rewrite dropped them and the masking OT4 assertion was restored
+  // alongside this unit-level cover.
+  it('P3-IMP-1: local-unavailable warn includes Configured + Detected diagnostic lists', () => {
+    const warnSpy = vi.fn();
+    const def: BackendDef = {
+      type: 'local',
+      endpoint: 'http://localhost:11434/v1',
+      model: ['gemma-4-e4b', 'qwen-2'],
+    };
+    const result = buildAnalysisProvider({
+      def,
+      backendName: 'local',
+      layer: 'sel',
+      getResolverStatusSnapshot: () => ({
+        available: false,
+        resolved: null,
+        configured: ['gemma-4-e4b', 'qwen-2'],
+        detected: ['llama-3', 'phi-3'],
+      }),
+      intelligence: { enabled: true },
+      logger: { ...noopLogger, warn: warnSpy },
+    });
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    const msg = String(warnSpy.mock.calls[0]?.[0]);
+    expect(msg).toMatch(/Intelligence pipeline disabled for backend 'local'/);
+    expect(msg).toContain('http://localhost:11434/v1');
+    expect(msg).toMatch(/Configured: \[gemma-4-e4b, qwen-2\]/);
+    expect(msg).toMatch(/Detected: \[llama-3, phi-3\]/);
+  });
+
   it('SC32: type=anthropic builds AnthropicAnalysisProvider', () => {
     const def: BackendDef = { type: 'anthropic', model: 'claude-3', apiKey: 'k' };
     const result = buildAnalysisProvider({
       def,
       backendName: 'cloud',
       layer: 'sel',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => null,
       intelligence: { enabled: true },
       logger: noopLogger,
     });
@@ -96,8 +143,7 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
         def,
         backendName: 'cloud',
         layer: 'sel',
-        getResolvedModel: () => null,
-        getResolverAvailable: () => false,
+        getResolverStatusSnapshot: () => null,
         intelligence: { enabled: true },
         logger: noopLogger,
       });
@@ -113,8 +159,7 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'cli',
       layer: 'sel',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => null,
       intelligence: { enabled: true },
       logger: noopLogger,
     });
@@ -127,8 +172,7 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'cloud',
       layer: 'sel',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => null,
       intelligence: { enabled: true },
       logger: noopLogger,
     });
@@ -142,8 +186,7 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'mock-cloud',
       layer: 'pesl',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => null,
       intelligence: { enabled: true },
       logger: { ...noopLogger, warn: warnSpy },
     });
@@ -162,8 +205,7 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
       def,
       backendName: 'gem',
       layer: 'sel',
-      getResolvedModel: () => null,
-      getResolverAvailable: () => false,
+      getResolverStatusSnapshot: () => null,
       intelligence: { enabled: true },
       logger: { ...noopLogger, warn: warnSpy },
     });

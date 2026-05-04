@@ -278,12 +278,22 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       try {
         const warnCalls = warnSpy.mock.calls.map((c) => c[0] as string);
         // Phase 4 wording: "Intelligence pipeline disabled for backend
-        // 'local' at <endpoint>: no configured local model loaded."
+        // 'local' at <endpoint>: no configured local model loaded.
+        // Configured: [...]. Detected: [...]."
+        //
+        // Spec 2 P3-IMP-1 fixup: the Configured/Detected diagnostic lists
+        // were dropped during the Phase 4 factory rewrite, masking
+        // operator-triage data. The factory now exposes a status-snapshot
+        // hook so the warn message includes both lists. This assertion
+        // restores the regression catcher that was previously dropped at
+        // line 284 of the pre-Phase-4 OT4 (`expect(matched).toMatch(/Configured: \[a, b\]/)`).
         const matched = warnCalls.find((m) =>
           /Intelligence pipeline disabled for backend/i.test(m)
         );
         expect(matched, `expected warn log; got: ${JSON.stringify(warnCalls)}`).toBeTruthy();
         expect(matched).toContain('http://localhost:11434/v1');
+        expect(matched).toMatch(/Configured: \[a, b\]/);
+        expect(matched).toMatch(/Detected: \[some-other-model\]/);
       } finally {
         await orch.stop();
       }

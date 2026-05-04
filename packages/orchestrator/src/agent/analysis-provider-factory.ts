@@ -18,6 +18,26 @@ export interface ProviderFactoryLogger {
   warn(msg: string, meta?: Record<string, unknown>): void;
 }
 
+/**
+ * Snapshot of a LocalModelResolver's current status — the subset of
+ * `LocalModelStatus` the factory needs for `local`/`pi` provider
+ * construction and the unavailable-warn diagnostic.
+ *
+ * Intentionally a flat record (not the full LocalModelStatus) to keep
+ * this module dependency-free of `@harness-engineering/types`. Callers
+ * derive this from `resolver.getStatus()` in a single read.
+ */
+export interface ResolverStatusSnapshot {
+  /** Whether the resolver currently considers the local backend reachable + a configured model loaded. */
+  available: boolean;
+  /** Resolver's currently-resolved model name, or null when unresolved. */
+  resolved: string | null;
+  /** Configured models the resolver was constructed with (for operator triage in warns). */
+  configured: string[];
+  /** Models the local endpoint actually reported on the last probe (for operator triage in warns). */
+  detected: string[];
+}
+
 export interface BuildAnalysisProviderArgs {
   /** The routed BackendDef whose type drives provider selection. */
   def: BackendDef;
@@ -25,10 +45,18 @@ export interface BuildAnalysisProviderArgs {
   backendName: string;
   /** Which intelligence layer this provider serves. Influences warn wording. */
   layer: IntelligenceLayer;
-  /** Resolver hook: returns the currently-resolved model name for `local`/`pi` types, or null when unresolved. */
-  getResolvedModel: () => string | null;
-  /** Resolver hook: returns whether the resolver believes the local backend is reachable. */
-  getResolverAvailable: () => boolean;
+  /**
+   * Resolver hook: returns a snapshot of the resolver's current status
+   * for `local`/`pi` types. Returns null when no resolver is registered
+   * for this backend (e.g., the routed backend isn't a local-like one,
+   * or the orchestrator hasn't constructed a resolver for it).
+   *
+   * A single snapshot read collapses what would otherwise be two
+   * `getStatus()` calls (one for `available`, one for `resolved`) and
+   * makes the configured/detected lists available to the
+   * unavailable-warn diagnostic (Spec 2 P3-IMP-1).
+   */
+  getResolverStatusSnapshot: () => ResolverStatusSnapshot | null;
   /** Intelligence config — provides selModel/peslModel overrides + transport options. */
   intelligence: IntelligenceConfig | undefined;
   /** Logger for info/warn emission. */
@@ -86,16 +114,27 @@ function buildLocalLikeProvider(
   args: BuildAnalysisProviderArgs,
   layerModel: string | undefined
 ): AnalysisProvider | null {
-  const { backendName, getResolvedModel, getResolverAvailable, intelligence, logger } = args;
-  if (!getResolverAvailable()) {
+  const { backendName, getResolverStatusSnapshot, intelligence, logger } = args;
+  // Single snapshot read — collapses what was previously two `getStatus()`
+  // calls (one for `available`, one for `resolved`) and feeds the
+  // configured/detected diagnostic lists into the unavailable warn.
+  const snapshot = getResolverStatusSnapshot();
+  if (!snapshot || !snapshot.available) {
+    // Spec 2 P3-IMP-1: include the Configured/Detected lists so operators
+    // triaging a misconfigured local backend see at-a-glance which models
+    // were configured vs. what the endpoint actually reported. Mirrors the
+    // pre-Phase-4 wording at orchestrator.ts:621-624.
+    const configured = snapshot?.configured ?? [];
+    const detected = snapshot?.detected ?? [];
     logger.warn(
       `Intelligence pipeline disabled for backend '${backendName}' at ${def.endpoint}: ` +
-        `no configured local model loaded.`
+        `no configured local model loaded. ` +
+        `Configured: [${configured.join(', ')}]. ` +
+        `Detected: [${detected.join(', ')}].`
     );
     return null;
   }
-  const resolved = getResolvedModel();
-  const model = layerModel ?? resolved ?? undefined;
+  const model = layerModel ?? snapshot.resolved ?? undefined;
   const apiKey = def.apiKey ?? 'ollama';
   logger.info(
     `Intelligence pipeline using backend '${backendName}' (${def.type}) at ${def.endpoint} (model: ${model ?? '(default)'})`

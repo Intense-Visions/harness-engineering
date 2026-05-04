@@ -614,8 +614,19 @@ export class Orchestrator extends EventEmitter {
       def,
       backendName: name,
       layer,
-      getResolvedModel: () => resolver?.getStatus().resolved ?? null,
-      getResolverAvailable: () => resolver?.getStatus().available ?? false,
+      // Spec 2 P3-IMP-1: a single snapshot read feeds the factory's
+      // unavailable-warn diagnostic (Configured/Detected lists) and
+      // collapses the two `getStatus()` calls flagged by P3-SUG-2.
+      getResolverStatusSnapshot: () => {
+        if (!resolver) return null;
+        const status = resolver.getStatus();
+        return {
+          available: status.available,
+          resolved: status.resolved,
+          configured: status.configured,
+          detected: status.detected,
+        };
+      },
       intelligence: intel,
       logger: this.logger,
     });
