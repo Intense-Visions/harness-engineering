@@ -576,24 +576,47 @@ export class Orchestrator extends EventEmitter {
     }
 
     // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
-    //    Consults the first-registered LocalModelResolver — Task 13 (next)
-    //    refines this to a routing-driven lookup. Routing-driven analysis
-    //    selection (SC31-36) is autopilot Phase 3.
-    const firstEntryAnalysis = this.localResolvers.values().next();
-    if (this.config.agent.localBackend && !firstEntryAnalysis.done) {
-      const firstResolverAnalysis = firstEntryAnalysis.value;
-      const status = firstResolverAnalysis.getStatus();
+    //    Spec 2 Phase 3 / Task 13: prefer the resolver bound to the
+    //    routing default backend when it is local; fall back to the
+    //    first-registered local resolver otherwise. Routing-driven
+    //    analysis selection (SC31-36) is autopilot Phase 3 — this phase
+    //    only redirects the existing single-resolver lookup to the new
+    //    Map without changing intelligence-pipeline semantics.
+    if (this.localResolvers.size > 0 && this.config.agent.localBackend) {
+      const defaultName = this.config.agent.routing?.default;
+      const defaultResolver =
+        defaultName !== undefined ? this.localResolvers.get(defaultName) : undefined;
+      const fallbackResolverEntry = this.localResolvers.entries().next();
+      const [resolverName, resolver] =
+        defaultResolver !== undefined && defaultName !== undefined
+          ? ([defaultName, defaultResolver] as const)
+          : !fallbackResolverEntry.done
+            ? fallbackResolverEntry.value
+            : ([undefined, undefined] as const);
+      if (resolver === undefined || resolverName === undefined) {
+        return null;
+      }
+      // Read endpoint/apiKey from the resolved backend def (not legacy
+      // agent.localEndpoint), so multi-local configs report the correct
+      // origin in the warn log + provider config.
+      const def = this.config.agent.backends?.[resolverName];
+      const endpoint =
+        def !== undefined && (def.type === 'local' || def.type === 'pi')
+          ? def.endpoint
+          : (this.config.agent.localEndpoint ?? 'http://localhost:11434/v1');
+      const defApiKey =
+        def !== undefined && (def.type === 'local' || def.type === 'pi') ? def.apiKey : undefined;
+      const apiKey = defApiKey ?? this.config.agent.localApiKey ?? 'ollama';
+      const status = resolver.getStatus();
       if (!status.available) {
         this.logger.warn(
           `Intelligence pipeline disabled: no configured localModel loaded ` +
-            `at ${this.config.agent.localEndpoint ?? 'http://localhost:11434/v1'}. ` +
+            `at ${endpoint}. ` +
             `Configured: [${status.configured.join(', ')}]. ` +
             `Detected: [${status.detected.join(', ')}].`
         );
         return null;
       }
-      const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
-      const apiKey = this.config.agent.localApiKey ?? 'ollama';
       // selModel may override the resolver's pick (intelligence-specific model).
       // When unset, we use the resolver's resolved value — the model the agent
       // backend will also use, keeping intelligence and dispatch in sync.
