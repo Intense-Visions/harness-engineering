@@ -327,4 +327,49 @@ describe('migrateAgentConfig', () => {
       expect(result.warnings).toEqual([]);
     });
   });
+
+  describe('NF-1 — narrow CASE1 suppression for the local* group', () => {
+    it('suppresses local* warnings when agent.localBackend is undefined AND backends is set (existing behavior preserved)', () => {
+      // Pure-modern config with no legacy local* group at all.
+      const result = migrateAgentConfig({
+        backends: { primary: { type: 'mock' } },
+        backend: 'mock', // required-by-type field; stays suppressed always.
+      } as unknown as AgentConfig);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('warns about local* fields when agent.localBackend is undefined but a stray local* field is set alongside agent.backends', () => {
+      // The stray field is user-meaningful: the user partially migrated
+      // (set backends but forgot to clean localEndpoint). NF-1's narrowed
+      // gate must surface this.
+      const result = migrateAgentConfig({
+        backends: { primary: { type: 'mock' } },
+        backend: 'mock',
+        localEndpoint: 'http://stale:1234/v1',
+      } as unknown as AgentConfig);
+      expect(result.warnings.some((w) => w.includes('agent.localEndpoint'))).toBe(true);
+      // agent.backend stays suppressed (always).
+      expect(result.warnings.some((w) => w.includes("'agent.backend'"))).toBe(false);
+    });
+
+    it('suppresses local* warnings when agent.localBackend IS set alongside agent.backends (the tightly-coupled-unit case)', () => {
+      // localBackend is set, so the local* group is a coherent unit; the
+      // user is mid-migration and the unit is still acting in concert.
+      // NF-1: keep these suppressed to avoid noisy boot logs.
+      const result = migrateAgentConfig({
+        backends: { primary: { type: 'mock' } },
+        backend: 'mock',
+        localBackend: 'pi',
+        localEndpoint: 'http://x:1234/v1',
+        localModel: 'm',
+      } as unknown as AgentConfig);
+      // None of the local* group should appear in warnings.
+      for (const path of ['agent.localBackend', 'agent.localEndpoint', 'agent.localModel']) {
+        expect(
+          result.warnings.some((w) => w.includes(path)),
+          `expected '${path}' suppressed in tightly-coupled-unit case; got ${JSON.stringify(result.warnings)}`
+        ).toBe(false);
+      }
+    });
+  });
 });
