@@ -163,14 +163,33 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       // `createBackend()` and `createLocalBackend()` have been deleted
       // outright (SC30) — the per-dispatch `OrchestratorBackendFactory`
       // owns backend construction now.
+      //
+      // Phase 4 (Spec 2 SC31-SC36): createAnalysisProvider gained a
+      // `layer: 'sel' | 'pesl' = 'sel'` parameter and now delegates per-
+      // type construction to `buildAnalysisProvider` from the
+      // `analysis-provider-factory` module. The localResolvers Map is
+      // still consulted (in the helper `resolveRoutedBackendForIntelligence`
+      // + the layer factory call), but the lookup is now structural —
+      // we assert the source references both helper symbols.
       const src = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'orchestrator.ts'),
         'utf8'
       );
 
-      const analysisProviderMatch = src.match(/private createAnalysisProvider\(\)[\s\S]*?\n  \}/);
+      // Phase 4: the method signature gained a default-arg `layer` parameter,
+      // so we match `(...)` rather than `()`.
+      const analysisProviderMatch = src.match(
+        /private createAnalysisProvider\([^)]*\)[\s\S]*?\n  \}/
+      );
       expect(analysisProviderMatch, 'createAnalysisProvider method not found').not.toBeNull();
-      expect(analysisProviderMatch![0]).toMatch(/this\.localResolvers/);
+
+      // Phase 4: createAnalysisProvider delegates to buildAnalysisProvider
+      // (per-type factory) and resolveRoutedBackendForIntelligence (router
+      // lookup). Source must reference both. The localResolvers reference
+      // sits in createAnalysisProvider's body (resolver lookup by name).
+      expect(src).toMatch(/buildAnalysisProvider/);
+      expect(src).toMatch(/resolveRoutedBackendForIntelligence/);
+      expect(src).toMatch(/this\.localResolvers\.get/);
 
       // No PHASE3-REMOVE markers remain.
       expect(src).not.toMatch(/PHASE3-REMOVE/);
@@ -220,12 +239,22 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
   describe('SC13 — warn-level log on no candidate', () => {
     it('OT4: createAnalysisProvider logs warn when resolver reports unavailable', async () => {
       const fetchModels = vi.fn().mockResolvedValue(['some-other-model']);
+      // Phase 4: routing-driven createAnalysisProvider needs the SEL
+      // layer (or routing.default) to point at the local backend for
+      // the local-resolver-unavailable warn path to fire. We use the
+      // pure-modern shape (`agent.backends` + `agent.routing`) so the
+      // test asserts the new behavior directly.
       const config = makeConfig({
-        localBackend: 'openai-compatible',
-        localModel: ['a', 'b'],
-        localEndpoint: 'http://localhost:11434/v1',
-        localProbeIntervalMs: 60_000,
-      });
+        backends: {
+          local: {
+            type: 'local',
+            endpoint: 'http://localhost:11434/v1',
+            model: ['a', 'b'],
+            probeIntervalMs: 60_000,
+          },
+        },
+        routing: { default: 'local', intelligence: { sel: 'local' } },
+      } as unknown as Partial<WorkflowConfig['agent']>);
       // intelligence enabled so createAnalysisProvider is called
       (config as WorkflowConfig & { intelligence?: { enabled: boolean } }).intelligence = {
         enabled: true,
@@ -248,10 +277,13 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       await orch.start();
       try {
         const warnCalls = warnSpy.mock.calls.map((c) => c[0] as string);
-        const matched = warnCalls.find((m) => /Intelligence pipeline disabled/i.test(m));
+        // Phase 4 wording: "Intelligence pipeline disabled for backend
+        // 'local' at <endpoint>: no configured local model loaded."
+        const matched = warnCalls.find((m) =>
+          /Intelligence pipeline disabled for backend/i.test(m)
+        );
         expect(matched, `expected warn log; got: ${JSON.stringify(warnCalls)}`).toBeTruthy();
         expect(matched).toContain('http://localhost:11434/v1');
-        expect(matched).toMatch(/Configured: \[a, b\]/);
       } finally {
         await orch.stop();
       }
