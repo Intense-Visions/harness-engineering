@@ -549,14 +549,25 @@ export class Orchestrator extends EventEmitter {
     const intel = this.config.intelligence;
     if (!intel?.enabled) return null;
 
-    const provider = this.createAnalysisProvider();
-    if (!provider) return null;
+    const selProvider = this.createAnalysisProvider('sel');
+    if (!selProvider) return null;
+
+    // Spec 2 SC34/SC35: when sel and pesl route to different backends,
+    // build a distinct provider for the PESL layer. When they route to
+    // the same backend (or pesl is unset), pass undefined so the
+    // pipeline falls back to the sel provider (current behavior).
+    const routing = this.config.agent.routing;
+    const peslName = routing?.intelligence?.pesl;
+    const selName = routing?.intelligence?.sel ?? routing?.default;
+    const peslProvider =
+      peslName !== undefined && peslName !== selName ? this.createAnalysisProvider('pesl') : null;
 
     const peslModel = intel.models?.pesl ?? this.config.agent.model;
     const store = new GraphStore();
     this.graphStore = store;
-    return new IntelligencePipeline(provider, store, {
+    return new IntelligencePipeline(selProvider, store, {
       ...(peslModel !== undefined && { peslModel }),
+      ...(peslProvider !== null && peslProvider !== undefined && { peslProvider }),
     });
   }
 
