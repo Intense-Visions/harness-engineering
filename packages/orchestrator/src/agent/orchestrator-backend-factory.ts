@@ -69,6 +69,21 @@ export class OrchestratorBackendFactory {
    * sandbox wrapping. Idempotent across calls (no caching) — the AgentRunner
    * holds the per-dispatch reference and discards it when the run ends.
    */
+  /**
+   * Resolve `useCase` to its routed backend name, exposing the
+   * router lookup without materializing a backend. Used by callers
+   * (e.g., the orchestrator's dispatch site) that need to label
+   * telemetry with the routed name BEFORE constructing the backend.
+   *
+   * Spec 2 P2-I2: previously the orchestrator labelled `LiveSession`
+   * + `StreamRecorder` with the legacy `agent.backend` field, which
+   * is `undefined` for pure-modern configs. Threading the routed name
+   * through dispatch eliminates that gap.
+   */
+  resolveName(useCase: RoutingUseCase): string {
+    return this.router.resolve(useCase);
+  }
+
   forUseCase(useCase: RoutingUseCase): AgentBackend {
     const def = this.router.resolveDefinition(useCase);
     const name = this.router.resolve(useCase);

@@ -1291,10 +1291,33 @@ export class Orchestrator extends EventEmitter {
         attempt: attempt || 1,
       });
 
-      // 5. Start agent session (in background)
+      // 5. Resolve the routed backend NAME up front so the LiveSession
+      //    + recorder are labelled with it (Spec 2 P2-I2). Reading
+      //    `this.config.agent.backend` directly returns `undefined` for
+      //    pure-modern configs (only `agent.backends` set), which would
+      //    surface as `undefined` in dashboard telemetry + stream
+      //    metadata. The router's `resolveName` is total: post-migration
+      //    every `routing` slot maps to a known backend in `backends`.
+      const useCase = useCaseForBackendParam(issue, backend);
+      let routedBackendName: string;
+      if (this.overrideBackend !== null) {
+        routedBackendName = this.overrideBackend.name;
+      } else if (this.backendFactory !== null) {
+        routedBackendName = this.backendFactory.resolveName(useCase);
+      } else {
+        // Legacy-fallback path: factory absent because migration threw.
+        // Prefer `routing.default` if migration partially succeeded;
+        // otherwise fall back to legacy `agent.backend` (still a string
+        // when this branch is reachable: migration only throws on
+        // legacy configs that have `agent.backend` set).
+        routedBackendName =
+          this.config.agent.routing?.default ?? this.config.agent.backend ?? 'unknown';
+      }
+
+      // 6. Start agent session (in background)
       const session: LiveSession = {
         sessionId: `pending-${Date.now()}`,
-        backendName: this.config.agent.backend,
+        backendName: routedBackendName,
         agentPid: null,
         startedAt: new Date().toISOString(),
         lastEvent: 'Dispatching',
@@ -1319,12 +1342,12 @@ export class Orchestrator extends EventEmitter {
         });
       }
 
-      // Record session start
+      // Record session start with the routed backend name (P2-I2).
       this.recorder.startRecording(
         issue.id,
         issue.externalId ?? null,
         issue.identifier,
-        this.config.agent.backend,
+        routedBackendName,
         attempt ?? 1,
         issue.title
       );
@@ -1341,7 +1364,7 @@ export class Orchestrator extends EventEmitter {
       if (this.overrideBackend !== null) {
         agentBackend = this.overrideBackend;
       } else if (this.backendFactory !== null) {
-        agentBackend = this.backendFactory.forUseCase(useCaseForBackendParam(issue, backend));
+        agentBackend = this.backendFactory.forUseCase(useCase);
       } else {
         // Legacy fallback: migration failed, no override supplied. Fail
         // dispatch the same way the deleted `createBackend()` legacy

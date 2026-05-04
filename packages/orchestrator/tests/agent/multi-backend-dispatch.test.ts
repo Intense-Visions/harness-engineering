@@ -152,8 +152,13 @@ function spyOnFactory(orch: Orchestrator): {
     recorded.push(useCase);
     return original.forUseCase(useCase);
   });
+  // Spec 2 P2-I2: dispatch now also calls `resolveName(useCase)` before
+  // `forUseCase`, so the spy proxy must forward both methods to keep
+  // the recorder + LiveSession labelling path working.
   factoryHolder.backendFactory = {
     forUseCase: spy as unknown as OrchestratorBackendFactory['forUseCase'],
+    resolveName: ((useCase: RoutingUseCase): string =>
+      original.resolveName(useCase)) as unknown as OrchestratorBackendFactory['resolveName'],
   } as unknown as OrchestratorBackendFactory;
   return { spy, useCases: () => recorded };
 }
@@ -439,6 +444,158 @@ describe('Multi-backend dispatch routing (Spec 2 Phase 3)', () => {
       const got = useCases();
       expect(got).toContainEqual({ kind: 'tier', tier: 'quick-fix' });
       expect(got).toContainEqual({ kind: 'tier', tier: 'guided-change' });
+    });
+  });
+
+  // Spec 2 P2-I2 fixup: post-migration, three call sites read legacy
+  // `agent.backend` to label the LiveSession + recorder. For pure-modern
+  // configs that omit `agent.backend`, those reads return `undefined`.
+  // The dispatch site already resolves a backend NAME via the router —
+  // thread that name to the recorder so the dashboard's backend column
+  // and stream-recording metadata never carry `undefined` strings.
+  describe('P2-I2 — pure-modern config threads routed backend name to LiveSession + recorder', () => {
+    it('quick-fix dispatch records backend="local" (routed name) for pure-modern config without agent.backend', async () => {
+      // Pure-modern config: only `agent.backends` + `agent.routing`,
+      // intentionally NO `agent.backend` and NO `agent.localBackend`.
+      // Cast through unknown because makeConfig types `backend` as
+      // required string, but the migration tolerates absence (SC15).
+      const config = makeConfig({
+        backends: {
+          local: { type: 'mock' },
+          primary: { type: 'mock' },
+        },
+        routing: { default: 'primary', 'quick-fix': 'local' },
+      } as Partial<WorkflowConfig['agent']>);
+      // Strip the makeConfig-injected `backend: 'mock'` to land a true
+      // pure-modern config, exercising the regression path.
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        execFileFn: noopExecFile,
+      });
+
+      // Capture all calls to recorder.startRecording so we can read the
+      // 4th argument (backend name).
+      const recorder = (orch as unknown as { recorder: { startRecording: Function } }).recorder;
+      const startSpy = vi.fn();
+      const original = recorder.startRecording.bind(recorder);
+      recorder.startRecording = (
+        ...args: [string, number | string | null, string, string, number, string?]
+      ) => {
+        startSpy(...args);
+        return original(...args);
+      };
+
+      const localIssue = makeIssue({ id: 'pm-1', identifier: 'PM-1' });
+      await (
+        orch as unknown as {
+          dispatchIssue: (
+            i: Issue,
+            attempt: number,
+            backend?: 'local' | 'primary'
+          ) => Promise<void>;
+        }
+      ).dispatchIssue(localIssue, 1, 'local');
+
+      expect(startSpy).toHaveBeenCalled();
+      const call = startSpy.mock.calls[0];
+      // Args: [issueId, externalId, identifier, backend, attempt, title?]
+      expect(call[3]).toBe('local');
+      // Critical: must not be undefined nor the literal string 'undefined'.
+      expect(call[3]).not.toBeUndefined();
+      expect(call[3]).not.toBe('undefined');
+    });
+
+    it('guided-change dispatch records backend="primary" (routing.default) for pure-modern config', async () => {
+      const config = makeConfig({
+        backends: {
+          local: { type: 'mock' },
+          primary: { type: 'mock' },
+        },
+        routing: { default: 'primary', 'quick-fix': 'local' },
+      } as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        execFileFn: noopExecFile,
+      });
+
+      const recorder = (orch as unknown as { recorder: { startRecording: Function } }).recorder;
+      const startSpy = vi.fn();
+      const original = recorder.startRecording.bind(recorder);
+      recorder.startRecording = (
+        ...args: [string, number | string | null, string, string, number, string?]
+      ) => {
+        startSpy(...args);
+        return original(...args);
+      };
+
+      // Provide a spec so detectScopeTier returns 'guided-change' →
+      // routing.default = 'primary'.
+      const cloudIssue = makeIssue({ id: 'pm-2', identifier: 'PM-2', spec: 'docs/spec.md' });
+      await (
+        orch as unknown as {
+          dispatchIssue: (
+            i: Issue,
+            attempt: number,
+            backend?: 'local' | 'primary'
+          ) => Promise<void>;
+        }
+      ).dispatchIssue(cloudIssue, 1);
+
+      expect(startSpy).toHaveBeenCalled();
+      const call = startSpy.mock.calls[0];
+      expect(call[3]).toBe('primary');
+      expect(call[3]).not.toBeUndefined();
+      expect(call[3]).not.toBe('undefined');
+    });
+
+    it('LiveSession.backendName matches routed name (not legacy agent.backend) for pure-modern config', async () => {
+      const config = makeConfig({
+        backends: {
+          local: { type: 'mock' },
+          primary: { type: 'mock' },
+        },
+        routing: { default: 'primary', 'quick-fix': 'local' },
+      } as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        execFileFn: noopExecFile,
+      });
+
+      // Seed state.running with a placeholder so dispatchIssue's
+      // `state.running.set(issue.id, { ...entry, session })` saves the
+      // LiveSession we want to inspect.
+      const state = (orch as unknown as { state: { running: Map<string, unknown> } }).state;
+      const issue = makeIssue({ id: 'pm-3', identifier: 'PM-3' });
+      state.running.set(issue.id, {
+        issue,
+        attempt: 1,
+        phase: 'PreparingWorkspace',
+        workspacePath: null,
+        session: null,
+        cooldownUntilMs: null,
+      });
+
+      await (
+        orch as unknown as {
+          dispatchIssue: (
+            i: Issue,
+            attempt: number,
+            backend?: 'local' | 'primary'
+          ) => Promise<void>;
+        }
+      ).dispatchIssue(issue, 1, 'local');
+
+      const entry = state.running.get(issue.id) as { session: { backendName: string } | null };
+      expect(entry).toBeDefined();
+      expect(entry.session).not.toBeNull();
+      expect(entry.session?.backendName).toBe('local');
+      expect(entry.session?.backendName).not.toBeUndefined();
     });
   });
 
