@@ -187,6 +187,11 @@ export {
 } from './telemetry';
 
 /**
+ * Locks module.
+ */
+export * from './locks';
+
+/**
  * Pulse module.
  */
 export * from './pulse';
