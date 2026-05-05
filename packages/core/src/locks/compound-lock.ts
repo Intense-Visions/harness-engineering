@@ -10,7 +10,8 @@ export class CompoundLockHeldError extends Error {
     public readonly lockPath: string
   ) {
     super(
-      `Compound lock for category "${category}" is held by pid ${holderPid} (lock file: ${lockPath}).`
+      `Compound lock for category "${category}" is held by pid ${holderPid} (lock file: ${lockPath}). ` +
+        `If the holder is no longer running (e.g. it was SIGKILL'd), the lock is stale; recover with: rm ${lockPath}`
     );
     this.name = 'CompoundLockHeldError';
   }
