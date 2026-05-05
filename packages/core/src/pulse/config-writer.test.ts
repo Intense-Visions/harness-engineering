@@ -79,4 +79,17 @@ describe('writePulseConfig', () => {
       )
     ).toThrow();
   });
+
+  it('writes atomically and leaves no .tmp file on the happy path', () => {
+    const original = { version: 1, name: 'p' };
+    fs.writeFileSync(cfgPath, JSON.stringify(original, null, 2));
+    writePulseConfig(samplePulse, { configPath: cfgPath });
+    // No sibling temp files should linger after a successful write.
+    const siblings = fs.readdirSync(tmpDir);
+    expect(siblings.some((f) => f.startsWith('harness.config.json.tmp-'))).toBe(false);
+    // The post-mutation config is well-formed (i.e. not truncated mid-write).
+    const parsed = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+    expect(parsed.pulse).toBeDefined();
+    expect(parsed.pulse.enabled).toBe(true);
+  });
 });

@@ -40,5 +40,21 @@ export function writePulseConfig(config: PulseConfig, opts: WritePulseConfigOpti
 
   parsed.pulse = config;
   const serialized = JSON.stringify(parsed, null, 2) + '\n';
-  fs.writeFileSync(opts.configPath, serialized, 'utf-8');
+
+  // Atomic write: write to a sibling temp file, then rename. fs.renameSync is
+  // atomic on POSIX (and atomic-on-same-volume on Windows since Node 14), so a
+  // crash mid-write leaves harness.config.json either pre-mutation or
+  // post-mutation, never truncated. Clean up the temp file if rename fails.
+  const tmpPath = `${opts.configPath}.tmp-${process.pid}`;
+  fs.writeFileSync(tmpPath, serialized, 'utf-8');
+  try {
+    fs.renameSync(tmpPath, opts.configPath);
+  } catch (e) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // best-effort cleanup
+    }
+    throw e;
+  }
 }
