@@ -139,10 +139,8 @@ export async function runValidate(
   } else {
     result.valid = false;
     result.checks.solutionsDir = false;
-    const detail = solutionsResult.error.details as
-      | { issues?: Array<{ file: string; message: string }> }
-      | undefined;
-    for (const issue of detail?.issues ?? [
+    const detail = solutionsResult.error.details;
+    for (const issue of detail.issues ?? [
       { file: 'docs/solutions', message: solutionsResult.error.message },
     ]) {
       result.issues.push({ check: 'solutionsDir', file: issue.file, message: issue.message });
