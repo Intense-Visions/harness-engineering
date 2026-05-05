@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import type { LocalModelStatus, WebSocketMessage } from '../types/orchestrator';
+import type { NamedLocalModelStatus, WebSocketMessage } from '../types/orchestrator';
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
-export interface UseLocalModelStatusResult {
-  /** Latest LocalModelStatus snapshot, or null when not yet loaded. */
-  status: LocalModelStatus | null;
+export interface UseLocalModelStatusesResult {
+  /**
+   * Per-backend local-model statuses, merged by `backendName`. Empty array
+   * until the first HTTP fallback resolves OR the first WebSocket event
+   * arrives. Spec 2 SC38–SC39: the multi-local replacement for the singular
+   * `useLocalModelStatus()` hook (renamed in Phase 5).
+   */
+  statuses: NamedLocalModelStatus[];
   /** True until the first HTTP fallback resolves OR the first WebSocket event arrives. */
   loading: boolean;
   /** HTTP fallback error message, null when healthy. WebSocket errors do not surface here (the hook auto-reconnects). */
@@ -19,21 +24,23 @@ function getWsUrl(): string {
 }
 
 /**
- * Subscribe to the orchestrator's `local-model:status` WebSocket topic.
+ * Subscribe to the orchestrator's `local-model:status` WebSocket topic
+ * and seed from the multi-status HTTP endpoint.
  *
- * On mount, issues a single GET to /api/v1/local-model/status to seed the
+ * On mount, issues a single GET to /api/v1/local-models/status to seed the
  * initial value, then opens a WebSocket on /ws and listens for status
- * events. WebSocket-delivered values always supersede the HTTP fallback.
+ * events. WebSocket-delivered values supersede HTTP fallback values for
+ * matching `backendName`s; events for new names append to the array.
  *
  * **Standalone use only.** This hook owns its own WebSocket connection. If
  * a parent component already calls `useOrchestratorSocket()`, prefer reading
- * `localModelStatus` from that hook's return value instead — calling both
+ * `localModelStatuses` from that hook's return value instead — calling both
  * hooks in the same render tree opens two WebSocket connections. This hook
- * exists for components that need the status without a full orchestrator
+ * exists for components that need the statuses without a full orchestrator
  * snapshot (e.g., a future minimal dashboard widget).
  */
-export function useLocalModelStatus(): UseLocalModelStatusResult {
-  const [status, setStatus] = useState<LocalModelStatus | null>(null);
+export function useLocalModelStatuses(): UseLocalModelStatusesResult {
+  const [statuses, setStatuses] = useState<NamedLocalModelStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -45,20 +52,15 @@ export function useLocalModelStatus(): UseLocalModelStatusResult {
     const controller = new AbortController();
     (async () => {
       try {
-        const res = await fetch('/api/v1/local-model/status', { signal: controller.signal });
-        if (res.status === 503) {
-          // No local backend configured — leave status as null; banner will not render.
-          setLoading(false);
-          return;
-        }
+        const res = await fetch('/api/v1/local-models/status', { signal: controller.signal });
         if (!res.ok) {
           setError(`HTTP ${res.status}`);
           setLoading(false);
           return;
         }
-        const json = (await res.json()) as LocalModelStatus;
+        const json = (await res.json()) as NamedLocalModelStatus[];
         // Only seed if the WebSocket hasn't already populated state.
-        setStatus((prev) => prev ?? json);
+        setStatuses((prev) => (prev.length === 0 ? json : prev));
         setLoading(false);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -88,10 +90,17 @@ export function useLocalModelStatus(): UseLocalModelStatusResult {
           if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
           const msg = raw as WebSocketMessage;
           if (msg.type === 'local-model:status') {
-            setStatus(msg.data);
+            // Merge-by-backendName: upsert in place; preserve other entries.
+            setStatuses((prev) => {
+              const idx = prev.findIndex((s) => s.backendName === msg.data.backendName);
+              if (idx === -1) return [...prev, msg.data];
+              const next = prev.slice();
+              next[idx] = msg.data;
+              return next;
+            });
             setLoading(false);
             // Clear any stale HTTP fallback error — a fresh WebSocket message
-            // proves the backend is reachable, even if the initial GET 503'd.
+            // proves the backend is reachable, even if the initial GET failed.
             setError(null);
           }
         } catch {
@@ -120,5 +129,5 @@ export function useLocalModelStatus(): UseLocalModelStatusResult {
     };
   }, []);
 
-  return { status, loading, error };
+  return { statuses, loading, error };
 }
