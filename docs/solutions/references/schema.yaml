@@ -1,0 +1,39 @@
+# Solution-doc frontmatter schema.
+# Authoritative Zod definition: packages/core/src/solutions/schema.ts.
+# This YAML is for human reference and consumed by harness-compound's classify phase.
+version: 1
+required:
+  - module
+  - tags
+  - problem_type
+  - last_updated
+  - track
+  - category
+fields:
+  module: { type: string, description: "Affected package or area, e.g. 'orchestrator'" }
+  tags: { type: 'array<string>', description: "Free-form keywords" }
+  problem_type: { type: string, description: "Short noun phrase, e.g. 'race-condition'" }
+  last_updated: { type: string, format: 'YYYY-MM-DD' }
+  track:
+    type: enum
+    values: [bug-track, knowledge-track]
+  category:
+    type: enum
+    depends_on: track
+    bug-track:
+      - build-errors
+      - test-failures
+      - runtime-errors
+      - performance-issues
+      - database-issues
+      - security-issues
+      - ui-bugs
+      - integration-issues
+      - logic-errors
+    knowledge-track:
+      - architecture-patterns
+      - design-patterns
+      - tooling-decisions
+      - conventions
+      - dx
+      - best-practices
