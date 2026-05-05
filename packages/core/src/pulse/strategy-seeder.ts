@@ -57,8 +57,11 @@ export function seedFromStrategy(opts: SeedOptions = {}): StrategySeed {
   if (headerMatch && headerMatch.index !== undefined) {
     const startIdx = headerMatch.index + headerMatch[0].length;
     const after = raw.slice(startIdx);
-    // Stop at the next H1/H2 heading (not deeper sub-headings).
-    const stopMatch = /^(#{1,2})\s+/m.exec(after);
+    // Stop at the next H1/H2/H3 heading. H3 is the conventional sub-section
+    // break; an author who indents content under an H3 inside Key metrics did
+    // NOT mean those bullets to be product metrics (e.g. `### Implementation
+    // notes` listing instrumentation caveats, not metrics).
+    const stopMatch = /^(#{1,3})\s+/m.exec(after);
     const block = stopMatch ? after.slice(0, stopMatch.index) : after;
     for (const line of block.split('\n')) {
       const m = /^[-*]\s+(.+)$/.exec(line.trim());

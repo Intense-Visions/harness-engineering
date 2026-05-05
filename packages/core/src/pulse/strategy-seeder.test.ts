@@ -60,6 +60,32 @@ describe('seedFromStrategy', () => {
     expect(result.warnings.some((w) => /frontmatter/i.test(w))).toBe(true);
   });
 
+  it('stops key-metrics extraction at H3 sub-headings', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'STRATEGY.md'),
+      [
+        '---',
+        'name: Acme',
+        '---',
+        '# Acme',
+        '',
+        '## Key metrics',
+        '- Daily active users',
+        '- Plans completed per week',
+        '',
+        '### Implementation notes',
+        '- depends on instrumented event X',
+        '- currently sampled at 10%',
+        '',
+        '## Other section',
+        '- not a metric',
+      ].join('\n')
+    );
+    const result = seedFromStrategy({ cwd: tmpDir });
+    // Implementation-note bullets under the H3 must NOT leak into keyMetrics.
+    expect(result.keyMetrics).toEqual(['Daily active users', 'Plans completed per week']);
+  });
+
   it('soft-fails when Key metrics section is missing', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'STRATEGY.md'),
