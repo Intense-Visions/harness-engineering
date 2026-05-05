@@ -66,24 +66,25 @@ describe('acquireCompoundLock cross-process cleanup', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('releases the lock when the holding process exits normally', async () => {
-    const { execFileSync } = await import('node:child_process');
-    // Spawn a child node process that imports the compiled dist, acquires
-    // the lock, and exits normally. The 'exit' handler must remove the lock.
-    const distEntry = path.resolve(__dirname, '..', '..', 'dist', 'index.mjs');
-    if (!fs.existsSync(distEntry)) {
-      // Skip if dist hasn't been built; this test exercises cross-process
-      // semantics that require the compiled output.
-      return;
+  // The cross-process test exercises semantics that require the compiled
+  // output. Use it.skipIf so the skip is visible in test output rather
+  // than silently passing without assertions when dist is not built.
+  const distEntry = path.resolve(__dirname, '..', '..', 'dist', 'index.mjs');
+  it.skipIf(!fs.existsSync(distEntry))(
+    'releases the lock when the holding process exits normally',
+    async () => {
+      const { execFileSync } = await import('node:child_process');
+      // Spawn a child node process that imports the compiled dist, acquires
+      // the lock, and exits normally. The 'exit' handler must remove the lock.
+      const script = `
+        import('${distEntry}').then(({ acquireCompoundLock }) => {
+          acquireCompoundLock('integration-issues', { cwd: ${JSON.stringify(tmpDir)} });
+          process.exit(0);
+        }).catch((e) => { console.error(e); process.exit(1); });
+      `;
+      execFileSync('node', ['--input-type=module', '-e', script], { stdio: 'pipe' });
+      const lockPath = path.join(tmpDir, '.harness', 'locks', 'compound-integration-issues.lock');
+      expect(fs.existsSync(lockPath)).toBe(false);
     }
-    const script = `
-      import('${distEntry}').then(({ acquireCompoundLock }) => {
-        acquireCompoundLock('integration-issues', { cwd: ${JSON.stringify(tmpDir)} });
-        process.exit(0);
-      }).catch((e) => { console.error(e); process.exit(1); });
-    `;
-    execFileSync('node', ['--input-type=module', '-e', script], { stdio: 'pipe' });
-    const lockPath = path.join(tmpDir, '.harness', 'locks', 'compound-integration-issues.lock');
-    expect(fs.existsSync(lockPath)).toBe(false);
-  });
+  );
 });
