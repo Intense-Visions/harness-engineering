@@ -557,6 +557,166 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
     });
   });
 
+  describe('multi-resolver broadcast (Spec 2 Phase 5 — SC39, SC40 server-side)', () => {
+    it('broadcasts NamedLocalModelStatus per-resolver, each tagged with backendName+endpoint', async () => {
+      // Two local backends: 'local-a' (healthy) and 'local-b' (unhealthy).
+      const broadcasts: import('@harness-engineering/types').NamedLocalModelStatus[] = [];
+      const config = makeConfig({
+        backends: {
+          'local-a': {
+            type: 'local',
+            endpoint: 'http://localhost:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+          'local-b': {
+            type: 'local',
+            endpoint: 'http://192.168.1.50:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+        },
+        routing: { default: 'local-a' },
+      } as unknown as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      // Inject fake server stub to capture broadcasts.
+      (
+        orch as unknown as {
+          server: {
+            start: () => Promise<void>;
+            stop: () => void;
+            broadcastLocalModelStatus: (s: unknown) => void;
+            setPipeline: (p: unknown) => void;
+          };
+        }
+      ).server = {
+        start: async () => {},
+        stop: () => {},
+        broadcastLocalModelStatus: (s: unknown) =>
+          broadcasts.push(s as import('@harness-engineering/types').NamedLocalModelStatus),
+        setPipeline: () => {},
+      };
+
+      // Stub each resolver's fetchModels with distinct outcomes.
+      const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+        .localResolvers;
+      expect(map.size).toBe(2);
+      (
+        map.get('local-a') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      (
+        map.get('local-b') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue([]);
+
+      await orch.start();
+      try {
+        // Each resolver fires at least one broadcast on its first probe diff
+        // (default state -> probe-1 result). Exactly two broadcasts —
+        // one per resolver — tagged with distinct backendName+endpoint.
+        const byName = new Map<
+          string,
+          import('@harness-engineering/types').NamedLocalModelStatus
+        >();
+        for (const b of broadcasts) byName.set(b.backendName, b);
+
+        expect(byName.has('local-a'), 'expected broadcast for local-a').toBe(true);
+        expect(byName.has('local-b'), 'expected broadcast for local-b').toBe(true);
+        expect(byName.get('local-a')!.endpoint).toBe('http://localhost:1234/v1');
+        expect(byName.get('local-b')!.endpoint).toBe('http://192.168.1.50:1234/v1');
+        expect(byName.get('local-a')!.available).toBe(true);
+        expect(byName.get('local-b')!.available).toBe(false);
+      } finally {
+        await orch.stop();
+      }
+    });
+
+    it('exposes getLocalModelStatuses callback returning both backends', async () => {
+      // Same 2-backend config; assert the orchestrator wires the
+      // getLocalModelStatuses callback into the server with both entries
+      // (backendName + endpoint).
+      const config = makeConfig({
+        backends: {
+          'local-a': {
+            type: 'local',
+            endpoint: 'http://localhost:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+          'local-b': {
+            type: 'local',
+            endpoint: 'http://192.168.1.50:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+        },
+        routing: { default: 'local-a' },
+      } as unknown as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+      // Set a random port so the Orchestrator constructs its server
+      // (which is gated on config.server.port truthy). The server bind
+      // is deferred until orch.start().
+      const port = 30000 + Math.floor(Math.random() * 20000);
+      (config as WorkflowConfig).server = { port };
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+
+      // Stub fetchModels so resolvers settle without real network calls.
+      const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+        .localResolvers;
+      (
+        map.get('local-a') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      (
+        map.get('local-b') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue([]);
+
+      await orch.start();
+      try {
+        // Read the private getLocalModelStatuses field off the constructed
+        // server. The orchestrator wires this callback in its OrchestratorServer
+        // constructor call.
+        const server = (
+          orch as unknown as { server: import('../../src/server/http').OrchestratorServer }
+        ).server;
+        const cb = (
+          server as unknown as {
+            getLocalModelStatuses:
+              | (() => import('@harness-engineering/types').NamedLocalModelStatus[])
+              | null;
+          }
+        ).getLocalModelStatuses;
+        expect(typeof cb, 'getLocalModelStatuses callback should be wired').toBe('function');
+        const statuses = cb!();
+        expect(statuses).toHaveLength(2);
+        const byName = new Map(statuses.map((s) => [s.backendName, s]));
+        expect(byName.has('local-a')).toBe(true);
+        expect(byName.has('local-b')).toBe(true);
+        expect(byName.get('local-a')!.endpoint).toBe('http://localhost:1234/v1');
+        expect(byName.get('local-b')!.endpoint).toBe('http://192.168.1.50:1234/v1');
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
   describe('OT11 — stop() halts resolver probing', () => {
     it('no further fetchModels calls after stop()', async () => {
       vi.useFakeTimers();
