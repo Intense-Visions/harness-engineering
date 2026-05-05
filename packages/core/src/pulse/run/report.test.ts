@@ -27,6 +27,33 @@ describe('assembleReport', () => {
     expect(out).toContain('## Followups');
   });
 
+  it('cascades truncation through Usage when 50 sources overflow the line budget', () => {
+    // 50 analytics sources blow up the Usage section past 40 lines on its
+    // own; Followups is empty so the cascade must reach Usage.
+    const fatUsage: OrchestratorResult = {
+      sources: Array.from({ length: 50 }, (_, i) => ({
+        kind: 'analytics' as const,
+        name: `src${i}`,
+        result: {
+          fields: { event_name: `event-${i}`, count: i },
+          distributions: {},
+        },
+      })),
+      sourcesQueried: Array.from({ length: 50 }, (_, i) => `src${i}`),
+      sourcesSkipped: [],
+      durationMs: 100,
+    };
+    const out = assembleReport(fatUsage, 'P', '24h');
+    const lines = out.split('\n');
+    expect(lines.length).toBeLessThanOrEqual(40);
+    // Headlines section must be intact.
+    expect(out).toContain('## Headlines');
+    expect(out).toContain('source(s) queried');
+    // The Usage section was truncated, so it must carry the marker.
+    expect(out).toContain('## Usage');
+    expect(out).toContain('_(truncated to fit single-page constraint)_');
+  });
+
   it('truncates Followups section when output exceeds 40 lines', () => {
     const fat: OrchestratorResult = {
       ...baseResult,

@@ -106,22 +106,69 @@ function finalPiiSweep(text: string): string {
     .join('\n');
 }
 
-function truncateFollowupsToFit(text: string): string {
-  const lines = text.split('\n');
-  if (lines.length <= MAX_LINES) return text;
-  // Find the start of the Followups section.
-  const idx = lines.findIndex((l) => l.startsWith('## Followups'));
-  if (idx < 0) return lines.slice(0, MAX_LINES).join('\n');
-  // Truncate from the end backward, preserving the Followups header, until
-  // under MAX_LINES. Append a marker noting truncation.
-  const headLines = lines.slice(0, idx + 1);
-  const followupsLines = lines.slice(idx + 1);
-  // Reserve one line for the truncation marker.
-  while (headLines.length + followupsLines.length + 1 > MAX_LINES && followupsLines.length > 1) {
-    followupsLines.pop();
+const TRUNCATION_MARKER = '_(truncated to fit single-page constraint)_';
+
+/**
+ * Truncate a single section in place. Preserves the section header line
+ * (lines[startIdx]) and removes lines from the tail of the section until the
+ * total line count fits under MAX_LINES (with one slot reserved for the
+ * truncation marker). Returns the new lines array. If the section is already
+ * empty (only the header), it is left alone.
+ */
+function truncateSection(lines: string[], startIdx: number, endIdx: number): string[] {
+  const head = lines.slice(0, startIdx + 1);
+  const section = lines.slice(startIdx + 1, endIdx);
+  const tail = lines.slice(endIdx);
+  // Reserve one line for the truncation marker (only if we end up truncating).
+  let truncated = false;
+  while (
+    head.length + section.length + tail.length + (truncated ? 0 : 1) > MAX_LINES &&
+    section.length > 0
+  ) {
+    section.pop();
+    truncated = true;
   }
-  followupsLines.push('_(truncated to fit single-page constraint)_');
-  return [...headLines, ...followupsLines].join('\n');
+  if (truncated) section.push(TRUNCATION_MARKER);
+  return [...head, ...section, ...tail];
+}
+
+/**
+ * Cascading truncation. Followups is truncated first (least essential), then
+ * System performance, then Usage. Headlines and the H1 title are sacrosanct
+ * and never touched. Each truncated section gets a clear marker so the
+ * dropped content is not silently lost.
+ */
+function truncateToFit(text: string): string {
+  let lines = text.split('\n');
+  if (lines.length <= MAX_LINES) return text;
+
+  // Cascade: Followups -> System performance -> Usage. Headlines is preserved.
+  const sections: Array<{ header: string }> = [
+    { header: '## Followups' },
+    { header: '## System performance' },
+    { header: '## Usage' },
+  ];
+  for (const { header } of sections) {
+    if (lines.length <= MAX_LINES) break;
+    const startIdx = lines.findIndex((l) => l === header || l.startsWith(`${header} `));
+    if (startIdx < 0) continue;
+    // Section ends at the next H2 header or end-of-file.
+    let endIdx = lines.length;
+    for (let i = startIdx + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line !== undefined && line.startsWith('## ')) {
+        endIdx = i;
+        break;
+      }
+    }
+    lines = truncateSection(lines, startIdx, endIdx);
+  }
+
+  // Last-resort hard cap (should be unreachable when at least one section
+  // contains content): clip to MAX_LINES so the contract holds even when all
+  // sections are already minimal.
+  if (lines.length > MAX_LINES) lines = lines.slice(0, MAX_LINES);
+  return lines.join('\n');
 }
 
 /**
@@ -145,5 +192,5 @@ export function assembleReport(
     .replace('{{systemPerformance}}', buildSystemPerformance(result))
     .replace('{{followups}}', buildFollowups(result));
   const swept = finalPiiSweep(filled);
-  return truncateFollowupsToFit(swept);
+  return truncateToFit(swept);
 }
