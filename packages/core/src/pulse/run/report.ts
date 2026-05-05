@@ -10,8 +10,11 @@ const MAX_LINES = 40;
 /**
  * Inline fallback template — kept in sync with template.md. Used when the
  * sibling template.md cannot be resolved (CJS build, bundled consumer, etc.).
+ *
+ * Exported only to be cross-checked against template.md by the test suite —
+ * a mismatch fails CI before drift can land. Not part of the public surface.
  */
-const INLINE_TEMPLATE = `# {{productName}} Pulse — {{windowLabel}}
+export const INLINE_TEMPLATE = `# {{productName}} Pulse — {{windowLabel}}
 
 ## Headlines
 

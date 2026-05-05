@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { assembleReport, extractHeadlines } from './report';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { assembleReport, extractHeadlines, INLINE_TEMPLATE } from './report';
 import type { OrchestratorResult } from './orchestrator';
 
 const baseResult: OrchestratorResult = {
@@ -14,6 +17,19 @@ const baseResult: OrchestratorResult = {
   sourcesSkipped: [],
   durationMs: 250,
 };
+
+describe('template integrity', () => {
+  it('INLINE_TEMPLATE matches template.md verbatim (drift guard)', () => {
+    // Both copies of the template are reachable: the loader prefers
+    // template.md and falls back to INLINE_TEMPLATE on resolve failure
+    // (CJS bundles, missing assets). If they diverge silently, the CJS
+    // path produces different output. Anchor them with a test so any
+    // change to one side without the other fails CI.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const onDisk = readFileSync(join(here, 'template.md'), 'utf-8');
+    expect(onDisk).toBe(INLINE_TEMPLATE);
+  });
+});
 
 describe('extractHeadlines', () => {
   it('returns the title + complete Headlines section, not a fixed line count', () => {
