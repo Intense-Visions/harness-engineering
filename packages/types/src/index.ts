@@ -140,5 +140,14 @@ export type {
   SecretConfig,
 } from './container';
 
+// --- Pulse (read-side observability) ---
+export type {
+  PulseConfig,
+  PulseSources,
+  PulseDbSource,
+  SanitizedResult,
+  SanitizeFn,
+} from './pulse';
+
 // --- Maintenance ---
 export type { MaintenanceConfig, TaskOverride } from './maintenance';
