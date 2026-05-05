@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { LocalModelStatus } from '@harness-engineering/types';
+import type { LocalModelStatus, NamedLocalModelStatus } from '@harness-engineering/types';
 
 /**
  * Callback returning the latest LocalModelStatus snapshot, or null when
@@ -50,5 +50,43 @@ export function handleLocalModelRoute(
   }
 
   sendJSON(res, 200, status);
+  return true;
+}
+
+/**
+ * Callback returning the latest NamedLocalModelStatus[] snapshot — one entry
+ * per `local`/`pi` backend in `agent.backends`. Returns `[]` when no local
+ * backends are configured (cloud-only orchestrator). Spec 2 SC38 — the
+ * multi-local replacement for `getLocalModelStatus` (singular, retained as
+ * deprecated alias).
+ */
+export type GetLocalModelStatusesFn = () => NamedLocalModelStatus[];
+
+/**
+ * Handles GET /api/v1/local-models/status (plural).
+ *
+ * - Returns 200 with NamedLocalModelStatus[] (possibly empty) when the
+ *   orchestrator has registered the multi-status callback.
+ * - Returns 200 with [] when getStatuses is null (no local backends — same
+ *   shape as zero-resolver output, so dashboards render no banners).
+ * - Returns 405 for non-GET methods.
+ *
+ * Returns true if the route matched, false otherwise.
+ */
+export function handleLocalModelsRoute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  getStatuses: GetLocalModelStatusesFn | null
+): boolean {
+  const { method, url } = req;
+  if (url !== '/api/v1/local-models/status') return false;
+
+  if (method !== 'GET') {
+    sendJSON(res, 405, { error: 'Method not allowed' });
+    return true;
+  }
+
+  const statuses = getStatuses ? getStatuses() : [];
+  sendJSON(res, 200, statuses);
   return true;
 }
