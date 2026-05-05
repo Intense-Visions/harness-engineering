@@ -147,6 +147,10 @@ export type {
   PulseDbSource,
   SanitizedResult,
   SanitizeFn,
+  PulseWindow,
+  PulseAdapter,
+  PulseRunStatusType,
+  PulseRunStatus,
 } from './pulse';
 
 // --- Solutions (compound learning docs) ---
