@@ -381,8 +381,8 @@ Filenames assigned at write time as `docs/knowledge/decisions/<NNNN>-local-model
 These are explicitly NOT success criteria for this spec:
 
 - Backend-native loaded checks (LM Studio `/api/v0/models`, Ollama `/api/ps`).
-- `agent.backend: 'local'` or `agent.backend: 'pi'` as primary backend (Spec 2).
-- Per-use-case backend routing via `agent.routing` map (Spec 2).
+- `agent.backend: 'local'` or `agent.backend: 'pi'` as primary backend — **shipped in [Spec 2: Multi-Backend Routing](../multi-backend-routing/proposal.md)**.
+- Per-use-case backend routing via `agent.routing` map — **shipped in [Spec 2: Multi-Backend Routing](../multi-backend-routing/proposal.md)**.
 - Intelligence pipeline live-reload on local availability change (deferred; SC23 documents the limitation).
 
 ## Implementation Order
