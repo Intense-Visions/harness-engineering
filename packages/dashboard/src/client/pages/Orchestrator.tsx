@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useRecentSessions } from '../hooks/useRecentSessions';
-import type { LocalModelStatus } from '../types/orchestrator';
+import type { NamedLocalModelStatus } from '../types/orchestrator';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
 import { useThreadStore } from '../stores/threadStore';
 import type { AgentMeta } from '../types/thread';
@@ -17,7 +17,7 @@ function formatProbeTime(iso: string | null): string {
   return date.toLocaleString();
 }
 
-function LocalModelBanner({ status }: { status: LocalModelStatus }) {
+function LocalModelBanner({ status }: { status: NamedLocalModelStatus }) {
   const detectedLabel = status.detected.length > 0 ? status.detected.join(', ') : 'none detected';
   return (
     <div
@@ -28,6 +28,9 @@ function LocalModelBanner({ status }: { status: LocalModelStatus }) {
         <span className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-red-300">Local model unavailable</p>
+          <p className="mt-1 font-mono text-xs text-red-300/80">
+            {status.backendName} &mdash; {status.endpoint}
+          </p>
           <p className="mt-1 text-red-200">
             No configured candidate is currently loaded on the local server. The intelligence
             pipeline and local agent dispatch are disabled until a candidate is loaded.
@@ -608,7 +611,7 @@ function RecentSessions({ onViewStream }: { onViewStream: (issueId: string) => v
 }
 
 export function Orchestrator() {
-  const { snapshot, agentEvents, connected, localModelStatus } = useOrchestratorSocket();
+  const { snapshot, agentEvents, connected, localModelStatuses } = useOrchestratorSocket();
   const navigate = useNavigate();
 
   const navigateToAgent = useCallback(
@@ -668,9 +671,11 @@ export function Orchestrator() {
   if (!snapshot) {
     return (
       <div>
-        {localModelStatus && !localModelStatus.available && (
-          <LocalModelBanner status={localModelStatus} />
-        )}
+        {localModelStatuses
+          .filter((s) => !s.available)
+          .map((s) => (
+            <LocalModelBanner key={s.backendName} status={s} />
+          ))}
         <h1 className="mb-6 text-2xl font-bold">Agent Monitor</h1>
         <p className="text-sm text-gray-500">
           {connected ? 'Waiting for first state update...' : 'Connecting to orchestrator...'}
@@ -684,9 +689,11 @@ export function Orchestrator() {
 
   return (
     <div>
-      {localModelStatus && !localModelStatus.available && (
-        <LocalModelBanner status={localModelStatus} />
-      )}
+      {localModelStatuses
+        .filter((s) => !s.available)
+        .map((s) => (
+          <LocalModelBanner key={s.backendName} status={s} />
+        ))}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agent Monitor</h1>
         <div className="flex items-center gap-2 text-xs">
