@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/marketplace.schema.json",
+  "name": "harness",
+  "owner": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "description": "Harness — agent-first development toolkit. Skills, slash commands, and MCP server for Claude Code and Cowork sessions.",
+  "plugins": [
+    {
+      "name": "harness",
+      "source": ".",
+      "description": "Bundles every harness skill, /harness:* slash command, and the harness MCP server in one install. Removes the need to run `harness setup` per repo.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intense Visions",
+        "url": "https://github.com/Intense-Visions"
+      },
+      "homepage": "https://github.com/Intense-Visions/harness-engineering",
+      "license": "MIT",
+      "keywords": [
+        "harness",
+        "agent-first",
+        "skills",
+        "slash-commands",
+        "mcp",
+        "validation",
+        "scaffolding"
+      ]
+    }
+  ]
+}
