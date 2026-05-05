@@ -56,10 +56,10 @@ Read `references/interview.md` for the SMART pushback rules and the READ-WRITE-D
 
 9. **Confirm the assembled config.** Show the user the proposed `pulse:` block; ask for confirmation.
 
-10. **Write the config.** Shell out to a Node one-liner that imports `writePulseConfig` from `@harness-engineering/core`:
+10. **Write the config.** Shell out to a Node one-liner that imports `writePulseConfig` from `@harness-engineering/core`. Pipe the JSON through stdin so user-supplied event names, qualityDimension, and pendingMetrics never cross the shell tokenizer (quotes, backticks, `$()`, `$VAR` in user input would otherwise break the command or allow injection):
 
     ```bash
-    node -e "import('@harness-engineering/core').then(({ writePulseConfig }) => writePulseConfig(<json>, { configPath: 'harness.config.json' })).catch(err => { console.error(err.message); process.exit(1); })"
+    echo '<json-blob>' | node -e "import('@harness-engineering/core').then(m => m.writePulseConfig(JSON.parse(require('fs').readFileSync(0, 'utf-8')), { configPath: 'harness.config.json' })).catch(err => { console.error(err.message); process.exit(1); })"
     ```
 
     The writer preserves all other config keys and writes a `.bak`.
