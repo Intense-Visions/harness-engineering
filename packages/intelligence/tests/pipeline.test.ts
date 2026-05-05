@@ -182,3 +182,36 @@ describe('IntelligencePipeline', () => {
     expect(result.spec!.title).toBe('Custom title');
   });
 });
+
+describe('IntelligencePipeline — distinct sel/pesl providers (Spec 2 SC34, SC35)', () => {
+  function makeLabeledProvider(label: string): AnalysisProvider {
+    return {
+      label,
+      analyze: vi.fn(async () => ({ raw: '', parsed: null })),
+    } as unknown as AnalysisProvider;
+  }
+
+  it('SC34: when only one provider is supplied, PeslSimulator uses the same provider as enrich (current behavior)', () => {
+    const sel = makeLabeledProvider('sel');
+    const store = new GraphStore();
+    const pipeline = new IntelligencePipeline(sel, store, { peslModel: 'pesl-model' });
+    // Reach into internals — PeslSimulator.provider should equal `sel`.
+    const sim = (pipeline as unknown as { simulator: { provider: AnalysisProvider } }).simulator;
+    expect(sim.provider).toBe(sel);
+  });
+
+  it('SC35: when peslProvider is supplied, PeslSimulator uses the distinct provider', () => {
+    const sel = makeLabeledProvider('sel');
+    const pesl = makeLabeledProvider('pesl');
+    const store = new GraphStore();
+    const pipeline = new IntelligencePipeline(sel, store, {
+      peslModel: 'pesl-model',
+      peslProvider: pesl,
+    });
+    const sim = (pipeline as unknown as { simulator: { provider: AnalysisProvider } }).simulator;
+    expect(sim.provider).toBe(pesl);
+    // Sanity: enrich path still uses sel
+    const enrichProvider = (pipeline as unknown as { provider: AnalysisProvider }).provider;
+    expect(enrichProvider).toBe(sel);
+  });
+});

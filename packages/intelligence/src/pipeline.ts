@@ -40,11 +40,25 @@ export class IntelligencePipeline {
   private readonly simulator: PeslSimulator;
   private readonly outcomeConnector: ExecutionOutcomeConnector;
 
-  constructor(provider: AnalysisProvider, store: GraphStore, options?: { peslModel?: string }) {
+  constructor(
+    provider: AnalysisProvider,
+    store: GraphStore,
+    options?: {
+      peslModel?: string;
+      /**
+       * Optional distinct provider for the PESL layer. Defaults to
+       * `provider` (current behavior — sel and pesl share a session).
+       * Spec 2 SC35: when `routing.intelligence.sel !== routing.intelligence.pesl`,
+       * the orchestrator passes a second `AnalysisProvider` here so PESL
+       * runs against a different backend than SEL.
+       */
+      peslProvider?: AnalysisProvider;
+    }
+  ) {
     this.provider = provider;
     this.store = store;
     this.graphValidator = new GraphValidator(store);
-    this.simulator = new PeslSimulator(provider, store, {
+    this.simulator = new PeslSimulator(options?.peslProvider ?? provider, store, {
       ...(options?.peslModel !== undefined && { model: options.peslModel }),
     });
     this.outcomeConnector = new ExecutionOutcomeConnector(store);

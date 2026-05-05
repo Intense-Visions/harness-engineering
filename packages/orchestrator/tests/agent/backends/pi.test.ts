@@ -37,6 +37,36 @@ describe('PiBackend', () => {
     it('has name "pi"', () => {
       expect(backend.name).toBe('pi');
     });
+
+    it('accepts timeoutMs in config without throwing (Spec 2 PFC-2)', () => {
+      expect(
+        () =>
+          new PiBackend({
+            endpoint: 'http://x:1234/v1',
+            model: 'm',
+            timeoutMs: 30_000,
+          })
+      ).not.toThrow();
+    });
+
+    it('exposes timeoutMs via the public timeoutMs accessor (Spec 2 PFC-2)', () => {
+      const b = new PiBackend({
+        endpoint: 'http://x:1234/v1',
+        model: 'm',
+        timeoutMs: 60_000,
+      });
+      // Cast to access the readonly field — this is the smallest assertion
+      // that the value flows from constructor input to instance state.
+      expect((b as unknown as { timeoutMs: number }).timeoutMs).toBe(60_000);
+    });
+
+    it('falls back to default timeoutMs (90_000) when not set (Spec 2 PFC-2)', () => {
+      const b = new PiBackend({
+        endpoint: 'http://x:1234/v1',
+        model: 'm',
+      });
+      expect((b as unknown as { timeoutMs: number }).timeoutMs).toBe(90_000);
+    });
   });
 
   describe('startSession', () => {
@@ -346,6 +376,182 @@ describe('PiBackend', () => {
     it('returns Ok when pi SDK is importable', async () => {
       const result = await backend.healthCheck();
       expect(result.ok).toBe(true);
+    });
+  });
+
+  // Spec 2 P2-I1 fixup: timeoutMs must be enforced at the request boundary,
+  // not merely stored on the instance. Race the pi-coding-agent prompt()
+  // against an AbortController + setTimeout(timeoutMs); on timeout, abort
+  // the underlying session and surface a typed `response_timeout` error in
+  // the TurnResult.
+  describe('runTurn timeoutMs enforcement (Spec 2 P2-I1 / PFC-2)', () => {
+    it('aborts the prompt and returns a failed TurnResult with a timeout signal when timeoutMs elapses', async () => {
+      // Subscribe must register but never emit terminal events; prompt must
+      // never resolve. The timeout watchdog is the only thing that should
+      // unblock the turn loop.
+      mockSubscribe.mockImplementation(() => vi.fn());
+      mockPrompt.mockImplementation(() => new Promise(() => {}));
+      mockAbort.mockResolvedValue(undefined);
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        model: 'gemma-4-e4b',
+        timeoutMs: 50,
+      });
+
+      const sessionResult = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      expect(sessionResult.ok).toBe(true);
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const start = Date.now();
+      const gen = piBackend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Will time out',
+        isContinuation: false,
+      });
+
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+      const result = next.value;
+      const elapsed = Date.now() - start;
+
+      // Must complete within a small multiple of the timeout (allow up to
+      // 500ms for slow CI scheduling) and must NOT take 90s default.
+      expect(elapsed).toBeLessThan(500);
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      // Error message identifies the timeout boundary so callers can
+      // distinguish from generic prompt rejections.
+      expect(String(result.error).toLowerCase()).toContain('timed out');
+      // Underlying session must be aborted on timeout to release resources.
+      expect(mockAbort).toHaveBeenCalled();
+    });
+
+    it('does not install a timeout when timeoutMs is 0 (preserves prior behavior)', async () => {
+      // With timeoutMs: 0, the watchdog must be a no-op. Prompt resolves
+      // normally and the turn ends through the agent_end event, not via
+      // a timeout abort.
+      mockSubscribe.mockImplementation((listener: (event: unknown) => void) => {
+        setTimeout(() => {
+          listener({ type: 'agent_start' });
+          listener({ type: 'agent_end', messages: [] });
+        }, 10);
+        return vi.fn();
+      });
+      mockPrompt.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      mockAbort.mockClear();
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        model: 'gemma-4-e4b',
+        timeoutMs: 0,
+      });
+
+      const sessionResult = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const gen = piBackend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'No timeout',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+      const result = next.value;
+
+      expect(result.success).toBe(true);
+      // No abort should fire when timeoutMs disabled.
+      expect(mockAbort).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getModel callback', () => {
+    it('returns Err agent_not_found when getModel() returns null without invoking the pi SDK', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+        getModel: () => null,
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.category).toBe('agent_not_found');
+        expect(result.error.message).toBe('No local model available; check dashboard for details.');
+      }
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('passes the resolved model name to createAgentSession when getModel returns a string', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+        getModel: () => 'gemma-4-e4b',
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: expect.objectContaining({
+            id: 'gemma-4-e4b',
+            api: 'openai-completions',
+            baseUrl: 'http://localhost:1234/v1',
+          }),
+        })
+      );
+    });
+
+    it('falls back to static config.model when getModel is not provided (backward compat)', async () => {
+      const piSdk = await import('@mariozechner/pi-coding-agent');
+      const createSpy = piSdk.createAgentSession as ReturnType<typeof vi.fn>;
+      createSpy.mockClear();
+
+      const piBackend = new PiBackend({
+        model: 'gemma-4-e4b',
+        endpoint: 'http://localhost:1234/v1',
+        apiKey: 'lm-studio',
+      });
+
+      const result = await piBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: expect.objectContaining({ id: 'gemma-4-e4b' }),
+        })
+      );
     });
   });
 });

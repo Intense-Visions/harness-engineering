@@ -15,8 +15,10 @@ import {
 export interface LocalBackendConfig {
   /** Endpoint URL (e.g., http://localhost:11434/v1). Defaults to http://localhost:11434/v1. */
   endpoint?: string;
-  /** Model name (e.g., deepseek-coder-v2). Defaults to 'deepseek-coder-v2'. */
+  /** Static model name (e.g., deepseek-coder-v2). Ignored if `getModel` is provided. Defaults to 'deepseek-coder-v2'. */
   model?: string;
+  /** Lazy resolver. Called once at `startSession()`. Returning `null` causes `startSession()` to fail with typed `agent_not_found`. */
+  getModel?: () => string | null;
   /** Optional API key (some servers require a dummy key). */
   apiKey?: string;
   /** Request timeout in ms (default: 90000). */
@@ -27,11 +29,14 @@ const DEFAULT_TIMEOUT_MS = 90_000;
 
 export interface LocalSession extends AgentSession {
   systemPrompt?: string;
+  /** Model name resolved at session start (from getModel() if provided, else config.model). */
+  resolvedModel: string;
 }
 
 export class LocalBackend implements AgentBackend {
   readonly name = 'local';
-  private config: Required<LocalBackendConfig>;
+  private config: Required<Omit<LocalBackendConfig, 'getModel'>>;
+  private getModel: (() => string | null) | undefined;
   private client: OpenAI;
 
   constructor(config: LocalBackendConfig = {}) {
@@ -41,6 +46,7 @@ export class LocalBackend implements AgentBackend {
       apiKey: config.apiKey ?? 'ollama',
       timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     };
+    this.getModel = config.getModel;
     this.client = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.endpoint,
@@ -49,11 +55,26 @@ export class LocalBackend implements AgentBackend {
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
+    let resolvedModel: string;
+    if (this.getModel) {
+      const candidate = this.getModel();
+      if (candidate === null) {
+        return Err({
+          category: 'agent_not_found',
+          message: 'No local model available; check dashboard for details.',
+        });
+      }
+      resolvedModel = candidate;
+    } else {
+      resolvedModel = this.config.model;
+    }
+
     const session: LocalSession = {
       sessionId: `local-session-${Date.now()}`,
       workspacePath: params.workspacePath,
       backendName: this.name,
       startedAt: new Date().toISOString(),
+      resolvedModel,
       ...(params.systemPrompt !== undefined && { systemPrompt: params.systemPrompt }),
     };
     return Ok(session);
@@ -79,7 +100,7 @@ export class LocalBackend implements AgentBackend {
 
     try {
       const stream = await this.client.chat.completions.create({
-        model: this.config.model,
+        model: localSession.resolvedModel,
         messages,
         stream: true,
         stream_options: { include_usage: true },

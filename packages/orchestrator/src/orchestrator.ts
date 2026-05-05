@@ -31,16 +31,16 @@ import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
 import { AgentRunner } from './agent/runner';
 import { PromptRenderer } from './prompt/renderer';
-import { MockBackend } from './agent/backends/mock';
-import { ClaudeBackend } from './agent/backends/claude';
-import { OpenAIBackend } from './agent/backends/openai';
-import { GeminiBackend } from './agent/backends/gemini';
-import { AnthropicBackend } from './agent/backends/anthropic';
-import { LocalBackend } from './agent/backends/local';
-import { PiBackend } from './agent/backends/pi';
-import { ContainerBackend } from './agent/backends/container';
-import { DockerRuntime } from './agent/runtime/docker';
-import { createSecretBackend } from './agent/secrets/index';
+// Spec 2 SC30 / Task 11: backend class imports moved to
+// `OrchestratorBackendFactory` + `createBackend` (factory module). The
+// orchestrator no longer constructs backends directly — factory handles
+// dispatch-time materialization.
+import { LocalModelResolver } from './agent/local-model-resolver';
+import { migrateAgentConfig } from './agent/config-migration';
+import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { buildAnalysisProvider } from './agent/analysis-provider-factory';
+import type { BackendDef } from '@harness-engineering/types';
+import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
@@ -69,13 +69,60 @@ import { StreamRecorder } from './core/stream-recorder';
  * @fires Orchestrator#state_change Emitted when the internal state machine transitions
  * @fires Orchestrator#agent_event Emitted when an agent produces an output or thought
  */
+function useCaseForBackendParam(
+  issue: Issue,
+  backendParam: 'local' | 'primary' | undefined
+): import('@harness-engineering/types').RoutingUseCase {
+  // Spec 2 SC30 / Task 12: translate the legacy
+  // `dispatchIssue(..., backend?)` parameter into a `RoutingUseCase` for
+  // the BackendRouter.
+  //   - 'local' → quick-fix tier (typical local-backend assignment in
+  //     legacy single-runner configs).
+  //   - undefined / 'primary' → the issue's own scope tier, computed
+  //     identically to the state machine's escalation gate
+  //     (core/state-machine.ts), so escalation and routing always see
+  //     the same tier (SC43: escalation governs *whether*, routing
+  //     governs *where*).
+  // Module-level so SC30 mechanical greps at the dispatch site stay
+  // clean. Eliminating the legacy `backend?` parameter is autopilot
+  // Phase 4+.
+  if (backendParam === 'local') return { kind: 'tier', tier: 'quick-fix' };
+  const tier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+  return { kind: 'tier', tier };
+}
+
 export class Orchestrator extends EventEmitter {
   private state: OrchestratorState;
   private config: WorkflowConfig;
   private tracker: IssueTrackerClient;
   private workspace: WorkspaceManager;
   private hooks: WorkspaceHooks;
-  private runner: AgentRunner;
+  /**
+   * Spec 2 SC30 / Task 11: per-dispatch backend factory replaces the
+   * Phase 1 `runner` / `localRunner` two-runner split. Each
+   * `dispatchIssue()` call asks the factory for a `RoutingUseCase`-routed
+   * `AgentBackend`, then wraps it in a fresh `AgentRunner`.
+   *
+   * `AgentRunner` is stateless (just `{ backend, options }`), so
+   * per-dispatch construction is safe and avoids the cross-call state
+   * the old two-runner split had to coordinate.
+   *
+   * Null only in the legacy fallback path: when `migrateAgentConfig`
+   * throws (legacy configs missing supplemental fields, e.g.
+   * `agent.backend='anthropic'` with no `agent.model`) AND no
+   * `overrides.backend` is supplied, factory construction is skipped to
+   * preserve the prior behavior of failing at dispatch time rather than
+   * construction time. Eliminating this fallback is autopilot Phase 4+.
+   */
+  private backendFactory: OrchestratorBackendFactory | null;
+  /**
+   * Test-only: when overrides.backend is provided, dispatch uses this
+   * instance directly (bypassing the factory). Mirrors Phase 1
+   * `overrides.backend → this.runner.backend` behavior so existing
+   * MockBackend-injection tests keep working without touching the
+   * factory's routing path.
+   */
+  private overrideBackend: AgentBackend | null;
   private renderer: PromptRenderer;
   private promptTemplate: string;
   private server?: OrchestratorServer;
@@ -83,7 +130,22 @@ export class Orchestrator extends EventEmitter {
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
-  private localRunner: AgentRunner | null;
+  /**
+   * Per-named-backend resolver map (Spec 2 SC37). Each `local`/`pi` entry
+   * in `agent.backends` spawns one `LocalModelResolver`. Legacy
+   * single-backend configs converge here via `migrateAgentConfig` (Task 9),
+   * so this map is the single source of truth post-migration.
+   */
+  private localResolvers = new Map<string, LocalModelResolver>();
+  /**
+   * Per-resolver `onStatusChange` unsubscribe callbacks. Spec 2 Phase 5
+   * (SC39): each local/pi resolver gets its own listener emitting a
+   * `NamedLocalModelStatus` event tagged with `backendName` + `endpoint`.
+   * The previous single-resolver field (`localModelStatusUnsubscribe`)
+   * is replaced by this list so multi-local configs can teardown all
+   * listeners on `stop()` without a Map mutation.
+   */
+  private localModelStatusUnsubscribes: Array<() => void> = [];
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
@@ -137,14 +199,46 @@ export class Orchestrator extends EventEmitter {
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
+    // Spec 2 / Task 9: Apply legacy → modern config migration eagerly so
+    // every downstream code path observes a uniform `agent.backends` +
+    // `agent.routing` shape. `migrateAgentConfig` is a no-op when
+    // `agent.backends` is already set; it synthesizes both fields when
+    // only legacy fields are set (Phase 0 SC9-SC11). After this block,
+    // `this.config.agent.backends` is guaranteed populated for migrated
+    // configs.
+    //
+    // Defensive fallback: legacy configs that lack the supplemental fields
+    // a synthesized BackendDef would need (e.g., `agent.backend='anthropic'`
+    // without `agent.model`) cause `migrateAgentConfig` to throw. The
+    // existing legacy `createBackend()` path (constructed below from
+    // `agent.backend` directly) is more permissive and tolerates these
+    // configs at runtime. Until autopilot Phase 4 retires the legacy
+    // `createBackend()` entry point entirely, we swallow synthesis errors
+    // and fall through to the legacy path with a warn so dispatch
+    // behavior is unchanged for these older configs.
+    try {
+      const migrationResult = migrateAgentConfig(this.config.agent);
+      if (migrationResult.warnings.length > 0) {
+        for (const w of migrationResult.warnings) this.logger.warn(w);
+      }
+      this.config = { ...this.config, agent: migrationResult.config };
+    } catch (err) {
+      this.logger.warn(
+        `migrateAgentConfig failed; continuing with legacy fields. ` +
+          `Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
     // Initialize adapters based on config or overrides
     this.tracker = overrides?.tracker || this.createTracker();
     this.workspace = new WorkspaceManager(config.workspace);
     this.hooks = new WorkspaceHooks(config.hooks);
     this.renderer = new PromptRenderer();
-    this.runner = new AgentRunner(overrides?.backend || this.createBackend(), {
-      maxTurns: config.agent.maxTurns,
-    });
+    // Spec 2 SC30 / Task 11: capture the test-only backend override (if
+    // any) for per-dispatch consumption. The factory itself is built
+    // below, after the resolver Map is populated, so its
+    // `getResolverModelFor` hook can read `this.localResolvers`.
+    this.overrideBackend = overrides?.backend ?? null;
 
     this.interactionQueue = new InteractionQueue(
       path.join(config.workspace.root, '..', 'interactions')
@@ -152,12 +246,90 @@ export class Orchestrator extends EventEmitter {
 
     this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
 
-    const localBackend = this.createLocalBackend();
-    this.localRunner = localBackend
-      ? new AgentRunner(localBackend, { maxTurns: config.agent.maxTurns })
-      : null;
+    // Spec 2 SC37 / Task 10: build per-named-backend LocalModelResolver
+    // Map. Each `local`/`pi` entry in `agent.backends` spawns one resolver.
+    // Legacy single-backend configs went through `migrateAgentConfig`
+    // (Task 9), so this branch is uniform whether the user wrote
+    // `agent.backends` or only legacy fields. Initial probe runs in
+    // start() — at construction time each resolver exists but has not yet
+    // observed its server, so status reports `available: false`. The
+    // intelligence pipeline construction is deferred to start() so SC14
+    // (pipeline disabled on local-unavailable) can be observed without
+    // races.
+    //
+    // Note: `agent.localTimeoutMs` is the request timeout for
+    // chat-completion calls (default 90s) — NOT the probe timeout. The
+    // resolver uses its own 5s default for /v1/models probes so a hung
+    // server fails fast rather than blocking the probe loop. If a
+    // dedicated probe timeout is ever needed, add
+    // `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
+    const backendsMap = this.config.agent.backends ?? {};
+    for (const [name, def] of Object.entries(backendsMap)) {
+      if (def.type === 'local' || def.type === 'pi') {
+        const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
+          endpoint: def.endpoint,
+          configured: typeof def.model === 'string' ? [def.model] : def.model,
+          logger: this.logger,
+        };
+        if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
+        if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
+      }
+    }
 
-    this.pipeline = this.createIntelligencePipeline();
+    // Spec 2 SC30 / Task 11: construct the per-dispatch backend factory
+    // now that the resolver Map is populated. The `getResolverModelFor`
+    // hook lets the factory bind each `local`/`pi` BackendDef to its
+    // resolver-owned `getModel` callback at instantiation time, so the
+    // factory itself stays ignorant of resolver lifecycle.
+    //
+    // Skip factory construction when migration produced no `backends`
+    // map. This happens when migrateAgentConfig threw (legacy configs
+    // missing supplemental fields) and the catch above swallowed it.
+    // Tests using `overrides.backend` (MockBackend injection) reach
+    // dispatch through the override path and never consult the factory;
+    // production legacy configs that hit this fallback would have crashed
+    // at dispatch-time previously, so behavior is preserved.
+    //
+    // Cast: agent.sandboxPolicy is typed as `string` in WorkflowConfig
+    // (legacy openness for forward-compat) but the factory + container
+    // pipeline only recognize 'none' | 'docker'. Treat any other value
+    // as 'none' to preserve the current behavior of the deleted
+    // `createBackend` path: only 'docker' triggered container wrapping;
+    // every other value (including unset) was effectively 'none'.
+    if (
+      this.config.agent.backends !== undefined &&
+      Object.keys(this.config.agent.backends).length > 0
+    ) {
+      const sandboxPolicy: 'none' | 'docker' =
+        this.config.agent.sandboxPolicy === 'docker' ? 'docker' : 'none';
+      // Routing fallback: when migration synthesized backends but no
+      // routing (e.g., legacy single-backend config), default to the
+      // first synthesized backend name so the BackendRouter ctor's
+      // reference validator passes.
+      const firstBackendName = Object.keys(this.config.agent.backends)[0];
+      const routing = this.config.agent.routing ?? {
+        default: firstBackendName ?? 'primary',
+      };
+      this.backendFactory = new OrchestratorBackendFactory({
+        backends: this.config.agent.backends,
+        routing,
+        sandboxPolicy,
+        ...(this.config.agent.container !== undefined
+          ? { container: this.config.agent.container }
+          : {}),
+        ...(this.config.agent.secrets !== undefined ? { secrets: this.config.agent.secrets } : {}),
+        getResolverModelFor: (name) => {
+          const resolver = this.localResolvers.get(name);
+          return resolver ? () => resolver.resolveModel() : undefined;
+        },
+      });
+    } else {
+      this.backendFactory = null;
+    }
+
+    // Pipeline construction deferred to start() — see initLocalModelAndPipeline().
+    this.pipeline = null;
 
     this.orchestratorIdPromise = resolveOrchestratorId(config.orchestratorId);
 
@@ -210,6 +382,30 @@ export class Orchestrator extends EventEmitter {
         analysisArchive: this.analysisArchive,
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
+        getLocalModelStatus: () => {
+          // Deprecated alias for /api/v1/local-model/status (Spec 1 endpoint
+          // retained as a compat shim per spec line 35; superseded by
+          // getLocalModelStatuses for the multi-local UI). Returns the
+          // first-registered resolver's status.
+          const first = this.localResolvers.values().next();
+          return first.done ? null : first.value.getStatus();
+        },
+        getLocalModelStatuses: () => {
+          // SC38: build NamedLocalModelStatus[] from each registered resolver,
+          // tagged with its backendName + endpoint from the config.
+          const backends = this.config.agent.backends ?? {};
+          const out: import('@harness-engineering/types').NamedLocalModelStatus[] = [];
+          for (const [name, resolver] of this.localResolvers) {
+            const def = backends[name];
+            if (!def || (def.type !== 'local' && def.type !== 'pi')) continue;
+            out.push({
+              ...resolver.getStatus(),
+              backendName: name,
+              endpoint: def.endpoint,
+            });
+          }
+          return out;
+        },
       });
 
       this.server.setRecorder(this.recorder);
@@ -226,51 +422,6 @@ export class Orchestrator extends EventEmitter {
       return new RoadmapTrackerAdapter(this.config.tracker);
     }
     throw new Error(`Unsupported tracker kind: ${this.config.tracker.kind}`);
-  }
-
-  private createBackend(): AgentBackend {
-    let backend: AgentBackend;
-
-    if (this.config.agent.backend === 'mock') {
-      backend = new MockBackend();
-    } else if (this.config.agent.backend === 'claude') {
-      backend = new ClaudeBackend(this.config.agent.command);
-    } else if (this.config.agent.backend === 'openai') {
-      backend = new OpenAIBackend({
-        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
-        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
-      });
-    } else if (this.config.agent.backend === 'gemini') {
-      backend = new GeminiBackend({
-        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
-        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
-      });
-    } else if (this.config.agent.backend === 'anthropic') {
-      backend = new AnthropicBackend({
-        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
-        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
-      });
-    } else {
-      throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
-    }
-
-    // Wrap with container sandboxing when configured
-    if (this.config.agent.sandboxPolicy === 'docker' && this.config.agent.container) {
-      const runtime = new DockerRuntime();
-      const secretBackend = this.config.agent.secrets
-        ? createSecretBackend(this.config.agent.secrets)
-        : null;
-      const secretKeys = this.config.agent.secrets?.keys ?? [];
-      backend = new ContainerBackend(
-        backend,
-        runtime,
-        secretBackend,
-        this.config.agent.container,
-        secretKeys
-      );
-    }
-
-    return backend;
   }
 
   /**
@@ -419,116 +570,115 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
-  private createLocalBackend(): AgentBackend | null {
-    if (this.config.agent.localBackend === 'openai-compatible') {
-      const localConfig: import('./agent/backends/local').LocalBackendConfig = {};
-      if (this.config.agent.localEndpoint) localConfig.endpoint = this.config.agent.localEndpoint;
-      if (this.config.agent.localModel) localConfig.model = this.config.agent.localModel;
-      if (this.config.agent.localApiKey) localConfig.apiKey = this.config.agent.localApiKey;
-      if (this.config.agent.localTimeoutMs)
-        localConfig.timeoutMs = this.config.agent.localTimeoutMs;
-      return new LocalBackend(localConfig);
-    }
-    if (this.config.agent.localBackend === 'pi') {
-      return new PiBackend({
-        model: this.config.agent.localModel,
-        endpoint: this.config.agent.localEndpoint,
-        apiKey: this.config.agent.localApiKey,
-      });
-    }
-    return null;
-  }
-
   private createIntelligencePipeline(): IntelligencePipeline | null {
     const intel = this.config.intelligence;
     if (!intel?.enabled) return null;
 
-    const provider = this.createAnalysisProvider();
-    if (!provider) return null;
+    const selProvider = this.createAnalysisProvider('sel');
+    if (!selProvider) return null;
+
+    // Spec 2 SC34/SC35: when sel and pesl route to different backends,
+    // build a distinct provider for the PESL layer. When they route to
+    // the same backend (or pesl is unset), pass undefined so the
+    // pipeline falls back to the sel provider (current behavior).
+    const routing = this.config.agent.routing;
+    const peslName = routing?.intelligence?.pesl;
+    const selName = routing?.intelligence?.sel ?? routing?.default;
+    const peslProvider =
+      peslName !== undefined && peslName !== selName ? this.createAnalysisProvider('pesl') : null;
 
     const peslModel = intel.models?.pesl ?? this.config.agent.model;
     const store = new GraphStore();
     this.graphStore = store;
-    return new IntelligencePipeline(provider, store, {
+    return new IntelligencePipeline(selProvider, store, {
       ...(peslModel !== undefined && { peslModel }),
+      ...(peslProvider !== null && peslProvider !== undefined && { peslProvider }),
     });
   }
 
   /**
-   * Create the AnalysisProvider for the intelligence pipeline.
+   * Create the AnalysisProvider for an intelligence-pipeline layer
+   * (`sel` by default; `pesl` when constructing a distinct PESL
+   * provider per Spec 2 SC35).
    *
-   * Resolution order:
-   * 1. Explicit `intelligence.provider` config (separate key/endpoint)
-   * 2. Local backend config (agent.localBackend + localEndpoint/localModel)
-   * 3. Primary agent backend config (agent.apiKey + agent.backend)
+   * Spec 2 Phase 4 (SC31–SC36) — resolution order:
+   *   1. Explicit `intelligence.provider` config wins (preserves Phase 0–3 behavior; SC33).
+   *   2. Otherwise, consult `agent.routing.intelligence.<layer>` (or
+   *      `routing.default`) to pick a `BackendDef` from `agent.backends`,
+   *      then translate via `buildAnalysisProvider` (the per-type factory).
+   *
+   * Closes the Phase 2 deferral (P2-DEF-638): the legacy
+   * `this.config.agent.backend` read at the bottom of this method is
+   * removed; routing is the sole source for non-explicit configs.
+   *
+   * Cyclomatic complexity: pre-Phase-4 was 33 (factory dispatch was
+   * inlined here). Phase 4 extracts the per-type tree into
+   * `buildAnalysisProvider`, dropping this method to ≤ 5 branches
+   * (under the 15 threshold).
    */
-  private createAnalysisProvider(): AnalysisProvider | null {
+  private createAnalysisProvider(layer: 'sel' | 'pesl' = 'sel'): AnalysisProvider | null {
     const intel = this.config.intelligence;
-    const selModel = intel?.models?.sel ?? this.config.agent.model;
+    if (!intel?.enabled) return null;
 
-    // 1. Explicit intelligence provider override
-    if (intel?.provider) {
-      return this.createProviderFromExplicitConfig(intel.provider, selModel);
+    // 1. Explicit intelligence.provider override (SC33).
+    if (intel.provider) {
+      const layerModel = layer === 'sel' ? intel.models?.sel : intel.models?.pesl;
+      return this.createProviderFromExplicitConfig(
+        intel.provider,
+        layerModel ?? this.config.agent.model
+      );
     }
 
-    // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
-    if (
-      this.config.agent.localBackend === 'openai-compatible' ||
-      this.config.agent.localBackend === 'pi'
-    ) {
-      const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
-      const apiKey = this.config.agent.localApiKey ?? 'ollama';
-      const model = selModel ?? this.config.agent.localModel;
-      this.logger.info(`Intelligence pipeline using local backend at ${endpoint}`);
-      return new OpenAICompatibleAnalysisProvider({
-        apiKey,
-        baseUrl: endpoint,
-        ...(model !== undefined && { defaultModel: model }),
-        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
-        ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
-        ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
-      });
-    }
+    // 2. Routing-driven selection (SC31, SC32, SC36).
+    const routed = this.resolveRoutedBackendForIntelligence(layer);
+    if (!routed) return null;
 
-    // 3. Primary agent backend (API key)
-    const backend = this.config.agent.backend;
-    if (backend === 'anthropic' || backend === 'claude') {
-      const apiKey = this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
-      if (apiKey) {
-        return new AnthropicAnalysisProvider({
-          apiKey,
-          ...(selModel !== undefined && { defaultModel: selModel }),
-        });
-      }
-      // No API key — fall through to Claude CLI fallback
-    }
+    const { name, def } = routed;
+    const resolver = this.localResolvers.get(name);
+    return buildAnalysisProvider({
+      def,
+      backendName: name,
+      layer,
+      // Spec 2 P3-IMP-1: a single snapshot read feeds the factory's
+      // unavailable-warn diagnostic (Configured/Detected lists) and
+      // collapses the two `getStatus()` calls flagged by P3-SUG-2.
+      getResolverStatusSnapshot: () => {
+        if (!resolver) return null;
+        const status = resolver.getStatus();
+        return {
+          available: status.available,
+          resolved: status.resolved,
+          configured: status.configured,
+          detected: status.detected,
+        };
+      },
+      intelligence: intel,
+      logger: this.logger,
+    });
+  }
 
-    if (backend === 'openai') {
-      const apiKey = this.config.agent.apiKey ?? process.env.OPENAI_API_KEY;
-      if (apiKey) {
-        return new OpenAICompatibleAnalysisProvider({
-          apiKey,
-          baseUrl: 'https://api.openai.com/v1',
-          ...(selModel !== undefined && { defaultModel: selModel }),
-        });
-      }
+  /**
+   * Look up the routed BackendDef for an intelligence layer, falling
+   * back through `routing.intelligence.<layer>` → `routing.default`
+   * → null. Returns the resolved name alongside the def so callers can
+   * key into the per-name resolver map.
+   */
+  private resolveRoutedBackendForIntelligence(
+    layer: 'sel' | 'pesl'
+  ): { name: string; def: BackendDef } | null {
+    const routing = this.config.agent.routing;
+    const backends = this.config.agent.backends;
+    if (!routing || !backends) return null;
+    const layerName = routing.intelligence?.[layer];
+    const name = layerName ?? routing.default;
+    const def = backends[name];
+    if (!def) {
+      this.logger.warn(
+        `Intelligence pipeline: routed backend '${name}' for layer '${layer}' is not in agent.backends.`
+      );
+      return null;
     }
-
-    // 4. Claude CLI fallback — uses the CLI's own auth, no API key needed
-    if (backend === 'claude' || backend === 'anthropic') {
-      this.logger.info('Intelligence pipeline using Claude CLI (no API key configured)');
-      return new ClaudeCliAnalysisProvider({
-        command: this.config.agent.command,
-        ...(selModel !== undefined && { defaultModel: selModel }),
-        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
-      });
-    }
-
-    this.logger.warn(
-      `Intelligence pipeline: unsupported backend "${backend}". ` +
-        'Supported: anthropic, claude, openai, or localBackend: openai-compatible / pi.'
-    );
-    return null;
+    return { name, def };
   }
 
   private createProviderFromExplicitConfig(
@@ -1147,10 +1297,33 @@ export class Orchestrator extends EventEmitter {
         attempt: attempt || 1,
       });
 
-      // 5. Start agent session (in background)
+      // 5. Resolve the routed backend NAME up front so the LiveSession
+      //    + recorder are labelled with it (Spec 2 P2-I2). Reading
+      //    `this.config.agent.backend` directly returns `undefined` for
+      //    pure-modern configs (only `agent.backends` set), which would
+      //    surface as `undefined` in dashboard telemetry + stream
+      //    metadata. The router's `resolveName` is total: post-migration
+      //    every `routing` slot maps to a known backend in `backends`.
+      const useCase = useCaseForBackendParam(issue, backend);
+      let routedBackendName: string;
+      if (this.overrideBackend !== null) {
+        routedBackendName = this.overrideBackend.name;
+      } else if (this.backendFactory !== null) {
+        routedBackendName = this.backendFactory.resolveName(useCase);
+      } else {
+        // Legacy-fallback path: factory absent because migration threw.
+        // Prefer `routing.default` if migration partially succeeded;
+        // otherwise fall back to legacy `agent.backend` (still a string
+        // when this branch is reachable: migration only throws on
+        // legacy configs that have `agent.backend` set).
+        routedBackendName =
+          this.config.agent.routing?.default ?? this.config.agent.backend ?? 'unknown';
+      }
+
+      // 6. Start agent session (in background)
       const session: LiveSession = {
         sessionId: `pending-${Date.now()}`,
-        backendName: this.config.agent.backend,
+        backendName: routedBackendName,
         agentPid: null,
         startedAt: new Date().toISOString(),
         lastEvent: 'Dispatching',
@@ -1175,17 +1348,40 @@ export class Orchestrator extends EventEmitter {
         });
       }
 
-      // Record session start
+      // Record session start with the routed backend name (P2-I2).
       this.recorder.startRecording(
         issue.id,
         issue.externalId ?? null,
         issue.identifier,
-        this.config.agent.backend,
+        routedBackendName,
         attempt ?? 1,
         issue.title
       );
 
-      const activeRunner = backend === 'local' && this.localRunner ? this.localRunner : this.runner;
+      // Spec 2 SC27 / SC30 / Task 12: build the AgentBackend per-dispatch
+      // by translating the legacy `backend` parameter into a
+      // `RoutingUseCase`, then asking the factory to materialize.
+      // `overrideBackend` (test-only) short-circuits the factory so
+      // existing MockBackend-injection tests continue to bypass routing.
+      // Eliminating the legacy `backend?: 'local' | 'primary'` parameter
+      // entirely is a Phase 4+ cleanup once all callers migrate to
+      // passing a `RoutingUseCase` directly.
+      let agentBackend: AgentBackend;
+      if (this.overrideBackend !== null) {
+        agentBackend = this.overrideBackend;
+      } else if (this.backendFactory !== null) {
+        agentBackend = this.backendFactory.forUseCase(useCase);
+      } else {
+        // Legacy fallback: migration failed, no override supplied. Fail
+        // dispatch the same way the deleted `createBackend()` legacy
+        // path would have at runtime.
+        throw new Error(
+          `Cannot dispatch ${issue.identifier}: agent.backends not synthesized (migration failed) and no override backend supplied. Migrate to agent.backends/agent.routing per docs/guides/multi-backend-routing.md.`
+        );
+      }
+      const activeRunner = new AgentRunner(agentBackend, {
+        maxTurns: this.config.agent.maxTurns,
+      });
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
@@ -1233,9 +1429,11 @@ export class Orchestrator extends EventEmitter {
     workspacePath: string,
     prompt: string,
     attempt: number | null,
-    runner?: AgentRunner
+    runner: AgentRunner
   ): void {
-    const activeRunner = runner ?? this.runner;
+    // Spec 2 SC30 / Task 12: `runner` is now required. The previous
+    // `runner ?? this.runner` fallback is gone with the field removal.
+    const activeRunner = runner;
     this.logger.info(`Starting background task for ${issue.identifier}`);
 
     // Create abort controller for this issue so stopIssue() can cancel it.
@@ -1382,6 +1580,67 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Initialize the LocalModelResolver and intelligence pipeline.
+   *
+   * Runs the initial probe (so resolver state reflects server availability)
+   * before constructing the intelligence pipeline. Subscribes the dashboard
+   * broadcast stub to status changes. Called exactly once from start().
+   */
+  private async initLocalModelAndPipeline(): Promise<void> {
+    if (this.localResolvers.size > 0) {
+      // Spec 2 Phase 5 (SC39): subscribe each resolver independently. Each
+      // listener tags its broadcast with the resolver's backendName +
+      // endpoint, producing a NamedLocalModelStatus payload. Multi-banner
+      // dashboards (SC40) reconstruct a per-name map from these per-resolver
+      // events; the legacy single-banner consumer reads
+      // `getLocalModelStatus` (first-resolver) via the deprecated singular
+      // endpoint.
+      //
+      // Subscribe BEFORE the initial probe so the first status diff
+      // (default empty state -> probe-1 result) is broadcast to the
+      // dashboard. SC21 relies on observing both initial-probe-failure
+      // and subsequent recovery as distinct broadcasts.
+      const backends = this.config.agent.backends ?? {};
+      for (const [name, resolver] of this.localResolvers) {
+        const def = backends[name];
+        // Defensive: a resolver in the Map without a corresponding backend
+        // def is a contract violation — skip but log. (The Map is built
+        // FROM backends, so this should not fire.)
+        if (!def || (def.type !== 'local' && def.type !== 'pi')) {
+          this.logger.warn('Resolver without matching backend def — broadcast skipped', {
+            name,
+          });
+          continue;
+        }
+        const endpoint = def.endpoint;
+        const unsubscribe = resolver.onStatusChange((status) => {
+          const named: import('@harness-engineering/types').NamedLocalModelStatus = {
+            ...status,
+            backendName: name,
+            endpoint,
+          };
+          this.server?.broadcastLocalModelStatus(named);
+        });
+        this.localModelStatusUnsubscribes.push(unsubscribe);
+      }
+      // Probe each resolver independently — SC37 (multi-resolver
+      // independence): unreachable resolvers report `available: false`
+      // while reachable ones report `available: true` without
+      // cross-contamination.
+      for (const resolver of this.localResolvers.values()) {
+        await resolver.start();
+      }
+    }
+    // Defer pipeline construction until after the resolver has observed the
+    // server. createIntelligencePipeline() consults resolver.getStatus() via
+    // createAnalysisProvider() and returns null when local is unavailable.
+    this.pipeline = this.createIntelligencePipeline();
+    // The server was built with pipeline=null at construction time; refresh
+    // the reference so /api/analyze sees the real pipeline.
+    this.server?.setPipeline(this.pipeline);
+  }
+
+  /**
    * Starts the polling loop and the internal HTTP server.
    * Runs startup reconciliation to release orphaned claims before the first tick.
    */
@@ -1389,6 +1648,8 @@ export class Orchestrator extends EventEmitter {
     if (this.server) {
       void this.server.start();
     }
+
+    await this.initLocalModelAndPipeline();
 
     // Resolve orchestrator identity and initialize ClaimManager before first tick
     await this.ensureClaimManager();
@@ -1452,6 +1713,13 @@ export class Orchestrator extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
+    }
+    for (const unsub of this.localModelStatusUnsubscribes) {
+      unsub();
+    }
+    this.localModelStatusUnsubscribes = [];
+    for (const resolver of this.localResolvers.values()) {
+      resolver.stop();
     }
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
