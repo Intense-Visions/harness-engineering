@@ -194,3 +194,33 @@ export function assembleReport(
   const swept = finalPiiSweep(filled);
   return truncateToFit(swept);
 }
+
+/**
+ * Extract the title + Headlines section from an assembled report. Returns
+ * the H1 title line, the `## Headlines` header, and every line in that
+ * section up to (but not including) the next H2 header.
+ *
+ * Used by the CLI as the at-a-glance digest in PulseRunStatus.
+ * headlinesSummary, and by Phase 6 dashboard wiring. Computing this
+ * structurally — rather than by line count — guarantees all Headlines
+ * bullets survive even if the title or bullet count drifts.
+ */
+export function extractHeadlines(report: string): string {
+  const lines = report.split('\n');
+  const headlinesIdx = lines.findIndex((l) => l === '## Headlines' || l.startsWith('## Headlines'));
+  // Defensive: if Headlines section is missing (malformed report), fall back
+  // to the first 5 lines so callers still get *something*.
+  if (headlinesIdx < 0) return lines.slice(0, 5).join('\n');
+  // Find the start of the next H2 section, or end-of-file.
+  let endIdx = lines.length;
+  for (let i = headlinesIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line !== undefined && line.startsWith('## ')) {
+      endIdx = i;
+      break;
+    }
+  }
+  // Drop a trailing blank line before the next section, if any.
+  while (endIdx > headlinesIdx + 1 && lines[endIdx - 1] === '') endIdx--;
+  return lines.slice(0, endIdx).join('\n');
+}

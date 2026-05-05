@@ -1,7 +1,12 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { Command } from 'commander';
-import { runPulse, computeWindow, assembleReport } from '@harness-engineering/core';
+import {
+  runPulse,
+  computeWindow,
+  assembleReport,
+  extractHeadlines,
+} from '@harness-engineering/core';
 import type { PulseConfig, PulseRunStatus } from '@harness-engineering/types';
 
 export interface PulseRunOptions {
@@ -60,8 +65,10 @@ export async function runPulseRunCommand(opts: PulseRunOptions): Promise<PulseRu
   mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, report);
 
-  // Headlines summary = first 5 lines of the report (title + Headlines block).
-  const headlines = report.split('\n').slice(0, 5).join('\n');
+  // Headlines summary is extracted structurally (title + ## Headlines block,
+  // up to the next H2). This keeps every bullet — total events, sources
+  // queried, sources skipped — even if the bullet count drifts.
+  const headlines = extractHeadlines(report);
   return emit(
     {
       status: 'success',

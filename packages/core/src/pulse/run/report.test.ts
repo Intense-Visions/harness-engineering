@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assembleReport } from './report';
+import { assembleReport, extractHeadlines } from './report';
 import type { OrchestratorResult } from './orchestrator';
 
 const baseResult: OrchestratorResult = {
@@ -14,6 +14,22 @@ const baseResult: OrchestratorResult = {
   sourcesSkipped: [],
   durationMs: 250,
 };
+
+describe('extractHeadlines', () => {
+  it('returns the title + complete Headlines section, not a fixed line count', () => {
+    const report = assembleReport(baseResult, 'TestProduct', '24h');
+    const headlines = extractHeadlines(report);
+    // Must contain the H1 title and the Headlines header.
+    expect(headlines).toContain('# TestProduct Pulse');
+    expect(headlines).toContain('## Headlines');
+    // Must contain ALL three bullets the assembler emits.
+    expect(headlines).toMatch(/source\(s\) queried/);
+    expect(headlines).toMatch(/total events recorded/);
+    expect(headlines).toMatch(/source\(s\) skipped/);
+    // Must NOT include the next section's content.
+    expect(headlines).not.toContain('## Usage');
+  });
+});
 
 describe('assembleReport', () => {
   it('produces a report <=40 lines with all 4 sections', () => {

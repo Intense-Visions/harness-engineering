@@ -20,7 +20,7 @@ export {
   registerMockAdapter,
   MOCK_ADAPTER_NAME,
 } from './adapters';
-export { runPulse, computeWindow, parseLookback, assembleReport } from './run';
+export { runPulse, computeWindow, parseLookback, assembleReport, extractHeadlines } from './run';
 export type { OrchestratorResult } from './run/orchestrator';
 export type {
   PulseConfig,
