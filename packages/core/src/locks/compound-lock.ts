@@ -82,12 +82,20 @@ export function acquireCompoundLock(
     // MaxListenersExceededWarning. process.once auto-removes only when the
     // event fires; manual release() is the common path.
     process.removeListener('exit', onExit);
-    process.removeListener('SIGINT', onExit);
-    process.removeListener('SIGTERM', onExit);
+    process.removeListener('SIGINT', onSignal);
+    process.removeListener('SIGTERM', onSignal);
     process.removeListener('uncaughtException', onUncaught);
   };
   // Ensure release on abrupt exit. Best-effort.
   const onExit = (): void => release();
+  // For SIGINT/SIGTERM: release, then re-raise the signal with the default
+  // disposition so the process actually terminates. Registering a listener
+  // overrides Node's default termination, so without re-raising the
+  // process would keep running after Ctrl-C.
+  const onSignal = (sig: NodeJS.Signals): void => {
+    release();
+    process.kill(process.pid, sig);
+  };
   // For uncaught exceptions: release the lock, then preserve Node's default
   // behavior (print the error and terminate with a non-zero code) instead
   // of swallowing the exception and letting the process keep running in a
@@ -98,8 +106,8 @@ export function acquireCompoundLock(
     process.exit(1);
   };
   process.once('exit', onExit);
-  process.once('SIGINT', onExit);
-  process.once('SIGTERM', onExit);
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
   process.once('uncaughtException', onUncaught);
 
   return { category, lockPath, release };
