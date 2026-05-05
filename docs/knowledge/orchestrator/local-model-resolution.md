@@ -49,16 +49,22 @@ The probe loop has an overlap guard: if a probe is in flight when the interval f
 
 Consumers subscribe via `resolver.onStatusChange(handler)` and the orchestrator broadcasts every meaningful change to the dashboard on the `local-model:status` WebSocket topic.
 
+For multi-resolver configs, the orchestrator surfaces a `NamedLocalModelStatus` per resolver — `LocalModelStatus` plus a `backendName: string` and `endpoint: string`. The HTTP API returns the array via `GET /api/v1/local-models/status` (introduced by Spec 2). The singular `GET /api/v1/local-model/status` from Spec 1 remains as a deprecated alias returning the first registered resolver's `LocalModelStatus` (without `backendName` / `endpoint`); it is removed in a follow-up release.
+
 ## Consumers
 
 The resolver is the single source of truth for local-model availability. Direct reads of `agent.localModel` exist at exactly one site (the resolver constructor). Two runtime consumers:
 
-- **`createLocalBackend()`** — passes `getModel: () => resolver.resolveModel()` to `LocalBackend` / `PiBackend`. When the callback returns null, the backend's `startSession()` returns `Err({ category: 'agent_not_found' })`.
-- **`createAnalysisProvider()`** — reads `resolver.getStatus()` and returns `null` when local is configured but unavailable, disabling the intelligence pipeline at startup with a warn-level log.
+- **Backend factory (per-dispatch)** — the `OrchestratorBackendFactory` looks up `this.localResolvers.get(backendName)` for each `local`/`pi` dispatch and passes `getModel: () => resolver.resolveModel()` to the per-dispatch `LocalBackend` / `PiBackend` instance. When the callback returns null, the backend's `startSession()` returns `Err({ category: 'agent_not_found' })`.
+- **`analysis-provider-factory` (intelligence pipeline)** — for each `routing.intelligence.{sel,pesl}` target whose resolved `BackendDef.type` is `local` or `pi`, the factory looks up the resolver by backend name and constructs an `OpenAICompatibleAnalysisProvider` whose `defaultModel` reads from the resolver. The pipeline disables the layer (returns null with a warn log) when the resolved model is unavailable at orchestrator start.
 
 ## Lifecycle
 
-The resolver is constructed in the `Orchestrator` constructor only when `agent.localBackend` is set; otherwise `this.localModelResolver === null` and no probe traffic is generated. `Orchestrator.start()` calls `resolver.start()` (which awaits the initial probe) and subscribes the dashboard broadcast hook. `Orchestrator.stop()` calls `resolver.stop()`, which clears the probe interval.
+The orchestrator holds a `Map<string, LocalModelResolver>` (`this.localResolvers`) keyed by backend name. One resolver is constructed for each `agent.backends.<name>` entry whose `type` is `local` or `pi`. Legacy configs (with `agent.localBackend` set) flow through the migration shim, which synthesizes a single `agent.backends.local` entry — so legacy configs see exactly one resolver named `local`, preserving Spec 1 behavior.
+
+`Orchestrator.start()` iterates the map: each resolver's `start()` is awaited (the initial probe is synchronous), and a per-resolver `onStatusChange` listener is registered before the first probe fires. Each listener broadcasts on the `local-model:status` WebSocket topic with payload `NamedLocalModelStatus` (the per-resolver `LocalModelStatus` plus `backendName` and `endpoint`). `Orchestrator.stop()` iterates the map and calls each `resolver.stop()`, clearing all probe intervals.
+
+When zero `local`/`pi` backends are configured, the map is empty and no probe traffic is generated.
 
 ## Self-Healing
 
@@ -68,5 +74,6 @@ Once `available` flips to `true`, agent dispatches to the local backend resume w
 
 - [ADR 0003: Local model resolution strategy](../decisions/0003-local-model-resolution-strategy.md)
 - [ADR 0004: Local availability disables rather than escalates](../decisions/0004-local-availability-disables-not-escalates.md)
+- [ADR 0005: Named backends map](../decisions/0005-named-backends-map.md) — `agent.backends` schema with per-`type: 'local'|'pi'` resolver keying
 - [`docs/changes/local-model-fallback/proposal.md`](../../changes/local-model-fallback/proposal.md)
 - [Tick Loop](./tick-loop.md) — the probe runs on its own interval, independent of the dispatch tick
