@@ -1093,11 +1093,11 @@ last_manual_edit: 2026-05-03T16:41:49.827Z
 
 ### Multi-Backend Routing for the Orchestrator
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/multi-backend-routing/proposal.md
 - **Summary:** Redesign agent backend selection: agent.backends (named map) + agent.routing (per-use-case selection). Promotes local/pi to first-class backends. In-memory migration shim for legacy agent.backend / agent.localBackend. Reuses LocalModelResolver from Spec 1.
-- **Blockers:** Local Model Array Fallback with Resolver Consolidation
-- **Plan:** —
+- **Blockers:** —
+- **Plan:** docs/changes/multi-backend-routing/plans/
 
 ## v3.0 Graph Intelligence
 
