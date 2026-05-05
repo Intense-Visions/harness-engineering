@@ -80,6 +80,22 @@ describe('writePulseConfig', () => {
     ).toThrow();
   });
 
+  it('preserves the original .bak across re-runs (idempotent backup)', () => {
+    const original = { version: 1, name: 'p' };
+    fs.writeFileSync(cfgPath, JSON.stringify(original, null, 2));
+    // First run: creates .bak from the pre-pulse config.
+    writePulseConfig(samplePulse, { configPath: cfgPath });
+    const firstBak = fs.readFileSync(`${cfgPath}.bak`, 'utf-8');
+    expect(JSON.parse(firstBak)).toEqual(original);
+
+    // Second run with a different pulse block: must NOT overwrite the .bak
+    // with the now-mutated config; the original is still the rollback target.
+    writePulseConfig({ ...samplePulse, lookbackDefault: '7d' }, { configPath: cfgPath });
+    const secondBak = fs.readFileSync(`${cfgPath}.bak`, 'utf-8');
+    expect(secondBak).toBe(firstBak);
+    expect(JSON.parse(secondBak)).toEqual(original);
+  });
+
   it('writes atomically and leaves no .tmp file on the happy path', () => {
     const original = { version: 1, name: 'p' };
     fs.writeFileSync(cfgPath, JSON.stringify(original, null, 2));

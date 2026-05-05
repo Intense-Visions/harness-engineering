@@ -14,6 +14,11 @@ export interface WritePulseConfigOptions {
  * top-level key. Existing pulse blocks are replaced (not merged). A `.bak`
  * is written before mutation unless `skipBackup` is true.
  *
+ * The `.bak` is created only on the first call (when no `.bak` exists yet),
+ * so re-running the interview preserves the original pre-pulse config as
+ * the rollback target rather than clobbering it with an already-mutated
+ * snapshot.
+ *
  * Throws when:
  * - configPath does not exist
  * - the existing config is not valid JSON
@@ -34,8 +39,12 @@ export function writePulseConfig(config: PulseConfig, opts: WritePulseConfigOpti
     throw new Error(`Invalid JSON in ${opts.configPath}: ${(e as Error).message}`, { cause: e });
   }
 
-  if (!opts.skipBackup) {
-    fs.writeFileSync(`${opts.configPath}.bak`, raw, 'utf-8');
+  // Idempotent backup: only write .bak if it doesn't already exist, so a
+  // second run of the interview doesn't clobber the original pre-pulse
+  // config (which is the useful rollback target).
+  const bakPath = `${opts.configPath}.bak`;
+  if (!opts.skipBackup && !fs.existsSync(bakPath)) {
+    fs.writeFileSync(bakPath, raw, 'utf-8');
   }
 
   parsed.pulse = config;
