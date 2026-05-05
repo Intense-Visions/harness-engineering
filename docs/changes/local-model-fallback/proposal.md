@@ -18,8 +18,8 @@ This spec widens `localModel` to accept an array of candidate model IDs evaluate
 
 ### Non-goals
 
-- Per-use-case backend routing (deferred to Spec 2 `multi-backend-routing`).
-- Promoting `LocalBackend` / `PiBackend` to primary backends via `agent.backend: 'local' | 'pi'` (deferred to Spec 2).
+- Per-use-case backend routing — **shipped in [Spec 2: Multi-Backend Routing](../multi-backend-routing/proposal.md)**. The deferral is resolved.
+- Promoting `LocalBackend` / `PiBackend` to primary backends via `agent.backend: 'local' | 'pi'` — **shipped in [Spec 2: Multi-Backend Routing](../multi-backend-routing/proposal.md)** as the named-map schema. The deferral is resolved.
 - Changes to `ClaudeBackend`, cloud backends (`anthropic`, `openai`, `gemini`), or `intelligence.provider` explicit config.
 - Auto-loading models on the local server (LM Studio's hot-load is fine; we don't trigger loads).
 - Backend-native loaded-state checks (LM Studio `/api/v0/models`, Ollama `/api/ps`) — `/v1/models` listing is sufficient.
