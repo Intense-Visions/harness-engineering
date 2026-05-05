@@ -35,6 +35,13 @@ export { validatePulseConfig } from './pulse';
 export type { PulseConfigValidation } from './pulse';
 
 /**
+ * Solutions directory validation — walks `docs/solutions/<track>/<category>/*.md` and
+ * validates each frontmatter against `SolutionDocFrontmatterSchema`.
+ */
+export { validateSolutionsDir } from './solutions';
+export type { SolutionsDirValidation } from './solutions';
+
+/**
  * Agent configuration validation (hybrid agnix binary + TypeScript fallback rules).
  */
 export {
