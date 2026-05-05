@@ -16,6 +16,14 @@ describe('mock adapter', () => {
     expect(typeof adapter?.sanitize).toBe('function');
   });
 
+  it('is idempotent — calling twice does not throw', () => {
+    registerMockAdapter();
+    expect(() => registerMockAdapter()).not.toThrow();
+    // Adapter is still registered and functional after the second call.
+    const adapter = getPulseAdapter(MOCK_ADAPTER_NAME);
+    expect(adapter).toBeDefined();
+  });
+
   it('query returns canned data with allowlisted fields only', async () => {
     registerMockAdapter();
     const adapter = getPulseAdapter('mock')!;
