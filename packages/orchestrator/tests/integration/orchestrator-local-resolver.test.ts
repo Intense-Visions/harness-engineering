@@ -715,6 +715,81 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         await orch.stop();
       }
     });
+
+    it('legacy /local-model/status (singular) still returns first-resolver LocalModelStatus (deprecation alias)', async () => {
+      // Spec 2 §5 (line 35): the singular endpoint is retained as a
+      // deprecated alias for one minor release after Spec 1 ships. This
+      // regression test guarantees the legacy callback wiring (orchestrator.ts
+      // getLocalModelStatus) keeps returning the first-registered resolver's
+      // LocalModelStatus shape — no backendName/endpoint fields, no array.
+      const config = makeConfig({
+        backends: {
+          'local-a': {
+            type: 'local',
+            endpoint: 'http://localhost:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+          'local-b': {
+            type: 'local',
+            endpoint: 'http://192.168.1.50:1234/v1',
+            model: ['gemma-4-e4b'],
+            probeIntervalMs: 60_000,
+          },
+        },
+        routing: { default: 'local-a' },
+      } as unknown as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+      const port = 30000 + Math.floor(Math.random() * 20000);
+      (config as WorkflowConfig).server = { port };
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+
+      const map = (orch as unknown as { localResolvers: Map<string, LocalModelResolver> })
+        .localResolvers;
+      (
+        map.get('local-a') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      (
+        map.get('local-b') as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue([]);
+
+      await orch.start();
+      try {
+        const server = (
+          orch as unknown as { server: import('../../src/server/http').OrchestratorServer }
+        ).server;
+        const cb = (
+          server as unknown as {
+            getLocalModelStatus:
+              | (() => import('@harness-engineering/types').LocalModelStatus | null)
+              | null;
+          }
+        ).getLocalModelStatus;
+        expect(typeof cb, 'getLocalModelStatus (singular alias) should be wired').toBe('function');
+        const status = cb!();
+        expect(status, 'first-resolver status should be non-null').not.toBeNull();
+        // Shape assertion: the singular alias returns LocalModelStatus,
+        // NOT NamedLocalModelStatus. The Spec 1 contract did not include
+        // backendName/endpoint, so the deprecation alias must not leak them.
+        expect(status).not.toHaveProperty('backendName');
+        expect(status).not.toHaveProperty('endpoint');
+        // The first-registered resolver is 'local-a' (insertion order on the
+        // backends Map matches Object.keys iteration in config-migration).
+        expect(status!.available).toBe(true);
+        expect(status!.resolved).toBe('gemma-4-e4b');
+      } finally {
+        await orch.stop();
+      }
+    });
   });
 
   describe('OT11 — stop() halts resolver probing', () => {
