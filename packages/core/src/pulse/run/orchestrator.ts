@@ -2,10 +2,24 @@ import type { PulseConfig, PulseWindow, SanitizedResult } from '@harness-enginee
 import { getPulseAdapter } from '../adapters/registry';
 import { assertSanitized } from '../sanitize';
 
+export type PulseSourceKind = 'analytics' | 'tracing' | 'payments' | 'db';
+
+export interface SourceResult {
+  kind: PulseSourceKind;
+  name: string;
+  result: SanitizedResult;
+}
+
+export interface SkipRecord {
+  name: string;
+  kind: PulseSourceKind;
+  reason: string;
+}
+
 export interface OrchestratorResult {
-  sources: SanitizedResult[];
+  sources: SourceResult[];
   sourcesQueried: string[];
-  sourcesSkipped: Array<{ name: string; reason: string }>;
+  sourcesSkipped: SkipRecord[];
   durationMs: number;
 }
 
@@ -41,26 +55,29 @@ export async function runPulse(
   window: PulseWindow
 ): Promise<OrchestratorResult> {
   const startedAt = Date.now();
-  const sources: SanitizedResult[] = [];
+  const sources: SourceResult[] = [];
   const sourcesQueried: string[] = [];
-  const sourcesSkipped: Array<{ name: string; reason: string }> = [];
+  const sourcesSkipped: SkipRecord[] = [];
 
-  // Parallel batch: analytics, tracing, payments
-  const parallelNames = [
-    config.sources.analytics,
-    config.sources.tracing,
-    config.sources.payments,
-  ].filter((n): n is string => n != null);
+  // Parallel batch: analytics, tracing, payments — kind is known per slot.
+  const parallelSlots: Array<[PulseSourceKind, string | null]> = [
+    ['analytics', config.sources.analytics],
+    ['tracing', config.sources.tracing],
+    ['payments', config.sources.payments],
+  ];
+  const parallelEntries = parallelSlots.filter(
+    (slot): slot is [PulseSourceKind, string] => slot[1] != null
+  );
 
   const parallelResults = await Promise.all(
-    parallelNames.map((n) => querySource(n, window).then((r) => [n, r] as const))
+    parallelEntries.map(([kind, n]) => querySource(n, window).then((r) => [kind, n, r] as const))
   );
-  for (const [name, r] of parallelResults) {
+  for (const [kind, name, r] of parallelResults) {
     if (r.ok) {
-      sources.push(r.result);
+      sources.push({ kind, name, result: r.result });
       sourcesQueried.push(name);
     } else {
-      sourcesSkipped.push({ name, reason: r.reason });
+      sourcesSkipped.push({ name, kind, reason: r.reason });
     }
   }
 
@@ -69,10 +86,10 @@ export async function runPulse(
     const name = config.sources.db.source;
     const r = await querySource(name, window);
     if (r.ok) {
-      sources.push(r.result);
+      sources.push({ kind: 'db', name, result: r.result });
       sourcesQueried.push(name);
     } else {
-      sourcesSkipped.push({ name, reason: r.reason });
+      sourcesSkipped.push({ name, kind: 'db', reason: r.reason });
     }
   }
 

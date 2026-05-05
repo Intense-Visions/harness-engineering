@@ -60,7 +60,7 @@ function totalCount(s: SanitizedResult): number {
 }
 
 function buildHeadlines(r: OrchestratorResult): string {
-  const total = r.sources.reduce((sum, s) => sum + totalCount(s), 0);
+  const total = r.sources.reduce((sum, s) => sum + totalCount(s.result), 0);
   return [
     `- ${r.sourcesQueried.length} source(s) queried in ${r.durationMs}ms`,
     `- ${total} total events recorded`,
@@ -72,17 +72,17 @@ function buildUsage(r: OrchestratorResult): string {
   if (r.sources.length === 0) return '_(none)_';
   return r.sources
     .map((s) => {
-      const name = s.fields.event_name ?? 'unknown';
-      const count = totalCount(s);
+      const name = s.result.fields.event_name ?? 'unknown';
+      const count = totalCount(s.result);
       return `- ${name}: count=${count}`;
     })
     .join('\n');
 }
 
 function buildSystemPerformance(r: OrchestratorResult): string {
-  const tracing = r.sources.find((s) => s.fields.event_name === 'tracing') ?? null;
+  const tracing = r.sources.find((s) => s.kind === 'tracing') ?? null;
   if (!tracing) return '_(no tracing source configured)_';
-  const dist = tracing.distributions;
+  const dist = tracing.result.distributions;
   const lines = Object.entries(dist).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`);
   return lines.length > 0 ? lines.join('\n') : '_(no distributions)_';
 }
