@@ -32,19 +32,21 @@ export function seedFromStrategy(opts: SeedOptions = {}): StrategySeed {
   // Extract frontmatter name if present.
   let name: string | null = null;
   const fmMatch = /^---\s*\n([\s\S]*?)\n---\s*\n/.exec(raw);
-  if (fmMatch) {
-    const fm = fmMatch[1];
+  const fm = fmMatch?.[1];
+  if (fm !== undefined) {
     const nameMatch = /^name:\s*['"]?([^'"\n]+)['"]?\s*$/m.exec(fm);
-    if (nameMatch) {
-      name = nameMatch[1].trim();
+    const nameCapture = nameMatch?.[1];
+    if (nameCapture !== undefined) {
+      name = nameCapture.trim();
     }
   }
 
   // Fallback: first H1
   if (name === null) {
     const h1 = /^#\s+(.+)$/m.exec(raw);
-    if (h1) {
-      name = h1[1].trim();
+    const h1Capture = h1?.[1];
+    if (h1Capture !== undefined) {
+      name = h1Capture.trim();
       warnings.push('STRATEGY.md frontmatter missing name; used H1 fallback');
     }
   }
@@ -60,7 +62,8 @@ export function seedFromStrategy(opts: SeedOptions = {}): StrategySeed {
     const block = stopMatch ? after.slice(0, stopMatch.index) : after;
     for (const line of block.split('\n')) {
       const m = /^[-*]\s+(.+)$/.exec(line.trim());
-      if (m) keyMetrics.push(m[1].trim());
+      const capture = m?.[1];
+      if (capture !== undefined) keyMetrics.push(capture.trim());
     }
   } else {
     warnings.push('STRATEGY.md is missing a `## Key metrics` section');
