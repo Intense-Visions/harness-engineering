@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   PII_FIELD_DENYLIST,
+  PII_LINE_RE,
+  PII_TOKENS,
   ALLOWED_FIELD_KEYS,
   isSanitizedResult,
   assertSanitized,
@@ -45,5 +47,13 @@ describe('PII boundary', () => {
     expect(() =>
       assertSanitized({ fields: { user_id: 'x' } as never, distributions: {} })
     ).toThrow();
+  });
+
+  it('PII_FIELD_DENYLIST and PII_LINE_RE both match every shared PII_TOKENS entry', () => {
+    PII_TOKENS.forEach((token) => {
+      // Reset lastIndex defensively — these regexes are not /g but be explicit.
+      expect(token).toMatch(PII_FIELD_DENYLIST);
+      expect(`prefix ${token} suffix`).toMatch(PII_LINE_RE);
+    });
   });
 });

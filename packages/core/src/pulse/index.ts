@@ -2,6 +2,8 @@ export { PulseConfigSchema, PulseSourcesSchema, PulseDbSourceSchema } from './sc
 export {
   ALLOWED_FIELD_KEYS,
   PII_FIELD_DENYLIST,
+  PII_LINE_RE,
+  PII_TOKENS,
   isSanitizedResult,
   assertSanitized,
 } from './sanitize';

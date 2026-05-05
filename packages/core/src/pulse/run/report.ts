@@ -3,16 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { OrchestratorResult } from './orchestrator';
 import type { SanitizedResult } from '@harness-engineering/types';
+import { PII_LINE_RE } from '../sanitize';
 
 const MAX_LINES = 40;
-
-/**
- * Unanchored word-boundary regex for the final report sweep. The PII
- * denylist in `../sanitize` is anchored (`^...$`) because it validates field
- * keys, but report text is free-form prose where PII tokens may appear inside
- * a line — we need to catch e.g. "contained user_id in error".
- */
-const PII_LINE_RE = /\b(email|user_id|session_id|ip|phone|address|message|content|payload)\b/i;
 
 /**
  * Inline fallback template — kept in sync with template.md. Used when the

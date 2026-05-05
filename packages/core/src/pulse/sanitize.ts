@@ -10,9 +10,34 @@ export const ALLOWED_FIELD_KEYS = [
   'category',
 ] as const;
 
-/** Regex that rejects any field name considered PII per Decision 7. */
-export const PII_FIELD_DENYLIST =
-  /^(email|user_id|session_id|ip|name|phone|address|message|content|payload)$/i;
+/**
+ * Single source of truth for PII tokens — both the field-key denylist and the
+ * report-line sweep regex are derived from this list. Adding a token here
+ * propagates to every PII boundary in the pulse pipeline.
+ */
+export const PII_TOKENS = [
+  'email',
+  'user_id',
+  'session_id',
+  'ip',
+  'name',
+  'phone',
+  'address',
+  'message',
+  'content',
+  'payload',
+] as const;
+
+/** Anchored regex that rejects any field name considered PII per Decision 7. */
+export const PII_FIELD_DENYLIST = new RegExp(`^(?:${PII_TOKENS.join('|')})$`, 'i');
+
+/**
+ * Unanchored word-boundary regex for free-form report prose. Catches PII
+ * tokens that appear inside a line (e.g. "contained user_id in error"). The
+ * field-key denylist above is anchored — this complements it for the final
+ * report sweep boundary.
+ */
+export const PII_LINE_RE = new RegExp(`\\b(?:${PII_TOKENS.join('|')})\\b`, 'i');
 
 const ALLOWED_SET: ReadonlySet<string> = new Set(ALLOWED_FIELD_KEYS);
 
