@@ -5,7 +5,7 @@ import type {
   AgentEventMessage,
   WebSocketMessage,
   MaintenanceEvent,
-  LocalModelStatus,
+  NamedLocalModelStatus,
 } from '../types/orchestrator';
 import type { ContentBlock } from '../types/chat';
 import { applyAgentEvent } from '../utils/agent-events';
@@ -24,8 +24,13 @@ export interface OrchestratorSocketState {
   connected: boolean;
   /** Most recent maintenance event received via WebSocket. */
   maintenanceEvent: MaintenanceEvent | null;
-  /** Latest LocalModelStatus snapshot delivered via local-model:status, or null until first event. */
-  localModelStatus: LocalModelStatus | null;
+  /**
+   * Per-backend local-model statuses, merged by `backendName`. Empty array
+   * until the first `local-model:status` event arrives. Spec 2 SC39 — each
+   * resolver broadcasts independently and the reducer upserts by name; new
+   * backends append, repeats replace in place, other entries are preserved.
+   */
+  localModelStatuses: NamedLocalModelStatus[];
   /** Manually remove an interaction (after claim/resolve). */
   removeInteraction: (id: string) => void;
   /** Replace interactions list (after fetch from API). */
@@ -77,7 +82,7 @@ interface MessageHandlers {
   setInteractions: React.Dispatch<React.SetStateAction<PendingInteraction[]>>;
   setAgentEvents: React.Dispatch<React.SetStateAction<Record<string, ContentBlock[]>>>;
   setMaintenanceEvent: React.Dispatch<React.SetStateAction<MaintenanceEvent | null>>;
-  setLocalModelStatus: React.Dispatch<React.SetStateAction<LocalModelStatus | null>>;
+  setLocalModelStatuses: React.Dispatch<React.SetStateAction<NamedLocalModelStatus[]>>;
 }
 
 function handleMessage(msg: WebSocketMessage, handlers: MessageHandlers): void {
@@ -101,7 +106,13 @@ function handleMessage(msg: WebSocketMessage, handlers: MessageHandlers): void {
       handlers.setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
       break;
     case 'local-model:status':
-      handlers.setLocalModelStatus(msg.data);
+      handlers.setLocalModelStatuses((prev) => {
+        const idx = prev.findIndex((s) => s.backendName === msg.data.backendName);
+        if (idx === -1) return [...prev, msg.data];
+        const next = prev.slice();
+        next[idx] = msg.data;
+        return next;
+      });
       break;
   }
 }
@@ -162,7 +173,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
   const [interactions, setInteractions] = useState<PendingInteraction[]>([]);
   const [agentEvents, setAgentEvents] = useState<Record<string, ContentBlock[]>>({});
   const [maintenanceEvent, setMaintenanceEvent] = useState<MaintenanceEvent | null>(null);
-  const [localModelStatus, setLocalModelStatus] = useState<LocalModelStatus | null>(null);
+  const [localModelStatuses, setLocalModelStatuses] = useState<NamedLocalModelStatus[]>([]);
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
@@ -178,7 +189,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
       setInteractions,
       setAgentEvents,
       setMaintenanceEvent,
-      setLocalModelStatus,
+      setLocalModelStatuses,
     };
     const ws = createSocket(mounted, reconnectTimer, reconnectAttempt, setConnected, handlers);
 
@@ -200,7 +211,7 @@ export function useOrchestratorSocket(): OrchestratorSocketState {
     interactions,
     agentEvents,
     maintenanceEvent,
-    localModelStatus,
+    localModelStatuses,
     connected,
     removeInteraction,
     setInteractions,
