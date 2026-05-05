@@ -383,11 +383,28 @@ export class Orchestrator extends EventEmitter {
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
         getLocalModelStatus: () => {
-          // First-resolver compat: SC38-40 (multi-banner API surface) lands
-          // in autopilot Phase 4. For now, expose the first-registered
-          // resolver's status so single-banner consumers see correct data.
+          // Deprecated alias for /api/v1/local-model/status (Spec 1 endpoint
+          // retained as a compat shim per spec line 35; superseded by
+          // getLocalModelStatuses for the multi-local UI). Returns the
+          // first-registered resolver's status.
           const first = this.localResolvers.values().next();
           return first.done ? null : first.value.getStatus();
+        },
+        getLocalModelStatuses: () => {
+          // SC38: build NamedLocalModelStatus[] from each registered resolver,
+          // tagged with its backendName + endpoint from the config.
+          const backends = this.config.agent.backends ?? {};
+          const out: import('@harness-engineering/types').NamedLocalModelStatus[] = [];
+          for (const [name, resolver] of this.localResolvers) {
+            const def = backends[name];
+            if (!def || (def.type !== 'local' && def.type !== 'pi')) continue;
+            out.push({
+              ...resolver.getStatus(),
+              backendName: name,
+              endpoint: def.endpoint,
+            });
+          }
+          return out;
         },
       });
 
