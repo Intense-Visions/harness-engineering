@@ -32,7 +32,7 @@ With this config, heavy guided-change work runs on Claude CLI (subscription, no 
 | `openai`    | `model`             | `apiKey`                                 |
 | `gemini`    | `model`             | `apiKey`                                 |
 | `local`     | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs` |
-| `pi`        | `endpoint`, `model` | `apiKey`, `probeIntervalMs`              |
+| `pi`        | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs` |
 
 `model` accepts a single string or a non-empty array. With an array, the orchestrator probes `${endpoint}/v1/models` and picks the first array entry that's loaded on the server. See [Local Model Resolution](../knowledge/orchestrator/local-model-resolution.md).
 
