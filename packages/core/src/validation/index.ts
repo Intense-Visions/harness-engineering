@@ -29,6 +29,12 @@ export type {
 } from './types';
 
 /**
+ * Pulse config validation — validates `pulse:` block in `harness.config.json` if present.
+ */
+export { validatePulseConfig } from './pulse';
+export type { PulseConfigValidation } from './pulse';
+
+/**
  * Agent configuration validation (hybrid agnix binary + TypeScript fallback rules).
  */
 export {
