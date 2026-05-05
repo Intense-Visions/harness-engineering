@@ -2,7 +2,7 @@ import type { LocalModelStatus } from '@harness-engineering/types';
 
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
-const DEFAULT_API_KEY = 'lm-studio';
+const DEFAULT_API_KEY = 'lm-studio'; // harness-ignore SEC-SEC-002: LM Studio documented no-auth placeholder, not a real secret
 const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 
 export interface ResolverLogger {
