@@ -60,6 +60,7 @@ describe('assembleReport', () => {
       sourcesSkipped: Array.from({ length: 80 }, (_, i) => ({
         name: `s${i}`,
         kind: 'analytics' as const,
+        skipKind: 'query-failure' as const,
         reason: 'long reason text that produces a wide followups list',
       })),
     };
@@ -78,7 +79,14 @@ describe('assembleReport', () => {
         },
       ],
       sourcesQueried: ['leak'],
-      sourcesSkipped: [{ name: 'oops', kind: 'analytics', reason: 'contained user_id in error' }],
+      sourcesSkipped: [
+        {
+          name: 'oops',
+          kind: 'analytics',
+          skipKind: 'query-failure',
+          reason: 'contained user_id in error',
+        },
+      ],
       durationMs: 1,
     };
     const out = assembleReport(tainted, 'P', '24h');

@@ -4,6 +4,17 @@ import { assertSanitized } from '../sanitize';
 
 export type PulseSourceKind = 'analytics' | 'tracing' | 'payments' | 'db';
 
+/**
+ * Failure-mode discriminator on a SkipRecord. Phase 6 alerting differentiates:
+ *   - `no-adapter`     : configured source name has no registered adapter
+ *                        (config issue, not security or transport failure)
+ *   - `pii-violation`  : adapter.sanitize() output failed assertSanitized().
+ *                        Security-critical — should page on dashboard alerts.
+ *   - `query-failure`  : adapter.query() or .sanitize() threw for any other
+ *                        reason (network 503, parse error, etc.). Operational.
+ */
+export type SkipKind = 'no-adapter' | 'pii-violation' | 'query-failure';
+
 export interface SourceResult {
   kind: PulseSourceKind;
   name: string;
@@ -13,6 +24,7 @@ export interface SourceResult {
 export interface SkipRecord {
   name: string;
   kind: PulseSourceKind;
+  skipKind: SkipKind;
   reason: string;
 }
 
@@ -23,21 +35,43 @@ export interface OrchestratorResult {
   durationMs: number;
 }
 
-type QueryOutcome = { ok: true; result: SanitizedResult } | { ok: false; reason: string };
+type QueryOutcome =
+  | { ok: true; result: SanitizedResult }
+  | { ok: false; skipKind: SkipKind; reason: string };
 
 async function querySource(name: string, window: PulseWindow): Promise<QueryOutcome> {
   const adapter = getPulseAdapter(name);
-  if (!adapter) return { ok: false, reason: `no adapter registered for "${name}"` };
+  if (!adapter) {
+    return {
+      ok: false,
+      skipKind: 'no-adapter',
+      reason: `no adapter registered for "${name}"`,
+    };
+  }
+  let sanitized: SanitizedResult;
   try {
     const raw = await adapter.query(window);
-    const sanitized = adapter.sanitize(raw);
-    // Defense-in-depth: re-validate that the adapter's sanitize() output
-    // really is a SanitizedResult, regardless of what the adapter declares.
-    assertSanitized(sanitized);
-    return { ok: true, result: sanitized };
+    sanitized = adapter.sanitize(raw);
   } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      skipKind: 'query-failure',
+      reason: err instanceof Error ? err.message : String(err),
+    };
   }
+  // Defense-in-depth: re-validate that the adapter's sanitize() output really
+  // is a SanitizedResult, regardless of what the adapter declares. A failure
+  // here is a security-critical PII boundary breach, not a transport error.
+  try {
+    assertSanitized(sanitized);
+  } catch (err) {
+    return {
+      ok: false,
+      skipKind: 'pii-violation',
+      reason: err instanceof Error ? err.message : String(err),
+    };
+  }
+  return { ok: true, result: sanitized };
 }
 
 /**
@@ -77,7 +111,7 @@ export async function runPulse(
       sources.push({ kind, name, result: r.result });
       sourcesQueried.push(name);
     } else {
-      sourcesSkipped.push({ name, kind, reason: r.reason });
+      sourcesSkipped.push({ name, kind, skipKind: r.skipKind, reason: r.reason });
     }
   }
 
@@ -89,7 +123,7 @@ export async function runPulse(
       sources.push({ kind: 'db', name, result: r.result });
       sourcesQueried.push(name);
     } else {
-      sourcesSkipped.push({ name, kind: 'db', reason: r.reason });
+      sourcesSkipped.push({ name, kind: 'db', skipKind: r.skipKind, reason: r.reason });
     }
   }
 

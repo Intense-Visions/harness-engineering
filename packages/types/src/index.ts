@@ -151,6 +151,9 @@ export type {
   PulseAdapter,
   PulseRunStatusType,
   PulseRunStatus,
+  PulseSkipKind,
+  PulseSkipRecord,
+  PulseSourceKind,
 } from './pulse';
 
 // --- Solutions (compound learning docs) ---

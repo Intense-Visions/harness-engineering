@@ -45,17 +45,20 @@ describe('runPulse orchestrator', () => {
     expect(result.sources).toHaveLength(1);
   });
 
-  it('skips source with missing adapter and records reason', async () => {
+  it('skips source with missing adapter and tags skipKind=no-adapter', async () => {
     const window = computeWindow(new Date(), '24h');
     const result = await runPulse(
       { ...baseConfig, sources: { ...baseConfig.sources, analytics: 'unregistered' } },
       window
     );
-    expect(result.sourcesSkipped.find((s) => s.name === 'unregistered')).toBeDefined();
+    const skip = result.sourcesSkipped.find((s) => s.name === 'unregistered');
+    expect(skip).toBeDefined();
+    expect(skip?.skipKind).toBe('no-adapter');
+    expect(skip?.kind).toBe('analytics');
     expect(result.sourcesQueried).not.toContain('unregistered');
   });
 
-  it('skips source whose sanitize emits PII (assertSanitized throws)', async () => {
+  it('skips source whose sanitize emits PII and tags skipKind=pii-violation', async () => {
     registerPulseAdapter('leaky', {
       query: async () => ({ email: 'x@y.com' }),
       // Intentionally bad: passes a non-SanitizedResult through.
@@ -67,7 +70,28 @@ describe('runPulse orchestrator', () => {
       { ...baseConfig, sources: { ...baseConfig.sources, analytics: 'leaky' } },
       window
     );
-    expect(result.sourcesSkipped.find((s) => s.name === 'leaky')).toBeDefined();
+    const skip = result.sourcesSkipped.find((s) => s.name === 'leaky');
+    expect(skip).toBeDefined();
+    expect(skip?.skipKind).toBe('pii-violation');
+    expect(skip?.kind).toBe('analytics');
+  });
+
+  it('skips source whose query throws and tags skipKind=query-failure', async () => {
+    registerPulseAdapter('flaky', {
+      query: async () => {
+        throw new Error('503 Service Unavailable');
+      },
+      sanitize: () => cleanResult('flaky'),
+    });
+    const window = computeWindow(new Date(), '24h');
+    const result = await runPulse(
+      { ...baseConfig, sources: { ...baseConfig.sources, analytics: 'flaky' } },
+      window
+    );
+    const skip = result.sourcesSkipped.find((s) => s.name === 'flaky');
+    expect(skip).toBeDefined();
+    expect(skip?.skipKind).toBe('query-failure');
+    expect(skip?.reason).toContain('503');
   });
 
   it('runs analytics+tracing+payments in parallel; DB serial', async () => {

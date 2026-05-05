@@ -79,6 +79,21 @@ export interface PulseAdapter {
 
 export type PulseRunStatusType = 'success' | 'skipped' | 'failure';
 
+/** Per-skip failure-mode discriminator. See PulseSkipRecord. */
+export type PulseSkipKind = 'no-adapter' | 'pii-violation' | 'query-failure';
+
+/** Configured slot of a skipped source (analytics, tracing, payments, db). */
+export type PulseSourceKind = 'analytics' | 'tracing' | 'payments' | 'db';
+
+export interface PulseSkipRecord {
+  name: string;
+  /** Which configured slot this source occupied. */
+  kind: PulseSourceKind;
+  /** Why the source was skipped. Phase 6 alerting differentiates on this. */
+  skipKind: PulseSkipKind;
+  reason: string;
+}
+
 /** Single-line JSON status emitted by `harness pulse run` in non-interactive mode. */
 export interface PulseRunStatus {
   status: PulseRunStatusType;
@@ -86,6 +101,6 @@ export interface PulseRunStatus {
   headlinesSummary?: string;
   durationMs?: number;
   sourcesQueried?: string[];
-  sourcesSkipped?: Array<{ name: string; reason: string }>;
+  sourcesSkipped?: PulseSkipRecord[];
   reason?: string;
 }
