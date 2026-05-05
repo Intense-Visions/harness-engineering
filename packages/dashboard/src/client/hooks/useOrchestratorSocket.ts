@@ -9,6 +9,7 @@ import type {
 } from '../types/orchestrator';
 import type { ContentBlock } from '../types/chat';
 import { applyAgentEvent } from '../utils/agent-events';
+import { mergeLocalModelStatusByName } from '../utils/local-model-statuses';
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
@@ -106,13 +107,7 @@ function handleMessage(msg: WebSocketMessage, handlers: MessageHandlers): void {
       handlers.setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
       break;
     case 'local-model:status':
-      handlers.setLocalModelStatuses((prev) => {
-        const idx = prev.findIndex((s) => s.backendName === msg.data.backendName);
-        if (idx === -1) return [...prev, msg.data];
-        const next = prev.slice();
-        next[idx] = msg.data;
-        return next;
-      });
+      handlers.setLocalModelStatuses((prev) => mergeLocalModelStatusByName(prev, msg.data));
       break;
   }
 }

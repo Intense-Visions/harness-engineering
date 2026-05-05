@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { NamedLocalModelStatus, WebSocketMessage } from '../types/orchestrator';
+import {
+  mergeLocalModelStatusByName,
+  mergeLocalModelStatusesFromHttp,
+} from '../utils/local-model-statuses';
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
@@ -59,8 +63,12 @@ export function useLocalModelStatuses(): UseLocalModelStatusesResult {
           return;
         }
         const json = (await res.json()) as NamedLocalModelStatus[];
-        // Only seed if the WebSocket hasn't already populated state.
-        setStatuses((prev) => (prev.length === 0 ? json : prev));
+        // Per-name merge: HTTP-seeded entries append for backendNames the WS
+        // hasn't delivered yet; entries already populated by the WS keep
+        // their (fresher) value. Closes Spec 2 P4-S1 — the prior
+        // `prev.length === 0 ? json : prev` guard could stomp WS state when
+        // the HTTP fallback resolved after a partial WS delivery.
+        setStatuses((prev) => mergeLocalModelStatusesFromHttp(prev, json));
         setLoading(false);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -91,13 +99,7 @@ export function useLocalModelStatuses(): UseLocalModelStatusesResult {
           const msg = raw as WebSocketMessage;
           if (msg.type === 'local-model:status') {
             // Merge-by-backendName: upsert in place; preserve other entries.
-            setStatuses((prev) => {
-              const idx = prev.findIndex((s) => s.backendName === msg.data.backendName);
-              if (idx === -1) return [...prev, msg.data];
-              const next = prev.slice();
-              next[idx] = msg.data;
-              return next;
-            });
+            setStatuses((prev) => mergeLocalModelStatusByName(prev, msg.data));
             setLoading(false);
             // Clear any stale HTTP fallback error — a fresh WebSocket message
             // proves the backend is reachable, even if the initial GET failed.

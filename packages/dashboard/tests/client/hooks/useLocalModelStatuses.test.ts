@@ -193,4 +193,48 @@ describe('useLocalModelStatuses', () => {
       expect(result.current.loading).toBe(false);
     });
   });
+
+  it('HTTP fallback arriving after a WebSocket message merges by name and does not stomp WS state (P4-S1)', async () => {
+    // Hold the fetch promise open so the WebSocket can deliver first.
+    let resolveFetch: (value: unknown) => void = () => {};
+    const fetchPromise = new Promise<unknown>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(fetchPromise);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLocalModelStatuses());
+
+    // Fire a WS message first — populates statuses with backend `local`.
+    await waitFor(() => expect(FakeWebSocket.instance).not.toBeNull());
+    act(() => {
+      FakeWebSocket.instance!.simulateMessage({
+        type: 'local-model:status',
+        data: STATUS_LOCAL_HEALTHY,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.statuses).toHaveLength(1);
+      expect(result.current.statuses[0]?.available).toBe(true);
+    });
+
+    // Now resolve the HTTP fallback with [local-unhealthy, pi-2]: a per-name
+    // merge must (a) keep the WS-fresh `local` (available=true) and
+    // (b) append `pi-2` from HTTP. Pre-fix behaviour stomped to the
+    // HTTP payload because prev.length !== 0.
+    resolveFetch({
+      ok: true,
+      status: 200,
+      json: async () => [STATUS_LOCAL_UNHEALTHY, STATUS_PI2_UNHEALTHY],
+    });
+
+    await waitFor(() => {
+      expect(result.current.statuses).toHaveLength(2);
+    });
+    const byName = new Map(result.current.statuses.map((s) => [s.backendName, s]));
+    expect(byName.get('local')?.available).toBe(true); // WS-fresh value preserved
+    expect(byName.get('pi-2')?.available).toBe(false); // HTTP-seeded new entry appended
+    expect(result.current.loading).toBe(false);
+  });
 });
