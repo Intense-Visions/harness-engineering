@@ -14,8 +14,8 @@ import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
-import { handleLocalModelRoute } from './routes/local-model';
-import type { GetLocalModelStatusFn } from './routes/local-model';
+import { handleLocalModelRoute, handleLocalModelsRoute } from './routes/local-model';
+import type { GetLocalModelStatusFn, GetLocalModelStatusesFn } from './routes/local-model';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
@@ -97,6 +97,8 @@ export interface ServerDependencies {
   maintenanceDeps?: MaintenanceRouteDeps | null;
   /** Callback returning the current LocalModelStatus, or null when no local backend is configured. */
   getLocalModelStatus?: GetLocalModelStatusFn;
+  /** Callback returning all local backends' statuses, one entry per resolver. Spec 2 SC38. */
+  getLocalModelStatuses?: GetLocalModelStatusesFn;
 }
 
 export class OrchestratorServer {
@@ -115,6 +117,7 @@ export class OrchestratorServer {
   private sessionsDir!: string;
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private getLocalModelStatus: GetLocalModelStatusFn | null = null;
+  private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
@@ -144,6 +147,7 @@ export class OrchestratorServer {
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
     this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
+    this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
   }
 
   private wireEvents(): void {
@@ -180,11 +184,12 @@ export class OrchestratorServer {
    * Phase 3 routes status events through the existing WebSocket broadcaster
    * on topic `local-model:status` so test fixtures and dashboard consumers
    * observe payloads immediately. The project broadcasts via WebSocket; the
-   * spec's "SSE topic" wording is approximate. Phase 4 widens the payload
-   * for multi-local backends but does not change the channel.
+   * spec's "SSE topic" wording is approximate. Phase 5 widens the payload
+   * to `NamedLocalModelStatus` (with `backendName` + `endpoint`); the channel
+   * and bind-before-probe ordering are unchanged.
    */
   public broadcastLocalModelStatus(
-    status: import('@harness-engineering/types').LocalModelStatus
+    status: import('@harness-engineering/types').NamedLocalModelStatus
   ): void {
     this.broadcaster.broadcast('local-model:status', status);
   }
@@ -305,6 +310,11 @@ export class OrchestratorServer {
 
     // Local-model status route
     if (handleLocalModelRoute(req, res, this.getLocalModelStatus)) {
+      return true;
+    }
+
+    // Local-models multi-status route (Spec 2 SC38)
+    if (handleLocalModelsRoute(req, res, this.getLocalModelStatuses)) {
       return true;
     }
 
