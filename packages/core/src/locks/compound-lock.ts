@@ -84,14 +84,23 @@ export function acquireCompoundLock(
     process.removeListener('exit', onExit);
     process.removeListener('SIGINT', onExit);
     process.removeListener('SIGTERM', onExit);
-    process.removeListener('uncaughtException', onExit);
+    process.removeListener('uncaughtException', onUncaught);
   };
   // Ensure release on abrupt exit. Best-effort.
   const onExit = (): void => release();
+  // For uncaught exceptions: release the lock, then preserve Node's default
+  // behavior (print the error and terminate with a non-zero code) instead
+  // of swallowing the exception and letting the process keep running in a
+  // corrupted state.
+  const onUncaught = (err: Error): void => {
+    release();
+    console.error(err && err.stack ? err.stack : err);
+    process.exit(1);
+  };
   process.once('exit', onExit);
   process.once('SIGINT', onExit);
   process.once('SIGTERM', onExit);
-  process.once('uncaughtException', onExit);
+  process.once('uncaughtException', onUncaught);
 
   return { category, lockPath, release };
 }
