@@ -52,4 +52,10 @@ for (const file of readdirSync(generated)) {
 }
 rmSync(stagingDir, { recursive: true, force: true });
 
+// Normalize with prettier so re-runs are idempotent against lint-staged.
+execFileSync('node', [join(repoRoot, 'node_modules/prettier/bin/prettier.cjs'), '--write', finalDir], {
+  stdio: 'inherit',
+  cwd: repoRoot,
+});
+
 console.log(`Wrote ${readdirSync(finalDir).length} commands to ${finalDir}`);
