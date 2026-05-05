@@ -83,7 +83,7 @@ Read `docs/solutions/references/schema.yaml` for the authoritative track/categor
 ### Phase 5: WRITE (lock-protected)
 
 1. Compute slug: kebab-case from the title; if a file with that slug already exists in the target directory, append `-2`, `-3`, etc.
-2. **Acquire the per-category lock.** Use the MCP tool `acquire_compound_lock` (or shell out to a small Node one-liner that imports `acquireCompoundLock` from `@harness-engineering/core`). Lock path: `.harness/locks/compound-<category>.lock`.
+2. **Acquire the per-category lock by shelling out.** Run a Node one-liner that imports `acquireCompoundLock` from `@harness-engineering/core`, holds the handle while you write the doc, then releases it. Example: `node -e "import('@harness-engineering/core').then(({ acquireCompoundLock }) => { const h = acquireCompoundLock('<category>'); /* write the doc here */ h.release(); }).catch(err => { console.error(err.message); process.exit(1); })"`. Lock path: `.harness/locks/compound-<category>.lock`. The MCP tool `acquire_compound_lock` is planned for a later phase — **do not attempt to call it yet**; the shell-out is the only supported path right now.
    - On `CompoundLockHeldError`: report "compound lock for category `<category>` is held by pid `<N>` — wait for it to release or run `/harness:compound` for a different category" and stop. **Do not retry automatically.** A second invocation on the same problem after release will go through Phase 3 and find the doc the first invocation produced.
 3. Re-run a quick Phase 3 overlap-check inside the lock (defends against TOCTOU when the first overlap-check returned "no overlap" but another invocation completed in the meantime; the re-check is cheap).
 4. Write the file at `docs/solutions/<track>/<category>/<slug>.md`.
