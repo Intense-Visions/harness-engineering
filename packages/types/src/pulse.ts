@@ -7,7 +7,7 @@
 export interface PulseDbSource {
   enabled: boolean;
   /** Read-only connection string env var name. Pulse refuses read-write credentials. */
-  connectionEnv?: string;
+  connectionEnv?: string | undefined;
 }
 
 export interface PulseSources {
