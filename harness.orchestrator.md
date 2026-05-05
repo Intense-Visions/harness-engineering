@@ -31,10 +31,10 @@ agent:
     default: primary
     quick-fix: local
     diagnostic: local
-    # Optional: route the intelligence pipeline (sel/pesl) to a local backend.
-    # intelligence:
-    #   sel: local
-    #   pesl: local
+    # Route the intelligence pipeline (sel/pesl) to the local backend.
+    intelligence:
+      sel: local
+      pesl: local
   # Escalation — controls WHETHER a tier dispatches at all (orthogonal to routing).
   escalation:
     alwaysHuman: [full-exploration]
