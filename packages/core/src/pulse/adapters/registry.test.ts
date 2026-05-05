@@ -9,10 +9,8 @@ import {
 import type { SanitizeFn } from '@harness-engineering/types';
 
 const noopAdapter: SanitizeFn = () => ({
-  events: [],
-  counts: {},
-  bucketStart: new Date(0).toISOString(),
-  bucketEnd: new Date(0).toISOString(),
+  fields: {},
+  distributions: {},
 });
 
 describe('pulse adapter registry', () => {
