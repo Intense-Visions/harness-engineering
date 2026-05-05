@@ -149,5 +149,14 @@ export type {
   SanitizeFn,
 } from './pulse';
 
+// --- Solutions (compound learning docs) ---
+export type {
+  SolutionTrack,
+  BugTrackCategory,
+  KnowledgeTrackCategory,
+  SolutionCategory,
+  SolutionDocFrontmatter,
+} from './solutions';
+
 // --- Maintenance ---
 export type { MaintenanceConfig, TaskOverride } from './maintenance';
