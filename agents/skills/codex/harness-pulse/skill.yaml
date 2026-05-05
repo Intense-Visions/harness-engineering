@@ -1,0 +1,61 @@
+name: harness-pulse
+version: "0.1.0"
+description: First-run pulse interview. Converts intent into a validated pulse config with SMART pushback, read-write-DB rejection, STRATEGY.md seeding. Phase 3 ships the interview; the run path is deferred to Phase 4.
+stability: static
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-pulse
+  args:
+    - name: window
+      description: Lookback window for run mode (deferred until Phase 4); ignored during the interview
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-pulse
+    window: string
+type: rigid
+tier: 2
+phases:
+  - name: route
+    description: Route by harness.config.json pulse state
+    required: true
+  - name: interview
+    description: SMART pushback + STRATEGY.md seeding + read-write-DB rejection; writes pulse block to harness.config.json
+    required: true
+  - name: run
+    description: Deferred to spec Phase 4
+    required: false
+  - name: assemble
+    description: Deferred to spec Phase 4
+    required: false
+  - name: save
+    description: Deferred to spec Phase 4
+    required: false
+state:
+  persistent: true
+  files:
+    - harness.config.json
+    - harness.config.json.bak
+depends_on: []
+keywords:
+  - pulse
+  - product-pulse
+  - feedback-loops
+  - read-side
+  - smart-metrics
+  - strategy-seeding
