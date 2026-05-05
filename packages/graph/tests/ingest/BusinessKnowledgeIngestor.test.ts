@@ -56,6 +56,53 @@ The monorepo enforces strict layer boundaries.
       expect(node!.metadata.tags).toEqual(['layers', 'imports']);
     });
 
+    it('should preserve source field from frontmatter into node metadata', async () => {
+      await writeKnowledgeFile(
+        'payments',
+        'refund-window.md',
+        `---
+type: business_rule
+domain: payments
+source: code-extractor
+---
+
+# Refund Window
+
+Refunds are accepted within 30 days of purchase.
+`
+      );
+
+      const result = await ingestor.ingest(tmpDir);
+      expect(result.nodesAdded).toBe(1);
+
+      const node = store.getNode('bk:payments:refund-window');
+      expect(node).not.toBeNull();
+      expect(node!.metadata.source).toBe('code-extractor');
+    });
+
+    it('should omit source from metadata when frontmatter has no source field', async () => {
+      await writeKnowledgeFile(
+        'payments',
+        'no-source.md',
+        `---
+type: business_rule
+domain: payments
+---
+
+# No Source
+
+Frontmatter without a source field.
+`
+      );
+
+      const result = await ingestor.ingest(tmpDir);
+      expect(result.nodesAdded).toBe(1);
+
+      const node = store.getNode('bk:payments:no-source');
+      expect(node).not.toBeNull();
+      expect(node!.metadata.source).toBeUndefined();
+    });
+
     it('should create nodes for multiple knowledge types', async () => {
       await writeKnowledgeFile(
         'ops',

@@ -193,6 +193,13 @@ export class KnowledgeDocMaterializer {
     const sanitize = (s: string) => s.replace(/[\n\r]/g, ' ').replace(/:/g, '-');
     const lines: string[] = ['---', `type: ${sanitize(mappedType)}`, `domain: ${sanitize(domain)}`];
 
+    // Source — preserve provenance so a re-ingest of the materialized doc
+    // doesn't appear as a second "unknown" source contradicting the original.
+    const source = node.metadata?.source;
+    if (typeof source === 'string' && source.length > 0) {
+      lines.push(`source: ${sanitize(source)}`);
+    }
+
     // Tags — sanitize each element to prevent YAML injection
     const tags = node.metadata?.tags;
     if (Array.isArray(tags) && tags.length > 0) {

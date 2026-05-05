@@ -26,6 +26,7 @@ const MEASURABLE_TYPES = new Set<string>(['business_process', 'business_concept'
 interface Frontmatter {
   type: string;
   domain: string;
+  source?: string;
   tags?: string[];
   related?: string[];
 }
@@ -106,6 +107,7 @@ export class BusinessKnowledgeIngestor {
       content: body.trim(),
       metadata: {
         domain,
+        ...(frontmatter.source && { source: frontmatter.source }),
         ...(frontmatter.tags && { tags: frontmatter.tags }),
         ...(frontmatter.related && { related: frontmatter.related }),
       },
