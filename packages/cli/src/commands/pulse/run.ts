@@ -52,6 +52,15 @@ export async function runPulseRunCommand(opts: PulseRunOptions): Promise<PulseRu
   // Orchestrate.
   const result = await runPulse(raw.pulse, window);
 
+  // No-source run: pulse.enabled was true but every source slot was null and
+  // the DB source was not configured. The orchestrator returned 0 queried + 0
+  // skipped, which is operationally indistinguishable from a disabled pulse —
+  // signal that explicitly with a `skipped` status so callers do not see a
+  // "success" exit for a run that produced nothing.
+  if (result.sourcesQueried.length === 0 && result.sourcesSkipped.length === 0) {
+    return emit({ status: 'skipped', reason: 'no sources configured' }, opts.nonInteractive);
+  }
+
   // Assemble report. Product name resolution is conservative: until the
   // strategy/business-knowledge wiring lands (Phase 7), use the config name as
   // a stand-in. Falls back to 'Project'.

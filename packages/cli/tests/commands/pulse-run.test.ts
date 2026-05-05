@@ -64,6 +64,30 @@ describe('pulse run CLI', () => {
     expect(body).toContain('## Followups');
   });
 
+  it('returns skipped status when pulse.enabled=true but all sources are null', async () => {
+    writeConfig({
+      enabled: true,
+      lookbackDefault: '24h',
+      primaryEvent: 'click',
+      valueEvent: 'value',
+      completionEvents: [],
+      qualityScoring: false,
+      qualityDimension: null,
+      sources: { analytics: null, tracing: null, payments: null, db: { enabled: false } },
+      metricSourceOverrides: {},
+      pendingMetrics: [],
+      excludedMetrics: [],
+    });
+    const status = await runPulseRunCommand({
+      configPath: join(tmp, 'harness.config.json'),
+      outputDir: join(tmp, 'reports'),
+      nonInteractive: true,
+      lookback: '24h',
+    });
+    expect(status.status).toBe('skipped');
+    expect(status.reason).toMatch(/no sources configured/);
+  });
+
   it('uses pulse.lookbackDefault when --lookback omitted', async () => {
     writeConfig({
       enabled: true,
