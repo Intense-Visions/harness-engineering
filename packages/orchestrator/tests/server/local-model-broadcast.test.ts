@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type TestOptions } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { WebSocket } from 'ws';
-import type { LocalModelStatus } from '@harness-engineering/types';
+import type { LocalModelStatus, NamedLocalModelStatus } from '@harness-engineering/types';
 import { OrchestratorServer } from '../../src/server/http';
 
 const RETRY: TestOptions = { retry: 2 };
@@ -23,6 +23,24 @@ const STATUS_HEALTHY: LocalModelStatus = {
   detected: ['gemma-4-e4b'],
   lastError: null,
   warnings: [],
+};
+
+const NAMED_UNHEALTHY: NamedLocalModelStatus = {
+  ...STATUS_UNHEALTHY,
+  backendName: 'local',
+  endpoint: 'http://localhost:1234/v1',
+};
+
+const NAMED_HEALTHY: NamedLocalModelStatus = {
+  ...STATUS_HEALTHY,
+  backendName: 'local',
+  endpoint: 'http://localhost:1234/v1',
+};
+
+const NAMED_UNHEALTHY_PI2: NamedLocalModelStatus = {
+  ...STATUS_UNHEALTHY,
+  backendName: 'pi-2',
+  endpoint: 'http://192.168.1.50:1234/v1',
 };
 
 describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
@@ -56,13 +74,13 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
     await new Promise((r) => setTimeout(r, 50));
     messages.length = 0;
 
-    server.broadcastLocalModelStatus(STATUS_UNHEALTHY);
+    server.broadcastLocalModelStatus(NAMED_UNHEALTHY);
     await new Promise((r) => setTimeout(r, 100));
 
     expect(messages).toHaveLength(1);
-    const parsed = JSON.parse(messages[0]) as { type: string; data: LocalModelStatus };
+    const parsed = JSON.parse(messages[0]) as { type: string; data: NamedLocalModelStatus };
     expect(parsed.type).toBe('local-model:status');
-    expect(parsed.data).toEqual(STATUS_UNHEALTHY);
+    expect(parsed.data).toEqual(NAMED_UNHEALTHY);
 
     ws.close();
   });
@@ -80,18 +98,58 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
     await new Promise((r) => setTimeout(r, 50));
     messages.length = 0;
 
-    server.broadcastLocalModelStatus(STATUS_UNHEALTHY);
-    server.broadcastLocalModelStatus(STATUS_HEALTHY);
+    server.broadcastLocalModelStatus(NAMED_UNHEALTHY);
+    server.broadcastLocalModelStatus(NAMED_HEALTHY);
     await new Promise((r) => setTimeout(r, 100));
 
     expect(messages).toHaveLength(2);
-    const parsed = messages.map((m) => JSON.parse(m) as { type: string; data: LocalModelStatus });
+    const parsed = messages.map(
+      (m) => JSON.parse(m) as { type: string; data: NamedLocalModelStatus }
+    );
     expect(parsed[0].type).toBe('local-model:status');
     expect(parsed[0].data.available).toBe(false);
+    expect(parsed[0].data.backendName).toBe('local');
+    expect(parsed[0].data.endpoint).toBe('http://localhost:1234/v1');
     expect(parsed[1].type).toBe('local-model:status');
     expect(parsed[1].data.available).toBe(true);
     expect(parsed[1].data.resolved).toBe('gemma-4-e4b');
+    expect(parsed[1].data.backendName).toBe('local');
 
     ws.close();
   });
+
+  it(
+    'delivers per-resolver events tagged with backendName+endpoint (SC39 multi-local)',
+    RETRY,
+    async () => {
+      await server.start();
+
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      await new Promise<void>((r) => ws.on('open', r));
+
+      const messages: string[] = [];
+      ws.on('message', (data) => messages.push(data.toString()));
+
+      // Drain the initial snapshot.
+      await new Promise((r) => setTimeout(r, 50));
+      messages.length = 0;
+
+      server.broadcastLocalModelStatus(NAMED_UNHEALTHY);
+      server.broadcastLocalModelStatus(NAMED_UNHEALTHY_PI2);
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(messages).toHaveLength(2);
+      const parsed = messages.map(
+        (m) => JSON.parse(m) as { type: string; data: NamedLocalModelStatus }
+      );
+      expect(parsed[0].type).toBe('local-model:status');
+      expect(parsed[0].data.backendName).toBe('local');
+      expect(parsed[0].data.endpoint).toBe('http://localhost:1234/v1');
+      expect(parsed[1].type).toBe('local-model:status');
+      expect(parsed[1].data.backendName).toBe('pi-2');
+      expect(parsed[1].data.endpoint).toBe('http://192.168.1.50:1234/v1');
+
+      ws.close();
+    }
+  );
 });
