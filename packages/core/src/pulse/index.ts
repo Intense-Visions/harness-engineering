@@ -15,11 +15,19 @@ export {
   listPulseAdapters,
   clearPulseAdapters,
   PulseAdapterAlreadyRegisteredError,
+  registerMockAdapter,
+  MOCK_ADAPTER_NAME,
 } from './adapters';
+export { runPulse, computeWindow, parseLookback, assembleReport } from './run';
+export type { OrchestratorResult } from './run/orchestrator';
 export type {
   PulseConfig,
   PulseSources,
   PulseDbSource,
   SanitizedResult,
   SanitizeFn,
+  PulseWindow,
+  PulseAdapter,
+  PulseRunStatus,
+  PulseRunStatusType,
 } from '@harness-engineering/types';

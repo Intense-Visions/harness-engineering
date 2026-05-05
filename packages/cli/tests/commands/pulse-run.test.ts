@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runPulseRunCommand } from '../../src/commands/pulse-run';
+import { runPulseRunCommand } from '../../src/commands/pulse/run';
 
 describe('pulse run CLI', () => {
   let tmp: string;

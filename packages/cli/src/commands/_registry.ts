@@ -42,6 +42,7 @@ import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
 import { createPublishAnalysesCommand } from './publish-analyses';
+import { createPulseCommand } from './pulse';
 import { createQueryCommand } from './graph/query';
 import { createRecommendCommand } from './recommend';
 import { createScanCommand } from './graph/scan';
@@ -107,6 +108,7 @@ export const commandCreators: Array<() => Command> = [
   createPersonaCommand,
   createPredictCommand,
   createPublishAnalysesCommand,
+  createPulseCommand,
   createQueryCommand,
   createRecommendCommand,
   createScanCommand,
