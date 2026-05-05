@@ -137,7 +137,15 @@ export class Orchestrator extends EventEmitter {
    * so this map is the single source of truth post-migration.
    */
   private localResolvers = new Map<string, LocalModelResolver>();
-  private localModelStatusUnsubscribe: (() => void) | null = null;
+  /**
+   * Per-resolver `onStatusChange` unsubscribe callbacks. Spec 2 Phase 5
+   * (SC39): each local/pi resolver gets its own listener emitting a
+   * `NamedLocalModelStatus` event tagged with `backendName` + `endpoint`.
+   * The previous single-resolver field (`localModelStatusUnsubscribe`)
+   * is replaced by this list so multi-local configs can teardown all
+   * listeners on `stop()` without a Map mutation.
+   */
+  private localModelStatusUnsubscribes: Array<() => void> = [];
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
@@ -1563,20 +1571,40 @@ export class Orchestrator extends EventEmitter {
    */
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localResolvers.size > 0) {
-      // First-resolver broadcast (legacy single-banner UX). Multi-status
-      // dashboard surface (SC38-40) widens this in autopilot Phase 4 to
-      // pass `backendName` + `endpoint` per resolver, but the channel
-      // and bind-before-probe ordering remain unchanged.
-      const first = this.localResolvers.values().next();
-      if (!first.done) {
-        const firstResolver = first.value;
-        // Subscribe BEFORE the initial probe so the first status diff
-        // (default empty state -> probe-1 result) is broadcast to the
-        // dashboard. SC21 relies on observing both initial-probe-failure
-        // and subsequent recovery as distinct broadcasts.
-        this.localModelStatusUnsubscribe = firstResolver.onStatusChange((status) => {
-          this.server?.broadcastLocalModelStatus(status);
+      // Spec 2 Phase 5 (SC39): subscribe each resolver independently. Each
+      // listener tags its broadcast with the resolver's backendName +
+      // endpoint, producing a NamedLocalModelStatus payload. Multi-banner
+      // dashboards (SC40) reconstruct a per-name map from these per-resolver
+      // events; the legacy single-banner consumer reads
+      // `getLocalModelStatus` (first-resolver) via the deprecated singular
+      // endpoint.
+      //
+      // Subscribe BEFORE the initial probe so the first status diff
+      // (default empty state -> probe-1 result) is broadcast to the
+      // dashboard. SC21 relies on observing both initial-probe-failure
+      // and subsequent recovery as distinct broadcasts.
+      const backends = this.config.agent.backends ?? {};
+      for (const [name, resolver] of this.localResolvers) {
+        const def = backends[name];
+        // Defensive: a resolver in the Map without a corresponding backend
+        // def is a contract violation — skip but log. (The Map is built
+        // FROM backends, so this should not fire.)
+        if (!def || (def.type !== 'local' && def.type !== 'pi')) {
+          this.logger.warn('Resolver without matching backend def — broadcast skipped', {
+            name,
+          });
+          continue;
+        }
+        const endpoint = def.endpoint;
+        const unsubscribe = resolver.onStatusChange((status) => {
+          const named: import('@harness-engineering/types').NamedLocalModelStatus = {
+            ...status,
+            backendName: name,
+            endpoint,
+          };
+          this.server?.broadcastLocalModelStatus(named);
         });
+        this.localModelStatusUnsubscribes.push(unsubscribe);
       }
       // Probe each resolver independently — SC37 (multi-resolver
       // independence): unreachable resolvers report `available: false`
@@ -1669,10 +1697,10 @@ export class Orchestrator extends EventEmitter {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
     }
-    if (this.localModelStatusUnsubscribe) {
-      this.localModelStatusUnsubscribe();
-      this.localModelStatusUnsubscribe = null;
+    for (const unsub of this.localModelStatusUnsubscribes) {
+      unsub();
     }
+    this.localModelStatusUnsubscribes = [];
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
     }
