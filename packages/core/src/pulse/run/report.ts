@@ -89,10 +89,21 @@ function buildFollowups(r: OrchestratorResult): string {
  * Defense-in-depth final sweep. After templating + truncation, scrub any line
  * containing a denylisted PII token. This is the third PII boundary (after
  * `adapter.sanitize()` and the orchestrator's `assertSanitized()`).
+ *
+ * Structural lines (H1 title, H2 section headers) are preserved verbatim so
+ * that the 4-section invariant survives a user-chosen productName that
+ * happens to contain a PII token (e.g. `name`, `address`). The actual report
+ * data still passes through the two earlier sanitization layers; only the
+ * structural scaffolding is whitelisted here.
  */
 function finalPiiSweep(text: string): string {
-  const lines = text.split('\n');
-  return lines.filter((l) => !PII_LINE_RE.test(l)).join('\n');
+  return text
+    .split('\n')
+    .filter((l) => {
+      if (l.startsWith('# ') || l.startsWith('## ')) return true;
+      return !PII_LINE_RE.test(l);
+    })
+    .join('\n');
 }
 
 function truncateFollowupsToFit(text: string): string {

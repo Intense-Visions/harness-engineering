@@ -58,6 +58,18 @@ describe('assembleReport', () => {
     expect(out).not.toMatch(/user_id|email|session_id/i);
   });
 
+  it('preserves H1 title and H2 headers when productName contains a PII token', () => {
+    // productName is user-controlled. If it contains a denylisted token (e.g.
+    // a project literally named `user_id-test`), the title line must still
+    // survive the final sweep so the 4-section invariant holds.
+    const out = assembleReport(baseResult, 'user_id-test', '24h');
+    expect(out).toContain('# user_id-test Pulse — 24h');
+    expect(out).toContain('## Headlines');
+    expect(out).toContain('## Usage');
+    expect(out).toContain('## System performance');
+    expect(out).toContain('## Followups');
+  });
+
   it('renders System performance section with distributions when a tracing source is present', () => {
     const withTracing: OrchestratorResult = {
       sources: [
