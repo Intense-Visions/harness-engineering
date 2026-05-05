@@ -77,6 +77,14 @@ export function acquireCompoundLock(
     } catch {
       /* lock already gone — fine */
     }
+    // Detach process listeners so repeated acquire/release cycles in the
+    // same process do not accumulate handlers and trip
+    // MaxListenersExceededWarning. process.once auto-removes only when the
+    // event fires; manual release() is the common path.
+    process.removeListener('exit', onExit);
+    process.removeListener('SIGINT', onExit);
+    process.removeListener('SIGTERM', onExit);
+    process.removeListener('uncaughtException', onExit);
   };
   // Ensure release on abrupt exit. Best-effort.
   const onExit = (): void => release();
