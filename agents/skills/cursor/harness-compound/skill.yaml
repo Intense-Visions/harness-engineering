@@ -1,0 +1,60 @@
+name: harness-compound
+version: "1.0.0"
+description: 5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/<track>/<category>/<slug>.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
+stability: static
+cognitive_mode: reflective-historian
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-compound
+  args:
+    - name: context
+      description: Free-text problem context (e.g. 'stalled lease cleanup in orchestrator')
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-compound
+    context: string
+type: rigid
+tier: 2
+phases:
+  - name: identify
+    description: Extract problem and solution from conversation, debug session, recent commits
+    required: true
+  - name: classify
+    description: Choose track and category from the v1 schema enums
+    required: true
+  - name: overlap-check
+    description: Scan existing docs/solutions/<track>/<category>/ for matching problems; update existing if high overlap
+    required: true
+  - name: assemble
+    description: Fill the resolution template with track-appropriate sections
+    required: true
+  - name: write
+    description: Write doc under per-category lock; validate frontmatter; release lock
+    required: true
+state:
+  persistent: false
+  files:
+    - .harness/locks/compound-<category>.lock
+depends_on: []
+keywords:
+  - post-mortem
+  - solutions
+  - compound-learning
+  - playbook
+  - bug-track
+  - knowledge-track
