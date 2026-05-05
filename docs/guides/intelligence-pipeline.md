@@ -45,6 +45,8 @@ intelligence:
 
 That's it. The pipeline automatically uses whatever backend your orchestrator is configured with:
 
+When `agent.routing.intelligence.sel` or `agent.routing.intelligence.pesl` is set, those routing keys override the inferred resolution order in the table below. See [Multi-Backend Routing](./multi-backend-routing.md) for routing semantics.
+
 | Agent Backend                                           | Intelligence Provider       | How It Connects                                               |
 | ------------------------------------------------------- | --------------------------- | ------------------------------------------------------------- |
 | Local (`agent.localBackend: pi` or `openai-compatible`) | OpenAI-compatible endpoint  | Uses `agent.localEndpoint` (e.g., `http://localhost:1234/v1`) |

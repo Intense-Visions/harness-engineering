@@ -95,6 +95,10 @@ The rest of your existing `agent:` settings (rate limits, timeouts, etc.) remain
 
 No global installation is required — `pi` is pulled in automatically as a dependency.
 
+## Multi-backend routing (modern schema)
+
+The legacy `agent.backend` / `agent.localBackend` config shown above is supported via an in-memory migration shim and emits a deprecation warning at orchestrator start. The modern surface is `agent.backends` (named map) + `agent.routing` (per-use-case map). See [Multi-Backend Routing](./multi-backend-routing.md) for the full schema and migration guidance.
+
 ## 3. Label Roadmap Issues
 
 The orchestrator routes issues based on **scope tier**, detected from labels on roadmap features. Add a `scope:` label to control routing:
