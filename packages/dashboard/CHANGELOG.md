@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [18412eb]
+  - @harness-engineering/graph@0.7.1
+  - @harness-engineering/core@0.23.5
+
 ## 0.4.0
 
 ### Minor Changes

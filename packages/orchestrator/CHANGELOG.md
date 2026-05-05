@@ -1,5 +1,14 @@
 # @harness-engineering/orchestrator
 
+## 0.2.17
+
+### Patch Changes
+
+- Updated dependencies [18412eb]
+  - @harness-engineering/graph@0.7.1
+  - @harness-engineering/core@0.23.5
+  - @harness-engineering/intelligence@0.1.5
+
 ## 0.2.16
 
 ### Patch Changes

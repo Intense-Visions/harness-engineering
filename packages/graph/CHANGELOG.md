@@ -1,5 +1,11 @@
 # @harness-engineering/graph
 
+## 0.7.1
+
+### Patch Changes
+
+- 18412eb: Round-trip `metadata.source` through `KnowledgeDocMaterializer` ↔ `BusinessKnowledgeIngestor` so materialized knowledge docs no longer appear as a second "unknown" source contradicting their original extractor. Closes #265.
+
 ## 0.7.0
 
 ### Minor Changes
