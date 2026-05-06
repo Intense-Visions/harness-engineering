@@ -416,6 +416,22 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 
 The dashboard `Maintenance` page renders a candidate-count badge on `compound-candidates` history rows when `findings > 0`.
 
+### Solutions and Pulse Reports
+
+Two artifact roots support the feedback-loops feature:
+
+- `docs/solutions/<track>/<category>/<slug>.md` — solved-problem playbooks written
+  via `/harness:compound`. Tracks: `bug-track/`, `knowledge-track/`. See
+  `docs/conventions/compound-vs-knowledge-pipeline.md` for category guidance.
+- `docs/pulse-reports/YYYY-MM-DD_HH-MM.md` — daily single-page pulse reports
+  written by the `product-pulse` maintenance task. Read these when prioritizing.
+
+The boundary with `harness-knowledge-pipeline` is documented in
+ADR-0003 (`docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`):
+compound captures post-mortem playbooks; the pipeline extracts structural facts
+from code. Both `product-pulse` and `compound-candidates` are registered as
+`report-only` maintenance tasks (see the orchestrator maintenance section).
+
 ### Graph Subsystems
 
 In addition to the core graph store and ContextQL engine:
