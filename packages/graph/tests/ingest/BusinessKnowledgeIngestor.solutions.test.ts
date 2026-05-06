@@ -18,11 +18,10 @@ describe('BusinessKnowledgeIngestor.ingestSolutions', () => {
   });
 
   it('ingests knowledge-track docs as business_concept nodes', async () => {
-    const result = await ingestor.ingestSolutions(FIXTURES);
+    const root = path.join(FIXTURES, 'knowledge-track', 'architecture-patterns');
+    const result = await ingestor.ingestSolutions(root);
     const concepts = store.findNodes({ type: 'business_concept' });
-    const knowledgeTrackNode = concepts.find((n) =>
-      n.path?.includes('architecture-patterns/sample-pattern.md')
-    );
+    const knowledgeTrackNode = concepts.find((n) => n.path?.includes('sample-pattern.md'));
     expect(knowledgeTrackNode).toBeDefined();
     expect(result.errors).toEqual([]);
   });
