@@ -29,15 +29,20 @@ interface RawCommit {
 }
 
 /**
- * Normalizes shorthand lookback strings (e.g., '7d') to git's `--since=` format
- * ('7 days ago'). Bare shorthand is rejected by git on macOS, so this
- * conversion is required.
+ * Normalize a shorthand lookback string (e.g. `7d`) into the form git's
+ * `--since=` expects (`7 days ago`). Bare shorthand is rejected by git on
+ * macOS, so this translation is required at the boundary.
  *
- * Accepted units: `h` (hours), `d` (days), `w` (weeks), `mo` (months — `m` is
- * rejected because it is ambiguous between minutes and months). Anything else
- * throws so callers cannot accidentally pass garbage to git, where it would
- * silently degrade to `--since=` behaving as a no-op and returning every
- * commit.
+ * Accepted units:
+ *   - `h`  — hours
+ *   - `d`  — days
+ *   - `w`  — weeks
+ *   - `mo` — months
+ *
+ * Note: `m` is intentionally NOT accepted because it is ambiguous between
+ * "minute" and "month". Any other input throws, so callers cannot pass
+ * garbage to git — where `--since=foo` silently degrades to a no-op and
+ * returns every commit in the repo.
  */
 export function normalizeSince(since: string): string {
   const m = /^(\d+)(h|d|w|mo)$/i.exec(since.trim());
