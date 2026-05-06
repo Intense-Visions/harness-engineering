@@ -8,12 +8,11 @@ import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/sc
 function gitInit(cwd: string) {
   execSync('git init -q && git config user.email "t@t" && git config user.name "T"', {
     cwd,
-    shell: '/bin/bash',
   });
 }
 function commitFile(cwd: string, file: string, content: string, msg: string) {
   writeFileSync(join(cwd, file), content);
-  execSync(`git add . && git commit -q -m "${msg}"`, { cwd, shell: '/bin/bash' });
+  execSync(`git add . && git commit -q -m "${msg}"`, { cwd });
 }
 
 describe('harness compound scan-candidates', () => {
