@@ -200,7 +200,7 @@ Orchestrate dead code removal and architecture violation fixes with shared conve
 
 ### harness-compound
 
-5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/<track>/<category>/<slug>.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
+5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/{track}/{category}/{slug}.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
