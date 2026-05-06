@@ -411,7 +411,7 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 - **pure-ai (4):** `dead-code`, `dependency-health`, `hotspot-remediation`, `security-review` — always dispatch an AI agent on schedule.
 - **report-only (7):** `perf-check`, `decay-trends`, `project-health`, `stale-constraints`, `graph-refresh`, `product-pulse`, `compound-candidates` — run a command and record metrics; never create branches or PRs. Honors a JSON status contract (`{status, candidatesFound?, error?, reason?}`) emitted by the new `--non-interactive` CLIs; legacy free-form output falls through to `success`.
   - `product-pulse` (daily 8am, gated on `pulse.enabled`) — generates `docs/pulse-reports/` via `harness pulse run --non-interactive`.
-  - `compound-candidates` (Mondays 9am) — surfaces undocumented learnings into `docs/solutions/.candidates/` via `harness compound scan-candidates --non-interactive`.
+  - `compound-candidates` (Mondays 9am) — surfaces undocumented learnings into `docs/solutions/.candidates/` via `harness compound scan-candidates --non-interactive`. Scheduled at 9am rather than 6am to avoid collision with the existing Monday 6am block (cross-check, perf-check, traceability).
 - **housekeeping (2):** `session-cleanup`, `perf-baselines` — run a mechanical command directly, no AI, no PR.
 
 The dashboard `Maintenance` page renders a candidate-count badge on `compound-candidates` history rows when `findings > 0`.
