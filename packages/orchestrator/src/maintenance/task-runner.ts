@@ -294,6 +294,13 @@ export class TaskRunner {
 
   /**
    * Report-only: run check command, record metrics, no AI dispatch.
+   *
+   * Honors the JSON status contract emitted by Phase 4/5 CLIs (`harness pulse run`
+   * and `harness compound scan-candidates` in `--non-interactive` mode):
+   *   {"status":"success"|"skipped"|"failure"|"no-issues",
+   *    "candidatesFound"?: number, "error"?: string, "reason"?: string}
+   *
+   * Legacy report-only tasks emit free-form output and fall through to 'success'.
    */
   private async runReportOnly(task: TaskDefinition, startedAt: string): Promise<RunResult> {
     if (!task.checkCommand || task.checkCommand.length === 0) {
@@ -301,17 +308,26 @@ export class TaskRunner {
     }
 
     const checkResult = await this.checkRunner.run(task.checkCommand, this.cwd);
+    const parsed = parseStatusLine(checkResult.output);
 
-    return {
+    const status: RunResult['status'] = parsed?.status ?? 'success';
+    const findings =
+      typeof parsed?.candidatesFound === 'number' ? parsed.candidatesFound : checkResult.findings;
+
+    const result: RunResult = {
       taskId: task.id,
       startedAt,
       completedAt: new Date().toISOString(),
-      status: 'success',
-      findings: checkResult.findings,
+      status,
+      findings,
       fixed: 0,
       prUrl: null,
       prUpdated: false,
     };
+    if (parsed?.error) {
+      result.error = parsed.error;
+    }
+    return result;
   }
 
   /**
@@ -359,4 +375,55 @@ export class TaskRunner {
       error,
     };
   }
+}
+
+/**
+ * Parse the last JSON-object line from a CLI's stdout. Returns `null` when no
+ * line parses as JSON. The maintenance task-runner uses this to consume the
+ * status contract emitted by `harness pulse run` and `harness compound scan-candidates`.
+ *
+ * Contract (Phase 4/5 CLIs):
+ *   {"status":"success"|"skipped"|"failure"|"no-issues",
+ *    "candidatesFound"?: number, "error"?: string, "reason"?: string}
+ *
+ * Tolerates trailing non-JSON lines (e.g., warning logs after the status JSON)
+ * by scanning from the last line backward until a parseable JSON object with a
+ * recognized `status` field is found.
+ */
+interface ParsedStatus {
+  status: RunResult['status'];
+  candidatesFound?: number;
+  error?: string;
+  reason?: string;
+}
+
+function parseStatusLine(output: string): ParsedStatus | null {
+  const lines = output
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (!line || !line.startsWith('{') || !line.endsWith('}')) continue;
+    try {
+      const obj = JSON.parse(line) as Record<string, unknown>;
+      const s = obj.status;
+      if (s === 'success' || s === 'skipped' || s === 'failure' || s === 'no-issues') {
+        const parsed: ParsedStatus = { status: s };
+        if (typeof obj.candidatesFound === 'number') {
+          parsed.candidatesFound = obj.candidatesFound;
+        }
+        if (typeof obj.error === 'string') {
+          parsed.error = obj.error;
+        }
+        if (typeof obj.reason === 'string') {
+          parsed.reason = obj.reason;
+        }
+        return parsed;
+      }
+    } catch {
+      // not JSON; keep scanning earlier lines
+    }
+  }
+  return null;
 }
