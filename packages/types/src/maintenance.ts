@@ -1,4 +1,31 @@
 /**
+ * Wire-shape entry returned by the dashboard `GET /api/maintenance/history` endpoint.
+ *
+ * This is the serialized form of an internal `RunResult` adapted for the
+ * Maintenance dashboard page. It is the single source of truth for the wire
+ * contract between the orchestrator's history route and the dashboard client.
+ *
+ * Note: `status: 'failed'` is the dashboard convention; the internal
+ * `RunResult.status === 'failure'` is renamed during serialization.
+ */
+export interface MaintenanceHistoryEntry {
+  /** Task identifier (mapped from `RunResult.taskId`) */
+  task: string;
+  /** ISO timestamp when the run started */
+  startedAt: string;
+  /** Total run duration in ms (computed from `completedAt - startedAt`); 0 if missing */
+  durationMs: number;
+  /** Run outcome (dashboard convention: `'failed'` instead of `'failure'`) */
+  status: 'success' | 'failed' | 'skipped' | 'no-issues';
+  /** Number of issues/findings detected (defaults to 0 when undefined) */
+  findings: number;
+  /** URL of the created/updated PR, or null if no PR */
+  prUrl: string | null;
+  /** Error message if status is 'failed' */
+  error?: string;
+}
+
+/**
  * Per-task overrides in the maintenance configuration.
  */
 export interface TaskOverride {

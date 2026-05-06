@@ -1,8 +1,39 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
+import type { MaintenanceHistoryEntry } from '@harness-engineering/types';
 import type { MaintenanceScheduler } from '../../maintenance/scheduler';
 import type { MaintenanceReporter } from '../../maintenance/reporter';
+import type { RunResult } from '../../maintenance/types';
 import { readBody } from '../utils.js';
+
+// Re-export the shared wire contract so dashboard consumers can import it
+// alongside other route types from the orchestrator package boundary.
+export type { MaintenanceHistoryEntry } from '@harness-engineering/types';
+
+/**
+ * Serializes an internal `RunResult` into the dashboard wire shape.
+ *
+ * Decouples the wire contract from the internal `RunResult` type:
+ *  - `taskId` -> `task`
+ *  - `completedAt` + `startedAt` -> computed `durationMs`
+ *  - `status: 'failure'` -> `status: 'failed'` (dashboard convention)
+ *  - `findings` defaults to 0 when undefined
+ */
+export function toMaintenanceHistoryEntry(r: RunResult): MaintenanceHistoryEntry {
+  const durationMs =
+    r.startedAt && r.completedAt ? Date.parse(r.completedAt) - Date.parse(r.startedAt) : 0;
+  const status: MaintenanceHistoryEntry['status'] = r.status === 'failure' ? 'failed' : r.status;
+  const entry: MaintenanceHistoryEntry = {
+    task: r.taskId,
+    startedAt: r.startedAt,
+    durationMs: Number.isFinite(durationMs) ? durationMs : 0,
+    status,
+    findings: r.findings ?? 0,
+    prUrl: r.prUrl ?? null,
+  };
+  if (r.error !== undefined) entry.error = r.error;
+  return entry;
+}
 
 const TriggerRequestSchema = z.object({
   taskId: z.string().min(1),
@@ -40,7 +71,7 @@ function handleGetHistory(
   const params = new URLSearchParams(queryString);
   const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '20', 10) || 20));
   const offset = Math.max(0, parseInt(params.get('offset') ?? '0', 10) || 0);
-  const history = deps.reporter.getHistory(limit, offset);
+  const history = deps.reporter.getHistory(limit, offset).map(toMaintenanceHistoryEntry);
   sendJSON(res, 200, history);
 }
 
@@ -83,7 +114,7 @@ function handlePostTrigger(
  *
  * - GET  /api/maintenance/schedule  — next-run times per task
  * - GET  /api/maintenance/status    — full MaintenanceStatus
- * - GET  /api/maintenance/history   — paginated RunResult[] (?limit=20&offset=0)
+ * - GET  /api/maintenance/history   — paginated MaintenanceHistoryEntry[] (?limit=20&offset=0)
  * - POST /api/maintenance/trigger   — enqueue a task for immediate execution
  *
  * Returns true if the route matched, false otherwise.

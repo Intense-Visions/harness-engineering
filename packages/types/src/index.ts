@@ -166,4 +166,4 @@ export type {
 } from './solutions';
 
 // --- Maintenance ---
-export type { MaintenanceConfig, TaskOverride } from './maintenance';
+export type { MaintenanceConfig, TaskOverride, MaintenanceHistoryEntry } from './maintenance';

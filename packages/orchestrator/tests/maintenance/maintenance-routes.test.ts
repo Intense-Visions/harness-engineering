@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handleMaintenanceRoute } from '../../src/server/routes/maintenance';
+import {
+  handleMaintenanceRoute,
+  toMaintenanceHistoryEntry,
+} from '../../src/server/routes/maintenance';
 import type { MaintenanceRouteDeps } from '../../src/server/routes/maintenance';
 import type { MaintenanceStatus, RunResult } from '../../src/maintenance/types';
+import type { MaintenanceHistoryEntry } from '@harness-engineering/types';
 
 /** Minimal mock IncomingMessage with method, url, and event emitter for body. */
 function mockReq(method: string, url: string, body?: string): IncomingMessage {
@@ -159,12 +163,22 @@ describe('handleMaintenanceRoute', () => {
       expect(deps.reporter.getHistory).toHaveBeenCalledWith(20, 0);
     });
 
-    it('returns the history array', () => {
+    it('returns the history array serialized to MaintenanceHistoryEntry[]', () => {
       const req = mockReq('GET', '/api/maintenance/history');
       const res = mockRes();
       handleMaintenanceRoute(req, res, deps);
       expect(res._status).toBe(200);
-      expect(JSON.parse(res._body)).toEqual(mockHistory);
+      const body = JSON.parse(res._body) as MaintenanceHistoryEntry[];
+      expect(body).toEqual([
+        {
+          task: 'arch-violations',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          durationMs: 60_000,
+          status: 'success',
+          findings: 3,
+          prUrl: null,
+        },
+      ]);
     });
   });
 
@@ -210,5 +224,133 @@ describe('handleMaintenanceRoute', () => {
     const res = mockRes();
     expect(handleMaintenanceRoute(req, res, deps)).toBe(true);
     expect(res._status).toBe(404);
+  });
+});
+
+describe('toMaintenanceHistoryEntry', () => {
+  it('maps a fully-populated RunResult to the dashboard wire shape', () => {
+    const r: RunResult = {
+      taskId: 'compound-candidates',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:01.234Z',
+      status: 'success',
+      findings: 5,
+      fixed: 0,
+      prUrl: 'https://github.com/example/repo/pull/1',
+      prUpdated: false,
+    };
+    const entry = toMaintenanceHistoryEntry(r);
+    expect(entry).toEqual<MaintenanceHistoryEntry>({
+      task: 'compound-candidates',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      durationMs: 1234,
+      status: 'success',
+      findings: 5,
+      prUrl: 'https://github.com/example/repo/pull/1',
+    });
+  });
+
+  it("renames status: 'failure' to 'failed' (dashboard convention)", () => {
+    const r: RunResult = {
+      taskId: 'arch-violations',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:05.000Z',
+      status: 'failure',
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+      error: 'boom',
+    };
+    const entry = toMaintenanceHistoryEntry(r);
+    expect(entry.status).toBe('failed');
+    expect(entry.error).toBe('boom');
+    expect(entry.durationMs).toBe(5000);
+  });
+
+  it("passes through status: 'no-issues' unchanged", () => {
+    const r: RunResult = {
+      taskId: 'arch-violations',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:00.500Z',
+      status: 'no-issues',
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    };
+    expect(toMaintenanceHistoryEntry(r).status).toBe('no-issues');
+  });
+
+  it("passes through status: 'skipped' unchanged", () => {
+    const r: RunResult = {
+      taskId: 'arch-violations',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:00.000Z',
+      status: 'skipped',
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    };
+    expect(toMaintenanceHistoryEntry(r).status).toBe('skipped');
+  });
+
+  it('defaults findings to 0 when undefined on the source', () => {
+    // findings is required on RunResult, but guard against future drift
+    // and the empty-history "no findings" runtime case.
+    const r = {
+      taskId: 'x',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:01.000Z',
+      status: 'success' as const,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    } as unknown as RunResult;
+    expect(toMaintenanceHistoryEntry(r).findings).toBe(0);
+  });
+
+  it('omits `error` when not present on the source', () => {
+    const r: RunResult = {
+      taskId: 'x',
+      startedAt: '2026-05-05T09:00:00.000Z',
+      completedAt: '2026-05-05T09:00:01.000Z',
+      status: 'success',
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    };
+    const entry = toMaintenanceHistoryEntry(r);
+    expect('error' in entry).toBe(false);
+  });
+
+  it('returns durationMs: 0 when startedAt or completedAt is missing', () => {
+    const r = {
+      taskId: 'x',
+      startedAt: '',
+      completedAt: '2026-05-05T09:00:01.000Z',
+      status: 'success' as const,
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    } as unknown as RunResult;
+    expect(toMaintenanceHistoryEntry(r).durationMs).toBe(0);
+  });
+
+  it('coerces non-finite durationMs (e.g., unparsable timestamps) to 0', () => {
+    const r = {
+      taskId: 'x',
+      startedAt: 'not-a-date',
+      completedAt: 'also-not-a-date',
+      status: 'success' as const,
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+    } as unknown as RunResult;
+    expect(toMaintenanceHistoryEntry(r).durationMs).toBe(0);
   });
 });
