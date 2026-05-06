@@ -7,11 +7,11 @@ import { gitScan, normalizeSince } from './git-scan';
 
 function gitInit(cwd: string) {
   execSync('git init -q', { cwd });
-  execSync('git config user.email "t@t" && git config user.name "T"', { cwd, shell: '/bin/bash' });
+  execSync('git config user.email "t@t" && git config user.name "T"', { cwd });
 }
 function commit(cwd: string, file: string, content: string, message: string) {
   writeFileSync(join(cwd, file), content);
-  execSync(`git add . && git commit -q -m "${message}"`, { cwd, shell: '/bin/bash' });
+  execSync(`git add . && git commit -q -m "${message}"`, { cwd });
 }
 
 describe('gitScan', () => {
@@ -38,7 +38,7 @@ describe('gitScan', () => {
     mkdirSync(join(tmp, 'src'));
     writeFileSync(join(tmp, 'src/x.ts'), 'x');
     writeFileSync(join(tmp, 'src/y.ts'), 'y');
-    execSync('git add . && git commit -q -m "fix: two-file fix"', { cwd: tmp, shell: '/bin/bash' });
+    execSync('git add . && git commit -q -m "fix: two-file fix"', { cwd: tmp });
     const result = await gitScan({ since: '30d', cwd: tmp });
     expect(result[0]?.filesChanged).toBe(2);
   });

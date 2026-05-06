@@ -11,7 +11,6 @@ describe('computeHotspots', () => {
     tmp = mkdtempSync(join(tmpdir(), 'hotspot-'));
     execSync('git init -q && git config user.email "t@t" && git config user.name "T"', {
       cwd: tmp,
-      shell: '/bin/bash',
     });
   });
   afterEach(() => rmSync(tmp, { recursive: true, force: true }));
@@ -19,10 +18,10 @@ describe('computeHotspots', () => {
   it('returns files modified more than threshold times, sorted desc', async () => {
     for (let i = 0; i < 5; i++) {
       writeFileSync(join(tmp, 'hot.ts'), `// v${i}`);
-      execSync(`git add . && git commit -q -m "edit ${i}"`, { cwd: tmp, shell: '/bin/bash' });
+      execSync(`git add . && git commit -q -m "edit ${i}"`, { cwd: tmp });
     }
     writeFileSync(join(tmp, 'cold.ts'), 'x');
-    execSync('git add . && git commit -q -m "cold"', { cwd: tmp, shell: '/bin/bash' });
+    execSync('git add . && git commit -q -m "cold"', { cwd: tmp });
 
     const result = await computeHotspots({ since: '30d', cwd: tmp, threshold: 2 });
     expect(result[0]?.path).toBe('hot.ts');

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { acquireCompoundLock, CompoundLockHeldError } from './compound-lock';
 
 describe('acquireCompoundLock', () => {
@@ -76,8 +77,9 @@ describe('acquireCompoundLock cross-process cleanup', () => {
       const { execFileSync } = await import('node:child_process');
       // Spawn a child node process that imports the compiled dist, acquires
       // the lock, and exits normally. The 'exit' handler must remove the lock.
+      const distUrl = pathToFileURL(distEntry).href;
       const script = `
-        import('${distEntry}').then(({ acquireCompoundLock }) => {
+        import(${JSON.stringify(distUrl)}).then(({ acquireCompoundLock }) => {
           acquireCompoundLock('integration-issues', { cwd: ${JSON.stringify(tmpDir)} });
           process.exit(0);
         }).catch((e) => { console.error(e); process.exit(1); });
