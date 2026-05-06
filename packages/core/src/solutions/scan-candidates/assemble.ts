@@ -3,13 +3,21 @@ import type { Hotspot } from './hotspot';
 import type { IsoWeek } from './iso-week';
 import { formatIsoWeek } from './iso-week';
 
+// Order matters: security ahead of database biases ambiguous co-occurrences
+// (e.g. "deadlock" in a security context) toward the more critical category.
 const KEYWORD_TO_CATEGORY: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(test|flaky|spec)\b/i, 'bug-track/test-failures'],
-  [/\b(perf|slow|latency|throughput)\b/i, 'bug-track/performance-issues'],
-  [/\b(security|sqli|injection|xss|auth|crypt)\b/i, 'bug-track/security-issues'],
+  [/\b(perf|slow|latency|throughput|timeout|deadlock|n\+1|oom)\b/i, 'bug-track/performance-issues'],
+  [
+    /\b(security|sqli|injection|xss|csrf|jwt|oauth|auth(?:n|z|entication)?|crypt(?:o|ographic|ography)?|encrypt(?:ion)?|decrypt(?:ion)?|password|token|session|tls|ssl)\b/i,
+    'bug-track/security-issues',
+  ],
   [/\b(ui|css|color|contrast|layout|render)\b/i, 'bug-track/ui-bugs'],
   [/\b(build|compile|tsc|webpack|tsup)\b/i, 'bug-track/build-errors'],
-  [/\b(db|database|sql|query|migration)\b/i, 'bug-track/database-issues'],
+  [
+    /\b(db|database|sql|postgres|mysql|query|migration|transaction|deadlock)\b/i,
+    'bug-track/database-issues',
+  ],
   [/\b(runtime|crash|exception|panic)\b/i, 'bug-track/runtime-errors'],
   [/\(orchestrator\)|\bintegrat|\blease\b|\brace\b|\bconcurren/i, 'bug-track/integration-issues'],
 ];
