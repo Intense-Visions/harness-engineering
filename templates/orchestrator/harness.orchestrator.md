@@ -82,11 +82,10 @@ high-quality, architecturally sound delivery:
 6. **Code Review:** Use `/harness:code-review` and `/harness:pre-commit-review`
    to perform a final quality check before completing the task.
    6b. **Compound (when applicable):** Run `/harness:compound` when ANY of these
-   concrete triggers fired during this issue:
+   three concrete triggers fired during this issue:
    (a) `/harness:debugging` was invoked at any point (regardless of outcome),
-   (b) the fix required more than one commit on the issue branch,
-   (c) execution involved >1 attempt (`Attempt Number` above is greater than 1), or
-   (d) the change touched a file already listed in the latest hotspot report.
+   (b) the fix required more than one commit on the issue branch, or
+   (c) execution involved >1 attempt (`Attempt Number` above is greater than 1).
    Otherwise skip silently. The triggers are mechanical — no judgment required.
 7. **Ship:** When the review is clean, you are pre-authorized to ship without asking:
    - Create a topic branch if you are still on `main`/`master` (e.g. `feat/{{ issue.identifier }}`).
