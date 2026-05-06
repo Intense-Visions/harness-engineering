@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { ArchConfigSchema } from '@harness-engineering/core';
+import { IngestConfigSchema } from './ingest-schema.js';
+
+export { IngestConfigSchema } from './ingest-schema.js';
+export type { IngestConfig } from './ingest-schema.js';
 
 /**
  * Schema for architectural layer definitions.
@@ -324,6 +328,8 @@ export const HarnessConfigSchema = z.object({
   docsDir: z.string().default('./docs'),
   /** Agent orchestration settings */
   agent: AgentConfigSchema.optional(),
+  /** Source-file ingestion controls (skip-dirs, exclude patterns, gitignore handling) */
+  ingest: IngestConfigSchema.optional(),
   /** Drift and stale code management settings */
   entropy: EntropyConfigSchema.optional(),
   /** Security scanning configuration */

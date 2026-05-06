@@ -28,8 +28,8 @@ export { GraphStore } from './store/GraphStore.js';
 export type { NodeQuery, EdgeQuery } from './store/GraphStore.js';
 export { VectorStore } from './store/VectorStore.js';
 export type { VectorSearchResult } from './store/VectorStore.js';
-export { saveGraph, loadGraph } from './store/Serializer.js';
-export type { LoadGraphResult } from './store/Serializer.js';
+export { saveGraph, loadGraph, loadGraphMetadata } from './store/Serializer.js';
+export type { LoadGraphResult, LoadMetadataResult } from './store/Serializer.js';
 export { PackedSummaryCache, normalizeIntent } from './store/PackedSummaryCache.js';
 export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 
@@ -42,6 +42,8 @@ export type { ImpactGroups, NodeCategory } from './query/groupImpact.js';
 
 // Ingest
 export { CodeIngestor } from './ingest/CodeIngestor.js';
+export type { CodeIngestorOptions } from './ingest/CodeIngestor.js';
+export { DEFAULT_SKIP_DIRS, resolveSkipDirs } from './ingest/skip-dirs.js';
 export { GitIngestor } from './ingest/GitIngestor.js';
 export type { GitRunner } from './ingest/GitIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';

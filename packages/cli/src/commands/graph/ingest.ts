@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import type { IngestResult, GraphConnector } from '@harness-engineering/graph';
+import { loadIngestOptions } from './ingest-options.js';
 
 async function loadConnectorConfig(
   projectPath: string,
@@ -61,10 +62,11 @@ export async function runIngest(
   const graphDir = path.join(projectPath, '.harness', 'graph');
   const store = new GraphStore();
   await store.load(graphDir);
+  const ingestOptions = loadIngestOptions(projectPath);
 
   if (opts?.all) {
     const startMs = Date.now();
-    const codeResult = await new CodeIngestor(store).ingest(projectPath);
+    const codeResult = await new CodeIngestor(store, ingestOptions).ingest(projectPath);
     new TopologicalLinker(store).link();
     const knowledgeResult = await new KnowledgeIngestor(store).ingestAll(projectPath);
     const reqResult = await new RequirementIngestor(store).ingestSpecs(
@@ -109,7 +111,7 @@ export async function runIngest(
   let result: IngestResult;
   switch (source) {
     case 'code':
-      result = await new CodeIngestor(store).ingest(projectPath);
+      result = await new CodeIngestor(store, ingestOptions).ingest(projectPath);
       new TopologicalLinker(store).link();
       break;
     case 'knowledge':

@@ -183,6 +183,38 @@ Controls how agent tasks are executed.
 }
 ```
 
+## `ingest`
+
+- **Type:** `IngestConfig`
+- **Required:** No
+
+Controls which directories and files `harness scan` and `harness ingest --source code` walk when building the knowledge graph.
+
+The default skip-list is comprehensive — it excludes `node_modules`, `.git`, framework caches (`.turbo`, `.vite`, `.next`, `.nuxt`, `.svelte-kit`, `.parcel-cache`, `.docusaurus`, `.wrangler`, `.astro`, `.remix`, `storybook-static`), test/coverage outputs (`coverage`, `.nyc_output`, `playwright-report`, `test-results`, `.pytest_cache`), Python virtualenvs and bytecode (`__pycache__`, `.venv`, `venv`, `.tox`, `.mypy_cache`, `.ruff_cache`), JVM build outputs (`.gradle`, `.gradle-home`, `target`, `build`, `out`, `bin`, `obj`, `_build`, `deps`), package-manager stores (`.pnpm-store`, `.yarn`, `vendor`), IDE metadata (`.idea`, `.vscode`, `.vs`), the `.harness` directory itself, and AI agent sandboxes (`.claude`, `.cursor`, `.codex`, `.gemini`, `.aider`, `.agents`, `.agentastic`, `.playwright-mcp`).
+
+These fields are escape hatches for projects with non-standard cache or output directories.
+
+### IngestConfig Object
+
+| Field                | Type       | Default | Description                                                                                                      |
+| -------------------- | ---------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `skipDirs`           | `string[]` | --      | Replace the default skip-dirs set entirely. Each entry is a single path segment matched as a directory name.     |
+| `additionalSkipDirs` | `string[]` | --      | Extend the default skip-dirs set. The recommended extension point.                                               |
+| `excludePatterns`    | `string[]` | --      | Glob patterns (minimatch syntax) excluded from ingestion. Matched against the project-relative POSIX-style path. |
+| `respectGitignore`   | `boolean`  | `true`  | Treat lines in `<rootDir>/.gitignore` as additional exclude patterns. Negation (`!pattern`) is not supported.    |
+
+### Example
+
+```json
+{
+  "ingest": {
+    "additionalSkipDirs": ["my-custom-cache", "vendored-deps"],
+    "excludePatterns": ["apps/legacy/**", "**/*.snap"],
+    "respectGitignore": true
+  }
+}
+```
+
 ## `entropy`
 
 - **Type:** `EntropyConfig`

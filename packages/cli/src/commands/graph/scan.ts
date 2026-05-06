@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import * as path from 'path';
+import { loadIngestOptions } from './ingest-options.js';
 
 export async function runScan(
   projectPath: string
@@ -15,8 +16,9 @@ export async function runScan(
   const store = new GraphStore();
   const start = Date.now();
 
-  // Code ingestion
-  await new CodeIngestor(store).ingest(projectPath);
+  // Code ingestion (honors `ingest.*` config from harness.config.json)
+  const ingestOptions = loadIngestOptions(projectPath);
+  await new CodeIngestor(store, ingestOptions).ingest(projectPath);
   new TopologicalLinker(store).link();
 
   // Knowledge ingestion
