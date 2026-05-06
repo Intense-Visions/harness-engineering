@@ -6,11 +6,11 @@ import type { MaintenanceConfig } from '@harness-engineering/types';
 
 const baseConfig: MaintenanceConfig = { enabled: true };
 
-function makeRunner(output: string): TaskRunner {
+function makeRunner(output: string, heuristicFindings = 0): TaskRunner {
   const checkRunner: CheckCommandRunner = {
     run: async (): Promise<CheckCommandResult> => ({
       passed: true,
-      findings: 0,
+      findings: heuristicFindings,
       output,
     }),
   };
@@ -75,5 +75,16 @@ describe('runReportOnly: JSON status mapping', () => {
     const result = await runner.run(reportTask);
     expect(result.status).toBe('success');
     expect(result.findings).toBe(3);
+  });
+
+  it('defaults findings to 0 when JSON status omits candidatesFound (ignoring CheckCommandRunner heuristic)', async () => {
+    // Contract: when a CLI emits a JSON status line, that line is authoritative
+    // for the finding count. If `candidatesFound` is missing, findings === 0,
+    // even if CheckCommandRunner's heuristic extraction yields a non-zero value.
+    // This prevents false counts from surfacing on dashboard rows.
+    const runner = makeRunner('{"status":"success"}\n', 7);
+    const result = await runner.run({ ...reportTask, id: 'compound-candidates' });
+    expect(result.status).toBe('success');
+    expect(result.findings).toBe(0);
   });
 });

@@ -311,8 +311,21 @@ export class TaskRunner {
     const parsed = parseStatusLine(checkResult.output);
 
     const status: RunResult['status'] = parsed?.status ?? 'success';
+    // Findings precedence:
+    //   - If a CLI emitted a JSON status line, the contract is that
+    //     `candidatesFound` is the authoritative finding count for that run.
+    //     If the field is omitted, the count is 0 (the new contract is
+    //     "if you emit JSON, you must include candidatesFound or accept 0").
+    //     This avoids surfacing false counts on dashboard rows when
+    //     CheckCommandRunner heuristically extracts a number.
+    //   - Legacy report-only tasks (no JSON status line) keep the prior
+    //     behavior of falling back to `checkResult.findings`.
     const findings =
-      typeof parsed?.candidatesFound === 'number' ? parsed.candidatesFound : checkResult.findings;
+      parsed === null
+        ? checkResult.findings
+        : typeof parsed.candidatesFound === 'number'
+          ? parsed.candidatesFound
+          : 0;
 
     const result: RunResult = {
       taskId: task.id,
