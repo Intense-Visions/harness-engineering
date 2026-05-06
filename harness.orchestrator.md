@@ -109,7 +109,9 @@ high-quality, architecturally sound delivery:
 
 - Always verify your changes with `harness validate`.
 - Adhere to the architectural constraints defined in `harness.config.json`.
-- Document your progress and any learnings in `.harness/learnings.md`.
+- For non-trivial learnings, run `/harness:compound` (writes structured docs to
+  `docs/solutions/<track>/<category>/`). The `.harness/learnings.md` file remains
+  for ephemeral session notes only and is not preserved as compounding knowledge.
 - Step 7 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
 
 Attempt Number: {{ attempt }}
