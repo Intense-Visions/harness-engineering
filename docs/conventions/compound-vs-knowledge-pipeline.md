@@ -102,7 +102,7 @@ explicitly so they do not appear authoritative before the adapters ship.
 
 - [ADR-0003](../knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md) —
   architectural decision and full rationale.
-- [ADR-0004](../knowledge/decisions/0004-report-only-maintenance-task-wiring.md) —
+- [ADR-0004](../knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md) —
   why `compound-candidates` and `product-pulse` run as `report-only` tasks.
 - `agents/skills/claude-code/harness-compound/SKILL.md` — agent guidance for
   writing compound docs.
