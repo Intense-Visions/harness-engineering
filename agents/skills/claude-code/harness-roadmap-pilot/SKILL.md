@@ -56,9 +56,15 @@ Top candidates (scored by position 50%, dependents 30%, affinity 20%):
 
 1b. Read the most recent pulse report (if any):
 
-- List files matching `docs/pulse-reports/*.md`. Sort lexically (ISO timestamps
-  in filenames make this equivalent to chronological order). Take the LAST entry.
-- If the directory is empty or absent, soft-fail: skip this step and proceed
+- List entries in `docs/pulse-reports/` and **filter to those matching the
+  regex `/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.md$/`** (the canonical
+  `YYYY-MM-DD_HH-MM.md` pulse-report filename shape). Filtering before
+  sorting prevents non-conforming files (e.g. `README.md`, `NOTES.md`,
+  partial-timestamp drafts) from corrupting the signal.
+- Lexical-sort the matched filenames (ISO timestamps sort
+  chronologically) and take the LAST entry as the most recent.
+- If zero entries match the regex (directory empty, absent, or only
+  contains non-conforming files), soft-fail: skip this step and proceed
   without pulse signal. Do not block recommendation.
 - For each top-3 candidate, scan the most recent pulse report's Headlines and
   Followups sections for keywords matching the candidate's name, milestone, or
