@@ -29,13 +29,14 @@ export interface ScanCandidatesStatus {
 }
 
 const HOTSPOT_THRESHOLD = 7;
+const DEFAULT_LOOKBACK = '7d';
 
 export async function runCompoundScanCandidatesCommand(
   opts: ScanCandidatesOptions
 ): Promise<ScanCandidatesStatus> {
   const startedAt = Date.now();
   const cwd = opts.cwd ?? process.cwd();
-  const lookback = opts.lookback ?? '7d';
+  const lookback = opts.lookback ?? DEFAULT_LOOKBACK;
 
   let undocumented: Awaited<ReturnType<typeof gitScan>>;
   let hotspots: Awaited<ReturnType<typeof computeHotspots>>;
@@ -92,7 +93,7 @@ export function createScanCandidatesCommand(): Command {
     .description(
       'Scan recent fixes and hotspots for undocumented learnings; write candidate prompts'
     )
-    .option('--lookback <window>', 'Lookback window (e.g. 7d, 14d).', '7d')
+    .option('--lookback <window>', 'Lookback window (e.g. 7d, 14d).', DEFAULT_LOOKBACK)
     .option(
       '--non-interactive',
       'Emit single-line JSON status on stdout. Auto-detected when stdout is not a TTY.'
