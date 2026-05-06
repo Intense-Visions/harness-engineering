@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { MaintenanceHistoryEntry } from '@harness-engineering/types';
 import { Maintenance } from '../../../src/client/pages/Maintenance';
 
 // Mock socket hook
@@ -21,15 +22,9 @@ vi.mock('../../../src/client/hooks/useOrchestratorSocket', () => ({
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-interface HistoryEntry {
-  task: string;
-  status: 'success' | 'failed' | 'skipped';
-  startedAt: string;
-  durationMs: number;
-  findings?: number;
-}
-
-function mockApi(history: HistoryEntry[]) {
+// Mocks must match the real wire shape produced by orchestrator's
+// toMaintenanceHistoryEntry serializer (GET /api/maintenance/history).
+function mockApi(history: MaintenanceHistoryEntry[]) {
   mockFetch.mockImplementation((url: string) => {
     if (url.endsWith('/api/maintenance/status')) {
       return Promise.resolve({
@@ -69,6 +64,7 @@ describe('Maintenance page — candidate-count badge', () => {
         startedAt: '2026-05-05T09:00:00Z',
         durationMs: 1234,
         findings: 5,
+        prUrl: null,
       },
     ]);
 
@@ -87,6 +83,7 @@ describe('Maintenance page — candidate-count badge', () => {
         startedAt: '2026-05-05T09:00:00Z',
         durationMs: 1234,
         findings: 0,
+        prUrl: null,
       },
     ]);
 
@@ -106,6 +103,7 @@ describe('Maintenance page — candidate-count badge', () => {
         startedAt: '2026-05-05T08:00:00Z',
         durationMs: 1234,
         findings: 5,
+        prUrl: null,
       },
     ]);
 
@@ -117,14 +115,18 @@ describe('Maintenance page — candidate-count badge', () => {
     expect(screen.queryByText(/5 candidates/i)).toBeNull();
   });
 
-  it('hides the badge when findings field is missing entirely', async () => {
+  it('hides the badge when findings field is missing entirely (runtime guard)', async () => {
+    // The wire contract makes `findings` required, but the production
+    // predicate uses `(entry.findings ?? 0) > 0` as defense-in-depth
+    // against malformed responses. Cast to exercise that guard.
     mockApi([
       {
         task: 'compound-candidates',
         status: 'success',
         startedAt: '2026-05-05T09:00:00Z',
         durationMs: 1234,
-      },
+        prUrl: null,
+      } as unknown as MaintenanceHistoryEntry,
     ]);
 
     render(<Maintenance />);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
+import type { MaintenanceHistoryEntry } from '@harness-engineering/types';
 import { KpiCard } from '../components/KpiCard';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 
@@ -13,13 +14,9 @@ interface SchedulerStatus {
   running: boolean;
 }
 
-interface HistoryEntry {
-  task: string;
-  status: 'success' | 'failed' | 'skipped';
-  startedAt: string;
-  durationMs: number;
-  findings?: number;
-}
+// HistoryEntry is the shared wire contract from @harness-engineering/types
+// (orchestrator's GET /api/maintenance/history serializer is the producer).
+type HistoryEntry = MaintenanceHistoryEntry;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -32,7 +29,7 @@ function formatDuration(ms: number): string {
 }
 
 function statusAccent(status: HistoryEntry['status']): string {
-  if (status === 'success') return 'text-emerald-400';
+  if (status === 'success' || status === 'no-issues') return 'text-emerald-400';
   if (status === 'failed') return 'text-red-400';
   return 'text-yellow-400';
 }
