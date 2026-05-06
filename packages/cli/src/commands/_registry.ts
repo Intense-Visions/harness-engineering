@@ -17,6 +17,7 @@ import { createCheckSecurityCommand } from './check-security';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
+import { createCompoundCommand } from './compound';
 import { createCreateSkillCommand } from './create-skill';
 import { createDashboardCommand } from './dashboard';
 import { createDoctorCommand } from './doctor';
@@ -83,6 +84,7 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
+  createCompoundCommand,
   createCreateSkillCommand,
   createDashboardCommand,
   createDoctorCommand,
