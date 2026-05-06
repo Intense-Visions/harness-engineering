@@ -129,7 +129,10 @@ export class BusinessKnowledgeIngestor {
       try {
         const raw = await fs.readFile(filePath, 'utf-8');
         const parsed = parseSolutionFrontmatter(raw);
-        if (!parsed) continue;
+        if (!parsed) {
+          errors.push(`${filePath}: no frontmatter found`);
+          continue;
+        }
         const validation = SolutionDocFrontmatterSchema.safeParse(parsed.frontmatter);
         if (!validation.success) {
           errors.push(`${filePath}: ${validation.error.message}`);
@@ -351,12 +354,12 @@ function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string
 function parseSolutionFrontmatter(
   raw: string
 ): { frontmatter: Record<string, unknown>; body: string } | null {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) return null;
   const yamlBlock = match[1]!;
   const body = match[2]!;
   const frontmatter: Record<string, unknown> = {};
-  for (const line of yamlBlock.split('\n')) {
+  for (const line of yamlBlock.split(/\r?\n/)) {
     const kvMatch = line.match(/^(\w+):\s*(.+)$/);
     if (!kvMatch) continue;
     const key = kvMatch[1]!;

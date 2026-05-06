@@ -46,4 +46,21 @@ describe('BusinessKnowledgeIngestor.ingestSolutions', () => {
     expect(result.nodesAdded).toBe(0);
     expect(result.errors).toEqual([]);
   });
+
+  it('parses files with CRLF line endings', async () => {
+    const result = await ingestor.ingestSolutions(FIXTURES);
+    const all = store.findNodes({});
+    const crlfNode = all.find((n) => n.path?.includes('crlf-pattern.md'));
+    expect(crlfNode).toBeDefined();
+    expect(crlfNode?.name).toBe('CRLF-authored doc');
+    // CRLF file must NOT appear in errors (it should parse successfully).
+    expect(result.errors.some((e) => e.includes('crlf-pattern.md'))).toBe(false);
+  });
+
+  it('surfaces files lacking frontmatter as errors', async () => {
+    const result = await ingestor.ingestSolutions(FIXTURES);
+    const noFmError = result.errors.find((e) => e.includes('no-frontmatter.md'));
+    expect(noFmError).toBeDefined();
+    expect(noFmError).toMatch(/no frontmatter found/);
+  });
 });
