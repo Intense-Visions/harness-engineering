@@ -520,6 +520,22 @@ Post CI check results to GitHub (PR comment or issue)
 - `--title` — Custom issue title (for issue target)
 - `--labels` — Comma-separated labels for created issues
 
+## Compound Commands
+
+Compound (post-mortem playbook) commands
+
+### `harness compound scan-candidates`
+
+Scan recent fixes and hotspots for undocumented learnings; write candidate prompts
+
+**Options:**
+
+- `--lookback` — Lookback window (e.g. 7d, 14d). (default: "7d")
+- `--non-interactive` — Emit single-line JSON status on stdout. Auto-detected when stdout is not a TTY.
+- `--config` — Path to harness.config.json (default: "harness.config.json")
+- `--output-path` — Override output file path (default: docs/solutions/.candidates/<YYYY-WW>.md)
+- `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
+
 ## Graph Commands
 
 Knowledge graph management
@@ -686,6 +702,21 @@ Generate artifacts from a persona config
 ### `harness persona list`
 
 List available agent personas
+
+## Pulse Commands
+
+Pulse (read-side observability) commands
+
+### `harness pulse run`
+
+Run a pulse: query configured adapters, sanitize, assemble single-page report
+
+**Options:**
+
+- `--lookback` — Lookback window (e.g. 24h, 7d). Defaults to pulse.lookbackDefault.
+- `--non-interactive` — Emit single-line JSON status on stdout instead of headlines+path. Auto-detected when stdout is not a TTY.
+- `--config` — Path to harness.config.json (default: "harness.config.json")
+- `--output-dir` — Directory to write the report into (default: "docs/pulse-reports")
 
 ## Skill Commands
 
