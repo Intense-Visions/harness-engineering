@@ -1,5 +1,17 @@
 # @harness-engineering/cli
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [8825aee]
+- Updated dependencies [8825aee]
+  - @harness-engineering/orchestrator@0.3.0
+  - @harness-engineering/dashboard@0.5.0
+  - @harness-engineering/types@0.11.0
+  - @harness-engineering/intelligence@0.2.0
+  - @harness-engineering/core@0.23.6
+
 ## 1.28.1
 
 ### Patch Changes
