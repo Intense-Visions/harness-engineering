@@ -54,6 +54,23 @@ Top candidates (scored by position 50%, dependents 30%, affinity 20%):
    - Read the spec's Success Criteria section
    - Assess effort and impact from the spec content
 
+1b. Read the most recent pulse report (if any):
+
+- List files matching `docs/pulse-reports/*.md`. Sort lexically (ISO timestamps
+  in filenames make this equivalent to chronological order). Take the LAST entry.
+- If the directory is empty or absent, soft-fail: skip this step and proceed
+  without pulse signal. Do not block recommendation.
+- For each top-3 candidate, scan the most recent pulse report's Headlines and
+  Followups sections for keywords matching the candidate's name, milestone, or
+  spec keywords. Note any signal that elevates priority (top followup item
+  related to a candidate; an error spike in a candidate's area) or suppresses
+  it (recent stable signal in candidate's area).
+- When pulse signal is found, cite it verbatim in the recommendation rationale
+  (e.g., "Pulse 2026-05-05_08-00 headline: 'auth errors up 30%' — elevates
+  Auth Hardening").
+- Use ONLY the most recent file. If older reports conflict with the most
+  recent, ignore the older signal.
+
 2. Provide a recommendation with reasoning:
 
 ```
@@ -148,7 +165,8 @@ Proceed with Feature A? (y/n/pick another)
 5. Assignment updates feature field, appends history records, and syncs externally
 6. Reassignment produces two history records (unassigned + assigned)
 7. Transition routes to brainstorming (no spec) or autopilot (spec exists)
-8. `harness validate` passes after all changes
+8. When a pulse report exists, the recommendation rationale cites pulse signal for any top-3 candidate whose area is referenced in the pulse Headlines or Followups.
+9. `harness validate` passes after all changes
 
 ## Rationalizations to Reject
 
