@@ -29,14 +29,23 @@ interface RawCommit {
 }
 
 /**
- * Translate harness shorthand windows into a form git --since accepts. Git
- * does NOT accept bare `7d`/`24h` shorthand; only `<N> days ago`/`<N> hours
- * ago` (or absolute dates). Plan Uncertainty #2 calls this out — translate
- * locally rather than push the burden onto callers.
+ * Normalizes shorthand lookback strings (e.g., '7d') to git's `--since=` format
+ * ('7 days ago'). Bare shorthand is rejected by git on macOS, so this
+ * conversion is required.
+ *
+ * Accepted units: `h` (hours), `d` (days), `w` (weeks), `mo` (months — `m` is
+ * rejected because it is ambiguous between minutes and months). Anything else
+ * throws so callers cannot accidentally pass garbage to git, where it would
+ * silently degrade to `--since=` behaving as a no-op and returning every
+ * commit.
  */
 export function normalizeSince(since: string): string {
-  const m = /^(\d+)([dhwm])$/i.exec(since.trim());
-  if (!m) return since;
+  const m = /^(\d+)(h|d|w|mo)$/i.exec(since.trim());
+  if (!m) {
+    throw new Error(
+      `Invalid lookback "${since}": expected format like "24h", "7d", "4w", or "3mo"`
+    );
+  }
   const n = m[1];
   const unit = m[2]?.toLowerCase();
   switch (unit) {
@@ -46,10 +55,11 @@ export function normalizeSince(since: string): string {
       return `${n} days ago`;
     case 'w':
       return `${n} weeks ago`;
-    case 'm':
+    case 'mo':
       return `${n} months ago`;
     default:
-      return since;
+      // Unreachable — regex guards the unit set — but TypeScript wants exhaustiveness.
+      throw new Error(`Invalid lookback "${since}"`);
   }
 }
 

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { gitScan } from './git-scan';
+import { gitScan, normalizeSince } from './git-scan';
 
 function gitInit(cwd: string) {
   execSync('git init -q', { cwd });
@@ -48,4 +48,24 @@ describe('gitScan', () => {
     const result = await gitScan({ since: '30d', cwd: tmp });
     expect(result).toEqual([]);
   });
+});
+
+describe('normalizeSince', () => {
+  it.each([
+    ['24h', '24 hours ago'],
+    ['7d', '7 days ago'],
+    ['4w', '4 weeks ago'],
+    ['3mo', '3 months ago'],
+    ['1H', '1 hours ago'],
+    ['2MO', '2 months ago'],
+  ])('converts %p to git --since=%p', (input, expected) => {
+    expect(normalizeSince(input)).toBe(expected);
+  });
+
+  it.each([['1m'], ['foo'], [''], ['24'], ['h24'], ['7days'], ['1y']])(
+    'rejects malformed lookback %p',
+    (input) => {
+      expect(() => normalizeSince(input)).toThrow(/Invalid lookback/);
+    }
+  );
 });
