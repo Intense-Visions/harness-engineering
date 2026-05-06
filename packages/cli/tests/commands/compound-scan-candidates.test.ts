@@ -82,4 +82,45 @@ describe('harness compound scan-candidates', () => {
     });
     expect(status.lookback).toBe('7d');
   });
+
+  // End-to-end: build a fixture repo with a mix of commit types, seed an
+  // existing solution doc that overlaps one of the fixes, and assert the report
+  // surfaces only the genuinely undocumented fixes with the right category
+  // suggestions. This is the integration smoke test for Phase 5 — the JSON
+  // status contract here is the public surface that Phase 6's
+  // compound-candidates maintenance task wires its `checkCommand` to.
+  it('end-to-end: surfaces only undocumented fixes with correct categories', async () => {
+    commitFile(tmp, 'a.ts', 'a', 'feat: ship feature');
+    commitFile(tmp, 'b.ts', 'b', 'chore: bump dep');
+    commitFile(tmp, 'c.ts', 'c', 'fix: flaky pulse runner test');
+    commitFile(tmp, 'd.ts', 'd', 'fix(perf): slow startup latency');
+    commitFile(tmp, 'e.ts', 'e', 'fix(orchestrator): handle stalled lease');
+
+    // Seed a documented solution overlapping the test-related fix only.
+    const docDir = join(tmp, 'docs/solutions/bug-track/test-failures');
+    mkdirSync(docDir, { recursive: true });
+    writeFileSync(
+      join(docDir, 'already-doc.md'),
+      `---\nmodule: x\ntags: []\nproblem_type: x\nlast_updated: '2026-05-05'\ntrack: bug-track\ncategory: test-failures\n---\n\n# Flaky pulse runner test\n`
+    );
+
+    const status = await runCompoundScanCandidatesCommand({
+      cwd: tmp,
+      lookback: '30d',
+      configPath: join(tmp, 'harness.config.json'),
+      outputPath: join(tmp, 'docs/solutions/.candidates/auto.md'),
+      solutionsDir: join(tmp, 'docs/solutions'),
+      nonInteractive: true,
+    });
+
+    expect(status.status).toBe('success');
+    expect(status.candidatesFound).toBe(2);
+    expect(status.lookback).toBe('30d');
+
+    const out = readFileSync(status.path!, 'utf-8');
+    expect(out).toContain('Suggested category: bug-track/performance-issues');
+    expect(out).toContain('Suggested category: bug-track/integration-issues');
+    // The flaky test fix is suppressed because it overlaps the seeded doc.
+    expect(out).not.toContain('flaky pulse runner test');
+  });
 });
