@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/graph@0.8.0
+  - @harness-engineering/core@0.23.7
+
 ## 0.5.0
 
 ### Minor Changes

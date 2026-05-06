@@ -1,7 +1,25 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { minimatch } from 'minimatch';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, GraphEdge, IngestResult } from '../types.js';
+import { resolveSkipDirs } from './skip-dirs.js';
+
+/**
+ * Options controlling which files {@link CodeIngestor} walks. Each field is optional;
+ * defaults skip standard build artifacts, package-manager caches, AI agent sandboxes,
+ * and IDE metadata (see {@link DEFAULT_SKIP_DIRS}).
+ */
+export interface CodeIngestorOptions {
+  /** Replace the default skip-dirs set entirely. Use sparingly — defaults are broad on purpose. */
+  readonly skipDirs?: Iterable<string>;
+  /** Add directory names to the default skip-dirs set. The common extension point. */
+  readonly additionalSkipDirs?: Iterable<string>;
+  /** Glob patterns (minimatch syntax) to exclude paths from ingestion. Evaluated against the relative POSIX-style path. */
+  readonly excludePatterns?: readonly string[];
+  /** When true, parse `<rootDir>/.gitignore` and use it as additional exclude patterns. Default: true. */
+  readonly respectGitignore?: boolean;
+}
 
 interface ClassContext {
   className: string | null;
@@ -105,11 +123,86 @@ function isSupportedSourceFile(name: string): boolean {
 }
 
 /**
+ * Match a relative POSIX-style path against a set of minimatch patterns.
+ * Patterns may include `**` for any-depth and `*` for single-segment matches.
+ * Both `dir/` and `dir` style targets are supported by callers passing the
+ * appropriate suffix.
+ */
+function isExcluded(relPath: string, patterns: readonly string[]): boolean {
+  if (patterns.length === 0) return false;
+  for (const pattern of patterns) {
+    if (minimatch(relPath, pattern, { dot: true, matchBase: false })) return true;
+    // matchBase: also try matching just the basename (e.g. `*.snap` against `foo/bar/x.snap`)
+    if (!pattern.includes('/') && minimatch(relPath, pattern, { dot: true, matchBase: true })) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Read `<rootDir>/.gitignore` if it exists and translate its lines into
+ * minimatch-compatible glob patterns. Supports the common subset:
+ *   - blank lines and `#` comments are skipped
+ *   - leading `/` makes the pattern root-anchored
+ *   - trailing `/` marks a directory-only pattern (kept as-is for the matcher)
+ *   - leading `!` negation is NOT supported and is dropped with no error
+ *
+ * Hand-rolled to avoid pulling in the `ignore` package as a runtime dep of the
+ * published `@harness-engineering/graph` library. Coverage is good enough for
+ * the common case of "skip what gitignore skips"; for full gitignore semantics
+ * users can supply explicit `excludePatterns`.
+ */
+async function readGitignorePatterns(rootDir: string): Promise<string[]> {
+  let content: string;
+  try {
+    content = await fs.readFile(path.join(rootDir, '.gitignore'), 'utf-8');
+  } catch {
+    return [];
+  }
+
+  const patterns: string[] = [];
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === '' || line.startsWith('#')) continue;
+    if (line.startsWith('!')) continue; // negation: out of scope for the minimatch translation
+    const rooted = line.startsWith('/');
+    const stripped = rooted ? line.slice(1) : line;
+    const isDirOnly = stripped.endsWith('/');
+    const core = isDirOnly ? stripped.slice(0, -1) : stripped;
+    if (core === '') continue;
+
+    if (rooted) {
+      // anchored to project root
+      patterns.push(isDirOnly ? `${core}/**` : core);
+      if (isDirOnly) patterns.push(`${core}/`);
+    } else {
+      // matches at any depth
+      patterns.push(`**/${core}`);
+      patterns.push(`**/${core}/**`);
+      if (isDirOnly) patterns.push(`**/${core}/`);
+    }
+  }
+  return patterns;
+}
+
+/**
  * Ingests source files into the graph via regex-based parsing.
  * Supports TypeScript, JavaScript, Python, Go, Rust, and Java.
  */
 export class CodeIngestor {
-  constructor(private readonly store: GraphStore) {}
+  private readonly skipDirs: ReadonlySet<string>;
+  private readonly excludePatterns: readonly string[];
+  private readonly respectGitignore: boolean;
+
+  constructor(
+    private readonly store: GraphStore,
+    options: CodeIngestorOptions = {}
+  ) {
+    this.skipDirs = resolveSkipDirs(options);
+    this.excludePatterns = options.excludePatterns ?? [];
+    this.respectGitignore = options.respectGitignore ?? true;
+  }
 
   async ingest(rootDir: string): Promise<IngestResult> {
     const start = Date.now();
@@ -233,43 +326,59 @@ export class CodeIngestor {
     files.add(relativePath);
   }
 
-  private async findSourceFiles(dir: string): Promise<string[]> {
+  /**
+   * Walk `rootDir` iteratively (BFS via an explicit queue) and return absolute paths
+   * of every supported source file that is not excluded by the configured filters.
+   *
+   * Iterative on purpose: a recursive walker burns one stack frame per nested
+   * directory and crashes with `Maximum call stack size exceeded` on deeply nested
+   * monorepos (issue #274). The queue-based form keeps memory bounded by the
+   * frontier size rather than the deepest path.
+   */
+  private async findSourceFiles(rootDir: string): Promise<string[]> {
     const results: string[] = [];
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (
-        entry.isDirectory() &&
-        entry.name !== 'node_modules' &&
-        entry.name !== 'dist' &&
-        entry.name !== 'target' &&
-        entry.name !== 'build' &&
-        entry.name !== '.git' &&
-        entry.name !== '__pycache__' &&
-        entry.name !== '.venv' &&
-        entry.name !== '.turbo' &&
-        entry.name !== '.harness' &&
-        entry.name !== '.next' &&
-        entry.name !== '.vscode' &&
-        entry.name !== '.idea' &&
-        entry.name !== 'vendor' &&
-        entry.name !== 'out' &&
-        entry.name !== '.gradle' &&
-        entry.name !== '.gradle-home' &&
-        entry.name !== 'bin' &&
-        entry.name !== 'obj' &&
-        entry.name !== 'venv' &&
-        entry.name !== '_build' &&
-        entry.name !== 'deps' &&
-        entry.name !== 'coverage' &&
-        entry.name !== '.nyc_output'
-      ) {
-        results.push(...(await this.findSourceFiles(fullPath)));
-      } else if (entry.isFile() && isSupportedSourceFile(entry.name)) {
-        results.push(fullPath);
+    const matchers = await this.buildExcludeMatchers(rootDir);
+    const queue: string[] = [rootDir];
+
+    while (queue.length > 0) {
+      const dir = queue.pop()!;
+      let entries;
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch {
+        continue; // permission denied, broken symlink, or vanished directory — skip silently
+      }
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
+
+        if (entry.isDirectory()) {
+          if (this.skipDirs.has(entry.name)) continue;
+          if (isExcluded(`${relPath}/`, matchers)) continue;
+          queue.push(fullPath);
+        } else if (entry.isFile()) {
+          if (!isSupportedSourceFile(entry.name)) continue;
+          if (isExcluded(relPath, matchers)) continue;
+          results.push(fullPath);
+        }
       }
     }
+
     return results;
+  }
+
+  /**
+   * Compose the exclude matchers from `excludePatterns` and (optionally) `.gitignore`.
+   * Returns a list of minimatch-compatible patterns; an empty list means "no excludes".
+   */
+  private async buildExcludeMatchers(rootDir: string): Promise<readonly string[]> {
+    const patterns: string[] = [...this.excludePatterns];
+    if (this.respectGitignore) {
+      const gitignorePatterns = await readGitignorePatterns(rootDir);
+      patterns.push(...gitignorePatterns);
+    }
+    return patterns;
   }
 
   private extractSymbols(

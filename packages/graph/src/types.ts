@@ -186,9 +186,30 @@ export interface GraphMetadata {
   readonly lastScanTimestamp: string;
   readonly nodeCount: number;
   readonly edgeCount: number;
+  /**
+   * Per-NodeType counts. Populated at save time so `harness graph status`
+   * (and other summary callers) can render counts without loading graph.json.
+   * Optional for forward compatibility with older v2 metadata files written
+   * before this field was added.
+   */
+  readonly nodesByType?: Readonly<Record<string, number>>;
 }
 
-export const CURRENT_SCHEMA_VERSION = 1;
+/**
+ * On-disk graph format version.
+ *
+ * - v1 (legacy): `graph.json` was a single JSON object (`{"nodes":[...],"edges":[...]}`)
+ *   — read by slurping the whole file, which crashed with `RangeError: Invalid string length`
+ *   on graphs > ~512 MB (V8's hard string cap). See issue #276.
+ * - v2 (current): `graph.json` is NDJSON — one node or edge per line, each line a
+ *   self-contained JSON object with a `kind` discriminator (`"node"` or `"edge"`).
+ *   Reader streams the file and never builds a buffer larger than one line, so the
+ *   string cap no longer applies to graph size.
+ *
+ * Old v1 graphs trigger `schema_mismatch` in `loadGraph` and are rebuilt on the
+ * next scan via {@link GraphStore.load}'s existing schema-mismatch handling.
+ */
+export const CURRENT_SCHEMA_VERSION = 2;
 
 // --- Node Stability Classification (for prompt caching) ---
 

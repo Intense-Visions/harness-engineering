@@ -44,18 +44,23 @@ describe('graph commands', () => {
       expect(stat.isDirectory()).toBe(true);
     });
 
-    it('creates graph.json and metadata.json', async () => {
+    it('creates graph.json (NDJSON) and metadata.json', async () => {
       await runScan(tmpDir);
       const graphDir = path.join(tmpDir, '.harness', 'graph');
+
+      // graph.json is NDJSON since schema v2 — one node or edge per line, each
+      // line a self-contained JSON object with a `kind` discriminator.
       const graphJson = await fs.readFile(path.join(graphDir, 'graph.json'), 'utf-8');
-      const parsed = JSON.parse(graphJson);
-      expect(parsed).toHaveProperty('nodes');
-      expect(parsed).toHaveProperty('edges');
+      const lines = graphJson.split('\n').filter((l) => l.trim() !== '');
+      expect(lines.length).toBeGreaterThan(0);
+      const kinds = new Set(lines.map((l) => JSON.parse(l).kind));
+      expect(kinds.has('node')).toBe(true);
 
       const metaJson = await fs.readFile(path.join(graphDir, 'metadata.json'), 'utf-8');
       const meta = JSON.parse(metaJson);
       expect(meta).toHaveProperty('schemaVersion');
       expect(meta).toHaveProperty('nodeCount');
+      expect(meta).toHaveProperty('nodesByType');
     });
   });
 

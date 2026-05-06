@@ -8,15 +8,17 @@ function resolveProjectPath(globalOpts: { config?: string }): string {
 }
 
 function printGraphStatus(result: Awaited<ReturnType<typeof runGraphStatus>>): void {
-  if (result.status === 'no_graph') {
+  if (result.status === 'no_graph' || result.status === 'schema_mismatch') {
     console.log(result.message);
     return;
   }
   console.log(`Graph: ${result.nodeCount} nodes, ${result.edgeCount} edges`);
   console.log(`Last scan: ${result.lastScanTimestamp}`);
-  console.log('Nodes by type:');
-  for (const [type, count] of Object.entries(result.nodesByType!)) {
-    console.log(`  ${type}: ${count}`);
+  if (result.nodesByType) {
+    console.log('Nodes by type:');
+    for (const [type, count] of Object.entries(result.nodesByType)) {
+      console.log(`  ${type}: ${count}`);
+    }
   }
   if (!result.connectorSyncStatus) return;
   console.log('Connector sync status:');

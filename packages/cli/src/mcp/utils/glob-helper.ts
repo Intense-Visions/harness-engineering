@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.go', '.py']);
 
@@ -26,36 +27,39 @@ function isExcluded(relativePath: string, excludeRegexes: RegExp[]): boolean {
   return false;
 }
 
-// Directories that are always skipped for performance
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', '.nuxt', '__pycache__']);
+/**
+ * Walk a directory iteratively (BFS via explicit queue), collecting source files.
+ *
+ * Iterative on purpose — see {@link DEFAULT_SKIP_DIRS} for the bug history.
+ * The shared default skip-list is sourced from `@harness-engineering/graph` so
+ * this MCP walker, the CLI scanner, and the graph ingester stay in sync.
+ */
+async function walkDir(rootDir: string, excludeRegexes: RegExp[], files: string[]): Promise<void> {
+  const queue: string[] = [rootDir];
 
-/** Walk a directory recursively, collecting source files into the provided array. */
-async function walkDir(
-  dir: string,
-  rootDir: string,
-  excludeRegexes: RegExp[],
-  files: string[]
-): Promise<void> {
-  let entries;
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return; // Permission denied or missing directory
-  }
+  while (queue.length > 0) {
+    const dir = queue.pop()!;
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      continue; // permission denied, broken symlink, or vanished directory
+    }
 
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    const relativePath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
 
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      if (isExcluded(relativePath + '/', excludeRegexes)) continue;
-      await walkDir(fullPath, rootDir, excludeRegexes, files);
-    } else if (entry.isFile()) {
-      const ext = path.extname(entry.name);
-      if (!SOURCE_EXTENSIONS.has(ext)) continue;
-      if (isExcluded(relativePath, excludeRegexes)) continue;
-      files.push(fullPath);
+      if (entry.isDirectory()) {
+        if (DEFAULT_SKIP_DIRS.has(entry.name)) continue;
+        if (isExcluded(relativePath + '/', excludeRegexes)) continue;
+        queue.push(fullPath);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name);
+        if (!SOURCE_EXTENSIONS.has(ext)) continue;
+        if (isExcluded(relativePath, excludeRegexes)) continue;
+        files.push(fullPath);
+      }
     }
   }
 }
@@ -73,6 +77,6 @@ export async function globFiles(rootDir: string, exclude?: string[]): Promise<st
   ];
   const excludeRegexes = patterns.map(globToRegex);
   const files: string[] = [];
-  await walkDir(rootDir, rootDir, excludeRegexes, files);
+  await walkDir(rootDir, excludeRegexes, files);
   return files;
 }
