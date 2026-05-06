@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/intelligence",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

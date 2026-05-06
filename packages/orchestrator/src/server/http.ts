@@ -14,6 +14,8 @@ import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
+import { handleLocalModelRoute, handleLocalModelsRoute } from './routes/local-model';
+import type { GetLocalModelStatusFn, GetLocalModelStatusesFn } from './routes/local-model';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
@@ -93,6 +95,10 @@ export interface ServerDependencies {
   sessionsDir?: string;
   /** Maintenance scheduler + reporter deps for dashboard routes */
   maintenanceDeps?: MaintenanceRouteDeps | null;
+  /** Callback returning the current LocalModelStatus, or null when no local backend is configured. */
+  getLocalModelStatus?: GetLocalModelStatusFn;
+  /** Callback returning all local backends' statuses, one entry per resolver. Spec 2 SC38. */
+  getLocalModelStatuses?: GetLocalModelStatusesFn;
 }
 
 export class OrchestratorServer {
@@ -110,6 +116,8 @@ export class OrchestratorServer {
   private dispatchAdHoc!: DispatchAdHocFn | null;
   private sessionsDir!: string;
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
+  private getLocalModelStatus: GetLocalModelStatusFn | null = null;
+  private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
@@ -138,6 +146,8 @@ export class OrchestratorServer {
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
+    this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
+    this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
   }
 
   private wireEvents(): void {
@@ -166,6 +176,35 @@ export class OrchestratorServer {
    */
   public broadcastMaintenance(type: string, data: unknown): void {
     this.broadcaster.broadcast(type, data);
+  }
+
+  /**
+   * Broadcast a local-model status change to dashboard clients.
+   *
+   * Phase 3 routes status events through the existing WebSocket broadcaster
+   * on topic `local-model:status` so test fixtures and dashboard consumers
+   * observe payloads immediately. The project broadcasts via WebSocket; the
+   * spec's "SSE topic" wording is approximate. Phase 5 widens the payload
+   * to `NamedLocalModelStatus` (with `backendName` + `endpoint`); the channel
+   * and bind-before-probe ordering are unchanged.
+   */
+  public broadcastLocalModelStatus(
+    status: import('@harness-engineering/types').NamedLocalModelStatus
+  ): void {
+    this.broadcaster.broadcast('local-model:status', status);
+  }
+
+  /**
+   * Update the intelligence pipeline reference after construction.
+   *
+   * The orchestrator constructs the pipeline lazily inside `start()` (the
+   * resolver must observe the server before pipeline construction). The
+   * server is built in the orchestrator constructor with `pipeline: null`,
+   * so it must be told the real pipeline once it's been created — otherwise
+   * `/api/analyze` would always see a null pipeline and return 503.
+   */
+  public setPipeline(pipeline: IntelligencePipeline | null): void {
+    this.pipeline = pipeline;
   }
 
   /**
@@ -266,6 +305,16 @@ export class OrchestratorServer {
 
     // Ad-hoc dispatch route
     if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return true;
+    }
+
+    // Local-model status route
+    if (handleLocalModelRoute(req, res, this.getLocalModelStatus)) {
+      return true;
+    }
+
+    // Local-models multi-status route (Spec 2 SC38)
+    if (handleLocalModelsRoute(req, res, this.getLocalModelStatuses)) {
       return true;
     }
 

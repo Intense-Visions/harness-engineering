@@ -33,7 +33,7 @@ harness-engineering/
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 │   ├── intelligence/         # Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation
 │   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
-│   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
+│   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues; supports multi-backend routing via `agent.backends` / `agent.routing`
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 738 skills (skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 738 skills (symlinked to claude-code for platform parity)
@@ -106,7 +106,7 @@ Each package has a clear responsibility:
 - **core**: Runtime library with validation, constraints, entropy detection, architecture checks, and pricing/cost calculation (depends on types, graph)
 - **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
-- **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues (depends on types, core)
+- **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues. Modern config surface is `agent.backends` (named-map) + `agent.routing` (per-use-case). Legacy `agent.backend` / `agent.localBackend` accepted via in-memory migration shim with deprecation warning. (depends on types, core)
 - **dashboard**: Web dashboard — React + Hono full-stack app with 10 pages (Overview, Roadmap, Health, Graph, Impact, Adoption, Analyze, Attention, Chat, Orchestrator), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 

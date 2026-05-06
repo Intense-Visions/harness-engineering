@@ -58,7 +58,7 @@ describe('KnowledgeDocMaterializer', () => {
     expect(result.created[0]!.domain).toBe('payments');
 
     const content = await fs.readFile(path.join(tmpDir, result.created[0]!.filePath), 'utf-8');
-    expect(content).toContain('---\ntype: business_rule\ndomain: payments\n---');
+    expect(content).toContain('---\ntype: business_rule\ndomain: payments\nsource: extractor\n---');
     expect(content).toContain('# Refund Rules');
     expect(content).toContain('Customers may request a refund within 30 days of purchase.');
   });
@@ -256,11 +256,31 @@ describe('KnowledgeDocMaterializer', () => {
 
     expect(parsed.type).toBe('business_rule');
     expect(parsed.domain).toBe('payments');
+    expect(parsed.source).toBe('extractor');
     expect(parsed.tags).toEqual(['billing', 'refund']);
 
     // Body should contain the heading and content
     expect(body).toContain('# Round Trip Test');
     expect(body).toContain('This content should survive the round trip');
+  });
+
+  it('omits source from frontmatter when node has no metadata.source', async () => {
+    store.addNode(
+      makeNode({
+        id: 'no-source',
+        name: 'No Source',
+        metadata: { domain: 'payments' },
+        content: 'Content without an explicit provenance source.',
+      })
+    );
+
+    const result = await materializer.materialize(
+      [makeGap({ nodeId: 'no-source', name: 'No Source' })],
+      { projectDir: tmpDir, dryRun: false }
+    );
+
+    const raw = await fs.readFile(path.join(tmpDir, result.created[0]!.filePath), 'utf-8');
+    expect(raw).not.toContain('source:');
   });
 
   it('respects maxDocs cap', async () => {

@@ -1,7 +1,7 @@
 ---
 type: business_process
 domain: orchestrator
-tags: [routing, triage, scope-tier, escalation, model-router]
+tags: [routing, triage, scope-tier, escalation, model-router, multi-backend, routing-config]
 ---
 
 # Issue Routing
@@ -38,4 +38,21 @@ Skill selection is based on issue signals:
 
 - **full-exploration** always escalates to human
 - **guided-change** routes locally unless concern signals (security, migration, etc.) are present, which trigger human escalation
-- **quick-fix** and **diagnostic** route to local backend for fast execution
+- **quick-fix** and **diagnostic** dispatch to whichever backend `routing['quick-fix']` and `routing.diagnostic` name (defaulting to `routing.default` when unset). The legacy synthesized name is `local`; modern configs name backends explicitly.
+
+## Backend Routing
+
+Once a tier is permitted to dispatch (i.e. it's not blocked by `escalation.alwaysHuman` and is allowed by `escalation.autoExecute`), `agent.routing` selects _which_ backend handles it. Routing is orthogonal to escalation:
+
+- **Escalation** answers "should this tier dispatch at all?" — gates on `alwaysHuman`, `autoExecute`, `signalGated`, and concern signals from the intelligence pipeline.
+- **Routing** answers "where does this tier dispatch when permitted?" — selects an `agent.backends.<name>` entry by use case.
+
+The routing map is keyed by use case:
+
+- `default` (required) — fallback for any unmapped use case
+- `quick-fix`, `guided-change`, `full-exploration`, `diagnostic` — scope-tier dispatch
+- `intelligence.sel`, `intelligence.pesl` — analysis-provider selection for the intelligence pipeline
+
+Maintenance and dashboard chat both use `routing.default`. Unknown routing keys are validation errors.
+
+See [ADR 0005: Named backends map](../decisions/0005-named-backends-map.md) and [Multi-Backend Routing](../../guides/multi-backend-routing.md) for the schema and operator-facing semantics.

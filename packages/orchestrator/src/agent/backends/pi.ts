@@ -13,12 +13,20 @@ import {
 } from '@harness-engineering/types';
 
 export interface PiBackendConfig {
-  /** Model identifier (e.g., 'gemma-4-e4b') */
+  /** Static model identifier (e.g., 'gemma-4-e4b'). Ignored if `getModel` is provided. */
   model?: string | undefined;
   /** Endpoint URL for the model server (e.g., 'http://localhost:1234/v1') */
   endpoint?: string | undefined;
   /** API key for the model server (default: 'lm-studio') */
   apiKey?: string | undefined;
+  /** Lazy resolver. Called once at `startSession()`. Returning `null` causes `startSession()` to fail with typed `agent_not_found`. */
+  getModel?: (() => string | null) | undefined;
+  /**
+   * Per-request timeout in ms for chat-completion calls.
+   * Defaults to 90_000. Mirrors `LocalBackendConfig.timeoutMs` so callers
+   * can set the same value on either backend type.
+   */
+  timeoutMs?: number | undefined;
 }
 
 interface PiSession extends AgentSession {
@@ -173,15 +181,44 @@ function buildLocalModel(config: PiBackendConfig) {
 export class PiBackend implements AgentBackend {
   readonly name = 'pi';
   private config: PiBackendConfig;
+  /**
+   * Per-request timeout in ms (default 90_000). Spec 2 P2-I1: enforced at
+   * the request boundary by `runTurn` racing `piSession.prompt()` against
+   * an `AbortController + setTimeout(timeoutMs)`. On timeout the
+   * underlying pi session is aborted and the turn returns a failed
+   * `TurnResult` carrying a timeout-tagged error message. Setting
+   * `timeoutMs: 0` disables the watchdog (preserves the pre-fix-up
+   * "no enforcement" behavior for callers that want the SDK default).
+   */
+  readonly timeoutMs: number;
 
   constructor(config: PiBackendConfig = {}) {
     this.config = config;
+    this.timeoutMs = config.timeoutMs ?? 90_000;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
     try {
+      let resolvedModelName: string | undefined;
+      if (this.config.getModel) {
+        const candidate = this.config.getModel();
+        if (candidate === null) {
+          return Err({
+            category: 'agent_not_found',
+            message: 'No local model available; check dashboard for details.',
+          });
+        }
+        resolvedModelName = candidate;
+      } else {
+        resolvedModelName = this.config.model;
+      }
+
       const piSdk = await import('@mariozechner/pi-coding-agent');
-      const model = buildLocalModel(this.config);
+      const model = buildLocalModel({
+        model: resolvedModelName,
+        endpoint: this.config.endpoint,
+        apiKey: this.config.apiKey,
+      });
 
       const { session: piSession } = await piSdk.createAgentSession({
         cwd: params.workspacePath,
@@ -235,15 +272,58 @@ export class PiBackend implements AgentBackend {
 
     (session as PiSession).unsubscribe = unsubscribe;
 
+    // Spec 2 P2-I1 / PFC-2: per-request timeout enforcement. We can't
+    // pass a timeout into `piSession.prompt()` (the pi-coding-agent SDK
+    // does not accept one) so we race the prompt against a watchdog
+    // timer. On timeout: abort the underlying session (releasing any
+    // in-flight chat-completion connection) and surface a typed
+    // timeout error in the TurnResult by setting `promptErrorMsg`.
+    // `timeoutMs <= 0` disables the watchdog, preserving the original
+    // "no enforcement" behavior for callers who need it.
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let timedOut = false;
+    if (this.timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        promptErrorMsg = `Pi backend request timed out after ${this.timeoutMs}ms`;
+        promptDone = true;
+        // Best-effort abort to release the underlying pi session's
+        // chat-completion connection. Errors are swallowed because
+        // the session may already be torn down.
+        try {
+          const maybeAbort = piSession.abort?.();
+          if (maybeAbort && typeof maybeAbort.catch === 'function') {
+            maybeAbort.catch(() => {});
+          }
+        } catch {
+          /* abort is best-effort */
+        }
+        signal();
+      }, this.timeoutMs);
+    }
+
+    const clearTimeoutHandle = () => {
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+    };
+
     const promptPromise = piSession.prompt(params.prompt).then(
       () => {
-        promptDone = true;
-        signal();
+        if (!timedOut) {
+          clearTimeoutHandle();
+          promptDone = true;
+          signal();
+        }
       },
       (err: Error) => {
-        promptErrorMsg = err.message;
-        promptDone = true;
-        signal();
+        if (!timedOut) {
+          clearTimeoutHandle();
+          promptErrorMsg = err.message;
+          promptDone = true;
+          signal();
+        }
       }
     );
 
@@ -262,13 +342,24 @@ export class PiBackend implements AgentBackend {
           }),
       });
     } finally {
+      // Clear the timeout watchdog if it has not already fired. Prevents
+      // a dangling timer from holding the event loop open after a
+      // successful turn.
+      clearTimeoutHandle();
       // Unblock any suspended waitForEvent() to prevent dangling promises
       // resolveWait is assigned inside a closure, so TS can't track it — cast is safe
       (resolveWait as (() => void) | null)?.();
       resolveWait = null;
       unsubscribe();
       (session as PiSession).unsubscribe = null;
-      await promptPromise.catch(() => {});
+      // Spec 2 P2-I1: when the watchdog fired, the underlying
+      // `piSession.prompt()` promise may never settle (the SDK doesn't
+      // expose a timeout knob). Skip the post-loop await in that case so
+      // we don't hang the turn. Otherwise, drain the prompt's
+      // resolution to ensure handlers ran before yielding control.
+      if (!timedOut) {
+        await promptPromise.catch(() => {});
+      }
     }
 
     const totalTokens = inputTokens + outputTokens;

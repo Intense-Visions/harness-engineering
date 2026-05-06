@@ -4,6 +4,7 @@ import { useOrchestratorSocket } from '../../../src/client/hooks/useOrchestrator
 import type {
   OrchestratorSnapshot,
   PendingInteraction,
+  NamedLocalModelStatus,
 } from '../../../src/client/types/orchestrator';
 
 // --- Minimal WebSocket mock ---
@@ -162,5 +163,101 @@ describe('useOrchestratorSocket', () => {
     });
 
     expect(FakeWebSocket.instance).not.toBe(first);
+  });
+
+  describe('localModelStatuses merge-by-backendName (Spec 2 SC39)', () => {
+    function makeStatus(
+      backendName: string,
+      endpoint: string,
+      available: boolean
+    ): NamedLocalModelStatus {
+      return {
+        available,
+        resolved: available ? 'gemma-4-e4b' : null,
+        configured: ['gemma-4-e4b'],
+        detected: available ? ['gemma-4-e4b'] : [],
+        lastProbeAt: '2026-05-04T12:00:00.000Z',
+        lastError: available ? null : 'fetch failed',
+        warnings: [],
+        backendName,
+        endpoint,
+      };
+    }
+
+    it('initial state is empty array, not null', () => {
+      const { result } = renderHook(() => useOrchestratorSocket());
+      expect(result.current.localModelStatuses).toEqual([]);
+    });
+
+    it('appends a new backend on first event', async () => {
+      const { result } = renderHook(() => useOrchestratorSocket());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+
+      const status = makeStatus('local', 'http://localhost:1234/v1', false);
+      act(() => {
+        FakeWebSocket.instance?.simulateMessage({ type: 'local-model:status', data: status });
+      });
+
+      expect(result.current.localModelStatuses).toHaveLength(1);
+      expect(result.current.localModelStatuses[0]?.backendName).toBe('local');
+      expect(result.current.localModelStatuses[0]?.available).toBe(false);
+    });
+
+    it('merges by backendName (re-emit replaces in place; preserves other entries)', async () => {
+      const { result } = renderHook(() => useOrchestratorSocket());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+
+      const localUnhealthy = makeStatus('local', 'http://localhost:1234/v1', false);
+      const pi2Unhealthy = makeStatus('pi-2', 'http://192.168.1.50:1234/v1', false);
+      const localHealthy = makeStatus('local', 'http://localhost:1234/v1', true);
+
+      act(() => {
+        FakeWebSocket.instance?.simulateMessage({
+          type: 'local-model:status',
+          data: localUnhealthy,
+        });
+        FakeWebSocket.instance?.simulateMessage({
+          type: 'local-model:status',
+          data: pi2Unhealthy,
+        });
+        FakeWebSocket.instance?.simulateMessage({
+          type: 'local-model:status',
+          data: localHealthy,
+        });
+      });
+
+      expect(result.current.localModelStatuses).toHaveLength(2);
+      const byName = new Map(result.current.localModelStatuses.map((s) => [s.backendName, s]));
+      expect(byName.get('local')?.available).toBe(true);
+      expect(byName.get('pi-2')?.available).toBe(false);
+    });
+
+    it('preserves event order: first-seen backend stays at index 0', async () => {
+      const { result } = renderHook(() => useOrchestratorSocket());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+
+      act(() => {
+        FakeWebSocket.instance?.simulateMessage({
+          type: 'local-model:status',
+          data: makeStatus('local', 'http://localhost:1234/v1', false),
+        });
+        FakeWebSocket.instance?.simulateMessage({
+          type: 'local-model:status',
+          data: makeStatus('pi-2', 'http://192.168.1.50:1234/v1', false),
+        });
+      });
+
+      expect(result.current.localModelStatuses[0]?.backendName).toBe('local');
+      expect(result.current.localModelStatuses[1]?.backendName).toBe('pi-2');
+    });
   });
 });

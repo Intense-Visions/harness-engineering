@@ -15,13 +15,28 @@ hooks:
   beforeRemove: null
   timeoutMs: 60000
 agent:
-  backend: claude
-  command: claude
-  # Local model for autonomous execution of simple tasks
-  localBackend: pi
-  localEndpoint: http://localhost:1234/v1
-  localModel: gemma-4-e4b
-  # Escalation routing — controls what runs locally vs primary vs human
+  # Named backend definitions (Spec 2). See the Multi-Backend Routing
+  # operator guide in the harness docs for the full schema reference.
+  backends:
+    primary: { type: claude, command: claude }
+    # Local backend for autonomous execution of simple tasks.
+    # `model` accepts a string OR a prefer-and-fallback array — first
+    # match wins after a `/v1/models` probe.
+    local:
+      type: pi
+      endpoint: http://localhost:1234/v1
+      model: gemma-4-e4b
+      # model: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
+  # Routing — controls WHICH backend handles each use case.
+  routing:
+    default: primary
+    quick-fix: local
+    diagnostic: local
+    # Optional: route the intelligence pipeline (sel/pesl) to a local backend.
+    # intelligence:
+    #   sel: local
+    #   pesl: local
+  # Escalation — controls WHETHER a tier dispatches at all (orthogonal to routing).
   escalation:
     alwaysHuman: [full-exploration]
     autoExecute: [quick-fix, diagnostic]
