@@ -48,6 +48,12 @@ describe('gitScan', () => {
     const result = await gitScan({ since: '30d', cwd: tmp });
     expect(result).toEqual([]);
   });
+
+  it('returns [] (not throws) on a freshly-init repo with zero commits', async () => {
+    // tmp already has `git init` run via beforeEach but no commits at all.
+    const result = await gitScan({ since: '30d', cwd: tmp });
+    expect(result).toEqual([]);
+  });
 });
 
 describe('normalizeSince', () => {
