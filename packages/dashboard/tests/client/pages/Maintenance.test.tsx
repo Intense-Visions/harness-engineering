@@ -137,3 +137,32 @@ describe('Maintenance page — candidate-count badge', () => {
     expect(screen.queryByText(/^\d+ candidates$/)).toBeNull();
   });
 });
+
+describe('Maintenance page — statusAccent color mapping', () => {
+  // Regression coverage for statusAccent() in Maintenance.tsx: the function
+  // has 3 branches (success|no-issues -> emerald, failed -> red, fallthrough
+  // yellow for skipped). Without this test, a future change could silently
+  // drop a status color (e.g. removing 'no-issues' from the emerald branch).
+  it.each([
+    ['success', 'text-emerald-400'],
+    ['no-issues', 'text-emerald-400'],
+    ['failed', 'text-red-400'],
+    ['skipped', 'text-yellow-400'],
+  ] as const)('renders status %s with class %s', async (status, expectedClass) => {
+    mockApi([
+      {
+        task: 'product-pulse',
+        status,
+        startedAt: '2026-05-05T08:00:00Z',
+        durationMs: 1234,
+        findings: 0,
+        prUrl: null,
+      },
+    ]);
+
+    render(<Maintenance />);
+
+    const statusCell = await waitFor(() => screen.getByText(status));
+    expect(statusCell.className).toContain(expectedClass);
+  });
+});
