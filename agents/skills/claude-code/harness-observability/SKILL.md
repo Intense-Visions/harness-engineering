@@ -11,6 +11,8 @@
 - NOT for security-focused log analysis (use harness-security-review)
 - NOT for incident response procedures (use harness-incident-response)
 
+> See also: `harness-pulse` is the read-side companion to this skill. Pulse READS observability data (and external analytics/error signals) to produce daily product-pulse reports; this skill DESIGNS the instrumentation that produces those signals in the first place.
+
 ## Process
 
 ### Phase 1: DETECT -- Identify Existing Instrumentation
