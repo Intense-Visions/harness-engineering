@@ -533,7 +533,7 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--lookback` — Lookback window (e.g. 7d, 14d). (default: "7d")
 - `--non-interactive` — Emit single-line JSON status on stdout. Auto-detected when stdout is not a TTY.
 - `--config` — Path to harness.config.json (default: "harness.config.json")
-- `--output-path` — Override output file path (default: docs/solutions/.candidates/<YYYY-WW>.md)
+- `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
 ## Graph Commands

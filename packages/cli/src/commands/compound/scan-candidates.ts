@@ -101,7 +101,7 @@ export function createScanCandidatesCommand(): Command {
     .option('--config <path>', 'Path to harness.config.json', 'harness.config.json')
     .option(
       '--output-path <path>',
-      'Override output file path (default: docs/solutions/.candidates/<YYYY-WW>.md)'
+      'Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)'
     )
     .option('--solutions-dir <path>', 'Solutions directory to cross-reference', 'docs/solutions')
     .action(
