@@ -17,6 +17,7 @@ import { createCheckSecurityCommand } from './check-security';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
+import { createCompoundCommand } from './compound';
 import { createCreateSkillCommand } from './create-skill';
 import { createDashboardCommand } from './dashboard';
 import { createDoctorCommand } from './doctor';
@@ -42,6 +43,7 @@ import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
 import { createPublishAnalysesCommand } from './publish-analyses';
+import { createPulseCommand } from './pulse';
 import { createQueryCommand } from './graph/query';
 import { createRecommendCommand } from './recommend';
 import { createScanCommand } from './graph/scan';
@@ -82,6 +84,7 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
+  createCompoundCommand,
   createCreateSkillCommand,
   createDashboardCommand,
   createDoctorCommand,
@@ -107,6 +110,7 @@ export const commandCreators: Array<() => Command> = [
   createPersonaCommand,
   createPredictCommand,
   createPublishAnalysesCommand,
+  createPulseCommand,
   createQueryCommand,
   createRecommendCommand,
   createScanCommand,

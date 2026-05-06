@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-739 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+741 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (22 skills)
+## Tier 2 — Maintenance (24 skills)
 
 ### cleanup-dead-code
 
@@ -197,6 +197,15 @@ Orchestrate dead code removal and architecture violation fixes with shared conve
 - **Type:** flexible
 - **Cognitive mode:** systematic-orchestrator
 - **Depends on:** cleanup-dead-code, enforce-architecture, harness-hotspot-detector
+
+### harness-compound
+
+5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/{track}/{category}/{slug}.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** reflective-historian
 
 ### harness-dependency-health
 
@@ -263,6 +272,15 @@ Performance enforcement and benchmark management
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
 - **Depends on:** harness-verify
+
+### harness-pulse
+
+First-run pulse interview. Converts intent into a validated pulse config with SMART pushback, read-write-DB rejection, STRATEGY.md seeding. Phase 3 ships the interview; the run path is deferred to Phase 4.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
 
 ### harness-release-readiness
 

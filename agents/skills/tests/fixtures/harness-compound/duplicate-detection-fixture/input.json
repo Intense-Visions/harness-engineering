@@ -1,0 +1,10 @@
+{
+  "problem": "Stuck issue from stalled lease in orchestrator (different code path, same symptom)",
+  "solution": "Same lease TTL approach already documented",
+  "module": "orchestrator",
+  "expected": {
+    "track": "bug-track",
+    "category": "integration-issues",
+    "overlapsWith": "stalled-lease-cleanup"
+  }
+}

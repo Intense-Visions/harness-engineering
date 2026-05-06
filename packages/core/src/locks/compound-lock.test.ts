@@ -1,0 +1,92 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { pathToFileURL } from 'node:url';
+import { acquireCompoundLock, CompoundLockHeldError } from './compound-lock';
+
+describe('acquireCompoundLock', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'compound-lock-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('creates the lock file and returns a release handle', () => {
+    const handle = acquireCompoundLock('integration-issues', { cwd: tmpDir });
+    const lockPath = path.join(tmpDir, '.harness', 'locks', 'compound-integration-issues.lock');
+    expect(fs.existsSync(lockPath)).toBe(true);
+    handle.release();
+    expect(fs.existsSync(lockPath)).toBe(false);
+  });
+
+  it('throws CompoundLockHeldError when same category is locked', () => {
+    const handle = acquireCompoundLock('test-failures', { cwd: tmpDir });
+    expect(() => acquireCompoundLock('test-failures', { cwd: tmpDir })).toThrow(
+      CompoundLockHeldError
+    );
+    handle.release();
+  });
+
+  it('embeds the holder PID in the error message', () => {
+    const handle = acquireCompoundLock('runtime-errors', { cwd: tmpDir });
+    try {
+      acquireCompoundLock('runtime-errors', { cwd: tmpDir });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(CompoundLockHeldError);
+      expect((e as Error).message).toMatch(/pid/i);
+    }
+    handle.release();
+  });
+
+  it('allows different categories to lock concurrently', () => {
+    const a = acquireCompoundLock('integration-issues', { cwd: tmpDir });
+    const b = acquireCompoundLock('test-failures', { cwd: tmpDir });
+    a.release();
+    b.release();
+  });
+
+  it('rejects unknown category', () => {
+    expect(() => acquireCompoundLock('unicorn-bugs' as never, { cwd: tmpDir })).toThrow(
+      /unknown category/i
+    );
+  });
+});
+
+describe('acquireCompoundLock cross-process cleanup', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'compound-lock-x-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // The cross-process test exercises semantics that require the compiled
+  // output. Use it.skipIf so the skip is visible in test output rather
+  // than silently passing without assertions when dist is not built.
+  const distEntry = path.resolve(__dirname, '..', '..', 'dist', 'index.mjs');
+  it.skipIf(!fs.existsSync(distEntry))(
+    'releases the lock when the holding process exits normally',
+    async () => {
+      const { execFileSync } = await import('node:child_process');
+      // Spawn a child node process that imports the compiled dist, acquires
+      // the lock, and exits normally. The 'exit' handler must remove the lock.
+      const distUrl = pathToFileURL(distEntry).href;
+      const script = `
+        import(${JSON.stringify(distUrl)}).then(({ acquireCompoundLock }) => {
+          acquireCompoundLock('integration-issues', { cwd: ${JSON.stringify(tmpDir)} });
+          process.exit(0);
+        }).catch((e) => { console.error(e); process.exit(1); });
+      `;
+      execFileSync('node', ['--input-type=module', '-e', script], { stdio: 'pipe' });
+      const lockPath = path.join(tmpDir, '.harness', 'locks', 'compound-integration-issues.lock');
+      expect(fs.existsSync(lockPath)).toBe(false);
+    }
+  );
+});

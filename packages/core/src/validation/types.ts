@@ -21,6 +21,7 @@ export interface ConfigError extends ValidationError {
   details: {
     zodError?: unknown; // Zod's detailed error (avoid importing zod types here)
     path?: string[]; // Path to invalid field
+    issues?: Array<{ file: string; message: string }>; // Per-file validation issues (e.g., solutions dir)
   };
 }
 

@@ -1,8 +1,59 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { z } from 'zod';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, IngestResult, NodeType, EdgeType } from '../types.js';
 import { emptyResult } from './ingestUtils.js';
+
+// Local schema mirror of @harness-engineering/core's SolutionDocFrontmatterSchema.
+// Inlined because the graph layer cannot depend on core (layer rule:
+// graph -> {types}; core depends on graph). The contract is documented in
+// packages/types/src/solutions.ts and any divergence here will be caught by
+// the BusinessKnowledgeIngestor.solutions tests.
+const BUG_TRACK_CATEGORIES = [
+  'build-errors',
+  'test-failures',
+  'runtime-errors',
+  'performance-issues',
+  'database-issues',
+  'security-issues',
+  'ui-bugs',
+  'integration-issues',
+  'logic-errors',
+] as const;
+
+const KNOWLEDGE_TRACK_CATEGORIES = [
+  'architecture-patterns',
+  'design-patterns',
+  'tooling-decisions',
+  'conventions',
+  'dx',
+  'best-practices',
+] as const;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const SolutionBaseSchema = z.object({
+  module: z.string().min(1),
+  tags: z.array(z.string()),
+  problem_type: z.string().min(1),
+  last_updated: z.string().regex(ISO_DATE, 'last_updated must be ISO date YYYY-MM-DD'),
+});
+
+const SolutionDocFrontmatterSchema = z.discriminatedUnion('track', [
+  SolutionBaseSchema.merge(
+    z.object({
+      track: z.literal('bug-track'),
+      category: z.enum(BUG_TRACK_CATEGORIES),
+    })
+  ),
+  SolutionBaseSchema.merge(
+    z.object({
+      track: z.literal('knowledge-track'),
+      category: z.enum(KNOWLEDGE_TRACK_CATEGORIES),
+    })
+  ),
+]);
 
 const BUSINESS_KNOWLEDGE_TYPES = new Set<string>([
   'business_rule',
@@ -58,6 +109,67 @@ export class BusinessKnowledgeIngestor {
       nodesAdded: nodeEntries.length,
       nodesUpdated: 0,
       edgesAdded,
+      edgesUpdated: 0,
+      errors,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  async ingestSolutions(solutionsDir: string): Promise<IngestResult> {
+    const start = Date.now();
+    const errors: string[] = [];
+    let files: string[];
+    try {
+      files = await this.findMarkdownFiles(solutionsDir);
+    } catch {
+      return emptyResult(Date.now() - start);
+    }
+
+    let nodesAdded = 0;
+    for (const filePath of files) {
+      try {
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const parsed = parseSolutionFrontmatter(raw);
+        if (!parsed) {
+          errors.push(`${filePath}: no frontmatter found`);
+          continue;
+        }
+        const validation = SolutionDocFrontmatterSchema.safeParse(parsed.frontmatter);
+        if (!validation.success) {
+          errors.push(`${filePath}: ${validation.error.message}`);
+          continue;
+        }
+        if (validation.data.track !== 'knowledge-track') continue;
+        const relPath = path.relative(solutionsDir, filePath).replaceAll('\\', '/');
+        const filename = path.basename(filePath, '.md');
+        const nodeId = `bk:solutions:${validation.data.module}:${filename}`;
+        const titleMatch = parsed.body.match(/^#\s+(.+)$/m);
+        const name = titleMatch ? titleMatch[1]!.trim() : filename;
+        const node: GraphNode = {
+          id: nodeId,
+          type: 'business_concept',
+          name,
+          path: relPath,
+          content: parsed.body.trim(),
+          metadata: {
+            domain: validation.data.module,
+            tags: validation.data.tags,
+            problem_type: validation.data.problem_type,
+            last_updated: validation.data.last_updated,
+            source: 'solutions',
+            category: validation.data.category,
+          },
+        };
+        this.store.addNode(node);
+        nodesAdded++;
+      } catch (err) {
+        errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return {
+      nodesAdded,
+      nodesUpdated: 0,
+      edgesAdded: 0,
       edgesUpdated: 0,
       errors,
       durationMs: Date.now() - start,
@@ -239,4 +351,29 @@ function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string
     frontmatter: frontmatter as unknown as Frontmatter,
     body,
   };
+}
+
+function parseSolutionFrontmatter(
+  raw: string
+): { frontmatter: Record<string, unknown>; body: string } | null {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!match) return null;
+  const yamlBlock = match[1]!;
+  const body = match[2]!;
+  const frontmatter: Record<string, unknown> = {};
+  for (const line of yamlBlock.split(/\r?\n/)) {
+    const kvMatch = line.match(/^(\w+):\s*(.+)$/);
+    if (!kvMatch) continue;
+    const key = kvMatch[1]!;
+    const value = kvMatch[2]!.trim();
+    if (value.startsWith('[') && value.endsWith(']')) {
+      frontmatter[key] = value
+        .slice(1, -1)
+        .split(',')
+        .map((s) => s.trim());
+    } else {
+      frontmatter[key] = value;
+    }
+  }
+  return { frontmatter, body };
 }

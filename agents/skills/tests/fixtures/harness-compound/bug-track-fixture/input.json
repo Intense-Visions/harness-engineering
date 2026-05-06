@@ -1,0 +1,10 @@
+{
+  "problem": "Stalled lease cleanup in orchestrator caused stuck issues",
+  "solution": "Added 5-minute lease TTL with sweep on startup",
+  "module": "orchestrator",
+  "expected": {
+    "track": "bug-track",
+    "category": "integration-issues",
+    "slugPrefix": "stalled-lease"
+  }
+}

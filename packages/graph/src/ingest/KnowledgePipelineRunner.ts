@@ -276,6 +276,29 @@ export class KnowledgePipelineRunner {
       };
     }
 
+    // Solutions docs from docs/solutions/ (knowledge-track only — bug-track skipped at ingestor)
+    const solutionsDir = path.join(options.projectDir, 'docs', 'solutions');
+    let solutionsResult: IngestResult;
+    try {
+      solutionsResult = await bkIngestor.ingestSolutions(solutionsDir);
+    } catch {
+      solutionsResult = {
+        nodesAdded: 0,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: [],
+        durationMs: 0,
+      };
+    }
+    // Aggregate solutions ingestion errors alongside the knowledge ingestion
+    // errors so contributors get a unified view of frontmatter / parse failures.
+    bkResult = {
+      ...bkResult,
+      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded,
+      errors: [...bkResult.errors, ...solutionsResult.errors],
+    };
+
     // Decision ADRs from docs/knowledge/decisions/
     const decisionsDir = path.join(options.projectDir, 'docs', 'knowledge', 'decisions');
     const decisionIngestor = new DecisionIngestor(this.store);

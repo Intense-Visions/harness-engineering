@@ -153,5 +153,30 @@ export type {
   SecretConfig,
 } from './container';
 
+// --- Pulse (read-side observability) ---
+export type {
+  PulseConfig,
+  PulseSources,
+  PulseDbSource,
+  SanitizedResult,
+  SanitizeFn,
+  PulseWindow,
+  PulseAdapter,
+  PulseRunStatusType,
+  PulseRunStatus,
+  PulseSkipKind,
+  PulseSkipRecord,
+  PulseSourceKind,
+} from './pulse';
+
+// --- Solutions (compound learning docs) ---
+export type {
+  SolutionTrack,
+  BugTrackCategory,
+  KnowledgeTrackCategory,
+  SolutionCategory,
+  SolutionDocFrontmatter,
+} from './solutions';
+
 // --- Maintenance ---
-export type { MaintenanceConfig, TaskOverride } from './maintenance';
+export type { MaintenanceConfig, TaskOverride, MaintenanceHistoryEntry } from './maintenance';

@@ -83,6 +83,34 @@ describe('KnowledgePipelineRunner', () => {
       expect(result.extraction.businessKnowledge).toBe(0);
     });
 
+    it('ingests knowledge-track docs from docs/solutions/ alongside docs/knowledge/', async () => {
+      // Sample knowledge-track solution doc — should be ingested as business_concept.
+      const solutionsDir = path.join(
+        tmpDir,
+        'docs',
+        'solutions',
+        'knowledge-track',
+        'architecture-patterns'
+      );
+      await fs.mkdir(solutionsDir, { recursive: true });
+      await fs.writeFile(
+        path.join(solutionsDir, 'sample.md'),
+        '---\ntrack: knowledge-track\ncategory: architecture-patterns\nmodule: orchestrator\ntags: [pattern]\nproblem_type: pattern\nlast_updated: 2026-05-05\n---\n\n# Sample Solutions Pattern\n\nIngested via the pipeline runner.\n'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // The solutions doc must contribute to the businessKnowledge count.
+      expect(result.extraction.businessKnowledge).toBeGreaterThan(0);
+
+      // Verify the node was actually added to the graph with source=solutions.
+      const concepts = store.findNodes({ type: 'business_concept' });
+      const solutionNode = concepts.find((n) => n.metadata?.source === 'solutions');
+      expect(solutionNode).toBeDefined();
+      expect(solutionNode?.name).toBe('Sample Solutions Pattern');
+    });
+
     it('reports zero code signals for empty project', async () => {
       const runner = new KnowledgePipelineRunner(store);
       const result = await runner.run(makeOptions());

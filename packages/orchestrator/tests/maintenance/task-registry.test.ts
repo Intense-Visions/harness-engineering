@@ -3,8 +3,8 @@ import { BUILT_IN_TASKS } from '../../src/maintenance/task-registry';
 import type { TaskDefinition, TaskType } from '../../src/maintenance/types';
 
 describe('task-registry', () => {
-  it('exports exactly 18 built-in task definitions', () => {
-    expect(BUILT_IN_TASKS).toHaveLength(18);
+  it('exports exactly 20 built-in task definitions', () => {
+    expect(BUILT_IN_TASKS).toHaveLength(20);
   });
 
   it('every task has a unique id', () => {
@@ -50,7 +50,7 @@ describe('task-registry', () => {
 
   it('report-only tasks have checkCommand and null branch', () => {
     const reportOnly = BUILT_IN_TASKS.filter((t) => t.type === 'report-only');
-    expect(reportOnly.length).toBe(5);
+    expect(reportOnly.length).toBe(7);
     for (const task of reportOnly) {
       expect(task.checkCommand).toBeDefined();
       expect(task.branch).toBeNull();
@@ -202,6 +202,35 @@ describe('task-registry', () => {
       expect(t.type).toBe('report-only');
       expect(t.schedule).toBe('0 1 * * *');
       expect(t.branch).toBeNull();
+    });
+
+    it('registers product-pulse as a daily report-only task', () => {
+      const task = taskMap.get('product-pulse');
+      expect(task).toBeDefined();
+      expect(task!.type).toBe('report-only');
+      expect(task!.schedule).toBe('0 8 * * *');
+      expect(task!.branch).toBeNull();
+      expect(task!.checkCommand).toEqual(['pulse', 'run', '--non-interactive']);
+      expect(task!.fixSkill).toBeUndefined();
+    });
+
+    it('registers compound-candidates on Mondays 9am', () => {
+      const task = taskMap.get('compound-candidates');
+      expect(task).toBeDefined();
+      expect(task!.type).toBe('report-only');
+      expect(task!.schedule).toBe('0 9 * * 1');
+      expect(task!.branch).toBeNull();
+      expect(task!.checkCommand).toEqual(['compound', 'scan-candidates', '--non-interactive']);
+    });
+
+    it('keeps cron schedules unique enough to avoid collision with the 6am Monday block', () => {
+      // traceability, cross-check, perf-check all run at '0 6 * * 1'; compound-candidates moved to 9am to leave room
+      const at6amMonday = BUILT_IN_TASKS.filter((t) => t.schedule === '0 6 * * 1');
+      expect(at6amMonday.map((t) => t.id).sort()).toEqual([
+        'cross-check',
+        'perf-check',
+        'traceability',
+      ]);
     });
   });
 });

@@ -6,6 +6,8 @@ import {
   validateAgentConfigs,
   validateAgentsMap,
   validateKnowledgeMap,
+  validatePulseConfig,
+  validateSolutionsDir,
 } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
@@ -30,6 +32,8 @@ interface ValidateResult {
     fileStructure: boolean;
     knowledgeMap: boolean;
     agentConfigs?: boolean;
+    pulseConfig?: boolean;
+    solutionsDir?: boolean;
   };
   issues: Array<{
     check: string;
@@ -110,6 +114,38 @@ export async function runValidate(
   // Check file structure if conventions defined
   // For now, mark as passed if no conventions
   result.checks.fileStructure = true;
+
+  // Pulse config (optional — passes if absent)
+  const pulseResult = await validatePulseConfig(cwd);
+  if (pulseResult.ok) {
+    result.checks.pulseConfig = true;
+  } else {
+    result.valid = false;
+    result.checks.pulseConfig = false;
+    result.issues.push({
+      check: 'pulseConfig',
+      file: 'harness.config.json',
+      message: pulseResult.error.message,
+      ...(pulseResult.error.suggestions?.[0] !== undefined && {
+        suggestion: pulseResult.error.suggestions[0],
+      }),
+    });
+  }
+
+  // Solutions directory (optional — passes if absent)
+  const solutionsResult = await validateSolutionsDir(cwd);
+  if (solutionsResult.ok) {
+    result.checks.solutionsDir = true;
+  } else {
+    result.valid = false;
+    result.checks.solutionsDir = false;
+    const detail = solutionsResult.error.details;
+    for (const issue of detail.issues ?? [
+      { file: 'docs/solutions', message: solutionsResult.error.message },
+    ]) {
+      result.issues.push({ check: 'solutionsDir', file: issue.file, message: issue.message });
+    }
+  }
 
   // Opt-in agent config validation (agnix binary preferred, TS fallback otherwise)
   if (options.agentConfigs) {

@@ -1,0 +1,10 @@
+{
+  "problem": "When to use Result<T, E> vs throwing in packages/core I/O paths",
+  "solution": "Document the convention: Result for I/O, throw for programmer errors",
+  "module": "core",
+  "expected": {
+    "track": "knowledge-track",
+    "category": "conventions",
+    "slugPrefix": "result-type-for-io"
+  }
+}

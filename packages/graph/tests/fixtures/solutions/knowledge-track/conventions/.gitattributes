@@ -1,0 +1,3 @@
+# Preserve CRLF line endings for the regression fixture covering
+# Windows-authored docs in BusinessKnowledgeIngestor.parseSolutionFrontmatter.
+crlf-pattern.md -text

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
+import type { MaintenanceHistoryEntry } from '@harness-engineering/types';
 import { KpiCard } from '../components/KpiCard';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 
@@ -13,12 +14,9 @@ interface SchedulerStatus {
   running: boolean;
 }
 
-interface HistoryEntry {
-  task: string;
-  status: 'success' | 'failed' | 'skipped';
-  startedAt: string;
-  durationMs: number;
-}
+// HistoryEntry is the shared wire contract from @harness-engineering/types
+// (orchestrator's GET /api/maintenance/history serializer is the producer).
+type HistoryEntry = MaintenanceHistoryEntry;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -31,7 +29,7 @@ function formatDuration(ms: number): string {
 }
 
 function statusAccent(status: HistoryEntry['status']): string {
-  if (status === 'success') return 'text-emerald-400';
+  if (status === 'success' || status === 'no-issues') return 'text-emerald-400';
   if (status === 'failed') return 'text-red-400';
   return 'text-yellow-400';
 }
@@ -46,9 +44,20 @@ function formatTime(iso: string | null): string {
 /* ------------------------------------------------------------------ */
 
 const HistoryRow = memo(function HistoryRow({ entry }: { entry: HistoryEntry }) {
+  const showCandidatesBadge = entry.task === 'compound-candidates' && (entry.findings ?? 0) > 0;
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
-      <td className="py-2 px-3 font-mono text-xs text-gray-200">{entry.task}</td>
+      <td className="py-2 px-3 font-mono text-xs text-gray-200">
+        {entry.task}
+        {showCandidatesBadge && (
+          <span
+            className="ml-2 inline-block rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300"
+            title="Undocumented learnings detected this run"
+          >
+            {entry.findings} candidates
+          </span>
+        )}
+      </td>
       <td className={`py-2 px-3 text-xs font-semibold uppercase ${statusAccent(entry.status)}`}>
         {entry.status}
       </td>

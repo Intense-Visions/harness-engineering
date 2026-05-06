@@ -97,6 +97,12 @@ high-quality, architecturally sound delivery:
    integration tier.
 6. **Code Review:** Use `/harness:code-review` and `/harness:pre-commit-review`
    to perform a final quality check before completing the task.
+   6b. **Compound (when applicable):** Run `/harness:compound` when ANY of these
+   three concrete triggers fired during this issue:
+   (a) `/harness:debugging` was invoked at any point (regardless of outcome),
+   (b) the fix required more than one commit on the issue branch, or
+   (c) execution involved >1 attempt (`Attempt Number` above is greater than 1).
+   Otherwise skip silently. The triggers are mechanical — no judgment required.
 7. **Ship:** When the review is clean, you are pre-authorized to ship without asking:
    - Create a topic branch if you are still on `main`/`master` (e.g. `feat/{{ issue.identifier }}`).
    - Stage your changes and create a descriptive commit (Conventional Commits style).
@@ -116,7 +122,9 @@ high-quality, architecturally sound delivery:
 
 - Always verify your changes with `harness validate`.
 - Adhere to the architectural constraints defined in `harness.config.json`.
-- Document your progress and any learnings in `.harness/learnings.md`.
+- For non-trivial learnings, run `/harness:compound` (writes structured docs to
+  `docs/solutions/<track>/<category>/`). The `.harness/learnings.md` file remains
+  for ephemeral session notes only and is not preserved as compounding knowledge.
 - Step 7 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
 
 Attempt Number: {{ attempt }}

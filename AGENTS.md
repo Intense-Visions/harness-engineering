@@ -403,6 +403,35 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 
 **Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: overview, health, impact, ci, actions, sse, health-check. Data gatherers: health, ci, blast-radius, arch, anomalies.
 
+### Orchestrator Maintenance Tasks
+
+`packages/orchestrator/src/maintenance/task-registry.ts` defines 20 built-in scheduled tasks across four execution strategies:
+
+- **mechanical-ai (7):** `arch-violations`, `dep-violations`, `doc-drift`, `security-findings`, `entropy`, `traceability`, `cross-check` — run a check command first, dispatch an AI agent only if fixable findings exist.
+- **pure-ai (4):** `dead-code`, `dependency-health`, `hotspot-remediation`, `security-review` — always dispatch an AI agent on schedule.
+- **report-only (7):** `perf-check`, `decay-trends`, `project-health`, `stale-constraints`, `graph-refresh`, `product-pulse`, `compound-candidates` — run a command and record metrics; never create branches or PRs. Honors a JSON status contract (`{status, candidatesFound?, error?, reason?}`) emitted by the new `--non-interactive` CLIs; legacy free-form output falls through to `success`.
+  - `product-pulse` (daily 8am, gated on `pulse.enabled`) — generates `docs/pulse-reports/` via `harness pulse run --non-interactive`.
+  - `compound-candidates` (Mondays 9am) — surfaces undocumented learnings into `docs/solutions/.candidates/` via `harness compound scan-candidates --non-interactive`. Scheduled at 9am rather than 6am to avoid collision with the existing Monday 6am block (cross-check, perf-check, traceability).
+- **housekeeping (2):** `session-cleanup`, `perf-baselines` — run a mechanical command directly, no AI, no PR.
+
+The dashboard `Maintenance` page renders a candidate-count badge on `compound-candidates` history rows when `findings > 0`.
+
+### Solutions and Pulse Reports
+
+Two artifact roots support the feedback-loops feature:
+
+- `docs/solutions/<track>/<category>/<slug>.md` — solved-problem playbooks written
+  via `/harness:compound`. Tracks: `bug-track/`, `knowledge-track/`. See
+  `docs/conventions/compound-vs-knowledge-pipeline.md` for category guidance.
+- `docs/pulse-reports/YYYY-MM-DD_HH-MM.md` — daily single-page pulse reports
+  written by the `product-pulse` maintenance task. Read these when prioritizing.
+
+The boundary with `harness-knowledge-pipeline` is documented in
+ADR-0003 (`docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`):
+compound captures post-mortem playbooks; the pipeline extracts structural facts
+from code. Both `product-pulse` and `compound-candidates` are registered as
+`report-only` maintenance tasks (see the orchestrator maintenance section).
+
 ### Graph Subsystems
 
 In addition to the core graph store and ContextQL engine:

@@ -1,12 +1,12 @@
 import type { TaskDefinition } from './types';
 
 /**
- * All 18 built-in maintenance task definitions with default schedules.
+ * All 20 built-in maintenance task definitions with default schedules.
  *
  * Tasks are grouped by type:
  * - mechanical-ai (7): Run check first, dispatch AI only if fixable issues found
  * - pure-ai (4): Always dispatch AI agent on schedule
- * - report-only (5): Run command, record metrics, no PR
+ * - report-only (7): Run command, record metrics, no PR
  * - housekeeping (2): Mechanical command, no AI, no PR
  */
 export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
@@ -149,6 +149,22 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 1 * * *',
     branch: null,
     checkCommand: ['graph', 'scan'],
+  },
+  {
+    id: 'product-pulse',
+    type: 'report-only',
+    description: 'Generate time-windowed pulse report (usage, errors, latency, followups)',
+    schedule: '0 8 * * *',
+    branch: null,
+    checkCommand: ['pulse', 'run', '--non-interactive'],
+  },
+  {
+    id: 'compound-candidates',
+    type: 'report-only',
+    description: 'Scan recent fixes for undocumented learnings; surface candidates',
+    schedule: '0 9 * * 1',
+    branch: null,
+    checkCommand: ['compound', 'scan-candidates', '--non-interactive'],
   },
 
   // --- Housekeeping ---
