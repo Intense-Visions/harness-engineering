@@ -62,16 +62,35 @@ This installs the CLI and runs interactive setup: generates global slash command
 
 The marketplace plugin is the **agent-session interface**. The npm package is what you need for shell-level workflows. Pick based on where you actually use harness:
 
-| Surface                                                                          | `harness-claude` plugin                          | `npm install -g @harness-engineering/cli`          |
-| -------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------- |
-| Inside a Claude Code session — skills, `/harness:*`, subagents, hooks, MCP tools | ✅ full parity                                   | ✅ same (after `harness setup`)                    |
-| Cursor / Gemini CLI / Codex / OpenCode integration                               | ❌ (sibling plugins coming)                      | ✅ `harness setup` configures all detected clients |
-| Terminal use — `harness validate`, `harness init`, `harness check-arch`          | ⚠️ only via `npx @harness-engineering/cli <cmd>` | ✅ binary in PATH                                  |
-| CI workflows (GitHub Actions, etc.)                                              | ⚠️ workable via `npx` (cold-start cost per job)  | ✅ `npm install -g` once, fast thereafter          |
-| Git pre-commit hooks (`harness validate` on commit)                              | ⚠️ npx-based, slow                               | ✅ direct binary, fast                             |
-| `harness setup` peer integrations (Linear, Slack, …)                             | ❌ not configured                                | ✅ wired during interactive setup                  |
+| Surface                                                                          | `harness-claude` plugin                                 | `npm install -g @harness-engineering/cli`          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| Inside a Claude Code session — skills, `/harness:*`, subagents, hooks, MCP tools | ✅ full parity                                          | ✅ same (after `harness setup`)                    |
+| Adoption tracking + anonymous telemetry (hooks fire, defaults enabled)           | ✅ works                                                | ✅ works                                           |
+| Telemetry **identity** tagging (project / team / alias)                          | ❌ no identity (events stay anonymous)                  | ✅ via interactive telemetry wizard                |
+| Project bootstrap (`harness.config.json`, `.harness/` scaffolding)               | ⚠️ run `/harness:initialize-project` once per project   | ✅ auto via `harness init` / `harness setup`       |
+| Knowledge graph (`.harness/graph/`)                                              | ⚠️ lazy-built on first graph-using MCP tool             | ✅ initial scan during `harness setup`             |
+| Architecture / performance baselines                                             | ⚠️ run `npx @harness-engineering/cli check-arch …` once | ✅ auto-refreshed on main via CI                   |
+| Tier-0 MCP integrations (Linear, Slack, …) added to project `.mcp.json`          | ❌ plugin can't mutate user's `.mcp.json`               | ✅ wired during interactive setup                  |
+| Legacy layout migration warnings (`docs/plans/`, `.harness/architecture/`)       | ❌ not surfaced                                         | ✅ surfaced during `harness setup`                 |
+| Cursor / Gemini CLI / Codex / OpenCode integration                               | ❌ (sibling plugins coming)                             | ✅ `harness setup` configures all detected clients |
+| Terminal use — `harness validate`, `harness init`, `harness check-arch`          | ⚠️ only via `npx @harness-engineering/cli <cmd>`        | ✅ binary in PATH                                  |
+| CI workflows (GitHub Actions, etc.)                                              | ⚠️ workable via `npx` (cold-start cost per job)         | ✅ `npm install -g` once, fast thereafter          |
+| Git pre-commit hooks (`harness validate` on commit)                              | ⚠️ npx-based, slow                                      | ✅ direct binary, fast                             |
 
-**TL;DR**: if you only use harness inside Claude Code, the plugin is enough. If you use it from a terminal, in CI, or alongside other AI tools, install the npm package too — they coexist cleanly.
+**TL;DR**: if you only use harness inside Claude Code _and_ run `/harness:initialize-project` once per repo, the plugin covers ~90% of what `harness setup` does. The remaining gap (Tier-0 peer integrations, multi-tool MCP wiring, fast CI/terminal access) is what `npm install -g` fills. They coexist cleanly.
+
+#### Telemetry on plugin-only installs
+
+Adoption tracking and anonymous telemetry hooks ship in the standard hook profile, so they fire on plugin install with no extra setup. They default-enable but a privacy notice prints to stderr on first run. Opt out at any time:
+
+```bash
+# Per-shell
+export DO_NOT_TRACK=1
+# Or per-project, in harness.config.json:
+#   { "telemetry": { "enabled": false }, "adoption": { "enabled": false } }
+```
+
+For identity-tagged telemetry (project/team/alias), run the interactive wizard once via `npx @harness-engineering/cli telemetry-wizard` — the plugin doesn't ship an interactive equivalent.
 
 #### Updates
 
