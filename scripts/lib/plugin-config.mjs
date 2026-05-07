@@ -25,6 +25,7 @@ export const PLUGIN_CONFIGS = {
       `node "\${CLAUDE_PLUGIN_ROOT}/.harness/hooks/${name}.js"`,
     cursorMode: undefined,
     commandExt: '.md',
+    generateCommands: true,
     generateAgents: true,
     generateHooks: true,
   },
@@ -42,6 +43,7 @@ export const PLUGIN_CONFIGS = {
     // `harness setup` flow; plugin commands need the `commands` mode.
     cursorMode: 'commands',
     commandExt: '.md',
+    generateCommands: true,
     generateAgents: true,
     generateHooks: true,
   },
@@ -60,10 +62,30 @@ export const PLUGIN_CONFIGS = {
     cursorMode: undefined,
     // Gemini commands are TOML, not Markdown.
     commandExt: '.toml',
+    generateCommands: true,
     generateAgents: false,
     generateHooks: false,
   },
-  // codex deferred to PR-D.
+  codex: {
+    label: 'Codex CLI',
+    pluginDir: '.codex-plugin',
+    // Codex plugins have no documented slash-command surface — the manifest
+    // points at a skills directory and Codex auto-discovers SKILL.md files.
+    // Skills, MCP servers, and (eventually) hooks are the entire surface.
+    slashCommandsPlatform: undefined,
+    agentPlatform: undefined,
+    skillsDir: 'agents/skills/codex',
+    // Codex plugin spec mentions a hooks field but the schema/event names
+    // and command-resolution rules are undocumented. Skip until the spec
+    // stabilizes (tracked as a follow-up).
+    hooksCommandTemplate: undefined,
+    cursorMode: undefined,
+    // No generated artifacts — manifest-only plugin.
+    commandExt: undefined,
+    generateCommands: false,
+    generateAgents: false,
+    generateHooks: false,
+  },
 };
 
 // Source of truth: packages/cli/src/hooks/profiles.ts HOOK_SCRIPTS.
