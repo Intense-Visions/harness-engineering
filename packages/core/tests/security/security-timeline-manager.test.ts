@@ -237,6 +237,118 @@ describe('SecurityTimelineManager', () => {
     });
   });
 
+  // Issue #270: timeline.json must be share-safe across machines. The scanner globs
+  // with absolute paths, but the persisted lifecycle entries should always be repo-
+  // relative so committing the file does not leak `/Users/<dev>/...` and does not
+  // produce path-based merge conflicts when different developers scan.
+  describe('path normalization (issue #270)', () => {
+    it('updateLifecycles stores repo-relative paths even when scanner emits absolute', () => {
+      const absFile = path.join(root, 'src', 'util.ts');
+      manager.updateLifecycles([makeFinding({ file: absFile })], 'commit-abs');
+
+      const timeline = manager.load();
+      expect(timeline.findingLifecycles).toHaveLength(1);
+      expect(timeline.findingLifecycles[0]!.file).toBe('src/util.ts');
+    });
+
+    it('keeps already-relative paths intact (no double-strip)', () => {
+      manager.updateLifecycles([makeFinding({ file: 'src/util.ts' })], 'commit-rel');
+
+      const timeline = manager.load();
+      expect(timeline.findingLifecycles[0]!.file).toBe('src/util.ts');
+    });
+
+    it('produces rootDir-independent finding IDs (so two clones agree)', () => {
+      const otherRoot = path.join(__dirname, '__test-tmp-sec-timeline-other__');
+      fs.mkdirSync(otherRoot, { recursive: true });
+      try {
+        const otherManager = new SecurityTimelineManager(otherRoot);
+
+        manager.updateLifecycles([makeFinding({ file: path.join(root, 'src', 'util.ts') })], 'c1');
+        otherManager.updateLifecycles(
+          [makeFinding({ file: path.join(otherRoot, 'src', 'util.ts') })],
+          'c1'
+        );
+
+        const id1 = manager.load().findingLifecycles[0]!.findingId;
+        const id2 = otherManager.load().findingLifecycles[0]!.findingId;
+        expect(id1).toBe(id2);
+      } finally {
+        fs.rmSync(otherRoot, { recursive: true, force: true });
+      }
+    });
+
+    it('leaves paths outside rootDir unchanged (never silently misattributes)', () => {
+      // A scanner could in theory emit a path outside the project (symlinked vendor
+      // dir, etc.). We must not strip it to an empty/wrong relative path.
+      const outsidePath = path.resolve(root, '..', '__outside__', 'leaked.ts');
+      manager.updateLifecycles([makeFinding({ file: outsidePath })], 'c1');
+
+      const timeline = manager.load();
+      expect(timeline.findingLifecycles[0]!.file).toBe(outsidePath);
+    });
+
+    it('migrates legacy absolute paths under rootDir on load() and re-saves', () => {
+      // Simulate a timeline.json written by an older version that persisted whatever
+      // path the scanner emitted (absolute under rootDir).
+      const legacy: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [],
+        findingLifecycles: [
+          {
+            findingId: 'legacy-id',
+            ruleId: 'SEC-INJ-001',
+            category: 'injection',
+            severity: 'error',
+            file: path.join(root, 'src', 'util.ts'),
+            firstSeenAt: new Date().toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: null,
+            resolvedCommit: null,
+          },
+        ],
+      };
+      const p = timelinePath(root);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, JSON.stringify(legacy));
+
+      const loaded = manager.load();
+      expect(loaded.findingLifecycles[0]!.file).toBe('src/util.ts');
+
+      // Re-saved on first load, so re-reading the file directly shows the migrated form.
+      const onDisk = JSON.parse(fs.readFileSync(p, 'utf-8')) as SecurityTimelineFile;
+      expect(onDisk.findingLifecycles[0]!.file).toBe('src/util.ts');
+    });
+
+    it('load() is a no-op when paths are already relative (does not touch mtime)', () => {
+      const clean: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [],
+        findingLifecycles: [
+          {
+            findingId: 'id1',
+            ruleId: 'SEC-INJ-001',
+            category: 'injection',
+            severity: 'error',
+            file: 'src/util.ts',
+            firstSeenAt: new Date().toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: null,
+            resolvedCommit: null,
+          },
+        ],
+      };
+      const p = timelinePath(root);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, JSON.stringify(clean));
+      const mtimeBefore = fs.statSync(p).mtimeMs;
+
+      manager.load();
+      const mtimeAfter = fs.statSync(p).mtimeMs;
+      expect(mtimeAfter).toBe(mtimeBefore);
+    });
+  });
+
   // --- computeTimeToFix() ---
 
   describe('computeTimeToFix()', () => {

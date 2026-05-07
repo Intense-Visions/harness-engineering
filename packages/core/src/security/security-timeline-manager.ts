@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { join, dirname } from 'node:path';
+import { isAbsolute, join, relative, dirname } from 'node:path';
 import {
   SecurityTimelineFileSchema,
   EMPTY_SUPPLY_CHAIN,
@@ -34,6 +34,10 @@ export class SecurityTimelineManager {
   /**
    * Load timeline from disk.
    * Returns empty SecurityTimelineFile if file does not exist or is invalid.
+   * Lifecycle entries with absolute paths under rootDir are migrated to repo-relative
+   * form on read (older versions persisted whatever the scanner emitted, which leaked
+   * machine paths into committed timeline.json). Migrated files are re-saved so the
+   * fixup is one-shot.
    */
   load(): SecurityTimelineFile {
     if (!existsSync(this.timelinePath)) {
@@ -50,6 +54,15 @@ export class SecurityTimelineManager {
         );
         return { version: 1, snapshots: [], findingLifecycles: [] };
       }
+      let mutated = false;
+      for (const lc of parsed.data.findingLifecycles) {
+        const next = this.toRepoRelativePath(lc.file);
+        if (next !== lc.file) {
+          lc.file = next;
+          mutated = true;
+        }
+      }
+      if (mutated) this.save(parsed.data);
       return parsed.data;
     } catch (error) {
       console.error(`Error loading security timeline from ${this.timelinePath}:`, error);
@@ -80,16 +93,17 @@ export class SecurityTimelineManager {
     commitHash: string,
     supplyChain?: SupplyChainSnapshot
   ): SecurityTimelineSnapshot {
-    const byCategory = this.aggregateByCategory(scanResult.findings);
-    const bySeverity = this.aggregateBySeverity(scanResult.findings);
-    const findingIds = scanResult.findings.map((f) => securityFindingId(f));
+    const normalized = scanResult.findings.map((f) => this.normalizeFindingPath(f));
+    const byCategory = this.aggregateByCategory(normalized);
+    const bySeverity = this.aggregateBySeverity(normalized);
+    const findingIds = normalized.map((f) => securityFindingId(f));
     const supply = supplyChain ?? EMPTY_SUPPLY_CHAIN;
 
     const snapshot: SecurityTimelineSnapshot = {
       capturedAt: new Date().toISOString(),
       commitHash,
       securityScore: 0, // computed below
-      totalFindings: scanResult.findings.length,
+      totalFindings: normalized.length,
       bySeverity,
       byCategory,
       supplyChain: supply,
@@ -166,7 +180,8 @@ export class SecurityTimelineManager {
    */
   updateLifecycles(currentFindings: SecurityFinding[], commitHash: string): void {
     const timeline = this.load();
-    const currentIds = new Set(currentFindings.map((f) => securityFindingId(f)));
+    const normalized = currentFindings.map((f) => this.normalizeFindingPath(f));
+    const currentIds = new Set(normalized.map((f) => securityFindingId(f)));
     const now = new Date().toISOString();
 
     // Index existing lifecycles by findingId
@@ -176,7 +191,7 @@ export class SecurityTimelineManager {
     }
 
     // Add new findings and reopen resolved ones that reappeared
-    for (const finding of currentFindings) {
+    for (const finding of normalized) {
       const id = securityFindingId(finding);
       this.upsertLifecycle(lifecycleMap, id, finding, now, commitHash);
     }
@@ -323,6 +338,25 @@ export class SecurityTimelineManager {
   }
 
   // --- Private helpers ---
+
+  /**
+   * Convert a path to repo-relative form using forward slashes. Absolute paths under
+   * rootDir are stripped; already-relative paths are normalized to forward slashes;
+   * paths that escape rootDir (relative starts with `..`) are returned unchanged so we
+   * never silently misattribute a finding outside the project.
+   */
+  private toRepoRelativePath(filePath: string): string {
+    if (!filePath) return filePath;
+    if (!isAbsolute(filePath)) return filePath.replaceAll('\\', '/');
+    const rel = relative(this.rootDir, filePath).replaceAll('\\', '/');
+    if (rel === '' || rel.startsWith('../') || rel === '..') return filePath;
+    return rel;
+  }
+
+  private normalizeFindingPath(finding: SecurityFinding): SecurityFinding {
+    const next = this.toRepoRelativePath(finding.file);
+    return next === finding.file ? finding : { ...finding, file: next };
+  }
 
   private upsertLifecycle(
     map: Map<string, FindingLifecycle>,
