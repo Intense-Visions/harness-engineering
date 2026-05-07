@@ -156,7 +156,7 @@ Generate all platform integrations (slash commands + agent definitions)
 
 ### `harness generate-agent-definitions`
 
-Generate agent definition files from personas for Claude Code and Gemini CLI
+Generate agent definition files from personas for Claude Code, Gemini CLI, and Cursor
 
 **Options:**
 
@@ -178,6 +178,7 @@ Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from
 - `--skills-dir` — Skills directory to scan
 - `--dry-run` — Show what would change without writing
 - `--yes` — Skip deletion confirmation prompts
+- `--cursor-mode` — For cursor platform: "rules" (.mdc with description/globs/alwaysApply, default) or "commands" (.md with name/description for plugin commands/ dir) (default: "rules")
 
 ### `harness impact-preview`
 

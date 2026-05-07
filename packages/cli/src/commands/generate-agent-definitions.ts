@@ -6,6 +6,7 @@ import { loadPersona, listPersonas } from '../persona/loader';
 import { generateAgentDefinition, type AgentDefinition } from '../agent-definitions/generator';
 import { renderClaudeCodeAgent } from '../agent-definitions/render-claude-code';
 import { renderGeminiAgent } from '../agent-definitions/render-gemini-cli';
+import { renderCursorAgent } from '../agent-definitions/render-cursor';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
 import { resolvePersonasDir, resolveSkillsDir } from '../utils/paths';
 import { CLIError, ExitCode, handleError } from '../utils/errors';
@@ -30,19 +31,16 @@ export interface GenerateAgentDefsResult {
 
 function resolveOutputDir(platform: Platform, opts: { global: boolean; output?: string }): string {
   if (opts.output) {
-    return platform === 'claude-code'
-      ? path.join(opts.output, 'claude-code')
-      : path.join(opts.output, 'gemini-cli');
+    return path.join(opts.output, platform);
   }
   if (opts.global) {
     const home = os.homedir();
-    return platform === 'claude-code'
-      ? path.join(home, '.claude', 'agents')
-      : path.join(home, '.gemini', 'agents');
+    if (platform === 'claude-code') return path.join(home, '.claude', 'agents');
+    if (platform === 'gemini-cli') return path.join(home, '.gemini', 'agents');
+    if (platform === 'cursor') return path.join(home, '.cursor', 'agents');
+    return path.join(home, '.codex', 'agents');
   }
-  return platform === 'claude-code'
-    ? path.join('agents', 'agents', 'claude-code')
-    : path.join('agents', 'agents', 'gemini-cli');
+  return path.join('agents', 'agents', platform);
 }
 
 function loadSkillContent(skillName: string): string | null {
@@ -53,7 +51,11 @@ function loadSkillContent(skillName: string): string | null {
 }
 
 function getRenderer(platform: Platform): (def: AgentDefinition) => string {
-  return platform === 'claude-code' ? renderClaudeCodeAgent : renderGeminiAgent;
+  if (platform === 'claude-code') return renderClaudeCodeAgent;
+  if (platform === 'cursor') return renderCursorAgent;
+  // gemini-cli and codex (Codex has no plugin agents field; this branch is
+  // reachable only via gemini-cli today).
+  return renderGeminiAgent;
 }
 
 export function generateAgentDefinitions(
@@ -147,7 +149,9 @@ function printAgentDefsResult(result: GenerateAgentDefsResult, dryRun: boolean):
 
 export function createGenerateAgentDefinitionsCommand(): Command {
   return new Command('generate-agent-definitions')
-    .description('Generate agent definition files from personas for Claude Code and Gemini CLI')
+    .description(
+      'Generate agent definition files from personas for Claude Code, Gemini CLI, and Cursor'
+    )
     .option('--platforms <list>', 'Target platforms (comma-separated)', 'claude-code,gemini-cli')
     .option('--global', 'Write to global agent directories', false)
     .option('--output <dir>', 'Custom output directory')

@@ -1,0 +1,38 @@
+---
+description: Respect the layer boundaries and dependency rules declared in harness.config.json. Refactor before importing across forbidden boundaries.
+alwaysApply: true
+---
+
+# Respect architecture
+
+If the project has layer definitions in `harness.config.json` (intermediate adoption level or above), every new or modified import must stay within the allowed direction.
+
+## How to check before adding an import
+
+Before adding `import X from 'foo'`:
+
+1. Identify which layer the importing module belongs to (by file path, mapped through `harness.config.json` → `layers`).
+2. Identify which layer `foo` belongs to.
+3. Cross-reference against `harness.config.json` → `constraints` (or equivalent). If the direction is forbidden, **do not add the import**.
+
+`harness check-deps` will catch the violation, but waiting for it wastes the human's time. Catch it at design time.
+
+## Common forbidden patterns
+
+- **Skipping the service layer** — routes/controllers importing directly from db/repositories. Almost always wrong; route through services.
+- **Upward imports** — data layer importing from business layer, business layer importing from presentation. Inverts the dependency direction.
+- **Circular deps** — module A imports B, B imports A. `harness check-arch` tracks these against a baseline; net-new circles are blockers.
+
+## When the constraint feels wrong
+
+The constraint exists for a reason — typically a real incident or a deliberate architectural decision. Before proposing to relax it:
+
+1. Read `AGENTS.md` and any architecture-relevant docs in `docs/`. Is the rationale recorded?
+2. If the rationale is unclear, ask the human before refactoring around it.
+3. If the constraint genuinely doesn't fit the new code, propose changing it explicitly (with a code change to `harness.config.json`), not bypassing it.
+
+## What you must not do
+
+- Never add `// eslint-disable-next-line` or `// harness-ignore` to suppress a layer violation. If the violation is intentional, change the constraint. If it's a bug, refactor.
+- Never assume "it's just one import, fix it later." Architectural drift compounds.
+- Never refactor existing layer rules without confirming with the human first.

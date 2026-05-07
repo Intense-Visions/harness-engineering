@@ -1,0 +1,23 @@
+{
+  "name": "harness-cursor",
+  "version": "0.1.0",
+  "description": "Harness for Cursor — skills, /harness:* slash commands, persona subagents, lifecycle hooks, project rules, and MCP tools without per-repo `harness setup`. Sibling plugins exist for Claude Code, Gemini CLI, and Codex.",
+  "author": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering",
+  "license": "MIT",
+  "keywords": ["harness", "agent-first", "skills", "subagents", "rules", "hooks", "mcp", "cursor"],
+  "skills": ["./agents/skills/cursor"],
+  "commands": "./.cursor-plugin/commands/",
+  "agents": "./.cursor-plugin/agents/",
+  "rules": "./.cursor-plugin/rules/",
+  "hooks": "./.cursor-plugin/hooks.json",
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["-y", "-p", "@harness-engineering/cli@latest", "harness-mcp"]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+---
+description: Run harness validate (and check-deps if intermediate+) before committing. Validation is mechanical truth, not a suggestion.
+alwaysApply: true
+---
+
+# Validate before commit
+
+Before any commit lands, the project must pass harness validation. This is non-negotiable mechanical enforcement, not a stylistic preference.
+
+## What to run
+
+For every change set, before suggesting `git commit`:
+
+```bash
+npx @harness-engineering/cli validate
+# If the project's adoption level is intermediate or above:
+npx @harness-engineering/cli check-deps
+```
+
+If `harness` is on PATH (npm install path), drop the `npx @harness-engineering/cli` prefix.
+
+## When validation fails
+
+Treat the failure as a **bug to fix**, not noise to suppress. Specifically:
+
+- **Schema errors in `harness.config.json`** — fix the schema; do not bypass.
+- **Missing AGENTS.md sections** — add the required content; do not delete the validation.
+- **Layer violations** (`harness check-deps`) — either refactor the imports to respect the boundary, or update the constraint with a deliberate, documented decision. Never bypass with a one-off exception.
+
+## What you must not do
+
+- Never propose `git commit --no-verify` or any `--no-*` flag that skips harness checks. The `block-no-verify` hook (in the standard profile) will reject the command, and proposing it anyway burns trust.
+- Never suggest "we'll fix it after the commit." If validation fails, the commit is not ready.
+- Never assume tests passing means validation passes. They check different things.
+
+## Why this rule exists
+
+Harness encodes architectural decisions as machine-checkable constraints. Bypassing validation is bypassing the team's design — surfaced as code, not as a Slack thread. If a constraint is wrong, change the constraint with intent; don't ignore the violation.

@@ -6,6 +6,7 @@ import readline from 'node:readline';
 import { normalizeSkills } from '../slash-commands/normalize';
 import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
+import { renderCursorCommand } from '../slash-commands/render-cursor-command';
 import { renderGemini } from '../slash-commands/render-gemini';
 import { renderCursor } from '../slash-commands/render-cursor';
 import { renderCodexAgentsMd } from '../slash-commands/render-codex';
@@ -110,9 +111,13 @@ function resolveAbsoluteExecutionContext(spec: SlashCommandSpec): SlashCommandSp
 function renderSpec(
   platform: Platform,
   spec: SlashCommandSpec,
-  useAbsolutePaths: boolean
+  useAbsolutePaths: boolean,
+  cursorMode: 'rules' | 'commands' = 'rules'
 ): [string, string] {
   if (platform === 'cursor') {
+    if (cursorMode === 'commands') {
+      return [`${spec.name}.md`, renderCursorCommand(spec)];
+    }
     const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
     const skillMd = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
     return [`${spec.skillYamlName}.mdc`, renderCursor(spec, skillMd, spec.cursor)];
@@ -157,7 +162,7 @@ function generateForPlatform(
   const customNamespaceRendered = new Map<string, Map<string, string>>();
 
   for (const spec of specs) {
-    const [filename, content] = renderSpec(platform, spec, opts.global);
+    const [filename, content] = renderSpec(platform, spec, opts.global, opts.cursorMode);
     // Skills with command_name override the namespace prefix and belong at the
     // parent directory level (e.g. ~/.claude/commands/harness.md → /harness),
     // NOT inside the namespace subdirectory (which would give /harness:harness).
@@ -320,11 +325,23 @@ export function createGenerateSlashCommandsCommand(): Command {
     .option('--skills-dir <path>', 'Skills directory to scan')
     .option('--dry-run', 'Show what would change without writing', false)
     .option('--yes', 'Skip deletion confirmation prompts', false)
+    .option(
+      '--cursor-mode <mode>',
+      'For cursor platform: "rules" (.mdc with description/globs/alwaysApply, default) or "commands" (.md with name/description for plugin commands/ dir)',
+      'rules'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
       try {
         const platforms = validatePlatforms(opts.platforms.split(',').map((p: string) => p.trim()));
+
+        if (opts.cursorMode !== 'rules' && opts.cursorMode !== 'commands') {
+          throw new CLIError(
+            `Invalid --cursor-mode "${opts.cursorMode}". Expected "rules" or "commands".`,
+            ExitCode.VALIDATION_FAILED
+          );
+        }
 
         const generateOpts: GenerateOptions = {
           platforms,
@@ -334,6 +351,7 @@ export function createGenerateSlashCommandsCommand(): Command {
           skillsDir: opts.skillsDir ?? '',
           dryRun: opts.dryRun,
           yes: opts.yes,
+          cursorMode: opts.cursorMode,
         };
 
         const results = generateSlashCommands(generateOpts);
