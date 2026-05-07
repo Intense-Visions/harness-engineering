@@ -33,7 +33,7 @@ function main() {
       process.exit(0);
     }
 
-    if (/--no-verify/.test(command) || /\bgit\b.*\bcommit\b.*\s-n\b/.test(command)) {
+    if (containsHookBypass(command)) {
       process.stderr.write(
         'BLOCKED: --no-verify flag detected. Hooks must not be bypassed.\n'
       );
@@ -45,6 +45,24 @@ function main() {
     // Unexpected error — fail open
     process.exit(0);
   }
+}
+
+// Strip heredoc bodies, quoted strings, and shell comments so flag detection
+// runs against argv tokens only — not text the user is just talking about.
+function stripStringsAndComments(cmd) {
+  let s = cmd;
+  s = s.replace(/<<-?\s*['"]?(\w+)['"]?[\s\S]*?\n\s*\1\b/g, ' ');
+  s = s.replace(/'[^']*'/g, ' ');
+  s = s.replace(/"(?:[^"\\]|\\.)*"/g, ' ');
+  s = s.replace(/(^|[\s;&|`(])#[^\n]*/g, '$1');
+  return s;
+}
+
+function containsHookBypass(command) {
+  const stripped = stripStringsAndComments(command);
+  if (/(?:^|\s)--no-verify(?=\s|$)/.test(stripped)) return true;
+  if (/\bgit\s+(?:[\w-]+\s+)*?commit\b[^\n]*?(?:^|\s)-n(?=\s|$)/.test(stripped)) return true;
+  return false;
 }
 
 main();
