@@ -1,0 +1,37 @@
+---
+description: Lifecycle hooks are part of the project's safety surface. Don't propose flags or workarounds that bypass them.
+alwaysApply: true
+---
+
+# Respect lifecycle hooks
+
+The standard hook profile (shipped with the harness plugin) wires several pre- and post-tool hooks that exist for specific safety reasons:
+
+| Hook | Event | What it blocks |
+| --- | --- | --- |
+| `block-no-verify` | PreToolUse:Bash | Any command containing `--no-verify` (or equivalent skip flags) |
+| `protect-config` | PreToolUse:Write/Edit | Edits to harness/git/CI config without explicit human approval |
+| `quality-gate` | PostToolUse:Edit/Write | Files left in failing-validation state |
+| `pre-compact-state` | PreCompact | Loss of session state during context compaction |
+| `adoption-tracker` / `telemetry-reporter` | Stop | (log-only — never block) |
+
+These hooks are not noise. Each was added in response to a specific failure mode.
+
+## What you must not do
+
+- **Never propose `git commit --no-verify`.** `block-no-verify` will reject it, and proposing it anyway tells the human you didn't read the rule.
+- **Never propose modifying or removing hook scripts** without the human asking explicitly. If a hook is firing too often, the right fix is calibration (in the hook's own rules file or `harness.config.json`), not deletion.
+- **Never bypass `protect-config` by suggesting a manual override.** If `harness.config.json` or `.claude/settings.json` legitimately needs editing, do so directly via the Edit tool — the hook will surface for approval, which is the intended flow.
+- **Never silence `quality-gate` after a failed edit.** Fix the file so validation passes, or revert the edit.
+
+## When a hook misfires
+
+If you genuinely believe a hook is wrong (false positive on a rule):
+
+1. Surface it to the human. Don't quietly route around it.
+2. Suggest updating the hook's logic or calibration, not bypassing the event.
+3. Reference the specific hook by name so the human can locate and audit it.
+
+## Why this rule exists
+
+Hooks are mechanical safety. If a hook is wrong, fix it deliberately. If a hook is right, respect it. The middle path — bypassing a hook because it's inconvenient — is how the original incident that motivated the hook recurs.

@@ -1,0 +1,38 @@
+---
+description: Prefer harness skills (/harness:* slash commands and trigger-fired skills) over freelancing. Skills encode hard-won team workflows.
+alwaysApply: true
+---
+
+# Use harness skills, don't freelance
+
+When a task matches a harness skill, invoke the skill instead of improvising. Skills capture workflows that survived prior incidents — bypassing them often re-introduces the same bugs.
+
+## Common matches
+
+| Task | Skill / command |
+| --- | --- |
+| Implementing a new feature | `/harness:planning` then `/harness:execution` |
+| Reviewing changes | `/harness:code-review` |
+| Detecting structural risk | `/harness:hotspot-detector` or `/harness:dependency-health` |
+| Bootstrapping or instrumenting a project | `/harness:initialize-project` |
+| Cleaning dead code or fixing patterns | `/harness:cleanup-dead-code` or `/harness:codebase-cleanup` |
+| Verifying changes mechanically | `/harness:verify` |
+| Doc drift detection | `/harness:detect-doc-drift` |
+| Architecture decisions | `/harness:architecture-advisor` |
+| Performance enforcement | `/harness:perf` |
+
+For a complete list, run `npx @harness-engineering/cli skills list` or check the marketplace plugin's `commands/` directory.
+
+## When to skip a skill
+
+- The task is genuinely outside the skill's scope (e.g., the skill doesn't cover your stack).
+- The human explicitly asked for a different approach.
+- The skill's flow has been overridden in this repo's `AGENTS.md` or skill calibration files.
+
+In all three cases, state the skip explicitly: *"Skipping `/harness:code-review` because the change is documentation-only — running just `format:check` instead."* Then proceed.
+
+## What you must not do
+
+- Never assume "I know what code review is, I don't need the skill." Skills carry calibration data (per-repo learnings, false-positive history, severity rules) you don't have in context.
+- Never replace a skill's structured output with prose. The skill's output format is what downstream automation expects.
+- Never invoke the skill and then ignore its findings. If the finding is wrong, push back with evidence; don't silently drop it.

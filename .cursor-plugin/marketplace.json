@@ -1,0 +1,35 @@
+{
+  "name": "harness",
+  "owner": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "description": "Harness — agent-first development toolkit. The `harness-cursor` plugin ships skills, slash commands, persona subagents, project rules, hooks, and MCP for Cursor. Sibling plugins (`harness-claude`, `harness-gemini`, `harness-codex`) target the other major AI coding tools.",
+  "plugins": [
+    {
+      "name": "harness-cursor",
+      "source": ".",
+      "description": "Harness for Cursor: every skill, /harness:* slash command, the 12 persona subagents, lifecycle hooks (standard profile), curated project rules, and the harness MCP server in one install. Removes the need to run `harness setup` per repo.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intense Visions",
+        "url": "https://github.com/Intense-Visions"
+      },
+      "homepage": "https://github.com/Intense-Visions/harness-engineering",
+      "license": "MIT",
+      "keywords": [
+        "harness",
+        "agent-first",
+        "skills",
+        "subagents",
+        "slash-commands",
+        "rules",
+        "hooks",
+        "mcp",
+        "cursor",
+        "validation",
+        "scaffolding"
+      ]
+    }
+  ]
+}

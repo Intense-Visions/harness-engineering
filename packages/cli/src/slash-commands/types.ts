@@ -36,6 +36,15 @@ export interface SlashCommandSpec {
   };
 }
 
+/**
+ * For the `cursor` platform, decides whether output is rendered as Cursor
+ * rules (`.mdc` with description/globs/alwaysApply — for `~/.cursor/rules/`)
+ * or as Cursor plugin commands (`.md` with name/description — for
+ * `<plugin>/commands/`). Defaults to `rules` for backward compatibility
+ * with `harness setup`.
+ */
+export type CursorRenderMode = 'rules' | 'commands';
+
 export interface GenerateOptions {
   platforms: Platform[];
   global: boolean;
@@ -44,6 +53,7 @@ export interface GenerateOptions {
   skillsDir: string;
   dryRun: boolean;
   yes: boolean;
+  cursorMode?: CursorRenderMode;
 }
 
 export const GENERATED_HEADER_CLAUDE =

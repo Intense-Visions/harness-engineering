@@ -72,6 +72,6 @@ temp/
 agents/commands/
 agents/agents/
 
-# Plugin generator staging dirs (cleaned up after each run)
-tmp-plugin-commands/
-tmp-plugin-agents/
+# Plugin generator staging dirs (per-target, cleaned up after each run)
+tmp-plugin-*-commands/
+tmp-plugin-*-agents/
