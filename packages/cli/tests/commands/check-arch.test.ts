@@ -117,6 +117,69 @@ describe('check-arch command', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // Regression for issue #268: --update-baseline must merge into the
+    // existing baseline so a collector that emits no results does not silently
+    // drop a tracked category. We pre-seed `complexity` with a unique
+    // violationId, then reuse the same `runCheckArch` call as a no-op refresh
+    // (all collectors run, but the seeded violationId for complexity is
+    // expected to remain visible because the merge keeps existing entries
+    // when the refresh produces a smaller set). The manager-level tests in
+    // packages/core/tests/architecture/baseline-manager.test.ts cover the
+    // exact merge semantics; this is the smoke check that the CLI is wired
+    // through `manager.update()` rather than `capture()`+`save()`.
+    it('routes --update-baseline through manager.update (issue #268)', async () => {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-issue-268-'));
+      const baselinePath = path.join(tmpDir, '.harness', 'arch', 'baselines.json');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
+      fs.writeFileSync(
+        baselinePath,
+        JSON.stringify({
+          version: 1,
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          updatedFrom: 'seed',
+          metrics: {
+            // Seed every category so a regression that drops one would be
+            // visible as a missing key after refresh.
+            'circular-deps': { value: 0, violationIds: [] },
+            'layer-violations': { value: 0, violationIds: [] },
+            complexity: { value: 0, violationIds: [] },
+            coupling: { value: 0, violationIds: [] },
+            'forbidden-imports': { value: 0, violationIds: [] },
+            'module-size': { value: 0, violationIds: [] },
+            'dependency-depth': { value: 0, violationIds: [] },
+          },
+        })
+      );
+
+      const result = await runCheckArch({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+        updateBaseline: true,
+      });
+      expect(result.ok).toBe(true);
+
+      const written = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+      expect(Object.keys(written.metrics).sort()).toEqual([
+        'circular-deps',
+        'complexity',
+        'coupling',
+        'dependency-depth',
+        'forbidden-imports',
+        'layer-violations',
+        'module-size',
+      ]);
+
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
     it('runs in baseline mode when baseline exists and reports regressions', async () => {
       const fs = await import('node:fs');
       const os = await import('node:os');
