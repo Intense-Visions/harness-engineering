@@ -58,6 +58,42 @@ This installs the CLI and runs interactive setup: generates global slash command
 
 > **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills. Marketplace plugin users update via `/plugin update harness-claude`.
 
+### Plugin vs. npm: what you actually get
+
+The marketplace plugin is the **agent-session interface**. The npm package is what you need for shell-level workflows. Pick based on where you actually use harness:
+
+| Surface                                                                          | `harness-claude` plugin                          | `npm install -g @harness-engineering/cli`          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Inside a Claude Code session — skills, `/harness:*`, subagents, hooks, MCP tools | ✅ full parity                                   | ✅ same (after `harness setup`)                    |
+| Cursor / Gemini CLI / Codex / OpenCode integration                               | ❌ (sibling plugins coming)                      | ✅ `harness setup` configures all detected clients |
+| Terminal use — `harness validate`, `harness init`, `harness check-arch`          | ⚠️ only via `npx @harness-engineering/cli <cmd>` | ✅ binary in PATH                                  |
+| CI workflows (GitHub Actions, etc.)                                              | ⚠️ workable via `npx` (cold-start cost per job)  | ✅ `npm install -g` once, fast thereafter          |
+| Git pre-commit hooks (`harness validate` on commit)                              | ⚠️ npx-based, slow                               | ✅ direct binary, fast                             |
+| `harness setup` peer integrations (Linear, Slack, …)                             | ❌ not configured                                | ✅ wired during interactive setup                  |
+
+**TL;DR**: if you only use harness inside Claude Code, the plugin is enough. If you use it from a terminal, in CI, or alongside other AI tools, install the npm package too — they coexist cleanly.
+
+#### Updates
+
+Plugin users have two update channels that can drift slightly:
+
+- **Bundled artifacts** (skills, slash commands, subagents, hooks) ship from this git repo. Update via `/plugin update harness-claude`.
+- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@latest harness-mcp`, so each new session pulls the latest published npm version (subject to npx's ~24h cache).
+
+In practice they stay close together because npm publishes follow git tags. If you need them locked in step (e.g. for a release window), `npm install -g @harness-engineering/cli` and use `harness setup` instead.
+
+#### Shell-from-plugin escape hatch
+
+If you only have the plugin installed and need a shell-level harness command, `npx` works without a global install:
+
+```bash
+npx @harness-engineering/cli validate
+npx @harness-engineering/cli check-deps
+npx @harness-engineering/cli check-arch
+```
+
+First call is slow (npx fetches the package); subsequent calls within the cache window are fast. For frequent terminal use, `npm install -g` is still the better path.
+
 ### 2. Scaffold a new project
 
 In an AI agent session (Claude Code, Gemini CLI):
