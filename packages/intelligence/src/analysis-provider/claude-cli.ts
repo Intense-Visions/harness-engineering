@@ -105,17 +105,26 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
 
         try {
           const parsed = JSON.parse(stdout);
-          // Claude --output-format json returns { result, usage, model, ... }
-          const content = parsed.result ?? parsed;
+          // Claude Code CLI 2.1.x with --output-format json --json-schema returns
+          // { type: 'result', result: '<natural-language summary string>',
+          //   structured_output: { ...schema-conforming object... }, usage, model, ... }.
+          // Older CLI versions put the schema-conforming response in `result`
+          // (sometimes JSON-encoded as a string). Prefer structured_output, then
+          // fall back to result, then to the raw envelope.
+          const content = parsed.structured_output ?? parsed.result ?? parsed;
           resolve({
             content: typeof content === 'string' ? JSON.parse(content) : content,
             usage: parsed.usage,
             model: parsed.model,
           });
         } catch (err) {
+          const stdoutSnippet = stdout.slice(0, 500);
+          const stderrSnippet = stderr.slice(0, 500);
           reject(
             new Error(
-              `Failed to parse Claude CLI output: ${err instanceof Error ? err.message : String(err)}`
+              `Failed to parse Claude CLI output: ${err instanceof Error ? err.message : String(err)}. ` +
+                `stdout (first 500 chars): ${JSON.stringify(stdoutSnippet)}. ` +
+                `stderr (first 500 chars): ${JSON.stringify(stderrSnippet)}`
             )
           );
         }
