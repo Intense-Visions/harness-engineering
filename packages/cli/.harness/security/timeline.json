@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "capturedAt": "2026-05-06T13:25:36.206Z",
+      "commitHash": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
+      "securityScore": 93,
+      "totalFindings": 3,
+      "bySeverity": {
+        "error": 2,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "xss": {
+          "findingCount": 2,
+          "errorCount": 2,
+          "warningCount": 0,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": ["783a5c009a968228", "caebb5c38de36a6e", "8b93df1cff804a2e"]
+    }
+  ],
+  "findingLifecycles": [
+    {
+      "findingId": "783a5c009a968228",
+      "ruleId": "SEC-XSS-001",
+      "category": "xss",
+      "severity": "error",
+      "file": "coverage/prettify.js",
+      "firstSeenAt": "2026-05-06T13:25:36.125Z",
+      "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "caebb5c38de36a6e",
+      "ruleId": "SEC-XSS-001",
+      "category": "xss",
+      "severity": "error",
+      "file": "coverage/sorter.js",
+      "firstSeenAt": "2026-05-06T13:25:36.125Z",
+      "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "8b93df1cff804a2e",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-05-06T13:25:36.125Z",
+      "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    }
+  ]
+}

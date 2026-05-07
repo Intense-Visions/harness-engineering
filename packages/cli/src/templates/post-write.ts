@@ -52,13 +52,17 @@ export function persistToolingConfig(
 export function ensureHarnessGitignore(targetDir: string): void {
   const gitignorePath = path.join(targetDir, '.harness', '.gitignore');
 
+  // Tracked categories (intentionally NOT ignored):
+  //   hooks/                       — team-policy enforcement scripts (block-no-verify,
+  //                                  protect-config, quality-gate, …) plus profile.json.
+  //                                  Treated like a lockfile: review CLI-upgrade diffs.
+  //   security/timeline.json       — shared security trend ledger keyed by commit hash.
+  //                                  Lifecycle paths are repo-relative.
   const content = `# Runtime artifacts (generated, ephemeral, session-scoped)
 analyses/
 graph/
 debug/
-hooks/
 interactions/
-security/
 sessions/
 streams/
 workspaces/
@@ -78,6 +82,10 @@ events.jsonl
 .install-id
 telemetry.json
 .telemetry-notice-shown
+
+# security/: track timeline.json (trend ledger), ignore everything else
+security/*
+!security/timeline.json
 `;
 
   fs.mkdirSync(path.dirname(gitignorePath), { recursive: true });

@@ -55,10 +55,14 @@ temp/
 **/.harness/interactions/
 **/.harness/analyses/
 **/.harness/workspaces/
-**/.harness/security/
+# security/: track timeline.json (trend ledger), ignore everything else
+**/.harness/security/*
+!**/.harness/security/timeline.json
 # compound-skill per-category locks (auto-cleanup on process exit)
 **/.harness/locks/
+# Test fixtures: ignore the whole security dir (timeline.json there is test scaffolding)
 **/fixtures/**/.harness/security/
+**/fixtures/**/.harness/security/*
 
 .vitepress
 *.tsbuildinfo

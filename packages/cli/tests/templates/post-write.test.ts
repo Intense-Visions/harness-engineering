@@ -48,4 +48,25 @@ describe('ensureHarnessGitignore', () => {
     expect(content).toContain('.telemetry-notice-shown');
     expect(content).toContain('telemetry.json');
   });
+
+  // Issue #270: hooks/ are team-policy code and security/timeline.json is a shared
+  // trend ledger — both must be tracked by default. Pin the .gitignore semantics so
+  // future edits cannot quietly opt them back out.
+  it('does not ignore .harness/hooks/ wholesale (team-policy scripts are tracked)', () => {
+    ensureHarnessGitignore(tmpDir);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8');
+    const lines = content.split(/\r?\n/);
+    expect(lines).not.toContain('hooks/');
+    expect(lines).not.toContain('hooks');
+    expect(lines).not.toContain('hooks/*');
+  });
+
+  it('tracks security/timeline.json while ignoring other security/* artifacts', () => {
+    ensureHarnessGitignore(tmpDir);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8');
+    const lines = content.split(/\r?\n/);
+    expect(lines).not.toContain('security/');
+    expect(lines).toContain('security/*');
+    expect(lines).toContain('!security/timeline.json');
+  });
 });

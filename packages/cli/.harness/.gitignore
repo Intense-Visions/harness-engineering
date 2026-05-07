@@ -2,9 +2,7 @@
 analyses/
 graph/
 debug/
-hooks/
 interactions/
-security/
 sessions/
 streams/
 workspaces/
@@ -24,3 +22,7 @@ events.jsonl
 .install-id
 telemetry.json
 .telemetry-notice-shown
+
+# security/: track timeline.json (trend ledger), ignore everything else
+security/*
+!security/timeline.json
