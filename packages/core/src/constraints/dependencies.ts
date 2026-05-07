@@ -13,7 +13,7 @@ import type {
   GraphDependencyData,
 } from './types';
 import { resolveFileToLayer } from './layers';
-import { findFiles, relativePosix } from '../shared/fs-utils';
+import { findFiles, fileExists, relativePosix } from '../shared/fs-utils';
 import { dirname, resolve, extname } from 'path';
 
 export { defineLayer } from './layers';
@@ -28,6 +28,25 @@ const EXTENSION_BY_LANG: Record<string, string[]> = {
   go: ['.go'],
   rust: ['.rs'],
   java: ['.java'],
+};
+
+/**
+ * Module-resolution conventions where the import specifier writes a runtime
+ * extension that does not match the on-disk source extension (issue #279).
+ * Two real-world cases:
+ *
+ * - TS NodeNext / "Bundler": `./foo.js` from a TS file → `foo.ts`/`foo.tsx`.
+ * - Babel/webpack JSX: `./Foo.js` from a JS file → `Foo.jsx` via webpack's
+ *   `resolve.extensions`.
+ *
+ * Each JS-style import extension maps to the source extensions to try, in
+ * priority order. Existence is checked before the candidate is returned.
+ */
+const JS_EXT_FALLBACKS: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx', '.jsx'],
+  '.jsx': ['.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
 };
 
 /**
@@ -65,36 +84,58 @@ function getExtensionsForLang(lang: string | null): string[] {
 /**
  * Resolve an import source to an absolute file path.
  * Language-aware: uses the importing file's language to determine extensions.
+ *
+ * Async because JS-style imports (`./foo.js`) may resolve to a different
+ * on-disk extension under TS NodeNext (`foo.ts`) or Babel/webpack JSX
+ * (`Foo.jsx`); each candidate is verified against the filesystem before being
+ * returned. Without this, the resolver would either append `.ts` to `.js`
+ * (`foo.js.ts`) or hand back a literal `foo.js` that does not exist, silently
+ * dropping edges from the dependency graph (issue #279).
  */
-function resolveImportPath(
+async function resolveImportPath(
   importSource: string,
   fromFile: string,
   _rootDir: string
-): string | null {
+): Promise<string | null> {
   // Skip external packages
   if (!importSource.startsWith('.') && !importSource.startsWith('/')) {
     return null;
   }
 
   const fromDir = dirname(fromFile);
-  let resolved = resolve(fromDir, importSource);
+  const resolved = resolve(fromDir, importSource);
+  const sourceExt = extname(resolved);
+  const fromLang = detectLangFromExt(extname(fromFile));
 
-  // Detect language from the importing file's extension
-  const ext = extname(fromFile);
-  const lang = detectLangFromExt(ext);
-  const extensions = getExtensionsForLang(lang);
+  // JS-style import extension that may need to be swapped for the on-disk
+  // source extension. Applies whenever the import looks like `./foo.js` etc.,
+  // regardless of importing language — both TS NodeNext and Babel JSX projects
+  // use this convention. Non-relative paths are rejected above, so this only
+  // runs for in-repo imports.
+  const fallbacks = JS_EXT_FALLBACKS[sourceExt];
+  if (fallbacks) {
+    const base = resolved.slice(0, -sourceExt.length);
+    for (const ext of fallbacks) {
+      const candidate = base + ext;
+      if (await fileExists(candidate)) return candidate.replace(/\\/g, '/');
+    }
+    for (const indexExt of ['.ts', '.tsx', '.jsx']) {
+      const indexPath = resolve(base, 'index' + indexExt);
+      if (await fileExists(indexPath)) return indexPath.replace(/\\/g, '/');
+    }
+  }
 
-  // Check if the resolved path already has a supported extension
+  // Path already has a supported extension — return as-is.
   const hasKnownExt = Object.values(EXTENSION_BY_LANG)
     .flat()
     .some((e) => resolved.endsWith(e));
-
-  if (!hasKnownExt) {
-    resolved = resolved + extensions[0]!;
+  if (hasKnownExt) {
+    return resolved.replace(/\\/g, '/');
   }
 
-  // Normalize to forward slashes for cross-platform consistency
-  return resolved.replace(/\\/g, '/');
+  // Extensionless: append the importing language's primary extension.
+  const extensions = getExtensionsForLang(fromLang);
+  return (resolved + extensions[0]!).replace(/\\/g, '/');
 }
 
 /**
@@ -158,7 +199,7 @@ export async function buildDependencyGraph(
     }
 
     for (const imp of importsResult.value) {
-      const resolvedPath = resolveImportPath(imp.source, file, '');
+      const resolvedPath = await resolveImportPath(imp.source, file, '');
       if (resolvedPath) {
         edges.push({
           from: normalizedFile,

@@ -11,7 +11,27 @@ import type {
 } from '../types';
 import type { ProtectedRegionMap } from '../../annotations';
 import type { AST } from '../../shared/parsers';
-import { dirname, resolve } from 'path';
+import { dirname, extname, resolve } from 'path';
+
+/**
+ * Module-resolution conventions where the import specifier writes a runtime
+ * extension that does not match the on-disk source extension. Two real-world
+ * cases (issue #279):
+ *
+ * - TS NodeNext / "Bundler": `import "./foo.js"` from a TS source file resolves
+ *   to `foo.ts`/`foo.tsx` on disk.
+ * - Babel/webpack JSX: `import "./Foo.js"` from a JS source file resolves to
+ *   `Foo.jsx` on disk via webpack `resolve.extensions`.
+ *
+ * Each JS-style import extension maps to the source extensions to try, in
+ * priority order. Existence of the candidate is verified before returning.
+ */
+const JS_EXT_FALLBACKS: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx', '.jsx'],
+  '.jsx': ['.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
+};
 
 /** Build a Map keyed by file path for O(1) lookups. */
 function buildFileIndex(
@@ -25,7 +45,12 @@ function buildFileIndex(
 }
 
 /**
- * Resolve import source to absolute path
+ * Resolve import source to absolute path.
+ *
+ * Handles NodeNext / "Bundler" module resolution where TS source imports with
+ * `.js` extensions even though the file on disk is `.ts` (issue #279). When the
+ * import specifier ends in a JS-style extension, strip and try TS equivalents
+ * (and directory-with-index) before falling back to the literal path.
  */
 function resolveImportToFile(
   importSource: string,
@@ -42,22 +67,36 @@ function resolveImportToFile(
     : (p: string) => snapshot.files.some((f) => f.path === p);
 
   const fromDir = dirname(fromFile);
-  let resolved = resolve(fromDir, importSource);
+  const resolved = resolve(fromDir, importSource);
+  const sourceExt = extname(resolved);
+  const fallbacks = JS_EXT_FALLBACKS[sourceExt];
 
-  // Try with .ts extension
-  if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
-    const withTs = resolved + '.ts';
-    if (hasFile(withTs)) {
-      return withTs;
+  if (fallbacks) {
+    const base = resolved.slice(0, -sourceExt.length);
+    for (const ext of fallbacks) {
+      const candidate = base + ext;
+      if (hasFile(candidate)) return candidate;
     }
-    const withIndex = resolve(resolved, 'index.ts');
-    if (hasFile(withIndex)) {
-      return withIndex;
+    // Directory-with-index: `./folder/index.js` may map to `./folder/index.ts`,
+    // and `./folder.js` may map to a directory `./folder/index.ts` in some setups.
+    for (const indexExt of ['.ts', '.tsx', '.jsx']) {
+      const indexPath = resolve(base, 'index' + indexExt);
+      if (hasFile(indexPath)) return indexPath;
     }
   }
 
-  if (hasFile(resolved)) {
-    return resolved;
+  if (hasFile(resolved)) return resolved;
+
+  // Extensionless import: try common TS extensions, then directory index.
+  if (!sourceExt) {
+    for (const ext of ['.ts', '.tsx']) {
+      const candidate = resolved + ext;
+      if (hasFile(candidate)) return candidate;
+    }
+    for (const indexExt of ['.ts', '.tsx']) {
+      const indexPath = resolve(resolved, 'index' + indexExt);
+      if (hasFile(indexPath)) return indexPath;
+    }
   }
 
   return null;
