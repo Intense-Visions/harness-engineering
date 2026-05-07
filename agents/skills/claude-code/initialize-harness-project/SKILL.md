@@ -1,16 +1,31 @@
 # Initialize Harness Project
 
-> Scaffold a new harness-compliant project or migrate an existing project to the next adoption level. Assess current state, configure personas, generate AGENTS.md, and validate the result.
+> Scaffold a new harness-compliant project, migrate an existing project to the next adoption level, or bootstrap an existing project that just got the harness marketplace plugin installed (no `harness setup`). Assess current state, scaffold or migrate, configure, validate, instrument (baselines / telemetry / Tier-0 integrations), and finalize.
 
 ## When to Use
 
 - Starting a brand new project that should be harness-managed from day one
 - Migrating an existing project to harness for the first time
 - Upgrading an existing harness project from one adoption level to the next (basic to intermediate, intermediate to advanced)
+- **Bootstrapping a project for plugin-only users:** the marketplace plugin is installed but `harness setup` was never run, so `harness.config.json`, baselines, telemetry identity, and Tier-0 MCP integrations are missing
+- Refreshing instrumentation on an existing harness project (re-baselining after large changes, migrating legacy layouts, picking up new Tier-0 integrations)
 - When `on_project_init` triggers fire
-- NOT when the project is already at the desired adoption level (use harness-onboarding to orient instead)
+- NOT when the project is already at the desired adoption level AND fully instrumented (use harness-onboarding to orient instead)
 - NOT when adding a single component to an existing harness project (use add-harness-component)
 - NOT when the project has no clear owner or maintainer — harness setup requires someone to own the constraints
+
+## Plugin-only callout
+
+If the user installed only the `harness-claude` (or sibling `harness-cursor`/`harness-gemini`/`harness-codex`) marketplace plugin, no `harness` shell binary is in their PATH. Prefix every CLI invocation in this skill with `npx @harness-engineering/cli`:
+
+```bash
+# instead of: harness validate
+npx @harness-engineering/cli validate
+# instead of: harness check-arch --update-baseline
+npx @harness-engineering/cli check-arch --update-baseline
+```
+
+Detect plugin-only state by checking whether `harness` resolves on PATH (`command -v harness`). If not, use the `npx` form. First call is slow; subsequent calls within ~24h hit the npx cache.
 
 ## Process
 
@@ -140,17 +155,71 @@
 
 3. **Run `harness check-deps`** (intermediate and above) to verify dependency constraints match the actual codebase. If there are violations, decide with the human: update the constraints or fix the code.
 
-### Build the Initial Knowledge Graph
+### Phase 5: INSTRUMENT — Capture Baselines and Wire Integrations
 
-If the project will use graph-based queries, build the initial knowledge graph now:
+This phase closes the parity gap that the marketplace plugin install does not cover: knowledge graph, architecture/perf baselines, telemetry identity, legacy-layout migrations, and Tier-0 MCP integrations. For npm + `harness setup` users most of this was already wired during setup; the steps are still safe to re-run idempotently.
 
-```
-harness scan [path]
-```
+1. **Build the initial knowledge graph.** Required for graph-based MCP tools (`get_impact`, `find_context_for`, `compute_blast_radius`, `detect_anomalies`):
 
-This creates the `.harness/graph/` directory and populates it with the project's dependency and relationship data. Subsequent graph queries (impact analysis, dependency health, test advisor) depend on this initial scan.
+   ```bash
+   harness scan
+   ```
 
-4. **Set up project roadmap.** Ask: "Set up a project roadmap now? `docs/roadmap.md` tracks features, milestones, and status across your specs and plans." Use `emit_interaction`:
+   Populates `.harness/graph/` with dependency and relationship data. Skip only if the project explicitly disables graph use in `harness.config.json`.
+
+2. **Capture the architecture baseline.** Records the current layer-violation, circular-dep, and complexity counts so future runs of `harness check-arch` can detect regressions:
+
+   ```bash
+   harness check-arch --update-baseline
+   ```
+
+   Writes `.harness/arch/baselines.json`. Re-run after large refactors. CI (`refresh-baselines` job in `.github/workflows/ci.yml` on this repo) auto-refreshes on `main` for harness-developing projects; downstream projects do this manually here.
+
+3. **Capture the performance baseline** (intermediate and above, or any project that wants regression detection on coupling and size budgets):
+
+   ```bash
+   harness check-perf
+   ```
+
+   First invocation captures the baseline; subsequent runs compare against it. Updates can be applied via the `update_perf_baselines` MCP tool when the human confirms a regression is intentional.
+
+4. **Configure telemetry identity** (optional but recommended for teams). Anonymous telemetry is default-enabled by the standard hook profile; identity tagging adds project/team/alias to events for filtering. Ask the human:
+   - "Tag telemetry events with project + team identity? (recommended for shared installs, optional for personal use)"
+   - If yes, run:
+
+     ```bash
+     harness telemetry identify --project <project-name> --team <team-name>
+     ```
+
+     Writes `.harness/telemetry.json`.
+
+   - If they want to disable telemetry entirely, write `{ "telemetry": { "enabled": false }, "adoption": { "enabled": false } }` to `harness.config.json`. Or recommend the `DO_NOT_TRACK=1` env var.
+
+5. **Surface legacy layout warnings.** If the project predates the current harness layout (`docs/plans/`, `.harness/architecture/`, etc.), the migrate command surfaces and optionally fixes them:
+
+   ```bash
+   harness migrate --dry-run
+   ```
+
+   If migrations are needed, ask the human before running `harness migrate` (without `--dry-run`). Skip silently when the dry-run reports nothing.
+
+6. **Wire Tier-0 MCP integrations.** Tier-0 is zero-config (no API keys): `context7` (live library docs), `sequential-thinking` (structured reasoning), `playwright` (browser automation). On npm + `harness setup` they're auto-wired during step 4 of setup; on plugin-only installs they are NOT, since the plugin can't mutate the user's project `.mcp.json`.
+
+   List current state, then offer to wire:
+
+   ```bash
+   harness integrations list
+   # then for each missing Tier-0 integration:
+   harness integrations add context7
+   harness integrations add sequential-thinking
+   harness integrations add playwright
+   ```
+
+   For Tier-1 integrations (Linear, Slack, Perplexity, etc.), surface availability with `harness integrations list` and let the human decide — they require API keys and are out of scope for an automated bootstrap.
+
+### Phase 6: FINALIZE — Roadmap and Commit
+
+1. **Set up project roadmap.** Ask: "Set up a project roadmap now? `docs/roadmap.md` tracks features, milestones, and status across your specs and plans." Use `emit_interaction`:
 
    ```json
    emit_interaction({
@@ -183,7 +252,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
      - **If `design.enabled === true` in `harness.config.json`** (set by Phase 3 step 5b), call `manage_roadmap` with `action: add`, `feature: "Set up design system"`, `status: "planned"`, `milestone: "Current Work"`, `summary: "Run harness-design-system to define palette, typography, and generate W3C DTCG tokens. Deferred from project init — fires on first design-touching feature via on_new_feature."`. Skip silently if `manage_roadmap show` reports a duplicate `(feature, milestone)` pair. This closes the loop between deferred design intent and visible planning work.
    - **No:** Skip silently. The user can still run `/harness:roadmap --create` later — that informational fallback remains valid.
 
-5. **Commit the initialization.** All generated and configured files in a single commit.
+2. **Commit the initialization.** All generated, configured, and instrumentation files in a single commit. Include `harness.config.json`, `AGENTS.md`, `.harness/arch/baselines.json`, `.harness/telemetry.json` (if created), updates to project `.mcp.json` (if Tier-0 integrations were wired), and any roadmap files.
 
 ## Harness Integration
 
@@ -192,11 +261,17 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness persona generate`** — Generate persona definitions based on project stack and team structure.
 - **`harness validate`** — Verify the full project configuration is valid and complete.
 - **`harness check-deps`** — Verify dependency constraints match the actual codebase (intermediate and above).
+- **`harness scan`** — Phase 5 step 1. Builds the initial knowledge graph at `.harness/graph/`.
+- **`harness check-arch --update-baseline`** — Phase 5 step 2. Captures the architecture baseline at `.harness/arch/baselines.json` so future runs can detect regressions.
+- **`harness check-perf`** — Phase 5 step 3. Runs structural complexity, coupling, and size budget checks; first invocation captures the baseline.
+- **`harness telemetry identify --project <name> --team <name>`** — Phase 5 step 4. Tags telemetry events with identity for filtering. Writes `.harness/telemetry.json`.
+- **`harness migrate --dry-run` / `harness migrate`** — Phase 5 step 5. Surfaces and optionally fixes legacy layouts (`docs/plans/`, `.harness/architecture/`).
+- **`harness integrations list` / `harness integrations add <name>`** — Phase 5 step 6. Lists Tier-0 (zero-config) and Tier-1 (API-key) MCP integrations and adds them to project `.mcp.json`.
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
 - **`harness-design-system` (deferred via `on_new_feature`)** — Phase 3 step 5b records `design.enabled` + `design.platforms` in `harness.config.json` but does NOT run the full design-system skill. Token generation defers to the first design-touching feature, where `harness-design-system` fires via `on_new_feature` and reads `design.enabled` to decide whether to proceed.
 - **`initialize-test-suite-project`** — Sub-skill. Invoked during Phase 3 step 6 when Phase 1 step 5 classified the project as a test suite. Owns archetype selection, shared-library vs in-repo decision, layer variants, tag taxonomy, reporter stack, custom report, and "prove the guards fire" verification.
-- **`harness-roadmap` skill** — Phase 4 step 4 invokes this skill (or `/harness:roadmap --create`) when the user opts in to creating `docs/roadmap.md`. The `manage_roadmap` MCP tool does not create roadmaps; it manages entries in an existing one.
-- **`manage_roadmap` MCP tool** — Phase 4 step 4, when `design.enabled === true`, calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item under milestone `Current Work` with a summary describing the deferred work.
+- **`harness-roadmap` skill** — Phase 6 step 1 invokes this skill (or `/harness:roadmap --create`) when the user opts in to creating `docs/roadmap.md`. The `manage_roadmap` MCP tool does not create roadmaps; it manages entries in an existing one.
+- **`manage_roadmap` MCP tool** — Phase 6 step 1, when `design.enabled === true`, calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item under milestone `Current Work` with a summary describing the deferred work.
 
 ## Success Criteria
 
@@ -210,9 +285,11 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
 - For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
+- **Phase 5 (INSTRUMENT) outputs:** `.harness/graph/` is populated; `.harness/arch/baselines.json` exists; `harness check-perf` ran without errors (intermediate and above); `.harness/telemetry.json` exists if the human opted into identity tagging; legacy layout warnings were surfaced via `harness migrate --dry-run` and either resolved or explicitly deferred; Tier-0 MCP integrations (context7, sequential-thinking, playwright) are present in the project's `.mcp.json` (or the human declined and that decision is recorded).
 - The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `harness-roadmap` (or the documented `/harness:roadmap --create` fallback).
 - When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with a summary describing the deferred work. The entry is absent in all other answer combinations.
 - For test suites: `initialize-test-suite-project` ran to completion and its Success Criteria are also met
+- For plugin-only invocations: every CLI invocation in this skill ran successfully via `npx @harness-engineering/cli <cmd>` without requiring a global install. If any invocation failed because the npx download failed, the human was prompted to retry or `npm install -g @harness-engineering/cli` instead.
 
 ## Rationalizations to Reject
 
@@ -222,7 +299,9 @@ This creates the `.harness/graph/` directory and populates it with the project's
 | "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                                                                                |
 | "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                                                                           |
 | "I will skip the design-system question to keep setup fast"              | Phase 3 step 5b requires asking about design and recording the answer in `design.enabled`. Skipping creates ambiguity about whether the omission was intentional and bypasses the linkage between init and the deferred `harness-design-system` invocation on `on_new_feature`. |
-| "Validation passed, so the project is ready"                             | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient.                                                                                                                                          |
+| "Validation passed, so the project is ready"                             | Phase 5 captures baselines, configures telemetry identity, surfaces legacy warnings, and wires Tier-0 integrations. Validation alone is not sufficient.                                                                                                                         |
+| "Plugin install means setup is done"                                     | The marketplace plugin ships skills, slash commands, subagents, hooks, and MCP — but it cannot mutate the user's project state. `harness.config.json`, baselines, telemetry identity, and Tier-0 integrations require running this skill once per project.                      |
+| "Skip Phase 5 if we already ran `harness setup`"                         | Phase 5 is idempotent. It safely no-ops where setup already wired things and fills gaps where it didn't (common case: setup ran once, then a new Tier-0 integration was added or a layout was migrated). Re-running is the right behavior.                                      |
 | "This is a test suite, we'll configure layers in this skill"             | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas.                                                       |
 
 ## Examples
@@ -373,6 +452,82 @@ harness check-deps    # Pass — no constraint violations in existing code
 git add -A
 git commit -m "feat: migrate harness project to intermediate level with layers"
 ```
+
+### Example: Plugin-only Bootstrap (Existing Project, No Prior Harness Setup)
+
+The user installed `harness-claude` from the marketplace. They have an existing TypeScript repo with no `.harness/` directory. Goal: get them to a working harness install without asking them to `npm install -g`.
+
+**ASSESS:**
+
+```
+Check for .harness/ — not found.
+Check `command -v harness` — not on PATH. Plugin-only install confirmed.
+All CLI invocations below will be prefixed with `npx @harness-engineering/cli`.
+
+Detect framework: package.json has "express" — auto-detection will pick this up.
+Recommend: basic level (no prior harness adoption signal).
+Human confirms: "Basic is fine."
+```
+
+**SCAFFOLD:**
+
+```bash
+npx @harness-engineering/cli init  # auto-detects framework
+# Creates: harness.config.json, .harness/, AGENTS.md (template)
+```
+
+**CONFIGURE:**
+
+```
+Customize AGENTS.md with project-specific content.
+Phase 3 step 5 (i18n): "No, English only." → i18n.enabled = false.
+Phase 3 step 5b (design): "No, this is a backend service." → design.enabled = false.
+Phase 3 step 6 (test-suite dispatch): not a test suite, skipped.
+```
+
+**VALIDATE:**
+
+```bash
+npx @harness-engineering/cli validate    # Pass
+npx @harness-engineering/cli check-deps  # Pass (basic level, no constraints yet)
+```
+
+**INSTRUMENT (Phase 5 — the work that `harness setup` would have done):**
+
+```bash
+# 1. Knowledge graph
+npx @harness-engineering/cli scan
+# 2. Architecture baseline
+npx @harness-engineering/cli check-arch --update-baseline
+# 3. Performance baseline (basic level: structural only)
+npx @harness-engineering/cli check-perf --structural
+# 4. Telemetry identity — ask the human
+#    Human: "Yes, project=acme-api, team=platform"
+npx @harness-engineering/cli telemetry identify --project acme-api --team platform
+# 5. Legacy layouts — dry-run reports nothing for a fresh repo
+npx @harness-engineering/cli migrate --dry-run
+# 6. Tier-0 MCP integrations
+npx @harness-engineering/cli integrations list
+npx @harness-engineering/cli integrations add context7
+npx @harness-engineering/cli integrations add sequential-thinking
+npx @harness-engineering/cli integrations add playwright
+```
+
+**FINALIZE:**
+
+```
+Phase 6 step 1 (roadmap): "Yes, create docs/roadmap.md."
+Invoke harness-roadmap or run `npx @harness-engineering/cli` equivalent — docs/roadmap.md created.
+
+Phase 6 step 2 (commit):
+```
+
+```bash
+git add harness.config.json AGENTS.md .harness/ .mcp.json docs/roadmap.md
+git commit -m "feat: bootstrap harness on existing project (plugin install)"
+```
+
+**Final state:** plugin user now has the same starting state as if they'd run `npm install -g @harness-engineering/cli && harness setup`. Subsequent slash commands, subagents, hooks, and MCP tools all have the project state they need.
 
 ### Example: Adoption Level Progression
 
