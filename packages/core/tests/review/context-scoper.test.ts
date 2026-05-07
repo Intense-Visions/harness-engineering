@@ -139,8 +139,12 @@ describe('scopeContext()', () => {
     });
 
     it('resolves Babel-style ".js" import to ".jsx" file when reading import context (issue #279 follow-up)', async () => {
+      // Mock filesystem paths use the OS path separator on Windows; normalize
+      // to POSIX before suffix-matching so the test is cross-platform.
+      const toPosix = (p: string) => p.replace(/\\/g, '/');
+
       mockReadFileContent.mockImplementation(async (p: string) => {
-        if (p.endsWith('service.ts')) {
+        if (toPosix(p).endsWith('service.ts')) {
           return {
             ok: true,
             value: "import { Button } from './Button.js';\nexport function run() {}",
@@ -152,7 +156,7 @@ describe('scopeContext()', () => {
       // Only the .jsx file exists on disk. Without the JSX fallback, the
       // resolver would only try .ts/.tsx/.mts variants and miss the file.
       mockFileExists.mockImplementation(async (p: string) => {
-        return p.endsWith('/src/Button.jsx');
+        return toPosix(p).endsWith('/src/Button.jsx');
       });
 
       const result = await scopeContext(makeOptions({ graph: undefined }));
@@ -160,7 +164,7 @@ describe('scopeContext()', () => {
       const importFiles = bugBundle.contextFiles.filter((f) => f.reason === 'import');
 
       expect(
-        importFiles.some((f) => f.path.endsWith('src/Button.jsx')),
+        importFiles.some((f) => toPosix(f.path).endsWith('src/Button.jsx')),
         'expected Button.jsx to be added to bug bundle when imported via ./Button.js'
       ).toBe(true);
     });
@@ -170,8 +174,10 @@ describe('scopeContext()', () => {
       // Without the fix, the resolver would only try `helper.js.ts`, `helper.js.tsx`,
       // `helper.js.mts`, and `helper.js/index.ts` — none of which exist — so the
       // import target would never be added to the bug bundle's context.
+      const toPosix = (p: string) => p.replace(/\\/g, '/');
+
       mockReadFileContent.mockImplementation(async (p: string) => {
-        if (p.endsWith('service.ts')) {
+        if (toPosix(p).endsWith('service.ts')) {
           return {
             ok: true,
             value: "import { helper } from './helper.js';\nexport function run() {}",
@@ -182,7 +188,7 @@ describe('scopeContext()', () => {
 
       // Only the .ts file exists on disk; .js / .js.ts / .js.tsx variants do not.
       mockFileExists.mockImplementation(async (p: string) => {
-        return p.endsWith('/src/helper.ts');
+        return toPosix(p).endsWith('/src/helper.ts');
       });
 
       const result = await scopeContext(makeOptions({ graph: undefined }));
@@ -190,7 +196,7 @@ describe('scopeContext()', () => {
       const importFiles = bugBundle.contextFiles.filter((f) => f.reason === 'import');
 
       expect(
-        importFiles.some((f) => f.path.endsWith('src/helper.ts')),
+        importFiles.some((f) => toPosix(f.path).endsWith('src/helper.ts')),
         'expected helper.ts to be added to bug bundle when imported via ./helper.js'
       ).toBe(true);
     });

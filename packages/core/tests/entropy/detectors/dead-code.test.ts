@@ -253,6 +253,10 @@ describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)'
   const parser = new TypeScriptParser();
   const fixturesDir = join(__dirname, '../../fixtures/entropy/dead-code-nodenext');
 
+  // Snapshot file paths use the OS path separator, so normalize to POSIX
+  // before suffix-matching in tests (CI runs on Windows too).
+  const toPosix = (p: string) => p.replace(/\\/g, '/');
+
   it('resolves "./app.js" to app.ts and marks it reachable', async () => {
     const snapshotResult = await buildSnapshot({
       rootDir: fixturesDir,
@@ -267,7 +271,7 @@ describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)'
 
     const reachability = buildReachabilityMap(snapshotResult.value);
 
-    const appFile = snapshotResult.value.files.find((f) => f.path.endsWith('/src/app.ts'));
+    const appFile = snapshotResult.value.files.find((f) => toPosix(f.path).endsWith('/src/app.ts'));
     expect(appFile, 'app.ts must be in the snapshot').toBeDefined();
     expect(reachability.get(appFile!.path)).toBe(true);
   });
@@ -287,7 +291,7 @@ describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)'
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     const helperFile = snapshotResult.value.files.find((f) =>
-      f.path.endsWith('/src/utils/helper.ts')
+      toPosix(f.path).endsWith('/src/utils/helper.ts')
     );
     expect(helperFile).toBeDefined();
     expect(reachability.get(helperFile!.path)).toBe(true);
@@ -308,7 +312,7 @@ describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)'
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     const folderIndexFile = snapshotResult.value.files.find((f) =>
-      f.path.endsWith('/src/folder/index.ts')
+      toPosix(f.path).endsWith('/src/folder/index.ts')
     );
     expect(folderIndexFile).toBeDefined();
     expect(reachability.get(folderIndexFile!.path)).toBe(true);
@@ -330,7 +334,7 @@ describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)'
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const deadPaths = result.value.deadFiles.map((f) => f.path);
+    const deadPaths = result.value.deadFiles.map((f) => toPosix(f.path));
     expect(deadPaths.some((p) => p.endsWith('/src/app.ts'))).toBe(false);
     expect(deadPaths.some((p) => p.endsWith('/src/utils/helper.ts'))).toBe(false);
     expect(deadPaths.some((p) => p.endsWith('/src/folder/index.ts'))).toBe(false);
