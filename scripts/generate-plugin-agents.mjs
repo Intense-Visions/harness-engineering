@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Regenerates `agents/agents/claude-code/` for the Claude Code plugin
-// marketplace entry. Wraps `harness generate-agent-definitions --platforms
-// claude-code`, which renders 12 personas (architecture-enforcer,
-// code-reviewer, …) as Claude Code subagent markdown. The plugin manifest's
-// `agents` field points at this directory.
+// Regenerates `.claude-plugin/agents/` for the Claude Code plugin marketplace
+// entry. Wraps `harness generate-agent-definitions --platforms claude-code`,
+// which renders 12 personas (architecture-enforcer, code-reviewer, …) as
+// Claude Code subagent markdown. The plugin manifest's `agents` field points
+// at this directory so all plugin distribution artifacts live under
+// `.claude-plugin/`.
 //
 // `--check` mode (used in CI) generates into a staging dir and diffs against
-// the committed `agents/agents/claude-code/` tree. Drift fails the check.
+// the committed `.claude-plugin/agents/` tree. Drift fails the check.
 import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
@@ -27,7 +28,7 @@ const cliEntry = join(repoRoot, 'packages', 'cli', 'src', 'bin', 'harness.ts');
 // ignore list excludes dotted dirs, which would skip formatting and cause
 // false-positive drift in `--check` mode. Cleaned up after each run.
 const stagingDir = join(repoRoot, 'tmp-plugin-agents');
-const finalDir = join(repoRoot, 'agents', 'agents', 'claude-code');
+const finalDir = join(repoRoot, '.claude-plugin', 'agents');
 const isCheck = process.argv.includes('--check');
 
 if (!existsSync(tsx)) {
