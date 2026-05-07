@@ -11,6 +11,7 @@
   "license": "MIT",
   "keywords": ["harness", "agent-first", "skills", "subagents", "hooks", "mcp", "claude-code"],
   "skills": ["./agents/skills/claude-code"],
+  "commands": "./.claude-plugin/commands/",
   "agents": "./.claude-plugin/agents/",
   "hooks": "./.claude-plugin/hooks.json",
   "mcpServers": {

@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-// Regenerates the `commands/` directory at the repo root for the Claude Code
-// plugin marketplace entry. Wraps `harness generate-slash-commands` and
-// flattens the output (Claude Code plugins surface commands as
-// `/<plugin>:<file>` from `commands/<file>.md`, so we don't want a nested
-// `harness/` subdir).
+// Regenerates `.claude-plugin/commands/` for the Claude Code plugin
+// marketplace entry. Wraps `harness generate-slash-commands` and flattens
+// the output (Claude Code plugins surface commands as `/<plugin>:<file>`
+// from `<commands-dir>/<file>.md`, so we don't want a nested `harness/`
+// subdir). The plugin manifest's `commands` field points at this directory
+// so all plugin distribution artifacts live under `.claude-plugin/`,
+// leaving the repo-root `commands/` slot free for the future Gemini
+// extension (which uses TOML in its own `commands/`).
 //
 // `--check` mode (used in CI) generates into a staging dir and diffs against
-// the committed `commands/` tree. Drift fails the check.
+// the committed `.claude-plugin/commands/` tree. Drift fails the check.
 import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
@@ -29,7 +32,7 @@ const skillsDir = join(repoRoot, 'agents', 'skills', 'claude-code');
 // ignore list excludes dotted dirs, which would skip formatting and cause
 // false-positive drift in `--check` mode. Cleaned up after each run.
 const stagingDir = join(repoRoot, 'tmp-plugin-commands');
-const finalDir = join(repoRoot, 'commands');
+const finalDir = join(repoRoot, '.claude-plugin', 'commands');
 const isCheck = process.argv.includes('--check');
 
 if (!existsSync(tsx)) {
