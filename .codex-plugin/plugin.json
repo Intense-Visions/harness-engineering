@@ -1,0 +1,19 @@
+{
+  "name": "harness-codex",
+  "version": "0.1.0",
+  "description": "Harness for Codex CLI — every Harness skill plus the harness MCP server in one install. Sibling plugins exist for Claude Code, Cursor, and Gemini CLI.",
+  "author": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering",
+  "license": "MIT",
+  "keywords": ["harness", "agent-first", "skills", "mcp", "codex", "openai-codex"],
+  "skills": "./agents/skills/codex",
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["-y", "-p", "@harness-engineering/cli@latest", "harness-mcp"]
+    }
+  }
+}

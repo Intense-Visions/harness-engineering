@@ -42,7 +42,7 @@ function parseArg(name) {
 
 const target = parseArg('--target');
 if (!target) {
-  console.error('Usage: generate-plugin.mjs --target <claude|cursor|gemini> [--check]');
+  console.error('Usage: generate-plugin.mjs --target <claude|cursor|gemini|codex> [--check]');
   process.exit(1);
 }
 
@@ -238,11 +238,18 @@ function generateHooks() {
 // --- main ---
 
 console.log(`[${config.label}] Generating plugin artifacts (mode: ${isCheck ? 'check' : 'write'})…`);
-generateCommands();
+if (config.generateCommands) {
+  generateCommands();
+}
 if (config.generateAgents) {
   generateAgents();
 }
 if (config.generateHooks) {
   generateHooks();
+}
+if (!config.generateCommands && !config.generateAgents && !config.generateHooks) {
+  console.log(
+    `[${config.label}] No auto-generated artifacts — manifest is hand-maintained.`
+  );
 }
 console.log(`[${config.label}] Done.`);

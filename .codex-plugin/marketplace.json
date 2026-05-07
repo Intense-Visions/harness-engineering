@@ -1,0 +1,40 @@
+{
+  "name": "harness",
+  "owner": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "description": "Harness — agent-first development toolkit. The `harness-codex` plugin ships every Harness skill (auto-discovered by Codex via the manifest's skills field) and the harness MCP server. Sibling plugins (`harness-claude`, `harness-cursor`, `harness-gemini`) target the other major AI coding tools.",
+  "plugins": [
+    {
+      "name": "harness-codex",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "NONE"
+      },
+      "category": "Productivity",
+      "description": "Harness for Codex CLI: every Harness skill (auto-discovered) plus the harness MCP server. Codex's plugin spec doesn't define a slash-command surface or an agents field, so skills + MCP are the entire surface; persona behavior is reachable via `harness.run_persona` (MCP). Lifecycle hooks are deferred until the Codex hooks schema is documented.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intense Visions",
+        "url": "https://github.com/Intense-Visions"
+      },
+      "homepage": "https://github.com/Intense-Visions/harness-engineering",
+      "license": "MIT",
+      "keywords": [
+        "harness",
+        "agent-first",
+        "skills",
+        "mcp",
+        "codex",
+        "openai-codex",
+        "validation",
+        "scaffolding"
+      ]
+    }
+  ]
+}
