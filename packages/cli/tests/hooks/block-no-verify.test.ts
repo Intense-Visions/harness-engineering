@@ -95,4 +95,59 @@ describe('block-no-verify', () => {
     const { exitCode } = runHook('');
     expect(exitCode).toBe(0);
   });
+
+  describe('argv-token boundary (issue #285)', () => {
+    it('allows commit message that mentions --no-verify in single quotes', () => {
+      const input = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: "git commit -m 'docs: --no-verify is bad'" },
+      });
+      const { exitCode } = runHook(input);
+      expect(exitCode).toBe(0);
+    });
+
+    it('allows commit message that mentions --no-verify in double quotes', () => {
+      const input = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'git commit -m "blocks --no-verify"' },
+      });
+      const { exitCode } = runHook(input);
+      expect(exitCode).toBe(0);
+    });
+
+    it('allows heredoc body that mentions --no-verify', () => {
+      const command = [
+        `git commit -m "$(cat <<'HEREDOC'`,
+        `fix(harness): block-no-verify hook`,
+        ``,
+        `- blocks attempts to use --no-verify`,
+        `HEREDOC`,
+        `)"`,
+      ].join('\n');
+      const input = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command },
+      });
+      const { exitCode } = runHook(input);
+      expect(exitCode).toBe(0);
+    });
+
+    it('allows shell comment mentioning --no-verify', () => {
+      const input = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'git status # --no-verify is bad' },
+      });
+      const { exitCode } = runHook(input);
+      expect(exitCode).toBe(0);
+    });
+
+    it('still blocks --no-verify when it appears as a real argv token at end', () => {
+      const input = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'git commit -m "msg" --no-verify' },
+      });
+      const { exitCode } = runHook(input);
+      expect(exitCode).toBe(2);
+    });
+  });
 });
