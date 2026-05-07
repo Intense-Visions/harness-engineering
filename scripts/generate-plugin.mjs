@@ -42,7 +42,7 @@ function parseArg(name) {
 
 const target = parseArg('--target');
 if (!target) {
-  console.error('Usage: generate-plugin.mjs --target <claude|cursor> [--check]');
+  console.error('Usage: generate-plugin.mjs --target <claude|cursor|gemini> [--check]');
   process.exit(1);
 }
 
@@ -98,6 +98,7 @@ function diffDirs(expectedDir, actualDir, extension = '.md') {
 function generateCommands() {
   const stagingDir = join(repoRoot, `tmp-plugin-${target}-commands`);
   const finalDir = join(pluginRoot, 'commands');
+  const ext = config.commandExt;
 
   rmSync(stagingDir, { recursive: true, force: true });
   mkdirSync(stagingDir, { recursive: true });
@@ -123,10 +124,13 @@ function generateCommands() {
     process.exit(1);
   }
 
-  prettierWrite(generated);
+  // Prettier doesn't format TOML; only run it for Markdown commands.
+  if (ext === '.md') {
+    prettierWrite(generated);
+  }
 
   if (isCheck) {
-    const drift = diffDirs(generated, finalDir);
+    const drift = diffDirs(generated, finalDir, ext);
     rmSync(stagingDir, { recursive: true, force: true });
     if (drift) {
       console.error(
@@ -235,6 +239,10 @@ function generateHooks() {
 
 console.log(`[${config.label}] Generating plugin artifacts (mode: ${isCheck ? 'check' : 'write'})…`);
 generateCommands();
-generateAgents();
-generateHooks();
+if (config.generateAgents) {
+  generateAgents();
+}
+if (config.generateHooks) {
+  generateHooks();
+}
 console.log(`[${config.label}] Done.`);
