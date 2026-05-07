@@ -24,6 +24,9 @@ export const PLUGIN_CONFIGS = {
     hooksCommandTemplate: (name) =>
       `node "\${CLAUDE_PLUGIN_ROOT}/.harness/hooks/${name}.js"`,
     cursorMode: undefined,
+    commandExt: '.md',
+    generateAgents: true,
+    generateHooks: true,
   },
   cursor: {
     label: 'Cursor',
@@ -38,8 +41,29 @@ export const PLUGIN_CONFIGS = {
     // Cursor's slash-command generator defaults to `rules` output for the
     // `harness setup` flow; plugin commands need the `commands` mode.
     cursorMode: 'commands',
+    commandExt: '.md',
+    generateAgents: true,
+    generateHooks: true,
   },
-  // gemini and codex deferred to PR-C and PR-D.
+  gemini: {
+    label: 'Gemini CLI',
+    pluginDir: '.gemini-extension',
+    slashCommandsPlatform: 'gemini-cli',
+    // Gemini extensions don't have a native agents/subagents field. Persona
+    // behavior is exposed via commands + GEMINI.md context only.
+    agentPlatform: undefined,
+    skillsDir: 'agents/skills/gemini-cli',
+    // Gemini extensions don't have a native hooks field either. We skip
+    // hook generation entirely; users invoke `harness validate` manually
+    // or via CI.
+    hooksCommandTemplate: undefined,
+    cursorMode: undefined,
+    // Gemini commands are TOML, not Markdown.
+    commandExt: '.toml',
+    generateAgents: false,
+    generateHooks: false,
+  },
+  // codex deferred to PR-D.
 };
 
 // Source of truth: packages/cli/src/hooks/profiles.ts HOOK_SCRIPTS.

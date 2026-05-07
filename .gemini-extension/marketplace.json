@@ -1,0 +1,33 @@
+{
+  "name": "harness",
+  "owner": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "description": "Harness — agent-first development toolkit. The `harness-gemini` extension ships /harness:* slash commands, the harness MCP server, and a GEMINI.md context doc that covers personas and skills. Sibling plugins (`harness-claude`, `harness-cursor`, `harness-codex`) target the other major AI coding tools.",
+  "plugins": [
+    {
+      "name": "harness-gemini",
+      "source": ".",
+      "description": "Harness for Gemini CLI: every /harness:* slash command and the harness MCP server in one install. Persona behavior is documented in GEMINI.md (Gemini extensions don't have a native subagents field) and lifecycle hooks are out of scope (Gemini extensions don't support hooks).",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intense Visions",
+        "url": "https://github.com/Intense-Visions"
+      },
+      "homepage": "https://github.com/Intense-Visions/harness-engineering",
+      "license": "MIT",
+      "keywords": [
+        "harness",
+        "agent-first",
+        "skills",
+        "slash-commands",
+        "mcp",
+        "gemini",
+        "gemini-cli",
+        "validation",
+        "scaffolding"
+      ]
+    }
+  ]
+}

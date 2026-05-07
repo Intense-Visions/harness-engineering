@@ -1,0 +1,12 @@
+{
+  "name": "harness-gemini",
+  "version": "0.1.0",
+  "description": "Harness for Gemini CLI — /harness:* slash commands and the harness MCP server, plus a GEMINI.md context document covering personas and skills. Sibling extensions exist for Claude Code, Cursor, and Codex.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["-y", "-p", "@harness-engineering/cli@latest", "harness-mcp"]
+    }
+  }
+}
