@@ -109,8 +109,9 @@ export async function runCheckArch(
   // --update-baseline mode
   if (options.updateBaseline) {
     const commitHash = getCommitHash(cwd);
-    const baseline = manager.capture(results, commitHash);
-    manager.save(baseline);
+    // Merge into the existing baseline so categories absent from `results`
+    // (e.g. silent collector failures) are not silently dropped (issue #268).
+    manager.update(results, commitHash);
     return Ok({
       passed: true,
       mode: 'baseline',

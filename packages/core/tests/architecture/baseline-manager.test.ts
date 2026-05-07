@@ -187,4 +187,77 @@ describe('ArchBaselineManager', () => {
       expect(loaded!.updatedFrom).toBe('custom-hash');
     });
   });
+
+  describe('update()', () => {
+    // Regression coverage for issue #268: --update-baseline must not drop
+    // categories that already exist in the baseline but happen to be absent
+    // from the new results (e.g. a collector silently returned []).
+    it('preserves existing categories when new results omit them', () => {
+      const initial: MetricResult[] = [
+        { category: 'circular-deps', scope: 'project', value: 0, violations: [] },
+        { category: 'layer-violations', scope: 'project', value: 0, violations: [] },
+        {
+          category: 'complexity',
+          scope: 'project',
+          value: 2,
+          violations: [
+            { id: 'cx-1', file: 'a.ts', detail: 'd1', severity: 'warning' },
+            { id: 'cx-2', file: 'b.ts', detail: 'd2', severity: 'warning' },
+          ],
+        },
+      ];
+      manager.update(initial, 'commit-1');
+
+      // Re-run with only one category present (simulating a partial collector run).
+      manager.update(
+        [{ category: 'module-size', scope: 'project', value: 7, violations: [] }],
+        'commit-2'
+      );
+
+      const loaded = manager.load();
+      expect(loaded).not.toBeNull();
+      expect(Object.keys(loaded!.metrics).sort()).toEqual([
+        'circular-deps',
+        'complexity',
+        'layer-violations',
+        'module-size',
+      ]);
+      expect(loaded!.metrics['complexity']!.value).toBe(2);
+      expect(loaded!.metrics['complexity']!.violationIds).toEqual(['cx-1', 'cx-2']);
+      expect(loaded!.metrics['module-size']!.value).toBe(7);
+      expect(loaded!.updatedFrom).toBe('commit-2');
+    });
+
+    it('overwrites categories that appear in both existing and new results', () => {
+      manager.update(
+        [{ category: 'complexity', scope: 'project', value: 5, violations: [] }],
+        'commit-1'
+      );
+      manager.update(
+        [
+          {
+            category: 'complexity',
+            scope: 'project',
+            value: 3,
+            violations: [{ id: 'cx-x', file: 'x.ts', detail: 'd', severity: 'warning' }],
+          },
+        ],
+        'commit-2'
+      );
+
+      const loaded = manager.load();
+      expect(loaded!.metrics['complexity']!.value).toBe(3);
+      expect(loaded!.metrics['complexity']!.violationIds).toEqual(['cx-x']);
+    });
+
+    it('writes a fresh baseline when none exists on disk', () => {
+      const result = manager.update(
+        [{ category: 'coupling', scope: 'project', value: 1, violations: [] }],
+        'first'
+      );
+      expect(result.metrics['coupling']!.value).toBe(1);
+      const loaded = manager.load();
+      expect(loaded!.metrics['coupling']!.value).toBe(1);
+    });
+  });
 });

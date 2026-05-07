@@ -82,6 +82,26 @@ export class ArchBaselineManager {
   }
 
   /**
+   * Refresh the on-disk baseline with new results.
+   *
+   * Categories present in `results` overwrite their on-disk entry; categories
+   * absent from `results` are preserved as-is. This prevents silent data loss
+   * when a collector returns no results (e.g. transient failure or a filtered
+   * run) and the regenerated file is committed (issue #268).
+   *
+   * Use this from the `--update-baseline` flow instead of `capture()` + `save()`.
+   */
+  update(results: MetricResult[], commitHash: string): ArchBaseline {
+    const fresh = this.capture(results, commitHash);
+    const existing = this.load();
+    if (existing) {
+      fresh.metrics = { ...existing.metrics, ...fresh.metrics };
+    }
+    this.save(fresh);
+    return fresh;
+  }
+
+  /**
    * Save an ArchBaseline to disk.
    * Creates parent directories if they do not exist.
    * Uses atomic write (write to temp file, then rename) to prevent corruption.
