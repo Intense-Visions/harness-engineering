@@ -5,6 +5,7 @@ import * as os from 'os';
 import {
   readMcpConfig,
   writeMcpEntry,
+  writeOpencodeMcpEntry,
   removeMcpEntry,
   readIntegrationsConfig,
   writeIntegrationsConfig,
@@ -71,6 +72,88 @@ describe('integrations config', () => {
       const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
       expect(config.mcpServers.harness).toBeDefined();
       expect(config.mcpServers.perplexity).toBeDefined();
+    });
+  });
+
+  describe('writeOpencodeMcpEntry', () => {
+    it('writes harness entry in OpenCode format (mcp field, command array)', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      writeOpencodeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcp).toBeDefined();
+      expect(config.mcp.harness).toEqual({
+        type: 'local',
+        command: ['harness', 'mcp'],
+        enabled: true,
+      });
+    });
+
+    it('combines command and args into a single command array', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      writeOpencodeMcpEntry(configPath, 'context7', {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+      });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcp.context7.command).toEqual(['npx', '-y', '@upstash/context7-mcp']);
+    });
+
+    it('translates env to environment field', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      writeOpencodeMcpEntry(configPath, 'perplexity', {
+        command: 'npx',
+        args: ['-y', 'perplexity-mcp'],
+        env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
+      });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcp.perplexity.environment).toEqual({
+        PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}',
+      });
+    });
+
+    it('omits environment when no env is provided', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      writeOpencodeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcp.harness).not.toHaveProperty('environment');
+    });
+
+    it('preserves existing top-level fields like $schema and model', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          $schema: 'https://opencode.ai/config.json',
+          model: 'anthropic/claude-sonnet-4-5',
+        })
+      );
+
+      writeOpencodeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.$schema).toBe('https://opencode.ai/config.json');
+      expect(config.model).toBe('anthropic/claude-sonnet-4-5');
+      expect(config.mcp.harness).toBeDefined();
+    });
+
+    it('preserves existing mcp entries when adding harness', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          mcp: { other: { type: 'local', command: ['foo'], enabled: true } },
+        })
+      );
+
+      writeOpencodeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcp.other).toBeDefined();
+      expect(config.mcp.harness).toBeDefined();
     });
   });
 

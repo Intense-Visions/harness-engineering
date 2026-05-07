@@ -34,7 +34,9 @@ Pick the install path that matches how you use harness:
 
 - **Claude Code users** → install the `harness-claude` marketplace plugin (recommended). Skills, slash commands, persona subagents, lifecycle hooks, and MCP are wired up automatically — no `harness setup` step.
 - **Cursor users** → install the `harness-cursor` marketplace plugin (recommended). Same component surface as Claude, plus 4 curated project rules.
-- **Gemini CLI / Codex users** → sibling marketplace plugins are coming (`harness-gemini`, `harness-codex`). Until they ship, use the npm path below.
+- **Gemini CLI users** → install the `harness-gemini` marketplace extension. Slash commands + GEMINI.md context + MCP. (Gemini extensions don't define a subagents or hooks field, so those surfaces live in GEMINI.md.)
+- **Codex CLI users** → install the `harness-codex` marketplace plugin. Skills + MCP (Codex's plugin spec defines no slash-command or agents surface).
+- **OpenCode users** → install the npm package and run `harness setup`. OpenCode auto-discovers `.claude/skills/` and shares Claude's skill tree, so the only setup work is wiring the harness MCP server into `opencode.json`, which `harness setup` does automatically once it detects `~/.config/opencode/` or a project-local `opencode.json`.
 - **Plain CLI / CI users (or any tool not yet covered by a plugin)** → install the npm package. `harness setup` detects every supported AI client (Claude Code, Gemini CLI, Cursor, Codex CLI, OpenCode) and lays down skills, slash commands, agent personas, MCP, and hooks.
 
 ### 1a. Install via the Claude Code plugin marketplace (recommended for Claude Code sessions)
@@ -67,22 +69,23 @@ This installs the CLI and runs interactive setup: generates global slash command
 
 The marketplace plugins are the **agent-session interface**. The npm package is what you need for shell-level workflows. Pick based on where you actually use harness:
 
-| Surface                                                                                                | `harness-claude` / `harness-cursor` plugin (after `/harness:initialize-project` runs once per repo) | `npm install -g @harness-engineering/cli` (after `harness setup`) |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Inside a Claude Code or Cursor session — skills, `/harness:*`, subagents, hooks, MCP tools             | ✅ full parity                                                                                      | ✅ same                                                           |
-| Cursor project rules (validate-before-commit, respect-architecture, use-harness-skills, respect-hooks) | ✅ shipped with `harness-cursor`                                                                    | ❌ Cursor-only feature                                            |
-| Adoption tracking + anonymous telemetry (hooks fire, defaults enabled)                                 | ✅ works                                                                                            | ✅ works                                                          |
-| Project bootstrap (`harness.config.json`, `.harness/` scaffolding)                                     | ✅ via `/harness:initialize-project` (Phase 2)                                                      | ✅ via `harness init` / `harness setup`                           |
-| Knowledge graph (`.harness/graph/`)                                                                    | ✅ via `/harness:initialize-project` (Phase 5 step 1)                                               | ✅ initial scan during `harness setup`                            |
-| Architecture / performance baselines                                                                   | ✅ via `/harness:initialize-project` (Phase 5 steps 2–3)                                            | ✅ auto-refreshed on main via CI                                  |
-| Telemetry **identity** tagging (project / team / alias)                                                | ✅ via `/harness:initialize-project` (Phase 5 step 4)                                               | ✅ via interactive telemetry wizard                               |
-| Legacy layout migration warnings (`docs/plans/`, `.harness/architecture/`)                             | ✅ via `/harness:initialize-project` (Phase 5 step 5)                                               | ✅ surfaced during `harness setup`                                |
-| Tier-0 MCP integrations (context7, sequential-thinking, playwright) added to project `.mcp.json`       | ✅ via `/harness:initialize-project` (Phase 5 step 6)                                               | ✅ wired during interactive setup                                 |
-| Tier-1 API-key integrations (Linear, Slack, Perplexity, …)                                             | ⚠️ surfaced by `harness integrations list`; user wires via `npx … add <name>`                       | ⚠️ same — API keys required either way                            |
-| Gemini CLI / Codex / OpenCode integration                                                              | ❌ (sibling plugins coming)                                                                         | ✅ `harness setup` configures all detected clients                |
-| Terminal use — `harness validate`, `harness init`, `harness check-arch`                                | ⚠️ only via `npx @harness-engineering/cli <cmd>`                                                    | ✅ binary in PATH                                                 |
-| CI workflows (GitHub Actions, etc.)                                                                    | ⚠️ workable via `npx` (cold-start cost per job)                                                     | ✅ `npm install -g` once, fast thereafter                         |
-| Git pre-commit hooks (`harness validate` on commit)                                                    | ⚠️ npx-based, slow                                                                                  | ✅ direct binary, fast                                            |
+| Surface                                                                                                | `harness-claude` / `harness-cursor` plugin (after `/harness:initialize-project` runs once per repo) | `npm install -g @harness-engineering/cli` (after `harness setup`)                                                                                                        |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inside a Claude Code or Cursor session — skills, `/harness:*`, subagents, hooks, MCP tools             | ✅ full parity                                                                                      | ✅ same                                                                                                                                                                  |
+| Cursor project rules (validate-before-commit, respect-architecture, use-harness-skills, respect-hooks) | ✅ shipped with `harness-cursor`                                                                    | ❌ Cursor-only feature                                                                                                                                                   |
+| Adoption tracking + anonymous telemetry (hooks fire, defaults enabled)                                 | ✅ works                                                                                            | ✅ works                                                                                                                                                                 |
+| Project bootstrap (`harness.config.json`, `.harness/` scaffolding)                                     | ✅ via `/harness:initialize-project` (Phase 2)                                                      | ✅ via `harness init` / `harness setup`                                                                                                                                  |
+| Knowledge graph (`.harness/graph/`)                                                                    | ✅ via `/harness:initialize-project` (Phase 5 step 1)                                               | ✅ initial scan during `harness setup`                                                                                                                                   |
+| Architecture / performance baselines                                                                   | ✅ via `/harness:initialize-project` (Phase 5 steps 2–3)                                            | ✅ auto-refreshed on main via CI                                                                                                                                         |
+| Telemetry **identity** tagging (project / team / alias)                                                | ✅ via `/harness:initialize-project` (Phase 5 step 4)                                               | ✅ via interactive telemetry wizard                                                                                                                                      |
+| Legacy layout migration warnings (`docs/plans/`, `.harness/architecture/`)                             | ✅ via `/harness:initialize-project` (Phase 5 step 5)                                               | ✅ surfaced during `harness setup`                                                                                                                                       |
+| Tier-0 MCP integrations (context7, sequential-thinking, playwright) added to project `.mcp.json`       | ✅ via `/harness:initialize-project` (Phase 5 step 6)                                               | ✅ wired during interactive setup                                                                                                                                        |
+| Tier-1 API-key integrations (Linear, Slack, Perplexity, …)                                             | ⚠️ surfaced by `harness integrations list`; user wires via `npx … add <name>`                       | ⚠️ same — API keys required either way                                                                                                                                   |
+| Gemini CLI / Codex integration                                                                         | ✅ via sibling marketplace plugins (`harness-gemini`, `harness-codex`)                              | ✅ `harness setup` configures all detected clients                                                                                                                       |
+| OpenCode integration                                                                                   | ⚠️ no OpenCode-native plugin manifest (OpenCode uses code-based plugins, not marketplace JSON)      | ✅ `harness setup` writes `opencode.json` with the harness MCP server (and Tier-0 integrations) when `~/.config/opencode/` or a project-local `opencode.json` is present |
+| Terminal use — `harness validate`, `harness init`, `harness check-arch`                                | ⚠️ only via `npx @harness-engineering/cli <cmd>`                                                    | ✅ binary in PATH                                                                                                                                                        |
+| CI workflows (GitHub Actions, etc.)                                                                    | ⚠️ workable via `npx` (cold-start cost per job)                                                     | ✅ `npm install -g` once, fast thereafter                                                                                                                                |
+| Git pre-commit hooks (`harness validate` on commit)                                                    | ⚠️ npx-based, slow                                                                                  | ✅ direct binary, fast                                                                                                                                                   |
 
 **TL;DR**: run `/harness:initialize-project` once per repo and the plugin covers ~95% of what `harness setup` does — the skill's Phase 5 (INSTRUMENT) closes the bootstrap gap. The remaining ~5% (multi-tool MCP wiring, fast CI/terminal access without npx cold-start) is what `npm install -g` fills. They coexist cleanly.
 
@@ -306,16 +309,32 @@ args = ["mcp"]
 enabled = true
 ```
 
+**OpenCode** — add to `opencode.json` in your project root:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "harness": {
+      "type": "local",
+      "command": ["harness", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
 > **Note:** `harness-mcp` is installed alongside the CLI by `npm install -g @harness-engineering/cli`. Using the installed binary instead of `npx @harness-engineering/mcp-server` avoids stale npx cache issues and ensures the MCP server uses the same package versions as the CLI.
 
 </details>
 
-| Client      | MCP Config Location     | Additional Setup                               |
-| ----------- | ----------------------- | ---------------------------------------------- |
-| Claude Code | `.mcp.json`             | None                                           |
-| Gemini CLI  | `.gemini/settings.json` | Add project to `~/.gemini/trustedFolders.json` |
-| Cursor      | `.cursor/mcp.json`      | None                                           |
-| Codex CLI   | `.codex/config.toml`    | None                                           |
+| Client      | MCP Config Location     | Additional Setup                                     |
+| ----------- | ----------------------- | ---------------------------------------------------- |
+| Claude Code | `.mcp.json`             | None                                                 |
+| Gemini CLI  | `.gemini/settings.json` | Add project to `~/.gemini/trustedFolders.json`       |
+| Cursor      | `.cursor/mcp.json`      | None                                                 |
+| Codex CLI   | `.codex/config.toml`    | None                                                 |
+| OpenCode    | `opencode.json`         | None — skills auto-discovered from `.claude/skills/` |
 
 ## What's Included
 

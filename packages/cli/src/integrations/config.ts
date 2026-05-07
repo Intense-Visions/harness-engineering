@@ -53,6 +53,52 @@ export function writeMcpEntry(
 }
 
 /**
+ * OpenCode config shape. Differs from Claude/Cursor/Gemini:
+ *   - Top-level field is `mcp`, not `mcpServers`
+ *   - Server entry uses `type: "local"`, a single `command` array
+ *     (executable + args combined), `enabled`, and `environment`
+ */
+export interface OpencodeConfig {
+  mcp?: Record<
+    string,
+    {
+      type: 'local';
+      command: string[];
+      enabled?: boolean;
+      environment?: Record<string, string>;
+    }
+  >;
+  [key: string]: unknown;
+}
+
+function readOpencodeConfig(filePath: string): OpencodeConfig {
+  const config = readJsonSafe<OpencodeConfig>(filePath);
+  if (!config) return { mcp: {} };
+  if (!config.mcp) config.mcp = {};
+  return config;
+}
+
+/**
+ * Write an MCP server entry to an OpenCode config file (`opencode.json`).
+ * Translates the standard `{command, args?, env?}` shape into OpenCode's
+ * `{type, command[], enabled, environment}` shape.
+ */
+export function writeOpencodeMcpEntry(
+  filePath: string,
+  name: string,
+  entry: { command: string; args?: string[]; env?: Record<string, string> }
+): void {
+  const config = readOpencodeConfig(filePath);
+  config.mcp![name] = {
+    type: 'local',
+    command: [entry.command, ...(entry.args ?? [])],
+    enabled: true,
+    ...(entry.env ? { environment: entry.env } : {}),
+  };
+  writeJson(filePath, config);
+}
+
+/**
  * Remove an MCP server entry from an MCP config file.
  * Preserves all other entries. No-op if the file or entry doesn't exist.
  */

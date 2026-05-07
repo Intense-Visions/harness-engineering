@@ -8,7 +8,7 @@ import { setupMcp } from './setup-mcp';
 import { markSetupComplete } from '../utils/first-run';
 import { checkNodeVersion as checkNode } from '../utils/node-version';
 import { ExitCode } from '../utils/errors';
-import { readMcpConfig, writeMcpEntry } from '../integrations/config';
+import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../integrations/config';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
@@ -61,6 +61,12 @@ async function runMcpSetup(cwd: string): Promise<StepResult[]> {
     },
     { name: 'Codex CLI', dir: '.codex', client: 'codex', configTarget: '.codex/config.toml' },
     { name: 'Cursor', dir: '.cursor', client: 'cursor', configTarget: '.cursor/mcp.json' },
+    {
+      name: 'OpenCode',
+      dir: path.join('.config', 'opencode'),
+      client: 'opencode',
+      configTarget: 'opencode.json',
+    },
   ];
 
   for (const { name, dir, client, configTarget } of clients) {
@@ -118,6 +124,20 @@ export function configureTier0Integrations(cwd: string): StepResult {
         if (!geminiConfig.mcpServers![integration.name]) {
           writeMcpEntry(geminiPath, integration.name, integration.mcpConfig);
         }
+      }
+    }
+
+    // OpenCode parity: write Tier 0 integrations to ./opencode.json. Detect
+    // OpenCode by an existing project-local opencode.json or a global
+    // ~/.config/opencode/ presence — we only write parity if at least one
+    // marker is there, so users without OpenCode don't get a stray file.
+    // writeOpencodeMcpEntry is idempotent per key, so re-running setup
+    // overwrites with identical content rather than duplicating entries.
+    const opencodePath = path.join(cwd, 'opencode.json');
+    const opencodeGlobalDir = path.join(os.homedir(), '.config', 'opencode');
+    if (fs.existsSync(opencodePath) || fs.existsSync(opencodeGlobalDir)) {
+      for (const integration of tier0) {
+        writeOpencodeMcpEntry(opencodePath, integration.name, integration.mcpConfig);
       }
     }
 
