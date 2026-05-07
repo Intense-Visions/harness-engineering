@@ -137,6 +137,63 @@ describe('scopeContext()', () => {
       // Architecture bundle should have context
       expect(archBundle).toBeDefined();
     });
+
+    it('resolves Babel-style ".js" import to ".jsx" file when reading import context (issue #279 follow-up)', async () => {
+      mockReadFileContent.mockImplementation(async (p: string) => {
+        if (p.endsWith('service.ts')) {
+          return {
+            ok: true,
+            value: "import { Button } from './Button.js';\nexport function run() {}",
+          } as any;
+        }
+        return { ok: true, value: 'export function Button() { return null; }' } as any;
+      });
+
+      // Only the .jsx file exists on disk. Without the JSX fallback, the
+      // resolver would only try .ts/.tsx/.mts variants and miss the file.
+      mockFileExists.mockImplementation(async (p: string) => {
+        return p.endsWith('/src/Button.jsx');
+      });
+
+      const result = await scopeContext(makeOptions({ graph: undefined }));
+      const bugBundle = result.find((b) => b.domain === 'bug')!;
+      const importFiles = bugBundle.contextFiles.filter((f) => f.reason === 'import');
+
+      expect(
+        importFiles.some((f) => f.path.endsWith('src/Button.jsx')),
+        'expected Button.jsx to be added to bug bundle when imported via ./Button.js'
+      ).toBe(true);
+    });
+
+    it('resolves NodeNext-style ".js" import to ".ts" file when reading import context (issue #279)', async () => {
+      // Changed file imports `./helper.js`, but on disk the file is `helper.ts`.
+      // Without the fix, the resolver would only try `helper.js.ts`, `helper.js.tsx`,
+      // `helper.js.mts`, and `helper.js/index.ts` — none of which exist — so the
+      // import target would never be added to the bug bundle's context.
+      mockReadFileContent.mockImplementation(async (p: string) => {
+        if (p.endsWith('service.ts')) {
+          return {
+            ok: true,
+            value: "import { helper } from './helper.js';\nexport function run() {}",
+          } as any;
+        }
+        return { ok: true, value: 'export function helper() {}' } as any;
+      });
+
+      // Only the .ts file exists on disk; .js / .js.ts / .js.tsx variants do not.
+      mockFileExists.mockImplementation(async (p: string) => {
+        return p.endsWith('/src/helper.ts');
+      });
+
+      const result = await scopeContext(makeOptions({ graph: undefined }));
+      const bugBundle = result.find((b) => b.domain === 'bug')!;
+      const importFiles = bugBundle.contextFiles.filter((f) => f.reason === 'import');
+
+      expect(
+        importFiles.some((f) => f.path.endsWith('src/helper.ts')),
+        'expected helper.ts to be added to bug bundle when imported via ./helper.js'
+      ).toBe(true);
+    });
   });
 
   describe('with graph', () => {

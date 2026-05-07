@@ -75,8 +75,29 @@ function extractImportSources(content: string): string[] {
 }
 
 /**
+ * Module-resolution conventions where the import specifier writes a runtime
+ * extension that does not match the on-disk source extension (issue #279).
+ * Two real-world cases:
+ *
+ * - TS NodeNext / "Bundler": `./foo.js` from a TS file → `foo.ts`/`foo.tsx`.
+ * - Babel/webpack JSX: `./Foo.js` from a JS file → `Foo.jsx` via webpack's
+ *   `resolve.extensions`.
+ *
+ * Each JS-style import extension maps to the source extensions to try, in
+ * priority order.
+ */
+const JS_EXT_FALLBACKS: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx', '.jsx'],
+  '.jsx': ['.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
+};
+
+/**
  * Resolve a relative import specifier to a likely file path.
- * Tries .ts, .tsx, /index.ts extensions.
+ * Tries source-extension fallbacks first (TS NodeNext and Babel JSX), then
+ * the literal `.ts`/`.tsx`/`.mts`/`/index.ts` candidates for extensionless or
+ * already-TS imports.
  */
 async function resolveImportPath(
   projectRoot: string,
@@ -91,13 +112,22 @@ async function resolveImportPath(
   // Prevent path traversal outside project root
   if (!isWithinProject(basePath, projectRoot)) return null;
   const relBase = relativePosix(projectRoot, basePath);
+  const sourceExt = path.extname(relBase);
 
-  const candidates = [
-    relBase + '.ts',
-    relBase + '.tsx',
-    relBase + '.mts',
-    path.join(relBase, 'index.ts'),
-  ];
+  const candidates: string[] = [];
+
+  const fallbacks = JS_EXT_FALLBACKS[sourceExt];
+  if (fallbacks) {
+    const stripped = relBase.slice(0, -sourceExt.length);
+    for (const ext of fallbacks) candidates.push(stripped + ext);
+    candidates.push(path.join(stripped, 'index.ts'));
+    candidates.push(path.join(stripped, 'index.tsx'));
+    candidates.push(path.join(stripped, 'index.jsx'));
+  }
+
+  // Fallbacks for extensionless or already-TS imports.
+  candidates.push(relBase + '.ts', relBase + '.tsx', relBase + '.mts');
+  candidates.push(path.join(relBase, 'index.ts'));
 
   for (const candidate of candidates) {
     const absCandidate = path.join(projectRoot, candidate);

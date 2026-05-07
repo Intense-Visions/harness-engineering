@@ -41,6 +41,47 @@ describe('buildDependencyGraph', () => {
       expect(edge?.importType).toBe('static');
     }
   });
+
+  it('resolves NodeNext-style ".js" imports to the on-disk ".ts" file (issue #279)', async () => {
+    const fixtureRoot = join(__dirname, '../fixtures/nodenext-imports');
+    const files = [
+      join(fixtureRoot, 'domain/user.ts'),
+      join(fixtureRoot, 'services/user-service.ts'),
+    ];
+
+    const result = await buildDependencyGraph(files, parser);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // user-service.ts imports `../domain/user.js` — the edge target must
+    // resolve to the actual `domain/user.ts` file, not `domain/user.js` or
+    // `domain/user.js.ts`. Without the fix, the resolver hands back the literal
+    // ".js" path and the edge points to a file that does not exist.
+    const edge = result.value.edges.find((e) => e.from.endsWith('services/user-service.ts'));
+    expect(edge, 'expected an outgoing edge from user-service.ts').toBeDefined();
+    expect(edge!.to.endsWith('/domain/user.ts')).toBe(true);
+  });
+
+  it('resolves Babel-style ".js" imports to the on-disk ".jsx" file (issue #279 follow-up)', async () => {
+    // Babel/webpack convention: source code writes `import "./Foo.js"` even
+    // though the JSX-containing file is `Foo.jsx`. The resolver must strip
+    // `.js` and try `.jsx` (in addition to `.ts`/`.tsx`) before giving up.
+    const fixtureRoot = join(__dirname, '../fixtures/jsx-imports');
+    const files = [
+      join(fixtureRoot, 'src/App.tsx'),
+      join(fixtureRoot, 'src/components/Button.jsx'),
+    ];
+
+    const result = await buildDependencyGraph(files, parser);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const edge = result.value.edges.find((e) => e.from.endsWith('src/App.tsx'));
+    expect(edge, 'expected an outgoing edge from App.tsx').toBeDefined();
+    expect(edge!.to.endsWith('/components/Button.jsx')).toBe(true);
+  });
 });
 
 describe('validateDependencies', () => {
