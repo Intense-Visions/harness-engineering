@@ -5,12 +5,12 @@
     "name": "Intense Visions",
     "url": "https://github.com/Intense-Visions"
   },
-  "description": "Harness — agent-first development toolkit. Skills, slash commands, and MCP server for Claude Code and Cowork sessions.",
+  "description": "Harness — agent-first development toolkit. The `harness-claude` plugin ships skills, slash commands, persona subagents, hooks, and MCP for Claude Code. Sibling plugins (`harness-cursor`, `harness-gemini`, `harness-codex`) target the other major AI coding tools.",
   "plugins": [
     {
-      "name": "harness",
+      "name": "harness-claude",
       "source": ".",
-      "description": "Bundles every harness skill, /harness:* slash command, and the harness MCP server in one install. Removes the need to run `harness setup` per repo.",
+      "description": "Harness for Claude Code: every skill, /harness:* slash command, the 12 persona subagents, lifecycle hooks (standard profile), and the harness MCP server in one install. Removes the need to run `harness setup` per repo.",
       "version": "0.1.0",
       "author": {
         "name": "Intense Visions",
@@ -22,8 +22,11 @@
         "harness",
         "agent-first",
         "skills",
+        "subagents",
         "slash-commands",
+        "hooks",
         "mcp",
+        "claude-code",
         "validation",
         "scaffolding"
       ]

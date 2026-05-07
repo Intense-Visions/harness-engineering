@@ -70,3 +70,7 @@ temp/
 
 # Generated slash commands
 agents/commands/
+
+# Plugin generator staging dirs (cleaned up after each run)
+tmp-plugin-commands/
+tmp-plugin-agents/

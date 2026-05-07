@@ -54,6 +54,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run generate-docs --check
 
+      - name: Verify plugin artifacts are fresh
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm generate:plugin:check
+
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Regenerates the `commands/` directory at the repo root for the Claude Code
-// plugin marketplace entry. Wraps `harness generate-slash-commands` and
-// flattens the output (Claude Code plugins surface commands as
-// `/<plugin>:<file>` from `commands/<file>.md`, so we don't want a nested
-// `harness/` subdir).
+// Regenerates `agents/agents/claude-code/` for the Claude Code plugin
+// marketplace entry. Wraps `harness generate-agent-definitions --platforms
+// claude-code`, which renders 12 personas (architecture-enforcer,
+// code-reviewer, …) as Claude Code subagent markdown. The plugin manifest's
+// `agents` field points at this directory.
 //
 // `--check` mode (used in CI) generates into a staging dir and diffs against
-// the committed `commands/` tree. Drift fails the check.
+// the committed `agents/agents/claude-code/` tree. Drift fails the check.
 import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
@@ -15,7 +15,6 @@ import {
   rmSync,
   existsSync,
   readFileSync,
-  cpSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,12 +23,11 @@ const repoRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
 const tsx = join(repoRoot, 'node_modules', '.bin', 'tsx');
 const prettier = join(repoRoot, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 const cliEntry = join(repoRoot, 'packages', 'cli', 'src', 'bin', 'harness.ts');
-const skillsDir = join(repoRoot, 'agents', 'skills', 'claude-code');
 // Staging dir intentionally does NOT start with `.` — prettier's default
 // ignore list excludes dotted dirs, which would skip formatting and cause
 // false-positive drift in `--check` mode. Cleaned up after each run.
-const stagingDir = join(repoRoot, 'tmp-plugin-commands');
-const finalDir = join(repoRoot, 'commands');
+const stagingDir = join(repoRoot, 'tmp-plugin-agents');
+const finalDir = join(repoRoot, 'agents', 'agents', 'claude-code');
 const isCheck = process.argv.includes('--check');
 
 if (!existsSync(tsx)) {
@@ -42,21 +40,11 @@ mkdirSync(stagingDir, { recursive: true });
 
 execFileSync(
   tsx,
-  [
-    cliEntry,
-    'generate-slash-commands',
-    '--platforms',
-    'claude-code',
-    '--skills-dir',
-    skillsDir,
-    '--output',
-    stagingDir,
-    '--yes',
-  ],
+  [cliEntry, 'generate-agent-definitions', '--platforms', 'claude-code', '--output', stagingDir],
   { stdio: 'inherit' }
 );
 
-const generated = join(stagingDir, 'harness');
+const generated = join(stagingDir, 'claude-code');
 if (!existsSync(generated)) {
   console.error(`Generator produced no output at ${generated}.`);
   process.exit(1);
@@ -72,8 +60,10 @@ execFileSync(
 );
 
 if (isCheck) {
-  const expected = readdirSync(generated).sort();
-  const actual = existsSync(finalDir) ? readdirSync(finalDir).sort() : [];
+  const expected = readdirSync(generated).filter((f) => f.endsWith('.md')).sort();
+  const actual = existsSync(finalDir)
+    ? readdirSync(finalDir).filter((f) => f.endsWith('.md')).sort()
+    : [];
   let drift = false;
   if (expected.join('|') !== actual.join('|')) {
     drift = true;
@@ -92,18 +82,22 @@ if (isCheck) {
   }
   rmSync(stagingDir, { recursive: true, force: true });
   if (drift) {
-    console.error(`\nRun \`pnpm generate:plugin-commands\` to update.`);
+    console.error(`\nRun \`pnpm generate:plugin-agents\` to update.`);
     process.exit(1);
   }
-  console.log(`OK ${finalDir} (${expected.length} commands match)`);
+  console.log(`OK ${finalDir} (${expected.length} agents match)`);
   process.exit(0);
 }
 
-rmSync(finalDir, { recursive: true, force: true });
 mkdirSync(finalDir, { recursive: true });
+for (const file of readdirSync(finalDir)) {
+  if (file.endsWith('.md')) rmSync(join(finalDir, file));
+}
 for (const file of readdirSync(generated)) {
   renameSync(join(generated, file), join(finalDir, file));
 }
 rmSync(stagingDir, { recursive: true, force: true });
 
-console.log(`Wrote ${readdirSync(finalDir).length} commands to ${finalDir}`);
+console.log(
+  `Wrote ${readdirSync(finalDir).filter((f) => f.endsWith('.md')).length} agents to ${finalDir}`
+);

@@ -32,21 +32,22 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 Pick the install path that matches how you use harness:
 
-- **Claude Code / Cowork users** → install the marketplace plugin (recommended). Skill triggers, `/harness:*` slash commands, and the MCP server are wired up automatically — no `harness setup` step.
-- **Plain CLI / CI users** → install the npm package. `harness validate`, `harness check-deps`, and the rest of the CLI commands stay the source of truth.
+- **Claude Code users** → install the `harness-claude` marketplace plugin (recommended). Skills, slash commands, persona subagents, lifecycle hooks, and MCP are wired up automatically — no `harness setup` step.
+- **Cursor / Gemini CLI / Codex users** → sibling marketplace plugins are coming (`harness-cursor`, `harness-gemini`, `harness-codex`). Until they ship, use the npm path below.
+- **Plain CLI / CI users (or any tool not yet covered by a plugin)** → install the npm package. `harness setup` detects every supported AI client (Claude Code, Gemini CLI, Cursor, Codex CLI, OpenCode) and lays down skills, slash commands, agent personas, MCP, and hooks.
 
 ### 1a. Install via the Claude Code plugin marketplace (recommended for agent sessions)
 
-In a Claude Code or Cowork session:
+In a Claude Code session:
 
 ```
 /plugin marketplace add Intense-Visions/harness-engineering
-/plugin install harness
+/plugin install harness-claude
 ```
 
-This pulls every bundled skill (so trigger phrases like "scaffold a test suite" engage `initialize-test-suite-project` automatically), registers the `/harness:*` slash commands, and wires up the `harness` MCP server via `npx @harness-engineering/cli harness-mcp`. No per-repo `harness setup` is required.
+This pulls every bundled skill (so trigger phrases like "scaffold a test suite" engage `initialize-test-suite-project` automatically), registers the `/harness:*` slash commands, installs the 12 persona subagents (`harness-code-reviewer`, `harness-architecture-enforcer`, …), wires the standard hook profile (block-no-verify, protect-config, quality-gate, pre-compact-state, adoption-tracker, telemetry-reporter), and starts the `harness` MCP server via `npx @harness-engineering/cli harness-mcp`. No per-repo `harness setup` is required.
 
-### 1b. Install via npm (for plain CLI use)
+### 1b. Install via npm (for plain CLI use, or for non-Claude AI tools)
 
 ```bash
 npm install -g @harness-engineering/cli
@@ -55,7 +56,7 @@ harness setup
 
 This installs the CLI and runs interactive setup: generates global slash commands and agent personas for all detected AI clients (Claude Code, Gemini CLI, Cursor, Codex CLI), configures MCP servers, and sets up peer integrations. Once set up, every project on your machine has access to `/harness:*` slash commands, agent personas, and the `harness-mcp` server binary — no per-project setup needed.
 
-> **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills. Marketplace plugin users update via `/plugin update harness`.
+> **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills. Marketplace plugin users update via `/plugin update harness-claude`.
 
 ### 2. Scaffold a new project
 
