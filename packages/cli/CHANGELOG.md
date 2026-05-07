@@ -1,5 +1,263 @@
 # @harness-engineering/cli
 
+## 2.2.0
+
+### Minor Changes
+
+- d77d0f4: feat: distribute harness as the `harness-claude` Claude Code marketplace plugin
+
+  Replaces #267, which shipped a Claude-only marketplace plugin under the name `harness` with a partial component surface (skills + MCP only). This change:
+  1. **Renames** the plugin to `harness-claude` and reframes the marketplace listing so the name no longer implies tool-agnostic coverage. Sibling plugins for Cursor, Gemini CLI, and Codex are planned as follow-up PRs (`harness-cursor`, `harness-gemini`, `harness-codex`); OpenCode is covered by extending `harness setup`.
+  2. **Adds persona subagents.** New `scripts/generate-plugin-agents.mjs` runs `harness generate-agent-definitions --platforms claude-code` and writes 12 rendered subagent files (`harness-architecture-enforcer.md`, `harness-code-reviewer.md`, …) to `.claude-plugin/agents/`. The plugin manifest references this directory via the `agents` field.
+  3. **Adds lifecycle hooks.** New `scripts/generate-plugin-hooks.mjs` writes `.claude-plugin/hooks.json` with the `standard` profile (block-no-verify, protect-config, quality-gate, pre-compact-state, adoption-tracker, telemetry-reporter), pointing at `${CLAUDE_PLUGIN_ROOT}/.harness/hooks/<name>.js` so the scripts already shipped at `.harness/hooks/` (per #270) execute against the user's project at install time.
+  4. **Consolidates plugin distribution artifacts under `.claude-plugin/`.** Slash commands moved from `commands/` (repo root) to `.claude-plugin/commands/`. Subagents moved from `agents/agents/claude-code/` to `.claude-plugin/agents/`. Frees the repo-root `commands/` slot for the future `harness-gemini` extension (Gemini uses TOML in its own `commands/` and would otherwise collide).
+  5. **Adds drift guards.** Each generator gains a `--check` mode that runs the generator into a staging dir, diffs the result against the committed artifact, and exits non-zero on drift. `pnpm generate:plugin:check` chains all three. CI (`.github/workflows/ci.yml`) runs this check on every PR — no more silent drift between `agents/skills/claude-code/` and the plugin's slash command/subagent set.
+  6. **Switches generators from `dist/bin/harness.js` to `tsx packages/cli/src/bin/harness.ts`.** Plugin maintenance no longer requires `pnpm build` first. `tsx` is added as a root devDependency.
+  7. **Extends `initialize-harness-project` skill with Phase 5 (INSTRUMENT) and Phase 6 (FINALIZE).** The skill now closes the bootstrap parity gap that plugin install does not cover — knowledge graph (`harness scan`), architecture baseline (`harness check-arch --update-baseline`), performance baseline (`harness check-perf`), telemetry identity (`harness telemetry identify`), legacy layout migration (`harness migrate --dry-run`), and Tier-0 MCP integrations (`harness integrations add context7|sequential-thinking|playwright`). Includes a "Plugin-only callout" telling the model to prefix CLI invocations with `npx @harness-engineering/cli` when no global binary is on PATH, plus a worked example showing a full plugin-only bootstrap.
+
+  **Plugin manifest now exposes:**
+
+  | Field        | Path                          | Components                     |
+  | ------------ | ----------------------------- | ------------------------------ |
+  | `skills`     | `./agents/skills/claude-code` | All harness skills             |
+  | `commands`   | `./.claude-plugin/commands/`  | 37 `/harness:*` slash commands |
+  | `agents`     | `./.claude-plugin/agents/`    | 12 persona subagents           |
+  | `hooks`      | `./.claude-plugin/hooks.json` | Standard hook profile          |
+  | `mcpServers` | inline                        | `harness` MCP server via `npx` |
+
+  **Out of scope (tracked as follow-up issues):**
+  - `harness-cursor`, `harness-gemini`, `harness-codex` sibling plugins.
+  - OpenCode integration via extended `harness setup`.
+  - Consolidation of `agents/skills/{claude-code,codex,cursor,gemini-cli}/` — these are already hard-linked to a single inode (no actual duplication on disk), so this becomes a presentation/discovery refactor rather than a data-layer one.
+
+- af02d63: feat: ship `harness-codex` marketplace plugin (PR-D in the marketplace stack)
+
+  Final entry in the multi-tool marketplace stack: `harness-codex` for Codex
+  CLI. Sibling to `harness-claude` (#284), `harness-cursor` (#288), and
+  `harness-gemini` (#290).
+
+  **The thinnest plugin of the four.** Codex's plugin spec
+  (`developers.openai.com/codex/plugins/build`) only defines `skills`,
+  `mcpServers`, `apps`, and `hooks` fields — no slash-command surface, no
+  agents field. So `harness-codex` ships exactly what Codex actually
+  consumes:
+  - **`.codex-plugin/plugin.json`** — manifest pointing at
+    `./agents/skills/codex` for skills and wiring the harness MCP server.
+  - **`.codex-plugin/marketplace.json`** — marketplace entry with
+    `policy.installation: AVAILABLE`, `category: Productivity`.
+  - No `commands/`, no `agents/`, no `hooks.json` — see "Out of scope" below.
+
+  **Generator changes:**
+  - **`generate-plugin.mjs --target codex`** is a no-op by design (manifest
+    is hand-maintained, no auto-generated artifacts). Wired into
+    `pnpm generate:plugin:{codex,all,check}` so CI's drift guard covers all
+    four targets uniformly even though codex has nothing to drift from.
+  - **`plugin-config.mjs`** gained a `generateCommands` flag (alongside
+    `generateAgents` and `generateHooks` from PR-C) so the generator can
+    short-circuit each artifact type independently. Existing entries
+    (claude, cursor, gemini) set `generateCommands: true`; codex sets all
+    three to `false`.
+
+  **Out of scope (intentional):**
+  - **No slash commands.** Codex's plugin spec doesn't define a commands
+    surface — Codex picks up skills directly via the manifest's `skills`
+    field and surfaces them via the `$skill` invocation syntax.
+  - **No persona subagents.** Like Gemini, Codex plugins have no agents
+    field. Persona behavior remains reachable via `harness.run_persona`
+    exposed by the MCP server.
+  - **No lifecycle hooks.** Codex's plugin spec mentions a `hooks` field
+    but the schema (event names, command resolution, env vars) is not
+    documented yet. Deferred until the spec stabilizes — when it does,
+    set `generateHooks: true` for codex and the existing generator will
+    produce `.codex-plugin/hooks.json` from the same `STANDARD_HOOKS` list
+    the other plugins use.
+
+  **Stack complete:**
+
+  | Tool        | Plugin           | Surface                                          |
+  | ----------- | ---------------- | ------------------------------------------------ |
+  | Claude Code | `harness-claude` | skills + commands + agents + hooks + MCP         |
+  | Cursor      | `harness-cursor` | skills + commands + agents + hooks + rules + MCP |
+  | Gemini CLI  | `harness-gemini` | commands + GEMINI.md context + MCP               |
+  | Codex CLI   | `harness-codex`  | skills + MCP                                     |
+
+  The follow-up — OpenCode integration via extending `harness setup` (PR-E)
+  — remains tracked as a separate issue. OpenCode auto-discovers
+  `.claude/skills/`, so the work there is mostly an MCP target wire-up, not
+  a new manifest.
+
+- c0b9d38: feat: ship `harness-cursor` marketplace plugin (PR-B in the marketplace stack)
+
+  Sibling plugin to `harness-claude` (#284) for Cursor's marketplace. Same
+  component surface — skills, `/harness:*` slash commands, persona subagents,
+  lifecycle hooks, MCP server — plus 4 curated project rules that fire as
+  `alwaysApply` in every Cursor session.
+
+  **New surface:**
+  - **`.cursor-plugin/plugin.json` + `.cursor-plugin/marketplace.json`** —
+    Cursor marketplace manifest, mirrors the Claude plugin shape.
+  - **`.cursor-plugin/{commands,agents,hooks.json,rules}/`** — auto-generated
+    artifacts under the same path convention as `.claude-plugin/`.
+  - **4 hand-written Cursor rules** (`.mdc` files in `.cursor-plugin/rules/`):
+    - `validate-before-commit` — run `harness validate` before any commit.
+    - `respect-architecture` — stay within layer boundaries declared in
+      `harness.config.json`; no `// harness-ignore` to suppress violations.
+    - `use-harness-skills` — prefer `/harness:*` skills over freelancing for
+      common tasks; surface explicit skip reasons.
+    - `respect-hooks` — never propose `--no-verify` or hook-bypass workarounds;
+      fix the underlying issue or update calibration.
+
+  **CLI changes:**
+  - **`renderCursorAgent`** (`packages/cli/src/agent-definitions/render-cursor.ts`)
+    — new renderer for Cursor subagent markdown (frontmatter `name` +
+    `description`, no `tools` field). Wired into `getRenderer` in
+    `generate-agent-definitions.ts`. `resolveOutputDir` simplified to take any
+    `Platform` (was hardcoded for claude-code/gemini-cli only).
+  - **`renderCursorCommand`** (`packages/cli/src/slash-commands/render-cursor-command.ts`)
+    — new renderer for Cursor plugin slash commands (frontmatter `name` +
+    `description`, body uses `<context>`/`<objective>`/`<execution_context>`/
+    `<process>` blocks). Distinct from the existing `renderCursor`, which still
+    serves `harness setup`'s `~/.cursor/rules/` flow.
+  - **`harness generate-slash-commands --cursor-mode <rules|commands>`** — new
+    flag (default `rules` for backward compatibility) selects between the two
+    Cursor renderers.
+
+  **Generator consolidation:**
+  - **`scripts/generate-plugin.mjs --target <claude|cursor> [--check]`** —
+    single parameterized generator replaces the three Claude-specific scripts
+    from PR-A (`generate-plugin-{commands,agents,hooks}.mjs`). All three
+    artifacts produced per target. Per-target config (plugin dir, slash command
+    platform, agent platform, hooks command template) lives in
+    `scripts/lib/plugin-config.mjs`.
+  - **`pnpm generate:plugin:check`** chains both targets; CI runs it on every PR.
+  - Per-target `pnpm generate:plugin:claude` and `pnpm generate:plugin:cursor`
+    for partial regeneration.
+
+  **Cursor-specific notes:**
+  - Cursor's hook `command` paths use relative form (`./.harness/hooks/<name>.js`)
+    rather than the `${CLAUDE_PLUGIN_ROOT}` env var. Cursor doesn't document an
+    equivalent env var, but their hook docs show relative paths resolve to the
+    plugin install dir.
+  - Cursor distinguishes `commands` (slash) from `rules` (always-apply guidance)
+    in the plugin manifest. The harness plugin uses both.
+
+  **Out of scope (tracked as follow-up issues):**
+  - `harness-gemini` (PR-C) and `harness-codex` (PR-D) sibling plugins.
+  - Cursor's `harness-cursor:harness` natural-language router command appears
+    in `.cursor-plugin/commands/harness.md` rather than as a parent-level
+    command (Cursor's slash-commands generator doesn't special-case
+    `command_name` the way Claude/Gemini do). Functional but slightly noisy in
+    the command list. Optional cleanup.
+
+- 38d2d84: feat: ship `harness-gemini` marketplace extension (PR-C in the marketplace stack)
+
+  Sibling extension to `harness-claude` (#284) and `harness-cursor` (#288) for
+  Gemini CLI's extension marketplace. Same MCP and slash-command surface, but
+  scoped to what Gemini extensions actually support.
+
+  **New surface:**
+  - **`.gemini-extension/gemini-extension.json` + `marketplace.json`** —
+    Gemini extension manifest with `mcpServers` and `contextFileName`. Mirrors
+    the marketplace manifest shape used by the Claude and Cursor siblings.
+  - **`.gemini-extension/GEMINI.md`** — context document loaded automatically
+    when the extension activates. Documents the persona table, the skill
+    surface, and how to invoke `/harness:*` commands. Stands in for the
+    native subagent and hooks fields that Gemini extensions don't have.
+  - **`.gemini-extension/commands/*.toml`** (37 files) — auto-generated TOML
+    slash commands. Same set the Claude and Cursor plugins ship.
+
+  **CLI changes:**
+  - **`generate-plugin.mjs`** now accepts `--target gemini`. Per-target
+    config in `scripts/lib/plugin-config.mjs` gained three flags so the
+    generator can be honest about each tool's actual surface:
+    - `commandExt` — `.md` for Claude/Cursor, `.toml` for Gemini. Diff and
+      prettier formatting branch on this. (Prettier doesn't format TOML, so
+      the gemini path skips prettier.)
+    - `generateAgents` — `false` for Gemini (no native subagents field). The
+      generator skips the agent-rendering step entirely instead of writing
+      dead-end files no platform reads.
+    - `generateHooks` — `false` for Gemini (no native hooks field).
+  - **`pnpm generate:plugin:gemini`** + **`generate:plugin:all`** /
+    **`generate:plugin:check`** include the gemini target. CI runs the
+    combined check on every PR.
+
+  **Scope differences from Claude/Cursor siblings:**
+
+  Gemini extensions only support commands + MCP servers + a context document.
+  Two surfaces present in the Claude and Cursor plugins are intentionally
+  out of scope here:
+  - **No persona subagents.** Gemini extensions don't have an agents field.
+    Persona behavior is documented in GEMINI.md and exposed through
+    `/harness:*` commands and `harness.run_persona` (MCP).
+  - **No lifecycle hooks.** Gemini extensions don't support hooks. Users
+    wire `harness validate` / `harness check-arch` into CI manually, the
+    same way they would without the extension.
+
+  **Out of scope (tracked as follow-up):**
+  - `harness-codex` (PR-D) sibling extension.
+  - OpenCode integration via extending `harness setup` (PR-E). OpenCode
+    auto-discovers `.claude/skills/`, so the work there is mostly an MCP
+    target wire-up, not a new manifest.
+
+- 11a5912: feat: integrate OpenCode in `harness setup` (PR-E in the marketplace stack)
+
+  Adds OpenCode as the fifth supported AI client in `harness setup`. Unlike
+  the four marketplace plugins (PR-A through PR-D), OpenCode joins via the
+  existing `harness setup` flow rather than its own marketplace manifest —
+  OpenCode plugins are JS/TS code, not declarative manifests, and OpenCode
+  auto-discovers `.claude/skills/` so it shares Claude's skill tree without
+  any plugin-side wiring.
+
+  **What ships:**
+  - **`harness setup` detects `~/.config/opencode/`** as a new client marker
+    and writes the harness MCP server to `./opencode.json` in the project
+    root. Skipped (with a friendly warning) when neither the global config
+    dir nor a project-local `opencode.json` is present.
+  - **`harness setup-mcp --client opencode`** wires up the MCP server
+    standalone for users who want fine-grained control.
+  - **Tier-0 MCP integrations parity** — context7, sequential-thinking, and
+    playwright are written to `opencode.json` alongside `.mcp.json` and
+    `.gemini/settings.json`, mirroring the existing Gemini parity block.
+
+  **OpenCode's MCP shape differs from the others:**
+
+  OpenCode uses `mcp` (not `mcpServers`) at the top level, and each entry
+  uses `type: "local"`, a single combined `command` array (executable +
+  args), `enabled`, and `environment`. The new `writeOpencodeMcpEntry`
+  helper translates the standard `{command, args?, env?}` shape into
+  OpenCode's wire format.
+
+  **Test coverage:**
+  - 6 new tests in `setup-mcp.test.ts` covering the OpenCode branch
+    (configure, skip-if-configured, all-clients, key preservation).
+  - 6 new tests in `integrations/config.test.ts` covering the
+    `writeOpencodeMcpEntry` translation (mcp field, command array,
+    environment translation, top-level field preservation, mcp entry
+    preservation).
+  - 3 new tests in `setup.test.ts` covering Tier-0 OpenCode parity
+    (project-local marker, global marker, neither-present negative).
+
+  **Stack complete:**
+
+  | Tool         | Integration                                  | Status         |
+  | ------------ | -------------------------------------------- | -------------- |
+  | Claude Code  | `harness-claude` marketplace plugin          | shipped (#284) |
+  | Cursor       | `harness-cursor` marketplace plugin          | shipped (#288) |
+  | Gemini CLI   | `harness-gemini` marketplace extension       | shipped (#290) |
+  | Codex CLI    | `harness-codex` marketplace plugin           | shipped (#291) |
+  | **OpenCode** | **via `harness setup` (no plugin manifest)** | **this PR**    |
+
+  **README updates:**
+  - Quick Start now lists Gemini CLI and Codex CLI marketplace plugins as
+    shipped (they were "coming" before PR-C/PR-D landed) and adds an
+    OpenCode bullet pointing to the npm path.
+  - Plugin-vs-npm parity table replaces the outdated "Gemini CLI / Codex /
+    OpenCode integration ❌ (sibling plugins coming)" row with two rows
+    reflecting current state — Gemini/Codex shipped via plugins, OpenCode
+    via `harness setup`.
+  - MCP config table gains an OpenCode row showing the project-local
+    `opencode.json` path.
+
 ## 2.1.1
 
 ### Patch Changes
