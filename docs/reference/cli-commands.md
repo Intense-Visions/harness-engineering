@@ -351,7 +351,7 @@ Configure MCP server for AI agent integration
 
 **Options:**
 
-- `--client` — Client to configure (claude, gemini, codex, cursor, all) (default: "all")
+- `--client` — Client to configure (claude, gemini, codex, cursor, opencode, all) (default: "all")
 - `--pick` — Launch interactive tool picker (Cursor only)
 - `--yes` — Bypass interactive picker and use curated 25-tool set (Cursor only)
 

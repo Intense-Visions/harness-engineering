@@ -6,7 +6,7 @@ import chalk from 'chalk';
 import * as clack from '@clack/prompts';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { writeMcpEntry } from '../integrations/config';
+import { writeMcpEntry, writeOpencodeMcpEntry } from '../integrations/config';
 import { writeTomlMcpEntry } from '../integrations/toml';
 
 interface McpConfig {
@@ -260,6 +260,17 @@ export function setupMcp(
     }
   }
 
+  if (client === 'all' || client === 'opencode') {
+    const configPath = path.join(cwd, 'opencode.json');
+    const existing = readJsonFile<{ mcp?: Record<string, unknown> }>(configPath);
+    if (existing?.mcp?.['harness']) {
+      skipped.push('OpenCode');
+    } else {
+      writeOpencodeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+      configured.push('OpenCode');
+    }
+  }
+
   return { configured, skipped, trustedFolder };
 }
 
@@ -317,7 +328,11 @@ function printMcpResult(configured: string[], skipped: string[], trustedFolder: 
 export function createSetupMcpCommand(): Command {
   return new Command('setup-mcp')
     .description('Configure MCP server for AI agent integration')
-    .option('--client <client>', 'Client to configure (claude, gemini, codex, cursor, all)', 'all')
+    .option(
+      '--client <client>',
+      'Client to configure (claude, gemini, codex, cursor, opencode, all)',
+      'all'
+    )
     .option('--pick', 'Launch interactive tool picker (Cursor only)')
     .option('--yes', 'Bypass interactive picker and use curated 25-tool set (Cursor only)')
     .action(async (opts, cmd) => {

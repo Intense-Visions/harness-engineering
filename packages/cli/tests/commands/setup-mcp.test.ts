@@ -175,6 +175,57 @@ describe('setup-mcp command', () => {
       const result = setupMcp(tempDir, 'codex');
       expect(result.trustedFolder).toBe(false);
     });
+
+    it('configures OpenCode MCP server', () => {
+      const result = setupMcp(tempDir, 'opencode');
+      expect(result.configured).toContain('OpenCode');
+      expect(result.skipped).not.toContain('OpenCode');
+
+      const configPath = path.join(tempDir, 'opencode.json');
+      expect(fs.existsSync(configPath)).toBe(true);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      // OpenCode uses `mcp` (not `mcpServers`) and a combined `command` array.
+      expect(config.mcp.harness).toBeDefined();
+      expect(config.mcp.harness.type).toBe('local');
+      expect(config.mcp.harness.command).toEqual(['harness', 'mcp']);
+      expect(config.mcp.harness.enabled).toBe(true);
+    });
+
+    it('skips OpenCode if already configured', () => {
+      setupMcp(tempDir, 'opencode');
+      const result = setupMcp(tempDir, 'opencode');
+      expect(result.skipped).toContain('OpenCode');
+      expect(result.configured).not.toContain('OpenCode');
+    });
+
+    it('configures all five clients when client is all', () => {
+      const result = setupMcp(tempDir, 'all');
+      expect(result.configured).toContain('Claude Code');
+      expect(result.configured).toContain('Gemini CLI');
+      expect(result.configured).toContain('Codex CLI');
+      expect(result.configured).toContain('Cursor');
+      expect(result.configured).toContain('OpenCode');
+    });
+
+    it('preserves existing OpenCode config keys when adding harness', () => {
+      const configPath = path.join(tempDir, 'opencode.json');
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          $schema: 'https://opencode.ai/config.json',
+          model: 'anthropic/claude-sonnet-4-5',
+          mcp: { other: { type: 'local', command: ['foo'], enabled: true } },
+        })
+      );
+
+      setupMcp(tempDir, 'opencode');
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.$schema).toBe('https://opencode.ai/config.json');
+      expect(config.model).toBe('anthropic/claude-sonnet-4-5');
+      expect(config.mcp.other).toBeDefined();
+      expect(config.mcp.harness).toBeDefined();
+    });
   });
 
   describe('--pick flag stub', () => {

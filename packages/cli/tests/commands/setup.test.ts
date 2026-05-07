@@ -53,6 +53,7 @@ vi.mock('../../src/integrations/config', () => ({
     mcpServers: { ...(mockMcpConfig.mcpServers as Record<string, unknown>) },
   })),
   writeMcpEntry: vi.fn(),
+  writeOpencodeMcpEntry: vi.fn(),
 }));
 
 vi.mock('../../src/commands/telemetry-wizard', () => ({
@@ -76,7 +77,7 @@ import { runSetup, configureTier0Integrations } from '../../src/commands/setup';
 import { generateSlashCommands } from '../../src/commands/generate-slash-commands';
 import { setupMcp } from '../../src/commands/setup-mcp';
 import { markSetupComplete } from '../../src/utils/first-run';
-import { readMcpConfig, writeMcpEntry } from '../../src/integrations/config';
+import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 
@@ -87,6 +88,7 @@ function mockAllClientsExist() {
     if (s === path.join(os.homedir(), '.gemini')) return true;
     if (s === path.join(os.homedir(), '.codex')) return true;
     if (s === path.join(os.homedir(), '.cursor')) return true;
+    if (s === path.join(os.homedir(), '.config', 'opencode')) return true;
     return false;
   });
 }
@@ -106,7 +108,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(11);
+    expect(steps).toHaveLength(12);
     expect(steps[0].status).toBe('pass');
     expect(steps[0].message).toContain('Node.js');
     expect(steps[1].status).toBe('pass');
@@ -118,9 +120,10 @@ describe('runSetup', () => {
         yes: true,
       })
     );
-    expect(setupMcp).toHaveBeenCalledTimes(4);
-    expect(steps[6].status).toBe('pass');
-    expect(steps[6].message).toContain('MCP integrations');
+    // setupMcp now runs for all five clients (claude, gemini, codex, cursor, opencode).
+    expect(setupMcp).toHaveBeenCalledTimes(5);
+    expect(steps[7].status).toBe('pass');
+    expect(steps[7].message).toContain('MCP integrations');
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
@@ -149,7 +152,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(11);
+    expect(steps).toHaveLength(12);
     const geminiStep = steps[3];
     expect(geminiStep.status).toBe('warn');
     expect(geminiStep.message).toContain('Gemini CLI not detected');
@@ -159,6 +162,9 @@ describe('runSetup', () => {
     const cursorStep = steps[5];
     expect(cursorStep.status).toBe('warn');
     expect(cursorStep.message).toContain('Cursor not detected');
+    const opencodeStep = steps[6];
+    expect(opencodeStep.status).toBe('warn');
+    expect(opencodeStep.message).toContain('OpenCode not detected');
     expect(setupMcp).toHaveBeenCalledTimes(1);
     expect(setupMcp).toHaveBeenCalledWith('/tmp/test', 'claude');
     expect(markSetupComplete).toHaveBeenCalled();
@@ -173,7 +179,7 @@ describe('runSetup', () => {
     expect(success).toBe(true);
     expect(setupMcp).not.toHaveBeenCalled();
     const mcpSteps = steps.filter((s) => s.message.includes('not detected'));
-    expect(mcpSteps).toHaveLength(4);
+    expect(mcpSteps).toHaveLength(5);
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
@@ -290,6 +296,42 @@ describe('configureTier0Integrations', () => {
       String(call[0]).includes('.gemini')
     );
     expect(geminiCalls.length).toBe(0);
+  });
+
+  it('writes Tier 0 to opencode.json when project-local opencode.json exists', () => {
+    const mockWriteOpencode = vi.mocked(writeOpencodeMcpEntry);
+    mockExistsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p);
+      // Project-local opencode.json present
+      if (s === path.join('/tmp/test', 'opencode.json')) return true;
+      return false;
+    });
+
+    configureTier0Integrations('/tmp/test');
+
+    expect(mockWriteOpencode).toHaveBeenCalledTimes(3); // All 3 Tier 0 integrations
+  });
+
+  it('writes Tier 0 to opencode.json when global ~/.config/opencode exists', () => {
+    const mockWriteOpencode = vi.mocked(writeOpencodeMcpEntry);
+    mockExistsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p);
+      if (s === path.join(os.homedir(), '.config', 'opencode')) return true;
+      return false;
+    });
+
+    configureTier0Integrations('/tmp/test');
+
+    expect(mockWriteOpencode).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not write to opencode.json when neither project nor global marker exists', () => {
+    const mockWriteOpencode = vi.mocked(writeOpencodeMcpEntry);
+    mockExistsSync.mockReturnValue(false);
+
+    configureTier0Integrations('/tmp/test');
+
+    expect(mockWriteOpencode).not.toHaveBeenCalled();
   });
 
   it('does not add Tier 1 integrations', () => {
