@@ -103,6 +103,29 @@ describe('ClaudeCliAnalysisProvider', () => {
       expect(response.result).toEqual({ summary: 'Bare object', score: 0.5 });
     });
 
+    it('prefers structured_output over result (Claude Code CLI 2.1.x envelope)', async () => {
+      // Claude Code CLI 2.1.x with --output-format json --json-schema puts the
+      // schema-conforming object in `structured_output` and a natural-language
+      // summary string in `result`. The older shape (schema-conforming JSON in
+      // `result`) was the previous behavior the parser was written against.
+      const cliOutput = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Analyzed the work item and returned structured output. Key takeaway: ...',
+        structured_output: { summary: 'From structured_output', score: 0.42 },
+        usage: { input_tokens: 100, output_tokens: 50 },
+        model: 'claude-opus-4-7',
+      });
+      setupChild(cliOutput, 0);
+
+      const response = await provider.analyze({
+        prompt: 'test',
+        responseSchema: testSchema,
+      });
+
+      expect(response.result).toEqual({ summary: 'From structured_output', score: 0.42 });
+    });
+
     it('handles missing usage gracefully (defaults to 0)', async () => {
       const cliOutput = JSON.stringify({
         result: { summary: 'ok', score: 1 },
@@ -294,6 +317,20 @@ describe('ClaudeCliAnalysisProvider', () => {
       await expect(
         provider.analyze({ prompt: 'test', responseSchema: testSchema })
       ).rejects.toThrow('Failed to parse Claude CLI output');
+    });
+
+    it('includes stdout and stderr snippets in parse-failure error', async () => {
+      // Truncated leading words from `result` (e.g. "Analyzed t...", "Returned s...")
+      // were what the previous error reported, with no surrounding context.
+      // Including the first 500 chars of both streams makes the next
+      // diagnosis a one-log-line affair instead of requiring instrumentation.
+      setupChild('Analyzed the work item and returned plain prose, not JSON.', 0, 'auth warning');
+
+      await expect(
+        provider.analyze({ prompt: 'test', responseSchema: testSchema })
+      ).rejects.toThrow(
+        /stdout \(first 500 chars\): "Analyzed the work item.*stderr \(first 500 chars\): "auth warning"/s
+      );
     });
 
     it('throws ZodError when response does not match schema', async () => {
