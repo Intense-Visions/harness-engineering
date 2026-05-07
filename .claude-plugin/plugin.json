@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/plugin.schema.json",
+  "name": "harness-claude",
+  "version": "0.1.0",
+  "description": "Harness for Claude Code — skills, /harness:* slash commands, persona subagents, lifecycle hooks, and MCP tools without per-repo `harness setup`. Sibling plugins exist for Cursor, Gemini CLI, and Codex.",
+  "author": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering",
+  "license": "MIT",
+  "keywords": ["harness", "agent-first", "skills", "subagents", "hooks", "mcp", "claude-code"],
+  "skills": ["./agents/skills/claude-code"],
+  "commands": "./.claude-plugin/commands/",
+  "agents": "./.claude-plugin/agents/",
+  "hooks": "./.claude-plugin/hooks.json",
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["-y", "-p", "@harness-engineering/cli@latest", "harness-mcp"]
+    }
+  }
+}

@@ -68,5 +68,10 @@ temp/
 *.tsbuildinfo
 .playwright-mcp/
 
-# Generated slash commands
+# Generated slash commands and agent definitions (CLI default outputs)
 agents/commands/
+agents/agents/
+
+# Plugin generator staging dirs (cleaned up after each run)
+tmp-plugin-commands/
+tmp-plugin-agents/

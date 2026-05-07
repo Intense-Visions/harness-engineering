@@ -30,7 +30,24 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 ## Quick Start
 
-### 1. Install and set up global skills + personas
+Pick the install path that matches how you use harness:
+
+- **Claude Code users** → install the `harness-claude` marketplace plugin (recommended). Skills, slash commands, persona subagents, lifecycle hooks, and MCP are wired up automatically — no `harness setup` step.
+- **Cursor / Gemini CLI / Codex users** → sibling marketplace plugins are coming (`harness-cursor`, `harness-gemini`, `harness-codex`). Until they ship, use the npm path below.
+- **Plain CLI / CI users (or any tool not yet covered by a plugin)** → install the npm package. `harness setup` detects every supported AI client (Claude Code, Gemini CLI, Cursor, Codex CLI, OpenCode) and lays down skills, slash commands, agent personas, MCP, and hooks.
+
+### 1a. Install via the Claude Code plugin marketplace (recommended for agent sessions)
+
+In a Claude Code session:
+
+```
+/plugin marketplace add Intense-Visions/harness-engineering
+/plugin install harness-claude
+```
+
+This pulls every bundled skill (so trigger phrases like "scaffold a test suite" engage `initialize-test-suite-project` automatically), registers the `/harness:*` slash commands, installs the 12 persona subagents (`harness-code-reviewer`, `harness-architecture-enforcer`, …), wires the standard hook profile (block-no-verify, protect-config, quality-gate, pre-compact-state, adoption-tracker, telemetry-reporter), and starts the `harness` MCP server via `npx @harness-engineering/cli harness-mcp`. No per-repo `harness setup` is required.
+
+### 1b. Install via npm (for plain CLI use, or for non-Claude AI tools)
 
 ```bash
 npm install -g @harness-engineering/cli
@@ -39,7 +56,63 @@ harness setup
 
 This installs the CLI and runs interactive setup: generates global slash commands and agent personas for all detected AI clients (Claude Code, Gemini CLI, Cursor, Codex CLI), configures MCP servers, and sets up peer integrations. Once set up, every project on your machine has access to `/harness:*` slash commands, agent personas, and the `harness-mcp` server binary — no per-project setup needed.
 
-> **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills.
+> **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills. Marketplace plugin users update via `/plugin update harness-claude`.
+
+### Plugin vs. npm: what you actually get
+
+The marketplace plugin is the **agent-session interface**. The npm package is what you need for shell-level workflows. Pick based on where you actually use harness:
+
+| Surface                                                                                          | `harness-claude` plugin (after `/harness:initialize-project` runs once per repo) | `npm install -g @harness-engineering/cli` (after `harness setup`) |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Inside a Claude Code session — skills, `/harness:*`, subagents, hooks, MCP tools                 | ✅ full parity                                                                   | ✅ same                                                           |
+| Adoption tracking + anonymous telemetry (hooks fire, defaults enabled)                           | ✅ works                                                                         | ✅ works                                                          |
+| Project bootstrap (`harness.config.json`, `.harness/` scaffolding)                               | ✅ via `/harness:initialize-project` (Phase 2)                                   | ✅ via `harness init` / `harness setup`                           |
+| Knowledge graph (`.harness/graph/`)                                                              | ✅ via `/harness:initialize-project` (Phase 5 step 1)                            | ✅ initial scan during `harness setup`                            |
+| Architecture / performance baselines                                                             | ✅ via `/harness:initialize-project` (Phase 5 steps 2–3)                         | ✅ auto-refreshed on main via CI                                  |
+| Telemetry **identity** tagging (project / team / alias)                                          | ✅ via `/harness:initialize-project` (Phase 5 step 4)                            | ✅ via interactive telemetry wizard                               |
+| Legacy layout migration warnings (`docs/plans/`, `.harness/architecture/`)                       | ✅ via `/harness:initialize-project` (Phase 5 step 5)                            | ✅ surfaced during `harness setup`                                |
+| Tier-0 MCP integrations (context7, sequential-thinking, playwright) added to project `.mcp.json` | ✅ via `/harness:initialize-project` (Phase 5 step 6)                            | ✅ wired during interactive setup                                 |
+| Tier-1 API-key integrations (Linear, Slack, Perplexity, …)                                       | ⚠️ surfaced by `harness integrations list`; user wires via `npx … add <name>`    | ⚠️ same — API keys required either way                            |
+| Cursor / Gemini CLI / Codex / OpenCode integration                                               | ❌ (sibling plugins coming)                                                      | ✅ `harness setup` configures all detected clients                |
+| Terminal use — `harness validate`, `harness init`, `harness check-arch`                          | ⚠️ only via `npx @harness-engineering/cli <cmd>`                                 | ✅ binary in PATH                                                 |
+| CI workflows (GitHub Actions, etc.)                                                              | ⚠️ workable via `npx` (cold-start cost per job)                                  | ✅ `npm install -g` once, fast thereafter                         |
+| Git pre-commit hooks (`harness validate` on commit)                                              | ⚠️ npx-based, slow                                                               | ✅ direct binary, fast                                            |
+
+**TL;DR**: run `/harness:initialize-project` once per repo and the plugin covers ~95% of what `harness setup` does — the skill's Phase 5 (INSTRUMENT) closes the bootstrap gap. The remaining ~5% (multi-tool MCP wiring, fast CI/terminal access without npx cold-start) is what `npm install -g` fills. They coexist cleanly.
+
+#### Telemetry on plugin-only installs
+
+Adoption tracking and anonymous telemetry hooks ship in the standard hook profile, so they fire on plugin install with no extra setup. They default-enable but a privacy notice prints to stderr on first run. Opt out at any time:
+
+```bash
+# Per-shell
+export DO_NOT_TRACK=1
+# Or per-project, in harness.config.json:
+#   { "telemetry": { "enabled": false }, "adoption": { "enabled": false } }
+```
+
+For identity-tagged telemetry (project/team/alias), run the interactive wizard once via `npx @harness-engineering/cli telemetry-wizard` — the plugin doesn't ship an interactive equivalent.
+
+#### Updates
+
+Plugin users have two update channels that can drift slightly:
+
+- **Bundled artifacts** (skills, slash commands, subagents, hooks) ship from this git repo. Update via `/plugin update harness-claude`.
+- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@latest harness-mcp`, so each new session pulls the latest published npm version (subject to npx's ~24h cache).
+
+In practice they stay close together because npm publishes follow git tags. If you need them locked in step (e.g. for a release window), `npm install -g @harness-engineering/cli` and use `harness setup` instead.
+
+#### Shell-from-plugin escape hatch
+
+If you only have the plugin installed and need a shell-level harness command, `npx` works without a global install:
+
+```bash
+npx @harness-engineering/cli validate
+npx @harness-engineering/cli check-deps
+npx @harness-engineering/cli check-arch
+```
+
+First call is slow (npx fetches the package); subsequent calls within the cache window are fast. For frequent terminal use, `npm install -g` is still the better path.
 
 ### 2. Scaffold a new project
 
