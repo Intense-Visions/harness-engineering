@@ -54,11 +54,38 @@ const MIGRATION_GUIDE = 'docs/guides/multi-backend-routing.md';
  * with no `localEndpoint`/`localModel`) — these are user-config bugs
  * that would have produced a runtime crash today.
  */
-export function migrateAgentConfig(agent: AgentConfig): MigrationResult {
-  const warnings: string[] = [];
+// Two-tier suppression for case 1 (NF-1, Spec 2 Phase 4):
+//
+// `CASE1_ALWAYS_SUPPRESS`: `agent.backend` is required-by-type today.
+// Every Spec-2-migrated config has it set to a placeholder value, so
+// warning about it would be unconditional noise. (Phase 5+ retires
+// the field by making it optional.)
+//
+// `CASE1_LOCAL_GROUP`: the legacy local* fields. These are inert
+// without `agent.localBackend` (which is the gate that activates
+// them). We suppress them only when `agent.localBackend` IS itself
+// set — i.e., the whole group is a coherent unit and the user is
+// mid-migration with both shapes (suppress to avoid noisy boot
+// logs). When `localBackend` is undefined, a stray local* field is
+// genuine user-config drift (the user partially migrated and forgot
+// to clean a legacy field) — we emit the warning so the drift is
+// visible.
+//
+// NF-1 carry-forward from Phase 0: previously the local* group was
+// unconditionally suppressed, which silently hid genuine user-config
+// drift (e.g., `localEndpoint` set without `localBackend`).
+const CASE1_ALWAYS_SUPPRESS = new Set(['agent.backend']);
+const CASE1_LOCAL_GROUP = new Set([
+  'agent.localBackend',
+  'agent.localEndpoint',
+  'agent.localModel',
+  'agent.localApiKey',
+  'agent.localTimeoutMs',
+  'agent.localProbeIntervalMs',
+]);
 
-  // Identify which legacy fields are present (dotted paths).
-  const legacyFields: Array<{ path: string; present: boolean }> = [
+function detectLegacyFields(agent: AgentConfig): string[] {
+  const fields: Array<{ path: string; present: boolean }> = [
     { path: 'agent.backend', present: agent.backend !== undefined && agent.backend !== '' },
     { path: 'agent.command', present: agent.command !== undefined },
     { path: 'agent.model', present: agent.model !== undefined },
@@ -70,95 +97,109 @@ export function migrateAgentConfig(agent: AgentConfig): MigrationResult {
     { path: 'agent.localTimeoutMs', present: agent.localTimeoutMs !== undefined },
     { path: 'agent.localProbeIntervalMs', present: agent.localProbeIntervalMs !== undefined },
   ];
-  const presentLegacy = legacyFields.filter((f) => f.present).map((f) => f.path);
+  return fields.filter((f) => f.present).map((f) => f.path);
+}
+
+function buildCase1Warnings(presentLegacy: string[], suppressLocalGroup: boolean): string[] {
+  const warnings: string[] = [];
+  for (const path of presentLegacy) {
+    if (CASE1_ALWAYS_SUPPRESS.has(path)) continue;
+    if (suppressLocalGroup && CASE1_LOCAL_GROUP.has(path)) continue;
+    warnings.push(
+      `Ignoring legacy field '${path}': 'agent.backends' is set and takes precedence. See ${MIGRATION_GUIDE}.`
+    );
+  }
+  return warnings;
+}
+
+function synthesizeBackendsAndRouting(agent: AgentConfig): {
+  backends: Record<string, BackendDef>;
+  routing: RoutingConfig;
+} {
+  const backends: Record<string, BackendDef> = { primary: synthesizePrimary(agent) };
+  const routing: RoutingConfig = { default: 'primary' };
+
+  if (agent.localBackend !== undefined) {
+    backends.local = synthesizeLocal(agent);
+    const autoExec: ScopeTier[] = agent.escalation?.autoExecute ?? [];
+    for (const tier of autoExec) routing[tier] = 'local';
+  }
+
+  return { backends, routing };
+}
+
+export function migrateAgentConfig(agent: AgentConfig): MigrationResult {
+  const presentLegacy = detectLegacyFields(agent);
 
   // Case 1: `agent.backends` already set — new schema wins.
-  //
-  // Two-tier suppression for case 1 (NF-1, Spec 2 Phase 4):
-  //
-  // `CASE1_ALWAYS_SUPPRESS`: `agent.backend` is required-by-type today.
-  // Every Spec-2-migrated config has it set to a placeholder value, so
-  // warning about it would be unconditional noise. (Phase 5+ retires
-  // the field by making it optional.)
-  //
-  // `CASE1_LOCAL_GROUP`: the legacy local* fields. These are inert
-  // without `agent.localBackend` (which is the gate that activates
-  // them). We suppress them only when `agent.localBackend` IS itself
-  // set — i.e., the whole group is a coherent unit and the user is
-  // mid-migration with both shapes (suppress to avoid noisy boot
-  // logs). When `localBackend` is undefined, a stray local* field is
-  // genuine user-config drift (the user partially migrated and forgot
-  // to clean a legacy field) — we emit the warning so the drift is
-  // visible.
-  //
-  // NF-1 carry-forward from Phase 0: previously the local* group was
-  // unconditionally suppressed, which silently hid genuine user-config
-  // drift (e.g., `localEndpoint` set without `localBackend`).
-  const CASE1_ALWAYS_SUPPRESS = new Set(['agent.backend']);
-  const CASE1_LOCAL_GROUP = new Set([
-    'agent.localBackend',
-    'agent.localEndpoint',
-    'agent.localModel',
-    'agent.localApiKey',
-    'agent.localTimeoutMs',
-    'agent.localProbeIntervalMs',
-  ]);
-  const suppressLocalGroup = agent.localBackend !== undefined;
-
   if (agent.backends !== undefined) {
-    for (const path of presentLegacy) {
-      if (CASE1_ALWAYS_SUPPRESS.has(path)) continue;
-      if (suppressLocalGroup && CASE1_LOCAL_GROUP.has(path)) continue;
-      warnings.push(
-        `Ignoring legacy field '${path}': 'agent.backends' is set and takes precedence. See ${MIGRATION_GUIDE}.`
-      );
-    }
-    return { config: agent, warnings };
+    return {
+      config: agent,
+      warnings: buildCase1Warnings(presentLegacy, agent.localBackend !== undefined),
+    };
   }
 
   // Case 2: No `agent.backends` and no legacy fields — caller's downstream
   // validation (Phase 3) surfaces the gap. Phase 1 is a no-op.
   if (presentLegacy.length === 0) {
-    return { config: agent, warnings };
+    return { config: agent, warnings: [] };
   }
 
   // Case 3: synthesize backends and routing from legacy fields.
-  const backends: Record<string, BackendDef> = {};
-  const routing: RoutingConfig = { default: 'primary' };
-
-  // Synthesize `backends.primary` from `agent.backend`.
-  backends.primary = synthesizePrimary(agent);
-
-  // Synthesize `backends.local` from `agent.localBackend` (if set).
-  if (agent.localBackend !== undefined) {
-    backends.local = synthesizeLocal(agent);
-  }
-
-  // Translate `escalation.autoExecute` into routing entries.
-  const autoExec: ScopeTier[] = agent.escalation?.autoExecute ?? [];
-  if (backends.local !== undefined) {
-    for (const tier of autoExec) {
-      routing[tier] = 'local';
-    }
-  }
+  const { backends, routing } = synthesizeBackendsAndRouting(agent);
 
   // One warning per legacy field present, naming the field and the
   // guide. The orchestrator's logger collapses these into a single
   // `warn` call (Phase 3 wiring).
-  for (const path of presentLegacy) {
-    warnings.push(
+  const warnings = presentLegacy.map(
+    (path) =>
       `Deprecated config field '${path}' is in use. Migrate to 'agent.backends' / 'agent.routing'. See ${MIGRATION_GUIDE}.`
-    );
-  }
+  );
 
   return {
-    config: {
-      ...agent,
-      backends,
-      routing,
-    },
+    config: { ...agent, backends, routing },
     warnings,
   };
+}
+
+type RemoteBackendType = 'anthropic' | 'openai' | 'gemini';
+type LocalConnectionType = 'local' | 'pi';
+
+function buildRemoteBackend(
+  type: RemoteBackendType,
+  agent: AgentConfig,
+  context: string
+): AnthropicBackendDef | OpenAIBackendDef | GeminiBackendDef {
+  if (agent.model === undefined) {
+    throw new Error(`migrateAgentConfig: ${context} requires agent.model`);
+  }
+  const def = { type, model: agent.model } as
+    | AnthropicBackendDef
+    | OpenAIBackendDef
+    | GeminiBackendDef;
+  if (agent.apiKey !== undefined) def.apiKey = agent.apiKey;
+  return def;
+}
+
+function buildLocalConnectionBackend(
+  type: LocalConnectionType,
+  agent: AgentConfig,
+  context: string
+): LocalBackendDef | PiBackendDef {
+  if (agent.localEndpoint === undefined || agent.localModel === undefined) {
+    throw new Error(
+      `migrateAgentConfig: ${context} requires agent.localEndpoint and agent.localModel`
+    );
+  }
+  const def = {
+    type,
+    endpoint: agent.localEndpoint,
+    model: agent.localModel,
+  } as LocalBackendDef | PiBackendDef;
+  if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
+  if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
+  if (agent.localProbeIntervalMs !== undefined) def.probeIntervalMs = agent.localProbeIntervalMs;
+  return def;
 }
 
 function synthesizePrimary(agent: AgentConfig): BackendDef {
@@ -171,66 +212,14 @@ function synthesizePrimary(agent: AgentConfig): BackendDef {
       if (agent.command !== undefined) def.command = agent.command;
       return def;
     }
-    case 'anthropic': {
-      if (agent.model === undefined) {
-        throw new Error("migrateAgentConfig: agent.backend='anthropic' requires agent.model");
-      }
-      const def: AnthropicBackendDef = { type: 'anthropic', model: agent.model };
-      if (agent.apiKey !== undefined) def.apiKey = agent.apiKey;
-      return def;
-    }
-    case 'openai': {
-      if (agent.model === undefined) {
-        throw new Error("migrateAgentConfig: agent.backend='openai' requires agent.model");
-      }
-      const def: OpenAIBackendDef = { type: 'openai', model: agent.model };
-      if (agent.apiKey !== undefined) def.apiKey = agent.apiKey;
-      return def;
-    }
-    case 'gemini': {
-      if (agent.model === undefined) {
-        throw new Error("migrateAgentConfig: agent.backend='gemini' requires agent.model");
-      }
-      const def: GeminiBackendDef = { type: 'gemini', model: agent.model };
-      if (agent.apiKey !== undefined) def.apiKey = agent.apiKey;
-      return def;
-    }
-    case 'local': {
-      // Treated identically to 'pi' for synthesis; uses the localEndpoint /
-      // localModel as the connection details.
-      if (agent.localEndpoint === undefined || agent.localModel === undefined) {
-        throw new Error(
-          "migrateAgentConfig: agent.backend='local' requires agent.localEndpoint and agent.localModel"
-        );
-      }
-      const def: LocalBackendDef = {
-        type: 'local',
-        endpoint: agent.localEndpoint,
-        model: agent.localModel,
-      };
-      if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
-      if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
-      if (agent.localProbeIntervalMs !== undefined)
-        def.probeIntervalMs = agent.localProbeIntervalMs;
-      return def;
-    }
-    case 'pi': {
-      if (agent.localEndpoint === undefined || agent.localModel === undefined) {
-        throw new Error(
-          "migrateAgentConfig: agent.backend='pi' requires agent.localEndpoint and agent.localModel"
-        );
-      }
-      const def: PiBackendDef = {
-        type: 'pi',
-        endpoint: agent.localEndpoint,
-        model: agent.localModel,
-      };
-      if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
-      if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
-      if (agent.localProbeIntervalMs !== undefined)
-        def.probeIntervalMs = agent.localProbeIntervalMs;
-      return def;
-    }
+    case 'anthropic':
+    case 'openai':
+    case 'gemini':
+      return buildRemoteBackend(backend, agent, `agent.backend='${backend}'`);
+    case 'local':
+    case 'pi':
+      // 'local' and 'pi' use the same localEndpoint/localModel connection shape.
+      return buildLocalConnectionBackend(backend, agent, `agent.backend='${backend}'`);
     default:
       throw new Error(
         `migrateAgentConfig: unknown legacy backend '${String(backend)}'. Expected one of: mock, claude, anthropic, openai, gemini, local, pi.`
@@ -242,30 +231,8 @@ function synthesizeLocal(agent: AgentConfig): BackendDef {
   if (agent.localBackend === undefined) {
     throw new Error('synthesizeLocal called without agent.localBackend');
   }
-  if (agent.localEndpoint === undefined || agent.localModel === undefined) {
-    throw new Error(
-      'migrateAgentConfig: agent.localBackend requires agent.localEndpoint and agent.localModel'
-    );
-  }
-  if (agent.localBackend === 'pi') {
-    const def: PiBackendDef = {
-      type: 'pi',
-      endpoint: agent.localEndpoint,
-      model: agent.localModel,
-    };
-    if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
-    if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
-    if (agent.localProbeIntervalMs !== undefined) def.probeIntervalMs = agent.localProbeIntervalMs;
-    return def;
-  }
-  // 'openai-compatible'
-  const def: LocalBackendDef = {
-    type: 'local',
-    endpoint: agent.localEndpoint,
-    model: agent.localModel,
-  };
-  if (agent.localApiKey !== undefined) def.apiKey = agent.localApiKey;
-  if (agent.localTimeoutMs !== undefined) def.timeoutMs = agent.localTimeoutMs;
-  if (agent.localProbeIntervalMs !== undefined) def.probeIntervalMs = agent.localProbeIntervalMs;
-  return def;
+  // 'pi' maps to PiBackendDef; anything else (currently only 'openai-compatible')
+  // maps to LocalBackendDef.
+  const type: LocalConnectionType = agent.localBackend === 'pi' ? 'pi' : 'local';
+  return buildLocalConnectionBackend(type, agent, 'agent.localBackend');
 }
