@@ -9415,6 +9415,59 @@
         "e66ff96d15a5d527",
         "53b3cf3e586f168a"
       ]
+    },
+    {
+      "capturedAt": "2026-05-09T14:36:46.596Z",
+      "commitHash": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "securityScore": 83,
+      "totalFindings": 17,
+      "bySeverity": {
+        "error": 0,
+        "warning": 17,
+        "info": 0
+      },
+      "byCategory": {
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        },
+        "deserialization": {
+          "findingCount": 15,
+          "errorCount": 0,
+          "warningCount": 15,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "7733281132d1bd91",
+        "35bb4f6ff157cf2f",
+        "b00e8b56541eca4a",
+        "08e2a9bcab23c7ac",
+        "8e68a2f7b11ce86e",
+        "1b54ff2f066d21f9",
+        "d78aa6933739cea6",
+        "d967da7c706632dd",
+        "ca9fca639bb08a6b",
+        "b7f71b33618dd08e",
+        "4975cf1b6ab9df5b",
+        "6d6bcea15bdf6c7c",
+        "be006818769f5393",
+        "286f76d43f44ea2f",
+        "c2341da93b9b5912",
+        "cd914aa5ad523a3a",
+        "795517b9ae34827f"
+      ]
     }
   ],
   "findingLifecycles": [
@@ -9998,8 +10051,8 @@
       "file": "packages/orchestrator/src/server/routes/analyze.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "7dc050e1898aac85",
@@ -10009,8 +10062,8 @@
       "file": "packages/orchestrator/src/server/routes/chat-proxy.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "d105b04f640dfeab",
@@ -10020,8 +10073,8 @@
       "file": "packages/orchestrator/src/server/routes/dispatch-actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "dff00c8326714ff9",
@@ -10031,8 +10084,8 @@
       "file": "packages/orchestrator/src/server/routes/interactions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "70c53ff454c3c7d9",
@@ -10042,8 +10095,8 @@
       "file": "packages/orchestrator/src/server/routes/maintenance.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "62f5bd670137601a",
@@ -10053,8 +10106,8 @@
       "file": "packages/orchestrator/src/server/routes/plans.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "6dde4d866b3a3edc",
@@ -10064,8 +10117,8 @@
       "file": "packages/orchestrator/src/server/routes/roadmap-actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "f48ff7c4fd33d504",
@@ -10075,8 +10128,8 @@
       "file": "packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "86c26e8d696e5beb",
@@ -10086,8 +10139,8 @@
       "file": "packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "9d5f6135305e92de",
@@ -10097,8 +10150,8 @@
       "file": "packages/orchestrator/src/maintenance/reporter.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "38fe6be103e0c955",
@@ -10108,8 +10161,8 @@
       "file": "packages/dashboard/src/server/routes/actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "d30bed7ccdc1fe6f",
@@ -10119,8 +10172,8 @@
       "file": "packages/dashboard/src/client/utils/chat-stream.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "c4212a5500286c51",
@@ -10130,8 +10183,8 @@
       "file": "packages/dashboard/src/client/pages/Analyze.tsx",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "b7c71c01a2847efb",
@@ -10141,8 +10194,8 @@
       "file": "packages/dashboard/src/client/hooks/useLocalModelStatuses.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "db73539d16d377f8",
@@ -10152,8 +10205,8 @@
       "file": "packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "e66ff96d15a5d527",
@@ -10163,8 +10216,8 @@
       "file": "packages/dashboard/src/client/components/threads/AnalysisThreadView.tsx",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
     },
     {
       "findingId": "53b3cf3e586f168a",
@@ -10174,6 +10227,193 @@
       "file": "packages/cli/src/skill/dispatch-session.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
+      "resolvedAt": "2026-05-09T14:36:46.588Z",
+      "resolvedCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832"
+    },
+    {
+      "findingId": "7733281132d1bd91",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/cli/src/skill/dispatch-session.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "35bb4f6ff157cf2f",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/client/components/threads/AnalysisThreadView.tsx",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "b00e8b56541eca4a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/client/hooks/useLocalModelStatuses.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "08e2a9bcab23c7ac",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "8e68a2f7b11ce86e",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/client/pages/Analyze.tsx",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "1b54ff2f066d21f9",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/client/utils/chat-stream.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "d78aa6933739cea6",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/dashboard/src/server/routes/actions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "d967da7c706632dd",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/maintenance/reporter.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "ca9fca639bb08a6b",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/analyze.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "b7f71b33618dd08e",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/chat-proxy.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "4975cf1b6ab9df5b",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/dispatch-actions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "6d6bcea15bdf6c7c",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/interactions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "be006818769f5393",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/maintenance.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "286f76d43f44ea2f",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/plans.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "c2341da93b9b5912",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/roadmap-actions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "cd914aa5ad523a3a",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "795517b9ae34827f",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "/Users/cwarner/Projects/iv/harness-engineering/packages/orchestrator/src/server/routes/sessions.ts",
+      "firstSeenAt": "2026-05-09T14:36:46.588Z",
+      "firstSeenCommit": "8a8e91aaeb96abb5b0862950d75803e995df7832",
       "resolvedAt": null,
       "resolvedCommit": null
     }
