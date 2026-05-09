@@ -150,4 +150,24 @@ describe('sessions routes', () => {
     expect(get.statusCode).toBe(200);
     expect(get.body).toMatchObject({ sessionId: SESSION_A.sessionId });
   });
+
+  it('DELETE /api/sessions/<id> removes the session directory and excludes it from GET list', async () => {
+    await seed(SESSION_A);
+    await seed(SESSION_B);
+
+    const del = await request(server, port, 'DELETE', `/api/sessions/${SESSION_A.sessionId}`);
+    expect(del.statusCode).toBe(200);
+
+    await expect(fs.access(path.join(sessionsDir, SESSION_A.sessionId))).rejects.toThrow();
+
+    const list = await request(server, port, 'GET', '/api/sessions');
+    const ids = (list.body as Array<{ sessionId: string }>).map((s) => s.sessionId);
+    expect(ids).not.toContain(SESSION_A.sessionId);
+    expect(ids).toContain(SESSION_B.sessionId);
+  });
+
+  it('DELETE /api/sessions/<id> rejects unsafe ids', async () => {
+    const res = await request(server, port, 'DELETE', '/api/sessions/..%2Fescape');
+    expect(res.statusCode).toBe(400);
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   useThreadStore,
   selectSidebarSections,
@@ -13,6 +13,10 @@ describe('threadStore', () => {
       lastThreadId: null,
       messages: new Map(),
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('createThread', () => {
@@ -103,6 +107,37 @@ describe('threadStore', () => {
       useThreadStore.getState().setActiveThread(thread.id);
       useThreadStore.getState().closeThread(thread.id);
       expect(useThreadStore.getState().activeThreadId).toBeNull();
+    });
+
+    it('deletes the server-side session when closing a chat thread', () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const thread = useThreadStore.getState().createThread('chat', {
+        sessionId: 'sess-delete-me',
+        command: null,
+      });
+      useThreadStore.getState().closeThread(thread.id);
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/sessions/sess-delete-me', { method: 'DELETE' });
+    });
+
+    it('does not call DELETE when closing a non-chat thread', () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const thread = useThreadStore.getState().createThread('agent', {
+        issueId: 'issue-1',
+        identifier: 'feat/x',
+        phase: 'Thinking',
+        issueTitle: 'Test Agent',
+        issueDescription: null,
+        startedAt: new Date().toISOString(),
+        backendName: 'claude',
+      });
+      useThreadStore.getState().closeThread(thread.id);
+
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

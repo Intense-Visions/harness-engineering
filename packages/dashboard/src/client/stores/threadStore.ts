@@ -216,6 +216,13 @@ export const useThreadStore = create<ThreadStore>((set, get) => ({
   },
 
   closeThread(id: string): void {
+    const thread = get().threads.get(id);
+    if (thread?.type === 'chat') {
+      const sessionId = (thread.meta as ChatMeta).sessionId;
+      // Fire-and-forget: without server-side delete, useChatSessionsSync would
+      // re-create this thread from disk on the next mount.
+      void fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' }).catch(() => {});
+    }
     set((state) => {
       const threads = new Map(state.threads);
       threads.delete(id);
