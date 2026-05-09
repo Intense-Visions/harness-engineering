@@ -497,13 +497,19 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
     expect(payload.body).toContain('NewSummary');
   });
 
-  it('b) Patch with ifMatch (matching cache) → fresh GET, no diff, then PATCH', async () => {
+  it('b) Patch with ifMatch (matching cache) → fresh GET, no diff, then PATCH (single GET, no double-fetch)', async () => {
+    // P2-IMP-6 fix: when ifMatch is supplied, the refetch result is threaded
+    // into buildIssuePatchBody so it does not re-fetch for body-meta rebuild.
+    // Patch sets a body-meta field (priority) so buildIssuePatchBody must
+    // re-serialize the body — without the fix this would issue a second GET.
     const cache = new ETagStore();
     const fetchFn = mockFetchSequence(
-      // refetch
-      { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"current"' },
-      // body-rebuild GET (because patch has summary)
-      { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"current"' },
+      // refetch (only GET — body-rebuild reuses this result)
+      {
+        status: 200,
+        body: rawIssue({ number: 1, title: 'Same' }),
+        etag: 'W/"current"',
+      },
       // PATCH
       { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"new"' }
     );
@@ -513,8 +519,13 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
       fetchFn,
       etagStore: cache,
     });
-    const r = await adapter.update('github:o/r#1', { summary: 'newsum' }, 'W/"current"');
+    const r = await adapter.update('github:o/r#1', { priority: 'P0' }, 'W/"current"');
     expect(r.ok).toBe(true);
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(calls).toHaveLength(2); // refetch GET + PATCH only
+    expect((calls[0]![1] as { method: string }).method).toBe('GET');
+    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
   });
 
   it('b2) Patch with ifMatch but server-side diff (different assignee) → ConflictError, no PATCH', async () => {
