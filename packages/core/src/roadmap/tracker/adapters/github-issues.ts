@@ -249,23 +249,23 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     return out;
   }
   async claim(
-    _id: string,
-    _assignee: string,
-    _ifMatch?: string
+    externalId: string,
+    assignee: string,
+    ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return Err(new Error('not implemented'));
+    return this.update(externalId, { assignee, status: 'in-progress' }, ifMatch);
   }
   async release(
-    _id: string,
-    _ifMatch?: string
+    externalId: string,
+    ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return Err(new Error('not implemented'));
+    return this.update(externalId, { assignee: null, status: 'backlog' }, ifMatch);
   }
   async complete(
-    _id: string,
-    _ifMatch?: string
+    externalId: string,
+    ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return Err(new Error('not implemented'));
+    return this.update(externalId, { status: 'done' }, ifMatch);
   }
   async appendHistory(_id: string, _e: HistoryEvent): Promise<Result<void, Error>> {
     return Err(new Error('not implemented'));
