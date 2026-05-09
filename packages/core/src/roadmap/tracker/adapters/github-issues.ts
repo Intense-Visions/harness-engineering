@@ -401,17 +401,12 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
   }
 
   // --- Helpers ---
-  private mapIssue(issue: RawIssue, nameIndex: Map<string, string>): TrackedFeature {
+  // The nameIndex parameter is retained for backwards-compatibility with the
+  // fetchAll signature but is no longer consulted: blockedBy holds feature
+  // names verbatim from the body-meta block (see client.ts TrackedFeature.blockedBy).
+  private mapIssue(issue: RawIssue, _nameIndex: Map<string, string>): TrackedFeature {
     const { summary, meta } = parseBodyBlock(issue.body ?? '');
     const status = this.mapStatus(issue, meta);
-    const blockedByExt: string[] = [];
-    for (const name of meta.blocked_by ?? []) {
-      const ext = nameIndex.get(name);
-      if (ext) blockedByExt.push(ext);
-      else if (process.env.DEBUG?.includes('harness:tracker')) {
-        console.debug(`harness-tracker: blocked_by "${name}" not in response`);
-      }
-    }
     return {
       externalId: buildExternalId(this.owner, this.repo, issue.number),
       name: issue.title,
@@ -419,7 +414,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       summary,
       spec: meta.spec ?? null,
       plans: meta.plan ? [meta.plan] : [],
-      blockedBy: blockedByExt,
+      blockedBy: meta.blocked_by ?? [],
       assignee: issue.assignees[0]?.login ? `@${issue.assignees[0].login}` : null,
       priority: meta.priority ?? null,
       milestone: issue.milestone?.title ?? meta.milestone ?? null,

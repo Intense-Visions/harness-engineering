@@ -14,7 +14,13 @@ export interface TrackedFeature {
   summary: string;
   spec: string | null;
   plans: string[];
-  blockedBy: string[]; // externalIds resolved at read time when possible
+  /**
+   * Feature **names** (NOT externalIds) authored in the body-meta `blocked_by:`
+   * field. The body-meta block is the canonical source for blockers per spec
+   * §"Body metadata block" — the adapter reads the names verbatim and writes
+   * them verbatim. Translation to externalIds (when needed) is a caller concern.
+   */
+  blockedBy: string[];
   assignee: string | null;
   priority: Priority | null;
   milestone: string | null;

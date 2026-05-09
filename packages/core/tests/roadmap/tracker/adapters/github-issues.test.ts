@@ -63,7 +63,10 @@ describe('GitHubIssuesTrackerAdapter — fetchAll', () => {
     }
   });
 
-  it('b) Resolves blockedBy names → externalIds via the same response', async () => {
+  it('b) blockedBy returns feature names verbatim from the body-meta block', async () => {
+    // Per spec §"Body metadata block", blockedBy holds feature **names** as
+    // authored in the `blocked_by:` field. The adapter does NOT translate to
+    // externalIds — that is a caller concern.
     const fetchFn = mockFetchSequence({
       status: 200,
       body: [
@@ -89,7 +92,7 @@ describe('GitHubIssuesTrackerAdapter — fetchAll', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       const featB = r.value.features.find((f) => f.name === 'B');
-      expect(featB?.blockedBy).toEqual(['github:o/r#10']);
+      expect(featB?.blockedBy).toEqual(['A']);
     }
   });
 
@@ -383,6 +386,69 @@ describe('GitHubIssuesTrackerAdapter — create', () => {
     const r = await adapter.create({ name: 'X', summary: 'sum' });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.externalId).toBe('github:o/r#12');
+  });
+
+  it('blockedBy round-trips verbatim through create + mapIssue', async () => {
+    // Contract: blockedBy holds feature names as authored in body-meta. The
+    // adapter writes them verbatim to meta.blocked_by and reads them verbatim.
+    const created = rawIssue({
+      number: 20,
+      title: 'C',
+      body: serializeBodyBlock('C summary', { blocked_by: ['feature-a', 'feature-b'] }),
+      labels: [{ name: 'harness-managed' }],
+    });
+    const fetchFn = mockFetchSequence({ status: 201, body: created, etag: 'W/"e"' });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.create({
+      name: 'C',
+      summary: 'C summary',
+      blockedBy: ['feature-a', 'feature-b'],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // Round-trip: input blockedBy names survive verbatim through serialize
+      // (write) and parseBodyBlock+mapIssue (read).
+      expect(r.value.blockedBy).toEqual(['feature-a', 'feature-b']);
+    }
+    // Also verify the POST body contained the names verbatim.
+    const call = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
+    const init = call[1] as { body: string };
+    const payload = JSON.parse(init.body) as { body: string };
+    expect(payload.body).toMatch(/blocked_by:.*feature-a.*feature-b/);
+  });
+
+  it('blockedBy round-trips verbatim through update + mapIssue', async () => {
+    // Existing issue body has no blocked_by; PATCH adds blockedBy=['feature-c']
+    // and the mocked response echoes the new body. mapIssue reads names verbatim.
+    const before = rawIssue({ number: 21, title: 'D', body: serializeBodyBlock('D summary', {}) });
+    const after = rawIssue({
+      number: 21,
+      title: 'D',
+      body: serializeBodyBlock('D summary', { blocked_by: ['feature-c'] }),
+    });
+    const fetchFn = mockFetchSequence(
+      // GET for body rebuild (patch.blockedBy is set → bodyTouches)
+      { status: 200, body: before, etag: 'W/"a"' },
+      // PATCH
+      { status: 200, body: after, etag: 'W/"b"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#21', { blockedBy: ['feature-c'] });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.blockedBy).toEqual(['feature-c']);
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const patchInit = calls[1]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { body: string };
+    expect(payload.body).toMatch(/blocked_by:.*feature-c/);
   });
 
   it('c) Invalidates list:* after create', async () => {
