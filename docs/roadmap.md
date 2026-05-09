@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-05-03T16:41:49.827Z
+last_manual_edit: 2026-05-09T14:33:21.520Z
 ---
 
 # Roadmap
@@ -1098,6 +1098,14 @@ last_manual_edit: 2026-05-03T16:41:49.827Z
 - **Summary:** Redesign agent backend selection: agent.backends (named map) + agent.routing (per-use-case selection). Promotes local/pi to first-class backends. In-memory migration shim for legacy agent.backend / agent.localBackend. Reuses LocalModelResolver from Spec 1.
 - **Blockers:** —
 - **Plan:** docs/changes/multi-backend-routing/plans/
+
+### Tracker-Only Roadmap (File-less Mode)
+
+- **Status:** planned
+- **Spec:** docs/changes/roadmap-tracker-only/proposal.md
+- **Summary:** Opt-in mode where the configured external tracker is the canonical roadmap, eliminating docs/roadmap.md as a multi-session conflict surface
+- **Blockers:** —
+- **Plan:** —
 
 ## v3.0 Graph Intelligence
 
