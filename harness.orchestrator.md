@@ -64,6 +64,13 @@ intelligence:
   requestTimeoutMs: 180000
 server:
   port: 8080
+# Built-in maintenance tasks run on cron when `maintenance.enabled: true`.
+# Notable housekeeping tasks: `main-sync` (every 15 min) fast-forwards the
+# orchestrator's local default branch from origin so files read from `cwd`
+# (e.g., docs/roadmap.md, harness.orchestrator.md) stay current. Sync is
+# fast-forward-only — never destructive — and skips with a structured
+# warning event if the working tree is dirty, the branch is wrong, or the
+# local default has diverged. Disable all maintenance via `maintenance.enabled: false`.
 maintenance:
   enabled: true
 ---
