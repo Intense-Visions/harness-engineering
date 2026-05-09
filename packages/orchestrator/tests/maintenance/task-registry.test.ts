@@ -3,8 +3,8 @@ import { BUILT_IN_TASKS } from '../../src/maintenance/task-registry';
 import type { TaskDefinition, TaskType } from '../../src/maintenance/types';
 
 describe('task-registry', () => {
-  it('exports exactly 20 built-in task definitions', () => {
-    expect(BUILT_IN_TASKS).toHaveLength(20);
+  it('exports exactly 21 built-in task definitions', () => {
+    expect(BUILT_IN_TASKS).toHaveLength(21);
   });
 
   it('every task has a unique id', () => {
@@ -60,7 +60,7 @@ describe('task-registry', () => {
 
   it('housekeeping tasks have checkCommand and null branch', () => {
     const housekeeping = BUILT_IN_TASKS.filter((t) => t.type === 'housekeeping');
-    expect(housekeeping.length).toBe(2);
+    expect(housekeeping.length).toBe(3);
     for (const task of housekeeping) {
       expect(task.checkCommand).toBeDefined();
       expect(task.branch).toBeNull();
@@ -194,6 +194,16 @@ describe('task-registry', () => {
       expect(t.type).toBe('housekeeping');
       expect(t.schedule).toBe('0 7 * * *');
       expect(t.branch).toBeNull();
+    });
+
+    it('main-sync: every 15 min, housekeeping', () => {
+      const t = taskMap.get('main-sync')!;
+      expect(t.type).toBe('housekeeping');
+      expect(t.schedule).toBe('*/15 * * * *');
+      expect(t.branch).toBeNull();
+      expect(t.checkCommand).toEqual(['harness', 'sync-main', '--json']);
+      expect(t.description).toBe('Fast-forward local default branch from origin');
+      expect(t.fixSkill).toBeUndefined();
     });
 
     // graph-refresh was in the spec report-only section but not yet tested
