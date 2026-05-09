@@ -23,9 +23,11 @@ export type {
   MaintenanceSchedulerOptions,
   MaintenanceLogger,
   SchedulerLogger,
-  SchedulerClaimManager,
   RunHistoryProvider,
 } from './scheduler';
+
+export { SingleProcessLeaderElector } from './leader-elector';
+export type { LeaderElector } from './leader-elector';
 
 export { cronMatchesNow } from './cron-matcher';
 

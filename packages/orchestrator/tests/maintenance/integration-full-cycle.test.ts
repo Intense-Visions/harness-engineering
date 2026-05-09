@@ -88,13 +88,13 @@ describe('Integration: full maintenance cycle', () => {
         await reporter.record(result);
       };
 
-      const claimManager = {
-        claimAndVerify: vi.fn().mockResolvedValue({ ok: true, value: 'claimed' }),
+      const leaderElector = {
+        electLeader: vi.fn().mockResolvedValue({ ok: true, value: 'claimed' }),
       };
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });
@@ -197,13 +197,13 @@ describe('Integration: full maintenance cycle', () => {
         await reporter.record(result);
       };
 
-      const claimManager = {
-        claimAndVerify: vi.fn().mockResolvedValue({ ok: true, value: 'claimed' }),
+      const leaderElector = {
+        electLeader: vi.fn().mockResolvedValue({ ok: true, value: 'claimed' }),
       };
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });

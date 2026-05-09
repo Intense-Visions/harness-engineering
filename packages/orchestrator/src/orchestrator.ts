@@ -50,6 +50,7 @@ import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
 import { PRDetector, type ExecFileFn } from './core/pr-detector';
 import { MaintenanceScheduler } from './maintenance/scheduler';
+import { SingleProcessLeaderElector } from './maintenance/leader-elector';
 import { MaintenanceReporter } from './maintenance/reporter';
 import { TaskRunner } from './maintenance/task-runner';
 import type {
@@ -521,7 +522,7 @@ export class Orchestrator extends EventEmitter {
 
     this.maintenanceScheduler = new MaintenanceScheduler({
       config: maintenanceConfig,
-      claimManager: this.claimManager!,
+      leaderElector: new SingleProcessLeaderElector(),
       logger: this.logger,
       historyProvider: reporter,
       onTaskDue: async (task) => {
