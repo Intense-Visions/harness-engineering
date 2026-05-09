@@ -8,13 +8,7 @@ import {
   AgentBackend,
 } from '@harness-engineering/types';
 import { writeTaint } from '@harness-engineering/core';
-import {
-  IntelligencePipeline,
-  AnthropicAnalysisProvider,
-  OpenAICompatibleAnalysisProvider,
-  ClaudeCliAnalysisProvider,
-} from '@harness-engineering/intelligence';
-import type { AnalysisProvider } from '@harness-engineering/intelligence';
+import { IntelligencePipeline } from '@harness-engineering/intelligence';
 import type { EnrichedSpec } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession } from './types/internal';
@@ -38,8 +32,7 @@ import { PromptRenderer } from './prompt/renderer';
 import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
-import { buildAnalysisProvider } from './agent/analysis-provider-factory';
-import type { BackendDef } from '@harness-engineering/types';
+import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
@@ -572,153 +565,14 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createIntelligencePipeline(): IntelligencePipeline | null {
-    const intel = this.config.intelligence;
-    if (!intel?.enabled) return null;
-
-    const selProvider = this.createAnalysisProvider('sel');
-    if (!selProvider) return null;
-
-    // Spec 2 SC34/SC35: when sel and pesl route to different backends,
-    // build a distinct provider for the PESL layer. When they route to
-    // the same backend (or pesl is unset), pass undefined so the
-    // pipeline falls back to the sel provider (current behavior).
-    const routing = this.config.agent.routing;
-    const peslName = routing?.intelligence?.pesl;
-    const selName = routing?.intelligence?.sel ?? routing?.default;
-    const peslProvider =
-      peslName !== undefined && peslName !== selName ? this.createAnalysisProvider('pesl') : null;
-
-    const peslModel = intel.models?.pesl ?? this.config.agent.model;
-    const store = new GraphStore();
-    this.graphStore = store;
-    return new IntelligencePipeline(selProvider, store, {
-      ...(peslModel !== undefined && { peslModel }),
-      ...(peslProvider !== null && peslProvider !== undefined && { peslProvider }),
-    });
-  }
-
-  /**
-   * Create the AnalysisProvider for an intelligence-pipeline layer
-   * (`sel` by default; `pesl` when constructing a distinct PESL
-   * provider per Spec 2 SC35).
-   *
-   * Spec 2 Phase 4 (SC31–SC36) — resolution order:
-   *   1. Explicit `intelligence.provider` config wins (preserves Phase 0–3 behavior; SC33).
-   *   2. Otherwise, consult `agent.routing.intelligence.<layer>` (or
-   *      `routing.default`) to pick a `BackendDef` from `agent.backends`,
-   *      then translate via `buildAnalysisProvider` (the per-type factory).
-   *
-   * Closes the Phase 2 deferral (P2-DEF-638): the legacy
-   * `this.config.agent.backend` read at the bottom of this method is
-   * removed; routing is the sole source for non-explicit configs.
-   *
-   * Cyclomatic complexity: pre-Phase-4 was 33 (factory dispatch was
-   * inlined here). Phase 4 extracts the per-type tree into
-   * `buildAnalysisProvider`, dropping this method to ≤ 5 branches
-   * (under the 15 threshold).
-   */
-  private createAnalysisProvider(layer: 'sel' | 'pesl' = 'sel'): AnalysisProvider | null {
-    const intel = this.config.intelligence;
-    if (!intel?.enabled) return null;
-
-    // 1. Explicit intelligence.provider override (SC33).
-    if (intel.provider) {
-      const layerModel = layer === 'sel' ? intel.models?.sel : intel.models?.pesl;
-      return this.createProviderFromExplicitConfig(
-        intel.provider,
-        layerModel ?? this.config.agent.model
-      );
-    }
-
-    // 2. Routing-driven selection (SC31, SC32, SC36).
-    const routed = this.resolveRoutedBackendForIntelligence(layer);
-    if (!routed) return null;
-
-    const { name, def } = routed;
-    const resolver = this.localResolvers.get(name);
-    return buildAnalysisProvider({
-      def,
-      backendName: name,
-      layer,
-      // Spec 2 P3-IMP-1: a single snapshot read feeds the factory's
-      // unavailable-warn diagnostic (Configured/Detected lists) and
-      // collapses the two `getStatus()` calls flagged by P3-SUG-2.
-      getResolverStatusSnapshot: () => {
-        if (!resolver) return null;
-        const status = resolver.getStatus();
-        return {
-          available: status.available,
-          resolved: status.resolved,
-          configured: status.configured,
-          detected: status.detected,
-        };
-      },
-      intelligence: intel,
+    const bundle = buildIntelligencePipeline({
+      config: this.config,
+      localResolvers: this.localResolvers,
       logger: this.logger,
     });
-  }
-
-  /**
-   * Look up the routed BackendDef for an intelligence layer, falling
-   * back through `routing.intelligence.<layer>` → `routing.default`
-   * → null. Returns the resolved name alongside the def so callers can
-   * key into the per-name resolver map.
-   */
-  private resolveRoutedBackendForIntelligence(
-    layer: 'sel' | 'pesl'
-  ): { name: string; def: BackendDef } | null {
-    const routing = this.config.agent.routing;
-    const backends = this.config.agent.backends;
-    if (!routing || !backends) return null;
-    const layerName = routing.intelligence?.[layer];
-    const name = layerName ?? routing.default;
-    const def = backends[name];
-    if (!def) {
-      this.logger.warn(
-        `Intelligence pipeline: routed backend '${name}' for layer '${layer}' is not in agent.backends.`
-      );
-      return null;
-    }
-    return { name, def };
-  }
-
-  private createProviderFromExplicitConfig(
-    provider: NonNullable<NonNullable<typeof this.config.intelligence>['provider']>,
-    selModel: string | undefined
-  ): AnalysisProvider {
-    if (provider.kind === 'anthropic') {
-      const apiKey = provider.apiKey ?? this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error('Intelligence pipeline: no Anthropic API key found.');
-      }
-      return new AnthropicAnalysisProvider({
-        apiKey,
-        ...(selModel !== undefined && { defaultModel: selModel }),
-      });
-    }
-
-    if (provider.kind === 'claude-cli') {
-      return new ClaudeCliAnalysisProvider({
-        command: this.config.agent.command,
-        ...(selModel !== undefined && { defaultModel: selModel }),
-        ...(this.config.intelligence?.requestTimeoutMs !== undefined && {
-          timeoutMs: this.config.intelligence.requestTimeoutMs,
-        }),
-      });
-    }
-
-    // openai-compatible
-    const apiKey = provider.apiKey ?? this.config.agent.apiKey ?? 'ollama';
-    const baseUrl = provider.baseUrl ?? 'http://localhost:11434/v1';
-    const intel = this.config.intelligence;
-    return new OpenAICompatibleAnalysisProvider({
-      apiKey,
-      baseUrl,
-      ...(selModel !== undefined && { defaultModel: selModel }),
-      ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
-      ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
-      ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
-    });
+    if (!bundle) return null;
+    this.graphStore = bundle.graphStore;
+    return bundle.pipeline;
   }
 
   /**
