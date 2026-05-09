@@ -370,3 +370,81 @@ describe('syncMain — error path', () => {
     if (r.status === 'error') expect(r.message).toMatch(/ENOENT|spawn git/);
   });
 });
+
+describe('syncMain — defaultBranch shape', () => {
+  it('strips the origin/ prefix when fall-back resolves to origin/master', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: {
+          error: Object.assign(new Error('no symbolic ref'), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        },
+      },
+      {
+        match: eq(['rev-parse', '--verify', '--quiet', 'origin/main']),
+        result: {
+          error: Object.assign(new Error('not a ref'), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        },
+      },
+      {
+        match: eq(['rev-parse', '--verify', '--quiet', 'origin/master']),
+        result: { stdout: 'abc123\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'topic\n' },
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('skipped');
+    if (r.status === 'skipped') {
+      expect(r.reason).toBe('wrong-branch');
+      expect(r.defaultBranch).toBe('master');
+    }
+  });
+});
+
+describe('syncMain — dirty-conflict stderr propagation', () => {
+  it('classifies stderr containing "Aborting" as dirty-conflict', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: { stdout: 'origin/main\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'main\n' },
+      },
+      { match: startsWith(['fetch', 'origin', 'main']), result: { stdout: '' } },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'HEAD', 'origin/main']),
+        result: { stdout: '' },
+      },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'origin/main', 'HEAD']),
+        result: {
+          error: Object.assign(new Error(''), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        },
+      },
+      { match: eq(['rev-parse', 'HEAD']), result: { stdout: 'aaaaaaaa\n' } },
+      {
+        match: eq(['merge', '--ff-only', 'origin/main']),
+        result: {
+          error: Object.assign(new Error('Aborting'), {
+            code: 1,
+            stderr: 'error: Aborting due to dirty working tree',
+          }) as NodeJS.ErrnoException,
+        },
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('skipped');
+    if (r.status === 'skipped') expect(r.reason).toBe('dirty-conflict');
+  });
+});
