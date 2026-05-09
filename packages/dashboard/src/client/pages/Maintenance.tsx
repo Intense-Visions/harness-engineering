@@ -18,6 +18,13 @@ interface SchedulerStatus {
 // (orchestrator's GET /api/maintenance/history serializer is the producer).
 type HistoryEntry = MaintenanceHistoryEntry;
 
+interface ScheduleRow {
+  taskId: string;
+  type: string;
+  nextRun: string;
+  lastRun: { taskId: string; status: string; startedAt: string; durationMs: number } | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -35,7 +42,7 @@ function statusAccent(status: HistoryEntry['status']): string {
 }
 
 function formatTime(iso: string | null): string {
-  if (!iso) return '\u2014';
+  if (!iso) return '—';
   return new Date(iso).toLocaleString();
 }
 
@@ -109,6 +116,74 @@ function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
   );
 }
 
+function ScheduleTable({
+  rows,
+  inFlight,
+  onRunNow,
+}: {
+  rows: ScheduleRow[];
+  inFlight: Set<string>;
+  onRunNow: (taskId: string) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
+        <p className="text-sm text-gray-500">No scheduled tasks.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-900">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-800 bg-gray-900/60">
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Task ID
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Type
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Next Run
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Last Run
+            </th>
+            <th className="py-2 px-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Action
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const disabled = inFlight.has(row.taskId);
+            return (
+              <tr key={row.taskId} className="border-b border-gray-800 hover:bg-gray-800/40">
+                <td className="py-2 px-3 font-mono text-xs text-gray-200">{row.taskId}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">{row.type}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">{formatTime(row.nextRun)}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">
+                  {row.lastRun ? formatTime(row.lastRun.startedAt) : '—'}
+                </td>
+                <td className="py-2 px-3 text-right">
+                  <button
+                    data-task-id={row.taskId}
+                    onClick={() => onRunNow(row.taskId)}
+                    disabled={disabled}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-200 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {disabled ? 'Running...' : 'Run Now'}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Data fetchers                                                      */
 /* ------------------------------------------------------------------ */
@@ -123,6 +198,12 @@ async function fetchHistory(): Promise<HistoryEntry[]> {
   const res = await fetch('/api/maintenance/history');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as HistoryEntry[];
+}
+
+async function fetchSchedule(): Promise<ScheduleRow[]> {
+  const res = await fetch('/api/maintenance/schedule');
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as ScheduleRow[];
 }
 
 async function triggerRun(taskId: string): Promise<void> {
@@ -141,9 +222,10 @@ async function triggerRun(taskId: string): Promise<void> {
 export function Maintenance() {
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleRow[] | null>(null);
+  const [inFlight, setInFlight] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [triggering, setTriggering] = useState(false);
   const { maintenanceEvent, connected } = useOrchestratorSocket();
 
   const load = useCallback(async () => {
@@ -162,28 +244,62 @@ export function Maintenance() {
     } finally {
       setLoading(false);
     }
+    // Schedule is fetched independently so its absence (e.g. older orchestrator)
+    // does not block status/history rendering.
+    try {
+      const sched = await fetchSchedule();
+      setSchedule(sched);
+    } catch {
+      // Leave schedule null; the section renders a "Loading schedule..." placeholder.
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Refetch status and history when a maintenance event arrives via WebSocket
+  // Refetch status, history, and schedule when a maintenance event arrives via WebSocket.
   useEffect(() => {
     if (!maintenanceEvent) return;
     void load();
   }, [maintenanceEvent, load]);
 
-  const handleTrigger = () => {
-    const taskId = 'project-health';
-    setTriggering(true);
-    triggerRun(taskId)
-      .then(() => load())
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Failed to trigger maintenance run');
-      })
-      .finally(() => setTriggering(false));
-  };
+  // Track in-flight task IDs from started/completed/error events.
+  useEffect(() => {
+    if (!maintenanceEvent) return;
+    const event = maintenanceEvent;
+    if (event.type === 'maintenance:started') {
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.add(event.data.taskId);
+        return next;
+      });
+    } else if (event.type === 'maintenance:completed' || event.type === 'maintenance:error') {
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(event.data.taskId);
+        return next;
+      });
+    }
+    // 'maintenance:baseref_fallback' is informational; do not touch inFlight.
+  }, [maintenanceEvent]);
+
+  const handleRunNow = useCallback((taskId: string) => {
+    setInFlight((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+    triggerRun(taskId).catch((e: unknown) => {
+      setError(e instanceof Error ? e.message : `Failed to trigger ${taskId}`);
+      // On a network failure, clear in-flight so the user can retry.
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    });
+  }, []);
 
   const activeTask =
     maintenanceEvent?.type === 'maintenance:started' ? maintenanceEvent.data.taskId : null;
@@ -198,13 +314,6 @@ export function Maintenance() {
             title={connected ? 'WebSocket connected' : 'WebSocket disconnected'}
           />
         </div>
-        <button
-          onClick={handleTrigger}
-          disabled={triggering}
-          className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-200 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {triggering ? 'Running...' : 'Trigger Run'}
-        </button>
       </div>
 
       {activeTask && (
@@ -225,6 +334,17 @@ export function Maintenance() {
         </div>
       )}
 
+      {maintenanceEvent?.type === 'maintenance:baseref_fallback' && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2">
+          <span className="text-sm text-amber-300">
+            Worktree base-ref fell back to local{' '}
+            <span className="font-mono font-semibold">{maintenanceEvent.data.ref}</span> (repo:{' '}
+            <span className="font-mono">{maintenanceEvent.data.repoRoot}</span>). Origin may be
+            misconfigured or unreachable.
+          </span>
+        </div>
+      )}
+
       {loading && !status && <p className="text-sm text-gray-500">Loading maintenance status...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -239,6 +359,17 @@ export function Maintenance() {
               <KpiCard label="Last Run" value={formatTime(status.lastRunAt)} />
               <KpiCard label="Next Run" value={formatTime(status.nextRunAt)} />
             </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Schedule
+            </h2>
+            {schedule ? (
+              <ScheduleTable rows={schedule} inFlight={inFlight} onRunNow={handleRunNow} />
+            ) : (
+              <p className="text-sm text-gray-500">Loading schedule...</p>
+            )}
           </section>
 
           <section>

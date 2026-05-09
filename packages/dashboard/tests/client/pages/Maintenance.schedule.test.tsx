@@ -149,11 +149,12 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
       data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
     };
     render(<Maintenance />);
-    await waitFor(() => {
-      expect(screen.getByText(/fell back/i)).toBeDefined();
-    });
-    // The banner mentions the ref and repoRoot.
-    expect(screen.getByText(/main/)).toBeDefined();
-    expect(screen.getByText(/\/tmp\/repo/)).toBeDefined();
+    const bannerLead = await waitFor(() => screen.getByText(/fell back/i));
+    // Scope further assertions to the banner element so unrelated occurrences
+    // of "main" (e.g. the main-sync row) do not match.
+    const banner = bannerLead.closest('div')!;
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toMatch(/main/);
+    expect(banner.textContent).toMatch(/\/tmp\/repo/);
   });
 });
