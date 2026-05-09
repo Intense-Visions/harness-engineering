@@ -33,9 +33,9 @@ function createMockAgentDispatcher(
   };
 }
 
-function createMockCommandExecutor(): CommandExecutor {
+function createMockCommandExecutor(stdout = ''): CommandExecutor {
   return {
-    exec: vi.fn().mockResolvedValue(undefined),
+    exec: vi.fn().mockResolvedValue({ stdout }),
   };
 }
 
@@ -475,6 +475,107 @@ describe('TaskRunner', () => {
       const result = await runner.run(ARCH_TASK);
 
       expect(result.taskId).toBe('arch-violations');
+    });
+  });
+
+  describe('housekeeping JSON capture (sync-main contract)', () => {
+    const SYNC_TASK: TaskDefinition = {
+      id: 'main-sync',
+      type: 'housekeeping',
+      description: 'Fast-forward local default branch from origin',
+      schedule: '*/15 * * * *',
+      branch: null,
+      checkCommand: ['harness', 'sync-main', '--json'],
+    };
+
+    it("maps sync-main 'updated' JSON to status: 'success' with no findings", async () => {
+      const stdout =
+        '{"status":"updated","from":"aaaaaaa","to":"bbbbbbb","defaultBranch":"main"}\n';
+      const executor = createMockCommandExecutor(stdout);
+      const runner = new TaskRunner(createRunnerOptions({ commandExecutor: executor }));
+
+      const result = await runner.run(SYNC_TASK);
+
+      expect(result.status).toBe('success');
+      expect(result.findings).toBe(0);
+      expect(result.error).toBeUndefined();
+      expect(executor.exec).toHaveBeenCalledWith(
+        ['harness', 'sync-main', '--json'],
+        '/test/project'
+      );
+    });
+
+    it("maps sync-main 'no-op' JSON to status: 'success'", async () => {
+      const stdout = '{"status":"no-op","defaultBranch":"main"}\n';
+      const runner = new TaskRunner(
+        createRunnerOptions({ commandExecutor: createMockCommandExecutor(stdout) })
+      );
+      const result = await runner.run(SYNC_TASK);
+      expect(result.status).toBe('success');
+    });
+
+    it("maps sync-main 'skipped' JSON to status: 'skipped' with reason in error field", async () => {
+      const stdout =
+        '{"status":"skipped","reason":"dirty-conflict","detail":"local edits","defaultBranch":"main"}\n';
+      const runner = new TaskRunner(
+        createRunnerOptions({ commandExecutor: createMockCommandExecutor(stdout) })
+      );
+      const result = await runner.run(SYNC_TASK);
+      expect(result.status).toBe('skipped');
+      expect(result.error).toContain('dirty-conflict');
+      expect(result.error).toContain('local edits');
+    });
+
+    it("maps sync-main 'error' JSON to status: 'failure' with error message", async () => {
+      const stdout = '{"status":"error","message":"git binary missing"}\n';
+      const runner = new TaskRunner(
+        createRunnerOptions({ commandExecutor: createMockCommandExecutor(stdout) })
+      );
+      const result = await runner.run(SYNC_TASK);
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('git binary missing');
+    });
+
+    it('falls back to status: success for legacy housekeeping with empty stdout', async () => {
+      const SESSION_CLEANUP: TaskDefinition = {
+        id: 'session-cleanup',
+        type: 'housekeeping',
+        description: 'Clean up stale orchestrator sessions',
+        schedule: '0 0 * * *',
+        branch: null,
+        checkCommand: ['cleanup-sessions'],
+      };
+      const runner = new TaskRunner(
+        createRunnerOptions({ commandExecutor: createMockCommandExecutor('') })
+      );
+      const result = await runner.run(SESSION_CLEANUP);
+      expect(result.status).toBe('success');
+      expect(result.findings).toBe(0);
+    });
+
+    it('falls back to status: success for non-JSON stdout', async () => {
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          commandExecutor: createMockCommandExecutor('cleaned 4 sessions\n'),
+        })
+      );
+      const result = await runner.run({
+        ...SYNC_TASK,
+        id: 'session-cleanup',
+        checkCommand: ['cleanup-sessions'],
+      });
+      expect(result.status).toBe('success');
+      expect(result.findings).toBe(0);
+    });
+
+    it('returns failure when executor throws', async () => {
+      const executor: CommandExecutor = {
+        exec: vi.fn().mockRejectedValue(new Error('spawn ENOENT')),
+      };
+      const runner = new TaskRunner(createRunnerOptions({ commandExecutor: executor }));
+      const result = await runner.run(SYNC_TASK);
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('spawn ENOENT');
     });
   });
 });
