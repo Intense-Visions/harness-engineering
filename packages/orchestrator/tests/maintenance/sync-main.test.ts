@@ -1,18 +1,44 @@
 import { describe, it, expect } from 'vitest';
+import * as util from 'node:util';
 import type { ExecFileFn, SyncMainResult } from '../../src/maintenance/sync-main';
 import { syncMain } from '../../src/maintenance/sync-main';
+
+interface ScriptedResult {
+  stdout?: string;
+  stderr?: string;
+}
+interface ScriptedError {
+  error: NodeJS.ErrnoException;
+}
+type ScriptedOutcome = ScriptedResult | ScriptedError;
+type ScriptedHandler = ScriptedOutcome | (() => ScriptedOutcome);
+
+interface Script {
+  match: (args: string[]) => boolean;
+  /** Static outcome, or a function that returns one (for stateful handlers). */
+  result: ScriptedHandler;
+}
 
 /**
  * Builds an `execFile`-compatible mock from a list of scripted handlers.
  * Each handler matches against the argv array and returns either
  * { stdout?, stderr? } (success) or { error } (non-zero exit).
+ *
+ * Note: the real `child_process.execFile` carries a `util.promisify.custom`
+ * symbol so that `promisify(execFile)` resolves to `{stdout, stderr}` rather
+ * than the first callback argument. We mirror that here so the production
+ * code path (`promisify(execFileFn)`) works against the mock unchanged.
  */
-function makeGitMock(
-  scripts: Array<{
-    match: (args: string[]) => boolean;
-    result: { stdout?: string; stderr?: string } | { error: NodeJS.ErrnoException };
-  }>
-): ExecFileFn {
+function makeGitMock(scripts: Script[]): ExecFileFn {
+  function resolveScript(argv: string[]): ScriptedOutcome {
+    const script = scripts.find((s) => s.match(argv));
+    if (!script) {
+      return {
+        error: new Error(`Unexpected git call: ${argv.join(' ')}`) as NodeJS.ErrnoException,
+      };
+    }
+    return typeof script.result === 'function' ? script.result() : script.result;
+  }
   const fn = ((file: string, args: readonly string[], _opts: unknown, cb: unknown) => {
     const callback = cb as (
       err: NodeJS.ErrnoException | null,
@@ -21,22 +47,30 @@ function makeGitMock(
     ) => void;
     expect(file).toBe('git');
     const argv = [...(args ?? [])];
-    const script = scripts.find((s) => s.match(argv));
-    if (!script) {
-      callback(
-        new Error(`Unexpected git call: ${argv.join(' ')}`) as NodeJS.ErrnoException,
-        '',
-        ''
-      );
-      return undefined as never;
-    }
-    if ('error' in script.result) {
-      callback(script.result.error, '', '');
+    const result = resolveScript(argv);
+    if ('error' in result) {
+      callback(result.error, '', '');
     } else {
-      callback(null, script.result.stdout ?? '', script.result.stderr ?? '');
+      callback(null, result.stdout ?? '', result.stderr ?? '');
     }
     return undefined as never;
   }) as unknown as ExecFileFn;
+  // Attach the promisify.custom symbol so `promisify(fn)` returns
+  // `Promise<{stdout, stderr}>` (matching real execFile behavior).
+  (fn as unknown as { [k: symbol]: unknown })[util.promisify.custom] = (
+    file: string,
+    args: readonly string[],
+    _opts?: unknown
+  ) => {
+    expect(file).toBe('git');
+    const argv = [...(args ?? [])];
+    const result = resolveScript(argv);
+    if ('error' in result) return Promise.reject(result.error);
+    return Promise.resolve({
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+    });
+  };
   return fn;
 }
 
@@ -168,6 +202,7 @@ describe('syncMain — no-op path', () => {
 
 describe('syncMain — updated path', () => {
   it('runs ff-only merge and returns updated with both SHAs when HEAD strict-ancestor of origin', async () => {
+    // First `rev-parse HEAD` returns the "before" SHA, second returns "after".
     let revParseHeadCalls = 0;
     const execFileFn = makeGitMock([
       {
@@ -192,35 +227,19 @@ describe('syncMain — updated path', () => {
         }, // origin not ancestor of HEAD → strict
       },
       {
-        // Two `rev-parse HEAD` calls — first returns "before", second "after".
         match: eq(['rev-parse', 'HEAD']),
-        result: { stdout: '' }, // overridden below
+        result: () => {
+          revParseHeadCalls += 1;
+          const sha = revParseHeadCalls === 1 ? 'aaaaaaaa' : 'bbbbbbbb';
+          return { stdout: `${sha}\n` };
+        },
       },
       {
         match: eq(['merge', '--ff-only', 'origin/main']),
         result: { stdout: 'Updating aaaaaaa..bbbbbbb\n' },
       },
     ]);
-    // Wrap to give the two rev-parse HEAD calls different outputs.
-    const wrapped = ((file: string, args: readonly string[], opts: unknown, cb: unknown) => {
-      const argv = [...(args ?? [])];
-      const isHead = argv.length === 2 && argv[0] === 'rev-parse' && argv[1] === 'HEAD';
-      if (isHead) {
-        revParseHeadCalls += 1;
-        const sha = revParseHeadCalls === 1 ? 'aaaaaaaa' : 'bbbbbbbb';
-        (cb as (e: unknown, o: string, s: string) => void)(null, `${sha}\n`, '');
-        return undefined as never;
-      }
-      return (
-        execFileFn as unknown as (
-          f: string,
-          a: readonly string[],
-          o: unknown,
-          c: unknown
-        ) => unknown
-      )(file, args, opts, cb);
-    }) as unknown as ExecFileFn;
-    const r = await syncMain('/repo', { execFileFn: wrapped });
+    const r = await syncMain('/repo', { execFileFn });
     expect(r.status).toBe('updated');
     if (r.status === 'updated') {
       expect(r.from).toBe('aaaaaaaa');
