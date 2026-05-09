@@ -296,4 +296,124 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
     expect(r.ok).toBe(true);
     warnSpy.mockRestore();
   });
+
+  it('release records actor from PRE-PATCH assignee (not the post-clear feature)', async () => {
+    // Without ifMatch, release() must still capture priorAssignee via a pre-PATCH
+    // GET so the history event records the actor correctly. The PATCH response
+    // shows assignee=[]; without the fix, history.actor is 'unknown'.
+    const fetchFn = mockFetchSequence(
+      // pre-PATCH GET: server has alice as assignee
+      {
+        status: 200,
+        body: {
+          number: 7,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+          assignees: [{ login: 'alice' }],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+        etag: 'W/"a"',
+      },
+      // PATCH response: assignee cleared
+      {
+        status: 200,
+        body: {
+          number: 7,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }],
+          assignees: [],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:01:00Z',
+        },
+      },
+      // history POST
+      { status: 201, body: { id: 1 } }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.release('github:o/r#7');
+    expect(r.ok).toBe(true);
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    // Sequence is: pre-PATCH GET, PATCH, POST comment.
+    expect(calls).toHaveLength(3);
+    expect((calls[0]![1] as { method: string }).method).toBe('GET');
+    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
+    expect((calls[2]![1] as { method: string }).method).toBe('POST');
+    const histCall = calls[2]!;
+    expect(histCall[0] as string).toContain('/comments');
+    const init = histCall[1] as { body: string };
+    const parsed = JSON.parse(init.body) as { body: string };
+    const json = parsed.body.slice(HISTORY_PREFIX.length).trim();
+    const evt = JSON.parse(json) as HistoryEvent;
+    expect(evt.type).toBe('released');
+    expect(evt.actor).toBe('@alice');
+  });
+
+  it('complete records actor from PRE-PATCH assignee', async () => {
+    const fetchFn = mockFetchSequence(
+      // pre-PATCH GET: server has bob as assignee
+      {
+        status: 200,
+        body: {
+          number: 8,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+          assignees: [{ login: 'bob' }],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+        etag: 'W/"a"',
+      },
+      // PATCH response: closed; (in some flows assignee may have been cleared elsewhere)
+      {
+        status: 200,
+        body: {
+          number: 8,
+          title: 'F',
+          state: 'closed',
+          body: '',
+          labels: [{ name: 'harness-managed' }],
+          assignees: [],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:01:00Z',
+        },
+      },
+      // history POST
+      { status: 201, body: { id: 1 } }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.complete('github:o/r#8');
+    expect(r.ok).toBe(true);
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(calls).toHaveLength(3);
+    expect((calls[0]![1] as { method: string }).method).toBe('GET');
+    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
+    expect((calls[2]![1] as { method: string }).method).toBe('POST');
+    const histCall = calls[2]!;
+    expect(histCall[0] as string).toContain('/comments');
+    const init = histCall[1] as { body: string };
+    const parsed = JSON.parse(init.body) as { body: string };
+    const json = parsed.body.slice(HISTORY_PREFIX.length).trim();
+    const evt = JSON.parse(json) as HistoryEvent;
+    expect(evt.type).toBe('completed');
+    expect(evt.actor).toBe('@bob');
+  });
 });

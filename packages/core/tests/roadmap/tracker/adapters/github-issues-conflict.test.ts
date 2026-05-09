@@ -179,6 +179,17 @@ describe('GitHubIssuesTrackerAdapter — claim', () => {
 describe('GitHubIssuesTrackerAdapter — release', () => {
   it('a) Plain success: clear assignees, drop in-progress label', async () => {
     const fetchFn = mockFetchSequence(
+      // pre-PATCH GET (priorAssignee capture for history attribution)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          state: 'open',
+          assignees: [{ login: 'alice' }],
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"a"',
+      },
       // PATCH
       {
         status: 200,
@@ -189,7 +200,9 @@ describe('GitHubIssuesTrackerAdapter — release', () => {
           labels: [{ name: 'harness-managed' }],
         }),
         etag: 'W/"e"',
-      }
+      },
+      // history POST (best-effort)
+      { status: 201, body: { id: 1 } }
     );
     const adapter = new GitHubIssuesTrackerAdapter({
       token: 'tok',
@@ -250,6 +263,17 @@ describe('GitHubIssuesTrackerAdapter — release', () => {
 describe('GitHubIssuesTrackerAdapter — complete', () => {
   it('a) Plain success: closes issue, transitions status', async () => {
     const fetchFn = mockFetchSequence(
+      // pre-PATCH GET (priorAssignee capture)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          state: 'open',
+          assignees: [{ login: 'alice' }],
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"a"',
+      },
       // PATCH
       {
         status: 200,
@@ -259,7 +283,9 @@ describe('GitHubIssuesTrackerAdapter — complete', () => {
           labels: [{ name: 'harness-managed' }],
         }),
         etag: 'W/"e"',
-      }
+      },
+      // history POST (best-effort)
+      { status: 201, body: { id: 1 } }
     );
     const adapter = new GitHubIssuesTrackerAdapter({
       token: 'tok',
