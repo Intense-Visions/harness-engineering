@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-05-09T14:33:21.520Z
+last_manual_edit: 2026-05-09T21:07:20.759Z
 ---
 
 # Roadmap
@@ -1104,6 +1104,14 @@ last_manual_edit: 2026-05-09T14:33:21.520Z
 - **Status:** planned
 - **Spec:** docs/changes/roadmap-tracker-only/proposal.md
 - **Summary:** Opt-in mode where the configured external tracker is the canonical roadmap, eliminating docs/roadmap.md as a multi-session conflict surface
+- **Blockers:** —
+- **Plan:** —
+
+### Orchestrator Main-Branch Sync
+
+- **Status:** planned
+- **Spec:** docs/changes/orchestrator-main-sync/proposal.md
+- **Summary:** Periodic 15-min cron task to fast-forward the orchestrator's local default branch from origin (FF-only, surfaced warnings); plus dashboard generalization so "Run Now" works for any maintenance task.
 - **Blockers:** —
 - **Plan:** —
 
