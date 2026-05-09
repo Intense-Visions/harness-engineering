@@ -55,6 +55,7 @@ import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createStateCommand } from './state';
 import { createSyncAnalysesCommand } from './sync-analyses';
+import { createSyncMainCommand } from './sync-main';
 import { createTaintCommand } from './taint';
 import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
@@ -122,6 +123,7 @@ export const commandCreators: Array<() => Command> = [
   createSnapshotCommand,
   createStateCommand,
   createSyncAnalysesCommand,
+  createSyncMainCommand,
   createTaintCommand,
   createTelemetryCommand,
   createTraceabilityCommand,
