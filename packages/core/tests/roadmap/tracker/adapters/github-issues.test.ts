@@ -321,3 +321,221 @@ describe('GitHubIssuesTrackerAdapter — fetchByStatus', () => {
     }
   });
 });
+
+describe('GitHubIssuesTrackerAdapter — create', () => {
+  it('a) POST /issues with title, body=serialized, labels, milestone, assignee', async () => {
+    const created = rawIssue({
+      number: 99,
+      title: 'NewFeat',
+      body: 'will be returned',
+      labels: [{ name: 'harness-managed' }, { name: 'planned' }],
+      assignees: [{ login: 'alice' }],
+    });
+    const fetchFn = mockFetchSequence({
+      status: 201,
+      body: created,
+      etag: 'W/"new"',
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.create({
+      name: 'NewFeat',
+      summary: 'Sum',
+      status: 'planned',
+      spec: 'docs/specs/x.md',
+      plans: ['docs/plans/x.md'],
+      assignee: '@alice',
+      priority: 'P1',
+      milestone: 'M1',
+    });
+    expect(r.ok).toBe(true);
+
+    const call = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
+    const url = call[0] as string;
+    const init = call[1] as { method: string; body: string };
+    expect(url).toContain('/repos/o/r/issues');
+    expect(init.method).toBe('POST');
+    const payload = JSON.parse(init.body) as {
+      title: string;
+      body: string;
+      labels: string[];
+      assignees: string[];
+    };
+    expect(payload.title).toBe('NewFeat');
+    expect(payload.body).toContain('Sum');
+    expect(payload.body).toContain('<!-- harness-meta:start -->');
+    expect(payload.labels).toContain('harness-managed');
+    expect(payload.labels).toContain('planned');
+    expect(payload.assignees).toEqual(['alice']);
+  });
+
+  it('b) Returns Ok(TrackedFeature) with the new externalId', async () => {
+    const created = rawIssue({ number: 12, title: 'X' });
+    const fetchFn = mockFetchSequence({ status: 201, body: created, etag: 'W/"e"' });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.create({ name: 'X', summary: 'sum' });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.externalId).toBe('github:o/r#12');
+  });
+
+  it('c) Invalidates list:* after create', async () => {
+    const cache = new ETagStore();
+    cache.set('list:all', 'W/"old"', []);
+    cache.set('list:status:in-progress', 'W/"y"', []);
+    const fetchFn = mockFetchSequence({
+      status: 201,
+      body: rawIssue({ number: 1 }),
+      etag: 'W/"e"',
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+      etagStore: cache,
+    });
+    await adapter.create({ name: 'X', summary: 'sum' });
+    expect(cache.get('list:all')).toBeNull();
+    expect(cache.get('list:status:in-progress')).toBeNull();
+  });
+});
+
+describe('GitHubIssuesTrackerAdapter — update', () => {
+  it('a) Patch with no ifMatch issues an unconditional PATCH and returns updated feature', async () => {
+    const after = rawIssue({ number: 1, title: 'Updated' });
+    const fetchFn = mockFetchSequence(
+      // GET (for body rebuild because patch.summary is set)
+      { status: 200, body: rawIssue({ number: 1, title: 'Old' }), etag: 'W/"a"' },
+      // PATCH
+      { status: 200, body: after, etag: 'W/"b"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#1', { summary: 'NewSummary' });
+    expect(r.ok).toBe(true);
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(calls).toHaveLength(2);
+    const patchInit = calls[1]![1] as { method: string; body: string };
+    expect(patchInit.method).toBe('PATCH');
+    const payload = JSON.parse(patchInit.body) as { body: string };
+    expect(payload.body).toContain('NewSummary');
+  });
+
+  it('b) Patch with ifMatch (matching cache) → fresh GET, no diff, then PATCH', async () => {
+    const cache = new ETagStore();
+    const fetchFn = mockFetchSequence(
+      // refetch
+      { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"current"' },
+      // body-rebuild GET (because patch has summary)
+      { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"current"' },
+      // PATCH
+      { status: 200, body: rawIssue({ number: 1, title: 'Same' }), etag: 'W/"new"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+      etagStore: cache,
+    });
+    const r = await adapter.update('github:o/r#1', { summary: 'newsum' }, 'W/"current"');
+    expect(r.ok).toBe(true);
+  });
+
+  it('b2) Patch with ifMatch but server-side diff (different assignee) → ConflictError, no PATCH', async () => {
+    const fetchFn = mockFetchSequence(
+      // refetch shows server has assignee bob
+      {
+        status: 200,
+        body: rawIssue({ number: 1, assignees: [{ login: 'bob' }] }),
+        etag: 'W/"e"',
+      }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#1', { assignee: '@alice' }, 'W/"stale"');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.constructor.name).toBe('ConflictError');
+    }
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    // Only the refetch GET — no PATCH issued
+    expect(calls).toHaveLength(1);
+    expect((calls[0]![1] as { method: string }).method).toBe('GET');
+  });
+
+  it('c) Body-meta fields in patch round-trip via serializeBodyBlock', async () => {
+    const fetchFn = mockFetchSequence(
+      // GET for body rebuild
+      {
+        status: 200,
+        body: rawIssue({ number: 5, body: 'OldSummary' }),
+        etag: 'W/"a"',
+      },
+      // PATCH
+      { status: 200, body: rawIssue({ number: 5 }), etag: 'W/"b"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    await adapter.update('github:o/r#5', { priority: 'P0', spec: 'docs/specs/y.md' });
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const patchInit = calls[1]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { body: string };
+    expect(payload.body).toContain('priority: P0');
+    expect(payload.body).toContain('spec: docs/specs/y.md');
+  });
+
+  it('d) Status change applies new state (closed for done) and removes prior status labels', async () => {
+    const fetchFn = mockFetchSequence(
+      // PATCH (no body-rebuild GET because patch only has status)
+      { status: 200, body: rawIssue({ number: 9, state: 'closed' }), etag: 'W/"b"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#9', { status: 'done' });
+    expect(r.ok).toBe(true);
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const patchInit = calls[0]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { state?: string };
+    expect(payload.state).toBe('closed');
+  });
+
+  it('e) Invalidates feature:<externalId> AND list:* after update', async () => {
+    const cache = new ETagStore();
+    cache.set('feature:github:o/r#1', 'W/"e"', { name: 'old' });
+    cache.set('list:all', 'W/"l"', []);
+    const fetchFn = mockFetchSequence({
+      status: 200,
+      body: rawIssue({ number: 1 }),
+      etag: 'W/"new"',
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+      etagStore: cache,
+    });
+    await adapter.update('github:o/r#1', { status: 'in-progress' });
+    expect(cache.get('feature:github:o/r#1')).toBeNull();
+    expect(cache.get('list:all')).toBeNull();
+  });
+});

@@ -10,7 +10,9 @@ import type {
 } from '../client';
 import { GitHubHttp, parseExternalId, buildExternalId } from './github-http';
 import { ETagStore } from '../etag-store';
-import { parseBodyBlock, type BodyMeta } from '../body-metadata';
+import { parseBodyBlock, serializeBodyBlock, type BodyMeta } from '../body-metadata';
+import { refetchAndCompare } from '../conflict';
+import { ConflictError as ConflictErrorClass } from '../client';
 
 export interface GitHubIssuesTrackerOptions {
   token: string;
@@ -130,16 +132,121 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     return Ok(all.value.features.filter((f) => statuses.includes(f.status)));
   }
 
-  // --- Stubs for now: write methods + history ---
-  async create(_feature: NewFeatureInput): Promise<Result<TrackedFeature, Error>> {
-    return Err(new Error('not implemented'));
+  // --- Writes ---
+
+  async create(feature: NewFeatureInput): Promise<Result<TrackedFeature, Error>> {
+    try {
+      const meta: BodyMeta = {};
+      if (feature.spec !== undefined && feature.spec !== null) meta.spec = feature.spec;
+      if (feature.plans && feature.plans.length > 0) meta.plan = feature.plans[0]!;
+      if (feature.blockedBy && feature.blockedBy.length > 0) meta.blocked_by = feature.blockedBy;
+      if (feature.priority !== undefined && feature.priority !== null)
+        meta.priority = feature.priority;
+      if (feature.milestone !== undefined && feature.milestone !== null)
+        meta.milestone = feature.milestone;
+      const body = serializeBodyBlock(feature.summary ?? '', meta);
+      const labels = [this.selectorLabel];
+      if (feature.status && feature.status !== 'backlog') labels.push(feature.status);
+      const payload: Record<string, unknown> = {
+        title: feature.name,
+        body,
+        labels,
+      };
+      if (feature.assignee) payload.assignees = [feature.assignee.replace(/^@/, '')];
+      const res = await this.http.request(
+        `${this.http.apiBase}/repos/${this.owner}/${this.repo}/issues`,
+        { method: 'POST', body: JSON.stringify(payload) }
+      );
+      if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
+      const data = (await res.json()) as RawIssue;
+      this.cache.invalidatePrefix('list:');
+      return Ok(this.mapIssue(data, new Map()));
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
   }
+
   async update(
-    _id: string,
-    _patch: FeaturePatch,
-    _ifMatch?: string
+    externalId: string,
+    patch: FeaturePatch,
+    ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return Err(new Error('not implemented'));
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+
+      // Refetch-and-compare guard (decision D-P2-B)
+      // GitHub REST does NOT support If-Match on PATCH /issues/{n}.
+      // When ifMatch is provided, we GET fresh state and compare BEFORE issuing PATCH.
+      // If diff present we return ConflictError without writing.
+      if (ifMatch) {
+        const cur = await this.fetchById(externalId);
+        if (!cur.ok) return cur;
+        if (!cur.value) return Err(new Error(`Not found: ${externalId}`));
+        const cmp = refetchAndCompare(cur.value.feature, patch);
+        if (!cmp.ok) return Err(new ConflictErrorClass(externalId, cmp.diff!));
+        if (cmp.idempotent) return Ok(cur.value.feature);
+      }
+
+      // Build PATCH payload
+      const reqBody = await this.buildIssuePatchBody(externalId, patch);
+      const res = await this.http.request(
+        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        { method: 'PATCH', body: JSON.stringify(reqBody) }
+      );
+      if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
+      const data = (await res.json()) as RawIssue;
+      this.cache.invalidate(`feature:${externalId}`);
+      this.cache.invalidatePrefix('list:');
+      return Ok(this.mapIssue(data, new Map()));
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+
+  private async buildIssuePatchBody(
+    externalId: string,
+    patch: FeaturePatch
+  ): Promise<Record<string, unknown>> {
+    const out: Record<string, unknown> = {};
+    if (patch.name !== undefined) out.title = patch.name;
+    if (patch.assignee !== undefined) {
+      out.assignees = patch.assignee ? [patch.assignee.replace(/^@/, '')] : [];
+    }
+    if (patch.status !== undefined) {
+      if (patch.status === 'done') out.state = 'closed';
+      else out.state = 'open';
+    }
+    // Body-meta fields → re-serialize body (requires reading current body)
+    const bodyTouches: Array<keyof FeaturePatch> = [
+      'summary',
+      'spec',
+      'plans',
+      'blockedBy',
+      'priority',
+      'milestone',
+    ];
+    if (bodyTouches.some((k) => patch[k] !== undefined)) {
+      const cur = await this.fetchById(externalId);
+      if (!cur.ok || !cur.value) throw new Error('Cannot rebuild body without current state');
+      const meta: BodyMeta = {};
+      const specVal = patch.spec !== undefined ? patch.spec : cur.value.feature.spec;
+      if (specVal !== null && specVal !== undefined) meta.spec = specVal;
+      const planVal = patch.plans !== undefined ? patch.plans[0] : cur.value.feature.plans[0];
+      if (planVal) meta.plan = planVal;
+      const blockedByVal =
+        patch.blockedBy !== undefined ? patch.blockedBy : cur.value.feature.blockedBy;
+      if (blockedByVal && blockedByVal.length > 0) meta.blocked_by = blockedByVal;
+      const priorityVal =
+        patch.priority !== undefined ? patch.priority : cur.value.feature.priority;
+      if (priorityVal !== null && priorityVal !== undefined) meta.priority = priorityVal;
+      const milestoneVal =
+        patch.milestone !== undefined ? patch.milestone : cur.value.feature.milestone;
+      if (milestoneVal !== null && milestoneVal !== undefined) meta.milestone = milestoneVal;
+      const summaryText = patch.summary !== undefined ? patch.summary : cur.value.feature.summary;
+      out.body = serializeBodyBlock(summaryText, meta);
+    }
+    return out;
   }
   async claim(
     _id: string,
