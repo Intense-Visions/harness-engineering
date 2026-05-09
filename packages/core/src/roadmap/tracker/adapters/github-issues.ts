@@ -39,6 +39,35 @@ interface RawIssue {
   pull_request?: unknown;
 }
 
+/**
+ * Source-shape for body-meta extraction. NewFeatureInput and the merged
+ * (patch∪currentFeature) projection used by buildIssuePatchBody both satisfy
+ * this shape, which lets the meta-extraction logic be shared.
+ */
+interface MetaSource {
+  spec?: string | null;
+  plans?: string[];
+  blockedBy?: string[];
+  priority?: BodyMeta['priority'];
+  milestone?: string | null;
+}
+
+/** Extracts a populated BodyMeta from a feature-like source, dropping null/empty fields. */
+function metaFromFeatureFields(src: MetaSource): BodyMeta {
+  const meta: BodyMeta = {};
+  if (src.spec !== undefined && src.spec !== null) meta.spec = src.spec;
+  if (src.plans && src.plans.length > 0) meta.plan = src.plans[0]!;
+  if (src.blockedBy && src.blockedBy.length > 0) meta.blocked_by = src.blockedBy;
+  if (src.priority !== undefined && src.priority !== null) meta.priority = src.priority;
+  if (src.milestone !== undefined && src.milestone !== null) meta.milestone = src.milestone;
+  return meta;
+}
+
+/** Convenience wrapper for create's NewFeatureInput shape. */
+function buildCreateMeta(feature: NewFeatureInput): BodyMeta {
+  return metaFromFeatureFields(feature);
+}
+
 export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
   private readonly http: GitHubHttp;
   private readonly owner: string;
@@ -136,22 +165,10 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
 
   async create(feature: NewFeatureInput): Promise<Result<TrackedFeature, Error>> {
     try {
-      const meta: BodyMeta = {};
-      if (feature.spec !== undefined && feature.spec !== null) meta.spec = feature.spec;
-      if (feature.plans && feature.plans.length > 0) meta.plan = feature.plans[0]!;
-      if (feature.blockedBy && feature.blockedBy.length > 0) meta.blocked_by = feature.blockedBy;
-      if (feature.priority !== undefined && feature.priority !== null)
-        meta.priority = feature.priority;
-      if (feature.milestone !== undefined && feature.milestone !== null)
-        meta.milestone = feature.milestone;
+      const meta = buildCreateMeta(feature);
       const body = serializeBodyBlock(feature.summary ?? '', meta);
-      const labels = [this.selectorLabel];
-      if (feature.status && feature.status !== 'backlog') labels.push(feature.status);
-      const payload: Record<string, unknown> = {
-        title: feature.name,
-        body,
-        labels,
-      };
+      const labels = this.buildCreateLabels(feature);
+      const payload: Record<string, unknown> = { title: feature.name, body, labels };
       if (feature.assignee) payload.assignees = [feature.assignee.replace(/^@/, '')];
       const res = await this.http.request(
         `${this.http.apiBase}/repos/${this.owner}/${this.repo}/issues`,
@@ -164,6 +181,12 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     } catch (err) {
       return Err(err instanceof Error ? err : new Error(String(err)));
     }
+  }
+
+  private buildCreateLabels(feature: NewFeatureInput): string[] {
+    const labels = [this.selectorLabel];
+    if (feature.status && feature.status !== 'backlog') labels.push(feature.status);
+    return labels;
   }
 
   async update(
@@ -291,17 +314,15 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
         if (!cur.ok || !cur.value) throw new Error('Cannot rebuild body without current state');
         current = cur.value.feature;
       }
-      const meta: BodyMeta = {};
-      const specVal = patch.spec !== undefined ? patch.spec : current.spec;
-      if (specVal !== null && specVal !== undefined) meta.spec = specVal;
-      const planVal = patch.plans !== undefined ? patch.plans[0] : current.plans[0];
-      if (planVal) meta.plan = planVal;
-      const blockedByVal = patch.blockedBy !== undefined ? patch.blockedBy : current.blockedBy;
-      if (blockedByVal && blockedByVal.length > 0) meta.blocked_by = blockedByVal;
-      const priorityVal = patch.priority !== undefined ? patch.priority : current.priority;
-      if (priorityVal !== null && priorityVal !== undefined) meta.priority = priorityVal;
-      const milestoneVal = patch.milestone !== undefined ? patch.milestone : current.milestone;
-      if (milestoneVal !== null && milestoneVal !== undefined) meta.milestone = milestoneVal;
+      // Merge patch over current for each body-meta field, then run the
+      // shared meta-extraction (drops null/empty fields).
+      const meta = metaFromFeatureFields({
+        spec: patch.spec !== undefined ? patch.spec : current.spec,
+        plans: patch.plans !== undefined ? patch.plans : current.plans,
+        blockedBy: patch.blockedBy !== undefined ? patch.blockedBy : current.blockedBy,
+        priority: patch.priority !== undefined ? patch.priority : current.priority,
+        milestone: patch.milestone !== undefined ? patch.milestone : current.milestone,
+      });
       const summaryText = patch.summary !== undefined ? patch.summary : current.summary;
       out.body = serializeBodyBlock(summaryText, meta);
     }
