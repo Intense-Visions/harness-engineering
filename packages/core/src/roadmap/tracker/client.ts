@@ -1,0 +1,107 @@
+/**
+ * Phase 2 wide tracker interface (file-less roadmap mode).
+ * See docs/changes/roadmap-tracker-only/proposal.md §"IssueTrackerClient interface".
+ *
+ * Named `RoadmapTrackerClient` (not `IssueTrackerClient`) to avoid colliding
+ * with the small interface lifted in Phase 1 (decision D-P2-A).
+ */
+import type { Result, FeatureStatus, Priority } from '@harness-engineering/types';
+
+export interface TrackedFeature {
+  externalId: string; // "github:owner/repo#42"
+  name: string;
+  status: FeatureStatus;
+  summary: string;
+  spec: string | null;
+  plans: string[];
+  blockedBy: string[]; // externalIds resolved at read time when possible
+  assignee: string | null;
+  priority: Priority | null;
+  milestone: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface NewFeatureInput {
+  name: string;
+  summary: string;
+  status?: FeatureStatus;
+  spec?: string | null;
+  plans?: string[];
+  blockedBy?: string[];
+  priority?: Priority | null;
+  milestone?: string | null;
+  assignee?: string | null;
+}
+
+export type FeaturePatch = Partial<Omit<TrackedFeature, 'externalId' | 'createdAt' | 'updatedAt'>>;
+
+export type HistoryEventType =
+  | 'created'
+  | 'claimed'
+  | 'released'
+  | 'completed'
+  | 'updated'
+  | 'reopened';
+
+export interface HistoryEvent {
+  type: HistoryEventType;
+  actor: string;
+  at: string; // ISO timestamp
+  details?: Record<string, unknown>;
+}
+
+/**
+ * ConflictError signals that a write would clobber an external change.
+ * Synthesized via refetch-and-compare on writes (D-P2-B); GitHub REST does
+ * not natively return 412 on issue PATCH.
+ */
+export class ConflictError extends Error {
+  readonly code = 'TRACKER_CONFLICT' as const;
+  readonly externalId: string;
+  readonly diff: Record<string, { ours: unknown; theirs: unknown }>;
+  constructor(
+    externalId: string,
+    diff: Record<string, { ours: unknown; theirs: unknown }>,
+    message?: string
+  ) {
+    super(message ?? `Conflict on ${externalId}: ${Object.keys(diff).join(', ')}`);
+    this.name = 'ConflictError';
+    this.externalId = externalId;
+    this.diff = diff;
+  }
+}
+
+export interface RoadmapTrackerClient {
+  // Reads
+  fetchAll(): Promise<Result<{ features: TrackedFeature[]; etag: string | null }, Error>>;
+  fetchById(
+    externalId: string
+  ): Promise<Result<{ feature: TrackedFeature; etag: string } | null, Error>>;
+  fetchByStatus(statuses: FeatureStatus[]): Promise<Result<TrackedFeature[], Error>>;
+
+  // Writes (ifMatch is forward-compatible; current GitHub backend uses refetch-and-compare)
+  create(feature: NewFeatureInput): Promise<Result<TrackedFeature, Error>>;
+  update(
+    externalId: string,
+    patch: FeaturePatch,
+    ifMatch?: string
+  ): Promise<Result<TrackedFeature, ConflictError | Error>>;
+  claim(
+    externalId: string,
+    assignee: string,
+    ifMatch?: string
+  ): Promise<Result<TrackedFeature, ConflictError | Error>>;
+  release(
+    externalId: string,
+    ifMatch?: string
+  ): Promise<Result<TrackedFeature, ConflictError | Error>>;
+  complete(
+    externalId: string,
+    ifMatch?: string
+  ): Promise<Result<TrackedFeature, ConflictError | Error>>;
+
+  // History
+  appendHistory(externalId: string, event: HistoryEvent): Promise<Result<void, Error>>;
+  fetchHistory(externalId: string, limit?: number): Promise<Result<HistoryEvent[], Error>>;
+}
