@@ -49,3 +49,9 @@ export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
  */
 export { scoreRoadmapCandidates, assignFeature } from './pilot-scoring';
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
+
+/**
+ * Tracker abstraction — IssueTrackerClient and shared types.
+ * See packages/core/src/roadmap/tracker/index.ts.
+ */
+export type { IssueTrackerClient, Issue, BlockerRef, TrackerConfig } from './tracker';
