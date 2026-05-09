@@ -1,16 +1,22 @@
 import * as fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
 import {
-  Result,
+  parseRoadmap,
+  serializeRoadmap,
+  // Phase 1 of the file-less roadmap proposal: the tracker abstraction
+  // now has its public home in @harness-engineering/core/roadmap/tracker.
+  // The four lifted symbols below resolve through that home.
+  type Issue,
+  type IssueTrackerClient,
+  type TrackerConfig,
+  type BlockerRef,
+} from '@harness-engineering/core';
+import {
+  type Result,
   Ok,
   Err,
-  Issue,
-  IssueTrackerClient,
-  TrackerConfig,
-  BlockerRef,
-  FeatureStatus,
-  RoadmapFeature,
+  type FeatureStatus,
+  type RoadmapFeature,
 } from '@harness-engineering/types';
 
 /**
