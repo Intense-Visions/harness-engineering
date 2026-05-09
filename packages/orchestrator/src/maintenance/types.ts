@@ -63,6 +63,8 @@ export interface RunResult {
 export interface ScheduleEntry {
   /** Task identifier */
   taskId: string;
+  /** Task type (mechanical-ai | pure-ai | report-only | housekeeping). */
+  type: string;
   /** ISO timestamp of the next scheduled run */
   nextRun: string;
   /** Result of the most recent run, or null if never run */

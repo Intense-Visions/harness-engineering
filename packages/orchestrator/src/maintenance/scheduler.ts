@@ -246,6 +246,7 @@ export class MaintenanceScheduler {
 
     const schedule: ScheduleEntry[] = this.resolvedTasks.map((task) => ({
       taskId: task.id,
+      type: task.type,
       nextRun: this.computeNextRun(task.schedule),
       lastRun: history.find((r) => r.taskId === task.id) ?? null,
     }));
