@@ -33,3 +33,8 @@ export type { OrchestratorBackendFactoryOptions } from './agent/orchestrator-bac
 export { migrateAgentConfig } from './agent/config-migration';
 export type { MigrationResult } from './agent/config-migration';
 export { createBackend } from './agent/backend-factory';
+
+// Phase 1 sync-main helper public surface. Wired into the maintenance
+// scheduler in Phase 2; exported here so the CLI can wrap it directly.
+export { syncMain } from './maintenance/sync-main';
+export type { SyncMainResult, SyncMainOptions, SyncSkipReason } from './maintenance/sync-main';

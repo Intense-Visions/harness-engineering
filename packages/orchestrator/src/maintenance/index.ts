@@ -54,3 +54,7 @@ export type {
   PRManagerOptions,
   PRManagerLogger,
 } from './pr-manager';
+
+// Phase 1 sync-main helper. Wired into the maintenance scheduler in Phase 2.
+export { syncMain } from './sync-main';
+export type { SyncMainResult, SyncMainOptions, SyncSkipReason } from './sync-main';
