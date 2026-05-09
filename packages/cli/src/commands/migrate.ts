@@ -97,6 +97,16 @@ function walk(dir: string, predicate: (p: string) => boolean): string[] {
   return out;
 }
 
+interface AutopilotState {
+  specPath?: string;
+  phases?: Array<{ planPath?: string }>;
+}
+
+function extractAutopilotTopic(state: AutopilotState): string | null {
+  const match = (state.specPath ?? '').match(/^docs\/changes\/([^/]+)\/proposal\.md$/);
+  return match?.[1] ?? null;
+}
+
 function buildAutopilotMap(cwd: string): Map<string, string> {
   const map = new Map<string, string>();
   const sessionsDir = path.join(cwd, '.harness', 'sessions');
@@ -104,12 +114,10 @@ function buildAutopilotMap(cwd: string): Map<string, string> {
 
   for (const session of listDirs(sessionsDir)) {
     if (!session.startsWith('changes--')) continue;
-    const statePath = path.join(sessionsDir, session, 'autopilot-state.json');
-    const state = readJson<{ specPath?: string; phases?: Array<{ planPath?: string }> }>(statePath);
+    const state = readJson<AutopilotState>(path.join(sessionsDir, session, 'autopilot-state.json'));
     if (!state) continue;
-    const specMatch = (state.specPath ?? '').match(/^docs\/changes\/([^/]+)\/proposal\.md$/);
-    if (!specMatch || !specMatch[1]) continue;
-    const topic = specMatch[1];
+    const topic = extractAutopilotTopic(state);
+    if (!topic) continue;
     for (const phase of state.phases ?? []) {
       if (phase.planPath) map.set(phase.planPath, topic);
     }
@@ -150,10 +158,10 @@ function extractTopicFromFilename(filename: string, proposalTopics: Set<string>)
   return best;
 }
 
-async function buildPlan(opts: MigrateOptions): Promise<MigrationPlan> {
-  const cwd = opts.cwd ?? process.cwd();
+function resolveDocsDir(cwd: string): string {
   const configPath = path.join(cwd, 'harness.config.json');
   const configResult = fs.existsSync(configPath) ? resolveConfig(configPath) : null;
+
   let docsDir: string;
   if (configResult?.ok) {
     docsDir = configResult.value.docsDir;
@@ -165,83 +173,96 @@ async function buildPlan(opts: MigrateOptions): Promise<MigrationPlan> {
   } else {
     docsDir = './docs';
   }
+
   const docsAbs = path.resolve(cwd, docsDir);
   const relRaw = path.relative(cwd, docsAbs).replaceAll('\\', '/');
   // Guard: when docsDir resolves to the repo root, avoid producing absolute-looking paths
-  const docsRel = relRaw === '' ? 'docs' : relRaw;
+  return relRaw === '' ? 'docs' : relRaw;
+}
+
+function collectAdrMoves(cwd: string, docsRel: string): AdrMove[] {
+  const moves: AdrMove[] = [];
+  const legacyAdrDir = path.join(cwd, '.harness', 'architecture');
+  if (!fs.existsSync(legacyAdrDir)) return moves;
+
+  for (const topic of listDirs(legacyAdrDir)) {
+    const topicSrc = path.join(legacyAdrDir, topic);
+    for (const file of listFiles(topicSrc, (n) => n.endsWith('.md'))) {
+      moves.push({
+        src: `.harness/architecture/${topic}/${file}`,
+        dest: `${docsRel}/architecture/${topic}/${file}`,
+      });
+    }
+  }
+  return moves;
+}
+
+function collectProposalTopics(cwd: string): Set<string> {
+  const topics = new Set<string>();
+  const changesDir = path.join(cwd, 'docs', 'changes');
+  for (const topic of listDirs(changesDir)) {
+    if (fs.existsSync(path.join(changesDir, topic, 'proposal.md'))) {
+      topics.add(topic);
+    }
+  }
+  return topics;
+}
+
+function classifyPlan(
+  planRel: string,
+  planAbs: string,
+  filename: string,
+  autopilotMap: Map<string, string>,
+  proposalTopics: Set<string>
+): { topic: string; via: PlanMapSource } | null {
+  const fromAutopilot = autopilotMap.get(planRel);
+  if (fromAutopilot) return { topic: fromAutopilot, via: 'autopilot' };
+
+  const fromHeader = extractTopicFromHeader(planAbs, proposalTopics);
+  if (fromHeader) return { topic: fromHeader, via: 'header' };
+
+  const fromFilename = extractTopicFromFilename(filename, proposalTopics);
+  if (fromFilename) return { topic: fromFilename, via: 'filename' };
+
+  return null;
+}
+
+async function buildPlan(opts: MigrateOptions): Promise<MigrationPlan> {
+  const cwd = opts.cwd ?? process.cwd();
+  const docsRel = resolveDocsDir(cwd);
 
   const plan: MigrationPlan = {
     cwd,
     isGitRepo: isGitRepo(cwd),
     docsDir: docsRel,
-    adrMoves: [],
+    adrMoves: collectAdrMoves(cwd, docsRel),
     planMoves: [],
     orphanPlans: [],
-    proposalTopics: new Set(),
+    proposalTopics: collectProposalTopics(cwd),
   };
 
-  // ADR detection
-  const legacyAdrDir = path.join(cwd, '.harness', 'architecture');
-  if (fs.existsSync(legacyAdrDir)) {
-    for (const topic of listDirs(legacyAdrDir)) {
-      const topicSrc = path.join(legacyAdrDir, topic);
-      for (const file of listFiles(topicSrc, (n) => n.endsWith('.md'))) {
-        const src = `.harness/architecture/${topic}/${file}`;
-        const dest = `${docsRel}/architecture/${topic}/${file}`;
-        plan.adrMoves.push({ src, dest });
-      }
-    }
-  }
-
-  // Plan detection
   const legacyPlanDir = path.join(cwd, 'docs', 'plans');
-  const changesDir = path.join(cwd, 'docs', 'changes');
-  for (const topic of listDirs(changesDir)) {
-    if (fs.existsSync(path.join(changesDir, topic, 'proposal.md'))) {
-      plan.proposalTopics.add(topic);
-    }
-  }
+  if (!fs.existsSync(legacyPlanDir)) return plan;
 
-  if (fs.existsSync(legacyPlanDir)) {
-    const autopilotMap = buildAutopilotMap(cwd);
-    for (const file of listFiles(legacyPlanDir, (n) => n.endsWith('.md') && n !== 'index.md')) {
-      const planRel = `docs/plans/${file}`;
-      const planAbs = path.join(legacyPlanDir, file);
-      const isVerification = file.includes('VERIFICATION');
-      const subdir: 'plans' | 'verifications' = isVerification ? 'verifications' : 'plans';
+  const autopilotMap = buildAutopilotMap(cwd);
+  for (const file of listFiles(legacyPlanDir, (n) => n.endsWith('.md') && n !== 'index.md')) {
+    const planRel = `docs/plans/${file}`;
+    const planAbs = path.join(legacyPlanDir, file);
+    const subdir: 'plans' | 'verifications' = file.includes('VERIFICATION')
+      ? 'verifications'
+      : 'plans';
 
-      let topic: string | null = null;
-      let via: PlanMapSource | null = null;
-
-      const fromAutopilot = autopilotMap.get(planRel);
-      if (fromAutopilot) {
-        topic = fromAutopilot;
-        via = 'autopilot';
-      } else {
-        const fromHeader = extractTopicFromHeader(planAbs, plan.proposalTopics);
-        if (fromHeader) {
-          topic = fromHeader;
-          via = 'header';
-        } else {
-          const fromFilename = extractTopicFromFilename(file, plan.proposalTopics);
-          if (fromFilename) {
-            topic = fromFilename;
-            via = 'filename';
-          }
-        }
-      }
-
-      if (topic && via) {
-        plan.planMoves.push({
-          src: planRel,
-          dest: `docs/changes/${topic}/${subdir}/${file}`,
-          topic,
-          via,
-          subdir,
-        });
-      } else {
-        plan.orphanPlans.push(planRel);
-      }
+    const classified = classifyPlan(planRel, planAbs, file, autopilotMap, plan.proposalTopics);
+    if (classified) {
+      plan.planMoves.push({
+        src: planRel,
+        dest: `docs/changes/${classified.topic}/${subdir}/${file}`,
+        topic: classified.topic,
+        via: classified.via,
+        subdir,
+      });
+    } else {
+      plan.orphanPlans.push(planRel);
     }
   }
 
@@ -447,6 +468,39 @@ export async function detectLegacyArtifacts(
   return { adrLegacy, planLegacy };
 }
 
+async function confirmApply(opts: MigrateOptions): Promise<boolean> {
+  if (opts.yes || !process.stdin.isTTY) return true;
+  const answer = await prompt('Apply this migration? [y/N] ', 'n');
+  return answer === 'y' || answer === 'yes';
+}
+
+interface ApplyOutcome {
+  moved: number;
+  failed: number;
+  references: { files: number; replacements: number };
+}
+
+function applyMigration(plan: MigrationPlan, opts: MigrateOptions): ApplyOutcome {
+  const { moved, failed } = executeMigration(plan);
+  console.log('');
+  if (failed > 0) logger.error(`  Moved ${moved} file(s); ${failed} failed.`);
+  else logger.success(`  Moved ${moved} file(s).`);
+
+  let references = { files: 0, replacements: 0 };
+  if (!opts.skipReferences) {
+    references = updateReferences(plan);
+    if (references.replacements > 0) {
+      logger.success(
+        `  Updated ${references.replacements} reference(s) across ${references.files} file(s).`
+      );
+    } else {
+      logger.info('  No reference updates needed.');
+    }
+  }
+
+  return { moved, failed, references };
+}
+
 export async function runMigrate(opts: MigrateOptions): Promise<Result<MigrationResult, CLIError>> {
   const cwd = opts.cwd ?? process.cwd();
   const plan = await buildPlan({ ...opts, cwd });
@@ -477,37 +531,15 @@ export async function runMigrate(opts: MigrateOptions): Promise<Result<Migration
 
   if (opts.dryRun) {
     logger.info('  Dry run — no files moved.');
-    return Ok({
-      ...empty,
-      movesPlanned,
-      orphansRemaining: plan.orphanPlans.length,
-    });
+    return Ok({ ...empty, movesPlanned, orphansRemaining: plan.orphanPlans.length });
   }
 
-  if (!opts.yes && process.stdin.isTTY) {
-    const answer = await prompt('Apply this migration? [y/N] ', 'n');
-    if (answer !== 'y' && answer !== 'yes') {
-      logger.info('  Cancelled.');
-      return Ok({ ...empty, movesPlanned, cancelled: true });
-    }
+  if (!(await confirmApply(opts))) {
+    logger.info('  Cancelled.');
+    return Ok({ ...empty, movesPlanned, cancelled: true });
   }
 
-  const { moved, failed } = executeMigration(plan);
-  console.log('');
-  if (failed > 0) logger.error(`  Moved ${moved} file(s); ${failed} failed.`);
-  else logger.success(`  Moved ${moved} file(s).`);
-
-  let references = { files: 0, replacements: 0 };
-  if (!opts.skipReferences) {
-    references = updateReferences(plan);
-    if (references.replacements > 0) {
-      logger.success(
-        `  Updated ${references.replacements} reference(s) across ${references.files} file(s).`
-      );
-    } else {
-      logger.info('  No reference updates needed.');
-    }
-  }
+  const { moved, failed, references } = applyMigration(plan, opts);
 
   console.log('');
   logger.info('  Next: review changes with `git status` / `git diff`, then commit.');
