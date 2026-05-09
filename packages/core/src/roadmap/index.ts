@@ -54,4 +54,17 @@ export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
  * Tracker abstraction — IssueTrackerClient and shared types.
  * See packages/core/src/roadmap/tracker/index.ts.
  */
-export type { IssueTrackerClient, Issue, BlockerRef, TrackerConfig } from './tracker';
+export type {
+  IssueTrackerClient,
+  Issue,
+  BlockerRef,
+  TrackerConfig,
+  RoadmapTrackerClient,
+  TrackedFeature,
+  NewFeatureInput,
+  FeaturePatch,
+  HistoryEvent,
+  HistoryEventType,
+  TrackerClientConfig,
+} from './tracker';
+export { ConflictError, createTrackerClient, ETagStore } from './tracker';

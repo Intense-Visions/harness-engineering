@@ -1,7 +1,10 @@
 import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { RoadmapTrackerClient } from './client';
-import { GitHubIssuesTrackerAdapter } from './adapters/github-issues';
+import {
+  GitHubIssuesTrackerAdapter,
+  type GitHubIssuesTrackerOptions,
+} from './adapters/github-issues';
 import { ETagStore } from './etag-store';
 
 export interface TrackerClientConfig {
@@ -25,13 +28,10 @@ export function createTrackerClient(
       new Error('createTrackerClient: missing GitHub token (config.token or GITHUB_TOKEN env)')
     );
   }
-  return Ok(
-    new GitHubIssuesTrackerAdapter({
-      token,
-      repo: config.repo,
-      apiBase: config.apiBase,
-      selectorLabel: config.selectorLabel,
-      etagStore: config.etagStore,
-    })
-  );
+  // Build options object without spreading undefined values (exactOptionalPropertyTypes).
+  const opts: GitHubIssuesTrackerOptions = { token, repo: config.repo };
+  if (config.apiBase !== undefined) opts.apiBase = config.apiBase;
+  if (config.selectorLabel !== undefined) opts.selectorLabel = config.selectorLabel;
+  if (config.etagStore !== undefined) opts.etagStore = config.etagStore;
+  return Ok(new GitHubIssuesTrackerAdapter(opts));
 }
