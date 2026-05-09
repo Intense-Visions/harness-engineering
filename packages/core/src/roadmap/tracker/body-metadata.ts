@@ -77,21 +77,36 @@ function normalizeBodyMeta(raw: Record<string, unknown>): BodyMeta {
 }
 
 /**
+ * Field whitelist + serializer for the canonical body-meta block. Maps each
+ * BodyMeta key to the YAML key used on disk and a function that returns the
+ * serialized value (or undefined to skip). Order is preserved by Map iteration
+ * order — this matches the prior cascade's emission order.
+ */
+const SERIALIZER_FIELDS: ReadonlyArray<readonly [keyof BodyMeta, string, (v: unknown) => unknown]> =
+  [
+    ['spec', 'spec', (v) => v],
+    ['plan', 'plan', (v) => v],
+    [
+      'blocked_by',
+      'blocked_by',
+      (v) => (Array.isArray(v) && v.length > 0 ? v.join(', ') : undefined),
+    ],
+    ['priority', 'priority', (v) => v],
+    ['milestone', 'milestone', (v) => v],
+  ];
+
+/**
  * Always emits a canonical block at the end of the body.
  * Empty meta → no block (returns summary verbatim, trimmed).
  */
 export function serializeBodyBlock(summary: string, meta: BodyMeta): string {
   const ordered: Record<string, unknown> = {};
-  if (meta.spec !== undefined && meta.spec !== null) ordered.spec = meta.spec;
-  if (meta.plan !== undefined && meta.plan !== null) ordered.plan = meta.plan;
-  if (meta.blocked_by !== undefined && meta.blocked_by.length > 0) {
-    ordered.blocked_by = meta.blocked_by.join(', ');
-  }
-  if (meta.priority !== undefined && meta.priority !== null) {
-    ordered.priority = meta.priority;
-  }
-  if (meta.milestone !== undefined && meta.milestone !== null) {
-    ordered.milestone = meta.milestone;
+  for (const [key, yamlKey, mapValue] of SERIALIZER_FIELDS) {
+    const raw = meta[key];
+    if (raw === undefined || raw === null) continue;
+    const out = mapValue(raw);
+    if (out === undefined) continue;
+    ordered[yamlKey] = out;
   }
 
   const trimmed = summary.trim();
