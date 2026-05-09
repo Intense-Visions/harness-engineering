@@ -44,7 +44,13 @@ function rawIssue(over: Partial<Record<string, unknown>> = {}): Record<string, u
 describe('GitHubIssuesTrackerAdapter — claim', () => {
   it('a) Plain success: assignee + in-progress label', async () => {
     const fetchFn = mockFetchSequence(
-      // PATCH (no body-rebuild needed; only assignee + status)
+      // GET for label sync (status change requires reading current labels)
+      {
+        status: 200,
+        body: rawIssue({ number: 1, labels: [{ name: 'harness-managed' }] }),
+        etag: 'W/"a"',
+      },
+      // PATCH
       {
         status: 200,
         body: rawIssue({
@@ -130,6 +136,17 @@ describe('GitHubIssuesTrackerAdapter — claim', () => {
         }),
         etag: 'W/"current"',
       },
+      // GET for label sync (status change in patch)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          state: 'open',
+          assignees: [],
+          labels: [{ name: 'harness-managed' }, { name: 'planned' }],
+        }),
+        etag: 'W/"current"',
+      },
       // PATCH
       {
         status: 200,
@@ -186,6 +203,16 @@ describe('GitHubIssuesTrackerAdapter — release', () => {
           number: 1,
           state: 'open',
           assignees: [{ login: 'alice' }],
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"a"',
+      },
+      // GET for label sync (status change requires it)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          state: 'open',
           labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
         }),
         etag: 'W/"a"',
@@ -270,6 +297,16 @@ describe('GitHubIssuesTrackerAdapter — complete', () => {
           number: 1,
           state: 'open',
           assignees: [{ login: 'alice' }],
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"a"',
+      },
+      // GET for label sync (status change requires it)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          state: 'open',
           labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
         }),
         etag: 'W/"a"',

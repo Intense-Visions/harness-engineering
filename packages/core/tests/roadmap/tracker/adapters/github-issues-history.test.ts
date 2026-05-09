@@ -227,9 +227,11 @@ describe('GitHubIssuesTrackerAdapter — fetchHistory', () => {
 describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (best-effort)', () => {
   it('claim posts a history comment after primary PATCH succeeds', async () => {
     // Sequence:
-    //   1) PATCH issue → 200 (primary write — no ifMatch supplied so no pre-fetch)
-    //   2) POST comment (history append) → 201
+    //   1) GET for label sync (status change requires it)
+    //   2) PATCH issue → 200 (primary write — no ifMatch supplied so no pre-fetch)
+    //   3) POST comment (history append) → 201
     const fetchFn = mockFetchSequence(
+      // GET for label sync
       {
         status: 200,
         body: {
@@ -238,12 +240,28 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
           state: 'open',
           body: '',
           labels: [{ name: 'harness-managed' }],
+          assignees: [],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+      },
+      // PATCH
+      {
+        status: 200,
+        body: {
+          number: 5,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
           assignees: [{ login: 'alice' }],
           milestone: null,
           created_at: '2026-05-09T00:00:00Z',
           updated_at: '2026-05-09T00:00:00Z',
         },
       },
+      // history POST
       { status: 201, body: { id: 1 } }
     );
     const adapter = new GitHubIssuesTrackerAdapter({
@@ -254,9 +272,10 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
     const r = await adapter.claim('github:o/r#5', '@alice');
     expect(r.ok).toBe(true);
     const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(calls[1]![0] as string).toContain('/comments');
-    const init = calls[1]![1] as { body: string };
+    // last call is the history POST
+    const histCall = calls[calls.length - 1]!;
+    expect(histCall[0] as string).toContain('/comments');
+    const init = histCall[1] as { body: string };
     const parsed = JSON.parse(init.body) as { body: string };
     expect(parsed.body.startsWith(HISTORY_PREFIX)).toBe(true);
     const json = parsed.body.slice(HISTORY_PREFIX.length).trim();
@@ -267,6 +286,7 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
 
   it('claim still returns Ok even if history append fails (best-effort)', async () => {
     const fetchFn = mockFetchSequence(
+      // GET for label sync
       {
         status: 200,
         body: {
@@ -275,6 +295,21 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
           state: 'open',
           body: '',
           labels: [{ name: 'harness-managed' }],
+          assignees: [],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+      },
+      // PATCH
+      {
+        status: 200,
+        body: {
+          number: 5,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
           assignees: [{ login: 'alice' }],
           milestone: null,
           created_at: '2026-05-09T00:00:00Z',
@@ -301,8 +336,25 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
     // Without ifMatch, release() must still capture priorAssignee via a pre-PATCH
     // GET so the history event records the actor correctly. The PATCH response
     // shows assignee=[]; without the fix, history.actor is 'unknown'.
+    // Status patches also trigger a label-sync GET, so two GETs precede the PATCH.
     const fetchFn = mockFetchSequence(
       // pre-PATCH GET: server has alice as assignee
+      {
+        status: 200,
+        body: {
+          number: 7,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+          assignees: [{ login: 'alice' }],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+        etag: 'W/"a"',
+      },
+      // GET for label sync (status patch)
       {
         status: 200,
         body: {
@@ -344,12 +396,13 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
     const r = await adapter.release('github:o/r#7');
     expect(r.ok).toBe(true);
     const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    // Sequence is: pre-PATCH GET, PATCH, POST comment.
-    expect(calls).toHaveLength(3);
+    // Sequence is: pre-PATCH GET (actor), label-sync GET, PATCH, POST comment.
+    expect(calls).toHaveLength(4);
     expect((calls[0]![1] as { method: string }).method).toBe('GET');
-    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
-    expect((calls[2]![1] as { method: string }).method).toBe('POST');
-    const histCall = calls[2]!;
+    expect((calls[1]![1] as { method: string }).method).toBe('GET');
+    expect((calls[2]![1] as { method: string }).method).toBe('PATCH');
+    expect((calls[3]![1] as { method: string }).method).toBe('POST');
+    const histCall = calls[3]!;
     expect(histCall[0] as string).toContain('/comments');
     const init = histCall[1] as { body: string };
     const parsed = JSON.parse(init.body) as { body: string };
@@ -362,6 +415,22 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
   it('complete records actor from PRE-PATCH assignee', async () => {
     const fetchFn = mockFetchSequence(
       // pre-PATCH GET: server has bob as assignee
+      {
+        status: 200,
+        body: {
+          number: 8,
+          title: 'F',
+          state: 'open',
+          body: '',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+          assignees: [{ login: 'bob' }],
+          milestone: null,
+          created_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-09T00:00:00Z',
+        },
+        etag: 'W/"a"',
+      },
+      // GET for label sync (status patch)
       {
         status: 200,
         body: {
@@ -403,11 +472,12 @@ describe('GitHubIssuesTrackerAdapter — claim/release/complete log history (bes
     const r = await adapter.complete('github:o/r#8');
     expect(r.ok).toBe(true);
     const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
     expect((calls[0]![1] as { method: string }).method).toBe('GET');
-    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
-    expect((calls[2]![1] as { method: string }).method).toBe('POST');
-    const histCall = calls[2]!;
+    expect((calls[1]![1] as { method: string }).method).toBe('GET');
+    expect((calls[2]![1] as { method: string }).method).toBe('PATCH');
+    expect((calls[3]![1] as { method: string }).method).toBe('POST');
+    const histCall = calls[3]!;
     expect(histCall[0] as string).toContain('/comments');
     const init = histCall[1] as { body: string };
     const parsed = JSON.parse(init.body) as { body: string };

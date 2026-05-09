@@ -234,6 +234,14 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     }
   }
 
+  /** Status labels recognized by mapStatus; 'backlog' and 'done' are state-driven. */
+  private static STATUS_LABELS: ReadonlySet<string> = new Set([
+    'planned',
+    'in-progress',
+    'blocked',
+    'needs-human',
+  ]);
+
   private async buildIssuePatchBody(
     externalId: string,
     patch: FeaturePatch,
@@ -247,6 +255,21 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     if (patch.status !== undefined) {
       if (patch.status === 'done') out.state = 'closed';
       else out.state = 'open';
+      // Sync the status label alongside state (P2-IMP-5). Fetch current labels,
+      // drop any prior status label, append the new one when applicable.
+      const currentLabels = await this.fetchRawLabels(externalId);
+      const filtered = currentLabels.filter(
+        (l) => !GitHubIssuesTrackerAdapter.STATUS_LABELS.has(l)
+      );
+      // 'backlog' has no label; 'done' is represented by state='closed'.
+      if (
+        patch.status !== 'backlog' &&
+        patch.status !== 'done' &&
+        GitHubIssuesTrackerAdapter.STATUS_LABELS.has(patch.status)
+      ) {
+        filtered.push(patch.status);
+      }
+      out.labels = filtered;
     }
     // Body-meta fields → re-serialize body (requires reading current body)
     const bodyTouches: Array<keyof FeaturePatch> = [
@@ -283,6 +306,19 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       out.body = serializeBodyBlock(summaryText, meta);
     }
     return out;
+  }
+
+  /** Lightweight GET that returns the raw label name list. */
+  private async fetchRawLabels(externalId: string): Promise<string[]> {
+    const parsed = parseExternalId(externalId);
+    if (!parsed) return [];
+    const res = await this.http.request(
+      `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+      { method: 'GET' }
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as RawIssue;
+    return data.labels.map((l) => l.name);
   }
   async claim(
     externalId: string,

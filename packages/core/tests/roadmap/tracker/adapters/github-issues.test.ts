@@ -569,7 +569,17 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
 
   it('d) Status change applies new state (closed for done) and removes prior status labels', async () => {
     const fetchFn = mockFetchSequence(
-      // PATCH (no body-rebuild GET because patch only has status)
+      // GET for label sync (status change requires reading current labels)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 9,
+          state: 'open',
+          labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"a"',
+      },
+      // PATCH
       { status: 200, body: rawIssue({ number: 9, state: 'closed' }), etag: 'W/"b"' }
     );
     const adapter = new GitHubIssuesTrackerAdapter({
@@ -580,20 +590,75 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
     const r = await adapter.update('github:o/r#9', { status: 'done' });
     expect(r.ok).toBe(true);
     const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    const patchInit = calls[0]![1] as { body: string };
-    const payload = JSON.parse(patchInit.body) as { state?: string };
+    const patchInit = calls[1]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { state?: string; labels?: string[] };
     expect(payload.state).toBe('closed');
+    // 'done' is represented by state='closed'; the in-progress label must be removed.
+    expect(payload.labels).toBeDefined();
+    expect(payload.labels).not.toContain('in-progress');
+  });
+
+  it('d2) Status change from planned → in-progress syncs the status label', async () => {
+    // Existing issue has labels ['priority:p1', 'planned']. The PATCH must include
+    // labels with 'planned' replaced by 'in-progress' (priority:p1 preserved).
+    const fetchFn = mockFetchSequence(
+      // GET for label sync
+      {
+        status: 200,
+        body: rawIssue({
+          number: 10,
+          state: 'open',
+          labels: [{ name: 'harness-managed' }, { name: 'priority:p1' }, { name: 'planned' }],
+        }),
+        etag: 'W/"a"',
+      },
+      // PATCH echoes the new state
+      {
+        status: 200,
+        body: rawIssue({
+          number: 10,
+          state: 'open',
+          labels: [{ name: 'harness-managed' }, { name: 'priority:p1' }, { name: 'in-progress' }],
+        }),
+        etag: 'W/"b"',
+      }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#10', { status: 'in-progress' });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.status).toBe('in-progress');
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const patchInit = calls[1]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { labels?: string[] };
+    expect(payload.labels).toBeDefined();
+    expect(payload.labels).toContain('in-progress');
+    expect(payload.labels).toContain('priority:p1');
+    expect(payload.labels).toContain('harness-managed');
+    expect(payload.labels).not.toContain('planned');
   });
 
   it('e) Invalidates feature:<externalId> AND list:* after update', async () => {
     const cache = new ETagStore();
     cache.set('feature:github:o/r#1', 'W/"e"', { name: 'old' });
     cache.set('list:all', 'W/"l"', []);
-    const fetchFn = mockFetchSequence({
-      status: 200,
-      body: rawIssue({ number: 1 }),
-      etag: 'W/"new"',
-    });
+    const fetchFn = mockFetchSequence(
+      // GET for label sync (status change requires it)
+      {
+        status: 200,
+        body: rawIssue({
+          number: 1,
+          labels: [{ name: 'harness-managed' }, { name: 'planned' }],
+        }),
+        etag: 'W/"a"',
+      },
+      // PATCH
+      { status: 200, body: rawIssue({ number: 1 }), etag: 'W/"new"' }
+    );
     const adapter = new GitHubIssuesTrackerAdapter({
       token: 'tok',
       repo: 'o/r',
