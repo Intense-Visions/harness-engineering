@@ -1,13 +1,13 @@
 import type { TaskDefinition } from './types';
 
 /**
- * All 20 built-in maintenance task definitions with default schedules.
+ * All 21 built-in maintenance task definitions with default schedules.
  *
  * Tasks are grouped by type:
  * - mechanical-ai (7): Run check first, dispatch AI only if fixable issues found
  * - pure-ai (4): Always dispatch AI agent on schedule
  * - report-only (7): Run command, record metrics, no PR
- * - housekeeping (2): Mechanical command, no AI, no PR
+ * - housekeeping (3): Mechanical command, no AI, no PR
  */
 export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
   // --- Mechanical-AI ---
@@ -183,5 +183,13 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 7 * * *',
     branch: null,
     checkCommand: ['perf', 'baselines', 'update'],
+  },
+  {
+    id: 'main-sync',
+    type: 'housekeeping',
+    description: 'Fast-forward local default branch from origin',
+    schedule: '*/15 * * * *',
+    branch: null,
+    checkCommand: ['harness', 'sync-main', '--json'],
   },
 ] as const;
