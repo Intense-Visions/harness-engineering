@@ -7,6 +7,61 @@ export interface CompareResult {
   diff?: Record<string, { ours: unknown; theirs: unknown }>;
 }
 
+/** Per-field comparison verdict. */
+interface FieldVerdict {
+  diff?: { ours: unknown; theirs: unknown };
+  idempotent: boolean;
+}
+
+/** Status comparator: terminal-sticky, idempotent on equal. */
+function compareStatus(server: TrackedFeature, patch: FeaturePatch): FieldVerdict {
+  if (patch.status === undefined) return { idempotent: true };
+  if (server.status === 'done' && patch.status !== 'done') {
+    return { diff: { ours: patch.status, theirs: server.status }, idempotent: false };
+  }
+  return { idempotent: server.status === patch.status };
+}
+
+/** Assignee comparator: any non-null mismatch is a conflict. */
+function compareAssignee(server: TrackedFeature, patch: FeaturePatch): FieldVerdict {
+  if (patch.assignee === undefined) return { idempotent: true };
+  if (server.assignee !== null && server.assignee !== patch.assignee) {
+    return { diff: { ours: patch.assignee, theirs: server.assignee }, idempotent: false };
+  }
+  return { idempotent: server.assignee === patch.assignee };
+}
+
+/** Generic scalar comparator: diff if server has a different non-null value. */
+function compareScalar(
+  field: 'priority' | 'milestone' | 'spec',
+  server: TrackedFeature,
+  patch: FeaturePatch
+): FieldVerdict {
+  const next = patch[field];
+  if (next === undefined) return { idempotent: true };
+  const cur = server[field];
+  if (cur !== null && cur !== next) {
+    return { diff: { ours: next, theirs: cur }, idempotent: false };
+  }
+  return { idempotent: cur === next };
+}
+
+/** Array comparator: diff only when server has elements not in patch. */
+function compareArray(
+  field: 'plans' | 'blockedBy',
+  server: TrackedFeature,
+  patch: FeaturePatch
+): FieldVerdict {
+  const next = patch[field];
+  if (next === undefined) return { idempotent: true };
+  const cur = server[field];
+  if (arraysEqual(next, cur)) return { idempotent: true };
+  if (cur.length > 0 && cur.some((v) => !next.includes(v))) {
+    return { diff: { ours: next, theirs: cur }, idempotent: false };
+  }
+  return { idempotent: false };
+}
+
 /**
  * Compare a planned patch against the server's freshly-fetched state.
  * Returns ok:true when the patch is safe (or idempotent); ok:false with diff
@@ -19,54 +74,21 @@ export interface CompareResult {
  * - other field mismatches are flagged as a diff
  */
 export function refetchAndCompare(server: TrackedFeature, patch: FeaturePatch): CompareResult {
+  const verdicts: Array<readonly [string, FieldVerdict]> = [
+    ['status', compareStatus(server, patch)],
+    ['assignee', compareAssignee(server, patch)],
+    ['priority', compareScalar('priority', server, patch)],
+    ['milestone', compareScalar('milestone', server, patch)],
+    ['spec', compareScalar('spec', server, patch)],
+    ['plans', compareArray('plans', server, patch)],
+    ['blockedBy', compareArray('blockedBy', server, patch)],
+  ];
+
   const diff: Record<string, { ours: unknown; theirs: unknown }> = {};
   let idempotent = true;
-
-  // Status: terminal-sticky, idempotent if same
-  if (patch.status !== undefined) {
-    if (server.status === 'done' && patch.status !== 'done') {
-      diff.status = { ours: patch.status, theirs: server.status };
-    } else if (server.status !== patch.status) {
-      idempotent = false;
-    }
-  }
-
-  // Assignee: idempotent only when equal
-  if (patch.assignee !== undefined) {
-    if (server.assignee !== null && server.assignee !== patch.assignee) {
-      diff.assignee = { ours: patch.assignee, theirs: server.assignee };
-    } else if (server.assignee !== patch.assignee) {
-      idempotent = false;
-    }
-  }
-
-  // Other scalar fields: diff if server already has a different non-null value
-  for (const key of ['priority', 'milestone', 'spec'] as const) {
-    const next = patch[key];
-    if (next === undefined) continue;
-    const cur = server[key];
-    if (cur !== null && cur !== next) {
-      diff[key] = { ours: next, theirs: cur };
-    } else if (cur !== next) {
-      idempotent = false;
-    }
-  }
-
-  // Arrays (plans, blockedBy): diff only on inequality of intent (no merge here)
-  if (patch.plans !== undefined && !arraysEqual(patch.plans, server.plans)) {
-    idempotent = false;
-    if (server.plans.length > 0 && server.plans.some((p) => !patch.plans!.includes(p))) {
-      diff.plans = { ours: patch.plans, theirs: server.plans };
-    }
-  }
-  if (patch.blockedBy !== undefined && !arraysEqual(patch.blockedBy, server.blockedBy)) {
-    idempotent = false;
-    if (
-      server.blockedBy.length > 0 &&
-      server.blockedBy.some((b) => !patch.blockedBy!.includes(b))
-    ) {
-      diff.blockedBy = { ours: patch.blockedBy, theirs: server.blockedBy };
-    }
+  for (const [field, verdict] of verdicts) {
+    if (verdict.diff) diff[field] = verdict.diff;
+    if (!verdict.idempotent) idempotent = false;
   }
 
   if (Object.keys(diff).length > 0) return { ok: false, diff };
