@@ -43,6 +43,7 @@ describe('Integration: leader election with two schedulers', () => {
             'graph-refresh',
             'session-cleanup',
             'perf-baselines',
+            'main-sync',
           ].map((id) => [id, { enabled: false }])
         ),
       },
@@ -117,6 +118,7 @@ describe('Integration: leader election with two schedulers', () => {
             'graph-refresh',
             'session-cleanup',
             'perf-baselines',
+            'main-sync',
           ].map((id) => [id, { enabled: false }])
         ),
         'arch-violations': { enabled: true, schedule: '* * * * *' },

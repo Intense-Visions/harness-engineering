@@ -469,10 +469,11 @@ export class Orchestrator extends EventEmitter {
         const { promisify } = await import('node:util');
         const execFileAsync = promisify(execFile);
         const [cmd, ...args] = command;
-        if (!cmd) return;
+        if (!cmd) return { stdout: '' };
 
         try {
-          await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          return { stdout: String(stdout) };
         } catch (err) {
           logger.warn('Maintenance command execution failed', {
             command,

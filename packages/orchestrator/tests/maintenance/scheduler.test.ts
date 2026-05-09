@@ -73,11 +73,11 @@ describe('MaintenanceScheduler', () => {
       const tasks = scheduler.getResolvedTasks();
       expect(tasks.find((t) => t.id === 'session-cleanup')).toBeUndefined();
       expect(tasks.find((t) => t.id === 'perf-baselines')).toBeUndefined();
-      // Total should be 20 - 2 = 18
-      expect(tasks).toHaveLength(18);
+      // Total should be 21 - 2 = 19
+      expect(tasks).toHaveLength(19);
     });
 
-    it('uses all 20 built-in tasks when no overrides are provided', () => {
+    it('uses all 21 built-in tasks when no overrides are provided', () => {
       const config: MaintenanceConfig = { enabled: true };
 
       const scheduler = new MaintenanceScheduler({
@@ -87,7 +87,7 @@ describe('MaintenanceScheduler', () => {
         onTaskDue: vi.fn(),
       });
 
-      expect(scheduler.getResolvedTasks()).toHaveLength(20);
+      expect(scheduler.getResolvedTasks()).toHaveLength(21);
     });
   });
 
@@ -222,6 +222,7 @@ describe('MaintenanceScheduler', () => {
               'graph-refresh',
               'session-cleanup',
               'perf-baselines',
+              'main-sync',
             ].map((id) => [id, { enabled: false }])
           ),
           // Re-enable just one with a per-minute schedule for testing
@@ -342,7 +343,7 @@ describe('MaintenanceScheduler', () => {
       expect(status.isLeader).toBe(false);
       expect(status.lastLeaderClaim).toBeNull();
       expect(status.activeRun).toBeNull();
-      expect(status.schedule).toHaveLength(20);
+      expect(status.schedule).toHaveLength(21);
       expect(status.history).toHaveLength(0);
 
       // Each schedule entry should have a taskId and nextRun
