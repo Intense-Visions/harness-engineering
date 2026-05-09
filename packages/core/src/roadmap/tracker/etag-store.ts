@@ -1,7 +1,15 @@
 /**
- * Per-process LRU ETag cache. Keys: `feature:<externalId>`, `list:all`,
- * `list:status:<sortedStatuses>`. No cross-process invalidation.
+ * Per-process LRU ETag cache. No cross-process invalidation.
  * See spec §"ETag store" and decision D-P2-E (no third-party LRU).
+ *
+ * Key shapes used by the current GitHub adapter:
+ * - `feature:<externalId>` — set by fetchById on 200 with ETag (e.g. `feature:github:o/r#42`)
+ * - `list:all` — set by fetchAll on 200 with the last-page ETag
+ *
+ * The `list:` prefix is reserved for future per-status or per-filter list
+ * caches; today only `list:all` is written. invalidatePrefix('list:') wipes
+ * any `list:*` keys so future scoped-list caches will participate without
+ * additional plumbing in the adapter's write paths.
  */
 export class ETagStore {
   private readonly max: number;
