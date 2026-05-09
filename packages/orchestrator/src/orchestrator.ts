@@ -221,7 +221,16 @@ export class Orchestrator extends EventEmitter {
 
     // Initialize adapters based on config or overrides
     this.tracker = overrides?.tracker || this.createTracker();
-    this.workspace = new WorkspaceManager(config.workspace);
+    this.workspace = new WorkspaceManager(config.workspace, {
+      emitEvent: (event) => {
+        // Phase 3 / spec D6 / R4: surface worktree base-ref fallback in
+        // the same maintenance/event stream the dashboard subscribes to.
+        // Two parallel channels mirror the maintenance task pattern at
+        // orchestrator.ts:520-534: WebSocket fan-out + Node EventEmitter.
+        this.server?.broadcastMaintenance('maintenance:baseref_fallback', event);
+        this.emit('maintenance:baseref_fallback', event);
+      },
+    });
     this.hooks = new WorkspaceHooks(config.hooks);
     this.renderer = new PromptRenderer();
     // Spec 2 SC30 / Task 11: capture the test-only backend override (if

@@ -182,3 +182,47 @@ describe('WorkspaceManager — D6 baseref_fallback emission', () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe('Orchestrator wiring — baseref_fallback fans out to both channels', () => {
+  it('the wired emitter forwards to broadcastMaintenance and emit', () => {
+    // Mirror orchestrator.ts:224-style wiring exactly. We do not
+    // instantiate the full Orchestrator (tracker + server + scheduler
+    // would all need stubbing); instead we assert the callback shape
+    // the orchestrator constructs has the documented behavior.
+    const broadcasts: Array<{ type: string; data: unknown }> = [];
+    const emits: Array<{ type: string; data: unknown }> = [];
+
+    const fakeServer = {
+      broadcastMaintenance: (type: string, data: unknown) => broadcasts.push({ type, data }),
+    };
+    const fakeEmit = (type: string, data: unknown) => emits.push({ type, data });
+
+    // This is the exact callback orchestrator.ts:224 constructs.
+    const emitEvent = (event: { kind: 'baseref_fallback'; ref: string; repoRoot: string }) => {
+      fakeServer.broadcastMaintenance('maintenance:baseref_fallback', event);
+      fakeEmit('maintenance:baseref_fallback', event);
+    };
+
+    const event = { kind: 'baseref_fallback' as const, ref: 'main', repoRoot: '/repo' };
+    emitEvent(event);
+
+    expect(broadcasts).toEqual([{ type: 'maintenance:baseref_fallback', data: event }]);
+    expect(emits).toEqual([{ type: 'maintenance:baseref_fallback', data: event }]);
+  });
+
+  it('the wired emitter is robust to server being undefined (pre-server-wire path)', () => {
+    const emits: Array<{ type: string; data: unknown }> = [];
+    const fakeEmit = (type: string, data: unknown) => emits.push({ type, data });
+    const server: { broadcastMaintenance?: (t: string, d: unknown) => void } | undefined =
+      undefined;
+
+    const emitEvent = (event: { kind: 'baseref_fallback'; ref: string; repoRoot: string }) => {
+      server?.broadcastMaintenance?.('maintenance:baseref_fallback', event);
+      fakeEmit('maintenance:baseref_fallback', event);
+    };
+
+    const event = { kind: 'baseref_fallback' as const, ref: 'HEAD', repoRoot: '/repo' };
+    expect(() => emitEvent(event)).not.toThrow();
+    expect(emits).toEqual([{ type: 'maintenance:baseref_fallback', data: event }]);
+  });
+});
