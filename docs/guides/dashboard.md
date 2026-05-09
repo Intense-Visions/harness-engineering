@@ -178,12 +178,13 @@ The WebSocket auto-reconnects on disconnect with a 3-second delay.
 
 Several dashboard pages require a running orchestrator:
 
-| Page         | Requires Orchestrator | Connection |
-| ------------ | --------------------- | ---------- |
-| Attention    | Yes                   | WebSocket  |
-| Analyze      | Yes                   | REST + SSE |
-| Orchestrator | Yes                   | WebSocket  |
-| Chat         | Yes                   | WebSocket  |
+| Page         | Requires Orchestrator | Connection       |
+| ------------ | --------------------- | ---------------- |
+| Attention    | Yes                   | WebSocket        |
+| Analyze      | Yes                   | REST + SSE       |
+| Orchestrator | Yes                   | WebSocket        |
+| Chat         | Yes                   | WebSocket        |
+| Maintenance  | Yes                   | REST + WebSocket |
 
 Start the orchestrator before opening these pages:
 
@@ -192,6 +193,10 @@ harness orchestrator start
 ```
 
 Pages that do not require the orchestrator (Overview, Health, Roadmap, Graph, Impact, Adoption) work with only the dashboard server running.
+
+### Maintenance Page — Per-Task Run Now
+
+Since 2026-05-09, the Maintenance page renders a Run Now button on every row of the schedule table. The previous single-button affordance (which always triggered `project-health`) has been removed. Each button is disabled while a `maintenance:started` event is in flight for that task ID and re-enables on the matching `maintenance:completed` or `maintenance:error` event.
 
 ## Data Sources
 
