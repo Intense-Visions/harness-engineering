@@ -171,6 +171,21 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     patch: FeaturePatch,
     ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
+    const r = await this.updateInternal(externalId, patch, ifMatch);
+    if (!r.ok) return r;
+    return Ok(r.value.feature);
+  }
+
+  /**
+   * Internal update that also reports whether a real PATCH was issued.
+   * Returns wrote=false on the idempotent path so callers (claim/release/complete)
+   * can skip best-effort history logging when no state change occurred.
+   */
+  private async updateInternal(
+    externalId: string,
+    patch: FeaturePatch,
+    ifMatch?: string
+  ): Promise<Result<{ feature: TrackedFeature; wrote: boolean }, ConflictError | Error>> {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
@@ -185,7 +200,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
         if (!cur.value) return Err(new Error(`Not found: ${externalId}`));
         const cmp = refetchAndCompare(cur.value.feature, patch);
         if (!cmp.ok) return Err(new ConflictErrorClass(externalId, cmp.diff!));
-        if (cmp.idempotent) return Ok(cur.value.feature);
+        if (cmp.idempotent) return Ok({ feature: cur.value.feature, wrote: false });
       }
 
       // Build PATCH payload
@@ -198,7 +213,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       const data = (await res.json()) as RawIssue;
       this.cache.invalidate(`feature:${externalId}`);
       this.cache.invalidatePrefix('list:');
-      return Ok(this.mapIssue(data, new Map()));
+      return Ok({ feature: this.mapIssue(data, new Map()), wrote: true });
     } catch (err) {
       return Err(err instanceof Error ? err : new Error(String(err)));
     }
@@ -253,25 +268,88 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     assignee: string,
     ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return this.update(externalId, { assignee, status: 'in-progress' }, ifMatch);
+    const r = await this.updateInternal(externalId, { assignee, status: 'in-progress' }, ifMatch);
+    if (!r.ok) return r;
+    if (r.value.wrote) await this.logEvent(externalId, 'claimed', assignee);
+    return Ok(r.value.feature);
   }
   async release(
     externalId: string,
     ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return this.update(externalId, { assignee: null, status: 'backlog' }, ifMatch);
+    const r = await this.updateInternal(externalId, { assignee: null, status: 'backlog' }, ifMatch);
+    if (!r.ok) return r;
+    if (r.value.wrote)
+      await this.logEvent(externalId, 'released', r.value.feature.assignee ?? 'unknown');
+    return Ok(r.value.feature);
   }
   async complete(
     externalId: string,
     ifMatch?: string
   ): Promise<Result<TrackedFeature, ConflictError | Error>> {
-    return this.update(externalId, { status: 'done' }, ifMatch);
+    const r = await this.updateInternal(externalId, { status: 'done' }, ifMatch);
+    if (!r.ok) return r;
+    if (r.value.wrote)
+      await this.logEvent(externalId, 'completed', r.value.feature.assignee ?? 'unknown');
+    return Ok(r.value.feature);
   }
-  async appendHistory(_id: string, _e: HistoryEvent): Promise<Result<void, Error>> {
-    return Err(new Error('not implemented'));
+
+  private static HISTORY_PREFIX = '<!-- harness-history -->';
+
+  async appendHistory(externalId: string, event: HistoryEvent): Promise<Result<void, Error>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      const body = `${GitHubIssuesTrackerAdapter.HISTORY_PREFIX}\n${JSON.stringify(event)}`;
+      const res = await this.http.request(
+        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`,
+        { method: 'POST', body: JSON.stringify({ body }) }
+      );
+      if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
+      return Ok(undefined);
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
   }
-  async fetchHistory(_id: string, _limit?: number): Promise<Result<HistoryEvent[], Error>> {
-    return Err(new Error('not implemented'));
+
+  async fetchHistory(externalId: string, limit?: number): Promise<Result<HistoryEvent[], Error>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      const buildUrl = (page: number) =>
+        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=100&page=${page}`;
+      const { items } = await this.http.paginate<{ body: string; created_at: string }>(buildUrl);
+      const events: HistoryEvent[] = [];
+      for (const c of items) {
+        if (!c.body.startsWith(GitHubIssuesTrackerAdapter.HISTORY_PREFIX)) continue;
+        const json = c.body.slice(GitHubIssuesTrackerAdapter.HISTORY_PREFIX.length).trim();
+        try {
+          events.push(JSON.parse(json) as HistoryEvent);
+        } catch (e) {
+          console.warn(`harness-history: malformed JSON in ${externalId}: ${(e as Error).message}`);
+        }
+      }
+      events.sort((a, b) => a.at.localeCompare(b.at));
+      return Ok(limit ? events.slice(-limit) : events);
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+
+  private async logEvent(
+    externalId: string,
+    type: HistoryEvent['type'],
+    actor: string
+  ): Promise<void> {
+    const event: HistoryEvent = {
+      type,
+      actor,
+      at: new Date().toISOString(),
+    };
+    const r = await this.appendHistory(externalId, event);
+    if (!r.ok) {
+      console.warn(`harness-history: append failed for ${externalId}: ${r.error.message}`);
+    }
   }
 
   // --- Helpers ---
