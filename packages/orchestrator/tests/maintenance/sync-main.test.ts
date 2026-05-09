@@ -165,3 +165,189 @@ describe('syncMain — no-op path', () => {
     expect(r.status).toBe('no-op');
   });
 });
+
+describe('syncMain — updated path', () => {
+  it('runs ff-only merge and returns updated with both SHAs when HEAD strict-ancestor of origin', async () => {
+    let revParseHeadCalls = 0;
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: { stdout: 'origin/main\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'main\n' },
+      },
+      { match: startsWith(['fetch', 'origin', 'main']), result: { stdout: '' } },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'HEAD', 'origin/main']),
+        result: { stdout: '' }, // exit 0 → HEAD is ancestor
+      },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'origin/main', 'HEAD']),
+        result: {
+          error: Object.assign(new Error(''), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        }, // origin not ancestor of HEAD → strict
+      },
+      {
+        // Two `rev-parse HEAD` calls — first returns "before", second "after".
+        match: eq(['rev-parse', 'HEAD']),
+        result: { stdout: '' }, // overridden below
+      },
+      {
+        match: eq(['merge', '--ff-only', 'origin/main']),
+        result: { stdout: 'Updating aaaaaaa..bbbbbbb\n' },
+      },
+    ]);
+    // Wrap to give the two rev-parse HEAD calls different outputs.
+    const wrapped = ((file: string, args: readonly string[], opts: unknown, cb: unknown) => {
+      const argv = [...(args ?? [])];
+      const isHead = argv.length === 2 && argv[0] === 'rev-parse' && argv[1] === 'HEAD';
+      if (isHead) {
+        revParseHeadCalls += 1;
+        const sha = revParseHeadCalls === 1 ? 'aaaaaaaa' : 'bbbbbbbb';
+        (cb as (e: unknown, o: string, s: string) => void)(null, `${sha}\n`, '');
+        return undefined as never;
+      }
+      return (
+        execFileFn as unknown as (
+          f: string,
+          a: readonly string[],
+          o: unknown,
+          c: unknown
+        ) => unknown
+      )(file, args, opts, cb);
+    }) as unknown as ExecFileFn;
+    const r = await syncMain('/repo', { execFileFn: wrapped });
+    expect(r.status).toBe('updated');
+    if (r.status === 'updated') {
+      expect(r.from).toBe('aaaaaaaa');
+      expect(r.to).toBe('bbbbbbbb');
+      expect(r.defaultBranch).toBe('main');
+    }
+  });
+});
+
+describe('syncMain — diverged path', () => {
+  it('returns skipped:diverged when HEAD is not ancestor of origin', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: { stdout: 'origin/main\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'main\n' },
+      },
+      { match: startsWith(['fetch', 'origin', 'main']), result: { stdout: '' } },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'HEAD', 'origin/main']),
+        result: {
+          error: Object.assign(new Error(''), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        },
+      },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'origin/main', 'HEAD']),
+        result: { stdout: '' }, // origin is ancestor of HEAD; HEAD is not ancestor → diverged
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('skipped');
+    if (r.status === 'skipped') expect(r.reason).toBe('diverged');
+  });
+});
+
+describe('syncMain — dirty-conflict path', () => {
+  it('returns skipped:dirty-conflict when ff-only merge fails with conflict stderr', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: { stdout: 'origin/main\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'main\n' },
+      },
+      { match: startsWith(['fetch', 'origin', 'main']), result: { stdout: '' } },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'HEAD', 'origin/main']),
+        result: { stdout: '' },
+      },
+      {
+        match: eq(['merge-base', '--is-ancestor', 'origin/main', 'HEAD']),
+        result: {
+          error: Object.assign(new Error(''), {
+            code: 1,
+          }) as NodeJS.ErrnoException,
+        },
+      },
+      { match: eq(['rev-parse', 'HEAD']), result: { stdout: 'aaaaaaaa\n' } },
+      {
+        match: eq(['merge', '--ff-only', 'origin/main']),
+        result: {
+          error: Object.assign(
+            new Error(
+              'error: Your local changes to the following files would be overwritten by merge'
+            ),
+            {
+              code: 1,
+              stderr: 'error: Your local changes ... would be overwritten by merge',
+            }
+          ) as NodeJS.ErrnoException,
+        },
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('skipped');
+    if (r.status === 'skipped') expect(r.reason).toBe('dirty-conflict');
+  });
+});
+
+describe('syncMain — fetch-failed path', () => {
+  it('returns skipped:fetch-failed when git fetch exits non-zero', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: eq(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']),
+        result: { stdout: 'origin/main\n' },
+      },
+      {
+        match: eq(['rev-parse', '--abbrev-ref', 'HEAD']),
+        result: { stdout: 'main\n' },
+      },
+      {
+        match: startsWith(['fetch', 'origin', 'main']),
+        result: {
+          error: Object.assign(new Error('Could not resolve host'), {
+            code: 128,
+            stderr: 'fatal: Could not resolve host',
+          }) as NodeJS.ErrnoException,
+        },
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('skipped');
+    if (r.status === 'skipped') expect(r.reason).toBe('fetch-failed');
+  });
+});
+
+describe('syncMain — error path', () => {
+  it('returns error when git binary is missing (ENOENT)', async () => {
+    const execFileFn = makeGitMock([
+      {
+        match: () => true,
+        result: {
+          error: Object.assign(new Error('spawn git ENOENT'), {
+            code: 'ENOENT',
+          }) as NodeJS.ErrnoException,
+        },
+      },
+    ]);
+    const r = await syncMain('/repo', { execFileFn });
+    expect(r.status).toBe('error');
+    if (r.status === 'error') expect(r.message).toMatch(/ENOENT|spawn git/);
+  });
+});
