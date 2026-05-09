@@ -653,6 +653,52 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
     expect(payload.labels).not.toContain('planned');
   });
 
+  it('d3) fetchRawLabels GET failure does NOT wipe labels — PATCH omits labels on transient error', async () => {
+    // P2-RR2-IMP-1: a transient GET failure during status-update label sync must
+    // NOT cause the PATCH to wipe labels. Previously fetchRawLabels swallowed
+    // errors and returned [], which combined with unconditional `out.labels =
+    // filtered` produced a PATCH that erased every label — including the
+    // selectorLabel `harness-managed` and any user-added labels — silently
+    // hiding the issue from subsequent fetchAll() calls.
+    //
+    // The fix: when fetchRawLabels fails, skip the labels field in the PATCH
+    // body entirely. The status state (open/closed) is independent and may
+    // still patch correctly. The next successful update will re-sync labels.
+    //
+    // We simulate a non-retryable HTTP failure (404) on the label-sync GET
+    // — non-retryable so we don't burn through the GitHubHttp retry budget
+    // and the PATCH mock is consumed predictably on the next call.
+    const fetchFn = mockFetchSequence(
+      // GET for label sync — non-retryable 404 (issue temporarily unreachable)
+      { status: 404, body: { message: 'Not Found' } },
+      // PATCH still issues; state='closed' for done. Labels field MUST be
+      // absent from the body so GitHub does not interpret it as a wipe.
+      { status: 200, body: rawIssue({ number: 11, state: 'closed' }), etag: 'W/"b"' }
+    );
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/r#11', { status: 'done' });
+    expect(r.ok).toBe(true);
+
+    const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    // Both calls happen: the failing GET and then the PATCH.
+    expect(calls).toHaveLength(2);
+    expect((calls[0]![1] as { method: string }).method).toBe('GET');
+    expect((calls[1]![1] as { method: string }).method).toBe('PATCH');
+
+    const patchInit = calls[1]![1] as { body: string };
+    const payload = JSON.parse(patchInit.body) as { state?: string; labels?: string[] };
+    // State is independent of labels — it MUST still be set.
+    expect(payload.state).toBe('closed');
+    // CRITICAL: labels MUST be absent. An array (especially empty []) would
+    // wipe pre-existing labels on the GitHub side.
+    expect(payload.labels).toBeUndefined();
+    expect('labels' in payload).toBe(false);
+  });
+
   it('e) Invalidates feature:<externalId> AND list:* after update', async () => {
     const cache = new ETagStore();
     cache.set('feature:github:o/r#1', 'W/"e"', { name: 'old' });

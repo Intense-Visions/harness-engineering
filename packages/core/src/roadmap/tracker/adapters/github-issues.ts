@@ -280,19 +280,34 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       else out.state = 'open';
       // Sync the status label alongside state (P2-IMP-5). Fetch current labels,
       // drop any prior status label, append the new one when applicable.
-      const currentLabels = await this.fetchRawLabels(externalId);
-      const filtered = currentLabels.filter(
-        (l) => !GitHubIssuesTrackerAdapter.STATUS_LABELS.has(l)
-      );
-      // 'backlog' has no label; 'done' is represented by state='closed'.
-      if (
-        patch.status !== 'backlog' &&
-        patch.status !== 'done' &&
-        GitHubIssuesTrackerAdapter.STATUS_LABELS.has(patch.status)
-      ) {
-        filtered.push(patch.status);
+      //
+      // P2-RR2-IMP-1 fix: fetchRawLabels now returns Result. On Err (transient
+      // GET failure, e.g. network blip or 5xx), we deliberately SKIP the
+      // labels field in the PATCH body. Setting labels to a partial/empty
+      // array would cause GitHub to wipe pre-existing labels — including the
+      // selectorLabel `harness-managed` (silently hiding the issue from
+      // future fetchAll() calls) and any user-added labels. The state field
+      // is independent of labels and may still patch; the next successful
+      // update will re-sync labels.
+      const labelsR = await this.fetchRawLabels(externalId);
+      if (labelsR.ok) {
+        const filtered = labelsR.value.filter(
+          (l) => !GitHubIssuesTrackerAdapter.STATUS_LABELS.has(l)
+        );
+        // 'backlog' has no label; 'done' is represented by state='closed'.
+        if (
+          patch.status !== 'backlog' &&
+          patch.status !== 'done' &&
+          GitHubIssuesTrackerAdapter.STATUS_LABELS.has(patch.status)
+        ) {
+          filtered.push(patch.status);
+        }
+        out.labels = filtered;
+      } else {
+        console.warn(
+          `harness-tracker: skipping label sync on ${externalId} due to GET error: ${labelsR.error.message}`
+        );
       }
-      out.labels = filtered;
     }
     // Body-meta fields → re-serialize body (requires reading current body)
     const bodyTouches: Array<keyof FeaturePatch> = [
@@ -329,17 +344,30 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     return out;
   }
 
-  /** Lightweight GET that returns the raw label name list. */
-  private async fetchRawLabels(externalId: string): Promise<string[]> {
-    const parsed = parseExternalId(externalId);
-    if (!parsed) return [];
-    const res = await this.http.request(
-      `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
-      { method: 'GET' }
-    );
-    if (!res.ok) return [];
-    const data = (await res.json()) as RawIssue;
-    return data.labels.map((l) => l.name);
+  /**
+   * Lightweight GET that returns the raw label name list.
+   *
+   * P2-RR2-IMP-1: returns Result so callers can distinguish a real Err (network
+   * failure / non-200 response) from an empty label set. The previous shape
+   * silently swallowed errors and returned [], which combined with the
+   * unconditional `out.labels = filtered` assignment in buildIssuePatchBody
+   * caused PATCH requests to wipe ALL labels (including the selectorLabel and
+   * user-added labels) on a transient GET blip.
+   */
+  private async fetchRawLabels(externalId: string): Promise<Result<string[], Error>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      const res = await this.http.request(
+        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        { method: 'GET' }
+      );
+      if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
+      const data = (await res.json()) as RawIssue;
+      return Ok(data.labels.map((l) => l.name));
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
   }
   async claim(
     externalId: string,
