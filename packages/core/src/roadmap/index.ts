@@ -55,6 +55,12 @@ export {
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
 
 /**
+ * File-less pilot scoring (D4: priority + createdAt ascending).
+ */
+export { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
+export type { FileLessScoredCandidate } from './pilot-scoring-file-less';
+
+/**
  * Tracker abstraction — IssueTrackerClient and shared types.
  * See packages/core/src/roadmap/tracker/index.ts.
  */
