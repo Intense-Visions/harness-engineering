@@ -1,8 +1,29 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as fs from 'node:fs/promises';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import * as path from 'node:path';
+import { getRoadmapMode, parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
 import { z } from 'zod';
 import { readBody } from '../utils.js';
+
+/**
+ * Per-request load of `harness.config.json` for the file-less stub guard. Returns
+ * `null` on any error (missing, unreadable, or invalid JSON) — `getRoadmapMode`
+ * tolerates `null` and defaults to `file-backed`. The project root is derived
+ * from the roadmap path: `<root>/docs/roadmap.md` → `<root>`. Phase 4 will
+ * replace this with typed plumbing through `WorkflowConfig.roadmap.mode`.
+ */
+async function loadProjectConfigFromRoadmapPath(
+  roadmapPath: string
+): Promise<{ roadmap?: { mode?: string } } | null> {
+  try {
+    const projectRoot = path.dirname(path.dirname(roadmapPath));
+    const configPath = path.join(projectRoot, 'harness.config.json');
+    const content = await fs.readFile(configPath, 'utf-8');
+    return JSON.parse(content) as { roadmap?: { mode?: string } };
+  } catch {
+    return null;
+  }
+}
 
 const AppendRoadmapRequestSchema = z.object({
   title: z.string().min(1),
@@ -40,6 +61,18 @@ export function handleRoadmapActionsRoute(
     try {
       if (!roadmapPath) {
         sendJSON(res, 503, { error: 'Roadmap path not configured' });
+        return;
+      }
+
+      // Phase 3 stub: file-less mode is not yet wired through this endpoint.
+      // Phase 4 will dispatch to RoadmapTrackerClient.append() (or equivalent).
+      // Mirrors the canonical "not yet wired" message format used by S1-S5.
+      const projectConfig = await loadProjectConfigFromRoadmapPath(roadmapPath);
+      if (getRoadmapMode(projectConfig) === 'file-less') {
+        sendJSON(res, 501, {
+          error:
+            'file-less roadmap mode is not yet wired in orchestrator roadmap-append endpoint; see Phase 4.',
+        });
         return;
       }
 
