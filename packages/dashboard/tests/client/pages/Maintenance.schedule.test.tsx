@@ -159,6 +159,44 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
   });
 });
 
+describe('Maintenance page — baseref_fallback banner dismissal (M-02)', () => {
+  it('hides the banner after the dismiss button is clicked, then re-shows it for a fallback with a different (ref, repoRoot)', async () => {
+    mockApi();
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
+    };
+    const { rerender } = render(<Maintenance />);
+
+    // Banner appears.
+    const bannerLead = await waitFor(() => screen.getByText(/fell back/i));
+    expect(bannerLead).toBeDefined();
+
+    // Click the close button (× / "Dismiss").
+    const dismissBtn = screen.getByRole('button', { name: /dismiss baseref fallback/i });
+    fireEvent.click(dismissBtn);
+
+    // Banner is gone for the SAME (ref, repoRoot).
+    await waitFor(() => expect(screen.queryByText(/fell back/i)).toBeNull());
+
+    // Same fallback re-emitted: should remain dismissed.
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
+    };
+    rerender(<Maintenance />);
+    expect(screen.queryByText(/fell back/i)).toBeNull();
+
+    // NEW fallback for a different repo: banner reappears.
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'master', repoRoot: '/tmp/other-repo' },
+    };
+    rerender(<Maintenance />);
+    await waitFor(() => expect(screen.getByText(/fell back/i)).toBeDefined());
+  });
+});
+
 describe('Maintenance page — schedule fetch error handling (M-01)', () => {
   it('shows an inline error under the Schedule header when /schedule returns 500', async () => {
     mockFetch.mockImplementation((url: string) => {

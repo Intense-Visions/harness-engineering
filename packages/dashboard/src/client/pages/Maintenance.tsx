@@ -242,6 +242,13 @@ export function Maintenance() {
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks the (ref, repoRoot) of a baseref_fallback banner the user closed.
+  // The banner re-appears automatically when a fallback with a different
+  // identity arrives (covers the multi-worktree case).
+  const [dismissedFallback, setDismissedFallback] = useState<{
+    ref: string;
+    repoRoot: string;
+  } | null>(null);
   const { maintenanceEvent, connected } = useOrchestratorSocket();
 
   const load = useCallback(async () => {
@@ -360,16 +367,35 @@ export function Maintenance() {
         </div>
       )}
 
-      {maintenanceEvent?.type === 'maintenance:baseref_fallback' && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2">
-          <span className="text-sm text-amber-300">
-            Worktree base-ref fell back to local{' '}
-            <span className="font-mono font-semibold">{maintenanceEvent.data.ref}</span> (repo:{' '}
-            <span className="font-mono">{maintenanceEvent.data.repoRoot}</span>). Origin may be
-            misconfigured or unreachable.
-          </span>
-        </div>
-      )}
+      {maintenanceEvent?.type === 'maintenance:baseref_fallback' &&
+        !(
+          dismissedFallback?.ref === maintenanceEvent.data.ref &&
+          dismissedFallback?.repoRoot === maintenanceEvent.data.repoRoot
+        ) && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2">
+            <span className="text-sm text-amber-300">
+              Worktree base-ref fell back to local{' '}
+              <span className="font-mono font-semibold">{maintenanceEvent.data.ref}</span> (repo:{' '}
+              <span className="font-mono">{maintenanceEvent.data.repoRoot}</span>). Origin may be
+              misconfigured or unreachable.
+            </span>
+            <button
+              type="button"
+              aria-label="Dismiss baseref fallback warning"
+              onClick={() => {
+                setDismissedFallback({
+                  ref: maintenanceEvent.data.ref,
+                  repoRoot: maintenanceEvent.data.repoRoot,
+                });
+              }}
+              className="shrink-0 rounded p-0.5 text-amber-300/80 transition-colors hover:bg-amber-500/20 hover:text-amber-200"
+            >
+              <span aria-hidden="true" className="text-base leading-none">
+                ×
+              </span>
+            </button>
+          </div>
+        )}
 
       {loading && !status && <p className="text-sm text-gray-500">Loading maintenance status...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
