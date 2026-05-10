@@ -15,7 +15,13 @@ import { AnalysisArchive } from './core/analysis-archive';
 import { IntelligencePipelineRunner } from './intelligence/pipeline-runner';
 import { CompletionHandler } from './completion/handler';
 import type { OrchestratorContext } from './types/orchestrator-context';
-import { GitHubIssuesSyncAdapter, loadTrackerSyncConfig } from '@harness-engineering/core';
+import {
+  GitHubIssuesSyncAdapter,
+  loadTrackerSyncConfig,
+  getRoadmapMode,
+  type RoadmapMode,
+} from '@harness-engineering/core';
+import * as fsForRoadmapMode from 'node:fs';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
@@ -155,6 +161,12 @@ export class Orchestrator extends EventEmitter {
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
   /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
   private analysisFailureCache: Map<string, number> = new Map();
+  /**
+   * Phase 3 roadmap-mode plumbing: resolved from harness.config.json at
+   * construction time. Defaults to 'file-backed'. Phase 4 will replace this
+   * field-based plumbing with typed `WorkflowConfig.roadmap.mode`.
+   */
+  private roadmapMode: RoadmapMode = 'file-backed';
   /** Abort controllers and PIDs for running agent tasks — used by stopIssue to cancel in-flight work.
    *  The PID is stored here because the running entry may be deleted by the state machine
    *  before the stop effect executes (e.g., stall_detected removes the entry first). */
@@ -217,6 +229,21 @@ export class Orchestrator extends EventEmitter {
         `migrateAgentConfig failed; continuing with legacy fields. ` +
           `Error: ${err instanceof Error ? err.message : String(err)}`
       );
+    }
+
+    // Phase 3 mode plumbing: resolve roadmap.mode from harness.config.json,
+    // default file-backed. Read once at construction; Phase 4 will replace
+    // with typed plumbing through WorkflowConfig.
+    try {
+      const cfgPath = path.join(this.projectRoot, 'harness.config.json');
+      if (fsForRoadmapMode.existsSync(cfgPath)) {
+        const projectConfig = JSON.parse(
+          fsForRoadmapMode.readFileSync(cfgPath, 'utf-8')
+        ) as Parameters<typeof getRoadmapMode>[0];
+        this.roadmapMode = getRoadmapMode(projectConfig);
+      }
+    } catch {
+      // Defensive default: file-backed.
     }
 
     // Initialize adapters based on config or overrides
@@ -417,6 +444,14 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createTracker(): IssueTrackerClient {
+    // Phase 3 stub: file-less mode is not yet wired through the orchestrator factory.
+    // Phase 4 will dispatch to a file-less-aware adapter (likely a thin wrapper that
+    // satisfies IssueTrackerClient by delegating to RoadmapTrackerClient.fetchByStatus etc.)
+    if (this.roadmapMode === 'file-less') {
+      throw new Error(
+        'file-less roadmap mode is not yet wired in orchestrator tracker factory; see Phase 4.'
+      );
+    }
     if (this.config.tracker.kind === 'roadmap') {
       return new RoadmapTrackerAdapter(this.config.tracker);
     }
