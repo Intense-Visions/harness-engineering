@@ -68,3 +68,9 @@ export type {
   TrackerClientConfig,
 } from './tracker';
 export { ConflictError, createTrackerClient, ETagStore } from './tracker';
+
+/**
+ * Roadmap storage mode helper. See packages/core/src/roadmap/mode.ts.
+ */
+export { getRoadmapMode } from './mode';
+export type { RoadmapMode, RoadmapModeConfig } from './mode';
