@@ -337,9 +337,10 @@ Knowledge files land under new `docs/knowledge/roadmap/` domain.
 ## Implementation Order
 
 ```
-Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5
-                                       │
-                                       └─► Phase 6 (in parallel with Phase 5)
+Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 ──► Phase 7
+                                       │                       ▲
+                                       └─► Phase 6 ────────────┘
+                                           (in parallel with Phase 5)
 ```
 
 **Phase 1 — Lift the tracker abstraction into core.**
@@ -360,4 +361,7 @@ Ship `harness roadmap migrate --to=file-less` with `--dry-run` and idempotent re
 **Phase 6 — Documentation, ADRs, knowledge graph.**
 All docs reflect the new mode. Two ADRs written. Knowledge files added under new `docs/knowledge/roadmap/` domain. Can run in parallel with Phase 5 once Phase 4 lands.
 
-Order-of-magnitude: 1–2 weeks of focused work, gated by test infrastructure for the GitHub-backed integration tests.
+**Phase 7 — Dashboard conflict UX (file-less GA blocker).**
+Wire the React client to the HTTP 409 `TRACKER_CONFLICT` response shape that Phase 4 introduced (decision D-P4-B deferred this from Phase 4). Surface conflicts as a toast ("claimed by X — refresh"), auto-refetch the roadmap state on 409, and scroll-to-row to focus the contested feature. Same treatment for the roadmap-status and roadmap-append endpoints (S5/S6 from Phase 3) when they return conflicts. Must run after Phase 4 (server contract) but before file-less mode is considered GA.
+
+Order-of-magnitude: 1–2 weeks of focused work for Phases 1–6, plus a 1–2 hour follow-up cycle for Phase 7. Gated by test infrastructure for the GitHub-backed integration tests.
