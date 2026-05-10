@@ -175,8 +175,8 @@ export class OrchestratorServer {
 
   /**
    * Broadcast a maintenance event to all WebSocket clients.
-   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error'
-   * @param data - Event payload (task info, run result, or error details)
+   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error', 'maintenance:baseref_fallback'
+   * @param data - Event payload (task info, run result, error details, or baseref-fallback diagnostic)
    */
   public broadcastMaintenance(type: string, data: unknown): void {
     this.broadcaster.broadcast(type, data);
