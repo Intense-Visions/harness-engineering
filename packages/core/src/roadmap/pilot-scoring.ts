@@ -1,4 +1,5 @@
 import type { Roadmap, RoadmapFeature, Priority } from '@harness-engineering/types';
+import { getRoadmapMode, type RoadmapMode, type RoadmapModeConfig } from './mode';
 
 /**
  * A candidate feature with computed scores for the pilot selection algorithm.
@@ -210,4 +211,38 @@ export function assignFeature(
     action: 'assigned',
     date,
   });
+}
+
+/**
+ * Mode-aware wrapper around `scoreRoadmapCandidates`. The roadmap-pilot skill
+ * (and any caller that needs to honor `roadmap.mode`) should call this instead
+ * of `scoreRoadmapCandidates` directly.
+ *
+ * Phase 3 behavior:
+ *   - `file-backed` (default) — delegates to `scoreRoadmapCandidates` unchanged.
+ *   - `file-less` — throws (not yet wired). Phase 4 will replace this with
+ *     logic that calls `RoadmapTrackerClient.fetchAll()`, builds an in-memory
+ *     `Roadmap` shape, and invokes `scoreRoadmapCandidates` against it.
+ *
+ * @param roadmap - The parsed roadmap (file-backed only; pass empty when file-less to
+ *                  exercise the throw path).
+ * @param options - Pilot scoring options (currentUser etc.).
+ * @param config  - The Harness config (or any object with optional `roadmap.mode`);
+ *                  use `getRoadmapMode(config)` to resolve.
+ * @returns Scored candidates from `scoreRoadmapCandidates`.
+ * @throws Error('file-less roadmap mode is not yet wired in roadmap-pilot scoring; see Phase 4.')
+ *         when mode is `file-less`.
+ */
+export function scoreRoadmapCandidatesForMode(
+  roadmap: Roadmap,
+  options: PilotScoringOptions,
+  config: RoadmapModeConfig | undefined | null
+): ScoredCandidate[] {
+  const mode: RoadmapMode = getRoadmapMode(config);
+  if (mode === 'file-less') {
+    throw new Error(
+      'file-less roadmap mode is not yet wired in roadmap-pilot scoring; see Phase 4.'
+    );
+  }
+  return scoreRoadmapCandidates(roadmap, options);
 }
