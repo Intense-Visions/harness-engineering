@@ -20,7 +20,11 @@ type HistoryEntry = MaintenanceHistoryEntry;
 
 interface ScheduleRow {
   taskId: string;
-  type: string;
+  /**
+   * Optional on the wire shape: an older orchestrator may omit this field.
+   * Render `row.type ?? '—'` rather than a blank cell.
+   */
+  type?: string;
   nextRun: string;
   lastRun: { taskId: string; status: string; startedAt: string; durationMs: number } | null;
 }
@@ -160,7 +164,7 @@ function ScheduleTable({
             return (
               <tr key={row.taskId} className="border-b border-gray-800 hover:bg-gray-800/40">
                 <td className="py-2 px-3 font-mono text-xs text-gray-200">{row.taskId}</td>
-                <td className="py-2 px-3 text-xs text-gray-400">{row.type}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">{row.type ?? '—'}</td>
                 <td className="py-2 px-3 text-xs text-gray-400">{formatTime(row.nextRun)}</td>
                 <td className="py-2 px-3 text-xs text-gray-400">
                   {row.lastRun ? formatTime(row.lastRun.startedAt) : '—'}

@@ -159,6 +159,43 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
   });
 });
 
+describe('Maintenance page — older-orchestrator back-compat (M-03)', () => {
+  it('renders an em-dash in the Type column when the server omits ScheduleEntry.type', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 1,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            // Older orchestrator: no `type` field in the wire payload.
+            { taskId: 'main-sync', nextRun: '2026-05-09T20:00:00Z', lastRun: null },
+          ],
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    const row = await waitFor(() => screen.getByText('main-sync').closest('tr')!);
+    // Cells: [taskId, type, nextRun, lastRun, action] — type is the second.
+    const typeCell = row.querySelectorAll('td')[1];
+    expect(typeCell).toBeDefined();
+    expect(typeCell!.textContent).toBe('—');
+  });
+});
+
 describe('Maintenance page — baseref_fallback banner dismissal (M-02)', () => {
   it('hides the banner after the dismiss button is clicked, then re-shows it for a fallback with a different (ref, repoRoot)', async () => {
     mockApi();
