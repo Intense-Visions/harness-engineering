@@ -44,14 +44,18 @@ function request(
   });
 }
 
-describe('handleRoadmapActionsRoute — Phase 3 file-less stub (S6)', () => {
+describe('handleRoadmapActionsRoute — Phase 4 file-less dispatch (S6)', () => {
   let projectDir: string;
   let docsDir: string;
   let roadmapPath: string;
   let server: http.Server;
   let port: number;
 
+  let prevToken: string | undefined;
+
   beforeEach(async () => {
+    prevToken = process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_TOKEN;
     projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'orch-rma-stub-'));
     docsDir = path.join(projectDir, 'docs');
     await fs.mkdir(docsDir, { recursive: true });
@@ -70,9 +74,10 @@ describe('handleRoadmapActionsRoute — Phase 3 file-less stub (S6)', () => {
   afterEach(async () => {
     server.close();
     await fs.rm(projectDir, { recursive: true, force: true });
+    if (prevToken !== undefined) process.env.GITHUB_TOKEN = prevToken;
   });
 
-  it('returns 501 with stub message when roadmap.mode is file-less', async () => {
+  it('dispatches to file-less helper (no 501) when roadmap.mode is file-less', async () => {
     await fs.writeFile(
       path.join(projectDir, 'harness.config.json'),
       JSON.stringify({
@@ -89,12 +94,12 @@ describe('handleRoadmapActionsRoute — Phase 3 file-less stub (S6)', () => {
       title: 'New work item',
     });
 
-    expect(res.statusCode).toBe(501);
-    expect(res.body).toMatchObject({
-      error: expect.stringMatching(
-        /file-less roadmap mode is not yet wired in orchestrator roadmap-append endpoint; see Phase 4\./
-      ) as unknown as string,
-    });
+    // No GITHUB_TOKEN -> createTrackerClient returns Err -> 500 with
+    // missing-token message. The point: status is NOT 501 and the body
+    // does NOT contain the old stub phrase.
+    expect(res.statusCode).not.toBe(501);
+    const body = res.body as { error?: string };
+    expect(body.error ?? '').not.toMatch(/not yet wired/);
   });
 
   it('falls through to existing behavior when no harness.config.json present (file-backed default)', async () => {

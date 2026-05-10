@@ -1,27 +1,53 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
-import { getRoadmapMode, parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import {
+  parseRoadmap,
+  serializeRoadmap,
+  loadProjectRoadmapMode,
+  createTrackerClient,
+  type TrackerClientConfig,
+  type NewFeatureInput,
+} from '@harness-engineering/core';
 import { z } from 'zod';
 import { readBody } from '../utils.js';
 
 /**
- * Per-request load of `harness.config.json` for the file-less stub guard. Returns
- * `null` on any error (missing, unreadable, or invalid JSON) — `getRoadmapMode`
- * tolerates `null` and defaults to `file-backed`. The project root is derived
- * from the roadmap path: `<root>/docs/roadmap.md` → `<root>`. Phase 4 will
- * replace this with typed plumbing through `WorkflowConfig.roadmap.mode`.
+ * Build a `TrackerClientConfig` from `<projectRoot>/harness.config.json`.
+ * Mirrors the cli + dashboard helpers (D-P4-D consolidation pending Task 17).
  */
-async function loadProjectConfigFromRoadmapPath(
-  roadmapPath: string
-): Promise<{ roadmap?: { mode?: string } } | null> {
+function loadTrackerClientConfigFromRoot(
+  projectRoot: string
+): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
   try {
-    const projectRoot = path.dirname(path.dirname(roadmapPath));
     const configPath = path.join(projectRoot, 'harness.config.json');
-    const content = await fs.readFile(configPath, 'utf-8');
-    return JSON.parse(content) as { roadmap?: { mode?: string } };
-  } catch {
-    return null;
+    if (!fsSync.existsSync(configPath)) {
+      return { ok: false, error: new Error('harness.config.json not found') };
+    }
+    const cfg = JSON.parse(fsSync.readFileSync(configPath, 'utf-8')) as {
+      roadmap?: { tracker?: { kind?: string; repo?: string } };
+    };
+    const tracker = cfg.roadmap?.tracker;
+    if (!tracker) {
+      return {
+        ok: false,
+        error: new Error(
+          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
+        ),
+      };
+    }
+    if (tracker.kind !== 'github') {
+      return {
+        ok: false,
+        error: new Error(
+          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
+        ),
+      };
+    }
+    return { ok: true, value: { kind: 'github-issues', repo: tracker.repo ?? '' } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
   }
 }
 
@@ -64,14 +90,45 @@ export function handleRoadmapActionsRoute(
         return;
       }
 
-      // Phase 3 stub: file-less mode is not yet wired through this endpoint.
-      // Phase 4 will dispatch to RoadmapTrackerClient.append() (or equivalent).
-      // Mirrors the canonical "not yet wired" message format used by S1-S5.
-      const projectConfig = await loadProjectConfigFromRoadmapPath(roadmapPath);
-      if (getRoadmapMode(projectConfig) === 'file-less') {
-        sendJSON(res, 501, {
-          error:
-            'file-less roadmap mode is not yet wired in orchestrator roadmap-append endpoint; see Phase 4.',
+      // Phase 4 / S6: dispatch on roadmap mode.
+      const projectRoot = path.dirname(path.dirname(roadmapPath));
+      const mode = loadProjectRoadmapMode(projectRoot);
+      if (mode === 'file-less') {
+        const trackerCfg = loadTrackerClientConfigFromRoot(projectRoot);
+        if (!trackerCfg.ok) {
+          sendJSON(res, 500, { error: trackerCfg.error.message });
+          return;
+        }
+        const clientR = createTrackerClient(trackerCfg.value);
+        if (!clientR.ok) {
+          sendJSON(res, 500, { error: clientR.error.message });
+          return;
+        }
+        const body = await readBody(req);
+        const parseResult = AppendRoadmapRequestSchema.safeParse(JSON.parse(body));
+        if (!parseResult.success) {
+          sendJSON(res, 400, {
+            error: parseResult.error.issues[0]?.message ?? 'Invalid request body',
+          });
+          return;
+        }
+        const newFeature: NewFeatureInput = {
+          name: parseResult.data.title,
+          summary:
+            parseResult.data.enrichedSpec?.intent ??
+            parseResult.data.summary ??
+            parseResult.data.title,
+          status: 'planned',
+        };
+        const r = await clientR.value.create(newFeature);
+        if (!r.ok) {
+          sendJSON(res, 502, { error: r.error.message });
+          return;
+        }
+        sendJSON(res, 201, {
+          ok: true,
+          featureName: r.value.name,
+          externalId: r.value.externalId,
         });
         return;
       }
