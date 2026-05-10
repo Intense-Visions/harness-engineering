@@ -377,8 +377,11 @@ export function Maintenance() {
     });
   }, []);
 
-  const activeTask =
-    maintenanceEvent?.type === 'maintenance:started' ? maintenanceEvent.data.taskId : null;
+  // The active-task banner is derived from the in-flight Set so that it
+  // accurately reflects ALL currently-running tasks, not just the most
+  // recent maintenance:* event (which under-reported when two tasks ran
+  // back-to-back).
+  const inFlightList = [...inFlight];
 
   return (
     <div>
@@ -392,11 +395,20 @@ export function Maintenance() {
         </div>
       </div>
 
-      {activeTask && (
+      {inFlightList.length > 0 && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
           <span className="text-sm text-blue-300">
-            Running task: <span className="font-mono font-semibold">{activeTask}</span>
+            {inFlightList.length === 1 ? (
+              <>
+                Running: <span className="font-mono font-semibold">{inFlightList[0]}</span>
+              </>
+            ) : (
+              <>
+                Running {inFlightList.length} tasks:{' '}
+                <span className="font-mono font-semibold">{inFlightList.join(', ')}</span>
+              </>
+            )}
           </span>
         </div>
       )}

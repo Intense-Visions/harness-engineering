@@ -163,6 +163,55 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
   });
 });
 
+describe('Maintenance page — activeTask banner derived from inFlight set (M-05)', () => {
+  it('shows a single-task banner when one task is in-flight', async () => {
+    mockApi();
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'main-sync', startedAt: '2026-05-09T20:00:01Z' },
+    };
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    // The banner reads "Running: main-sync" (single-task variant). Match the
+    // literal "Running:" leading text — the taskId is in a nested span.
+    const lead = await waitFor(() => screen.getByText('Running:', { exact: false }));
+    const banner = lead.closest('div')!;
+    expect(banner.textContent).toMatch(/^Running: ?main-sync/);
+  });
+
+  it('shows a multi-task banner when two tasks are in-flight', async () => {
+    mockApi();
+    // First emit started for main-sync.
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'main-sync', startedAt: '2026-05-09T20:00:01Z' },
+    };
+    const { rerender } = render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+
+    // Then emit started for session-cleanup. The page tracks BOTH in inFlight.
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'session-cleanup', startedAt: '2026-05-09T20:00:02Z' },
+    };
+    rerender(<Maintenance />);
+
+    // The banner should report "Running 2 tasks: <a, b>" (order is not asserted).
+    const lead = await waitFor(() => screen.getByText(/^Running 2 tasks:/));
+    const banner = lead.closest('div')!;
+    expect(banner.textContent).toMatch(/main-sync/);
+    expect(banner.textContent).toMatch(/session-cleanup/);
+  });
+
+  it('hides the banner when no tasks are in-flight', async () => {
+    mockApi();
+    mockMaintenanceEvent = null;
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    expect(screen.queryByText(/^Running[: ]/)).toBeNull();
+  });
+});
+
 describe('Maintenance page — polling fallback while WebSocket is disconnected (M-04)', () => {
   it('registers a ~5s polling interval and uses /api/maintenance/status.activeRun as the in-flight source of truth when connected=false', async () => {
     // Spy on setInterval to discover the page's polling registration.
