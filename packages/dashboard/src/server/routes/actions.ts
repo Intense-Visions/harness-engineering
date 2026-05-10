@@ -2,7 +2,15 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { getRoadmapMode, parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {
+  loadProjectRoadmapMode,
+  createTrackerClient,
+  parseRoadmap,
+  serializeRoadmap,
+  type TrackerClientConfig,
+} from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
 import { resolveIdentity } from '../identity';
@@ -11,17 +19,45 @@ import { gatherPerf } from '../gather/perf';
 import { gatherArch } from '../gather/arch';
 import { gatherAnomalies } from '../gather/anomalies';
 import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
+import { handleClaimFileLess } from './actions-claim-file-less';
 
-// --- Finding 3: File lock to prevent TOCTOU races ---
-async function loadProjectConfig(
+/**
+ * Build a `TrackerClientConfig` from the project's `harness.config.json`.
+ * Returns Err with a descriptive message when the config is missing or
+ * incompatible with file-less dispatch. Mirrors the cli helper in
+ * packages/cli/src/mcp/tools/roadmap.ts (D-P4-D consolidation).
+ */
+function loadTrackerClientConfigFromProject(
   projectPath: string
-): Promise<{ roadmap?: { mode?: string } } | null> {
+): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
   try {
-    const configPath = `${projectPath}/harness.config.json`;
-    const content = await readFile(configPath, 'utf-8');
-    return JSON.parse(content) as { roadmap?: { mode?: string } };
-  } catch {
-    return null;
+    const configPath = path.join(projectPath, 'harness.config.json');
+    if (!fs.existsSync(configPath)) {
+      return { ok: false, error: new Error('harness.config.json not found') };
+    }
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+      roadmap?: { tracker?: { kind?: string; repo?: string } };
+    };
+    const tracker = cfg.roadmap?.tracker;
+    if (!tracker) {
+      return {
+        ok: false,
+        error: new Error(
+          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
+        ),
+      };
+    }
+    if (tracker.kind !== 'github') {
+      return {
+        ok: false,
+        error: new Error(
+          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
+        ),
+      };
+    }
+    return { ok: true, value: { kind: 'github-issues', repo: tracker.repo ?? '' } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
   }
 }
 
@@ -149,10 +185,9 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
   }
 
   // Phase 3 stub: file-less roadmap-status updates are not yet wired through the dashboard.
-  // Phase 4 will dispatch to RoadmapTrackerClient.setStatus() (or equivalent) and broadcast
-  // the result via SSE. Mirrors the file-less guard in handleClaim above.
-  const projectConfig = await loadProjectConfig(ctx.projectPath);
-  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
+  // Phase 4 Task 15 will dispatch to handleRoadmapStatusFileLess. The
+  // pre-dispatch read uses the consolidated core helper.
+  if (loadProjectRoadmapMode(ctx.projectPath) === 'file-less') {
     return c.json(
       {
         error:
@@ -403,17 +438,20 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
     return c.json({ error: 'feature or assignee exceeds maximum length' }, 400);
   }
 
-  // Phase 3 stub: file-less claim is not yet wired through the dashboard.
-  // Phase 4 will dispatch to RoadmapTrackerClient.claim() with ETag, surface
-  // ConflictError as a 409, and broadcast the result via SSE.
-  const projectConfig = await loadProjectConfig(ctx.projectPath);
-  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
-    return c.json(
-      {
-        error: 'file-less roadmap mode is not yet wired in dashboard claim endpoint; see Phase 4.',
-      },
-      501
-    );
+  // Phase 4 / S3: dispatch on roadmap mode. The file-less branch calls
+  // RoadmapTrackerClient.claim() and surfaces ConflictError as a 409 with
+  // the standard TRACKER_CONFLICT body shape (D-P4-B).
+  const mode = loadProjectRoadmapMode(ctx.projectPath);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
+    if (!trackerCfg.ok) {
+      return c.json({ error: trackerCfg.error.message }, 500);
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return c.json({ error: clientResult.error.message }, 500);
+    }
+    return (await handleClaimFileLess(c, clientResult.value, { feature, assignee })) as Response;
   }
 
   let result: Response | undefined;
