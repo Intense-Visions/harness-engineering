@@ -258,10 +258,16 @@ export const IntegrationsConfigSchema = z.object({
  * The main Harness configuration schema.
  */
 /**
- * Schema for external tracker sync configuration.
+ * Schema for external tracker sync configuration (`roadmap.tracker`).
+ *
+ * IMPORTANT: do **not** confuse this `kind` ('github' — the file-backed sync
+ * engine that reconciles `docs/roadmap.md` ↔ an external tracker) with the
+ * orchestrator's `WorkflowConfig.tracker.kind` ('roadmap' | 'github-issues' —
+ * the IssueTrackerClient dispatch). Two near-identical strings live in
+ * different config namespaces. See Phase 4 plan R3 for the long-form note.
  */
 export const TrackerConfigSchema = z.object({
-  /** Tracker kind — currently only 'github' is supported */
+  /** Tracker kind — currently only 'github' is supported for `roadmap.tracker`. */
   kind: z.literal('github'),
   /** Repository in "owner/repo" format */
   repo: z.string().optional(),
