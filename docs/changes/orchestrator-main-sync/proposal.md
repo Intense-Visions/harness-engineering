@@ -51,9 +51,11 @@ This change adds a periodic `main-sync` maintenance task that fast-forwards the 
 
 ### D4. Reuse housekeeping task type via new `harness sync-main` CLI
 
-**Decision:** No new task type. Sync ships as a `housekeeping` task whose `checkCommand` is `['sync-main', '--json']`, backed by a new `packages/cli/src/commands/sync-main.ts` subcommand.
+**Decision:** No new task type. Sync ships as a `housekeeping` task whose `checkCommand` is `['harness', 'sync-main', '--json']`, backed by a new `packages/cli/src/commands/sync-main.ts` subcommand.
 
 **Rationale:** The housekeeping pattern (`session-cleanup`, `perf-baselines`) is already established for "small mechanical commands, no AI, no PR." Adding a new task type for a single task would be premature abstraction. The CLI roundtrip cost (~50ms) is negligible against fetch latency.
+
+**Why prefix `harness`:** The orchestrator's `commandExecutor` (orchestrator.ts:466) invokes `command[0]` as a literal binary via `execFile`. There is no `sync-main` binary on PATH; subcommands resolve only through the `harness` CLI entry. Existing housekeeping entries (`['cleanup-sessions']`, `['perf', 'baselines', 'update']`) appear to share this latent bug — fixing them is out of scope for this spec but tracked separately. For `main-sync` we use the explicit `harness <subcommand>` form to ensure the cron path actually fires in production.
 
 ### D5. Dashboard: per-row "Run Now" button on the schedule view
 
@@ -138,7 +140,7 @@ Default human-readable output. `--json` emits `SyncMainResult` for the maintenan
   description: 'Fast-forward local default branch from origin',
   schedule: '*/15 * * * *',
   branch: null,
-  checkCommand: ['sync-main', '--json'],
+  checkCommand: ['harness', 'sync-main', '--json'],
 }
 ```
 
