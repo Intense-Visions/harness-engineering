@@ -148,6 +148,20 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
     );
   }
 
+  // Phase 3 stub: file-less roadmap-status updates are not yet wired through the dashboard.
+  // Phase 4 will dispatch to RoadmapTrackerClient.setStatus() (or equivalent) and broadcast
+  // the result via SSE. Mirrors the file-less guard in handleClaim above.
+  const projectConfig = await loadProjectConfig(ctx.projectPath);
+  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
+    return c.json(
+      {
+        error:
+          'file-less roadmap mode is not yet wired in dashboard roadmap-status endpoint; see Phase 4.',
+      },
+      501
+    );
+  }
+
   let result: Response | undefined;
 
   await withFileLock(ctx.roadmapPath, async () => {
