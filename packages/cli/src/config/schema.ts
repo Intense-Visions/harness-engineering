@@ -278,8 +278,18 @@ export const TrackerConfigSchema = z.object({
 
 /**
  * Schema for roadmap configuration.
+ *
+ * `mode` selects the storage backend:
+ *   - `"file-backed"` (default) — `docs/roadmap.md` is canonical.
+ *   - `"file-less"` — the configured external tracker is canonical; the
+ *     markdown file must not exist. Validated by `validateRoadmapMode`
+ *     (cross-cutting filesystem check) in addition to this Zod shape check.
+ *
+ * @see docs/changes/roadmap-tracker-only/proposal.md (Decision D5)
  */
 export const RoadmapConfigSchema = z.object({
+  /** Roadmap storage mode. Default is `"file-backed"` (today's behavior). */
+  mode: z.enum(['file-backed', 'file-less']).optional(),
   /** External tracker sync settings */
   tracker: TrackerConfigSchema.optional(),
 });
