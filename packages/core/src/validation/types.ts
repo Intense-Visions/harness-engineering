@@ -17,7 +17,12 @@ export interface StructureValidation {
 
 // Config Validation
 export interface ConfigError extends ValidationError {
-  code: 'INVALID_TYPE' | 'MISSING_FIELD' | 'VALIDATION_FAILED';
+  code:
+    | 'INVALID_TYPE'
+    | 'MISSING_FIELD'
+    | 'VALIDATION_FAILED'
+    | 'ROADMAP_MODE_MISSING_TRACKER'
+    | 'ROADMAP_MODE_FILE_PRESENT';
   details: {
     zodError?: unknown; // Zod's detailed error (avoid importing zod types here)
     path?: string[]; // Path to invalid field
