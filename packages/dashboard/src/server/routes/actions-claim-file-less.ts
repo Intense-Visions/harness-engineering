@@ -21,6 +21,7 @@
  */
 import type { RoadmapTrackerClient, TrackedFeature, FeaturePatch } from '@harness-engineering/core';
 import { ConflictError } from '@harness-engineering/core';
+import type { FeatureStatus } from '@harness-engineering/types';
 
 /**
  * Minimal subset of the Hono Context we use. The dashboard production code
@@ -116,7 +117,7 @@ export async function handleRoadmapStatusFileLess(
   }
   const found = await resolveFeatureByName(client, body.feature);
   if (!found.ok) return c.json(found.body, found.status);
-  const patch: FeaturePatch = { status: body.status as FeaturePatch['status'] };
+  const patch: FeaturePatch = { status: body.status as FeatureStatus };
   const r = await client.update(found.value.externalId, patch);
   if (!r.ok) {
     if (r.error instanceof ConflictError) {
