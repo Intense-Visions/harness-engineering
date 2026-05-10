@@ -230,8 +230,8 @@ export function assignFeature(
  * @param config  - The Harness config (or any object with optional `roadmap.mode`);
  *                  use `getRoadmapMode(config)` to resolve.
  * @returns Scored candidates from `scoreRoadmapCandidates`.
- * @throws Error('file-less roadmap mode is not yet wired in roadmap-pilot scoring; see Phase 4.')
- *         when mode is `file-less`.
+ * @throws when `roadmap.mode === 'file-less'`; the canonical Phase 3 stub
+ *         error referencing `roadmap-pilot scoring` and `see Phase 4`.
  */
 export function scoreRoadmapCandidatesForMode(
   roadmap: Roadmap,
