@@ -78,3 +78,6 @@ export { ConflictError, createTrackerClient, ETagStore } from './tracker';
  */
 export { getRoadmapMode } from './mode';
 export type { RoadmapMode, RoadmapModeConfig } from './mode';
+
+/** Per-request loader: resolves roadmap.mode from <projectRoot>/harness.config.json. */
+export { loadProjectRoadmapMode } from './load-mode';
