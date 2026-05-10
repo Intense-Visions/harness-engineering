@@ -1,12 +1,20 @@
 import type { TrackedFeature } from './tracker';
 import type { Priority } from '@harness-engineering/types';
-import type { PilotScoringOptions } from './pilot-scoring';
 
 const PRIORITY_RANK: Record<Priority, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
 
 export interface FileLessScoredCandidate {
   feature: TrackedFeature;
   priorityTier: number | null;
+}
+
+/**
+ * Local mirror of `PilotScoringOptions` to avoid an import cycle with
+ * `pilot-scoring.ts` (which imports this module's `scoreRoadmapCandidatesFileLess`).
+ * Keep this shape in sync with the canonical definition.
+ */
+interface FileLessScoringOptions {
+  currentUser?: string;
 }
 
 /**
@@ -19,7 +27,7 @@ export interface FileLessScoredCandidate {
  */
 export function scoreRoadmapCandidatesFileLess(
   features: TrackedFeature[],
-  _options: PilotScoringOptions
+  _options: FileLessScoringOptions
 ): FileLessScoredCandidate[] {
   const allNames = new Set(features.map((f) => f.name.toLowerCase()));
   const doneNames = new Set(
