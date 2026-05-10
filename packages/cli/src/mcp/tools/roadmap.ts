@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { getRoadmapMode } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { triggerExternalSync } from './roadmap-auto-sync.js';
@@ -83,6 +84,18 @@ interface ManageRoadmapInput {
 
 function roadmapPath(projectRoot: string): string {
   return path.join(projectRoot, 'docs', 'roadmap.md');
+}
+
+function loadProjectConfig(projectRoot: string): { roadmap?: { mode?: string } } | null {
+  try {
+    const configPath = path.join(projectRoot, 'harness.config.json');
+    if (!fs.existsSync(configPath)) return null;
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+      roadmap?: { mode?: string };
+    };
+  } catch {
+    return null;
+  }
 }
 
 function readRoadmapFile(projectRoot: string): string | null {
@@ -444,12 +457,25 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
 }
 
 export async function handleManageRoadmap(input: ManageRoadmapInput) {
+  const projectPathPre = sanitizePath(input.path);
+
+  // Phase 3 stub: file-less mode is not yet wired through manage_roadmap.
+  // Phase 4 will branch on mode and dispatch to RoadmapTrackerClient.
+  // Throw OUTSIDE the inner try/catch so the rejection propagates rather
+  // than being converted into a soft `isError: true` response.
+  const projectConfig = loadProjectConfig(projectPathPre);
+  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
+    throw new Error(
+      'file-less roadmap mode is not yet wired in manage_roadmap MCP tool; see Phase 4.'
+    );
+  }
+
   try {
     const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, assignFeature } =
       await import('@harness-engineering/core');
     const { Ok } = await import('@harness-engineering/types');
 
-    const projectPath = sanitizePath(input.path);
+    const projectPath = projectPathPre;
     const deps: RoadmapDeps = {
       parseRoadmap,
       serializeRoadmap,
