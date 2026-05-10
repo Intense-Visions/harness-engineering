@@ -173,9 +173,11 @@ async function handleRemove(
   client
     .appendHistory(found.value.externalId, {
       type: 'completed',
-      timestamp: new Date().toISOString(),
+      at: new Date().toISOString(),
       actor: 'manage_roadmap',
-      details: 'removed via manage_roadmap (file-less translates remove → complete)',
+      details: {
+        note: 'removed via manage_roadmap (file-less translates remove to complete)',
+      },
     })
     .catch(() => {});
   return ok(`Removed feature: ${found.value.name} (translated to status:done in file-less mode)`);
