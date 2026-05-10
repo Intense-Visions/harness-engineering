@@ -23,6 +23,8 @@ import {
 } from '@harness-engineering/core';
 import * as fsForRoadmapMode from 'node:fs';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
+import { GitHubIssuesIssueTrackerAdapter } from './tracker/adapters/github-issues-issue-tracker';
+import { createTrackerClient, type TrackerClientConfig } from '@harness-engineering/core';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
 import { AgentRunner } from './agent/runner';
@@ -444,13 +446,20 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createTracker(): IssueTrackerClient {
-    // Phase 3 stub: file-less mode is not yet wired through the orchestrator factory.
-    // Phase 4 will dispatch to a file-less-aware adapter (likely a thin wrapper that
-    // satisfies IssueTrackerClient by delegating to RoadmapTrackerClient.fetchByStatus etc.)
-    if (this.roadmapMode === 'file-less') {
-      throw new Error(
-        'file-less roadmap mode is not yet wired in orchestrator tracker factory; see Phase 4.'
-      );
+    // Phase 4 / S2 (D-P4-E): dispatch on `tracker.kind`.
+    // The roadmap-mode field is still resolved (used elsewhere) but is no
+    // longer the dispatch point — the `validateRoadmapMode` validator in
+    // core enforces mode/tracker consistency at config-load time.
+    if (this.config.tracker.kind === 'github-issues') {
+      const trackerCfg: TrackerClientConfig = {
+        kind: 'github-issues',
+        repo: this.config.tracker.projectSlug ?? '',
+        ...(this.config.tracker.apiKey ? { token: this.config.tracker.apiKey } : {}),
+        ...(this.config.tracker.endpoint ? { apiBase: this.config.tracker.endpoint } : {}),
+      };
+      const clientResult = createTrackerClient(trackerCfg);
+      if (!clientResult.ok) throw clientResult.error;
+      return new GitHubIssuesIssueTrackerAdapter(clientResult.value, this.config.tracker);
     }
     if (this.config.tracker.kind === 'roadmap') {
       return new RoadmapTrackerAdapter(this.config.tracker);
