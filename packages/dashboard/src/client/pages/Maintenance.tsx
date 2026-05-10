@@ -200,9 +200,24 @@ async function fetchHistory(): Promise<HistoryEntry[]> {
   return (await res.json()) as HistoryEntry[];
 }
 
+/**
+ * Distinguishes between "older orchestrator without the schedule route" (404)
+ * and a genuine server fault (5xx / network) so the page can render an inline
+ * error in the second case while staying silent in the first.
+ */
+class ScheduleNotImplementedError extends Error {
+  constructor() {
+    super('Schedule endpoint not implemented (404)');
+    this.name = 'ScheduleNotImplementedError';
+  }
+}
+
 async function fetchSchedule(): Promise<ScheduleRow[]> {
   const res = await fetch('/api/maintenance/schedule');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 404) throw new ScheduleNotImplementedError();
+    throw new Error(`HTTP ${res.status}`);
+  }
   return (await res.json()) as ScheduleRow[];
 }
 
@@ -223,6 +238,7 @@ export function Maintenance() {
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [schedule, setSchedule] = useState<ScheduleRow[] | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,8 +265,18 @@ export function Maintenance() {
     try {
       const sched = await fetchSchedule();
       setSchedule(sched);
-    } catch {
-      // Leave schedule null; the section renders a "Loading schedule..." placeholder.
+      setScheduleError(null);
+    } catch (e) {
+      if (e instanceof ScheduleNotImplementedError) {
+        // Older orchestrator without the schedule route — degrade silently to
+        // an empty schedule so the rest of the page still renders.
+        setSchedule([]);
+        setScheduleError(null);
+      } else {
+        // Genuine server fault or network error — surface it inline.
+        const msg = e instanceof Error ? e.message : 'Network error';
+        setScheduleError(`Failed to load schedule: ${msg}`);
+      }
     }
   }, []);
 
@@ -365,9 +391,14 @@ export function Maintenance() {
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
               Schedule
             </h2>
+            {scheduleError && (
+              <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2">
+                <span className="text-sm text-red-300">{scheduleError}</span>
+              </div>
+            )}
             {schedule ? (
               <ScheduleTable rows={schedule} inFlight={inFlight} onRunNow={handleRunNow} />
-            ) : (
+            ) : scheduleError ? null : (
               <p className="text-sm text-gray-500">Loading schedule...</p>
             )}
           </section>

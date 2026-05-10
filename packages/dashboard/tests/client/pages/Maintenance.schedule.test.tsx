@@ -158,3 +158,72 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
     expect(banner.textContent).toMatch(/\/tmp\/repo/);
   });
 });
+
+describe('Maintenance page — schedule fetch error handling (M-01)', () => {
+  it('shows an inline error under the Schedule header when /schedule returns 500', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 0,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'boom' }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    // The error message must appear under the Schedule heading, not as the
+    // generic page-level error (which is reserved for status/history errors).
+    const errorEl = await waitFor(() => screen.getByText(/failed to load schedule/i));
+    expect(errorEl).toBeDefined();
+    // The "Loading schedule..." placeholder must be gone once the error is set.
+    expect(screen.queryByText(/loading schedule\.\.\./i)).toBeNull();
+  });
+
+  it('renders an empty schedule table without an error when /schedule returns 404 (older orchestrator)', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 0,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'Not found' }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    // Wait for the load cycle to finish (status is rendered).
+    await waitFor(() => expect(screen.getByText(/scheduler status/i)).toBeDefined());
+    // The empty-schedule placeholder appears, NOT the error.
+    await waitFor(() => expect(screen.getByText(/no scheduled tasks/i)).toBeDefined());
+    expect(screen.queryByText(/failed to load schedule/i)).toBeNull();
+  });
+});
