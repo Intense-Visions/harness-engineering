@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import { getRoadmapMode, parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
 import { resolveIdentity } from '../identity';
@@ -13,6 +13,18 @@ import { gatherAnomalies } from '../gather/anomalies';
 import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
 
 // --- Finding 3: File lock to prevent TOCTOU races ---
+async function loadProjectConfig(
+  projectPath: string
+): Promise<{ roadmap?: { mode?: string } } | null> {
+  try {
+    const configPath = `${projectPath}/harness.config.json`;
+    const content = await readFile(configPath, 'utf-8');
+    return JSON.parse(content) as { roadmap?: { mode?: string } };
+  } catch {
+    return null;
+  }
+}
+
 const fileLocks = new Map<string, Promise<void>>();
 
 async function withFileLock(path: string, fn: () => Promise<void>): Promise<void> {
@@ -375,6 +387,19 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
   }
   if (feature.length > 200 || assignee.length > 100) {
     return c.json({ error: 'feature or assignee exceeds maximum length' }, 400);
+  }
+
+  // Phase 3 stub: file-less claim is not yet wired through the dashboard.
+  // Phase 4 will dispatch to RoadmapTrackerClient.claim() with ETag, surface
+  // ConflictError as a 409, and broadcast the result via SSE.
+  const projectConfig = await loadProjectConfig(ctx.projectPath);
+  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
+    return c.json(
+      {
+        error: 'file-less roadmap mode is not yet wired in dashboard claim endpoint; see Phase 4.',
+      },
+      501
+    );
   }
 
   let result: Response | undefined;
