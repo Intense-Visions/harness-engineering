@@ -19,7 +19,7 @@ import { gatherPerf } from '../gather/perf';
 import { gatherArch } from '../gather/arch';
 import { gatherAnomalies } from '../gather/anomalies';
 import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
-import { handleClaimFileLess } from './actions-claim-file-less';
+import { handleClaimFileLess, handleRoadmapStatusFileLess } from './actions-claim-file-less';
 
 /**
  * Build a `TrackerClientConfig` from the project's `harness.config.json`.
@@ -184,17 +184,22 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
     );
   }
 
-  // Phase 3 stub: file-less roadmap-status updates are not yet wired through the dashboard.
-  // Phase 4 Task 15 will dispatch to handleRoadmapStatusFileLess. The
-  // pre-dispatch read uses the consolidated core helper.
+  // Phase 4 / S5: dispatch on roadmap mode. File-less calls
+  // RoadmapTrackerClient.update(externalId, { status }) and surfaces
+  // ConflictError as 409 with the TRACKER_CONFLICT body shape (D-P4-B).
   if (loadProjectRoadmapMode(ctx.projectPath) === 'file-less') {
-    return c.json(
-      {
-        error:
-          'file-less roadmap mode is not yet wired in dashboard roadmap-status endpoint; see Phase 4.',
-      },
-      501
-    );
+    const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
+    if (!trackerCfg.ok) {
+      return c.json({ error: trackerCfg.error.message }, 500);
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return c.json({ error: clientResult.error.message }, 500);
+    }
+    return (await handleRoadmapStatusFileLess(c, clientResult.value, {
+      feature,
+      status,
+    })) as Response;
   }
 
   let result: Response | undefined;

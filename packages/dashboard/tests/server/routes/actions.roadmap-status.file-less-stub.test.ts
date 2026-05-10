@@ -1,3 +1,9 @@
+/**
+ * Phase 4 / Task 15: `handleRoadmapStatus` dispatches to the file-less helper
+ * when `roadmap.mode === 'file-less'` instead of returning the Phase 3 stub
+ * 501. Without GITHUB_TOKEN, the helper's `createTrackerClient` returns an
+ * Err whose message is observable proof of dispatch.
+ */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -9,7 +15,6 @@ import { DataCache } from '../../../src/server/cache';
 import { GatherCache } from '../../../src/server/gather-cache';
 import { SSEManager } from '../../../src/server/sse';
 
-/** Minimal ServerContext stub — only fields read by handleRoadmapStatus. */
 function makeCtx(projectPath: string): ServerContext {
   return {
     projectPath,
@@ -22,16 +27,20 @@ function makeCtx(projectPath: string): ServerContext {
   };
 }
 
-describe('handleRoadmapStatus — Phase 3 file-less stub (S5)', () => {
+describe('handleRoadmapStatus — Phase 4 file-less dispatch (S5)', () => {
   let dir: string;
+  let prevToken: string | undefined;
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-rms-stub-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-rms-disp-'));
+    prevToken = process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_TOKEN;
   });
   afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true });
+    if (prevToken !== undefined) process.env.GITHUB_TOKEN = prevToken;
   });
 
-  it('returns 501 with stub message when roadmap.mode is file-less', async () => {
+  it('dispatches to file-less helper (no 501) when mode is file-less', async () => {
     fs.writeFileSync(
       path.join(dir, 'harness.config.json'),
       JSON.stringify({
@@ -49,17 +58,12 @@ describe('handleRoadmapStatus — Phase 3 file-less stub (S5)', () => {
       body: JSON.stringify({ feature: 'x', status: 'in-progress' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    expect(res.status).toBe(501);
+    expect(res.status).not.toBe(501);
     const json = (await res.json()) as { error?: string };
-    expect(json.error).toMatch(
-      /file-less roadmap mode is not yet wired in dashboard roadmap-status endpoint; see Phase 4\./
-    );
+    expect(json.error ?? '').not.toMatch(/not yet wired/);
   });
 
-  it('falls through to existing behavior when roadmap.mode is file-backed (no config file)', async () => {
-    // No harness.config.json → loadProjectConfig returns null → getRoadmapMode → 'file-backed'.
-    // With no roadmap.md, the existing behavior is to return a 500 from the file-not-found path —
-    // but only after the file-less guard short-circuits. We assert NOT-501 to confirm fall-through.
+  it('file-backed regression: fall-through when mode is absent (NOT 501)', async () => {
     const app = new Hono();
     app.route('/api', buildActionsRouter(makeCtx(dir)));
     const res = await app.request('/api/actions/roadmap-status', {
