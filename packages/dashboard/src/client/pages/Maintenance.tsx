@@ -321,6 +321,45 @@ export function Maintenance() {
     // 'maintenance:baseref_fallback' is informational; do not touch inFlight.
   }, [maintenanceEvent]);
 
+  // Polling fallback: when the WebSocket is disconnected we cannot rely on
+  // maintenance:started/completed events to keep `inFlight` honest. Poll the
+  // /status endpoint every ~5s and reconcile `inFlight` against the server's
+  // authoritative view (`activeRun`).
+  useEffect(() => {
+    if (connected) return;
+    let cancelled = false;
+    const tick = () => {
+      void (async () => {
+        try {
+          const res = await fetch('/api/maintenance/status');
+          if (!res.ok) return;
+          const body = (await res.json()) as { activeRun?: { taskId: string } | null };
+          if (cancelled) return;
+          const serverActive = body?.activeRun?.taskId ?? null;
+          setInFlight((prev) => {
+            // Drop any client-tracked tasks the server says are NOT running.
+            // Add the server-reported activeRun if we missed its `started` event.
+            const next = new Set<string>();
+            if (serverActive) next.add(serverActive);
+            // Equality short-circuit to avoid spurious renders.
+            if (prev.size === next.size && [...prev].every((t) => next.has(t))) return prev;
+            return next;
+          });
+        } catch {
+          // Polling is best-effort; transient errors are fine to swallow.
+        }
+      })();
+    };
+    const id = setInterval(tick, 5000);
+    // Run an immediate tick so the user does not wait the full interval after
+    // the WebSocket drops.
+    tick();
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [connected]);
+
   const handleRunNow = useCallback((taskId: string) => {
     setInFlight((prev) => {
       const next = new Set(prev);

@@ -6,6 +6,7 @@ import { Maintenance } from '../../../src/client/pages/Maintenance';
 
 // Per-test settable mock for the socket hook.
 let mockMaintenanceEvent: MaintenanceEvent | null = null;
+let mockConnected = true;
 const mockSocket = {
   snapshot: null,
   interactions: [],
@@ -14,7 +15,9 @@ const mockSocket = {
   get maintenanceEvent() {
     return mockMaintenanceEvent;
   },
-  connected: true,
+  get connected() {
+    return mockConnected;
+  },
   removeInteraction: vi.fn(),
   setInteractions: vi.fn(),
 };
@@ -75,6 +78,7 @@ function mockApi() {
 beforeEach(() => {
   mockFetch.mockReset();
   mockMaintenanceEvent = null;
+  mockConnected = true;
 });
 
 afterEach(() => {
@@ -156,6 +160,115 @@ describe('Maintenance page — schedule table & per-row Run Now', () => {
     expect(banner).not.toBeNull();
     expect(banner.textContent).toMatch(/main/);
     expect(banner.textContent).toMatch(/\/tmp\/repo/);
+  });
+});
+
+describe('Maintenance page — polling fallback while WebSocket is disconnected (M-04)', () => {
+  it('registers a ~5s polling interval and uses /api/maintenance/status.activeRun as the in-flight source of truth when connected=false', async () => {
+    // Spy on setInterval to discover the page's polling registration.
+    // Manually drive that callback with controlled /status responses to
+    // verify reconciliation in both directions:
+    //   1. Server reports activeRun → that taskId becomes in-flight (recovers
+    //      from a missed maintenance:started event).
+    //   2. Server reports activeRun: null → in-flight set is cleared (recovers
+    //      from a missed maintenance:completed event).
+    // We avoid vi.useFakeTimers() because it leaks across tests.
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+
+    try {
+      mockConnected = false;
+
+      // Stage 1: server says session-cleanup is currently running.
+      let activeRunResponse: { taskId: string; startedAt: string } | null = {
+        taskId: 'session-cleanup',
+        startedAt: '2026-05-09T20:00:00Z',
+      };
+      mockFetch.mockImplementation((url: string) => {
+        if (url.endsWith('/api/maintenance/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              isLeader: true,
+              lastLeaderClaim: null,
+              schedule: [],
+              activeRun: activeRunResponse,
+              history: [],
+            }),
+          });
+        }
+        if (url.endsWith('/api/maintenance/history')) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        if (url.endsWith('/api/maintenance/schedule')) {
+          return Promise.resolve({ ok: true, json: async () => FIXTURE_SCHEDULE });
+        }
+        return Promise.resolve({ ok: false, status: 404 });
+      });
+
+      const { rerender } = render(<Maintenance />);
+
+      // Wait for the schedule table to render so we can read button state.
+      await waitFor(() => expect(screen.getByText('session-cleanup')).toBeDefined());
+
+      // Confirm the polling interval is registered with ~5s cadence.
+      const pollCall = setIntervalSpy.mock.calls.find(
+        ([, ms]) => typeof ms === 'number' && ms >= 4000 && ms <= 10_000
+      );
+      expect(pollCall).toBeDefined();
+      const pollFn = pollCall![0] as () => void;
+
+      // Stage 1 reconciliation: poll → server reports session-cleanup active.
+      pollFn();
+      await new Promise((r) => setTimeout(r, 0));
+      rerender(<Maintenance />);
+
+      await waitFor(() => {
+        const sessionBtn = document.querySelector(
+          'button[data-task-id="session-cleanup"]'
+        ) as HTMLButtonElement | null;
+        expect(sessionBtn).not.toBeNull();
+        expect(sessionBtn!.disabled).toBe(true);
+      });
+      // main-sync was never running → still enabled.
+      const mainSyncBtnMid = document.querySelector(
+        'button[data-task-id="main-sync"]'
+      ) as HTMLButtonElement | null;
+      expect(mainSyncBtnMid).not.toBeNull();
+      expect(mainSyncBtnMid!.disabled).toBe(false);
+
+      // Stage 2: server now reports activeRun: null (session-cleanup finished).
+      activeRunResponse = null;
+      pollFn();
+      await new Promise((r) => setTimeout(r, 0));
+      rerender(<Maintenance />);
+
+      await waitFor(() => {
+        const sessionBtn = document.querySelector(
+          'button[data-task-id="session-cleanup"]'
+        ) as HTMLButtonElement | null;
+        expect(sessionBtn).not.toBeNull();
+        expect(sessionBtn!.disabled).toBe(false);
+      });
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
+  });
+
+  it('does NOT register a polling interval while connected=true (trusts the WebSocket)', async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+    try {
+      mockConnected = true;
+      mockApi();
+      render(<Maintenance />);
+      await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+      // No setInterval call in the 4-10s range should have been registered.
+      const pollCall = setIntervalSpy.mock.calls.find(
+        ([, ms]) => typeof ms === 'number' && ms >= 4000 && ms <= 10_000
+      );
+      expect(pollCall).toBeUndefined();
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
   });
 });
 
