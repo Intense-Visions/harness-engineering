@@ -1,19 +1,34 @@
+/**
+ * Phase 4 / Task 11: assert that `handleManageRoadmap` dispatches to the
+ * file-less helper when `roadmap.mode === 'file-less'` instead of throwing
+ * the Phase 3 stub error.
+ *
+ * The integration here is intentionally minimal: we don't supply a tracker
+ * stub, so `createTrackerClient` will return the canonical "missing GitHub
+ * token" error when no `GITHUB_TOKEN` env is set. That error is observable
+ * proof the dispatch reached the file-less branch (Phase 3 stub would have
+ * thrown a different message before any tracker code ran).
+ */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { handleManageRoadmap } from '../../../src/mcp/tools/roadmap';
 
-describe('manage_roadmap — Phase 3 file-less stub', () => {
+describe('manage_roadmap — Phase 4 file-less dispatch', () => {
   let dir: string;
+  let prevToken: string | undefined;
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mr-stub-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mr-disp-'));
+    prevToken = process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_TOKEN;
   });
   afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true });
+    if (prevToken !== undefined) process.env.GITHUB_TOKEN = prevToken;
   });
 
-  it('throws with the expected stub message in file-less mode', async () => {
+  it('dispatches to the file-less helper (no stub throw) when mode is file-less', async () => {
     fs.writeFileSync(
       path.join(dir, 'harness.config.json'),
       JSON.stringify({
@@ -24,15 +39,18 @@ describe('manage_roadmap — Phase 3 file-less stub', () => {
         },
       })
     );
-    await expect(handleManageRoadmap({ path: dir, action: 'show' })).rejects.toThrow(
-      /file-less roadmap mode is not yet wired in manage_roadmap MCP tool; see Phase 4\./
-    );
+    // No GITHUB_TOKEN -> createTrackerClient should fail with a specific
+    // message; observing that message proves we reached the file-less
+    // dispatch (not the old Phase 3 stub throw).
+    const res = await handleManageRoadmap({ path: dir, action: 'show' });
+    expect(res.isError).toBe(true);
+    const text = res.content?.[0]?.text ?? '';
+    expect(text).not.toMatch(/not yet wired/);
+    expect(text).toMatch(/(GITHUB_TOKEN|missing GitHub token|github-issues|file-less tracker)/i);
   });
 
-  it('falls through to file-backed path when mode is absent (no throw)', async () => {
+  it('file-backed regression: falls through to file-backed path when mode is absent', async () => {
     fs.writeFileSync(path.join(dir, 'harness.config.json'), JSON.stringify({ version: 1 }));
-    // file-backed path will return roadmapNotFoundError because docs/roadmap.md is absent;
-    // the important assertion is that NO stub error is thrown.
     const res = await handleManageRoadmap({ path: dir, action: 'show' });
     expect(res.isError).toBe(true);
     const text = res.content?.[0]?.text ?? '';

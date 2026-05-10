@@ -1,9 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getRoadmapMode } from '@harness-engineering/core';
+import {
+  loadProjectRoadmapMode,
+  createTrackerClient,
+  type TrackerClientConfig,
+} from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { triggerExternalSync } from './roadmap-auto-sync.js';
+import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
@@ -84,18 +89,6 @@ interface ManageRoadmapInput {
 
 function roadmapPath(projectRoot: string): string {
   return path.join(projectRoot, 'docs', 'roadmap.md');
-}
-
-function loadProjectConfig(projectRoot: string): { roadmap?: { mode?: string } } | null {
-  try {
-    const configPath = path.join(projectRoot, 'harness.config.json');
-    if (!fs.existsSync(configPath)) return null;
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
-      roadmap?: { mode?: string };
-    };
-  } catch {
-    return null;
-  }
 }
 
 function readRoadmapFile(projectRoot: string): string | null {
@@ -456,18 +449,78 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   return true;
 }
 
-export async function handleManageRoadmap(input: ManageRoadmapInput) {
+/**
+ * Read the project's `harness.config.json` and shape a `TrackerClientConfig`
+ * for the file-less branch. Returns Err with a descriptive message when the
+ * config does not include a tracker entry suitable for file-less dispatch.
+ *
+ * Today only `kind: 'github-issues'` is supported by `createTrackerClient`,
+ * so we map the `roadmap.tracker.kind === 'github'` config (the file-backed
+ * sync engine config) into the `'github-issues'` client kind. The two
+ * concepts are semantically related (both target GitHub) but live in
+ * different config namespaces — see Phase 4 plan R3.
+ */
+function loadTrackerClientConfigFromProject(
+  projectRoot: string
+): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
+  try {
+    const configPath = path.join(projectRoot, 'harness.config.json');
+    if (!fs.existsSync(configPath)) {
+      return { ok: false, error: new Error('harness.config.json not found') };
+    }
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+      roadmap?: { tracker?: { kind?: string; repo?: string } };
+    };
+    const tracker = cfg.roadmap?.tracker;
+    if (!tracker) {
+      return {
+        ok: false,
+        error: new Error(
+          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
+        ),
+      };
+    }
+    if (tracker.kind !== 'github') {
+      return {
+        ok: false,
+        error: new Error(
+          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
+        ),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        kind: 'github-issues',
+        repo: tracker.repo ?? '',
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
+  }
+}
+
+export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
   const projectPathPre = sanitizePath(input.path);
 
-  // Phase 3 stub: file-less mode is not yet wired through manage_roadmap.
-  // Phase 4 will branch on mode and dispatch to RoadmapTrackerClient.
-  // Throw OUTSIDE the inner try/catch so the rejection propagates rather
-  // than being converted into a soft `isError: true` response.
-  const projectConfig = loadProjectConfig(projectPathPre);
-  if (getRoadmapMode(projectConfig ?? undefined) === 'file-less') {
-    throw new Error(
-      'file-less roadmap mode is not yet wired in manage_roadmap MCP tool; see Phase 4.'
-    );
+  // Phase 4 / S1: dispatch on roadmap mode.
+  const mode = loadProjectRoadmapMode(projectPathPre);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(projectPathPre);
+    if (!trackerCfg.ok) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${trackerCfg.error.message}` }],
+        isError: true,
+      };
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${clientResult.error.message}` }],
+        isError: true,
+      };
+    }
+    return handleManageRoadmapFileLess(input, clientResult.value);
   }
 
   try {
