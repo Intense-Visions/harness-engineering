@@ -41,7 +41,18 @@ export function loadTrackerClientConfigFromProject(
         new Error(`file-less tracker only supports kind: "github" today; got "${tracker.kind}"`)
       );
     }
-    return Ok({ kind: 'github-issues', repo: tracker.repo ?? '' });
+    // REV-P5-S4: refuse to silently coerce a missing repo to ''. An empty repo
+    // string downstream becomes a `o/r` of `''`, producing 404s on the first
+    // API call and burying the operator's actual misconfiguration. Fail fast
+    // with a precise error pointing at the missing config key.
+    if (!tracker.repo) {
+      return Err(
+        new Error(
+          'roadmap.tracker.repo is required for file-less mode (set it in harness.config.json)'
+        )
+      );
+    }
+    return Ok({ kind: 'github-issues', repo: tracker.repo });
   } catch (e) {
     return Err(e instanceof Error ? e : new Error(String(e)));
   }

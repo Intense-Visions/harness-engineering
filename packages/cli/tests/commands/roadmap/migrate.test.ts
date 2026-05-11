@@ -210,4 +210,21 @@ describe('runRoadmapMigrate', () => {
     if (result.ok) return;
     expect(result.error.message).toMatch(/unsupported (migration )?target/i);
   });
+
+  it('REV-P5-S5: --to=file-backed → recognized but not-yet-implemented error', async () => {
+    // Future-proofing: reverse migration is a recognized direction but not
+    // implemented in this release. The error must be specific (not the
+    // generic "unsupported target") so operators can find tracking docs.
+    cwd = makeProject();
+    const result = await runRoadmapMigrate({
+      to: 'file-backed',
+      dryRun: false,
+      cwd,
+      client: happyClient(),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/reverse migration is not yet implemented/i);
+    expect(result.error.message).not.toMatch(/unsupported (migration )?target/i);
+  });
 });

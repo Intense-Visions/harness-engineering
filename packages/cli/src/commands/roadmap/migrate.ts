@@ -93,28 +93,26 @@ async function collectHistoryHashes(
 }
 
 /**
- * Build the raw body resolver. Uses `client.fetchById` and falls back to
- * `feature.summary` (the canonical bodyless representation). When the tracker
- * does not expose raw bodies, this returns null and the runner treats the
- * feature as `toUpdate`.
+ * Build the raw body resolver.
+ *
+ * REV-P5-S6: The Phase 2 RoadmapTrackerClient does not expose raw issue
+ * bodies — `fetchById` returns a normalized `TrackedFeature`, not the
+ * original markdown. The plan-builder routes a null body to `toUpdate` as
+ * the safe default (a byte-identical canonical re-write is a no-op on the
+ * wire). Until the client gains a `fetchRawBody` (or equivalent), keep this
+ * resolver minimal: always return null.
+ *
+ * Context: C-P5-rawBody-resolver-overupdates in the autopilot session.
+ * The previous implementation fetched and discarded the result, which only
+ * served to inflate API call counts during migration without changing the
+ * plan output. The signature is preserved so the call-site does not need
+ * to change when raw-body support lands.
  */
 function makeRawBodyResolver(
-  client: RoadmapTrackerClient,
-  features: TrackedFeature[]
+  _client: RoadmapTrackerClient,
+  _features: TrackedFeature[]
 ): (id: string) => Promise<string | null> {
-  // Fast path: if the client returned a `body` property as part of fetchAll
-  // we'd cache it here. The Phase 2 adapter currently does not, so we cache
-  // by externalId for a stable resolver and fall back to null. Tests inject
-  // their own body content via the migration helpers directly.
-  const cache = new Map<string, string | null>();
-  for (const f of features) cache.set(f.externalId, null);
-  return async (id: string) => {
-    if (cache.has(id)) return cache.get(id) ?? null;
-    const r = await client.fetchById(id);
-    if (!r.ok || r.value == null) return null;
-    cache.set(id, null);
-    return null;
-  };
+  return async () => null;
 }
 
 export async function runRoadmapMigrate(
@@ -124,6 +122,16 @@ export async function runRoadmapMigrate(
 
   if (!opts.to) {
     return Err(new CLIError('missing required argument: --to <target>', ExitCode.ERROR));
+  }
+  // REV-P5-S5: accept --to=file-backed as a recognized-but-not-yet-implemented
+  // target so the flag validator does not bury the failure as "unsupported
+  // target". Reverse migration (file-less -> file-backed) is a future spec.
+  if (opts.to === 'file-backed') {
+    return Err(
+      new CLIError(
+        '--to=file-backed reverse migration is not yet implemented; track in a future spec'
+      )
+    );
   }
   if (opts.to !== 'file-less') {
     return Err(

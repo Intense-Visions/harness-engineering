@@ -48,4 +48,26 @@ describe('loadTrackerClientConfigFromProject', () => {
       expect(result.value.repo).toBe('owner/repo');
     }
   });
+
+  it('REV-P5-S4: refuses to coerce empty/missing repo to ""', () => {
+    // Missing repo key.
+    const dir1 = tmp();
+    fs.writeFileSync(
+      path.join(dir1, 'harness.config.json'),
+      JSON.stringify({ roadmap: { tracker: { kind: 'github' } } })
+    );
+    const r1 = loadTrackerClientConfigFromProject(dir1);
+    expect(r1.ok).toBe(false);
+    if (!r1.ok) expect(r1.error.message).toMatch(/repo is required/i);
+
+    // Empty-string repo.
+    const dir2 = tmp();
+    fs.writeFileSync(
+      path.join(dir2, 'harness.config.json'),
+      JSON.stringify({ roadmap: { tracker: { kind: 'github', repo: '' } } })
+    );
+    const r2 = loadTrackerClientConfigFromProject(dir2);
+    expect(r2.ok).toBe(false);
+    if (!r2.ok) expect(r2.error.message).toMatch(/repo is required/i);
+  });
 });
