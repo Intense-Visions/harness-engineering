@@ -19,7 +19,7 @@ export type RoadmapMode = 'file-backed' | 'file-less';
  * MCP tools) without re-validating.
  */
 export interface RoadmapModeConfig {
-  roadmap?: { mode?: string } | null;
+  roadmap?: { mode?: string | undefined } | null | undefined;
 }
 
 /**

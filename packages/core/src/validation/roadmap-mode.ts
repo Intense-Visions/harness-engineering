@@ -10,10 +10,13 @@ import { getRoadmapMode, type RoadmapModeConfig } from '../roadmap/mode';
  * because we also need to detect tracker presence.
  */
 export interface RoadmapModeValidationConfig extends RoadmapModeConfig {
-  roadmap?: {
-    mode?: string;
-    tracker?: unknown;
-  } | null;
+  roadmap?:
+    | {
+        mode?: string | undefined;
+        tracker?: unknown;
+      }
+    | null
+    | undefined;
 }
 
 /**
