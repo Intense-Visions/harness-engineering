@@ -24,4 +24,16 @@ describe('HarnessConfigSchema — roadmap.mode', () => {
       false
     );
   });
+
+  it('populates roadmap.mode = "file-backed" when roadmap is present but mode is omitted (REV-P6-S-5)', () => {
+    // Canonical-source regression: the Zod default on RoadmapConfigSchema.mode
+    // must materialize the field at parse time. Downstream callers
+    // (getRoadmapMode, validateRoadmapMode, the dashboard/orchestrator branch
+    // sites) rely on this so they can read config.roadmap?.mode without a
+    // separate "is the field absent?" branch.
+    const parsed = HarnessConfigSchema.safeParse({ ...base, roadmap: {} });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.roadmap?.mode).toBe('file-backed');
+  });
 });

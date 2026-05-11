@@ -14,9 +14,9 @@ export type RoadmapMode = 'file-backed' | 'file-less';
  * Narrow shape this helper inspects. Accepts any object that may have a
  * `roadmap.mode` field; tolerates `undefined`, `null`, missing fields, and
  * malformed values without throwing. The full Zod schema lives in CLI
- * (`packages/cli/src/config/schema.ts`); this helper is intentionally
- * tolerant so it can be called from any layer (orchestrator, dashboard,
- * MCP tools) without re-validating.
+ * (`RoadmapConfigSchema` in `packages/cli/src/config/schema.ts`); this
+ * helper is intentionally tolerant so it can be called from any layer
+ * (orchestrator, dashboard, MCP tools) without re-validating.
  */
 export interface RoadmapModeConfig {
   roadmap?: { mode?: string | undefined } | null | undefined;
@@ -24,6 +24,14 @@ export interface RoadmapModeConfig {
 
 /**
  * Returns the roadmap storage mode for a given Harness config.
+ *
+ * The canonical source of the `'file-backed'` default is
+ * `RoadmapConfigSchema.mode.default('file-backed')` in
+ * `packages/cli/src/config/schema.ts`. After Zod parses a config, the
+ * `roadmap.mode` field is always populated, and this helper returns it
+ * directly. This helper exists for pre-parse or unvalidated config shapes
+ * (e.g. handlers that accept partial configs from external callers) where
+ * the field may still be absent.
  *
  * Returns `'file-backed'` (the default) when:
  *   - `config` is undefined or null

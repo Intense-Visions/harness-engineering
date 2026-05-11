@@ -651,6 +651,8 @@ Configures roadmap management and external tracker synchronization.
 | `mode`    | `"file-backed" \| "file-less"` | No       | `"file-backed"` | Roadmap storage mode. See §"Mode validation rules" below. |
 | `tracker` | `TrackerConfig`                | No       | —               | External tracker sync settings                            |
 
+The canonical source of the `"file-backed"` default is `RoadmapConfigSchema` in `packages/cli/src/config/schema.ts` (`mode: z.enum([...]).default('file-backed')`). After Zod parses a config, `roadmap.mode` is always populated.
+
 ### TrackerConfig Object
 
 | Field              | Type                            | Required | Description                                           |

@@ -291,11 +291,19 @@ export const TrackerConfigSchema = z.object({
  *     markdown file must not exist. Validated by `validateRoadmapMode`
  *     (cross-cutting filesystem check) in addition to this Zod shape check.
  *
+ * The Zod schema is the canonical source of the `"file-backed"` default
+ * (`.default('file-backed')` populates the field at parse time). The
+ * tolerant `getRoadmapMode(config)` helper in
+ * `@harness-engineering/core/roadmap/mode.ts` returns the same default when
+ * called against pre-parse or unvalidated config shapes; the two MUST stay
+ * in lock-step. The default is also documented in
+ * `docs/reference/configuration.md` §"RoadmapConfig Object".
+ *
  * @see docs/changes/roadmap-tracker-only/proposal.md (Decision D5)
  */
 export const RoadmapConfigSchema = z.object({
-  /** Roadmap storage mode. Default is `"file-backed"` (today's behavior). */
-  mode: z.enum(['file-backed', 'file-less']).optional(),
+  /** Roadmap storage mode. Defaults to `"file-backed"` (today's behavior). */
+  mode: z.enum(['file-backed', 'file-less']).default('file-backed'),
   /** External tracker sync settings */
   tracker: TrackerConfigSchema.optional(),
 });

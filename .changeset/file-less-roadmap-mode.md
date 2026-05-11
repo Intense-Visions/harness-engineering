@@ -6,7 +6,7 @@
 
 feat(roadmap): tracker-only roadmap mode (file-less)
 
-Adds opt-in file-less roadmap mode where the configured external tracker is canonical, eliminating `docs/roadmap.md` as a multi-session conflict surface. See [`docs/changes/roadmap-tracker-only/proposal.md`](../docs/changes/roadmap-tracker-only/proposal.md) and ADRs 0008–0010.
+Adds opt-in file-less roadmap mode where the configured external tracker is canonical, eliminating `docs/roadmap.md` as a multi-session conflict surface. See [`docs/changes/roadmap-tracker-only/proposal.md`](https://github.com/Intense-Visions/harness-engineering/blob/main/docs/changes/roadmap-tracker-only/proposal.md) and ADRs 0008–0010.
 
 **`@harness-engineering/core`:**
 
