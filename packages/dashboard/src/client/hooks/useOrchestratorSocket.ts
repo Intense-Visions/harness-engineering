@@ -106,6 +106,9 @@ function handleMessage(msg: WebSocketMessage, handlers: MessageHandlers): void {
     case 'maintenance:completed':
       handlers.setMaintenanceEvent({ type: 'maintenance:completed', data: msg.data });
       break;
+    case 'maintenance:baseref_fallback':
+      handlers.setMaintenanceEvent({ type: 'maintenance:baseref_fallback', data: msg.data });
+      break;
     case 'local-model:status':
       handlers.setLocalModelStatuses((prev) => mergeLocalModelStatusByName(prev, msg.data));
       break;

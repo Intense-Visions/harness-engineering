@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import { Orchestrator } from '../../src/orchestrator';
+import { buildAnalysisProviderForLayer } from '../../src/agent/intelligence-factory';
 import { MockBackend } from '../../src/agent/backends/mock';
 import {
   AnthropicAnalysisProvider,
@@ -61,9 +62,20 @@ function makeConfig(agentOverride: Partial<WorkflowConfig['agent']>): WorkflowCo
 }
 
 function callCreateAnalysisProvider(orch: Orchestrator, layer: 'sel' | 'pesl' = 'sel') {
-  return (
-    orch as unknown as { createAnalysisProvider: (layer?: 'sel' | 'pesl') => unknown }
-  ).createAnalysisProvider(layer);
+  // Phase 4 refactor: createAnalysisProvider extracted to
+  // intelligence-factory.ts as buildAnalysisProviderForLayer. The orch
+  // still owns config/localResolvers/logger; we forward them into the
+  // module function so this helper preserves test ergonomics.
+  const internals = orch as unknown as {
+    config: Parameters<typeof buildAnalysisProviderForLayer>[1]['config'];
+    localResolvers: Parameters<typeof buildAnalysisProviderForLayer>[1]['localResolvers'];
+    logger: Parameters<typeof buildAnalysisProviderForLayer>[1]['logger'];
+  };
+  return buildAnalysisProviderForLayer(layer, {
+    config: internals.config,
+    localResolvers: internals.localResolvers,
+    logger: internals.logger,
+  });
 }
 
 beforeEach(() => {

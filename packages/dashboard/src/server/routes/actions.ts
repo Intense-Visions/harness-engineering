@@ -2,7 +2,13 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import {
+  loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
+  createTrackerClient,
+  parseRoadmap,
+  serializeRoadmap,
+} from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
 import { resolveIdentity } from '../identity';
@@ -11,8 +17,8 @@ import { gatherPerf } from '../gather/perf';
 import { gatherArch } from '../gather/arch';
 import { gatherAnomalies } from '../gather/anomalies';
 import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
+import { handleClaimFileLess, handleRoadmapStatusFileLess } from './actions-claim-file-less';
 
-// --- Finding 3: File lock to prevent TOCTOU races ---
 const fileLocks = new Map<string, Promise<void>>();
 
 async function withFileLock(path: string, fn: () => Promise<void>): Promise<void> {
@@ -134,6 +140,24 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
       },
       400
     );
+  }
+
+  // Phase 4 / S5: dispatch on roadmap mode. File-less calls
+  // RoadmapTrackerClient.update(externalId, { status }) and surfaces
+  // ConflictError as 409 with the TRACKER_CONFLICT body shape (D-P4-B).
+  if (loadProjectRoadmapMode(ctx.projectPath) === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
+    if (!trackerCfg.ok) {
+      return c.json({ error: trackerCfg.error.message }, 500);
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return c.json({ error: clientResult.error.message }, 500);
+    }
+    return (await handleRoadmapStatusFileLess(c, clientResult.value, {
+      feature,
+      status,
+    })) as Response;
   }
 
   let result: Response | undefined;
@@ -375,6 +399,22 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
   }
   if (feature.length > 200 || assignee.length > 100) {
     return c.json({ error: 'feature or assignee exceeds maximum length' }, 400);
+  }
+
+  // Phase 4 / S3: dispatch on roadmap mode. The file-less branch calls
+  // RoadmapTrackerClient.claim() and surfaces ConflictError as a 409 with
+  // the standard TRACKER_CONFLICT body shape (D-P4-B).
+  const mode = loadProjectRoadmapMode(ctx.projectPath);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
+    if (!trackerCfg.ok) {
+      return c.json({ error: trackerCfg.error.message }, 500);
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return c.json({ error: clientResult.error.message }, 500);
+    }
+    return (await handleClaimFileLess(c, clientResult.value, { feature, assignee })) as Response;
   }
 
   let result: Response | undefined;

@@ -8,6 +8,7 @@ import {
   validateKnowledgeMap,
   validatePulseConfig,
   validateSolutionsDir,
+  validateRoadmapMode,
 } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
@@ -34,6 +35,7 @@ interface ValidateResult {
     agentConfigs?: boolean;
     pulseConfig?: boolean;
     solutionsDir?: boolean;
+    roadmapMode?: boolean;
   };
   issues: Array<{
     check: string;
@@ -145,6 +147,25 @@ export async function runValidate(
     ]) {
       result.issues.push({ check: 'solutionsDir', file: issue.file, message: issue.message });
     }
+  }
+
+  // Roadmap mode (cross-cutting: tracker presence + docs/roadmap.md absence in file-less mode)
+  const roadmapModeResult = validateRoadmapMode(config, cwd);
+  if (roadmapModeResult.ok) {
+    result.checks.roadmapMode = true;
+  } else {
+    result.valid = false;
+    result.checks.roadmapMode = false;
+    result.issues.push({
+      check: 'roadmapMode',
+      file: 'harness.config.json',
+      ruleId: roadmapModeResult.error.code,
+      severity: 'error',
+      message: roadmapModeResult.error.message,
+      ...(roadmapModeResult.error.suggestions?.[0] !== undefined && {
+        suggestion: roadmapModeResult.error.suggestions[0],
+      }),
+    });
   }
 
   // Opt-in agent config validation (agnix binary preferred, TS fallback otherwise)

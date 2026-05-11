@@ -122,6 +122,9 @@ export class OrchestratorServer {
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
+  private readonly apiRoutes: Array<
+    (req: http.IncomingMessage, res: http.ServerResponse) => boolean
+  >;
 
   constructor(orchestrator: Snapshotable, port: number, deps?: ServerDependencies) {
     this.orchestrator = orchestrator;
@@ -131,6 +134,7 @@ export class OrchestratorServer {
     this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
       this.orchestrator.getSnapshot()
     );
+    this.apiRoutes = this.buildApiRoutes();
     this.wireEvents();
   }
 
@@ -171,8 +175,8 @@ export class OrchestratorServer {
 
   /**
    * Broadcast a maintenance event to all WebSocket clients.
-   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error'
-   * @param data - Event payload (task info, run result, or error details)
+   * @param type - One of 'maintenance:started', 'maintenance:completed', 'maintenance:error', 'maintenance:baseref_fallback'
+   * @param data - Event payload (task info, run result, error details, or baseref-fallback diagnostic)
    */
   public broadcastMaintenance(type: string, data: unknown): void {
     this.broadcaster.broadcast(type, data);
@@ -275,69 +279,42 @@ export class OrchestratorServer {
     return false;
   }
 
+  /**
+   * Build the ordered API route table. Each entry is invoked in order and
+   * returns true when it has handled the request. Closures capture `this`,
+   * so handlers re-read mutable deps (pipeline, recorder, maintenanceDeps)
+   * on every request — setters like setPipeline() take effect immediately.
+   *
+   * Adding a new route is a one-place change: append an entry here.
+   */
+  private buildApiRoutes(): Array<
+    (req: http.IncomingMessage, res: http.ServerResponse) => boolean
+  > {
+    return [
+      (req, res) =>
+        !!this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue),
+      (req, res) => handlePlansRoute(req, res, this.plansDir),
+      (req, res) => handleAnalyzeRoute(req, res, this.pipeline),
+      (req, res) => handleAnalysesRoute(req, res, this.analysisArchive),
+      (req, res) => handleRoadmapActionsRoute(req, res, this.roadmapPath),
+      (req, res) => handleDispatchActionsRoute(req, res, this.dispatchAdHoc),
+      (req, res) => handleLocalModelRoute(req, res, this.getLocalModelStatus),
+      // Local-models multi-status route (Spec 2 SC38)
+      (req, res) => handleLocalModelsRoute(req, res, this.getLocalModelStatuses),
+      (req, res) => handleMaintenanceRoute(req, res, this.maintenanceDeps),
+      (req, res) => !!this.recorder && handleStreamsRoute(req, res, this.recorder),
+      (req, res) => handleSessionsRoute(req, res, this.sessionsDir),
+      // Chat proxy route (spawns Claude Code CLI — no API key required)
+      (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
+    ];
+  }
+
   /** Dispatch to API route handlers. Returns true if a route matched. */
   private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
     if (!this.checkAuth(req, res)) return true;
-    // Interactions routes
-    if (this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue)) {
-      return true;
+    for (const route of this.apiRoutes) {
+      if (route(req, res)) return true;
     }
-
-    // Plans route
-    if (handlePlansRoute(req, res, this.plansDir)) {
-      return true;
-    }
-
-    // Analyze route (intelligence pipeline)
-    if (handleAnalyzeRoute(req, res, this.pipeline)) {
-      return true;
-    }
-
-    // Analyses archive route
-    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
-      return true;
-    }
-
-    // Roadmap append route
-    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
-      return true;
-    }
-
-    // Ad-hoc dispatch route
-    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
-      return true;
-    }
-
-    // Local-model status route
-    if (handleLocalModelRoute(req, res, this.getLocalModelStatus)) {
-      return true;
-    }
-
-    // Local-models multi-status route (Spec 2 SC38)
-    if (handleLocalModelsRoute(req, res, this.getLocalModelStatuses)) {
-      return true;
-    }
-
-    // Maintenance dashboard routes
-    if (handleMaintenanceRoute(req, res, this.maintenanceDeps)) {
-      return true;
-    }
-
-    // Stream recording route
-    if (this.recorder && handleStreamsRoute(req, res, this.recorder)) {
-      return true;
-    }
-
-    // Chat session metadata route
-    if (handleSessionsRoute(req, res, this.sessionsDir)) {
-      return true;
-    }
-
-    // Chat proxy route (spawns Claude Code CLI — no API key required)
-    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
-      return true;
-    }
-
     return false;
   }
 

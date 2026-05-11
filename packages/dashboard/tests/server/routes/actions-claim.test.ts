@@ -232,7 +232,18 @@ describe('POST /api/actions/roadmap/claim', () => {
   });
 
   it('returns 500 when roadmap file cannot be read', async () => {
-    vi.mocked(fs.readFile).mockRejectedValueOnce(new Error('ENOENT'));
+    // Phase 3: handleClaim reads harness.config.json first to resolve roadmap.mode.
+    // Reject only the roadmap.md read so the mode lookup falls through harmlessly
+    // and the subsequent roadmap-file read triggers the 500 path.
+    vi.mocked(fs.readFile).mockImplementation(((p: string) => {
+      if (typeof p === 'string' && p.endsWith('roadmap.md')) {
+        return Promise.reject(new Error('ENOENT'));
+      }
+      if (typeof p === 'string' && p.endsWith('harness.config.json')) {
+        return Promise.reject(new Error('ENOENT'));
+      }
+      return Promise.resolve(CLAIMABLE_ROADMAP);
+    }) as never);
     const res = await app.request('/api/actions/roadmap/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

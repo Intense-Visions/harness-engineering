@@ -47,5 +47,54 @@ export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
 /**
  * Pilot scoring algorithm for auto-pick feature selection.
  */
-export { scoreRoadmapCandidates, assignFeature } from './pilot-scoring';
+export {
+  scoreRoadmapCandidates,
+  assignFeature,
+  scoreRoadmapCandidatesForMode,
+} from './pilot-scoring';
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
+
+/**
+ * File-less pilot scoring (D4: priority + createdAt ascending).
+ */
+export { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
+export type { FileLessScoredCandidate } from './pilot-scoring-file-less';
+
+/**
+ * Tracker abstraction — IssueTrackerClient and shared types.
+ * See packages/core/src/roadmap/tracker/index.ts.
+ */
+export type {
+  IssueTrackerClient,
+  Issue,
+  BlockerRef,
+  TrackerConfig,
+  RoadmapTrackerClient,
+  TrackedFeature,
+  NewFeatureInput,
+  FeaturePatch,
+  HistoryEvent,
+  HistoryEventType,
+  TrackerClientConfig,
+  TrackerConflictBody,
+  MakeTrackerConflictBodyOptions,
+} from './tracker';
+export { ConflictError, createTrackerClient, ETagStore, makeTrackerConflictBody } from './tracker';
+
+/**
+ * Roadmap storage mode helper. See packages/core/src/roadmap/mode.ts.
+ */
+export { getRoadmapMode } from './mode';
+export type { RoadmapMode, RoadmapModeConfig } from './mode';
+
+/** Per-request loader: resolves roadmap.mode from <projectRoot>/harness.config.json. */
+export { loadProjectRoadmapMode } from './load-mode';
+
+/** Shared loader: resolves `TrackerClientConfig` from harness.config.json. */
+export { loadTrackerClientConfigFromProject } from './load-tracker-client-config';
+
+/**
+ * Migration helpers. Phase 5 migration to file-less roadmap mode.
+ * See packages/core/src/roadmap/migrate/index.ts.
+ */
+export * as migrate from './migrate';

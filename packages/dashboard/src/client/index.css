@@ -213,3 +213,32 @@
 .prose tr:hover td {
   background: rgba(255, 255, 255, 0.01);
 }
+
+/* Phase 7: conflict-row highlight pulse — fallback in case the Tailwind
+   arbitrary data-attr variant compiler step skips the rule. */
+[data-conflict-highlight='true'] {
+  outline: 2px solid rgb(251 191 36 / 0.9);
+  outline-offset: 2px;
+  transition: outline-color 200ms ease-out;
+  animation: harness-conflict-pulse 2s ease-out;
+}
+@keyframes harness-conflict-pulse {
+  0% {
+    outline-color: rgb(251 191 36 / 0);
+  }
+  20% {
+    outline-color: rgb(251 191 36 / 1);
+  }
+  100% {
+    outline-color: rgb(251 191 36 / 0);
+  }
+}
+
+/* Respect users with vestibular sensitivities: skip the pulse animation
+   but keep a static amber outline so the conflict indication remains visible. */
+@media (prefers-reduced-motion: reduce) {
+  [data-conflict-highlight='true'] {
+    animation: none;
+    outline: 2px solid rgb(251 191 36 / 0.9);
+  }
+}

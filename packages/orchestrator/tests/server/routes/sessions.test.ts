@@ -89,9 +89,15 @@ describe('sessions routes', () => {
 
   beforeEach(async () => {
     sessionsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sessions-test-'));
-    port = Math.floor(Math.random() * 10000) + 40000;
     server = createServer(sessionsDir);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free port. Avoids EACCES on
+    // Windows runners when a random 40000-50000 port hits a reserved range.
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    if (!address || typeof address !== 'object') {
+      throw new Error('Server failed to bind to an address');
+    }
+    port = address.port;
   });
 
   afterEach(async () => {
@@ -149,5 +155,25 @@ describe('sessions routes', () => {
     const get = await request(server, port, 'GET', `/api/sessions/${SESSION_A.sessionId}`);
     expect(get.statusCode).toBe(200);
     expect(get.body).toMatchObject({ sessionId: SESSION_A.sessionId });
+  });
+
+  it('DELETE /api/sessions/<id> removes the session directory and excludes it from GET list', async () => {
+    await seed(SESSION_A);
+    await seed(SESSION_B);
+
+    const del = await request(server, port, 'DELETE', `/api/sessions/${SESSION_A.sessionId}`);
+    expect(del.statusCode).toBe(200);
+
+    await expect(fs.access(path.join(sessionsDir, SESSION_A.sessionId))).rejects.toThrow();
+
+    const list = await request(server, port, 'GET', '/api/sessions');
+    const ids = (list.body as Array<{ sessionId: string }>).map((s) => s.sessionId);
+    expect(ids).not.toContain(SESSION_A.sessionId);
+    expect(ids).toContain(SESSION_B.sessionId);
+  });
+
+  it('DELETE /api/sessions/<id> rejects unsafe ids', async () => {
+    const res = await request(server, port, 'DELETE', '/api/sessions/..%2Fescape');
+    expect(res.statusCode).toBe(400);
   });
 });

@@ -2,7 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Command } from 'commander';
 import { logger } from '../output/logger';
-import { loadTrackerSyncConfig } from '@harness-engineering/core';
+import {
+  loadTrackerSyncConfig,
+  loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
+  createTrackerClient,
+} from '@harness-engineering/core';
 import type { TrackerComment } from '@harness-engineering/types';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
@@ -83,9 +88,34 @@ function bootstrapTrackerCommand(opts: { dir: string }, verb: string): Bootstrap
   return { token, projectPath, trackerConfig };
 }
 
-function loadRoadmapFeatures(
+async function loadRoadmapFeatures(
   projectPath: string
-): Array<{ name: string; externalId: string }> | null {
+): Promise<Array<{ name: string; externalId: string }> | null> {
+  // FR-S2: route on roadmap.mode instead of using `fs.existsSync(roadmap.md)`
+  // as a proxy. In file-less mode, the file does not exist and the tracker
+  // is canonical — fetch features through `RoadmapTrackerClient.fetchAll`.
+  const mode = loadProjectRoadmapMode(projectPath);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(projectPath);
+    if (!trackerCfg.ok) {
+      logger.error(`File-less mode: ${trackerCfg.error.message}`);
+      return null;
+    }
+    const clientR = createTrackerClient(trackerCfg.value);
+    if (!clientR.ok) {
+      logger.error(`File-less mode: ${clientR.error.message}`);
+      return null;
+    }
+    const r = await clientR.value.fetchAll();
+    if (!r.ok) {
+      logger.error(`File-less mode: failed to fetch features from tracker: ${r.error.message}`);
+      return null;
+    }
+    return r.value.features
+      .filter((f) => !!f.externalId)
+      .map((f) => ({ name: f.name, externalId: f.externalId }));
+  }
+
   const roadmapFile = path.join(projectPath, 'docs', 'roadmap.md');
   if (!fs.existsSync(roadmapFile)) {
     logger.error('No docs/roadmap.md found. Cannot discover features with externalIds.');
@@ -159,7 +189,7 @@ async function runSyncAnalyses(opts: { dir: string }): Promise<void> {
   if (!bootstrap) return process.exit(1);
   const { token, projectPath, trackerConfig } = bootstrap;
 
-  const features = loadRoadmapFeatures(projectPath);
+  const features = await loadRoadmapFeatures(projectPath);
   if (!features) return process.exit(1);
   if (features.length === 0) {
     logger.info('No roadmap features have externalIds. Nothing to sync.');

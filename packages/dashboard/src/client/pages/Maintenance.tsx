@@ -18,6 +18,17 @@ interface SchedulerStatus {
 // (orchestrator's GET /api/maintenance/history serializer is the producer).
 type HistoryEntry = MaintenanceHistoryEntry;
 
+interface ScheduleRow {
+  taskId: string;
+  /**
+   * Optional on the wire shape: an older orchestrator may omit this field.
+   * Render `row.type ?? '—'` rather than a blank cell.
+   */
+  type?: string;
+  nextRun: string;
+  lastRun: { taskId: string; status: string; startedAt: string; durationMs: number } | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -35,7 +46,7 @@ function statusAccent(status: HistoryEntry['status']): string {
 }
 
 function formatTime(iso: string | null): string {
-  if (!iso) return '\u2014';
+  if (!iso) return '—';
   return new Date(iso).toLocaleString();
 }
 
@@ -109,6 +120,74 @@ function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
   );
 }
 
+function ScheduleTable({
+  rows,
+  inFlight,
+  onRunNow,
+}: {
+  rows: ScheduleRow[];
+  inFlight: Set<string>;
+  onRunNow: (taskId: string) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
+        <p className="text-sm text-gray-500">No scheduled tasks.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-900">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-800 bg-gray-900/60">
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Task ID
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Type
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Next Run
+            </th>
+            <th className="py-2 px-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Last Run
+            </th>
+            <th className="py-2 px-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Action
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const disabled = inFlight.has(row.taskId);
+            return (
+              <tr key={row.taskId} className="border-b border-gray-800 hover:bg-gray-800/40">
+                <td className="py-2 px-3 font-mono text-xs text-gray-200">{row.taskId}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">{row.type ?? '—'}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">{formatTime(row.nextRun)}</td>
+                <td className="py-2 px-3 text-xs text-gray-400">
+                  {row.lastRun ? formatTime(row.lastRun.startedAt) : '—'}
+                </td>
+                <td className="py-2 px-3 text-right">
+                  <button
+                    data-task-id={row.taskId}
+                    onClick={() => onRunNow(row.taskId)}
+                    disabled={disabled}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-200 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {disabled ? 'Running...' : 'Run Now'}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Data fetchers                                                      */
 /* ------------------------------------------------------------------ */
@@ -123,6 +202,27 @@ async function fetchHistory(): Promise<HistoryEntry[]> {
   const res = await fetch('/api/maintenance/history');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as HistoryEntry[];
+}
+
+/**
+ * Distinguishes between "older orchestrator without the schedule route" (404)
+ * and a genuine server fault (5xx / network) so the page can render an inline
+ * error in the second case while staying silent in the first.
+ */
+class ScheduleNotImplementedError extends Error {
+  constructor() {
+    super('Schedule endpoint not implemented (404)');
+    this.name = 'ScheduleNotImplementedError';
+  }
+}
+
+async function fetchSchedule(): Promise<ScheduleRow[]> {
+  const res = await fetch('/api/maintenance/schedule');
+  if (!res.ok) {
+    if (res.status === 404) throw new ScheduleNotImplementedError();
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return (await res.json()) as ScheduleRow[];
 }
 
 async function triggerRun(taskId: string): Promise<void> {
@@ -141,9 +241,18 @@ async function triggerRun(taskId: string): Promise<void> {
 export function Maintenance() {
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleRow[] | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [inFlight, setInFlight] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [triggering, setTriggering] = useState(false);
+  // Tracks the (ref, repoRoot) of a baseref_fallback banner the user closed.
+  // The banner re-appears automatically when a fallback with a different
+  // identity arrives (covers the multi-worktree case).
+  const [dismissedFallback, setDismissedFallback] = useState<{
+    ref: string;
+    repoRoot: string;
+  } | null>(null);
   const { maintenanceEvent, connected } = useOrchestratorSocket();
 
   const load = useCallback(async () => {
@@ -162,31 +271,117 @@ export function Maintenance() {
     } finally {
       setLoading(false);
     }
+    // Schedule is fetched independently so its absence (e.g. older orchestrator)
+    // does not block status/history rendering.
+    try {
+      const sched = await fetchSchedule();
+      setSchedule(sched);
+      setScheduleError(null);
+    } catch (e) {
+      if (e instanceof ScheduleNotImplementedError) {
+        // Older orchestrator without the schedule route — degrade silently to
+        // an empty schedule so the rest of the page still renders.
+        setSchedule([]);
+        setScheduleError(null);
+      } else {
+        // Genuine server fault or network error — surface it inline.
+        const msg = e instanceof Error ? e.message : 'Network error';
+        setScheduleError(`Failed to load schedule: ${msg}`);
+      }
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Refetch status and history when a maintenance event arrives via WebSocket
+  // Refetch status, history, and schedule when a maintenance event arrives via WebSocket.
   useEffect(() => {
     if (!maintenanceEvent) return;
     void load();
   }, [maintenanceEvent, load]);
 
-  const handleTrigger = () => {
-    const taskId = 'project-health';
-    setTriggering(true);
-    triggerRun(taskId)
-      .then(() => load())
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Failed to trigger maintenance run');
-      })
-      .finally(() => setTriggering(false));
-  };
+  // Track in-flight task IDs from started/completed/error events.
+  useEffect(() => {
+    if (!maintenanceEvent) return;
+    const event = maintenanceEvent;
+    if (event.type === 'maintenance:started') {
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.add(event.data.taskId);
+        return next;
+      });
+    } else if (event.type === 'maintenance:completed' || event.type === 'maintenance:error') {
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(event.data.taskId);
+        return next;
+      });
+    }
+    // 'maintenance:baseref_fallback' is informational; do not touch inFlight.
+  }, [maintenanceEvent]);
 
-  const activeTask =
-    maintenanceEvent?.type === 'maintenance:started' ? maintenanceEvent.data.taskId : null;
+  // Polling fallback: when the WebSocket is disconnected we cannot rely on
+  // maintenance:started/completed events to keep `inFlight` honest. Poll the
+  // /status endpoint every ~5s and reconcile `inFlight` against the server's
+  // authoritative view (`activeRun`).
+  useEffect(() => {
+    if (connected) return;
+    let cancelled = false;
+    const tick = () => {
+      void (async () => {
+        try {
+          const res = await fetch('/api/maintenance/status');
+          if (!res.ok) return;
+          const body = (await res.json()) as { activeRun?: { taskId: string } | null };
+          if (cancelled) return;
+          const serverActive = body?.activeRun?.taskId ?? null;
+          setInFlight((prev) => {
+            // Drop any client-tracked tasks the server says are NOT running.
+            // Add the server-reported activeRun if we missed its `started` event.
+            const next = new Set<string>();
+            if (serverActive) next.add(serverActive);
+            // Equality short-circuit to avoid spurious renders.
+            if (prev.size === next.size && [...prev].every((t) => next.has(t))) return prev;
+            return next;
+          });
+        } catch {
+          // Polling is best-effort; transient errors are fine to swallow.
+        }
+      })();
+    };
+    const id = setInterval(tick, 5000);
+    // Run an immediate tick so the user does not wait the full interval after
+    // the WebSocket drops.
+    tick();
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [connected]);
+
+  const handleRunNow = useCallback((taskId: string) => {
+    setInFlight((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+    triggerRun(taskId).catch((e: unknown) => {
+      setError(e instanceof Error ? e.message : `Failed to trigger ${taskId}`);
+      // On a network failure, clear in-flight so the user can retry.
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    });
+  }, []);
+
+  // The active-task banner is derived from the in-flight Set so that it
+  // accurately reflects ALL currently-running tasks, not just the most
+  // recent maintenance:* event (which under-reported when two tasks ran
+  // back-to-back).
+  const inFlightList = [...inFlight];
 
   return (
     <div>
@@ -198,20 +393,22 @@ export function Maintenance() {
             title={connected ? 'WebSocket connected' : 'WebSocket disconnected'}
           />
         </div>
-        <button
-          onClick={handleTrigger}
-          disabled={triggering}
-          className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-200 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {triggering ? 'Running...' : 'Trigger Run'}
-        </button>
       </div>
 
-      {activeTask && (
+      {inFlightList.length > 0 && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
           <span className="text-sm text-blue-300">
-            Running task: <span className="font-mono font-semibold">{activeTask}</span>
+            {inFlightList.length === 1 ? (
+              <>
+                Running: <span className="font-mono font-semibold">{inFlightList[0]}</span>
+              </>
+            ) : (
+              <>
+                Running {inFlightList.length} tasks:{' '}
+                <span className="font-mono font-semibold">{inFlightList.join(', ')}</span>
+              </>
+            )}
           </span>
         </div>
       )}
@@ -224,6 +421,36 @@ export function Maintenance() {
           </span>
         </div>
       )}
+
+      {maintenanceEvent?.type === 'maintenance:baseref_fallback' &&
+        !(
+          dismissedFallback?.ref === maintenanceEvent.data.ref &&
+          dismissedFallback?.repoRoot === maintenanceEvent.data.repoRoot
+        ) && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2">
+            <span className="text-sm text-amber-300">
+              Worktree base-ref fell back to local{' '}
+              <span className="font-mono font-semibold">{maintenanceEvent.data.ref}</span> (repo:{' '}
+              <span className="font-mono">{maintenanceEvent.data.repoRoot}</span>). Origin may be
+              misconfigured or unreachable.
+            </span>
+            <button
+              type="button"
+              aria-label="Dismiss baseref fallback warning"
+              onClick={() => {
+                setDismissedFallback({
+                  ref: maintenanceEvent.data.ref,
+                  repoRoot: maintenanceEvent.data.repoRoot,
+                });
+              }}
+              className="shrink-0 rounded p-0.5 text-amber-300/80 transition-colors hover:bg-amber-500/20 hover:text-amber-200"
+            >
+              <span aria-hidden="true" className="text-base leading-none">
+                ×
+              </span>
+            </button>
+          </div>
+        )}
 
       {loading && !status && <p className="text-sm text-gray-500">Loading maintenance status...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -239,6 +466,22 @@ export function Maintenance() {
               <KpiCard label="Last Run" value={formatTime(status.lastRunAt)} />
               <KpiCard label="Next Run" value={formatTime(status.nextRunAt)} />
             </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Schedule
+            </h2>
+            {scheduleError && (
+              <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2">
+                <span className="text-sm text-red-300">{scheduleError}</span>
+              </div>
+            )}
+            {schedule ? (
+              <ScheduleTable rows={schedule} inFlight={inFlight} onRunNow={handleRunNow} />
+            ) : scheduleError ? null : (
+              <p className="text-sm text-gray-500">Loading schedule...</p>
+            )}
           </section>
 
           <section>

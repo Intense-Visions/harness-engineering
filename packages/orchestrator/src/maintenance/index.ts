@@ -23,9 +23,11 @@ export type {
   MaintenanceSchedulerOptions,
   MaintenanceLogger,
   SchedulerLogger,
-  SchedulerClaimManager,
   RunHistoryProvider,
 } from './scheduler';
+
+export { SingleProcessLeaderElector } from './leader-elector';
+export type { LeaderElector } from './leader-elector';
 
 export { cronMatchesNow } from './cron-matcher';
 
@@ -36,6 +38,7 @@ export type {
   AgentDispatcher,
   AgentDispatchResult,
   CommandExecutor,
+  CommandExecResult,
   PRLifecycleManager,
   TaskRunnerOptions,
 } from './task-runner';
@@ -52,3 +55,7 @@ export type {
   PRManagerOptions,
   PRManagerLogger,
 } from './pr-manager';
+
+// Phase 1 sync-main helper. Wired into the maintenance scheduler in Phase 2.
+export { syncMain } from './sync-main';
+export type { SyncMainResult, SyncMainOptions, SyncSkipReason } from './sync-main';

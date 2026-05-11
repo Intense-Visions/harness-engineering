@@ -13,6 +13,9 @@ const {
   mockAnalysisArchive,
   mockLoadPublishedIndex,
   mockSavePublishedIndex,
+  mockLoadProjectRoadmapMode,
+  mockLoadTrackerClientConfigFromProject,
+  mockCreateTrackerClient,
 } = vi.hoisted(() => ({
   mockLoadTrackerSyncConfig: vi.fn(),
   mockParseRoadmap: vi.fn(),
@@ -20,6 +23,9 @@ const {
   mockAnalysisArchive: vi.fn(),
   mockLoadPublishedIndex: vi.fn(),
   mockSavePublishedIndex: vi.fn(),
+  mockLoadProjectRoadmapMode: vi.fn(() => 'file-backed' as const),
+  mockLoadTrackerClientConfigFromProject: vi.fn(),
+  mockCreateTrackerClient: vi.fn(),
 }));
 
 // Mock fs
@@ -33,6 +39,14 @@ vi.mock('@harness-engineering/core', () => ({
   loadTrackerSyncConfig: (...args: unknown[]) => mockLoadTrackerSyncConfig(...args),
   parseRoadmap: (...args: unknown[]) => mockParseRoadmap(...args),
   GitHubIssuesSyncAdapter: mockGitHubIssuesSyncAdapter,
+  // FR-S2: file-less branch in sync-analyses checks roadmap.mode first and
+  // routes through createTrackerClient when 'file-less'. The default mock
+  // returns 'file-backed' so existing tests stay on the file-backed path.
+  // File-less tests override `mockLoadProjectRoadmapMode` per-test.
+  loadProjectRoadmapMode: (...args: unknown[]) => mockLoadProjectRoadmapMode(...args),
+  loadTrackerClientConfigFromProject: (...args: unknown[]) =>
+    mockLoadTrackerClientConfigFromProject(...args),
+  createTrackerClient: (...args: unknown[]) => mockCreateTrackerClient(...args),
 }));
 
 // Mock @harness-engineering/orchestrator (dynamic import)
@@ -74,6 +88,8 @@ describe('sync-analyses action handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     origToken = process.env.GITHUB_TOKEN;
+    // Default to file-backed so the existing tests exercise the legacy path.
+    mockLoadProjectRoadmapMode.mockReturnValue('file-backed');
   });
 
   afterEach(() => {
@@ -163,6 +179,42 @@ describe('sync-analyses action handler', () => {
   // Note: Tests for loadRoadmapFeatures, syncFeatureAnalyses, and the success path
   // of runSyncAnalyses are skipped because the source uses `require('@harness-engineering/core')`
   // (CJS require) on line 96, which vi.mock does not intercept in ESM modules.
+
+  it('file-less mode: routes through tracker.fetchAll() to discover features (FR-S2)', async () => {
+    process.env.GITHUB_TOKEN = 'test-token';
+    mockLoadTrackerSyncConfig.mockReturnValue({ kind: 'github', repo: 'owner/repo' });
+    // .env doesn't exist, so dotenv path is skipped.
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    mockLoadProjectRoadmapMode.mockReturnValue('file-less');
+    mockLoadTrackerClientConfigFromProject.mockReturnValue({
+      ok: true,
+      value: { kind: 'github', repo: 'owner/repo' },
+    });
+    // The features array is empty, so the command short-circuits with
+    // "No roadmap features have externalIds. Nothing to sync." — proving
+    // the file-less path was taken (no "No docs/roadmap.md found" error).
+    const fetchAll = vi.fn(async () => ({
+      ok: true as const,
+      value: { features: [], etag: null },
+    }));
+    mockCreateTrackerClient.mockReturnValue({
+      ok: true,
+      value: { fetchAll },
+    });
+
+    const program = createProgram();
+    await program.parseAsync(['node', 'test', 'sync-analyses', '-d', '/tmp/project']);
+
+    // fetchAll was invoked instead of any docs/roadmap.md fs path.
+    expect(fetchAll).toHaveBeenCalledTimes(1);
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('No docs/roadmap.md found')
+    );
+    // Empty features short-circuits to info log, not error.
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('No roadmap features have externalIds')
+    );
+  });
 
   it('catches thrown errors from bootstrapTrackerCommand and exits with 1', async () => {
     mockLoadTrackerSyncConfig.mockImplementation(() => {

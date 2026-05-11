@@ -372,41 +372,36 @@ function AgentCard({
             </div>
           </div>
 
-          {/* Live activity preview */}
-          {previewBlocks.length > 0 && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                  Live Activity
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewStream();
-                  }}
-                  className="text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-                >
-                  View Full Stream
-                </button>
-              </div>
+          {/* Activity section — header + View Full Stream button always render */}
+          <div className="mt-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                {previewBlocks.length > 0 ? 'Live Activity' : 'Latest Activity'}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewStream();
+                }}
+                className="text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+              >
+                View Full Stream
+              </button>
+            </div>
+            {previewBlocks.length > 0 ? (
               <div className="mt-2 max-h-48 overflow-hidden rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2 text-xs">
                 <AssistantBlocks
                   blocks={previewBlocks}
                   isStreaming={agent.phase === 'StreamingTurn'}
                 />
               </div>
-            </div>
-          )}
-
-          {previewBlocks.length === 0 && agent.session?.lastMessage && (
-            <div className="mt-3">
-              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                Latest Activity
-              </span>
+            ) : agent.session?.lastMessage ? (
               <p className="mt-1 whitespace-pre-wrap text-gray-300">{agent.session.lastMessage}</p>
-            </div>
-          )}
+            ) : (
+              <p className="mt-2 text-xs italic text-gray-600">No activity yet.</p>
+            )}
+          </div>
         </div>
       )}
     </div>

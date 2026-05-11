@@ -1,5 +1,6 @@
 import type { MaintenanceConfig } from '@harness-engineering/types';
 import type { TaskDefinition, MaintenanceStatus, RunResult, ScheduleEntry } from './types';
+import type { LeaderElector } from './leader-elector';
 import { BUILT_IN_TASKS } from './task-registry';
 import { cronMatchesNow } from './cron-matcher';
 
@@ -17,16 +18,6 @@ export interface MaintenanceLogger {
 /** @deprecated Use MaintenanceLogger instead */
 export type SchedulerLogger = MaintenanceLogger;
 
-/**
- * Minimal ClaimManager interface used by the scheduler.
- * Avoids importing the full ClaimManager class (which depends on IssueTrackerClient).
- */
-export interface SchedulerClaimManager {
-  claimAndVerify(
-    issueId: string
-  ): Promise<{ ok: boolean; value?: 'claimed' | 'rejected'; error?: { message: string } }>;
-}
-
 /** Interface for providing run history to the scheduler's getStatus(). */
 export interface RunHistoryProvider {
   getHistory(limit: number, offset: number): RunResult[];
@@ -34,7 +25,7 @@ export interface RunHistoryProvider {
 
 export interface MaintenanceSchedulerOptions {
   config: MaintenanceConfig;
-  claimManager: SchedulerClaimManager;
+  leaderElector: LeaderElector;
   logger: MaintenanceLogger;
   /** Callback invoked when a task is due. The scheduler calls this for each queued task sequentially. */
   onTaskDue: (task: TaskDefinition) => Promise<void>;
@@ -49,7 +40,7 @@ export interface MaintenanceSchedulerOptions {
  */
 export class MaintenanceScheduler {
   private config: MaintenanceConfig;
-  private claimManager: SchedulerClaimManager;
+  private leaderElector: LeaderElector;
   private logger: MaintenanceLogger;
   private onTaskDue: (task: TaskDefinition) => Promise<void>;
   private historyProvider: RunHistoryProvider | null;
@@ -68,7 +59,7 @@ export class MaintenanceScheduler {
 
   constructor(options: MaintenanceSchedulerOptions) {
     this.config = options.config;
-    this.claimManager = options.claimManager;
+    this.leaderElector = options.leaderElector;
     this.logger = options.logger;
     this.historyProvider = options.historyProvider ?? null;
     this.onTaskDue = options.onTaskDue;
@@ -157,12 +148,12 @@ export class MaintenanceScheduler {
   }
 
   /**
-   * Attempt to claim leadership via ClaimManager.
+   * Attempt to claim leadership via the configured LeaderElector.
    * Returns true if this instance is the leader.
    */
   private async attemptLeaderClaim(evalTime: Date): Promise<boolean> {
     try {
-      const result = await this.claimManager.claimAndVerify('maintenance-leader');
+      const result = await this.leaderElector.electLeader();
       if (!result.ok) {
         this.isLeader = false;
         this.logger.warn('Maintenance leader claim failed', { error: result.error?.message });
@@ -255,6 +246,7 @@ export class MaintenanceScheduler {
 
     const schedule: ScheduleEntry[] = this.resolvedTasks.map((task) => ({
       taskId: task.id,
+      type: task.type,
       nextRun: this.computeNextRun(task.schedule),
       lastRun: history.find((r) => r.taskId === task.id) ?? null,
     }));

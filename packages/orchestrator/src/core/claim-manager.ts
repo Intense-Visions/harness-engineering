@@ -1,5 +1,5 @@
-import type { IssueTrackerClient, Issue, Result } from '@harness-engineering/types';
-import { Ok } from '@harness-engineering/types';
+import type { IssueTrackerClient, Issue } from '@harness-engineering/core';
+import { type Result, Ok } from '@harness-engineering/types';
 
 export interface ClaimManagerConfig {
   /** Delay in ms between claim write and verification read. Default: 2000 */

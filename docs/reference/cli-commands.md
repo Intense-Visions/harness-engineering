@@ -375,6 +375,15 @@ Pull published intelligence analyses from the external issue tracker into the lo
 
 - `-d, --dir` — Workspace directory (default: current working directory)
 
+### `harness sync-main`
+
+Fast-forward the local default branch from origin (no-op on conflict)
+
+**Options:**
+
+- `--json` — Emit a SyncMainResult JSON object
+- `--path` — Project root path (default: ".")
+
 ### `harness traceability`
 
 Show spec-to-implementation traceability from the knowledge graph
@@ -718,6 +727,20 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 - `--non-interactive` — Emit single-line JSON status on stdout instead of headlines+path. Auto-detected when stdout is not a TTY.
 - `--config` — Path to harness.config.json (default: "harness.config.json")
 - `--output-dir` — Directory to write the report into (default: "docs/pulse-reports")
+
+## Roadmap Commands
+
+Roadmap management
+
+### `harness roadmap migrate`
+
+Migrate the project roadmap to a different storage mode
+
+**Options:**
+
+- `--to` — Migration target (only "file-less" supported today)
+- `--dry-run` — Print the migration plan without making any changes
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
 ## Skill Commands
 

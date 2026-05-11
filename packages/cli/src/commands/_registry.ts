@@ -46,6 +46,7 @@ import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createQueryCommand } from './graph/query';
 import { createRecommendCommand } from './recommend';
+import { createRoadmapCommand } from './roadmap';
 import { createScanCommand } from './graph/scan';
 import { createScanConfigCommand } from './scan-config';
 import { createSetupCommand } from './setup';
@@ -55,6 +56,7 @@ import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createStateCommand } from './state';
 import { createSyncAnalysesCommand } from './sync-analyses';
+import { createSyncMainCommand } from './sync-main';
 import { createTaintCommand } from './taint';
 import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
@@ -113,6 +115,7 @@ export const commandCreators: Array<() => Command> = [
   createPulseCommand,
   createQueryCommand,
   createRecommendCommand,
+  createRoadmapCommand,
   createScanCommand,
   createScanConfigCommand,
   createSetupCommand,
@@ -122,6 +125,7 @@ export const commandCreators: Array<() => Command> = [
   createSnapshotCommand,
   createStateCommand,
   createSyncAnalysesCommand,
+  createSyncMainCommand,
   createTaintCommand,
   createTelemetryCommand,
   createTraceabilityCommand,

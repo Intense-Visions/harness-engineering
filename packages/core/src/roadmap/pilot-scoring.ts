@@ -1,4 +1,7 @@
 import type { Roadmap, RoadmapFeature, Priority } from '@harness-engineering/types';
+import { getRoadmapMode, type RoadmapMode, type RoadmapModeConfig } from './mode';
+import { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
+import type { TrackedFeature } from './tracker';
 
 /**
  * A candidate feature with computed scores for the pilot selection algorithm.
@@ -210,4 +213,83 @@ export function assignFeature(
     action: 'assigned',
     date,
   });
+}
+
+/**
+ * Mode-aware wrapper around `scoreRoadmapCandidates`. The roadmap-pilot skill
+ * (and any caller that needs to honor `roadmap.mode`) should call this instead
+ * of `scoreRoadmapCandidates` directly.
+ *
+ * Phase 4 behavior:
+ *   - `file-backed` (default) — delegates to `scoreRoadmapCandidates` unchanged.
+ *   - `file-less` — D4 sort: delegates to `scoreRoadmapCandidatesFileLess` which
+ *     orders eligible features by Priority then `createdAt` ascending.
+ *     The caller is expected to pass a `Roadmap` whose milestones' features
+ *     carry tracker fields (constructed from `RoadmapTrackerClient.fetchAll()`).
+ *
+ * @param roadmap - The roadmap (file-backed: parsed from docs/roadmap.md;
+ *                  file-less: synthesized from tracker fetchAll output).
+ * @param options - Pilot scoring options (currentUser etc.).
+ * @param config  - The Harness config (or any object with optional `roadmap.mode`);
+ *                  use `getRoadmapMode(config)` to resolve.
+ * @returns Scored candidates. Note: file-less results have zeroed
+ *          positionScore/dependentsScore/affinityScore/weightedScore — the
+ *          D4 sort is by `priorityTier` then issue creation order.
+ */
+export function scoreRoadmapCandidatesForMode(
+  roadmap: Roadmap,
+  options: PilotScoringOptions,
+  config: RoadmapModeConfig | undefined | null
+): ScoredCandidate[] {
+  const mode: RoadmapMode = getRoadmapMode(config);
+  if (mode === 'file-less') {
+    const flatFeatures: RoadmapFeature[] = roadmap.milestones.flatMap((m) => m.features);
+    const tracked: TrackedFeature[] = flatFeatures.map(featureToTrackedFeature);
+    const fileLess = scoreRoadmapCandidatesFileLess(tracked, options);
+    // Map back to ScoredCandidate shape so the public signature is preserved.
+    const featuresByName = new Map<string, RoadmapFeature>(flatFeatures.map((f) => [f.name, f]));
+    return fileLess.map((c) => {
+      const feature = featuresByName.get(c.feature.name);
+      if (!feature) {
+        throw new Error(`Internal: feature ${c.feature.name} lost during mode dispatch`);
+      }
+      return {
+        feature,
+        milestone: '',
+        positionScore: 0,
+        dependentsScore: 0,
+        affinityScore: 0,
+        weightedScore: 0,
+        priorityTier: c.priorityTier,
+      };
+    });
+  }
+  return scoreRoadmapCandidates(roadmap, options);
+}
+
+/**
+ * Adapter: project a file-backed `RoadmapFeature` onto the wide-interface
+ * `TrackedFeature` shape needed by `scoreRoadmapCandidatesFileLess`.
+ *
+ * `RoadmapFeature` has no `createdAt`; we default to the unix epoch so the
+ * sort degenerates to "all equal createdAt → priority-only" rather than
+ * throwing. Production callers in file-less mode should pass synthesized
+ * roadmaps whose features have been hydrated from tracker fetchAll output
+ * (carrying real createdAt values from the tracker).
+ */
+function featureToTrackedFeature(f: RoadmapFeature): TrackedFeature {
+  return {
+    externalId: f.externalId ?? '',
+    name: f.name,
+    status: f.status,
+    summary: f.summary,
+    spec: f.spec,
+    plans: f.plans,
+    blockedBy: f.blockedBy,
+    assignee: f.assignee,
+    priority: f.priority,
+    milestone: null,
+    createdAt: '1970-01-01T00:00:00Z',
+    updatedAt: f.updatedAt,
+  };
 }

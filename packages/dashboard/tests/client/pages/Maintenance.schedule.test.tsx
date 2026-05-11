@@ -1,0 +1,466 @@
+import React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import type { MaintenanceEvent } from '../../../src/client/types/orchestrator';
+import { Maintenance } from '../../../src/client/pages/Maintenance';
+
+// Per-test settable mock for the socket hook.
+let mockMaintenanceEvent: MaintenanceEvent | null = null;
+let mockConnected = true;
+const mockSocket = {
+  snapshot: null,
+  interactions: [],
+  agentEvents: {},
+  localModelStatuses: [],
+  get maintenanceEvent() {
+    return mockMaintenanceEvent;
+  },
+  get connected() {
+    return mockConnected;
+  },
+  removeInteraction: vi.fn(),
+  setInteractions: vi.fn(),
+};
+vi.mock('../../../src/client/hooks/useOrchestratorSocket', () => ({
+  useOrchestratorSocket: () => mockSocket,
+}));
+
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
+
+const FIXTURE_SCHEDULE = [
+  {
+    taskId: 'main-sync',
+    type: 'housekeeping',
+    nextRun: '2026-05-09T20:00:00Z',
+    lastRun: null,
+  },
+  {
+    taskId: 'session-cleanup',
+    type: 'housekeeping',
+    nextRun: '2026-05-09T20:30:00Z',
+    lastRun: null,
+  },
+  {
+    taskId: 'project-health',
+    type: 'report-only',
+    nextRun: '2026-05-09T21:00:00Z',
+    lastRun: null,
+  },
+];
+
+function mockApi() {
+  mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+    if (url.endsWith('/api/maintenance/status')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          scheduledTasks: 3,
+          lastRunAt: null,
+          nextRunAt: null,
+          running: false,
+        }),
+      });
+    }
+    if (url.endsWith('/api/maintenance/history')) {
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }
+    if (url.endsWith('/api/maintenance/schedule')) {
+      return Promise.resolve({ ok: true, json: async () => FIXTURE_SCHEDULE });
+    }
+    if (url.endsWith('/api/maintenance/trigger') && init?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    }
+    return Promise.resolve({ ok: false, status: 404 });
+  });
+}
+
+beforeEach(() => {
+  mockFetch.mockReset();
+  mockMaintenanceEvent = null;
+  mockConnected = true;
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('Maintenance page — schedule table & per-row Run Now', () => {
+  it('renders one row per scheduled task with Task ID, Type, Next Run, Last Run, Action columns', async () => {
+    mockApi();
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    expect(screen.getByText('session-cleanup')).toBeDefined();
+    expect(screen.getByText('project-health')).toBeDefined();
+    const buttons = screen.getAllByRole('button', { name: /run now/i });
+    expect(buttons.length).toBe(3);
+  });
+
+  it('removes the legacy single "Trigger Run" button', async () => {
+    mockApi();
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    expect(screen.queryByRole('button', { name: /trigger run/i })).toBeNull();
+  });
+
+  it("POSTs to /api/maintenance/trigger with the row's taskId when its Run Now is clicked", async () => {
+    mockApi();
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    const mainSyncRow = screen.getByText('main-sync').closest('tr')!;
+    const button = mainSyncRow.querySelector('button')!;
+    fireEvent.click(button);
+    await waitFor(() => {
+      const triggerCall = mockFetch.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.endsWith('/api/maintenance/trigger')
+      );
+      expect(triggerCall).toBeDefined();
+      expect(JSON.parse(triggerCall![1].body)).toEqual({ taskId: 'main-sync' });
+    });
+  });
+
+  it("disables only the in-flight row's button while a task is running", async () => {
+    mockApi();
+    const { rerender } = render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+
+    // Simulate a maintenance:started event for main-sync arriving via WebSocket.
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'main-sync', startedAt: '2026-05-09T20:00:01Z' },
+    };
+    rerender(<Maintenance />);
+
+    await waitFor(() => {
+      const mainSyncBtn = document.querySelector(
+        'button[data-task-id="main-sync"]'
+      ) as HTMLButtonElement | null;
+      expect(mainSyncBtn).not.toBeNull();
+      expect(mainSyncBtn!.disabled).toBe(true);
+    });
+
+    const sessionBtn = document.querySelector(
+      'button[data-task-id="session-cleanup"]'
+    ) as HTMLButtonElement | null;
+    expect(sessionBtn).not.toBeNull();
+    expect(sessionBtn!.disabled).toBe(false);
+  });
+
+  it('renders a baseref_fallback warning banner when the event is present', async () => {
+    mockApi();
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
+    };
+    render(<Maintenance />);
+    const bannerLead = await waitFor(() => screen.getByText(/fell back/i));
+    // Scope further assertions to the banner element so unrelated occurrences
+    // of "main" (e.g. the main-sync row) do not match.
+    const banner = bannerLead.closest('div')!;
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toMatch(/main/);
+    expect(banner.textContent).toMatch(/\/tmp\/repo/);
+  });
+});
+
+describe('Maintenance page — activeTask banner derived from inFlight set (M-05)', () => {
+  it('shows a single-task banner when one task is in-flight', async () => {
+    mockApi();
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'main-sync', startedAt: '2026-05-09T20:00:01Z' },
+    };
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    // The banner reads "Running: main-sync" (single-task variant). Match the
+    // literal "Running:" leading text — the taskId is in a nested span.
+    const lead = await waitFor(() => screen.getByText('Running:', { exact: false }));
+    const banner = lead.closest('div')!;
+    expect(banner.textContent).toMatch(/^Running: ?main-sync/);
+  });
+
+  it('shows a multi-task banner when two tasks are in-flight', async () => {
+    mockApi();
+    // First emit started for main-sync.
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'main-sync', startedAt: '2026-05-09T20:00:01Z' },
+    };
+    const { rerender } = render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+
+    // Then emit started for session-cleanup. The page tracks BOTH in inFlight.
+    mockMaintenanceEvent = {
+      type: 'maintenance:started',
+      data: { taskId: 'session-cleanup', startedAt: '2026-05-09T20:00:02Z' },
+    };
+    rerender(<Maintenance />);
+
+    // The banner should report "Running 2 tasks: <a, b>" (order is not asserted).
+    const lead = await waitFor(() => screen.getByText(/^Running 2 tasks:/));
+    const banner = lead.closest('div')!;
+    expect(banner.textContent).toMatch(/main-sync/);
+    expect(banner.textContent).toMatch(/session-cleanup/);
+  });
+
+  it('hides the banner when no tasks are in-flight', async () => {
+    mockApi();
+    mockMaintenanceEvent = null;
+    render(<Maintenance />);
+    await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+    expect(screen.queryByText(/^Running[: ]/)).toBeNull();
+  });
+});
+
+describe('Maintenance page — polling fallback while WebSocket is disconnected (M-04)', () => {
+  it('registers a ~5s polling interval and uses /api/maintenance/status.activeRun as the in-flight source of truth when connected=false', async () => {
+    // Spy on setInterval to discover the page's polling registration.
+    // Manually drive that callback with controlled /status responses to
+    // verify reconciliation in both directions:
+    //   1. Server reports activeRun → that taskId becomes in-flight (recovers
+    //      from a missed maintenance:started event).
+    //   2. Server reports activeRun: null → in-flight set is cleared (recovers
+    //      from a missed maintenance:completed event).
+    // We avoid vi.useFakeTimers() because it leaks across tests.
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+
+    try {
+      mockConnected = false;
+
+      // Stage 1: server says session-cleanup is currently running.
+      let activeRunResponse: { taskId: string; startedAt: string } | null = {
+        taskId: 'session-cleanup',
+        startedAt: '2026-05-09T20:00:00Z',
+      };
+      mockFetch.mockImplementation((url: string) => {
+        if (url.endsWith('/api/maintenance/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              isLeader: true,
+              lastLeaderClaim: null,
+              schedule: [],
+              activeRun: activeRunResponse,
+              history: [],
+            }),
+          });
+        }
+        if (url.endsWith('/api/maintenance/history')) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        if (url.endsWith('/api/maintenance/schedule')) {
+          return Promise.resolve({ ok: true, json: async () => FIXTURE_SCHEDULE });
+        }
+        return Promise.resolve({ ok: false, status: 404 });
+      });
+
+      const { rerender } = render(<Maintenance />);
+
+      // Wait for the schedule table to render so we can read button state.
+      await waitFor(() => expect(screen.getByText('session-cleanup')).toBeDefined());
+
+      // Confirm the polling interval is registered with ~5s cadence.
+      const pollCall = setIntervalSpy.mock.calls.find(
+        ([, ms]) => typeof ms === 'number' && ms >= 4000 && ms <= 10_000
+      );
+      expect(pollCall).toBeDefined();
+      const pollFn = pollCall![0] as () => void;
+
+      // Stage 1 reconciliation: poll → server reports session-cleanup active.
+      pollFn();
+      await new Promise((r) => setTimeout(r, 0));
+      rerender(<Maintenance />);
+
+      await waitFor(() => {
+        const sessionBtn = document.querySelector(
+          'button[data-task-id="session-cleanup"]'
+        ) as HTMLButtonElement | null;
+        expect(sessionBtn).not.toBeNull();
+        expect(sessionBtn!.disabled).toBe(true);
+      });
+      // main-sync was never running → still enabled.
+      const mainSyncBtnMid = document.querySelector(
+        'button[data-task-id="main-sync"]'
+      ) as HTMLButtonElement | null;
+      expect(mainSyncBtnMid).not.toBeNull();
+      expect(mainSyncBtnMid!.disabled).toBe(false);
+
+      // Stage 2: server now reports activeRun: null (session-cleanup finished).
+      activeRunResponse = null;
+      pollFn();
+      await new Promise((r) => setTimeout(r, 0));
+      rerender(<Maintenance />);
+
+      await waitFor(() => {
+        const sessionBtn = document.querySelector(
+          'button[data-task-id="session-cleanup"]'
+        ) as HTMLButtonElement | null;
+        expect(sessionBtn).not.toBeNull();
+        expect(sessionBtn!.disabled).toBe(false);
+      });
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
+  });
+
+  it('does NOT register a polling interval while connected=true (trusts the WebSocket)', async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+    try {
+      mockConnected = true;
+      mockApi();
+      render(<Maintenance />);
+      await waitFor(() => expect(screen.getByText('main-sync')).toBeDefined());
+      // No setInterval call in the 4-10s range should have been registered.
+      const pollCall = setIntervalSpy.mock.calls.find(
+        ([, ms]) => typeof ms === 'number' && ms >= 4000 && ms <= 10_000
+      );
+      expect(pollCall).toBeUndefined();
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
+  });
+});
+
+describe('Maintenance page — older-orchestrator back-compat (M-03)', () => {
+  it('renders an em-dash in the Type column when the server omits ScheduleEntry.type', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 1,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            // Older orchestrator: no `type` field in the wire payload.
+            { taskId: 'main-sync', nextRun: '2026-05-09T20:00:00Z', lastRun: null },
+          ],
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    const row = await waitFor(() => screen.getByText('main-sync').closest('tr')!);
+    // Cells: [taskId, type, nextRun, lastRun, action] — type is the second.
+    const typeCell = row.querySelectorAll('td')[1];
+    expect(typeCell).toBeDefined();
+    expect(typeCell!.textContent).toBe('—');
+  });
+});
+
+describe('Maintenance page — baseref_fallback banner dismissal (M-02)', () => {
+  it('hides the banner after the dismiss button is clicked, then re-shows it for a fallback with a different (ref, repoRoot)', async () => {
+    mockApi();
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
+    };
+    const { rerender } = render(<Maintenance />);
+
+    // Banner appears.
+    const bannerLead = await waitFor(() => screen.getByText(/fell back/i));
+    expect(bannerLead).toBeDefined();
+
+    // Click the close button (× / "Dismiss").
+    const dismissBtn = screen.getByRole('button', { name: /dismiss baseref fallback/i });
+    fireEvent.click(dismissBtn);
+
+    // Banner is gone for the SAME (ref, repoRoot).
+    await waitFor(() => expect(screen.queryByText(/fell back/i)).toBeNull());
+
+    // Same fallback re-emitted: should remain dismissed.
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'main', repoRoot: '/tmp/repo' },
+    };
+    rerender(<Maintenance />);
+    expect(screen.queryByText(/fell back/i)).toBeNull();
+
+    // NEW fallback for a different repo: banner reappears.
+    mockMaintenanceEvent = {
+      type: 'maintenance:baseref_fallback',
+      data: { kind: 'baseref_fallback', ref: 'master', repoRoot: '/tmp/other-repo' },
+    };
+    rerender(<Maintenance />);
+    await waitFor(() => expect(screen.getByText(/fell back/i)).toBeDefined());
+  });
+});
+
+describe('Maintenance page — schedule fetch error handling (M-01)', () => {
+  it('shows an inline error under the Schedule header when /schedule returns 500', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 0,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'boom' }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    // The error message must appear under the Schedule heading, not as the
+    // generic page-level error (which is reserved for status/history errors).
+    const errorEl = await waitFor(() => screen.getByText(/failed to load schedule/i));
+    expect(errorEl).toBeDefined();
+    // The "Loading schedule..." placeholder must be gone once the error is set.
+    expect(screen.queryByText(/loading schedule\.\.\./i)).toBeNull();
+  });
+
+  it('renders an empty schedule table without an error when /schedule returns 404 (older orchestrator)', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/maintenance/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            scheduledTasks: 0,
+            lastRunAt: null,
+            nextRunAt: null,
+            running: false,
+          }),
+        });
+      }
+      if (url.endsWith('/api/maintenance/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.endsWith('/api/maintenance/schedule')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'Not found' }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+    render(<Maintenance />);
+    // Wait for the load cycle to finish (status is rendered).
+    await waitFor(() => expect(screen.getByText(/scheduler status/i)).toBeDefined());
+    // The empty-schedule placeholder appears, NOT the error.
+    await waitFor(() => expect(screen.getByText(/no scheduled tasks/i)).toBeDefined());
+    expect(screen.queryByText(/failed to load schedule/i)).toBeNull();
+  });
+});

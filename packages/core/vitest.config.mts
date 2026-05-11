@@ -11,6 +11,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'json-summary', 'html'],
       exclude: [
         'node_modules/',
+        'dist/',
         'tests/',
         'benchmarks/',
         '**/*.test.ts',

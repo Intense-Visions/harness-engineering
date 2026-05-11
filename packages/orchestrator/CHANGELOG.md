@@ -1,5 +1,70 @@
 # @harness-engineering/orchestrator
 
+## 0.4.0
+
+### Minor Changes
+
+- 287ca16: feat(roadmap): tracker-only roadmap mode (file-less)
+
+  Adds opt-in file-less roadmap mode where the configured external tracker is canonical, eliminating `docs/roadmap.md` as a multi-session conflict surface. See [`docs/changes/roadmap-tracker-only/proposal.md`](https://github.com/Intense-Visions/harness-engineering/blob/main/docs/changes/roadmap-tracker-only/proposal.md) and ADRs 0008–0010.
+
+  **`@harness-engineering/core`:**
+  - New `packages/core/src/roadmap/tracker/` submodule: `IssueTrackerClient` interface lifted from orchestrator, `createTrackerClient(config)` factory, body-metadata block parser/serializer, ETag store with LRU eviction, conflict-detection policy, and `GitHubIssuesTrackerAdapter` for file-less mode.
+  - New `packages/core/src/roadmap/mode.ts` with `getRoadmapMode(config)` helper.
+  - New `packages/core/src/roadmap/load-tracker-client-config.ts` (canonical home for tracker-config loading; replaces three duplicates in cli/dashboard/orchestrator).
+  - New `packages/core/src/roadmap/migrate/` namespace: body-diff, history-event hashing, plan-builder, idempotent runner.
+  - New `packages/core/src/validation/roadmap-mode.ts` with `validateRoadmapMode` enforcing `ROADMAP_MODE_MISSING_TRACKER` and `ROADMAP_MODE_FILE_PRESENT`.
+  - New `scoreRoadmapCandidatesFileLess` in `packages/core/src/roadmap/pilot-scoring.ts` (priority + createdAt sort, deliberate D4 semantic break).
+  - Config schema: `roadmap.mode: "file-backed" | "file-less"` (optional, defaults to `"file-backed"`).
+  - Fixes pre-existing `TS2322` in `packages/core/src/roadmap/tracker/adapters/github-issues.ts` (`updateInternal` return shape) and `TS2379` in `packages/cli/src/commands/validate.ts` (call site against `RoadmapModeValidationConfig` widened to accept `undefined`).
+
+  **`@harness-engineering/orchestrator`:**
+  - New tracker kind `tracker.kind: "github-issues"` in workflow config selects `GitHubIssuesTrackerAdapter` (see ADR 0010 for the kind-schema decoupling rationale vs `roadmap.tracker.kind: "github"`).
+  - `createTracker()` dispatches on `tracker.kind`; the Phase 4 stub at orchestrator constructor is removed.
+  - Roadmap-status (S5) and roadmap-append (S6) endpoints translate `ConflictError` to HTTP `409 TRACKER_CONFLICT` shape; React surface lands in a follow-up.
+
+  **`@harness-engineering/cli`:**
+  - New `harness roadmap` command group with `harness roadmap migrate --to=file-less [--dry-run]` subcommand. One-shot, dry-run-capable, idempotent migration that creates GitHub issues for unmigrated features, writes body metadata blocks, posts deduplicated history comments, archives `docs/roadmap.md`, and flips `roadmap.mode`.
+  - `manage_roadmap` MCP tool is mode-aware: in file-less mode, dispatches through `IssueTrackerClient` instead of touching `docs/roadmap.md`.
+  - `harness validate` runs the two new cross-cutting rules `ROADMAP_MODE_MISSING_TRACKER` and `ROADMAP_MODE_FILE_PRESENT`.
+
+  **Documentation:**
+  - Three ADRs added under `docs/knowledge/decisions/`: 0008 (tracker abstraction in core), 0009 (audit history as issue comments), 0010 (`tracker.kind` schema decoupling).
+  - New knowledge domain `docs/knowledge/roadmap/` with three entries: `file-less-roadmap-mode` (business_concept), `tracker-as-source-of-truth` (business_rule), `roadmap-migration-to-file-less` (business_process).
+  - `docs/guides/roadmap-sync.md` gains a `## File-less mode` section.
+  - `docs/reference/configuration.md`, `docs/reference/cli-commands.md`, `docs/reference/mcp-tools.md`, and `AGENTS.md` updated.
+  - Migration walkthrough at `docs/changes/roadmap-tracker-only/migration.md` (shipped in Phase 5).
+  - Proposal §F2 wording reworded to "best-effort detection" per Phase 2 D-P2-B.
+
+### Patch Changes
+
+- ed16b44: feat(roadmap): dashboard conflict UX for file-less roadmap mode (Phase 7 — file-less GA blocker)
+
+  Closes the last file-less GA blocker by making HTTP 409 `TRACKER_CONFLICT` responses a first-class, accessible UX surface in the dashboard, and aligning the orchestrator's `roadmap-append` endpoint to emit the same conflict shape as the dashboard's claim endpoints (REV-P4-4, Option A).
+
+  **`@harness-engineering/dashboard`:**
+  - New `TrackerConflictBody` type, `isTrackerConflictBody` guard, and exported `CONFLICT_TOAST_TEMPLATE` constant in `src/shared/types.ts`.
+  - New Zustand `toastStore` (`src/client/stores/toastStore.ts`) with single-toast supersession via a monotonic `seq` counter so repeat conflicts always re-trigger the refresh effect.
+  - New `fetchWithConflict` helper (`src/client/utils/fetchWithConflict.ts`) returning a discriminated-union `{ ok: true, data } | { ok: false, status, conflict?, error? }` so every caller of an endpoint that can emit TRACKER_CONFLICT (S3, S5, S6) dispatches identically.
+  - New `scrollToFeatureRow` helper (`src/client/utils/scrollToFeatureRow.ts`): smooth-scrolls the contested row into the viewport, focuses it, and applies a 2-second `data-conflict-highlight` pulse-ring (degraded fallback when the row is no longer in the DOM).
+  - New `ConflictToastRegion` component (`src/client/components/ConflictToastRegion.tsx`) with `role="status"`, `aria-live="polite"`, `aria-atomic="true"`, and an explicit Dismiss button.
+  - `FeatureRow` now exposes `data-external-id="<externalId>"` and `tabIndex={-1}` on its root element so the conflict resolver can locate and focus the contested row without lifting refs.
+  - `ClaimConfirmation` recognizes the TRACKER_CONFLICT shape: dispatches a toast event, closes via `onCancel`, and never invokes `onConfirm` on conflict.
+  - `Analyze.tsx`'s "Add to roadmap" path is routed through a new `appendToRoadmap` helper that uses `fetchWithConflict`, so an S6 conflict surfaces via the same toast pathway.
+  - `Roadmap.tsx` mounts `ConflictToastRegion`, handles the refetch via `GET /api/roadmap` with `cache: 'no-store'`, dispatches the override into a `refreshedData` state, and drives the smooth-scroll-and-focus on the next animation frame; the manual override is cleared on the next SSE `lastUpdated` tick so live updates resume.
+  - CSS keyframes fallback for `data-conflict-highlight` ring animation in `index.css`.
+
+  **`@harness-engineering/orchestrator`:**
+  - `roadmap-append` (S6) now translates `ConflictError` from `client.create()` into HTTP `409 { error, code: 'TRACKER_CONFLICT', externalId, conflictedWith, refreshHint: 'reload-roadmap' }` (D-P7-A). Previously it emitted a generic 502. This closes REV-P4-4 by giving the dashboard a single uniform conflict shape across S3 (`/api/actions/roadmap/claim`), S5 (`/api/actions/roadmap-status`), and S6 (`/api/roadmap/append`).
+
+  **Documentation:**
+  - `docs/knowledge/dashboard/claim-workflow.md` gains a "Conflict UX" section describing the toast, auto-refetch, and scroll-to-row choreography for the file-less branch (step 4).
+
+  **Roadmap status:** With Phase 7 landed, the `tracker-only` roadmap (file-less mode) is feature-complete; manual browser verification of the toast, screen-reader announcement, focus, and pulse-ring is operator-side QA.
+
+- Updated dependencies [287ca16]
+  - @harness-engineering/core@0.24.0
+
 ## 0.3.2
 
 ### Patch Changes

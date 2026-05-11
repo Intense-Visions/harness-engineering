@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { DashboardFeature, ClaimResponse } from '@shared/types';
 import { detectWorkflow, type ClaimWorkflow } from './utils';
+import { fetchWithConflict } from '../../utils/fetchWithConflict';
+import { useToastStore } from '../../stores/toastStore';
 
 interface Props {
   feature: DashboardFeature;
@@ -33,23 +35,28 @@ export function ClaimConfirmation({ feature, identity, onConfirm, onCancel }: Pr
   async function handleConfirm() {
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch('/api/actions/roadmap/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feature: feature.name, assignee: identity }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Claim failed');
-        setLoading(false);
-        return;
-      }
-      onConfirm(data as ClaimResponse);
-    } catch {
-      setError('Network error');
-      setLoading(false);
+    const result = await fetchWithConflict<ClaimResponse>('/api/actions/roadmap/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: feature.name, assignee: identity }),
+    });
+    if (result.ok) {
+      onConfirm(result.data);
+      return;
     }
+    if (result.conflict) {
+      useToastStore.getState().pushConflict({
+        externalId: result.conflict.externalId,
+        conflictedWith:
+          typeof result.conflict.conflictedWith === 'string'
+            ? result.conflict.conflictedWith
+            : null,
+      });
+      onCancel();
+      return;
+    }
+    setError(result.error ?? 'Claim failed');
+    setLoading(false);
   }
 
   return (

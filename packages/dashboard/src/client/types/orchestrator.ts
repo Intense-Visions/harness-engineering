@@ -177,11 +177,21 @@ export interface MaintenanceCompletedPayload {
   error?: string;
 }
 
+/** Payload for `maintenance:baseref_fallback` events emitted by WorkspaceManager. */
+export interface MaintenanceBaserefFallbackPayload {
+  kind: 'baseref_fallback';
+  /** The local-only ref the worktree fell back to (e.g. 'main', 'master', 'HEAD'). */
+  ref: string;
+  /** Absolute path of the repo root whose base-ref resolution fell back. */
+  repoRoot: string;
+}
+
 /** Union of all maintenance event payloads for convenience. */
 export type MaintenanceEvent =
   | { type: 'maintenance:started'; data: MaintenanceStartedPayload }
   | { type: 'maintenance:error'; data: MaintenanceErrorPayload }
-  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload };
+  | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload }
+  | { type: 'maintenance:baseref_fallback'; data: MaintenanceBaserefFallbackPayload };
 
 /** Discriminated union for WebSocket messages from the orchestrator server. */
 export type WebSocketMessage =
@@ -191,6 +201,7 @@ export type WebSocketMessage =
   | { type: 'maintenance:started'; data: MaintenanceStartedPayload }
   | { type: 'maintenance:error'; data: MaintenanceErrorPayload }
   | { type: 'maintenance:completed'; data: MaintenanceCompletedPayload }
+  | { type: 'maintenance:baseref_fallback'; data: MaintenanceBaserefFallbackPayload }
   | { type: 'local-model:status'; data: NamedLocalModelStatus };
 
 /** SSE event types from the chat proxy endpoint. */

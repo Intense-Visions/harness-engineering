@@ -53,11 +53,19 @@ export interface AgentDispatchResult {
  */
 export interface CommandExecutor {
   /**
-   * Executes a command directly (no AI).
+   * Executes a command directly (no AI). Returns captured stdout so
+   * housekeeping tasks emitting a JSON status line (e.g. `sync-main --json`)
+   * can be parsed by the runner.
+   *
    * @param command - Command args (e.g., ['cleanup-sessions'])
    * @param cwd - Working directory
    */
-  exec(command: string[], cwd: string): Promise<void>;
+  exec(command: string[], cwd: string): Promise<CommandExecResult>;
+}
+
+export interface CommandExecResult {
+  /** Captured stdout. May be empty for legacy housekeeping commands. */
+  stdout: string;
 }
 
 /**
@@ -345,24 +353,41 @@ export class TaskRunner {
 
   /**
    * Housekeeping: run command directly, no AI, no PR.
+   *
+   * Captures stdout and parses a trailing JSON status line if present.
+   * Recognized contracts:
+   *   - Phase 4/5 status contract (e.g., harness pulse run): success/skipped/failure/no-issues
+   *   - sync-main contract: updated/no-op/skipped/error → mapped onto the run-result status
+   * Legacy housekeeping commands that emit no JSON keep the prior behavior:
+   *   status: 'success', findings: 0.
    */
   private async runHousekeeping(task: TaskDefinition, startedAt: string): Promise<RunResult> {
     if (!task.checkCommand || task.checkCommand.length === 0) {
       return this.failureResult(task.id, startedAt, 'housekeeping task missing checkCommand');
     }
 
-    await this.commandExecutor.exec(task.checkCommand, this.cwd);
+    let stdout: string;
+    try {
+      const out = await this.commandExecutor.exec(task.checkCommand, this.cwd);
+      stdout = out.stdout ?? '';
+    } catch (err) {
+      return this.failureResult(task.id, startedAt, String(err));
+    }
 
-    return {
+    const parsed = parseStatusLine(stdout);
+    const status: RunResult['status'] = parsed?.status ?? 'success';
+    const result: RunResult = {
       taskId: task.id,
       startedAt,
       completedAt: new Date().toISOString(),
-      status: 'success',
+      status,
       findings: 0,
       fixed: 0,
       prUrl: null,
       prUpdated: false,
     };
+    if (parsed?.error) result.error = parsed.error;
+    return result;
   }
 
   /**
@@ -404,10 +429,13 @@ export class TaskRunner {
  * recognized `status` field is found.
  */
 interface ParsedStatus {
+  /** The maintenance run-result status this output maps to. */
   status: RunResult['status'];
   candidatesFound?: number;
   error?: string;
   reason?: string;
+  /** Original raw status from the JSON line, preserved for error/skip messages. */
+  rawStatus?: string;
 }
 
 function parseStatusLine(output: string): ParsedStatus | null {
@@ -421,8 +449,9 @@ function parseStatusLine(output: string): ParsedStatus | null {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
       const s = obj.status;
+      // Phase 4/5 contract: 'success' | 'skipped' | 'failure' | 'no-issues'
       if (s === 'success' || s === 'skipped' || s === 'failure' || s === 'no-issues') {
-        const parsed: ParsedStatus = { status: s };
+        const parsed: ParsedStatus = { status: s, rawStatus: s };
         if (typeof obj.candidatesFound === 'number') {
           parsed.candidatesFound = obj.candidatesFound;
         }
@@ -432,7 +461,19 @@ function parseStatusLine(output: string): ParsedStatus | null {
         if (typeof obj.reason === 'string') {
           parsed.reason = obj.reason;
         }
+        if (typeof obj.detail === 'string' && !parsed.error) {
+          // sync-main skipped shape: { status: 'skipped', reason, detail, defaultBranch }
+          parsed.error = `${parsed.reason ?? 'skipped'}: ${obj.detail}`;
+        }
         return parsed;
+      }
+      // sync-main contract: 'updated' | 'no-op' | 'skipped' | 'error'
+      if (s === 'updated' || s === 'no-op') {
+        return { status: 'success', rawStatus: s };
+      }
+      if (s === 'error') {
+        const message = typeof obj.message === 'string' ? obj.message : 'unknown error';
+        return { status: 'failure', error: message, rawStatus: 'error' };
       }
     } catch {
       // not JSON; keep scanning earlier lines

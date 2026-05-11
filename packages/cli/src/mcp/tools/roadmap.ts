@@ -1,8 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  loadProjectRoadmapMode,
+  createTrackerClient,
+  loadTrackerClientConfigFromProject,
+} from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { triggerExternalSync } from './roadmap-auto-sync.js';
+import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
@@ -443,13 +449,40 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   return true;
 }
 
-export async function handleManageRoadmap(input: ManageRoadmapInput) {
+export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
+  const projectPathPre = sanitizePath(input.path);
+
+  // Phase 4 / S1: dispatch on roadmap mode.
+  // Note: `sanitizePath(input.path)` runs upstream of the file-less guard,
+  // so any externalId resolution downstream (in handleManageRoadmapFileLess)
+  // sees a sanitized project path. The externalId itself comes from the
+  // tracker client response, not from `input`, and is guarded again by the
+  // adapter's confused-deputy check (see github-issues.ts).
+  const mode = loadProjectRoadmapMode(projectPathPre);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(projectPathPre);
+    if (!trackerCfg.ok) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${trackerCfg.error.message}` }],
+        isError: true,
+      };
+    }
+    const clientResult = createTrackerClient(trackerCfg.value);
+    if (!clientResult.ok) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${clientResult.error.message}` }],
+        isError: true,
+      };
+    }
+    return handleManageRoadmapFileLess(input, clientResult.value);
+  }
+
   try {
     const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, assignFeature } =
       await import('@harness-engineering/core');
     const { Ok } = await import('@harness-engineering/types');
 
-    const projectPath = sanitizePath(input.path);
+    const projectPath = projectPathPre;
     const deps: RoadmapDeps = {
       parseRoadmap,
       serializeRoadmap,

@@ -64,6 +64,20 @@ intelligence:
   requestTimeoutMs: 180000
 server:
   port: 8080
+# Built-in maintenance tasks run on cron when `maintenance.enabled: true`.
+# Notable housekeeping tasks: `main-sync` (every 15 min) fast-forwards the
+# orchestrator's local default branch from origin so files read from `cwd`
+# (e.g., docs/roadmap.md, harness.orchestrator.md) stay current. Sync is
+# fast-forward-only — never destructive — and skips with a structured
+# warning event if the working tree is dirty, the branch is wrong, or the
+# local default has diverged. Disable all maintenance via `maintenance.enabled: false`.
+#
+# Per-task Run Now (since 2026-05-09): the dashboard Maintenance page renders
+# a Run Now button on every row of the schedule table. The previous single-
+# button affordance (which always triggered `project-health`) has been
+# removed. Each button is disabled while a `maintenance:started` event is in
+# flight for that task ID and re-enables on the matching `maintenance:completed`
+# or `maintenance:error` event.
 maintenance:
   enabled: true
 ---

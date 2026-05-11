@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/core",
-  "version": "0.23.8",
+  "version": "0.24.0",
   "description": "Core library for Harness Engineering toolkit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -63,6 +63,7 @@
     "minimatch": "^10.2.5",
     "tree-sitter-wasms": "0.1.13",
     "web-tree-sitter": "^0.24.7",
+    "yaml": "^2.8.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, MapPin, Zap, Edit3, Download, Check } from 'lucide-react';
 import type { AnalyzeSSEEvent } from '../types/orchestrator';
+import { appendToRoadmap } from '../utils/appendToRoadmap';
 
 // --- Result types ---
 
@@ -732,34 +733,26 @@ export function Analyze() {
   const handleAddToRoadmap = useCallback(async () => {
     setActionState('roadmap-pending');
     setActionError(null);
-    try {
-      const res = await fetch('/api/roadmap/append', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          summary: selResult?.summary,
-          enrichedSpec: selResult
-            ? {
-                intent: selResult.intent,
-                unknowns: selResult.unknowns,
-                ambiguities: selResult.ambiguities,
-                riskSignals: selResult.riskSignals,
-                affectedSystems: selResult.affectedSystems.map((s) => ({ name: s.name })),
-              }
-            : undefined,
-          cmlRecommendedRoute: cmlResult?.recommendedRoute,
-        }),
-      });
-      if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        throw new Error(json.error ?? `HTTP ${res.status}`);
-      }
+    const r = await appendToRoadmap({
+      title: title.trim(),
+      summary: selResult?.summary,
+      enrichedSpec: selResult
+        ? {
+            intent: selResult.intent,
+            unknowns: selResult.unknowns,
+            ambiguities: selResult.ambiguities,
+            riskSignals: selResult.riskSignals,
+            affectedSystems: selResult.affectedSystems.map((s) => ({ name: s.name })),
+          }
+        : undefined,
+      cmlRecommendedRoute: cmlResult?.recommendedRoute,
+    });
+    if (r.ok) {
       setActionState('roadmap-done');
-    } catch (err) {
-      setActionError((err as Error).message);
-      setActionState('idle');
+      return;
     }
+    setActionError(r.error ?? 'Append failed');
+    setActionState('idle');
   }, [title, selResult, cmlResult]);
 
   const handleDispatchNow = useCallback(async () => {

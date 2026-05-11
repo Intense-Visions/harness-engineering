@@ -109,6 +109,38 @@ export interface ClaimResponse {
   githubSynced: boolean;
 }
 
+/**
+ * HTTP 409 conflict body returned by file-less roadmap endpoints when a
+ * concurrent write is detected (Phase 4 D-P4-B / ADR 0008).
+ *
+ * Emitted by:
+ * - POST /api/actions/roadmap/claim (S3)
+ * - POST /api/actions/roadmap-status (S5)
+ * - POST /api/roadmap/append (S6) — after Phase 7 D-P7-A
+ */
+export interface TrackerConflictBody {
+  error: string;
+  code: 'TRACKER_CONFLICT';
+  externalId: string;
+  /** Server-side diff payload from ConflictError (shape varies). */
+  conflictedWith?: unknown;
+  refreshHint: 'reload-roadmap';
+}
+
+/** Discriminant guard for TrackerConflictBody. */
+export function isTrackerConflictBody(value: unknown): value is TrackerConflictBody {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { code?: unknown }).code === 'TRACKER_CONFLICT' &&
+    typeof (value as { externalId?: unknown }).externalId === 'string'
+  );
+}
+
+/** Single user-facing toast template. Constant for future i18n routing. */
+export const CONFLICT_TOAST_TEMPLATE = (conflictedWith: string | null): string =>
+  `Claimed by ${conflictedWith ?? 'another session'} — refresh`;
+
 // --- Identity types ---
 
 /** GET /api/identity response body */

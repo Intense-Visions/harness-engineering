@@ -7,11 +7,11 @@ function createMockLogger() {
 }
 
 describe('Integration: leader election with two schedulers', () => {
-  it('only one scheduler dispatches tasks when sharing a ClaimManager', async () => {
-    // ClaimManager that grants the first call and rejects the second
+  it('only one scheduler dispatches tasks when sharing a LeaderElector', async () => {
+    // LeaderElector that grants the first call and rejects the second
     let callCount = 0;
-    const sharedClaimManager = {
-      claimAndVerify: vi.fn().mockImplementation(async () => {
+    const sharedLeaderElector = {
+      electLeader: vi.fn().mockImplementation(async () => {
         callCount++;
         if (callCount === 1) return { ok: true, value: 'claimed' as const };
         return { ok: true, value: 'rejected' as const };
@@ -43,6 +43,7 @@ describe('Integration: leader election with two schedulers', () => {
             'graph-refresh',
             'session-cleanup',
             'perf-baselines',
+            'main-sync',
           ].map((id) => [id, { enabled: false }])
         ),
       },
@@ -53,14 +54,14 @@ describe('Integration: leader election with two schedulers', () => {
 
     const schedulerA = new MaintenanceScheduler({
       config,
-      claimManager: sharedClaimManager as any,
+      leaderElector: sharedLeaderElector as any,
       logger: createMockLogger() as any,
       onTaskDue: onTaskDueA,
     });
 
     const schedulerB = new MaintenanceScheduler({
       config,
-      claimManager: sharedClaimManager as any,
+      leaderElector: sharedLeaderElector as any,
       logger: createMockLogger() as any,
       onTaskDue: onTaskDueB,
     });
@@ -87,8 +88,8 @@ describe('Integration: leader election with two schedulers', () => {
       'claimed',
     ];
     let callIndex = 0;
-    const sharedClaimManager = {
-      claimAndVerify: vi.fn().mockImplementation(async () => {
+    const sharedLeaderElector = {
+      electLeader: vi.fn().mockImplementation(async () => {
         const result = claimResults[callIndex] ?? 'rejected';
         callIndex++;
         return { ok: true, value: result };
@@ -117,6 +118,7 @@ describe('Integration: leader election with two schedulers', () => {
             'graph-refresh',
             'session-cleanup',
             'perf-baselines',
+            'main-sync',
           ].map((id) => [id, { enabled: false }])
         ),
         'arch-violations': { enabled: true, schedule: '* * * * *' },
@@ -128,14 +130,14 @@ describe('Integration: leader election with two schedulers', () => {
 
     const schedulerA = new MaintenanceScheduler({
       config,
-      claimManager: sharedClaimManager as any,
+      leaderElector: sharedLeaderElector as any,
       logger: createMockLogger() as any,
       onTaskDue: onTaskDueA,
     });
 
     const schedulerB = new MaintenanceScheduler({
       config,
-      claimManager: sharedClaimManager as any,
+      leaderElector: sharedLeaderElector as any,
       logger: createMockLogger() as any,
       onTaskDue: onTaskDueB,
     });

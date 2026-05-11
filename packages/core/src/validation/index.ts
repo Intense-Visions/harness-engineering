@@ -55,3 +55,9 @@ export type {
   AgentConfigSeverity,
   AgentConfigFallbackReason,
 } from './agent-configs';
+
+/**
+ * Roadmap-mode cross-cutting validation — Rules A (tracker presence) and B (file absence).
+ */
+export { validateRoadmapMode } from './roadmap-mode';
+export type { RoadmapModeValidationConfig } from './roadmap-mode';

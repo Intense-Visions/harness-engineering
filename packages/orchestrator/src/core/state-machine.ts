@@ -303,6 +303,90 @@ function reconcileCompletedAndClaimed(
   }
 }
 
+/**
+ * Build the concernSignals list for an issue, augmenting with
+ * persona/specialization scoring signals when available. Returns the
+ * top-recommended persona (when present) so the caller can attach it to
+ * the claim effect.
+ *
+ * Persona scoring augmentation is non-fatal — failures fall through and
+ * the caller proceeds with whatever signals were already gathered.
+ */
+function gatherSignalsAndPersona(
+  issue: Issue,
+  event: TickEvent
+): { signals: ConcernSignal[]; suggestedPersona: string | undefined } {
+  const signals = [...(event.concernSignals?.get(issue.id) ?? [])];
+  let suggestedPersona: string | undefined;
+
+  try {
+    const personaRecs = event.personaRecommendations?.get(issue.id);
+    if (personaRecs && personaRecs.length > 0) {
+      suggestedPersona = personaRecs[0]!.persona;
+      if (personaRecs[0]!.weightedScore < 0.3) {
+        signals.push({
+          name: 'lowExpertise',
+          reason: `Top persona "${suggestedPersona}" scored ${personaRecs[0]!.weightedScore.toFixed(2)} (below 0.3 threshold)`,
+        });
+      }
+    } else if (personaRecs && personaRecs.length === 0) {
+      signals.push({
+        name: 'noPersonaMatch',
+        reason: "No persona recommendations available for this issue's systems",
+      });
+    }
+  } catch {
+    // Persona scoring augmentation is non-fatal — proceed with existing signals
+  }
+
+  return { signals, suggestedPersona };
+}
+
+function attachPersonaToLastClaim(
+  effects: SideEffect[],
+  suggestedPersona: string | undefined
+): void {
+  if (!suggestedPersona) return;
+  const lastEffect = effects[effects.length - 1];
+  if (lastEffect && lastEffect.type === 'claim') {
+    (lastEffect as ClaimEffect).suggestedPersona = suggestedPersona;
+  }
+}
+
+/**
+ * Route a single eligible candidate: detect scope tier, gather signals,
+ * and either escalate to a human or dispatch to local/primary backend.
+ */
+function dispatchEligibleIssue(
+  next: OrchestratorState,
+  issue: Issue,
+  event: TickEvent,
+  escalationConfig: EscalationConfig,
+  config: WorkflowConfig,
+  effects: SideEffect[]
+): void {
+  const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+  const { signals, suggestedPersona } = gatherSignalsAndPersona(issue, event);
+  const decision = routeIssue(scopeTier, signals, escalationConfig);
+
+  if (decision.action === 'needs-human') {
+    next.claimed.add(issue.id);
+    effects.push(
+      buildEscalateEffect(issue.id, issue.identifier, decision.reasons, {
+        issueTitle: issue.title,
+        issueDescription: issue.description,
+        enrichedSpec: event.enrichedSpecs?.get(issue.id),
+        complexityScore: event.complexityScores?.get(issue.id),
+      })
+    );
+    return;
+  }
+
+  const backend = resolveBackend(decision.action, !!config.agent.localBackend);
+  claimAndDispatch(next, issue, backend, event.nowMs, effects);
+  attachPersonaToLastClaim(effects, suggestedPersona);
+}
+
 function handleTick(
   state: OrchestratorState,
   event: TickEvent,
@@ -342,7 +426,6 @@ function handleTick(
       break; // No more slots available
     }
 
-    // Check PESL simulation result for abort recommendation
     const peslAbort = tryPeslAbort(issue, event);
     if (peslAbort) {
       next.claimed.add(issue.id);
@@ -350,57 +433,7 @@ function handleTick(
       continue;
     }
 
-    // Route via model router (three-way: local / primary / human)
-    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-    const signals = [...(event.concernSignals?.get(issue.id) ?? [])];
-
-    // Augment signals with persona/specialization scoring when available
-    let suggestedPersona: string | undefined;
-    try {
-      const personaRecs = event.personaRecommendations?.get(issue.id);
-      if (personaRecs && personaRecs.length > 0) {
-        suggestedPersona = personaRecs[0]!.persona;
-        if (personaRecs[0]!.weightedScore < 0.3) {
-          signals.push({
-            name: 'lowExpertise',
-            reason: `Top persona "${suggestedPersona}" scored ${personaRecs[0]!.weightedScore.toFixed(2)} (below 0.3 threshold)`,
-          });
-        }
-      } else if (personaRecs && personaRecs.length === 0) {
-        signals.push({
-          name: 'noPersonaMatch',
-          reason: "No persona recommendations available for this issue's systems",
-        });
-      }
-    } catch {
-      // Persona scoring augmentation is non-fatal — proceed with existing signals
-    }
-
-    const decision = routeIssue(scopeTier, signals, escalationConfig);
-
-    if (decision.action === 'needs-human') {
-      next.claimed.add(issue.id);
-      effects.push(
-        buildEscalateEffect(issue.id, issue.identifier, decision.reasons, {
-          issueTitle: issue.title,
-          issueDescription: issue.description,
-          enrichedSpec: event.enrichedSpecs?.get(issue.id),
-          complexityScore: event.complexityScores?.get(issue.id),
-        })
-      );
-      continue;
-    }
-
-    const backend = resolveBackend(decision.action, !!config.agent.localBackend);
-    claimAndDispatch(next, issue, backend, nowMs, effects);
-
-    // Attach suggested persona to the claim effect we just pushed
-    if (suggestedPersona) {
-      const lastEffect = effects[effects.length - 1];
-      if (lastEffect && lastEffect.type === 'claim') {
-        (lastEffect as ClaimEffect).suggestedPersona = suggestedPersona;
-      }
-    }
+    dispatchEligibleIssue(next, issue, event, escalationConfig, config, effects);
   }
 
   pruneCompleted(next);

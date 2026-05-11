@@ -24,7 +24,13 @@ export interface BaseError {
  */
 export interface ValidationError extends BaseError {
   /** Validation-specific error codes. */
-  code: 'INVALID_TYPE' | 'MISSING_FIELD' | 'VALIDATION_FAILED' | 'PARSE_ERROR';
+  code:
+    | 'INVALID_TYPE'
+    | 'MISSING_FIELD'
+    | 'VALIDATION_FAILED'
+    | 'PARSE_ERROR'
+    | 'ROADMAP_MODE_MISSING_TRACKER'
+    | 'ROADMAP_MODE_FILE_PRESENT';
 }
 
 /**

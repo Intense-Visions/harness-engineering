@@ -9,6 +9,9 @@ import { StatsBar } from '../components/roadmap/StatsBar';
 import { FeatureTable } from '../components/roadmap/FeatureTable';
 import { ClaimConfirmation } from '../components/roadmap/ClaimConfirmation';
 import { AssignmentHistory } from '../components/roadmap/AssignmentHistory';
+import { ConflictToastRegion } from '../components/ConflictToastRegion';
+import { scrollToFeatureRow } from '../utils/scrollToFeatureRow';
+import { fetchWithConflict } from '../utils/fetchWithConflict';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isRoadmapData } from '../utils/typeGuards';
 import type {
@@ -295,11 +298,65 @@ function RoadmapContent({
   );
 }
 
+// REV-P7-S3: debounce window for the conflict-driven refetch. Two near-
+// simultaneous S3+S5 conflicts can fire `handleConflictRefresh` twice in
+// quick succession. The second invocation reuses the freshly-fetched
+// roadmap data already in state (no second GET /api/roadmap) and only
+// dispatches the scroll-to-row for the new externalId. 500ms is large
+// enough to deduplicate the S3+S5 race but short enough that an operator-
+// initiated retry after one second is treated as a fresh refresh.
+const CONFLICT_REFRESH_DEBOUNCE_MS = 500;
+
 export function Roadmap() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
+  // Phase 7 D-P7-E: manual refresh override applied on TRACKER_CONFLICT.
+  // Cleared on next SSE lastUpdated tick so live updates resume.
+  const [refreshedData, setRefreshedData] = useState<RoadmapData | null>(null);
+
+  // REV-P7-S3 debounce state. `lastRefreshAt` is a wall-clock millisecond
+  // timestamp; reading/writing a ref avoids re-renders. `refreshedDataRef`
+  // mirrors `refreshedData` so the debounce branch can read the latest data
+  // without depending on React state batching.
+  const lastRefreshAt = useRef<number>(0);
+  const refreshedDataRef = useRef<RoadmapData | null>(null);
+
+  useEffect(() => {
+    // When SSE pushes a new event, clear the manual refetch override.
+    setRefreshedData(null);
+    refreshedDataRef.current = null;
+  }, [lastUpdated]);
+
+  const handleConflictRefresh = useCallback(async (externalId: string) => {
+    const now = Date.now();
+    // Debounce: if a refetch just landed and produced fresh data, skip the
+    // network round-trip and dispatch the scroll-to-row directly. Conflict
+    // toasts are still single-toast (the second pushConflict supersedes the
+    // first), so all we need to do here is point the focus at the new row.
+    if (
+      now - lastRefreshAt.current < CONFLICT_REFRESH_DEBOUNCE_MS &&
+      refreshedDataRef.current !== null
+    ) {
+      requestAnimationFrame(() => {
+        scrollToFeatureRow(externalId);
+      });
+      return;
+    }
+    lastRefreshAt.current = now;
+    const r = await fetchWithConflict<RoadmapData>('/api/roadmap', { cache: 'no-store' });
+    if (r.ok) {
+      refreshedDataRef.current = r.data;
+      setRefreshedData(r.data);
+      // Allow the DOM to commit before scrolling.
+      requestAnimationFrame(() => {
+        scrollToFeatureRow(externalId);
+      });
+    }
+  }, []);
+
   const roadmap = data ? data.roadmap : null;
-  const roadmapData = roadmap && isRoadmapData(roadmap) ? roadmap : null;
+  const sseRoadmapData = roadmap && isRoadmapData(roadmap) ? roadmap : null;
+  const effectiveData = refreshedData ?? sseRoadmapData;
 
   return (
     <div>
@@ -315,17 +372,19 @@ export function Roadmap() {
 
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream…</p>}
 
-      {roadmap && !roadmapData && (
+      {roadmap && !sseRoadmapData && (
         <p className="text-sm text-red-400">{'error' in roadmap ? roadmap.error : 'Unavailable'}</p>
       )}
 
-      {roadmapData && (
+      {effectiveData && (
         <RoadmapContent
-          milestones={roadmapData.milestones}
-          features={roadmapData.features}
-          data={roadmapData}
+          milestones={effectiveData.milestones}
+          features={effectiveData.features}
+          data={effectiveData}
         />
       )}
+
+      <ConflictToastRegion onRefresh={handleConflictRefresh} />
     </div>
   );
 }

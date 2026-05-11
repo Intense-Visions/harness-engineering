@@ -4,13 +4,40 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { WorkspaceConfig, Result, Ok, Err } from '@harness-engineering/types';
 
+/**
+ * Structured event emitted when {@link WorkspaceManager.resolveBaseRef}
+ * falls back past `origin/HEAD` and `origin/main`/`origin/master` to a
+ * local-only ref. Operators see this in the dashboard's maintenance
+ * event stream when the remote is misconfigured or unreachable.
+ */
+export interface BaseRefFallbackEvent {
+  kind: 'baseref_fallback';
+  /** The ref that was selected — `'main'`, `'master'`, or `'HEAD'`. */
+  ref: string;
+  /** Absolute path to the git repository root. */
+  repoRoot: string;
+}
+
+/** Optional dependencies injected into {@link WorkspaceManager}. */
+export interface WorkspaceManagerOptions {
+  /**
+   * Synchronous fire-and-forget callback invoked when {@link
+   * WorkspaceManager.resolveBaseRef} falls back to a local-only ref.
+   * When omitted, fallback emission is silently skipped.
+   */
+  emitEvent?: (event: BaseRefFallbackEvent) => void;
+}
+
 export class WorkspaceManager {
   private config: WorkspaceConfig;
   /** Absolute path to the git repository root (resolved lazily). */
   private repoRoot: string | null = null;
+  /** Phase 3 (D6): emit baseref_fallback when fallback chain selects a local-only ref. */
+  private emitEvent: ((event: BaseRefFallbackEvent) => void) | null;
 
-  constructor(config: WorkspaceConfig) {
+  constructor(config: WorkspaceConfig, options: WorkspaceManagerOptions = {}) {
     this.config = config;
+    this.emitEvent = options.emitEvent ?? null;
   }
 
   /** Runs a git command and returns stdout. Extracted for testability. */
@@ -127,9 +154,14 @@ export class WorkspaceManager {
    * Priority order:
    *   1. `config.baseRef` (explicit override). Throws if it doesn't resolve.
    *   2. Default branch via `git symbolic-ref --short refs/remotes/origin/HEAD`.
-   *   3. Common fallbacks: `origin/main`, `origin/master`, `main`, `master`.
-   *   4. `HEAD` as an ultimate fallback (preserves old behavior for unusual
-   *      repos without any of the above).
+   *   3. Remote fallbacks: `origin/main`, `origin/master`. (No event.)
+   *   4. Local-only fallbacks: `main`, `master`. (Emits `baseref_fallback`.)
+   *   5. `HEAD` as ultimate fallback. (Emits `baseref_fallback`.)
+   *
+   * Phase 3 / spec D6 / R4: when the priority chain falls past `origin/*`
+   * to a local-only ref, the optional `emitEvent` callback (if injected)
+   * is invoked exactly once with `{ kind: 'baseref_fallback', ref, repoRoot }`
+   * so operators are warned when the remote is misconfigured or unreachable.
    */
   private async resolveBaseRef(repoRoot: string): Promise<string> {
     const configured = this.config.baseRef;
@@ -151,11 +183,40 @@ export class WorkspaceManager {
       // origin/HEAD not set — fall through to known-name lookups.
     }
 
-    for (const candidate of ['origin/main', 'origin/master', 'main', 'master']) {
+    // origin/* candidates are NOT fallbacks worth warning about — they
+    // still ground the worktree on a remote tracking ref.
+    for (const candidate of ['origin/main', 'origin/master']) {
       if (await this.refExists(candidate, repoRoot)) return candidate;
     }
 
+    // Local-only candidates ARE worth warning about. Per spec D6, falling
+    // past origin/* nearly always means the remote is misconfigured or
+    // unreachable; the operator should know rather than have the
+    // orchestrator silently dispatch agents from a local-only ref.
+    for (const candidate of ['main', 'master']) {
+      if (await this.refExists(candidate, repoRoot)) {
+        this.emitFallback(candidate, repoRoot);
+        return candidate;
+      }
+    }
+
+    this.emitFallback('HEAD', repoRoot);
     return 'HEAD';
+  }
+
+  /**
+   * Phase 3 (D6): emit a `baseref_fallback` event via the injected
+   * callback (if any). Errors from the callback are swallowed so a
+   * broken emitter does not block worktree dispatch.
+   */
+  private emitFallback(ref: string, repoRoot: string): void {
+    if (!this.emitEvent) return;
+    try {
+      this.emitEvent({ kind: 'baseref_fallback', ref, repoRoot });
+    } catch {
+      // emitEvent must never block worktree creation. Swallow errors —
+      // a broken emitter shouldn't take down dispatch.
+    }
   }
 
   /** Returns true iff `git rev-parse --verify` accepts the ref. */

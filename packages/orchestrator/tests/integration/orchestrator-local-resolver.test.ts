@@ -156,50 +156,47 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       ).toBe(0);
     });
 
-    it('OT10: createAnalysisProvider references localResolvers; legacy createBackend/createLocalBackend gone', () => {
+    it('OT10: intelligence-factory consults localResolvers; legacy createBackend/createLocalBackend gone', () => {
       // Phase 3 / Tasks 10-12: the single-resolver field has been
-      // replaced by a per-named-backend Map (SC37) consumed by
-      // `createAnalysisProvider`. The legacy two-runner methods
-      // `createBackend()` and `createLocalBackend()` have been deleted
+      // replaced by a per-named-backend Map (SC37). The legacy two-runner
+      // methods `createBackend()` / `createLocalBackend()` were deleted
       // outright (SC30) — the per-dispatch `OrchestratorBackendFactory`
       // owns backend construction now.
       //
-      // Phase 4 (Spec 2 SC31-SC36): createAnalysisProvider gained a
-      // `layer: 'sel' | 'pesl' = 'sel'` parameter and now delegates per-
-      // type construction to `buildAnalysisProvider` from the
-      // `analysis-provider-factory` module. The localResolvers Map is
-      // still consulted (in the helper `resolveRoutedBackendForIntelligence`
-      // + the layer factory call), but the lookup is now structural —
-      // we assert the source references both helper symbols.
-      const src = fs.readFileSync(
+      // Phase 4 (Spec 2 SC31-SC36): per-type AnalysisProvider construction
+      // is the responsibility of `buildAnalysisProvider` from
+      // `analysis-provider-factory`, invoked via the layer-resolver helper
+      // in `agent/intelligence-factory.ts` (extracted from orchestrator.ts
+      // to keep the god class in check). Orchestrator delegates to it via
+      // `buildIntelligencePipeline`; the factory module is the single home
+      // of routing-driven AnalysisProvider lookup.
+      const orchSrc = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'orchestrator.ts'),
         'utf8'
       );
-
-      // Phase 4: the method signature gained a default-arg `layer` parameter,
-      // so we match `(...)` rather than `()`.
-      const analysisProviderMatch = src.match(
-        /private createAnalysisProvider\([^)]*\)[\s\S]*?\n  \}/
+      const factorySrc = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'agent', 'intelligence-factory.ts'),
+        'utf8'
       );
-      expect(analysisProviderMatch, 'createAnalysisProvider method not found').not.toBeNull();
 
-      // Phase 4: createAnalysisProvider delegates to buildAnalysisProvider
-      // (per-type factory) and resolveRoutedBackendForIntelligence (router
-      // lookup). Source must reference both. The localResolvers reference
-      // sits in createAnalysisProvider's body (resolver lookup by name).
-      expect(src).toMatch(/buildAnalysisProvider/);
-      expect(src).toMatch(/resolveRoutedBackendForIntelligence/);
-      expect(src).toMatch(/this\.localResolvers\.get/);
+      // Orchestrator delegates pipeline construction to the factory module.
+      expect(orchSrc).toMatch(/buildIntelligencePipeline/);
 
-      // No PHASE3-REMOVE markers remain.
-      expect(src).not.toMatch(/PHASE3-REMOVE/);
+      // The factory consults buildAnalysisProvider, the routed-backend
+      // resolver, and the localResolvers map.
+      expect(factorySrc).toMatch(/buildAnalysisProvider/);
+      expect(factorySrc).toMatch(/resolveRoutedBackend/);
+      expect(factorySrc).toMatch(/localResolvers\.get/);
+
+      // No PHASE3-REMOVE markers remain in the orchestrator source.
+      expect(orchSrc).not.toMatch(/PHASE3-REMOVE/);
       // The legacy single-resolver field must be gone (SC37).
-      expect(src).not.toMatch(/private\s+localModelResolver\s*[:=]/);
+      expect(orchSrc).not.toMatch(/private\s+localModelResolver\s*[:=]/);
       // Spec 2 SC30: legacy two-runner builders must be gone.
-      expect(src).not.toMatch(/private\s+createBackend\s*\(/);
-      expect(src).not.toMatch(/private\s+createLocalBackend\s*\(/);
+      expect(orchSrc).not.toMatch(/private\s+createBackend\s*\(/);
+      expect(orchSrc).not.toMatch(/private\s+createLocalBackend\s*\(/);
       // Spec 2 SC30: per-dispatch factory must be wired.
-      expect(src).toMatch(/this\.backendFactory/);
+      expect(orchSrc).toMatch(/this\.backendFactory/);
     });
   });
 

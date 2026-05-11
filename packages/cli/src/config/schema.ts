@@ -258,10 +258,16 @@ export const IntegrationsConfigSchema = z.object({
  * The main Harness configuration schema.
  */
 /**
- * Schema for external tracker sync configuration.
+ * Schema for external tracker sync configuration (`roadmap.tracker`).
+ *
+ * IMPORTANT: do **not** confuse this `kind` ('github' — the file-backed sync
+ * engine that reconciles `docs/roadmap.md` ↔ an external tracker) with the
+ * orchestrator's `WorkflowConfig.tracker.kind` ('roadmap' | 'github-issues' —
+ * the IssueTrackerClient dispatch). Two near-identical strings live in
+ * different config namespaces. See Phase 4 plan R3 for the long-form note.
  */
 export const TrackerConfigSchema = z.object({
-  /** Tracker kind — currently only 'github' is supported */
+  /** Tracker kind — currently only 'github' is supported for `roadmap.tracker`. */
   kind: z.literal('github'),
   /** Repository in "owner/repo" format */
   repo: z.string().optional(),
@@ -278,8 +284,26 @@ export const TrackerConfigSchema = z.object({
 
 /**
  * Schema for roadmap configuration.
+ *
+ * `mode` selects the storage backend:
+ *   - `"file-backed"` (default) — `docs/roadmap.md` is canonical.
+ *   - `"file-less"` — the configured external tracker is canonical; the
+ *     markdown file must not exist. Validated by `validateRoadmapMode`
+ *     (cross-cutting filesystem check) in addition to this Zod shape check.
+ *
+ * The Zod schema is the canonical source of the `"file-backed"` default
+ * (`.default('file-backed')` populates the field at parse time). The
+ * tolerant `getRoadmapMode(config)` helper in
+ * `@harness-engineering/core/roadmap/mode.ts` returns the same default when
+ * called against pre-parse or unvalidated config shapes; the two MUST stay
+ * in lock-step. The default is also documented in
+ * `docs/reference/configuration.md` §"RoadmapConfig Object".
+ *
+ * @see docs/changes/roadmap-tracker-only/proposal.md (Decision D5)
  */
 export const RoadmapConfigSchema = z.object({
+  /** Roadmap storage mode. Defaults to `"file-backed"` (today's behavior). */
+  mode: z.enum(['file-backed', 'file-less']).default('file-backed'),
   /** External tracker sync settings */
   tracker: TrackerConfigSchema.optional(),
 });

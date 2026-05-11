@@ -1,6 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as fs from 'node:fs/promises';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import * as path from 'node:path';
+import {
+  parseRoadmap,
+  serializeRoadmap,
+  loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
+  createTrackerClient,
+  ConflictError,
+  makeTrackerConflictBody,
+  type NewFeatureInput,
+} from '@harness-engineering/core';
 import { z } from 'zod';
 import { readBody } from '../utils.js';
 
@@ -40,6 +50,56 @@ export function handleRoadmapActionsRoute(
     try {
       if (!roadmapPath) {
         sendJSON(res, 503, { error: 'Roadmap path not configured' });
+        return;
+      }
+
+      // Phase 4 / S6: dispatch on roadmap mode.
+      const projectRoot = path.dirname(path.dirname(roadmapPath));
+      const mode = loadProjectRoadmapMode(projectRoot);
+      if (mode === 'file-less') {
+        const trackerCfg = loadTrackerClientConfigFromProject(projectRoot);
+        if (!trackerCfg.ok) {
+          sendJSON(res, 500, { error: trackerCfg.error.message });
+          return;
+        }
+        const clientR = createTrackerClient(trackerCfg.value);
+        if (!clientR.ok) {
+          sendJSON(res, 500, { error: clientR.error.message });
+          return;
+        }
+        const body = await readBody(req);
+        const parseResult = AppendRoadmapRequestSchema.safeParse(JSON.parse(body));
+        if (!parseResult.success) {
+          sendJSON(res, 400, {
+            error: parseResult.error.issues[0]?.message ?? 'Invalid request body',
+          });
+          return;
+        }
+        const newFeature: NewFeatureInput = {
+          name: parseResult.data.title,
+          summary:
+            parseResult.data.enrichedSpec?.intent ??
+            parseResult.data.summary ??
+            parseResult.data.title,
+          status: 'planned',
+        };
+        const r = await clientR.value.create(newFeature);
+        if (!r.ok) {
+          // D-P7-A: align S6 with S3/S5 — surface ConflictError as 409 TRACKER_CONFLICT.
+          // REV-P7-S5: body shape lifted to @harness-engineering/core so the
+          // wire shape is pinned in one place across S3/S5/S6.
+          if (r.error instanceof ConflictError) {
+            sendJSON(res, 409, makeTrackerConflictBody(r.error));
+            return;
+          }
+          sendJSON(res, 502, { error: r.error.message });
+          return;
+        }
+        sendJSON(res, 201, {
+          ok: true,
+          featureName: r.value.name,
+          externalId: r.value.externalId,
+        });
         return;
       }
 

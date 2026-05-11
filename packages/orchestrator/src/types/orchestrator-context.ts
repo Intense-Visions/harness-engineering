@@ -1,4 +1,5 @@
-import type { WorkflowConfig, IssueTrackerClient } from '@harness-engineering/types';
+import type { WorkflowConfig } from '@harness-engineering/types';
+import type { IssueTrackerClient } from '@harness-engineering/core';
 import type { IntelligencePipeline, EnrichedSpec } from '@harness-engineering/intelligence';
 import type { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState } from './internal';

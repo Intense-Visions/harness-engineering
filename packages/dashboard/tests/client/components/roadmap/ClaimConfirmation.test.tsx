@@ -242,4 +242,60 @@ describe('ClaimConfirmation', () => {
       json: async () => makeClaimResponse(),
     });
   });
+
+  it('on 409 TRACKER_CONFLICT: pushes toast, calls onCancel, does NOT call onConfirm', async () => {
+    const { useToastStore } = await import('../../../../src/client/stores/toastStore');
+    useToastStore.getState().clear();
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'claimed by @alice',
+        code: 'TRACKER_CONFLICT',
+        externalId: 'github:o/r#42',
+        conflictedWith: '@alice',
+        refreshHint: 'reload-roadmap',
+      }),
+    });
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <ClaimConfirmation
+        feature={makeFeature({ name: 'Auth System' })}
+        identity="chadjw"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />
+    );
+    fireEvent.click(screen.getByText('Confirm'));
+    await waitFor(() => {
+      expect(useToastStore.getState().current?.externalId).toBe('github:o/r#42');
+    });
+    expect(useToastStore.getState().current?.conflictedWith).toBe('@alice');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('on 409 without TRACKER_CONFLICT body: falls back to inline error (no toast)', async () => {
+    const { useToastStore } = await import('../../../../src/client/stores/toastStore');
+    useToastStore.getState().clear();
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'some legacy 409' }),
+    });
+    render(
+      <ClaimConfirmation
+        feature={makeFeature()}
+        identity="chadjw"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('Confirm'));
+    await waitFor(() => {
+      expect(screen.getByText('some legacy 409')).toBeDefined();
+    });
+    expect(useToastStore.getState().current).toBeNull();
+  });
 });

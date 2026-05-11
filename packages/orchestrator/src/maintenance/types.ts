@@ -63,6 +63,16 @@ export interface RunResult {
 export interface ScheduleEntry {
   /** Task identifier */
   taskId: string;
+  /**
+   * Task type (mechanical-ai | pure-ai | report-only | housekeeping).
+   *
+   * Optional on the WIRE shape so that a newer dashboard rendering data from
+   * an older orchestrator (which did not yet emit this field) does not
+   * produce empty cells of unknown semantics. The current orchestrator
+   * always populates this field via `MaintenanceScheduler.getStatus()`.
+   * Newer dashboards must render `row.type ?? '—'` (or similar fallback).
+   */
+  type?: TaskType;
   /** ISO timestamp of the next scheduled run */
   nextRun: string;
   /** Result of the most recent run, or null if never run */

@@ -58,6 +58,7 @@ const mockStatus: MaintenanceStatus = {
   schedule: [
     {
       taskId: 'arch-violations',
+      type: 'mechanical-ai',
       nextRun: '2026-01-01T02:00:00.000Z',
       lastRun: null,
     },
@@ -119,6 +120,20 @@ describe('handleMaintenanceRoute', () => {
       expect(res._status).toBe(200);
       const body = JSON.parse(res._body);
       expect(body).toEqual(mockStatus.schedule);
+    });
+
+    it('includes the type field on each schedule entry', () => {
+      const req = mockReq('GET', '/api/maintenance/schedule');
+      const res = mockRes();
+      expect(handleMaintenanceRoute(req, res, deps)).toBe(true);
+      expect(res._status).toBe(200);
+      const body = JSON.parse(res._body) as Array<{ taskId: string; type: string }>;
+      expect(body.length).toBeGreaterThan(0);
+      for (const entry of body) {
+        expect(typeof entry.type).toBe('string');
+        expect(entry.type.length).toBeGreaterThan(0);
+      }
+      expect(body[0].type).toBe('mechanical-ai');
     });
   });
 

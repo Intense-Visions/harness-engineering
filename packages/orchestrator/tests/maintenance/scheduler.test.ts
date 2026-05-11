@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MaintenanceScheduler } from '../../src/maintenance/scheduler';
+import { SingleProcessLeaderElector } from '../../src/maintenance/leader-elector';
 import type { MaintenanceConfig } from '@harness-engineering/types';
 import type { TaskDefinition } from '../../src/maintenance/types';
 
-// Minimal mock for ClaimManager
-function createMockClaimManager(claimResult: 'claimed' | 'rejected' = 'claimed') {
+// Minimal mock for LeaderElector
+function createMockLeaderElector(claimResult: 'claimed' | 'rejected' = 'claimed') {
   return {
-    claimAndVerify: vi.fn().mockResolvedValue({ ok: true, value: claimResult }),
+    electLeader: vi.fn().mockResolvedValue({ ok: true, value: claimResult }),
   };
 }
 
@@ -33,7 +34,7 @@ describe('MaintenanceScheduler', () => {
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
@@ -64,7 +65,7 @@ describe('MaintenanceScheduler', () => {
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
@@ -72,21 +73,21 @@ describe('MaintenanceScheduler', () => {
       const tasks = scheduler.getResolvedTasks();
       expect(tasks.find((t) => t.id === 'session-cleanup')).toBeUndefined();
       expect(tasks.find((t) => t.id === 'perf-baselines')).toBeUndefined();
-      // Total should be 20 - 2 = 18
-      expect(tasks).toHaveLength(18);
+      // Total should be 21 - 2 = 19
+      expect(tasks).toHaveLength(19);
     });
 
-    it('uses all 20 built-in tasks when no overrides are provided', () => {
+    it('uses all 21 built-in tasks when no overrides are provided', () => {
       const config: MaintenanceConfig = { enabled: true };
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
 
-      expect(scheduler.getResolvedTasks()).toHaveLength(20);
+      expect(scheduler.getResolvedTasks()).toHaveLength(21);
     });
   });
 
@@ -94,11 +95,11 @@ describe('MaintenanceScheduler', () => {
     it('skips evaluation when leader claim is rejected', async () => {
       const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 60_000 };
       const onTaskDue = vi.fn();
-      const claimManager = createMockClaimManager('rejected');
+      const leaderElector = createMockLeaderElector('rejected');
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });
@@ -106,18 +107,18 @@ describe('MaintenanceScheduler', () => {
       // Evaluate at a time when daily-2am tasks would be due
       await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
 
-      expect(claimManager.claimAndVerify).toHaveBeenCalledWith('maintenance-leader');
+      expect(leaderElector.electLeader).toHaveBeenCalled();
       expect(onTaskDue).not.toHaveBeenCalled();
     });
 
     it('proceeds with evaluation when leader claim succeeds', async () => {
       const config: MaintenanceConfig = { enabled: true };
       const onTaskDue = vi.fn().mockResolvedValue(undefined);
-      const claimManager = createMockClaimManager('claimed');
+      const leaderElector = createMockLeaderElector('claimed');
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });
@@ -133,15 +134,13 @@ describe('MaintenanceScheduler', () => {
 
     it('sets isLeader to false when claim fails with error', async () => {
       const config: MaintenanceConfig = { enabled: true };
-      const claimManager = {
-        claimAndVerify: vi
-          .fn()
-          .mockResolvedValue({ ok: false, error: { message: 'network error' } }),
+      const leaderElector = {
+        electLeader: vi.fn().mockResolvedValue({ ok: false, error: { message: 'network error' } }),
       };
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
@@ -150,6 +149,28 @@ describe('MaintenanceScheduler', () => {
 
       const status = scheduler.getStatus();
       expect(status.isLeader).toBe(false);
+    });
+
+    it('regression: SingleProcessLeaderElector wins leadership without a tracker round-trip', async () => {
+      // Reproduces the bug where a single orchestrator using a file-based
+      // tracker logged "Not the maintenance leader" forever because the
+      // leader-election protocol required the tracker to round-trip a
+      // synthetic 'maintenance-leader' issue id, which file-based trackers
+      // (e.g. RoadmapTrackerAdapter) do not store.
+      const onTaskDue = vi.fn().mockResolvedValue(undefined);
+      const scheduler = new MaintenanceScheduler({
+        config: { enabled: true },
+        leaderElector: new SingleProcessLeaderElector(),
+        logger: createMockLogger() as any,
+        onTaskDue,
+      });
+
+      expect(scheduler.getStatus().isLeader).toBe(false);
+
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      expect(scheduler.getStatus().isLeader).toBe(true);
+      expect(onTaskDue).toHaveBeenCalled();
     });
   });
 
@@ -160,7 +181,7 @@ describe('MaintenanceScheduler', () => {
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });
@@ -201,6 +222,7 @@ describe('MaintenanceScheduler', () => {
               'graph-refresh',
               'session-cleanup',
               'perf-baselines',
+              'main-sync',
             ].map((id) => [id, { enabled: false }])
           ),
           // Re-enable just one with a per-minute schedule for testing
@@ -211,7 +233,7 @@ describe('MaintenanceScheduler', () => {
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue,
       });
@@ -235,12 +257,12 @@ describe('MaintenanceScheduler', () => {
 
     it('start() begins interval and stop() clears it', async () => {
       const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 1000 };
-      const claimManager = createMockClaimManager('rejected'); // Don't actually run tasks
+      const leaderElector = createMockLeaderElector('rejected'); // Don't actually run tasks
       const logger = createMockLogger();
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: logger as any,
         onTaskDue: vi.fn(),
       });
@@ -250,27 +272,27 @@ describe('MaintenanceScheduler', () => {
       // Should have called evaluate once immediately
       // Wait for the initial evaluate promise
       await vi.advanceTimersByTimeAsync(0);
-      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(1);
+      expect(leaderElector.electLeader).toHaveBeenCalledTimes(1);
 
       // Advance past one interval
       await vi.advanceTimersByTimeAsync(1000);
-      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+      expect(leaderElector.electLeader).toHaveBeenCalledTimes(2);
 
       scheduler.stop();
 
       // No more calls after stop
       await vi.advanceTimersByTimeAsync(5000);
-      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+      expect(leaderElector.electLeader).toHaveBeenCalledTimes(2);
     });
 
     it('start() called twice does not create duplicate intervals', async () => {
       const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 1000 };
-      const claimManager = createMockClaimManager('rejected');
+      const leaderElector = createMockLeaderElector('rejected');
       const logger = createMockLogger();
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: logger as any,
         onTaskDue: vi.fn(),
       });
@@ -280,11 +302,11 @@ describe('MaintenanceScheduler', () => {
 
       await vi.advanceTimersByTimeAsync(0);
       // Only one initial evaluate call, not two
-      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(1);
+      expect(leaderElector.electLeader).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(1000);
       // One interval tick, not two
-      expect(claimManager.claimAndVerify).toHaveBeenCalledTimes(2);
+      expect(leaderElector.electLeader).toHaveBeenCalledTimes(2);
 
       scheduler.stop();
     });
@@ -293,7 +315,7 @@ describe('MaintenanceScheduler', () => {
       const config: MaintenanceConfig = { enabled: true };
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn().mockResolvedValue(undefined),
       });
@@ -312,7 +334,7 @@ describe('MaintenanceScheduler', () => {
       const config: MaintenanceConfig = { enabled: true };
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
@@ -321,7 +343,7 @@ describe('MaintenanceScheduler', () => {
       expect(status.isLeader).toBe(false);
       expect(status.lastLeaderClaim).toBeNull();
       expect(status.activeRun).toBeNull();
-      expect(status.schedule).toHaveLength(20);
+      expect(status.schedule).toHaveLength(21);
       expect(status.history).toHaveLength(0);
 
       // Each schedule entry should have a taskId and nextRun
@@ -336,7 +358,7 @@ describe('MaintenanceScheduler', () => {
       const config: MaintenanceConfig = { enabled: true };
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: createMockLogger() as any,
         onTaskDue: vi.fn(),
       });
@@ -402,7 +424,7 @@ describe('MaintenanceScheduler', () => {
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: createMockClaimManager() as any,
+        leaderElector: createMockLeaderElector() as any,
         logger: logger as any,
         onTaskDue,
       });
@@ -423,17 +445,17 @@ describe('MaintenanceScheduler', () => {
       expect(failedRun!.error).toContain('simulated failure');
     });
 
-    it('handles claimAndVerify throwing an exception', async () => {
+    it('handles electLeader throwing an exception', async () => {
       const config: MaintenanceConfig = { enabled: true };
-      const claimManager = {
-        claimAndVerify: vi.fn().mockRejectedValue(new Error('connection lost')),
+      const leaderElector = {
+        electLeader: vi.fn().mockRejectedValue(new Error('connection lost')),
       };
       const logger = createMockLogger();
       const onTaskDue = vi.fn();
 
       const scheduler = new MaintenanceScheduler({
         config,
-        claimManager: claimManager as any,
+        leaderElector: leaderElector as any,
         logger: logger as any,
         onTaskDue,
       });

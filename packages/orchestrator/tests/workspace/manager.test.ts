@@ -193,6 +193,25 @@ describe('WorkspaceManager', () => {
       expect(result.ok).toBe(true);
       expect(worktreeAddRef(manager)).toBe('origin/main');
     });
+
+    it('does not emit baseref_fallback by default (no emitter wired)', async () => {
+      // Regression: the default WorkspaceManager construction in production
+      // when no emitEvent is supplied must not throw or otherwise misbehave
+      // on the local-only fallback path.
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') throw new Error('not symbolic');
+        if (args[0] === 'rev-parse' && args[1] === '--verify') throw new Error('missing');
+        return '';
+      });
+
+      const result = await manager.ensureWorkspace('test-issue');
+      expect(result.ok).toBe(true);
+      // The base ref ends up at 'HEAD' (existing behavior). The point of
+      // this test is purely that no exception escaped from the (absent)
+      // emitter path.
+      expect(worktreeAddRef(manager)).toBe('HEAD');
+    });
   });
 
   it('removes stale directory before creating worktree', async () => {

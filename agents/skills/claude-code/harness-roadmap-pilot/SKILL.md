@@ -22,14 +22,18 @@ Present the ranked candidates, the AI reasoning, and the recommended pick. Wait 
 
 ### Phase 1: SCAN -- Score Candidates
 
-1. Check if `docs/roadmap.md` exists.
-   - If missing: error. "No roadmap found at docs/roadmap.md. Run harness-roadmap --create first."
-2. Parse the roadmap using `parseRoadmap` from `@harness-engineering/core`.
+1. Resolve the roadmap mode with `loadProjectRoadmapMode(projectRoot)` from `@harness-engineering/core`.
+   - In `file-backed` mode (default): check that `docs/roadmap.md` exists. If missing, error. "No roadmap found at docs/roadmap.md. Run harness-roadmap --create first."
+   - In `file-less` mode: `docs/roadmap.md` is intentionally absent. Synthesize the roadmap from the tracker:
+     a. `loadTrackerClientConfigFromProject(projectRoot)` -> `createTrackerClient(config)` to obtain a `RoadmapTrackerClient`.
+     b. `client.fetchAll()` -> map each `TrackedFeature` into a `RoadmapFeature` and group by milestone (or use a single synthetic milestone if the tracker has no milestone field).
+     c. If the tracker call fails, surface the error verbatim; do not fall back to a file-backed branch.
+2. Parse the roadmap (file-backed only) using `parseRoadmap` from `@harness-engineering/core`. (File-less mode produces the in-memory roadmap directly from step 1.)
 3. Determine the current user:
    - Use the `--user` argument if provided
    - Otherwise, attempt to detect from git config: `git config user.name` or `git config user.email`
    - If neither available, proceed without affinity scoring
-4. Call `scoreRoadmapCandidates(roadmap, { currentUser })` from `@harness-engineering/core`.
+4. Call `scoreRoadmapCandidatesForMode(roadmap, { currentUser }, config)` from `@harness-engineering/core` (FR-S3). This is the mode-aware wrapper: in `file-backed` mode it delegates to `scoreRoadmapCandidates` unchanged; in `file-less` mode it routes through `scoreRoadmapCandidatesFileLess` for the D4 priority+createdAt ordering. Always passing through this wrapper keeps the skill mode-agnostic.
 5. If no candidates: inform the human. "No unblocked planned or backlog items found. All items are either in-progress, done, blocked, or the roadmap is empty."
 
 Present the top 5 candidates:
@@ -156,9 +160,11 @@ Proceed with Feature A? (y/n/pick another)
 
 ## Harness Integration
 
-- **`parseRoadmap` / `serializeRoadmap`** -- Parse and write `docs/roadmap.md`. Import from `@harness-engineering/core`.
-- **`scoreRoadmapCandidates`** -- Core scoring algorithm. Import from `@harness-engineering/core`. Takes a `Roadmap` and optional `PilotScoringOptions` (currentUser for affinity).
-- **`manage_roadmap update`** -- Used for assignment. Supports `assignee` field which delegates to `assignFeature` internally, handles history tracking, and automatically triggers external sync (GitHub Issues).
+- **`parseRoadmap` / `serializeRoadmap`** -- Parse and write `docs/roadmap.md` (file-backed mode only). Import from `@harness-engineering/core`.
+- **`loadProjectRoadmapMode` / `loadTrackerClientConfigFromProject` / `createTrackerClient`** -- Resolve `roadmap.mode` and obtain a `RoadmapTrackerClient` for file-less mode. Import from `@harness-engineering/core`.
+- **`scoreRoadmapCandidatesForMode`** -- Mode-aware scoring entry point. Import from `@harness-engineering/core`. In file-backed mode delegates to `scoreRoadmapCandidates`; in file-less mode routes through `scoreRoadmapCandidatesFileLess` (priority + createdAt sort, FR-S3).
+- **`scoreRoadmapCandidates`** -- Underlying file-backed scoring algorithm. Prefer `scoreRoadmapCandidatesForMode` from the skill; direct callers in file-backed-only code paths can still use this.
+- **`manage_roadmap update`** -- Used for assignment. Supports `assignee` field which delegates to `assignFeature` internally, handles history tracking, and automatically triggers external sync (GitHub Issues). In file-less mode, `manage_roadmap` dispatches through the tracker; the skill flow is unchanged.
 - **`emit_interaction`** -- Used for the skill transition at the end. Transitions to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists).
 - **`harness validate`** -- Run after assignment is written.
 
