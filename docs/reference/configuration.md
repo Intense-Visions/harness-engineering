@@ -646,9 +646,10 @@ Configures roadmap management and external tracker synchronization.
 
 ### RoadmapConfig Object
 
-| Field     | Type            | Required | Description                    |
-| --------- | --------------- | -------- | ------------------------------ |
-| `tracker` | `TrackerConfig` | No       | External tracker sync settings |
+| Field     | Type                           | Required | Default         | Description                                               |
+| --------- | ------------------------------ | -------- | --------------- | --------------------------------------------------------- |
+| `mode`    | `"file-backed" \| "file-less"` | No       | `"file-backed"` | Roadmap storage mode. See §"Mode validation rules" below. |
+| `tracker` | `TrackerConfig`                | No       | —               | External tracker sync settings                            |
 
 ### TrackerConfig Object
 
@@ -662,11 +663,21 @@ Configures roadmap management and external tracker synchronization.
 
 The `statusMap` keys are roadmap statuses: `"backlog"`, `"planned"`, `"in-progress"`, `"done"`, `"blocked"`. Values are the corresponding external tracker statuses (e.g., `"open"`, `"closed"`).
 
+### Mode validation rules
+
+Two cross-cutting invariants are enforced by `harness validate` (rule implementation in `packages/core/src/validation/roadmap-mode.ts`):
+
+- **`ROADMAP_MODE_MISSING_TRACKER`** — When `roadmap.mode` is `"file-less"`, `roadmap.tracker` must be configured. File-less mode requires an external tracker as the source of truth.
+- **`ROADMAP_MODE_FILE_PRESENT`** — When `roadmap.mode` is `"file-less"`, `docs/roadmap.md` must NOT exist. Run `harness roadmap migrate --to=file-less` to convert a file-backed project; the command archives `docs/roadmap.md` to `docs/roadmap.md.archived` as the final step.
+
+See `docs/guides/roadmap-sync.md` §"File-less mode" for the operator walkthrough and ADRs 0008 (tracker abstraction in core), 0009 (audit history as issue comments), 0010 (`tracker.kind` schema decoupling).
+
 ### Example
 
 ```json
 {
   "roadmap": {
+    "mode": "file-backed", // optional; defaults to "file-backed"
     "tracker": {
       "kind": "github",
       "repo": "my-org/my-project",
