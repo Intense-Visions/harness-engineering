@@ -324,57 +324,6 @@ Recommend skills based on codebase health analysis
 - `--no-cache` — Force fresh health snapshot
 - `--top` — Max recommendations (default 5) (default: "5")
 
-### `harness roadmap`
-
-Roadmap command group. Subcommands operate on the project's roadmap (file-backed `docs/roadmap.md` or file-less external tracker, depending on `roadmap.mode`).
-
-#### `harness roadmap migrate`
-
-Migrate a project's roadmap from file-backed to file-less mode.
-
-**Usage:**
-
-```
-harness roadmap migrate --to=<target> [--dry-run] [--format=<fmt>]
-```
-
-**Flags:**
-
-- `--to=<target>` (required) — Target mode. Currently only `file-less` is supported. Passing `--to=file-backed` returns a "not yet implemented" message (reverse migration is reserved for a future spec).
-- `--dry-run` — Print the migration plan (issues that would be created, body blocks that would be updated, history events that would be appended) without making any GitHub API writes.
-- `--format=<fmt>` — Output format. `human` (default) prints a colored plan summary and progress messages. `json` suppresses the human-readable output and emits a single JSON object on stdout for CI consumers. See [migration.md](../changes/roadmap-tracker-only/migration.md#json-output-rev-p5-s2) for the stable shape.
-
-**Behavior:**
-
-- Verifies `roadmap.tracker` is configured (else exits with `CONFIG_ERROR` / code 4).
-- Parses `docs/roadmap.md`, creates GitHub issues for features lacking `External-ID`, updates body metadata blocks, posts deduplicated history comments, archives `docs/roadmap.md` → `docs/roadmap.md.archived`, writes `harness.config.json.pre-migration` backup, sets `roadmap.mode: "file-less"`.
-- Idempotent on re-run. A re-run after a successful migration exits 0 with `Already migrated; nothing to do.`. A re-run after partial failure picks up where it stopped.
-- Title-only collisions (existing issue with the same title but no recorded `External-ID`) refuse and exit `AMBIGUOUS` (code 2); the operator resolves by recording the External-ID in `roadmap.md` and re-running.
-- Archive-file collisions (`docs/roadmap.md.archived` already exists) refuse and exit `ARCHIVE_COLLISION` (code 3).
-
-**Exit codes:**
-
-| Code | Name              | When                                                                               |
-| ---- | ----------------- | ---------------------------------------------------------------------------------- |
-| 0    | SUCCESS           | Plan applied, dry-run, or already-migrated.                                        |
-| 1    | GENERIC_FAILURE   | Tracker write error, parse error, network error, unknown abort reason.             |
-| 2    | AMBIGUOUS         | Title-only collision; see "Title-only collision" in migration.md.                  |
-| 3    | ARCHIVE_COLLISION | `docs/roadmap.md.archived` already exists.                                         |
-| 4    | CONFIG_ERROR      | Missing tracker config, missing `roadmap.tracker.repo`, missing `docs/roadmap.md`. |
-| 5    | PARTIAL_CREATE    | Some features were created before an abort; operator hand-recovery is needed.      |
-
-**Examples:**
-
-```
-# Preview the migration without making any API writes.
-harness roadmap migrate --to=file-less --dry-run
-
-# Commit the migration.
-harness roadmap migrate --to=file-less
-```
-
-See [`docs/guides/roadmap-sync.md`](../guides/roadmap-sync.md#file-less-mode) §"File-less mode" and [`docs/changes/roadmap-tracker-only/migration.md`](../changes/roadmap-tracker-only/migration.md) for the full operator walkthrough.
-
 ### `harness scan [path]`
 
 Scan project and build knowledge graph
@@ -425,6 +374,15 @@ Pull published intelligence analyses from the external issue tracker into the lo
 **Options:**
 
 - `-d, --dir` — Workspace directory (default: current working directory)
+
+### `harness sync-main`
+
+Fast-forward the local default branch from origin (no-op on conflict)
+
+**Options:**
+
+- `--json` — Emit a SyncMainResult JSON object
+- `--path` — Project root path (default: ".")
 
 ### `harness traceability`
 
@@ -769,6 +727,20 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 - `--non-interactive` — Emit single-line JSON status on stdout instead of headlines+path. Auto-detected when stdout is not a TTY.
 - `--config` — Path to harness.config.json (default: "harness.config.json")
 - `--output-dir` — Directory to write the report into (default: "docs/pulse-reports")
+
+## Roadmap Commands
+
+Roadmap management
+
+### `harness roadmap migrate`
+
+Migrate the project roadmap to a different storage mode
+
+**Options:**
+
+- `--to` — Migration target (only "file-less" supported today)
+- `--dry-run` — Print the migration plan without making any changes
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
 ## Skill Commands
 

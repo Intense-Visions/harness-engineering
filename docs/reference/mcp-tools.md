@@ -717,7 +717,7 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, sync features, or query by filter. **Mode-aware:** in `roadmap.mode: "file-backed"` (default), reads and writes `docs/roadmap.md`. In `roadmap.mode: "file-less"`, dispatches through an `IssueTrackerClient` against the configured GitHub Issues tracker — no local file is read or written. See `docs/guides/roadmap-sync.md` §"File-less mode" and ADRs 0008–0010.
+Manage the project roadmap: show, add, update, remove, sync features, or query by filter. Reads and writes docs/roadmap.md.
 
 **Parameters:**
 
