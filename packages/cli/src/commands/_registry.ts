@@ -46,6 +46,7 @@ import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createQueryCommand } from './graph/query';
 import { createRecommendCommand } from './recommend';
+import { createRoadmapCommand } from './roadmap';
 import { createScanCommand } from './graph/scan';
 import { createScanConfigCommand } from './scan-config';
 import { createSetupCommand } from './setup';
@@ -114,6 +115,7 @@ export const commandCreators: Array<() => Command> = [
   createPulseCommand,
   createQueryCommand,
   createRecommendCommand,
+  createRoadmapCommand,
   createScanCommand,
   createScanConfigCommand,
   createSetupCommand,
