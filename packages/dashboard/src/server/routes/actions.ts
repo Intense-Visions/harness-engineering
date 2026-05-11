@@ -2,14 +2,12 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
   loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
   createTrackerClient,
   parseRoadmap,
   serializeRoadmap,
-  type TrackerClientConfig,
 } from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
@@ -20,46 +18,6 @@ import { gatherArch } from '../gather/arch';
 import { gatherAnomalies } from '../gather/anomalies';
 import type { ChecksData, ClaimRequest, ClaimResponse, SSEEvent } from '../../shared/types';
 import { handleClaimFileLess, handleRoadmapStatusFileLess } from './actions-claim-file-less';
-
-/**
- * Build a `TrackerClientConfig` from the project's `harness.config.json`.
- * Returns Err with a descriptive message when the config is missing or
- * incompatible with file-less dispatch. Mirrors the cli helper in
- * packages/cli/src/mcp/tools/roadmap.ts (D-P4-D consolidation).
- */
-function loadTrackerClientConfigFromProject(
-  projectPath: string
-): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
-  try {
-    const configPath = path.join(projectPath, 'harness.config.json');
-    if (!fs.existsSync(configPath)) {
-      return { ok: false, error: new Error('harness.config.json not found') };
-    }
-    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
-      roadmap?: { tracker?: { kind?: string; repo?: string } };
-    };
-    const tracker = cfg.roadmap?.tracker;
-    if (!tracker) {
-      return {
-        ok: false,
-        error: new Error(
-          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
-        ),
-      };
-    }
-    if (tracker.kind !== 'github') {
-      return {
-        ok: false,
-        error: new Error(
-          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
-        ),
-      };
-    }
-    return { ok: true, value: { kind: 'github-issues', repo: tracker.repo ?? '' } };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
-  }
-}
 
 const fileLocks = new Map<string, Promise<void>>();
 
