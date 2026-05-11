@@ -9,8 +9,10 @@ import type {
 describe('roadmap/tracker public surface', () => {
   it('exposes IssueTrackerClient with the Phase 1 method shape', () => {
     type Methods = keyof IssueTrackerClient;
-    // Phase 1 keeps the existing four operations. Phase 2 will add more
-    // (fetchAll, create, update, claim, release, complete, appendHistory).
+    // Phase 1 lifts the existing six operations on IssueTrackerClient:
+    // fetchCandidateIssues, fetchIssuesByStates, fetchIssueStatesByIds,
+    // markIssueComplete, claimIssue, releaseIssue. Phase 2 introduces a
+    // separate wide interface RoadmapTrackerClient.
     expectTypeOf<Methods>().toEqualTypeOf<
       | 'fetchCandidateIssues'
       | 'fetchIssuesByStates'

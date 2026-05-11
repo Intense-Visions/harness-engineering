@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { WorkflowConfig, AgentBackend } from '@harness-engineering/types';
+import type { WorkflowConfig, AgentBackend } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';

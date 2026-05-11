@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto';
 import {
   parseRoadmap,
   serializeRoadmap,
-  // Phase 1 of the file-less roadmap proposal: the tracker abstraction
-  // now has its public home in @harness-engineering/core/roadmap/tracker.
-  // The four lifted symbols below resolve through that home.
+  // Phase 1 of the file-less roadmap proposal: tracker types have their
+  // canonical home in core/roadmap/tracker/ (source path); re-exported
+  // from the @harness-engineering/core package root for consumers.
   type Issue,
   type IssueTrackerClient,
   type TrackerConfig,
