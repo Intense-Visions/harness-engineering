@@ -89,9 +89,15 @@ describe('sessions routes', () => {
 
   beforeEach(async () => {
     sessionsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sessions-test-'));
-    port = Math.floor(Math.random() * 10000) + 40000;
     server = createServer(sessionsDir);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free port. Avoids EACCES on
+    // Windows runners when a random 40000-50000 port hits a reserved range.
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    if (!address || typeof address !== 'object') {
+      throw new Error('Server failed to bind to an address');
+    }
+    port = address.port;
   });
 
   afterEach(async () => {

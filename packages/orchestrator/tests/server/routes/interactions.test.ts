@@ -55,9 +55,15 @@ describe('interactions routes', () => {
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'int-route-test-'));
     queue = new InteractionQueue(tmpDir);
-    port = Math.floor(Math.random() * 10000) + 30000;
     server = createServer(queue);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free port. Avoids EACCES on
+    // Windows runners when a random 30000-40000 port hits a reserved range.
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    if (!address || typeof address !== 'object') {
+      throw new Error('Server failed to bind to an address');
+    }
+    port = address.port;
   });
 
   afterEach(async () => {
