@@ -251,7 +251,11 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       const data = (await res.json()) as RawIssue;
       this.cache.invalidate(`feature:${externalId}`);
       this.cache.invalidatePrefix('list:');
-      return Ok({ feature: this.mapIssue(data, new Map()), wrote: true, priorFeature });
+      return Ok({
+        feature: this.mapIssue(data, new Map()),
+        wrote: true,
+        ...(priorFeature !== undefined ? { priorFeature } : {}),
+      });
     } catch (err) {
       return Err(err instanceof Error ? err : new Error(String(err)));
     }
