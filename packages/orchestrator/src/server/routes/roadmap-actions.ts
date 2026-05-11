@@ -7,6 +7,7 @@ import {
   loadProjectRoadmapMode,
   loadTrackerClientConfigFromProject,
   createTrackerClient,
+  ConflictError,
   type NewFeatureInput,
 } from '@harness-engineering/core';
 import { z } from 'zod';
@@ -83,6 +84,17 @@ export function handleRoadmapActionsRoute(
         };
         const r = await clientR.value.create(newFeature);
         if (!r.ok) {
+          // D-P7-A: align S6 with S3/S5 — surface ConflictError as 409 TRACKER_CONFLICT.
+          if (r.error instanceof ConflictError) {
+            sendJSON(res, 409, {
+              error: r.error.message,
+              code: 'TRACKER_CONFLICT',
+              externalId: r.error.externalId,
+              conflictedWith: r.error.diff,
+              refreshHint: 'reload-roadmap',
+            });
+            return;
+          }
           sendJSON(res, 502, { error: r.error.message });
           return;
         }
