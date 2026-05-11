@@ -466,6 +466,24 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     return null;
   }
 
+  /**
+   * Trust model for history events.
+   *
+   * `HISTORY_PREFIX` (`<!-- harness-history -->`) marks issue comments as
+   * authentic harness events. fetchHistory reads only comments that begin
+   * with this prefix; appendHistory writes the prefix unconditionally.
+   *
+   * Trust is per-repo: only repository contributors authorized to post
+   * comments on a given issue can synthesize harness history events.
+   * GitHub's per-repo permissions are the authorization boundary; the
+   * prefix itself is not a cryptographic credential — a contributor with
+   * comment access can forge events by hand-writing the prefix.
+   *
+   * HMAC-signing of event payloads is a future hardening (post-GA) for
+   * deployments that need cross-actor tamper-evidence within the same
+   * repo. The current shape is intentional: optimized for transparency
+   * (events are human-readable, no key distribution required).
+   */
   private static HISTORY_PREFIX = '<!-- harness-history -->';
 
   async appendHistory(externalId: string, event: HistoryEvent): Promise<Result<void, Error>> {
@@ -547,6 +565,21 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     };
   }
 
+  /**
+   * Status precedence (highest wins):
+   *   1. issue.state === 'closed'  → 'done'
+   *   2. 'blocked' label            → 'blocked'
+   *   3. 'needs-human' label        → 'needs-human'
+   *   4. 'in-progress' label OR any assignee  → 'in-progress'
+   *   5. 'planned' label            → 'planned'
+   *   6. otherwise                  → 'backlog'
+   *
+   * Note step 4: an assignment overrides a 'planned' label. This is
+   * intentional — a feature that someone has picked up is "in-progress"
+   * regardless of whether the planning label was cleared first. The reverse
+   * (planned label + assignee) is the common case where the orchestrator
+   * (or a human) starts work without scrubbing the planning label.
+   */
   private mapStatus(issue: RawIssue, _meta: BodyMeta): FeatureStatus {
     if (issue.state === 'closed') return 'done';
     const labels = issue.labels.map((l) => l.name);

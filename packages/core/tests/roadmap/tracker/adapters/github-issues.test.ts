@@ -310,6 +310,35 @@ describe('GitHubIssuesTrackerAdapter — fetchById', () => {
   });
 });
 
+describe('GitHubIssuesTrackerAdapter — mapStatus precedence', () => {
+  it('assignment overrides a planned label → in-progress', async () => {
+    // Common case: a feature carries the 'planned' label from triage AND
+    // has been picked up by an actor. mapStatus must report 'in-progress'
+    // — the assignment dominates the stale planning label.
+    const fetchFn = mockFetchSequence({
+      status: 200,
+      body: rawIssue({
+        number: 1,
+        state: 'open',
+        labels: [{ name: 'harness-managed' }, { name: 'planned' }],
+        assignees: [{ login: 'alice' }],
+      }),
+      etag: 'W/"e"',
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.fetchById('github:o/r#1');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.value) {
+      expect(r.value.feature.status).toBe('in-progress');
+      expect(r.value.feature.assignee).toBe('@alice');
+    }
+  });
+});
+
 describe('GitHubIssuesTrackerAdapter — fetchByStatus', () => {
   it('filters fetchAll() by status', async () => {
     const fetchFn = mockFetchSequence({
@@ -472,9 +501,12 @@ describe('GitHubIssuesTrackerAdapter — create', () => {
   });
 
   it('c) Invalidates list:* after create', async () => {
+    // Production writes only the `list:all` cache key (see fetchAll). The
+    // assertion below verifies that invalidatePrefix('list:') clears it on
+    // create. We do not seed keys that production never writes; the prefix
+    // wildcard is exercised at the ETagStore unit-test level.
     const cache = new ETagStore();
     cache.set('list:all', 'W/"old"', []);
-    cache.set('list:status:in-progress', 'W/"y"', []);
     const fetchFn = mockFetchSequence({
       status: 201,
       body: rawIssue({ number: 1 }),
@@ -488,7 +520,6 @@ describe('GitHubIssuesTrackerAdapter — create', () => {
     });
     await adapter.create({ name: 'X', summary: 'sum' });
     expect(cache.get('list:all')).toBeNull();
-    expect(cache.get('list:status:in-progress')).toBeNull();
   });
 });
 
