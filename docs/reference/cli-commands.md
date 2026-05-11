@@ -324,6 +324,45 @@ Recommend skills based on codebase health analysis
 - `--no-cache` — Force fresh health snapshot
 - `--top` — Max recommendations (default 5) (default: "5")
 
+### `harness roadmap`
+
+Roadmap command group. Subcommands operate on the project's roadmap (file-backed `docs/roadmap.md` or file-less external tracker, depending on `roadmap.mode`).
+
+#### `harness roadmap migrate`
+
+Migrate a project's roadmap from file-backed to file-less mode.
+
+**Usage:**
+
+```
+harness roadmap migrate --to=<target> [--dry-run]
+```
+
+**Flags:**
+
+- `--to=<target>` (required) — Target mode. Currently only `file-less` is supported.
+- `--dry-run` — Print the migration plan (issues that would be created, body blocks that would be updated, history events that would be appended) without making any GitHub API writes.
+
+**Behavior:**
+
+- Verifies `roadmap.tracker` is configured (else exits non-zero with `ROADMAP_MODE_MISSING_TRACKER`).
+- Parses `docs/roadmap.md`, creates GitHub issues for features lacking `External-ID`, updates body metadata blocks, posts deduplicated history comments, archives `docs/roadmap.md` → `docs/roadmap.md.archived`, writes `harness.config.json.pre-migration` backup, sets `roadmap.mode: "file-less"`.
+- Idempotent on re-run. A re-run after a successful migration exits 0 with `Already migrated; nothing to do.`. A re-run after partial failure picks up where it stopped.
+- Title-only collisions (existing issue with the same title but no recorded `External-ID`) refuse and exit `AMBIGUOUS`; the operator resolves by recording the External-ID in `roadmap.md` and re-running.
+- Archive-file collisions (`docs/roadmap.md.archived` already exists) refuse and abort with a remediation message.
+
+**Examples:**
+
+```
+# Preview the migration without making any API writes.
+harness roadmap migrate --to=file-less --dry-run
+
+# Commit the migration.
+harness roadmap migrate --to=file-less
+```
+
+See [`docs/guides/roadmap-sync.md`](../guides/roadmap-sync.md#file-less-mode) §"File-less mode" and [`docs/changes/roadmap-tracker-only/migration.md`](../changes/roadmap-tracker-only/migration.md) for the full operator walkthrough.
+
 ### `harness scan [path]`
 
 Scan project and build knowledge graph
