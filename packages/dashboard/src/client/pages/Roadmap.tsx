@@ -9,6 +9,9 @@ import { StatsBar } from '../components/roadmap/StatsBar';
 import { FeatureTable } from '../components/roadmap/FeatureTable';
 import { ClaimConfirmation } from '../components/roadmap/ClaimConfirmation';
 import { AssignmentHistory } from '../components/roadmap/AssignmentHistory';
+import { ConflictToastRegion } from '../components/ConflictToastRegion';
+import { scrollToFeatureRow } from '../utils/scrollToFeatureRow';
+import { fetchWithConflict } from '../utils/fetchWithConflict';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isRoadmapData } from '../utils/typeGuards';
 import type {
@@ -298,8 +301,29 @@ function RoadmapContent({
 export function Roadmap() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
+  // Phase 7 D-P7-E: manual refresh override applied on TRACKER_CONFLICT.
+  // Cleared on next SSE lastUpdated tick so live updates resume.
+  const [refreshedData, setRefreshedData] = useState<RoadmapData | null>(null);
+
+  useEffect(() => {
+    // When SSE pushes a new event, clear the manual refetch override.
+    setRefreshedData(null);
+  }, [lastUpdated]);
+
+  const handleConflictRefresh = useCallback(async (externalId: string) => {
+    const r = await fetchWithConflict<RoadmapData>('/api/roadmap', { cache: 'no-store' });
+    if (r.ok) {
+      setRefreshedData(r.data);
+      // Allow the DOM to commit before scrolling.
+      requestAnimationFrame(() => {
+        scrollToFeatureRow(externalId);
+      });
+    }
+  }, []);
+
   const roadmap = data ? data.roadmap : null;
-  const roadmapData = roadmap && isRoadmapData(roadmap) ? roadmap : null;
+  const sseRoadmapData = roadmap && isRoadmapData(roadmap) ? roadmap : null;
+  const effectiveData = refreshedData ?? sseRoadmapData;
 
   return (
     <div>
@@ -315,17 +339,19 @@ export function Roadmap() {
 
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream…</p>}
 
-      {roadmap && !roadmapData && (
+      {roadmap && !sseRoadmapData && (
         <p className="text-sm text-red-400">{'error' in roadmap ? roadmap.error : 'Unavailable'}</p>
       )}
 
-      {roadmapData && (
+      {effectiveData && (
         <RoadmapContent
-          milestones={roadmapData.milestones}
-          features={roadmapData.features}
-          data={roadmapData}
+          milestones={effectiveData.milestones}
+          features={effectiveData.features}
+          data={effectiveData}
         />
       )}
+
+      <ConflictToastRegion onRefresh={handleConflictRefresh} />
     </div>
   );
 }
