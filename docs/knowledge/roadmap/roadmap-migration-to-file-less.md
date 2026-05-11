@@ -54,6 +54,11 @@ Re-runs after a successful migration exit at step 1 with `Already migrated; noth
 
 The idempotence guarantees combine: a failed run in the middle of step 3 can be re-invoked safely; the second run does not duplicate issues. A failed run after step 6 but before step 7 is recoverable by re-invoking — the second run skips steps 2–6 (file is archived) and runs step 7.
 
+Two failure modes are NOT auto-recoverable on re-run and require explicit operator intervention before the migration can proceed:
+
+- **AMBIGUOUS title collision (Phase 5 decision D-P5-E).** If an issue with a matching feature title exists in the tracker but the roadmap-side feature has no `External-ID` recorded, the migration aborts at step 3 to avoid mis-binding the wrong issue. The operator must either (a) hand-record the correct `External-ID` against the feature in `docs/roadmap.md`, or (b) close or rename the colliding issue, then re-invoke. The migration never guesses; ambiguous binding is treated as a hard stop.
+- **Archive collision (Phase 5 decision D-P5-D).** If `docs/roadmap.md.archived` already exists when step 6 runs, the migration refuses to overwrite it. The operator must rename or remove the existing archive (the destination from a prior run, or an unrelated file with the same name) before re-invoking. Refusing to overwrite preserves the operator's earlier archive in case the prior migration was abandoned mid-flight.
+
 ## Known limitations (carry-forward)
 
 Per Phase 6 decision D-P6-G, the following Phase-5-flagged caveats are documented here as known limitations that an LLM or operator may encounter:
