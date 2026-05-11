@@ -37,6 +37,11 @@ export function validateRoadmapMode(
   config: RoadmapModeValidationConfig,
   projectRoot: string
 ): Result<void, ConfigError> {
+  // Defensive normalization: the JSDoc promises an absolute path but
+  // path.resolve() also handles relative inputs and removes `..`/`.` segments,
+  // making the downstream path.join() predictable regardless of caller input.
+  const root = path.resolve(projectRoot);
+
   const mode = getRoadmapMode(config);
   if (mode === 'file-backed') return Ok(undefined);
 
@@ -60,7 +65,7 @@ export function validateRoadmapMode(
   }
 
   // Rule B: docs/roadmap.md must not exist.
-  const roadmapPath = path.join(projectRoot, 'docs', 'roadmap.md');
+  const roadmapPath = path.join(root, 'docs', 'roadmap.md');
   if (fs.existsSync(roadmapPath)) {
     return Err(
       createError<ConfigError>(

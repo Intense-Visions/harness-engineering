@@ -94,24 +94,30 @@ describe('handleRoadmapActionsRoute — Phase 4 file-less dispatch (S6)', () => 
       title: 'New work item',
     });
 
-    // No GITHUB_TOKEN -> createTrackerClient returns Err -> 500 with
-    // missing-token message. The point: status is NOT 501 and the body
-    // does NOT contain the old stub phrase.
-    expect(res.statusCode).not.toBe(501);
+    // No GITHUB_TOKEN -> createTrackerClient returns Err -> handler
+    // responds 500 with the missing-token message. Pinning to 500 keeps
+    // this regression-proof (the old `not 501` form passed for any
+    // non-501 code, masking future status-code regressions).
+    expect(res.statusCode).toBe(500);
     const body = res.body as { error?: string };
     expect(body.error ?? '').not.toMatch(/not yet wired/);
   });
 
   it('falls through to existing behavior when no harness.config.json present (file-backed default)', async () => {
-    // No harness.config.json → getRoadmapMode → 'file-backed' → existing logic runs.
-    // The seeded roadmap.md may not be a perfectly valid Roadmap (parseRoadmap is strict),
-    // but for fall-through it's enough to assert the response is NOT-501 — i.e. the file-less
-    // guard short-circuit did not engage.
+    // No harness.config.json → mode defaults to 'file-backed' → the
+    // existing append-to-backlog logic runs. The seeded minimal roadmap is
+    // intentionally not a fully-formed Roadmap (parseRoadmap is strict),
+    // so the route's parseRoadmap call returns Err → handler responds 500
+    // with "Failed to parse roadmap file". Pinning to 500 with the
+    // specific error string proves we entered the file-backed branch
+    // (rather than the file-less dispatch or the old 501 stub).
     const res = await request(port, 'POST', '/api/roadmap/append', {
       title: 'Backlog item under file-backed mode',
     });
 
-    expect(res.statusCode).not.toBe(501);
+    expect(res.statusCode).toBe(500);
+    const body = res.body as { error?: string };
+    expect(body.error).toBe('Failed to parse roadmap file');
   });
 
   it('falls through to existing behavior when roadmap.mode is explicitly file-backed', async () => {
@@ -128,7 +134,11 @@ describe('handleRoadmapActionsRoute — Phase 4 file-less dispatch (S6)', () => 
       title: 'Backlog item under explicit file-backed mode',
     });
 
-    // Same NOT-501 assertion: the guard must not engage when mode is file-backed.
-    expect(res.statusCode).not.toBe(501);
+    // Same file-backed parse path as above. Pinning to the specific
+    // failure code/message demonstrates the explicit file-backed mode
+    // hits the same branch as the default.
+    expect(res.statusCode).toBe(500);
+    const body = res.body as { error?: string };
+    expect(body.error).toBe('Failed to parse roadmap file');
   });
 });

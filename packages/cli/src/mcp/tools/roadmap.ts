@@ -453,6 +453,11 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
   const projectPathPre = sanitizePath(input.path);
 
   // Phase 4 / S1: dispatch on roadmap mode.
+  // Note: `sanitizePath(input.path)` runs upstream of the file-less guard,
+  // so any externalId resolution downstream (in handleManageRoadmapFileLess)
+  // sees a sanitized project path. The externalId itself comes from the
+  // tracker client response, not from `input`, and is guarded again by the
+  // adapter's confused-deputy check (see github-issues.ts).
   const mode = loadProjectRoadmapMode(projectPathPre);
   if (mode === 'file-less') {
     const trackerCfg = loadTrackerClientConfigFromProject(projectPathPre);

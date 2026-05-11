@@ -58,12 +58,21 @@ describe('handleRoadmapStatus — Phase 4 file-less dispatch (S5)', () => {
       body: JSON.stringify({ feature: 'x', status: 'in-progress' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    expect(res.status).not.toBe(501);
+    // file-less branch with no GITHUB_TOKEN → createTrackerClient returns Err
+    // → handler responds 500 with the missing-token message. Pinning the
+    // exact status code keeps the assertion meaningful (the old `not 501`
+    // form would have passed for any 4xx/5xx, masking future regressions).
+    expect(res.status).toBe(500);
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/not yet wired/);
   });
 
-  it('file-backed regression: fall-through when mode is absent (NOT 501)', async () => {
+  it('file-backed regression: fall-through when mode is absent → 500 (missing roadmap.md)', async () => {
+    // No harness.config.json, no docs/roadmap.md. The file-backed path
+    // tries to read roadmapPath and fails → updateRoadmapContent returns
+    // { error: 'Could not read roadmap file', code: 500 }. Pinning to 500
+    // proves we left the file-less dispatch and entered the file-backed
+    // branch; the missing-file behavior is exercised elsewhere.
     const app = new Hono();
     app.route('/api', buildActionsRouter(makeCtx(dir)));
     const res = await app.request('/api/actions/roadmap-status', {
@@ -71,6 +80,6 @@ describe('handleRoadmapStatus — Phase 4 file-less dispatch (S5)', () => {
       body: JSON.stringify({ feature: 'x', status: 'in-progress' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    expect(res.status).not.toBe(501);
+    expect(res.status).toBe(500);
   });
 });

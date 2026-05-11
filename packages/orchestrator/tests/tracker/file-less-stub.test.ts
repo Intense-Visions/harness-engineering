@@ -103,4 +103,21 @@ describe('Orchestrator — Phase 4 file-less tracker dispatch (S2)', () => {
     const cfg = createConfig(path.join(dir, '.harness', 'workspaces'), 'roadmap');
     expect(() => new Orchestrator(cfg, 'Prompt')).not.toThrow();
   });
+
+  it('defensive default: behaves as file-backed when harness.config.json is missing entirely', () => {
+    // REV-P3-V-1: the file-less dispatch logic must not throw when the
+    // config file itself is absent. The defensive default is 'file-backed',
+    // so the orchestrator should still construct (with a RoadmapTracker
+    // when the workflow config says `kind: roadmap`).
+    fs.rmSync(path.join(dir, 'harness.config.json'), { force: true });
+    expect(fs.existsSync(path.join(dir, 'harness.config.json'))).toBe(false);
+
+    const cfg = createConfig(path.join(dir, '.harness', 'workspaces'), 'roadmap');
+    let orch: Orchestrator | undefined;
+    expect(() => {
+      orch = new Orchestrator(cfg, 'Prompt');
+    }).not.toThrow();
+    const tracker = (orch as unknown as { tracker: unknown }).tracker;
+    expect(tracker).toBeInstanceOf(RoadmapTrackerAdapter);
+  });
 });

@@ -61,7 +61,11 @@ describe('handleClaim — Phase 4 file-less dispatch (S3)', () => {
       body: JSON.stringify({ feature: 'x', assignee: 'alice' }),
       headers: { 'Content-Type': 'application/json' },
     });
-    expect(res.status).not.toBe(501);
+    // file-less branch with no GITHUB_TOKEN → createTrackerClient returns
+    // Err → handler responds 500 with the missing-token message. Pinning
+    // the exact status code keeps this regression-proof (the old
+    // `not 501` form would have passed for any non-501 code).
+    expect(res.status).toBe(500);
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/not yet wired/);
     // createTrackerClient without GITHUB_TOKEN -> missing token error.
