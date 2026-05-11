@@ -76,8 +76,10 @@ export type {
   HistoryEvent,
   HistoryEventType,
   TrackerClientConfig,
+  TrackerConflictBody,
+  MakeTrackerConflictBodyOptions,
 } from './tracker';
-export { ConflictError, createTrackerClient, ETagStore } from './tracker';
+export { ConflictError, createTrackerClient, ETagStore, makeTrackerConflictBody } from './tracker';
 
 /**
  * Roadmap storage mode helper. See packages/core/src/roadmap/mode.ts.

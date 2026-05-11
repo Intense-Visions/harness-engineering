@@ -44,13 +44,22 @@ describe('handleClaim — Phase 4 file-less dispatch (S3)', () => {
   });
 
   it('dispatches to file-less helper (no 501) when mode is file-less', async () => {
+    // Provide `tracker.repo` so we get past the cleanup-batch-2 empty-repo
+    // guard (commit ca163ebc) in `loadTrackerClientConfigFromProject` —
+    // the intent of THIS test is to assert dispatch to the file-less
+    // branch, not to exercise config-validation errors. The missing-token
+    // error from `createTrackerClient` is what proves the dispatch landed.
     fs.writeFileSync(
       path.join(dir, 'harness.config.json'),
       JSON.stringify({
         version: 1,
         roadmap: {
           mode: 'file-less',
-          tracker: { kind: 'github', statusMap: { 'in-progress': 'open' } },
+          tracker: {
+            kind: 'github',
+            repo: 'owner/repo',
+            statusMap: { 'in-progress': 'open' },
+          },
         },
       })
     );

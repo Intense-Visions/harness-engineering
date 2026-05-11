@@ -20,7 +20,7 @@
  * @see docs/changes/roadmap-tracker-only/plans/2026-05-09-phase-4-wire-consumers-plan.md
  */
 import type { RoadmapTrackerClient, TrackedFeature, FeaturePatch } from '@harness-engineering/core';
-import { ConflictError } from '@harness-engineering/core';
+import { ConflictError, makeTrackerConflictBody } from '@harness-engineering/core';
 import type { FeatureStatus } from '@harness-engineering/types';
 
 /**
@@ -66,16 +66,6 @@ async function resolveFeatureByName(
   return { ok: true, value: found };
 }
 
-function makeConflictBody(err: ConflictError): Record<string, unknown> {
-  return {
-    error: err.message,
-    code: 'TRACKER_CONFLICT' as const,
-    externalId: err.externalId,
-    conflictedWith: err.diff,
-    refreshHint: 'reload-roadmap' as const,
-  };
-}
-
 export async function handleClaimFileLess(
   c: JsonResponder,
   client: RoadmapTrackerClient,
@@ -86,7 +76,7 @@ export async function handleClaimFileLess(
   const r = await client.claim(found.value.externalId, body.assignee);
   if (!r.ok) {
     if (r.error instanceof ConflictError) {
-      return c.json(makeConflictBody(r.error), 409);
+      return c.json(makeTrackerConflictBody(r.error), 409);
     }
     return c.json({ error: r.error.message }, 502);
   }
@@ -121,7 +111,7 @@ export async function handleRoadmapStatusFileLess(
   const r = await client.update(found.value.externalId, patch);
   if (!r.ok) {
     if (r.error instanceof ConflictError) {
-      return c.json(makeConflictBody(r.error), 409);
+      return c.json(makeTrackerConflictBody(r.error), 409);
     }
     return c.json({ error: r.error.message }, 502);
   }

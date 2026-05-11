@@ -8,6 +8,7 @@ import {
   loadTrackerClientConfigFromProject,
   createTrackerClient,
   ConflictError,
+  makeTrackerConflictBody,
   type NewFeatureInput,
 } from '@harness-engineering/core';
 import { z } from 'zod';
@@ -85,14 +86,10 @@ export function handleRoadmapActionsRoute(
         const r = await clientR.value.create(newFeature);
         if (!r.ok) {
           // D-P7-A: align S6 with S3/S5 — surface ConflictError as 409 TRACKER_CONFLICT.
+          // REV-P7-S5: body shape lifted to @harness-engineering/core so the
+          // wire shape is pinned in one place across S3/S5/S6.
           if (r.error instanceof ConflictError) {
-            sendJSON(res, 409, {
-              error: r.error.message,
-              code: 'TRACKER_CONFLICT',
-              externalId: r.error.externalId,
-              conflictedWith: r.error.diff,
-              refreshHint: 'reload-roadmap',
-            });
+            sendJSON(res, 409, makeTrackerConflictBody(r.error));
             return;
           }
           sendJSON(res, 502, { error: r.error.message });
