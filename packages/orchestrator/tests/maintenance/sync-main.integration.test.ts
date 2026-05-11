@@ -14,6 +14,16 @@ function git(args: string[], cwd: string): string {
   }).toString();
 }
 
+/**
+ * Persist core.autocrlf=false and core.eol=lf in a repo's local config so
+ * subsequent git operations — including those issued by syncMain (the
+ * function under test) — also honor LF line endings on Windows.
+ */
+function configureLfOnly(repo: string): void {
+  git(['config', 'core.autocrlf', 'false'], repo);
+  git(['config', 'core.eol', 'lf'], repo);
+}
+
 describe('syncMain — integration (real git)', () => {
   let tmpDir: string;
   let remote: string;
@@ -30,6 +40,7 @@ describe('syncMain — integration (real git)', () => {
     git(['init', '-q', '-b', 'main'], seed);
     git(['config', 'user.email', 'test@example.com'], seed);
     git(['config', 'user.name', 'Test'], seed);
+    configureLfOnly(seed);
     fs.writeFileSync(path.join(seed, 'README.md'), 'one\n');
     git(['add', '.'], seed);
     git(['commit', '-q', '-m', 'one'], seed);
@@ -39,6 +50,7 @@ describe('syncMain — integration (real git)', () => {
     git(['clone', '-q', remote, local], tmpDir);
     git(['config', 'user.email', 'test@example.com'], local);
     git(['config', 'user.name', 'Test'], local);
+    configureLfOnly(local);
   });
 
   afterEach(() => {
@@ -57,6 +69,7 @@ describe('syncMain — integration (real git)', () => {
     git(['clone', '-q', remote, pusher], tmpDir);
     git(['config', 'user.email', 'test@example.com'], pusher);
     git(['config', 'user.name', 'Test'], pusher);
+    configureLfOnly(pusher);
     fs.writeFileSync(path.join(pusher, 'README.md'), 'two\n');
     git(['commit', '-q', '-am', 'two'], pusher);
     git(['push', '-q', 'origin', 'main'], pusher);
@@ -87,6 +100,7 @@ describe('syncMain — integration (real git)', () => {
     git(['clone', '-q', remote, pusher], tmpDir);
     git(['config', 'user.email', 'test@example.com'], pusher);
     git(['config', 'user.name', 'Test'], pusher);
+    configureLfOnly(pusher);
     fs.writeFileSync(path.join(pusher, 'README.md'), 'remote-change\n');
     git(['commit', '-q', '-am', 'remote-change'], pusher);
     git(['push', '-q', 'origin', 'main'], pusher);
@@ -106,6 +120,7 @@ describe('syncMain — integration (real git)', () => {
     git(['clone', '-q', remote, pusher], tmpDir);
     git(['config', 'user.email', 'test@example.com'], pusher);
     git(['config', 'user.name', 'Test'], pusher);
+    configureLfOnly(pusher);
     fs.writeFileSync(path.join(pusher, 'README.md'), 'remote-change\n');
     git(['commit', '-q', '-am', 'remote-change'], pusher);
     git(['push', '-q', 'origin', 'main'], pusher);
