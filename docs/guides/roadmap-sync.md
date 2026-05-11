@@ -399,3 +399,46 @@ Ensure your `reverseStatusMap` compound keys match the exact labels the adapter 
 ### Feature Not Syncing
 
 Features need either no `External-ID` (to create a new issue) or a valid `External-ID` in `github:owner/repo#number` format. Malformed IDs are skipped with an error logged to stderr.
+
+## File-less mode
+
+### What it is
+
+File-less mode is an opt-in roadmap storage mode where the configured GitHub Issues tracker is the canonical source of truth — `docs/roadmap.md` does not exist in a file-less project. Multi-session write conflicts are delegated to the tracker via ETag-conditional reads and best-effort conflict detection on writes. The file-backed mode described above remains the default; opting in is explicit.
+
+See ADR 0008 (IssueTrackerClient abstraction in core), ADR 0009 (audit history as issue comments), the `File-less Roadmap Mode` business_concept at `docs/knowledge/roadmap/file-less-roadmap-mode.md`, and the `Tracker as Source of Truth` business_rule at `docs/knowledge/roadmap/tracker-as-source-of-truth.md`.
+
+### How to opt in
+
+1. Ensure `roadmap.tracker` is configured in `harness.config.json` (see "Configuration" above).
+2. Set `roadmap.mode: "file-less"` in `harness.config.json`.
+3. Preview the migration: `harness roadmap migrate --to=file-less --dry-run`. The output shows what would be created, updated, and appended to history without making any GitHub API writes.
+4. Commit the migration: `harness roadmap migrate --to=file-less` (no flag). The command creates missing issues, writes body metadata blocks, posts deduplicated history comments, archives `docs/roadmap.md` to `docs/roadmap.md.archived`, writes a `harness.config.json.pre-migration` backup, and flips `roadmap.mode`.
+5. Verify: `harness validate` — it will reject the project if `docs/roadmap.md` still exists, or if `roadmap.tracker` is missing.
+
+### Behavioral differences
+
+- Sort order is `Priority` (P0–P3), falling back to issue creation order. No positional ordering — features cannot be reordered by rewriting positions.
+- `harness:roadmap-pilot` scoring uses the file-less algorithm (`scoreRoadmapCandidatesFileLess` in `packages/core/src/roadmap/pilot-scoring.ts`).
+- Concurrent claim races are best-effort detected, NOT atomically prevented (see proposal §F2 and ADR 0009 §Consequences — GitHub REST does not honor `If-Match` on issue PATCH).
+- The dashboard surfaces conflicts as HTTP `409 TRACKER_CONFLICT`; the React-side UX for the conflict toast ships in Phase 7 (see roadmap row "Tracker-Only Roadmap (File-less Mode)").
+- The `fullSync` engine is bypassed in file-less mode (the tracker IS the truth, so there is nothing to bidirectionally sync).
+- `manage_roadmap` MCP tool is mode-aware and dispatches through `IssueTrackerClient` — no `docs/roadmap.md` reads or writes.
+
+### Migration command
+
+The full operator walkthrough lives in `docs/changes/roadmap-tracker-only/migration.md`. The CLI flag reference lives in `docs/reference/cli-commands.md` §`harness roadmap migrate`. Quick inline example:
+
+```sh
+# Preview only — no writes.
+harness roadmap migrate --to=file-less --dry-run
+
+# Commit the migration.
+harness roadmap migrate --to=file-less
+```
+
+### Troubleshooting
+
+- **`ROADMAP_MODE_MISSING_TRACKER`** from `harness validate`: `roadmap.tracker` is not configured. Set `roadmap.tracker.kind: "github"` and `roadmap.tracker.repo` in `harness.config.json`, then re-run `harness validate`.
+- **`ROADMAP_MODE_FILE_PRESENT`** from `harness validate`: `docs/roadmap.md` exists in a file-less project. Either re-run `harness roadmap migrate --to=file-less` to archive it, or manually `rm docs/roadmap.md` if you have intentionally archived it elsewhere.
+- **HTTP 409 `TRACKER_CONFLICT`** from a dashboard claim: another session claimed the feature in the same window. Refresh the dashboard and retry; the React-side auto-refresh ships in Phase 7.
