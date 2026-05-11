@@ -90,3 +90,9 @@ export { loadProjectRoadmapMode } from './load-mode';
 
 /** Shared loader: resolves `TrackerClientConfig` from harness.config.json. */
 export { loadTrackerClientConfigFromProject } from './load-tracker-client-config';
+
+/**
+ * Migration helpers. Phase 5 migration to file-less roadmap mode.
+ * See packages/core/src/roadmap/migrate/index.ts.
+ */
+export * as migrate from './migrate';
