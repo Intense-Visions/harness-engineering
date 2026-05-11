@@ -335,21 +335,33 @@ Migrate a project's roadmap from file-backed to file-less mode.
 **Usage:**
 
 ```
-harness roadmap migrate --to=<target> [--dry-run]
+harness roadmap migrate --to=<target> [--dry-run] [--format=<fmt>]
 ```
 
 **Flags:**
 
-- `--to=<target>` (required) — Target mode. Currently only `file-less` is supported.
+- `--to=<target>` (required) — Target mode. Currently only `file-less` is supported. Passing `--to=file-backed` returns a "not yet implemented" message (reverse migration is reserved for a future spec).
 - `--dry-run` — Print the migration plan (issues that would be created, body blocks that would be updated, history events that would be appended) without making any GitHub API writes.
+- `--format=<fmt>` — Output format. `human` (default) prints a colored plan summary and progress messages. `json` suppresses the human-readable output and emits a single JSON object on stdout for CI consumers. See [migration.md](../changes/roadmap-tracker-only/migration.md#json-output-rev-p5-s2) for the stable shape.
 
 **Behavior:**
 
-- Verifies `roadmap.tracker` is configured (else exits non-zero with `ROADMAP_MODE_MISSING_TRACKER`).
+- Verifies `roadmap.tracker` is configured (else exits with `CONFIG_ERROR` / code 4).
 - Parses `docs/roadmap.md`, creates GitHub issues for features lacking `External-ID`, updates body metadata blocks, posts deduplicated history comments, archives `docs/roadmap.md` → `docs/roadmap.md.archived`, writes `harness.config.json.pre-migration` backup, sets `roadmap.mode: "file-less"`.
 - Idempotent on re-run. A re-run after a successful migration exits 0 with `Already migrated; nothing to do.`. A re-run after partial failure picks up where it stopped.
-- Title-only collisions (existing issue with the same title but no recorded `External-ID`) refuse and exit `AMBIGUOUS`; the operator resolves by recording the External-ID in `roadmap.md` and re-running.
-- Archive-file collisions (`docs/roadmap.md.archived` already exists) refuse and abort with a remediation message.
+- Title-only collisions (existing issue with the same title but no recorded `External-ID`) refuse and exit `AMBIGUOUS` (code 2); the operator resolves by recording the External-ID in `roadmap.md` and re-running.
+- Archive-file collisions (`docs/roadmap.md.archived` already exists) refuse and exit `ARCHIVE_COLLISION` (code 3).
+
+**Exit codes:**
+
+| Code | Name              | When                                                                               |
+| ---- | ----------------- | ---------------------------------------------------------------------------------- |
+| 0    | SUCCESS           | Plan applied, dry-run, or already-migrated.                                        |
+| 1    | GENERIC_FAILURE   | Tracker write error, parse error, network error, unknown abort reason.             |
+| 2    | AMBIGUOUS         | Title-only collision; see "Title-only collision" in migration.md.                  |
+| 3    | ARCHIVE_COLLISION | `docs/roadmap.md.archived` already exists.                                         |
+| 4    | CONFIG_ERROR      | Missing tracker config, missing `roadmap.tracker.repo`, missing `docs/roadmap.md`. |
+| 5    | PARTIAL_CREATE    | Some features were created before an abort; operator hand-recovery is needed.      |
 
 **Examples:**
 

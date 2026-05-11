@@ -15,15 +15,83 @@ import type { Result, RoadmapTrackerClient, TrackedFeature } from '@harness-engi
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
+/**
+ * REV-P5-S3: distinct exit codes per abortReason so CI consumers can
+ * branch on the failure mode without parsing stderr text.
+ *
+ *   0 = success (applied | dry-run | already-migrated)
+ *   1 = generic failure (network, write, parse)
+ *   2 = AMBIGUOUS title collision (D-P5-E)
+ *   3 = archive file collision (D-P5-D)
+ *   4 = config error (missing tracker, missing repo, missing roadmap.md)
+ *   5 = partial-create failure (createdSoFar non-empty; operator hand-recovery)
+ *
+ * Documented in `docs/changes/roadmap-tracker-only/migration.md` and
+ * `docs/reference/cli-commands.md`.
+ */
+export const MigrateExitCode = {
+  SUCCESS: 0,
+  GENERIC_FAILURE: 1,
+  AMBIGUOUS: 2,
+  ARCHIVE_COLLISION: 3,
+  CONFIG_ERROR: 4,
+  PARTIAL_CREATE: 5,
+} as const;
+export type MigrateExitCodeType = (typeof MigrateExitCode)[keyof typeof MigrateExitCode];
+
+/**
+ * Map a MigrationReport into a specific MigrateExitCode. Inspects abortReason
+ * and createdSoFar to disambiguate partial-create from generic failure.
+ */
+export function reportToExitCode(report: migrate.MigrationReport): MigrateExitCodeType {
+  if (report.mode !== 'aborted') return MigrateExitCode.SUCCESS;
+  const reason = report.abortReason ?? '';
+  // Order matters: partial-create takes priority over the generic
+  // "create failed" string when there are features already created.
+  if (reason.startsWith('create failed') && report.createdSoFar && report.createdSoFar.length > 0) {
+    return MigrateExitCode.PARTIAL_CREATE;
+  }
+  if (reason.startsWith('ambiguous features')) return MigrateExitCode.AMBIGUOUS;
+  if (reason.startsWith('archive-collision')) return MigrateExitCode.ARCHIVE_COLLISION;
+  if (reason.startsWith('config rewrite failed')) return MigrateExitCode.CONFIG_ERROR;
+  return MigrateExitCode.GENERIC_FAILURE;
+}
+
 export interface RoadmapMigrateOptions {
   to: string;
   dryRun: boolean;
   cwd?: string;
   /**
+   * Output format. `human` (default) prints the colored plan summary and
+   * `logger.*` lines to stderr/stdout. `json` suppresses the human-readable
+   * output and emits a single JSON object containing the plan + report on
+   * stdout — for CI consumers.
+   */
+  format?: 'human' | 'json';
+  /**
    * Optional injected client (for tests). When absent the command builds one
    * from `loadTrackerClientConfigFromProject(cwd)`.
    */
   client?: RoadmapTrackerClient;
+}
+
+/**
+ * The JSON shape emitted when --format=json. Stable for CI consumers: any
+ * additive field is backward-compatible; field removals are breaking.
+ */
+export interface MigrateJsonOutput {
+  ok: boolean;
+  mode: migrate.MigrationReport['mode'] | 'error';
+  exitCode: MigrateExitCodeType;
+  plan?: {
+    toCreate: Array<{ name: string }>;
+    toUpdate: Array<{ name: string; externalId: string; diff: string }>;
+    unchanged: Array<{ name: string; externalId: string }>;
+    historyToAppend: Array<{ externalId: string; type: string }>;
+    ambiguous: Array<{ name: string; existingIssueRef: string }>;
+  };
+  report?: migrate.MigrationReport;
+  error?: string;
 }
 
 /**
@@ -115,10 +183,48 @@ function makeRawBodyResolver(
   return async () => null;
 }
 
+/**
+ * Build the canonical JSON payload emitted under --format=json. Stable shape
+ * so CI consumers can rely on the field set.
+ */
+function buildJsonOutput(
+  plan: migrate.MigrationPlan | undefined,
+  report: migrate.MigrationReport | undefined,
+  error: string | undefined,
+  exitCode: MigrateExitCodeType
+): MigrateJsonOutput {
+  const out: MigrateJsonOutput = {
+    ok: exitCode === MigrateExitCode.SUCCESS,
+    mode: report ? report.mode : 'error',
+    exitCode,
+  };
+  if (plan) {
+    out.plan = {
+      toCreate: plan.toCreate.map((e) => ({ name: e.name })),
+      toUpdate: plan.toUpdate.map((e) => ({
+        name: e.name,
+        externalId: e.externalId,
+        diff: e.diff,
+      })),
+      unchanged: plan.unchanged,
+      historyToAppend: plan.historyToAppend.map((e) => ({
+        externalId: e.externalId,
+        type: e.event.type,
+      })),
+      ambiguous: plan.ambiguous,
+    };
+  }
+  if (report) out.report = report;
+  if (error) out.error = error;
+  return out;
+}
+
 export async function runRoadmapMigrate(
   opts: RoadmapMigrateOptions
 ): Promise<Result<migrate.MigrationReport, CLIError>> {
   const cwd = opts.cwd ?? process.cwd();
+  const format: 'human' | 'json' = opts.format ?? 'human';
+  const isJson = format === 'json';
 
   if (!opts.to) {
     return Err(new CLIError('missing required argument: --to <target>', ExitCode.ERROR));
@@ -141,8 +247,7 @@ export async function runRoadmapMigrate(
 
   // Step 0: short-circuit if already migrated.
   if (loadProjectRoadmapMode(cwd) === 'file-less') {
-    logger.success('Already migrated; nothing to do.');
-    return Ok({
+    const alreadyMigratedReport: migrate.MigrationReport = {
       created: 0,
       updated: 0,
       unchanged: 0,
@@ -151,7 +256,17 @@ export async function runRoadmapMigrate(
       archivedTo: null,
       configBackup: null,
       mode: 'already-migrated',
-    });
+    };
+    if (isJson) {
+      console.log(
+        JSON.stringify(
+          buildJsonOutput(undefined, alreadyMigratedReport, undefined, MigrateExitCode.SUCCESS)
+        )
+      );
+    } else {
+      logger.success('Already migrated; nothing to do.');
+    }
+    return Ok(alreadyMigratedReport);
   }
 
   // Step 1: tracker config + client.
@@ -189,7 +304,7 @@ export async function runRoadmapMigrate(
   const fetchHashes = (id: string) => collectHistoryHashes(client, id);
   const plan = await migrate.buildMigrationPlan(roadmap, existingFeatures, fetchHashes, getRawBody);
 
-  printPlanSummary(plan, opts.dryRun);
+  if (!isJson) printPlanSummary(plan, opts.dryRun);
 
   // Step 5: run.
   const deps: migrate.RunDeps = {
@@ -206,7 +321,12 @@ export async function runRoadmapMigrate(
   if (!reportR.ok) {
     return Err(new CLIError(`migration failed: ${reportR.error.message}`));
   }
-  printReport(reportR.value);
+  if (isJson) {
+    const exitCode = reportToExitCode(reportR.value);
+    console.log(JSON.stringify(buildJsonOutput(plan, reportR.value, undefined, exitCode)));
+  } else {
+    printReport(reportR.value);
+  }
   return Ok(reportR.value);
 }
 
@@ -215,15 +335,43 @@ export function createRoadmapMigrateCommand(): Command {
     .description('Migrate the project roadmap to a different storage mode')
     .requiredOption('--to <target>', 'Migration target (only "file-less" supported today)')
     .option('--dry-run', 'Print the migration plan without making any changes', false)
-    .action(async (options: { to: string; dryRun?: boolean }) => {
+    .option(
+      '--format <fmt>',
+      'Output format: "human" (default) or "json" (single JSON object for CI consumers)',
+      'human'
+    )
+    .action(async (options: { to: string; dryRun?: boolean; format?: string }) => {
+      const format: 'human' | 'json' = options.format === 'json' ? 'json' : 'human';
       const result = await runRoadmapMigrate({
         to: options.to,
         dryRun: Boolean(options.dryRun),
+        format,
       });
       if (!result.ok) {
-        logger.error(result.error.message);
-        process.exit(result.error.exitCode);
+        if (format === 'json') {
+          // Pre-flight failure (bad --to, missing config, etc). Emit JSON
+          // shape so CI consumers can branch on exitCode uniformly.
+          console.log(
+            JSON.stringify(
+              buildJsonOutput(
+                undefined,
+                undefined,
+                result.error.message,
+                MigrateExitCode.CONFIG_ERROR
+              )
+            )
+          );
+        } else {
+          logger.error(result.error.message);
+        }
+        // Pre-flight errors today map to CONFIG_ERROR (4). Existing
+        // process.exit(result.error.exitCode) preserved the CLI's generic
+        // ExitCode (2). We deliberately keep that behavior for non-json mode
+        // (no breaking changes), but json consumers see the precise code.
+        process.exit(format === 'json' ? MigrateExitCode.CONFIG_ERROR : result.error.exitCode);
       }
-      process.exit(result.value.mode === 'aborted' ? ExitCode.ERROR : ExitCode.SUCCESS);
+      // REV-P5-S3: distinct exit codes per abortReason for CI consumers.
+      const exitCode = reportToExitCode(result.value);
+      process.exit(exitCode);
     });
 }

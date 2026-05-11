@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -8,7 +8,11 @@ import type {
   TrackedFeature,
   NewFeatureInput,
 } from '@harness-engineering/core';
-import { runRoadmapMigrate } from '../../../src/commands/roadmap/migrate';
+import {
+  runRoadmapMigrate,
+  reportToExitCode,
+  MigrateExitCode,
+} from '../../../src/commands/roadmap/migrate';
 
 function baseFeature(name: string, externalId: string): TrackedFeature {
   return {
@@ -209,6 +213,224 @@ describe('runRoadmapMigrate', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toMatch(/unsupported (migration )?target/i);
+  });
+
+  it('REV-P5-S2: --format=json suppresses human summary and emits a single JSON object on stdout', async () => {
+    cwd = makeProject();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const result = await runRoadmapMigrate({
+        to: 'file-less',
+        dryRun: true,
+        cwd,
+        format: 'json',
+        client: throwingClient(),
+      });
+      expect(result.ok).toBe(true);
+      // Exactly one console.log call — the JSON object.
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+        ok: boolean;
+        mode: string;
+        exitCode: number;
+        plan?: { toCreate: Array<{ name: string }>; ambiguous: unknown[] };
+        report?: { mode: string };
+      };
+      expect(payload.ok).toBe(true);
+      expect(payload.mode).toBe('dry-run');
+      expect(payload.exitCode).toBe(MigrateExitCode.SUCCESS);
+      expect(payload.plan).toBeDefined();
+      expect(payload.plan?.toCreate.length).toBeGreaterThan(0);
+      expect(payload.plan?.ambiguous).toEqual([]);
+      expect(payload.report?.mode).toBe('dry-run');
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('REV-P5-S2: --format=json for already-migrated short-circuit emits JSON', async () => {
+    cwd = makeProject({ mode: 'file-less' });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const result = await runRoadmapMigrate({
+        to: 'file-less',
+        dryRun: false,
+        cwd,
+        format: 'json',
+        client: throwingClient(),
+      });
+      expect(result.ok).toBe(true);
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+        mode: string;
+        exitCode: number;
+      };
+      expect(payload.mode).toBe('already-migrated');
+      expect(payload.exitCode).toBe(MigrateExitCode.SUCCESS);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  describe('REV-P5-S3: reportToExitCode classifies abortReason', () => {
+    it('mode=applied → SUCCESS (0)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'applied',
+          created: 1,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.SUCCESS);
+    });
+
+    it('mode=dry-run → SUCCESS (0)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'dry-run',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.SUCCESS);
+    });
+
+    it('mode=already-migrated → SUCCESS (0)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'already-migrated',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.SUCCESS);
+    });
+
+    it('ambiguous → AMBIGUOUS (2)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'ambiguous features (title-collision or dangling external-id): Foo',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.AMBIGUOUS);
+    });
+
+    it('archive-collision → ARCHIVE_COLLISION (3)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'archive-collision: docs/roadmap.md.archived already exists; refusing',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.ARCHIVE_COLLISION);
+    });
+
+    it('config rewrite failed → CONFIG_ERROR (4)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'config rewrite failed: harness.config.json not found',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.CONFIG_ERROR);
+    });
+
+    it('create failed WITH createdSoFar → PARTIAL_CREATE (5)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'create failed for "Charlie": rate limit',
+          createdSoFar: [{ name: 'Alpha', externalId: 'github:o/r#1' }],
+          created: 1,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.PARTIAL_CREATE);
+    });
+
+    it('create failed WITHOUT createdSoFar (first create) → GENERIC_FAILURE (1)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'create failed for "Alpha": auth',
+          createdSoFar: [],
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.GENERIC_FAILURE);
+    });
+
+    it('update failed → GENERIC_FAILURE (1)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'update failed for "Alpha" (github:o/r#1): rate limit',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.GENERIC_FAILURE);
+    });
+
+    it('unknown abortReason → GENERIC_FAILURE (1)', () => {
+      expect(
+        reportToExitCode({
+          mode: 'aborted',
+          abortReason: 'something nobody anticipated',
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          historyAppended: 0,
+          archivedFrom: null,
+          archivedTo: null,
+          configBackup: null,
+        })
+      ).toBe(MigrateExitCode.GENERIC_FAILURE);
+    });
   });
 
   it('REV-P5-S5: --to=file-backed → recognized but not-yet-implemented error', async () => {

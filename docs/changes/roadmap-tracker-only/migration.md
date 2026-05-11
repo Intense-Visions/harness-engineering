@@ -102,6 +102,56 @@ If `docs/roadmap.md` contains a feature with no `External-ID:` field whose title
 
 Remediation: locate the existing tracker issue, add its identifier as the `External-ID:` for that feature in `docs/roadmap.md`, and re-run the migration. If the existing issue truly is unrelated (rare; two features with the same name across different milestones), rename the local feature to disambiguate, then re-run.
 
+## Exit codes (REV-P5-S3)
+
+The migration command returns distinct exit codes per abort reason so CI consumers can branch on failure mode without parsing stderr text:
+
+| Code | Name              | Meaning                                                                                                                          |
+| ---- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | SUCCESS           | Plan applied, dry-run completed, or already-migrated short-circuit.                                                              |
+| 1    | GENERIC_FAILURE   | Any other failure: tracker write error, parse error, network error, unknown abort reason.                                        |
+| 2    | AMBIGUOUS         | Title-only collision: a local feature without `External-ID` matches an existing tracker issue title. See "Title-only collision". |
+| 3    | ARCHIVE_COLLISION | `docs/roadmap.md.archived` already exists. See "Archive collision".                                                              |
+| 4    | CONFIG_ERROR      | Missing tracker config, missing `roadmap.tracker.repo`, missing `docs/roadmap.md`, or any pre-flight validation failure.         |
+| 5    | PARTIAL_CREATE    | Some features were created before an abort; operator hand-recovery is needed. The report's `createdSoFar` lists the new IDs.     |
+
+## JSON output (REV-P5-S2)
+
+Pass `--format=json` to suppress the human-readable summary and emit a single JSON object on stdout. This is intended for CI consumers; the human format remains the default for interactive use.
+
+```sh
+harness roadmap migrate --to=file-less --dry-run --format=json
+```
+
+The output shape is stable: additive fields are backward-compatible; field removals are breaking. Example:
+
+```json
+{
+  "ok": true,
+  "mode": "dry-run",
+  "exitCode": 0,
+  "plan": {
+    "toCreate": [{ "name": "Alpha" }],
+    "toUpdate": [],
+    "unchanged": [],
+    "historyToAppend": [],
+    "ambiguous": []
+  },
+  "report": {
+    "mode": "dry-run",
+    "created": 0,
+    "updated": 0,
+    "unchanged": 0,
+    "historyAppended": 0,
+    "archivedFrom": null,
+    "archivedTo": null,
+    "configBackup": null
+  }
+}
+```
+
+On failure the JSON includes an `error` field and `exitCode` reflects the precise classification from the exit codes table above.
+
 ## Archive collision
 
 If `docs/roadmap.md.archived` already exists (for example, from a previous attempt at a different time), the migration refuses to overwrite it and aborts with reason `archive-collision`. This is the D-P5-D safety rule.
