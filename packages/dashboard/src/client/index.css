@@ -233,3 +233,12 @@
     outline-color: rgb(251 191 36 / 0);
   }
 }
+
+/* Respect users with vestibular sensitivities: skip the pulse animation
+   but keep a static amber outline so the conflict indication remains visible. */
+@media (prefers-reduced-motion: reduce) {
+  [data-conflict-highlight='true'] {
+    animation: none;
+    outline: 2px solid rgb(251 191 36 / 0.9);
+  }
+}
