@@ -230,4 +230,24 @@ describe('FeatureRow', () => {
     fireEvent.click(screen.getByText('Start Working'));
     expect(onClaim).not.toHaveBeenCalled();
   });
+
+  it('renders data-external-id and tabIndex=-1 when feature has externalId', () => {
+    const { container } = render(
+      <FeatureRow
+        feature={makeFeature({ externalId: 'github:owner/repo#42' })}
+        identity="chadjw"
+        onClaim={vi.fn()}
+      />
+    );
+    const root = container.querySelector('[data-external-id="github:owner/repo#42"]');
+    expect(root).not.toBeNull();
+    expect((root as HTMLElement).tabIndex).toBe(-1);
+  });
+
+  it('omits data-external-id when feature has no externalId', () => {
+    const { container } = render(
+      <FeatureRow feature={makeFeature({ externalId: null })} identity="chadjw" onClaim={vi.fn()} />
+    );
+    expect(container.querySelector('[data-external-id]')).toBeNull();
+  });
 });

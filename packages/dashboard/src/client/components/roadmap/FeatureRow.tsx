@@ -42,7 +42,11 @@ export function FeatureRow({ feature, identity, onClaim }: Props) {
   const workable = isWorkable(feature);
 
   return (
-    <div className="border-t border-gray-800 first:border-t-0">
+    <div
+      className="border-t border-gray-800 first:border-t-0 outline-none focus:ring-2 focus:ring-amber-400 data-[conflict-highlight=true]:ring-2 data-[conflict-highlight=true]:ring-amber-400 data-[conflict-highlight=true]:ring-offset-2 data-[conflict-highlight=true]:ring-offset-gray-900"
+      {...(feature.externalId ? { 'data-external-id': feature.externalId } : {})}
+      tabIndex={feature.externalId ? -1 : undefined}
+    >
       {/* Collapsed row */}
       <div
         className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-gray-800/40 transition-colors"
