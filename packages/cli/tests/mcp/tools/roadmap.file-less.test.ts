@@ -217,16 +217,20 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
 
   it('update: ConflictError -> isError with diff', async () => {
     const features = [tf({ name: 'Alpha', externalId: 'github:o/r#42' })];
-    const update = vi.fn(async () =>
-      Err(
-        new ConflictError(
-          'github:o/r#42',
-          { status: { ours: 'in-progress', theirs: 'done' } },
-          null,
-          'conflict'
-        )
-      )
+    // Build a real ConflictError so we can assert against its full shape:
+    // externalId matches the input, diff captures the observed divergence,
+    // and serverUpdatedAt carries the server-side timestamp (added in
+    // cleanup-batch-1, commit c3dd9dc7). The four-arg constructor order
+    // is (externalId, diff, serverUpdatedAt, message).
+    const expectedDiff = { status: { ours: 'in-progress' as const, theirs: 'done' as const } };
+    const expectedServerUpdatedAt = '2026-05-09T12:00:00Z';
+    const conflictErr = new ConflictError(
+      'github:o/r#42',
+      expectedDiff,
+      expectedServerUpdatedAt,
+      'conflict'
     );
+    const update = vi.fn(async () => Err(conflictErr));
     const client = makeClient({
       fetchAll: async () => Ok({ features, etag: null }),
       update,
@@ -237,6 +241,14 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
     );
     expect(r.isError).toBe(true);
     expect(r.content[0]?.text).toMatch(/conflict/i);
+    // Pin the error shape: externalId round-trips, diff is preserved, and
+    // serverUpdatedAt is present (string or null per the new signature).
+    expect(conflictErr.externalId).toBe('github:o/r#42');
+    expect(conflictErr.diff).toEqual(expectedDiff);
+    expect(conflictErr.serverUpdatedAt).toBe(expectedServerUpdatedAt);
+    expect(
+      typeof conflictErr.serverUpdatedAt === 'string' || conflictErr.serverUpdatedAt === null
+    ).toBe(true);
   });
 
   it('update: returns "cascade dropped" footnote — file-less mode does not run syncRoadmap (REV-P4-3)', async () => {

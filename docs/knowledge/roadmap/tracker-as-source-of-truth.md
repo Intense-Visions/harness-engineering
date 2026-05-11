@@ -15,7 +15,7 @@ When `roadmap.mode === "file-less"`:
 1. The configured external tracker (`roadmap.tracker.kind: "github"` — at least, until additional kinds ship) is the canonical store of all features, statuses, assignments, and history.
 2. `docs/roadmap.md` MUST NOT exist (enforced by validation rule `ROADMAP_MODE_FILE_PRESENT`).
 3. `roadmap.tracker` MUST be configured (enforced by validation rule `ROADMAP_MODE_MISSING_TRACKER`).
-4. All consumers — CLI MCP `manage_roadmap`, dashboard claim endpoint, orchestrator `RoadmapTrackerAdapter` dispatch, `harness:roadmap-pilot`, brainstorming, planning — MUST route reads and writes through an `IssueTrackerClient` instance obtained from `createTrackerClient(config)`. Direct reads of `docs/roadmap.md` are forbidden in file-less mode (and the file does not exist, so any direct read fails).
+4. All consumers — CLI MCP `manage_roadmap`, dashboard claim endpoint, orchestrator `createTracker()` dispatch (which selects `RoadmapTrackerAdapter` for file-backed `kind: 'roadmap'` and the `GitHubIssuesIssueTrackerAdapter` wrapper for file-less `kind: 'github-issues'`), `harness:roadmap-pilot`, brainstorming, planning — MUST route reads and writes through an `IssueTrackerClient` instance obtained from `createTrackerClient(config)`. Direct reads of `docs/roadmap.md` are forbidden in file-less mode (and the file does not exist, so any direct read fails).
 
 ## Enforcement
 

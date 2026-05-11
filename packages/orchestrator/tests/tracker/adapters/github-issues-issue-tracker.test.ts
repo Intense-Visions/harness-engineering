@@ -142,14 +142,32 @@ describe('GitHubIssuesIssueTrackerAdapter', () => {
   });
 
   it('claimIssue propagates ConflictError as a generic Error to the IssueTrackerClient contract', async () => {
+    // Build a real ConflictError so we can assert the full propagated shape:
+    // externalId round-trips, diff is preserved, and serverUpdatedAt carries
+    // the server-side timestamp (added in cleanup-batch-1, commit c3dd9dc7).
+    // The orchestrator adapter MUST forward the ConflictError instance
+    // unchanged — losing fields here would break the dashboard's conflict-
+    // resolution UX which reads externalId/diff/serverUpdatedAt off the error.
+    const expectedDiff = {
+      assignee: { ours: 'orch-1' as const, theirs: 'someone-else' as const },
+    };
+    const expectedServerUpdatedAt = '2026-05-09T12:00:00Z';
     const claim = vi.fn(async () =>
-      Err(new ConflictError('github:owner/repo#1', {}, null, 'conflict'))
+      Err(
+        new ConflictError('github:owner/repo#1', expectedDiff, expectedServerUpdatedAt, 'conflict')
+      )
     );
     const adapter = new GitHubIssuesIssueTrackerAdapter(makeClient({ claim }), baseConfig);
     const r = await adapter.claimIssue('github:owner/repo#1', 'orch-1');
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('expected error');
     expect(r.error).toBeInstanceOf(ConflictError);
+    // Type-narrow to ConflictError so we can assert the propagated fields.
+    const err = r.error as ConflictError;
+    expect(err.externalId).toBe('github:owner/repo#1');
+    expect(err.diff).toEqual(expectedDiff);
+    expect(err.serverUpdatedAt).toBe(expectedServerUpdatedAt);
+    expect(typeof err.serverUpdatedAt === 'string' || err.serverUpdatedAt === null).toBe(true);
   });
 
   it('releaseIssue calls client.release', async () => {
