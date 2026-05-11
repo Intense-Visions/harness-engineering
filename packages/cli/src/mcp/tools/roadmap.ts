@@ -3,7 +3,7 @@ import * as path from 'path';
 import {
   loadProjectRoadmapMode,
   createTrackerClient,
-  type TrackerClientConfig,
+  loadTrackerClientConfigFromProject,
 } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -447,57 +447,6 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   if (response.isError || readOnlyActions.has(input.action)) return false;
   if (input.action === 'sync') return input.apply === true;
   return true;
-}
-
-/**
- * Read the project's `harness.config.json` and shape a `TrackerClientConfig`
- * for the file-less branch. Returns Err with a descriptive message when the
- * config does not include a tracker entry suitable for file-less dispatch.
- *
- * Today only `kind: 'github-issues'` is supported by `createTrackerClient`,
- * so we map the `roadmap.tracker.kind === 'github'` config (the file-backed
- * sync engine config) into the `'github-issues'` client kind. The two
- * concepts are semantically related (both target GitHub) but live in
- * different config namespaces — see Phase 4 plan R3.
- */
-function loadTrackerClientConfigFromProject(
-  projectRoot: string
-): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
-  try {
-    const configPath = path.join(projectRoot, 'harness.config.json');
-    if (!fs.existsSync(configPath)) {
-      return { ok: false, error: new Error('harness.config.json not found') };
-    }
-    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
-      roadmap?: { tracker?: { kind?: string; repo?: string } };
-    };
-    const tracker = cfg.roadmap?.tracker;
-    if (!tracker) {
-      return {
-        ok: false,
-        error: new Error(
-          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
-        ),
-      };
-    }
-    if (tracker.kind !== 'github') {
-      return {
-        ok: false,
-        error: new Error(
-          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
-        ),
-      };
-    }
-    return {
-      ok: true,
-      value: {
-        kind: 'github-issues',
-        repo: tracker.repo ?? '',
-      },
-    };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
-  }
 }
 
 export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
