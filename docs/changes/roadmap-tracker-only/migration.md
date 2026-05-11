@@ -123,3 +123,30 @@ In file-less mode:
 - `harness validate` enforces that `docs/roadmap.md` is absent and that `roadmap.mode` is `"file-less"` in config.
 
 For the full decisions table and rationale, see [proposal.md](./proposal.md).
+
+## Post-migration QA (file-less mode)
+
+After the migration completes successfully and `harness validate` is clean, run the following manual browser checks against the dashboard to verify the Phase 7 conflict UX surface works end-to-end against the live tracker. These checks are intentionally manual because they probe focus management, screen-reader announcements, and motion preferences that automated tests do not cover. See [`docs/knowledge/dashboard/claim-workflow.md`](../../knowledge/dashboard/claim-workflow.md) for the technical detail behind each behavior.
+
+### 1. Two-tab claim race
+
+Open the dashboard in two browser tabs (same user or two collaborators), navigate both to the Roadmap page, and click **Claim** on the same feature from both tabs within ~1s of each other. The losing tab should show:
+
+- [ ] A non-disruptive toast appears (does not steal focus or block input)
+- [ ] Screen reader (VoiceOver/NVDA) announces the toast within ~1s (`aria-live="polite"`)
+- [ ] Toast text matches the canonical wording: `claimed by X — refresh`
+- [ ] The dashboard auto-refetches roadmap state when the toast is shown (or its refresh action is invoked)
+- [ ] Browser scrolls smoothly to the contested feature row
+- [ ] The row gets a 2-second amber pulse highlight (`data-conflict-highlight="true"`)
+- [ ] The dismiss button is keyboard-accessible (Tab to focus, Enter or Space to activate)
+- [ ] Users with `prefers-reduced-motion: reduce` see a static amber outline (no animation)
+
+### 2. Status-update conflict race
+
+From two tabs, change the same feature's status (e.g., `backlog` → `in_progress`) within ~1s of each other. The losing tab should exhibit the same UX as the claim race above (toast, aria-live announcement, canonical wording, auto-refetch, smooth scroll, pulse highlight, keyboard-accessible dismiss, reduced-motion fallback).
+
+### 3. Append-from-Analyze conflict
+
+From the Analyze page, append the same feature to the roadmap twice in quick succession (or from two tabs concurrently). The duplicate-attempt tab should exhibit the same conflict UX as above.
+
+If any of the above checks fail, capture the browser console output and file an issue. The canonical wire shape, ARIA contract, and pulse-ring timing are documented in [`docs/knowledge/dashboard/claim-workflow.md`](../../knowledge/dashboard/claim-workflow.md).
