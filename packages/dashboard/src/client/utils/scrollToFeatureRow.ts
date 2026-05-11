@@ -1,7 +1,10 @@
+import { CONFLICT_PULSE_MS } from './conflict-pulse-config';
+
 /**
  * Locates a FeatureRow by its data-external-id attribute, smooth-scrolls
- * it into view, focuses it, and applies a 2s `data-conflict-highlight`
- * attribute that CSS animates as a pulse ring.
+ * it into view, focuses it, and applies a `data-conflict-highlight`
+ * attribute (for `CONFLICT_PULSE_MS` milliseconds) that CSS animates as a
+ * pulse ring.
  *
  * Returns true if the row was found, false otherwise (degraded fallback —
  * the toast remains visible, no error thrown).
@@ -21,6 +24,6 @@ export function scrollToFeatureRow(externalId: string): boolean {
   el.setAttribute('data-conflict-highlight', 'true');
   setTimeout(() => {
     el.removeAttribute('data-conflict-highlight');
-  }, 2000);
+  }, CONFLICT_PULSE_MS);
   return true;
 }
