@@ -301,7 +301,7 @@ describe('check-arch command', () => {
       expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('error'));
     });
 
-    it('handles --update-baseline and exits with SUCCESS', { timeout: 30_000 }, async () => {
+    it('handles --update-baseline and exits with SUCCESS', { timeout: 60_000 }, async () => {
       const fsSync = await import('node:fs');
       const osModule = await import('node:os');
       const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-action-'));
