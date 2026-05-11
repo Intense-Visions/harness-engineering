@@ -1101,7 +1101,7 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 
 ### Tracker-Only Roadmap (File-less Mode)
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/roadmap-tracker-only/proposal.md
 - **Summary:** Opt-in mode where the configured external tracker is the canonical roadmap, eliminating docs/roadmap.md as a multi-session conflict surface
 - **Blockers:** —
