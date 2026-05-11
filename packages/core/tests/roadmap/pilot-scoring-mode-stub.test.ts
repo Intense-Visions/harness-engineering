@@ -88,13 +88,27 @@ describe('scoreRoadmapCandidatesForMode — file-less dispatch (Task 5)', () => 
   });
 
   it('file-backed and file-less produce DIFFERENT orderings on the same fixture (D4 break)', () => {
-    // Mix of priorities and no priorities, in non-priority-sorted insertion order.
-    // file-backed: weighted score within tier, two-tier algorithm.
-    // file-less: pure priority+createdAt — different result expected.
+    // Fixture designed so weighted scoring (file-backed) re-orders WITHIN a
+    // priority tier — proving the two algorithms genuinely diverge, not just
+    // happening to coincide on tier-monotonic inputs.
+    //
+    // Setup:
+    //   X (P1, position 1, no dependents)        — eligible
+    //   Y (P1, position 2, 1 dependent via Z)    — eligible
+    //   Z (P0, position 3, blocked by Y)         — ineligible (Y not done)
+    //
+    // file-backed within-tier weighted score:
+    //   X: 0.5 * (1 - 0/3) + 0.3 * 0    = 0.500
+    //   Y: 0.5 * (1 - 1/3) + 0.3 * 1.0  = 0.633  ← wins tier
+    //   → [Y, X]
+    //
+    // file-less D4 (priority+createdAt; createdAt all default-equal):
+    //   Stable sort on equal keys preserves insertion order.
+    //   → [X, Y]
     const features = [
-      mkFeat({ name: 'a', priority: null }),
-      mkFeat({ name: 'b', priority: 'P0' }),
-      mkFeat({ name: 'c', priority: 'P1' }),
+      mkFeat({ name: 'x', priority: 'P1' }),
+      mkFeat({ name: 'y', priority: 'P1' }),
+      mkFeat({ name: 'z', priority: 'P0', blockedBy: ['y'] }),
     ];
     const fb = scoreRoadmapCandidatesForMode(
       mkRoadmap(features),
@@ -110,15 +124,18 @@ describe('scoreRoadmapCandidatesForMode — file-less dispatch (Task 5)', () => 
         roadmap: { mode: 'file-less' },
       }
     );
-    // The file-less ordering is priority-strict (P0, P1, null). file-backed
-    // ordering may co-locate them by tier but is computed via weighted score.
-    // Both should produce all three features, but the precise ordering may
-    // legitimately differ; assert at least one feature has a different rank.
     const fbNames = fb.map((c) => c.feature.name);
     const flNames = fl.map((c) => c.feature.name);
-    expect(flNames).toEqual(['b', 'c', 'a']);
-    expect(fbNames).toEqual(fb.map((c) => c.feature.name));
+    // Both algorithms should yield the same set of eligible features (X and Y;
+    // Z is blocked by Y which is not done).
+    expect(new Set(fbNames)).toEqual(new Set(['x', 'y']));
+    expect(new Set(flNames)).toEqual(new Set(['x', 'y']));
+    // The orderings must DIFFER — this is the D4 proof.
+    expect(fbNames).toEqual(['y', 'x']);
+    expect(flNames).toEqual(['x', 'y']);
+    expect(fbNames).not.toEqual(flNames);
     // Sanity: file-backed has positionScore set (real scoring); file-less has zeros.
+    expect(fb.every((c) => c.positionScore > 0)).toBe(true);
     expect(fl.every((c) => c.positionScore === 0)).toBe(true);
   });
 
