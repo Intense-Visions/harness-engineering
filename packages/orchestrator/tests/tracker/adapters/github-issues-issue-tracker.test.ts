@@ -142,7 +142,7 @@ describe('GitHubIssuesIssueTrackerAdapter', () => {
   });
 
   it('claimIssue propagates ConflictError as a generic Error to the IssueTrackerClient contract', async () => {
-    const claim = vi.fn(async () => Err(new ConflictError('conflict', 'github:owner/repo#1', {})));
+    const claim = vi.fn(async () => Err(new ConflictError('github:owner/repo#1', {}, 'conflict')));
     const adapter = new GitHubIssuesIssueTrackerAdapter(makeClient({ claim }), baseConfig);
     const r = await adapter.claimIssue('github:owner/repo#1', 'orch-1');
     expect(r.ok).toBe(false);

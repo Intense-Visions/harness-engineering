@@ -218,7 +218,13 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
   it('update: ConflictError -> isError with diff', async () => {
     const features = [tf({ name: 'Alpha', externalId: 'github:o/r#42' })];
     const update = vi.fn(async () =>
-      Err(new ConflictError('conflict', 'github:o/r#42', { status: 'done' }))
+      Err(
+        new ConflictError(
+          'github:o/r#42',
+          { status: { ours: 'in-progress', theirs: 'done' } },
+          'conflict'
+        )
+      )
     );
     const client = makeClient({
       fetchAll: async () => Ok({ features, etag: null }),
@@ -230,6 +236,33 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
     );
     expect(r.isError).toBe(true);
     expect(r.content[0]?.text).toMatch(/conflict/i);
+  });
+
+  it('update: returns "cascade dropped" footnote — file-less mode does not run syncRoadmap (REV-P4-3)', async () => {
+    // In file-backed mode, manage_roadmap update calls syncRoadmap() to cascade
+    // dependent updates (see packages/cli/src/mcp/tools/roadmap.ts). In file-less
+    // mode, there is no local dependency graph and no cascade engine — the
+    // tracker is canonical. This test pins the asymmetry: the response must
+    // mention "cascade" and "dropped" so an operator who reads the output
+    // knows the absence of dependent updates is intentional.
+    const features = [tf({ name: 'Alpha', externalId: 'github:o/r#42' })];
+    const update = vi.fn(async (id: string, _patch: FeaturePatch) =>
+      Ok(tf({ externalId: id, status: 'in-progress' }))
+    );
+    const client = makeClient({
+      fetchAll: async () => Ok({ features, etag: null }),
+      update,
+    });
+    const r = await handleManageRoadmapFileLess(
+      { path: '/tmp', action: 'update', feature: 'Alpha', status: 'in-progress' },
+      client
+    );
+    expect(r.isError).toBeUndefined();
+    const text = r.content[0]?.text ?? '';
+    expect(text.toLowerCase()).toContain('cascade');
+    expect(text.toLowerCase()).toContain('dropped');
+    // Sanity: only one update call — no cascade walk to dependent features.
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it('remove: resolves name -> externalId, calls client.update with status:done', async () => {

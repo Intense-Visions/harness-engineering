@@ -150,7 +150,14 @@ async function handleUpdate(
     }
     return err(`Error: ${r.error.message}`);
   }
-  return ok(`Updated feature: ${r.value.name}`);
+  // REV-P4-3: file-backed mode runs syncRoadmap() to cascade dependent updates
+  // (see packages/cli/src/mcp/tools/roadmap.ts). File-less mode has no cascade
+  // engine — the tracker is canonical and there is no local dependency graph
+  // to walk. Surface that asymmetry as a footnote so an operator who sees a
+  // changed status without dependent updates knows it is intentional.
+  return ok(
+    `Updated feature: ${r.value.name}\n\nNote: cascade dropped — file-less mode does not run syncRoadmap.`
+  );
 }
 
 async function handleRemove(
