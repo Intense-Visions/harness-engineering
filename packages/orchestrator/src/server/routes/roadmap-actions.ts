@@ -1,55 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import {
   parseRoadmap,
   serializeRoadmap,
   loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
   createTrackerClient,
-  type TrackerClientConfig,
   type NewFeatureInput,
 } from '@harness-engineering/core';
 import { z } from 'zod';
 import { readBody } from '../utils.js';
-
-/**
- * Build a `TrackerClientConfig` from `<projectRoot>/harness.config.json`.
- * Mirrors the cli + dashboard helpers (D-P4-D consolidation pending Task 17).
- */
-function loadTrackerClientConfigFromRoot(
-  projectRoot: string
-): { ok: true; value: TrackerClientConfig } | { ok: false; error: Error } {
-  try {
-    const configPath = path.join(projectRoot, 'harness.config.json');
-    if (!fsSync.existsSync(configPath)) {
-      return { ok: false, error: new Error('harness.config.json not found') };
-    }
-    const cfg = JSON.parse(fsSync.readFileSync(configPath, 'utf-8')) as {
-      roadmap?: { tracker?: { kind?: string; repo?: string } };
-    };
-    const tracker = cfg.roadmap?.tracker;
-    if (!tracker) {
-      return {
-        ok: false,
-        error: new Error(
-          'file-less tracker config missing: set roadmap.tracker.kind in harness.config.json'
-        ),
-      };
-    }
-    if (tracker.kind !== 'github') {
-      return {
-        ok: false,
-        error: new Error(
-          `file-less tracker only supports kind: "github" today; got "${tracker.kind}"`
-        ),
-      };
-    }
-    return { ok: true, value: { kind: 'github-issues', repo: tracker.repo ?? '' } };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
-  }
-}
 
 const AppendRoadmapRequestSchema = z.object({
   title: z.string().min(1),
@@ -94,7 +55,7 @@ export function handleRoadmapActionsRoute(
       const projectRoot = path.dirname(path.dirname(roadmapPath));
       const mode = loadProjectRoadmapMode(projectRoot);
       if (mode === 'file-less') {
-        const trackerCfg = loadTrackerClientConfigFromRoot(projectRoot);
+        const trackerCfg = loadTrackerClientConfigFromProject(projectRoot);
         if (!trackerCfg.ok) {
           sendJSON(res, 500, { error: trackerCfg.error.message });
           return;
