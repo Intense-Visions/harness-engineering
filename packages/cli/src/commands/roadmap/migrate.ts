@@ -14,6 +14,7 @@ import {
 import type { Result, RoadmapTrackerClient, TrackedFeature } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
+import { acquireMigrateLock, isRefusal } from './migrate-lock';
 
 /**
  * REV-P5-S3: distinct exit codes per abortReason so CI consumers can
@@ -269,65 +270,82 @@ export async function runRoadmapMigrate(
     return Ok(alreadyMigratedReport);
   }
 
-  // Step 1: tracker config + client.
-  let client: RoadmapTrackerClient;
-  if (opts.client) {
-    client = opts.client;
-  } else {
-    const cfgR = loadTrackerClientConfigFromProject(cwd);
-    if (!cfgR.ok) return Err(new CLIError(cfgR.error.message));
-    const clientR = createTrackerClient(cfgR.value);
-    if (!clientR.ok) return Err(new CLIError(clientR.error.message));
-    client = clientR.value;
+  // REV-P5-S7: advisory lockfile. Acquire BEFORE any tracker fetches or
+  // writes so two concurrent operators cannot interleave. The lock is
+  // released in finally so a crash leaves a stale lock that the next run
+  // auto-recovers (dead-pid OR > 30 min old).
+  const lockResult = acquireMigrateLock(cwd);
+  if (isRefusal(lockResult)) {
+    return Err(new CLIError(lockResult.message));
   }
+  try {
+    // Step 1: tracker config + client.
+    let client: RoadmapTrackerClient;
+    if (opts.client) {
+      client = opts.client;
+    } else {
+      const cfgR = loadTrackerClientConfigFromProject(cwd);
+      if (!cfgR.ok) return Err(new CLIError(cfgR.error.message));
+      const clientR = createTrackerClient(cfgR.value);
+      if (!clientR.ok) return Err(new CLIError(clientR.error.message));
+      client = clientR.value;
+    }
 
-  // Step 2: parse roadmap.md.
-  const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
-  if (!fs.existsSync(roadmapPath)) {
-    return Err(new CLIError(`docs/roadmap.md not found in ${cwd}`));
-  }
-  const roadmapR = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
-  if (!roadmapR.ok) {
-    return Err(new CLIError(`failed to parse docs/roadmap.md: ${roadmapR.error.message}`));
-  }
-  const roadmap = roadmapR.value;
+    // Step 2: parse roadmap.md.
+    const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
+    if (!fs.existsSync(roadmapPath)) {
+      return Err(new CLIError(`docs/roadmap.md not found in ${cwd}`));
+    }
+    const roadmapR = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
+    if (!roadmapR.ok) {
+      return Err(new CLIError(`failed to parse docs/roadmap.md: ${roadmapR.error.message}`));
+    }
+    const roadmap = roadmapR.value;
 
-  // Step 3: fetch existing tracker features.
-  const fetchR = await client.fetchAll();
-  if (!fetchR.ok) {
-    return Err(new CLIError(`failed to fetch tracker features: ${fetchR.error.message}`));
-  }
-  const existingFeatures = fetchR.value.features;
+    // Step 3: fetch existing tracker features.
+    const fetchR = await client.fetchAll();
+    if (!fetchR.ok) {
+      return Err(new CLIError(`failed to fetch tracker features: ${fetchR.error.message}`));
+    }
+    const existingFeatures = fetchR.value.features;
 
-  // Step 4: build plan.
-  const getRawBody = makeRawBodyResolver(client, existingFeatures);
-  const fetchHashes = (id: string) => collectHistoryHashes(client, id);
-  const plan = await migrate.buildMigrationPlan(roadmap, existingFeatures, fetchHashes, getRawBody);
+    // Step 4: build plan.
+    const getRawBody = makeRawBodyResolver(client, existingFeatures);
+    const fetchHashes = (id: string) => collectHistoryHashes(client, id);
+    const plan = await migrate.buildMigrationPlan(
+      roadmap,
+      existingFeatures,
+      fetchHashes,
+      getRawBody
+    );
 
-  if (!isJson) printPlanSummary(plan, opts.dryRun);
+    if (!isJson) printPlanSummary(plan, opts.dryRun);
 
-  // Step 5: run.
-  const deps: migrate.RunDeps = {
-    client,
-    readFile: (p) => fs.readFileSync(p, 'utf-8'),
-    writeFile: (p, b) => fs.writeFileSync(p, b),
-    renameFile: (from, to) => fs.renameSync(from, to),
-    existsFile: (p) => fs.existsSync(p),
-  };
-  const reportR = await migrate.runMigrationPlan(plan, deps, {
-    projectRoot: cwd,
-    dryRun: opts.dryRun,
-  });
-  if (!reportR.ok) {
-    return Err(new CLIError(`migration failed: ${reportR.error.message}`));
+    // Step 5: run.
+    const deps: migrate.RunDeps = {
+      client,
+      readFile: (p) => fs.readFileSync(p, 'utf-8'),
+      writeFile: (p, b) => fs.writeFileSync(p, b),
+      renameFile: (from, to) => fs.renameSync(from, to),
+      existsFile: (p) => fs.existsSync(p),
+    };
+    const reportR = await migrate.runMigrationPlan(plan, deps, {
+      projectRoot: cwd,
+      dryRun: opts.dryRun,
+    });
+    if (!reportR.ok) {
+      return Err(new CLIError(`migration failed: ${reportR.error.message}`));
+    }
+    if (isJson) {
+      const exitCode = reportToExitCode(reportR.value);
+      console.log(JSON.stringify(buildJsonOutput(plan, reportR.value, undefined, exitCode)));
+    } else {
+      printReport(reportR.value);
+    }
+    return Ok(reportR.value);
+  } finally {
+    lockResult.release();
   }
-  if (isJson) {
-    const exitCode = reportToExitCode(reportR.value);
-    console.log(JSON.stringify(buildJsonOutput(plan, reportR.value, undefined, exitCode)));
-  } else {
-    printReport(reportR.value);
-  }
-  return Ok(reportR.value);
 }
 
 export function createRoadmapMigrateCommand(): Command {

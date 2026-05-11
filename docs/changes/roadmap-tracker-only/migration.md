@@ -102,6 +102,17 @@ If `docs/roadmap.md` contains a feature with no `External-ID:` field whose title
 
 Remediation: locate the existing tracker issue, add its identifier as the `External-ID:` for that feature in `docs/roadmap.md`, and re-run the migration. If the existing issue truly is unrelated (rare; two features with the same name across different milestones), rename the local feature to disambiguate, then re-run.
 
+## Concurrent invocation protection (REV-P5-S7)
+
+The migrate command writes an advisory lockfile at `.harness/migrate.lock` containing `{pid, startedAt, hostname}` before fetching tracker state, and removes it on exit (success or failure). A second concurrent invocation refuses with `another migration is in progress (pid X on host, started ...)`.
+
+The lockfile is _advisory_: a crash leaves a stale lock that the next run automatically recovers. Stale-lock recovery triggers when either of the following is true:
+
+- The recorded `pid` is no longer alive.
+- The recorded `startedAt` is older than 30 minutes.
+
+If you see a refusal but no other migrate process is running, wait 30 minutes or remove `.harness/migrate.lock` manually.
+
 ## Exit codes (REV-P5-S3)
 
 The migration command returns distinct exit codes per abort reason so CI consumers can branch on failure mode without parsing stderr text:

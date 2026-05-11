@@ -433,6 +433,59 @@ describe('runRoadmapMigrate', () => {
     });
   });
 
+  it('REV-P5-S7: refuses concurrent migrate when lockfile is held by a live process', async () => {
+    cwd = makeProject();
+    // Write a lockfile pointing at our own pid; runRoadmapMigrate must refuse.
+    const harness = path.join(cwd, '.harness');
+    fs.mkdirSync(harness, { recursive: true });
+    fs.writeFileSync(
+      path.join(harness, 'migrate.lock'),
+      JSON.stringify({
+        pid: process.pid,
+        startedAt: new Date().toISOString(),
+        hostname: 'test-host',
+      })
+    );
+    const result = await runRoadmapMigrate({
+      to: 'file-less',
+      dryRun: true,
+      cwd,
+      client: throwingClient(),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/another migration is in progress/i);
+    // Lockfile must still exist (we did not own it; we did not remove it).
+    expect(fs.existsSync(path.join(harness, 'migrate.lock'))).toBe(true);
+  });
+
+  it('REV-P5-S7: removes the lockfile after a successful run (normal-cleanup)', async () => {
+    cwd = makeProject();
+    const result = await runRoadmapMigrate({
+      to: 'file-less',
+      dryRun: false,
+      cwd,
+      client: happyClient(),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.mode).toBe('applied');
+    // Lockfile should be cleaned up.
+    expect(fs.existsSync(path.join(cwd, '.harness', 'migrate.lock'))).toBe(false);
+  });
+
+  it('REV-P5-S7: removes the lockfile on dry-run too (finally always fires)', async () => {
+    cwd = makeProject();
+    const result = await runRoadmapMigrate({
+      to: 'file-less',
+      dryRun: true,
+      cwd,
+      client: throwingClient(),
+    });
+    expect(result.ok).toBe(true);
+    expect(fs.existsSync(path.join(cwd, '.harness', 'migrate.lock'))).toBe(false);
+  });
+
   it('REV-P5-S5: --to=file-backed → recognized but not-yet-implemented error', async () => {
     // Future-proofing: reverse migration is a recognized direction but not
     // implemented in this release. The error must be specific (not the
