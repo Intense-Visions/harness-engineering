@@ -290,6 +290,24 @@ describe('GitHubIssuesTrackerAdapter — fetchById', () => {
     const r = await adapter.fetchById('github:o/r#1');
     expect(r.ok).toBe(false);
   });
+
+  it('e) Rejects externalId from a different repo (confused-deputy guard)', async () => {
+    // Adapter is configured for o/r; externalId references o/other. The
+    // adapter must refuse the request rather than silently issuing a GET
+    // against o/other (which it is not configured to manage).
+    const fetchFn = vi.fn() as unknown as typeof fetch;
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.fetchById('github:o/other#1');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message).toMatch(/externalId repo does not match adapter repo/);
+    }
+    expect((fetchFn as unknown as { mock?: { calls: unknown[] } }).mock?.calls.length ?? 0).toBe(0);
+  });
 });
 
 describe('GitHubIssuesTrackerAdapter — fetchByStatus', () => {
@@ -418,7 +436,8 @@ describe('GitHubIssuesTrackerAdapter — create', () => {
     const call = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
     const init = call[1] as { body: string };
     const payload = JSON.parse(init.body) as { body: string };
-    expect(payload.body).toMatch(/blocked_by:.*feature-a.*feature-b/);
+    // YAML array form: blocked_by header followed by indented "- name" lines.
+    expect(payload.body).toMatch(/blocked_by:\s*\n\s*-\s+feature-a\s*\n\s*-\s+feature-b/);
   });
 
   it('blockedBy round-trips verbatim through update + mapIssue', async () => {
@@ -448,7 +467,8 @@ describe('GitHubIssuesTrackerAdapter — create', () => {
     const calls = (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     const patchInit = calls[1]![1] as { body: string };
     const payload = JSON.parse(patchInit.body) as { body: string };
-    expect(payload.body).toMatch(/blocked_by:.*feature-c/);
+    // YAML array form: blocked_by header followed by indented "- name" lines.
+    expect(payload.body).toMatch(/blocked_by:\s*\n\s*-\s+feature-c/);
   });
 
   it('c) Invalidates list:* after create', async () => {
@@ -725,5 +745,22 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
     await adapter.update('github:o/r#1', { status: 'in-progress' });
     expect(cache.get('feature:github:o/r#1')).toBeNull();
     expect(cache.get('list:all')).toBeNull();
+  });
+
+  it('f) Rejects externalId from a different repo (confused-deputy guard)', async () => {
+    // Adapter configured for o/r; update target references o/other. The
+    // adapter must refuse rather than silently PATCHing o/other.
+    const fetchFn = vi.fn() as unknown as typeof fetch;
+    const adapter = new GitHubIssuesTrackerAdapter({
+      token: 'tok',
+      repo: 'o/r',
+      fetchFn,
+    });
+    const r = await adapter.update('github:o/other#1', { summary: 'x' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message).toMatch(/externalId repo does not match adapter repo/);
+    }
+    expect((fetchFn as unknown as { mock?: { calls: unknown[] } }).mock?.calls.length ?? 0).toBe(0);
   });
 });

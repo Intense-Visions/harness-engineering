@@ -91,9 +91,17 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const cacheKey = 'list:all';
       const cached = this.cache.get(cacheKey);
-      const labelsParam = `&labels=${encodeURIComponent(this.selectorLabel)}`;
-      const buildUrl = (page: number) =>
-        `${this.http.apiBase}/repos/${this.owner}/${this.repo}/issues?state=all&per_page=100&page=${page}${labelsParam}`;
+      // Build the query via URLSearchParams to avoid positional coupling and
+      // ensure each value is encoded once and only once.
+      const buildUrl = (page: number) => {
+        const params = new URLSearchParams({
+          state: 'all',
+          per_page: '100',
+          page: String(page),
+          labels: this.selectorLabel,
+        });
+        return `${this.http.apiBase}/repos/${this.owner}/${this.repo}/issues?${params.toString()}`;
+      };
 
       const headers = cached ? { 'If-None-Match': cached.etag } : undefined;
       const { items, lastEtag, status } = await this.http.paginate<RawIssue>(
@@ -121,12 +129,24 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     }
   }
 
+  /**
+   * Fetches a feature by externalId.
+   *
+   * Confused-deputy guard: the externalId's owner/repo MUST match the
+   * adapter's configured owner/repo. If they differ we return Err rather
+   * than silently issuing a request against the externalId's repo (which
+   * the adapter is not configured to manage). The adapter's configured
+   * owner/repo always wins.
+   */
   async fetchById(
     externalId: string
   ): Promise<Result<{ feature: TrackedFeature; etag: string } | null, Error>> {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      if (parsed.owner !== this.owner || parsed.repo !== this.repo) {
+        return Err(new Error('externalId repo does not match adapter repo'));
+      }
 
       const cacheKey = `feature:${externalId}`;
       const cached = this.cache.get(cacheKey);
@@ -189,6 +209,14 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     return labels;
   }
 
+  /**
+   * Patches a feature.
+   *
+   * Confused-deputy guard: the externalId's owner/repo MUST match the
+   * adapter's configured owner/repo. If they differ we return Err rather
+   * than silently writing to the externalId's repo. The adapter's
+   * configured owner/repo always wins.
+   */
   async update(
     externalId: string,
     patch: FeaturePatch,
@@ -221,6 +249,9 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      if (parsed.owner !== this.owner || parsed.repo !== this.repo) {
+        return Err(new Error('externalId repo does not match adapter repo'));
+      }
 
       // Refetch-and-compare guard (decision D-P2-B)
       // GitHub REST does NOT support If-Match on PATCH /issues/{n}.
@@ -236,7 +267,11 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
         if (!cur.value) return Err(new Error(`Not found: ${externalId}`));
         priorFeature = cur.value.feature;
         const cmp = refetchAndCompare(cur.value.feature, patch);
-        if (!cmp.ok) return Err(new ConflictErrorClass(externalId, cmp.diff!));
+        if (!cmp.ok) {
+          // Thread the refetched server updatedAt through so callers can use
+          // recency to decide merge-vs-abort (P2-S-8).
+          return Err(new ConflictErrorClass(externalId, cmp.diff!, cur.value.feature.updatedAt));
+        }
         if (cmp.idempotent) return Ok({ feature: cur.value.feature, wrote: false, priorFeature });
       }
 

@@ -203,3 +203,39 @@ describe('body-metadata: round-trip property', () => {
     });
   }
 });
+
+describe('body-metadata: blocked_by encoding', () => {
+  it('emits blocked_by as a YAML array (block sequence)', () => {
+    const body = serializeBodyBlock('Sum.', { blocked_by: ['feature-a', 'feature-b'] });
+    // YAML array form: each entry on its own indented line prefixed with "- ".
+    expect(body).toMatch(/blocked_by:\n\s*-\s+feature-a\n\s*-\s+feature-b/);
+    // And it must NOT use the comma-joined string form.
+    expect(body).not.toMatch(/blocked_by:\s+feature-a,\s+feature-b/);
+  });
+
+  it('round-trips blocked_by names that contain commas verbatim', () => {
+    // Critical: under the old comma-joined string serializer, a feature name
+    // like "alpha, prime" would split into ["alpha", "prime"] on parse. The
+    // YAML array form preserves the literal comma in the name.
+    const summary = 'Sum.';
+    const meta: BodyMeta = { blocked_by: ['alpha, prime', 'beta'] };
+    const body = serializeBodyBlock(summary, meta);
+    const reparsed = parseBodyBlock(body);
+    expect(reparsed.meta.blocked_by).toEqual(['alpha, prime', 'beta']);
+  });
+
+  it('parses legacy comma-joined blocked_by string for backward compatibility', () => {
+    // Older docs written with the comma-joined form must still parse into
+    // a string array. Names containing commas in legacy docs are inherently
+    // ambiguous and will split — that is acceptable for read-side compat.
+    const body = [
+      'Sum.',
+      '',
+      '<!-- harness-meta:start -->',
+      'blocked_by: feature-a, feature-b',
+      '<!-- harness-meta:end -->',
+    ].join('\n');
+    const result = parseBodyBlock(body);
+    expect(result.meta.blocked_by).toEqual(['feature-a', 'feature-b']);
+  });
+});

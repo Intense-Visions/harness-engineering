@@ -107,6 +107,7 @@ describe('handleRoadmapStatusFileLess (S5)', () => {
         new ConflictError(
           'github:o/r#1',
           { status: { ours: 'in-progress', theirs: 'done' } },
+          null,
           'status changed'
         )
       )

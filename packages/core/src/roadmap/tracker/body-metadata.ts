@@ -81,6 +81,11 @@ function normalizeBodyMeta(raw: Record<string, unknown>): BodyMeta {
  * BodyMeta key to the YAML key used on disk and a function that returns the
  * serialized value (or undefined to skip). Order is preserved by Map iteration
  * order — this matches the prior cascade's emission order.
+ *
+ * `blocked_by` is emitted as a YAML array (block sequence) so feature names
+ * that contain commas survive round-trip without being mis-split. The parser
+ * accepts both the array form (preferred) and the legacy comma-joined string
+ * form for backward compatibility.
  */
 const SERIALIZER_FIELDS: ReadonlyArray<readonly [keyof BodyMeta, string, (v: unknown) => unknown]> =
   [
@@ -89,7 +94,7 @@ const SERIALIZER_FIELDS: ReadonlyArray<readonly [keyof BodyMeta, string, (v: unk
     [
       'blocked_by',
       'blocked_by',
-      (v) => (Array.isArray(v) && v.length > 0 ? v.join(', ') : undefined),
+      (v) => (Array.isArray(v) && v.length > 0 ? (v as string[]) : undefined),
     ],
     ['priority', 'priority', (v) => v],
     ['milestone', 'milestone', (v) => v],

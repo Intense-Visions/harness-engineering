@@ -78,6 +78,15 @@ export class GitHubHttp {
 
   /**
    * Walk all pages of a paginated GET. Stops when a page returns < perPage items.
+   *
+   * Status semantics:
+   * - `status: 304` is returned ONLY when the first page returned 304 (the
+   *   server confirmed the caller's If-None-Match matched and there are no
+   *   items to read). Callers may then serve cached data.
+   * - `status: 200` is returned in all other terminal cases, including the
+   *   mid-walk case where page 1 returned 200 (with items) and a later page
+   *   returned 304. Mid-walk 304 is treated as "no further items"; already-
+   *   accumulated items are preserved and `lastEtag` is the latest ETag seen.
    */
   async paginate<T>(
     buildUrl: (page: number) => string,
@@ -86,14 +95,20 @@ export class GitHubHttp {
   ): Promise<{ items: T[]; lastEtag: string | null; status: number }> {
     const items: T[] = [];
     let page = 1;
-    let lastEtag: string | null;
-    let status: number;
+    let lastEtag: string | null = null;
+    let status = 200;
     for (;;) {
       const init: RequestInit & { extraHeaders?: Record<string, string> } = { method: 'GET' };
       if (extraHeaders) init.extraHeaders = extraHeaders;
       const res = await this.request(buildUrl(page), init);
       const etag = res.headers.get('ETag');
-      if (res.status === 304) return { items, lastEtag: etag, status: 304 };
+      if (res.status === 304) {
+        // First-page 304: server confirms cache hit, nothing to walk.
+        if (page === 1) return { items, lastEtag: etag, status: 304 };
+        // Mid-walk 304: preserve what we have, stop walking.
+        if (etag) lastEtag = etag;
+        break;
+      }
       if (!res.ok) {
         throw new Error(`GitHub ${res.status}: ${await res.text()}`);
       }

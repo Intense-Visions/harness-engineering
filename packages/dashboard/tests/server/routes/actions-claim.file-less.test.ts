@@ -105,6 +105,7 @@ describe('handleClaimFileLess (S3)', () => {
         new ConflictError(
           'github:o/r#42',
           { assignee: { ours: 'orch-1', theirs: 'other' } },
+          null,
           'locked by other'
         )
       )

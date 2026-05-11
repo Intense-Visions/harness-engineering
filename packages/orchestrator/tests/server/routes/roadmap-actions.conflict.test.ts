@@ -36,6 +36,7 @@ vi.mock('@harness-engineering/core', async () => {
   const conflictErr = new actual.ConflictError(
     'github:o/r#99',
     { name: { ours: 'A', theirs: 'B' } },
+    null,
     'someone got there first'
   );
 

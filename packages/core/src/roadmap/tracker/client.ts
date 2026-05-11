@@ -61,20 +61,29 @@ export interface HistoryEvent {
  * ConflictError signals that a write would clobber an external change.
  * Synthesized via refetch-and-compare on writes (D-P2-B); GitHub REST does
  * not natively return 412 on issue PATCH.
+ *
+ * `serverUpdatedAt` carries the server-side `updatedAt` from the refetched
+ * state when available (null when the server omits it or when the adapter
+ * cannot determine it). Callers can use this to decide merge-vs-abort by
+ * recency (e.g. a recent server change favors abort; a stale one favors
+ * merge after a fresh refetch).
  */
 export class ConflictError extends Error {
   readonly code = 'TRACKER_CONFLICT' as const;
   readonly externalId: string;
   readonly diff: Record<string, { ours: unknown; theirs: unknown }>;
+  readonly serverUpdatedAt: string | null;
   constructor(
     externalId: string,
     diff: Record<string, { ours: unknown; theirs: unknown }>,
+    serverUpdatedAt: string | null = null,
     message?: string
   ) {
     super(message ?? `Conflict on ${externalId}: ${Object.keys(diff).join(', ')}`);
     this.name = 'ConflictError';
     this.externalId = externalId;
     this.diff = diff;
+    this.serverUpdatedAt = serverUpdatedAt;
   }
 }
 

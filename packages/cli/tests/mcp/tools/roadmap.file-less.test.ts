@@ -222,6 +222,7 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
         new ConflictError(
           'github:o/r#42',
           { status: { ours: 'in-progress', theirs: 'done' } },
+          null,
           'conflict'
         )
       )
