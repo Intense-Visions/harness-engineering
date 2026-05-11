@@ -33,7 +33,7 @@ The claim workflow allows a user to pick an unassigned roadmap feature from the 
    **File-less mode** (`roadmap.mode: "file-less"`):
    - Resolves a tracker client via `createTrackerClient(loadTrackerClientConfigFromProject(root))` from `@harness-engineering/core`
    - Calls `client.claim(externalId, githubUsername, ifMatch)` with the cached ETag from the prior fetch
-   - On 412 / refetch-and-compare conflict, the adapter returns `ConflictError`; the route translates it to HTTP `409 TRACKER_CONFLICT` with the conflict diff in the body (Phase 4 decision D-P4-B)
+   - On refetch-and-compare conflict (synthesized `ConflictError` — GitHub REST does not honor `If-Match` on issue PATCH, so there is no real 412 on the wire; see ADR 0009 §Consequences), the route translates it to HTTP `409 TRACKER_CONFLICT` with the conflict diff in the body (Phase 4 decision D-P4-B)
    - On success, `appendHistory()` records the assignment event as a deduplicated issue comment (see ADR 0009)
    - Invalidates SSE caches (`roadmap`, `overview`)
 
