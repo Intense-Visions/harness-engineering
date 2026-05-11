@@ -6,7 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { syncMain } from '../../src/maintenance/sync-main';
 
 function git(args: string[], cwd: string): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8' }).toString();
+  // Disable autocrlf/eol normalization so Windows runners don't rewrite LF -> CRLF
+  // on checkout. Test assertions compare against literal '\n' content.
+  return execFileSync('git', ['-c', 'core.autocrlf=false', '-c', 'core.eol=lf', ...args], {
+    cwd,
+    encoding: 'utf8',
+  }).toString();
 }
 
 describe('syncMain — integration (real git)', () => {
