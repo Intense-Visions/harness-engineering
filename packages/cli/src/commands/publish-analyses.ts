@@ -2,7 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Command } from 'commander';
 import { logger } from '../output/logger';
-import { loadTrackerSyncConfig } from '@harness-engineering/core';
+import {
+  loadTrackerSyncConfig,
+  loadProjectRoadmapMode,
+  loadTrackerClientConfigFromProject,
+  createTrackerClient,
+} from '@harness-engineering/core';
 import {
   renderAnalysisComment,
   loadPublishedIndex,
@@ -46,7 +51,36 @@ function bootstrapTrackerCommand(opts: { dir: string }, verb: string): Bootstrap
   return { token, projectPath, trackerConfig };
 }
 
-function buildNameToExternalIdMap(projectPath: string): Map<string, string> | null {
+async function buildNameToExternalIdMap(projectPath: string): Promise<Map<string, string> | null> {
+  // FR-S2: route on roadmap.mode instead of using `fs.existsSync(roadmap.md)`
+  // as a proxy. In file-less mode, the file does not exist and the tracker
+  // is canonical — fetch features through `RoadmapTrackerClient.fetchAll`.
+  const mode = loadProjectRoadmapMode(projectPath);
+  if (mode === 'file-less') {
+    const trackerCfg = loadTrackerClientConfigFromProject(projectPath);
+    if (!trackerCfg.ok) {
+      logger.error(`File-less mode: ${trackerCfg.error.message}`);
+      return null;
+    }
+    const clientR = createTrackerClient(trackerCfg.value);
+    if (!clientR.ok) {
+      logger.error(`File-less mode: ${clientR.error.message}`);
+      return null;
+    }
+    const r = await clientR.value.fetchAll();
+    if (!r.ok) {
+      logger.error(`File-less mode: failed to fetch features from tracker: ${r.error.message}`);
+      return null;
+    }
+    const fileLessMap = new Map<string, string>();
+    for (const f of r.value.features) {
+      if (f.externalId) {
+        fileLessMap.set(f.name.toLowerCase(), f.externalId);
+      }
+    }
+    return fileLessMap;
+  }
+
   const roadmapFile = path.join(projectPath, 'docs', 'roadmap.md');
   if (!fs.existsSync(roadmapFile)) {
     logger.error('No docs/roadmap.md found. Cannot map issue hashes to external IDs.');
@@ -129,7 +163,7 @@ async function runPublishAnalyses(opts: { dir: string }): Promise<void> {
   if (!bootstrap) return process.exit(1);
   const { token, projectPath, trackerConfig } = bootstrap;
 
-  const nameToExternalId = buildNameToExternalIdMap(projectPath);
+  const nameToExternalId = await buildNameToExternalIdMap(projectPath);
   if (!nameToExternalId) return process.exit(1);
 
   const { AnalysisArchive } = await import('@harness-engineering/orchestrator');
