@@ -50,11 +50,12 @@ export async function runCleanup(
   const rootDir = path.resolve(cwd, config.rootDir);
   const docsDir = path.resolve(cwd, config.docsDir);
 
-  // Build entropy config — use configured entry points or let resolveEntryPoints discover them
+  // Build entropy config — use configured entry points or let resolveEntryPoints discover them.
+  // docPaths must be glob patterns (a bare directory yields zero matches from glob).
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
-    docPaths: [docsDir],
+    docPaths: [path.join(docsDir, '**/*.md')],
     analyze: {
       drift: type === 'all' || type === 'drift',
       deadCode: type === 'all' || type === 'dead-code',

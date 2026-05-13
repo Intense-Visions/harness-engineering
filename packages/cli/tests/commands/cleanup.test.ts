@@ -183,6 +183,16 @@ describe('cleanup command', () => {
       expect(capturedConfigs).toHaveLength(1);
       expect(capturedConfigs[0]).not.toHaveProperty('entryPoints');
     });
+
+    it('passes docPaths as a glob pattern, not a bare directory (#301 follow-up)', async () => {
+      await runCleanup({ cwd: '/tmp/test' });
+      expect(capturedConfigs).toHaveLength(1);
+      const config = capturedConfigs[0] as { docPaths: string[] };
+      expect(config.docPaths).toHaveLength(1);
+      // A bare directory path produces zero matches from glob; the pattern must
+      // include the **/*.md suffix so markdown files inside docsDir are scanned.
+      expect(config.docPaths[0]).toMatch(/\*\*[\\/]\*\.md$/);
+    });
   });
 
   describe('createCleanupCommand', () => {

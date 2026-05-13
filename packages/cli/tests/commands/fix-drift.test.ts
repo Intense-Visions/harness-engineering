@@ -84,6 +84,16 @@ describe('fix-drift command', () => {
       }
     });
 
+    it('passes docPaths as a glob pattern to buildSnapshot (#301 follow-up)', async () => {
+      await runFixDrift({ cwd: '/tmp/test' });
+      expect(vi.mocked(buildSnapshot)).toHaveBeenCalled();
+      const config = vi.mocked(buildSnapshot).mock.calls[0]?.[0] as { docPaths: string[] };
+      expect(config.docPaths).toHaveLength(1);
+      // A bare directory path produces zero matches from glob; the pattern must
+      // include the **/*.md suffix so markdown files inside docsDir are scanned.
+      expect(config.docPaths[0]).toMatch(/\*\*[\\/]\*\.md$/);
+    });
+
     it('returns error when config loading fails', async () => {
       vi.mocked(resolveConfig).mockReturnValueOnce({
         ok: false,
