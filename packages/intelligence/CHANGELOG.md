@@ -1,5 +1,12 @@
 # @harness-engineering/intelligence
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [bb7658b]
+  - @harness-engineering/graph@0.9.0
+
 ## 0.2.1
 
 ### Patch Changes
