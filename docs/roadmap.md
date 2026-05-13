@@ -1090,6 +1090,9 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Summary:** Widen orchestrator agent.localModel to string|string[] with periodic /v1/models probe; consolidate local-config reads behind a LocalModelResolver; surface dashboard warning when no candidate is loaded.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#296
 
 ### Multi-Backend Routing for the Orchestrator
 
@@ -1098,6 +1101,9 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Summary:** Redesign agent backend selection: agent.backends (named map) + agent.routing (per-use-case selection). Promotes local/pi to first-class backends. In-memory migration shim for legacy agent.backend / agent.localBackend. Reuses LocalModelResolver from Spec 1.
 - **Blockers:** —
 - **Plan:** docs/changes/multi-backend-routing/plans/
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#297
 
 ### Tracker-Only Roadmap (File-less Mode)
 
@@ -1791,6 +1797,28 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#224
+
+### Migrate to @google/genai SDK
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Migrate from deprecated @google/generative-ai@0.24.1 to @google/genai@2.x in packages/orchestrator and packages/intelligence; upstream has stopped publishing the old package
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#298
+
+### Upgrade @hono/node-server to v2
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Major version bump from @hono/node-server@1.19.x to v2.x in packages/dashboard; audit breaking changes and relax pnpm.overrides "@hono/node-server" pin
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#299
 
 ## v4.0 Business Knowledge System
 
