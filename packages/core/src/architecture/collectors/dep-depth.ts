@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { relativePosix } from '../../shared/fs-utils';
@@ -29,7 +30,7 @@ function extractImportSources(content: string, filePath: string): string[] {
 }
 
 function isSkippedEntry(name: string): boolean {
-  return name.startsWith('.') || name === 'node_modules' || name === 'dist';
+  return name.startsWith('.') || DEFAULT_SKIP_DIRS.has(name);
 }
 
 function isTsSourceFile(name: string): boolean {

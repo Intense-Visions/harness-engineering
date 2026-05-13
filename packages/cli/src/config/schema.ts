@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ArchConfigSchema } from '@harness-engineering/core';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { IngestConfigSchema } from './ingest-schema.js';
 
 export { IngestConfigSchema } from './ingest-schema.js';
@@ -56,7 +57,7 @@ export const EntropyConfigSchema = z.object({
   /** Explicit entry points for reachability analysis (overrides auto-detection) */
   entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
-  excludePatterns: z.array(z.string()).default(['**/node_modules/**', '**/*.test.ts']),
+  excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
   autoFix: z.boolean().default(false),
 });

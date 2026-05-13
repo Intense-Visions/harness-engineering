@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createInstallCommand, runInstall, runBulkInstall } from '../../src/commands/install';
 
-vi.mock('child_process', () => ({
-  execFileSync: vi.fn(() => {
-    throw new Error('git not available in test environment');
-  }),
-}));
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    execFileSync: vi.fn(() => {
+      throw new Error('git not available in test environment');
+    }),
+  };
+});
 
 // Mock all registry modules
 vi.mock('../../src/registry/npm-client', () => ({

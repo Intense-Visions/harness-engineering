@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { IngestResult } from '../types.js';
 import { hash } from './ingestUtils.js';
+import { DEFAULT_SKIP_DIRS } from './skip-dirs.js';
 
 // Re-export types and parsers so existing imports remain valid
 export type {
@@ -30,7 +31,6 @@ import { MermaidParser, D2Parser, PlantUmlParser } from './parsers/index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const DIAGRAM_EXTENSIONS = new Set(['.mmd', '.mermaid', '.d2', '.puml', '.plantuml']);
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.harness']);
 
 // ─── DiagramParser Orchestrator ─────────────────────────────────────────────
 
@@ -148,7 +148,7 @@ export class DiagramParser {
 
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          if (!SKIP_DIRS.has(entry.name)) {
+          if (!DEFAULT_SKIP_DIRS.has(entry.name)) {
             await walk(path.join(currentDir, entry.name));
           }
         } else if (entry.isFile()) {

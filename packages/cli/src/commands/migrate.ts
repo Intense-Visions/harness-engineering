@@ -6,6 +6,7 @@ import { execFileSync } from 'child_process';
 import chalk from 'chalk';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
@@ -89,7 +90,7 @@ function walk(dir: string, predicate: (p: string) => boolean): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+    if (DEFAULT_SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full, predicate));
     else if (predicate(full)) out.push(full);

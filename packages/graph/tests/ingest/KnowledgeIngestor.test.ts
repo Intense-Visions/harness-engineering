@@ -244,4 +244,114 @@ describe('KnowledgeIngestor', () => {
       expect(nodes[0]!.metadata.outcome).toBeUndefined();
     });
   });
+
+  // Regression coverage for issue #302 — ingestAll must materialize README,
+  // AGENTS.md, and docs/**/*.md (non-ADR) as `document` nodes so that the
+  // detect-doc-drift skill's graph-enhanced path has `documents` edges to
+  // traverse on projects without a docs/adr/ directory.
+  describe('general docs ingestion (issue #302)', () => {
+    let tmpDir: string;
+    let isolatedStore: GraphStore;
+    let isolatedIngestor: KnowledgeIngestor;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'general-docs-'));
+      // Seed a tiny source tree so linkToCode has something to match against.
+      await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, 'src', 'thing.ts'),
+        'export function doStuff(): void {\n  return;\n}\n'
+      );
+      isolatedStore = new GraphStore();
+      const codeIngestor = new CodeIngestor(isolatedStore);
+      await codeIngestor.ingest(tmpDir);
+      isolatedIngestor = new KnowledgeIngestor(isolatedStore);
+    });
+
+    afterEach(async () => {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('creates document nodes for top-level README.md and AGENTS.md', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'README.md'),
+        '# Project\n\nUses `doStuff` to do stuff.\n'
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'AGENTS.md'),
+        '# Agents\n\nSee src/thing.ts for details.\n'
+      );
+
+      const result = await isolatedIngestor.ingestAll(tmpDir);
+
+      const docs = isolatedStore.findNodes({ type: 'document' });
+      expect(docs.length).toBeGreaterThanOrEqual(2);
+      expect(docs.find((d) => d.path?.endsWith('README.md'))).toBeDefined();
+      expect(docs.find((d) => d.path?.endsWith('AGENTS.md'))).toBeDefined();
+      expect(result.nodesAdded).toBeGreaterThanOrEqual(2);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('creates documents edges from docs/*.md to mentioned code symbols', async () => {
+      await fs.mkdir(path.join(tmpDir, 'docs'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, 'docs', 'guide.md'),
+        '# Guide\n\nCall doStuff() to perform the operation.\n'
+      );
+
+      await isolatedIngestor.ingestAll(tmpDir);
+
+      const docs = isolatedStore.findNodes({ type: 'document' });
+      const guideDoc = docs.find((d) => d.path?.endsWith('guide.md'));
+      expect(guideDoc).toBeDefined();
+
+      const edges = isolatedStore.getEdges({ from: guideDoc!.id, type: 'documents' });
+      expect(edges.length).toBeGreaterThanOrEqual(1);
+      const doStuffFn = isolatedStore.findNodes({ type: 'function', name: 'doStuff' });
+      expect(doStuffFn.length).toBe(1);
+      expect(edges.map((e) => e.to)).toContain(doStuffFn[0]!.id);
+    });
+
+    it('does not duplicate ADRs as document nodes (docs/adr is owned by ingestADRs)', async () => {
+      await fs.mkdir(path.join(tmpDir, 'docs', 'adr'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, 'docs', 'adr', 'ADR-100.md'),
+        '# ADR-100: Test decision\n\n**Date:** 2026-05-13\n**Status:** Accepted\n'
+      );
+
+      await isolatedIngestor.ingestAll(tmpDir);
+
+      expect(isolatedStore.findNodes({ type: 'adr' })).toHaveLength(1);
+      const docs = isolatedStore.findNodes({ type: 'document' });
+      expect(docs.find((d) => d.path?.includes('ADR-100.md'))).toBeUndefined();
+    });
+
+    it('skips docs/{knowledge,changes,solutions} (owned by other ingestors)', async () => {
+      await fs.mkdir(path.join(tmpDir, 'docs', 'knowledge'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'docs', 'changes'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'docs', 'solutions'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'docs', 'knowledge', 'k.md'), '# k\n');
+      await fs.writeFile(path.join(tmpDir, 'docs', 'changes', 'c.md'), '# c\n');
+      await fs.writeFile(path.join(tmpDir, 'docs', 'solutions', 's.md'), '# s\n');
+      await fs.writeFile(path.join(tmpDir, 'docs', 'visible.md'), '# visible\n');
+
+      await isolatedIngestor.ingestAll(tmpDir);
+
+      const docs = isolatedStore.findNodes({ type: 'document' });
+      expect(docs.find((d) => d.path?.includes('knowledge'))).toBeUndefined();
+      expect(docs.find((d) => d.path?.includes('changes'))).toBeUndefined();
+      expect(docs.find((d) => d.path?.includes('solutions'))).toBeUndefined();
+      expect(docs.find((d) => d.path?.endsWith('visible.md'))).toBeDefined();
+    });
+
+    it('does not ingest .harness/*.md as document nodes', async () => {
+      await fs.mkdir(path.join(tmpDir, '.harness'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, '.harness', 'notes.md'), '# notes\n');
+
+      await isolatedIngestor.ingestAll(tmpDir);
+
+      const docs = isolatedStore.findNodes({ type: 'document' });
+      expect(docs.find((d) => d.path?.includes('.harness'))).toBeUndefined();
+    });
+  });
 });
