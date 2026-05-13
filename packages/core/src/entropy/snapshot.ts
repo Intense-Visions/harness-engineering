@@ -13,8 +13,8 @@ import type {
   CodeReference,
   CodebaseSnapshot,
 } from './types';
-import type { AST, Export } from '../shared/parsers';
-import { TypeScriptParser } from '../shared/parsers';
+import type { AST, Export, LanguageParser } from '../shared/parsers';
+import { getDefaultRegistry } from '../shared/parsers';
 import { createEntropyError } from '../shared/errors';
 import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraph } from '../constraints/dependencies';
@@ -23,6 +23,19 @@ import { minimatch } from 'minimatch';
 import { resolveEntryPoints } from './entry-points';
 
 export { resolveEntryPoints };
+
+const DEFAULT_INCLUDE_PATTERNS = [
+  '**/*.ts',
+  '**/*.tsx',
+  '**/*.js',
+  '**/*.jsx',
+  '**/*.mjs',
+  '**/*.cjs',
+  '**/*.py',
+  '**/*.go',
+  '**/*.rs',
+  '**/*.java',
+];
 
 /**
  * Extract code blocks from markdown content
@@ -160,9 +173,11 @@ function extractSymbolsFromNode(node: ASTNode): InternalSymbol[] {
 }
 
 /**
- * Extract internal (non-exported) symbols from AST
+ * Extract internal (non-exported) symbols from AST.
+ * Only meaningful for ESTree-shaped TS/JS ASTs; tree-sitter ASTs return empty.
  */
 function extractInternalSymbols(ast: AST): InternalSymbol[] {
+  if (ast.language !== 'typescript' && ast.language !== 'javascript') return [];
   const body = ast.body as { body?: unknown[] };
   if (!body?.body) return [];
 
@@ -182,6 +197,7 @@ function toJSDocComment(comment: RawComment): JSDocComment | null {
 }
 
 function extractJSDocComments(ast: AST): JSDocComment[] {
+  if (ast.language !== 'typescript' && ast.language !== 'javascript') return [];
   const body = ast.body as { comments?: RawComment[] };
   if (!body?.comments) return [];
   return body.comments.flatMap((c) => {
@@ -258,7 +274,6 @@ export async function buildSnapshot(
   config: EntropyConfig
 ): Promise<Result<CodebaseSnapshot, EntropyError>> {
   const startTime = Date.now();
-  const parser = config.parser || new TypeScriptParser();
   const rootDir = resolve(config.rootDir);
 
   // Resolve entry points
@@ -267,8 +282,16 @@ export async function buildSnapshot(
     return Err(entryPointsResult.error);
   }
 
+  // Source-file dispatch: if caller passed a single parser, use it for every
+  // file (preserves legacy behavior); otherwise dispatch per-file via the
+  // default multi-language registry.
+  const registry = getDefaultRegistry();
+  const singleParser = config.parser;
+  const parserForFile = (filePath: string): LanguageParser | null =>
+    singleParser ?? registry.getForFile(filePath);
+
   // Find source files
-  const includePatterns = config.include || ['**/*.ts', '**/*.tsx'];
+  const includePatterns = config.include || DEFAULT_INCLUDE_PATTERNS;
   const excludePatterns = config.exclude || [
     'node_modules/**',
     'dist/**',
@@ -291,11 +314,14 @@ export async function buildSnapshot(
   // Parse source files
   const files: SourceFile[] = [];
   for (const filePath of sourceFilePaths) {
-    const parseResult = await parser.parseFile(filePath);
+    const fileParser = parserForFile(filePath);
+    if (!fileParser) continue;
+
+    const parseResult = await fileParser.parseFile(filePath);
     if (!parseResult.ok) continue;
 
-    const importsResult = parser.extractImports(parseResult.value);
-    const exportsResult = parser.extractExports(parseResult.value);
+    const importsResult = fileParser.extractImports(parseResult.value);
+    const exportsResult = fileParser.extractExports(parseResult.value);
     const internalSymbols = extractInternalSymbols(parseResult.value);
     const jsDocComments = extractJSDocComments(parseResult.value);
 
@@ -309,8 +335,8 @@ export async function buildSnapshot(
     });
   }
 
-  // Build dependency graph
-  const graphResult = await buildDependencyGraph(sourceFilePaths, parser);
+  // Build dependency graph — pass the registry directly so it can dispatch per file
+  const graphResult = await buildDependencyGraph(sourceFilePaths, singleParser ?? registry);
   const dependencyGraph = graphResult.ok ? graphResult.value : { nodes: [], edges: [] };
 
   // Find and parse documentation

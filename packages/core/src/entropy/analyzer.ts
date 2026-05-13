@@ -24,8 +24,6 @@ import { detectComplexityViolations } from './detectors/complexity';
 import { detectCouplingViolations } from './detectors/coupling';
 import { detectSizeBudgetViolations } from './detectors/size-budget';
 import { generateSuggestions } from './fixers/suggestions';
-import { TypeScriptParser } from '../shared/parsers';
-
 /**
  * Main entropy analysis orchestrator
  */
@@ -35,10 +33,10 @@ export class EntropyAnalyzer {
   private report?: EntropyReport;
 
   constructor(config: EntropyConfig) {
-    this.config = {
-      ...config,
-      parser: config.parser || new TypeScriptParser(),
-    };
+    // Leave `parser` undefined when the caller doesn't supply one so that
+    // buildSnapshot dispatches per file via the default multi-language registry.
+    // Callers that want single-parser semantics can still pass `parser` explicitly.
+    this.config = { ...config };
   }
 
   /**
