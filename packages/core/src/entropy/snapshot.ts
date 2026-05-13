@@ -16,91 +16,13 @@ import type {
 import type { AST, Export } from '../shared/parsers';
 import { TypeScriptParser } from '../shared/parsers';
 import { createEntropyError } from '../shared/errors';
-import { readFileContent, fileExists, findFiles, relativePosix } from '../shared/fs-utils';
+import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraph } from '../constraints/dependencies';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import { minimatch } from 'minimatch';
+import { resolveEntryPoints } from './entry-points';
 
-/** Collect resolved paths from a string-or-object package.json field. */
-function collectFieldEntries(rootDir: string, field: unknown): string[] {
-  if (typeof field === 'string') return [resolve(rootDir, field)];
-  if (typeof field === 'object' && field !== null) {
-    return Object.values(field as Record<string, unknown>)
-      .filter((v): v is string => typeof v === 'string')
-      .map((v) => resolve(rootDir, v));
-  }
-  return [];
-}
-
-/** Extract entry points from a parsed package.json object. */
-function extractPackageEntries(rootDir: string, pkg: Record<string, unknown>): string[] {
-  const entries: string[] = [];
-
-  entries.push(...collectFieldEntries(rootDir, pkg['exports']));
-
-  if (entries.length === 0 && typeof pkg['main'] === 'string') {
-    entries.push(resolve(rootDir, pkg['main']));
-  }
-
-  if (pkg['bin']) {
-    entries.push(...collectFieldEntries(rootDir, pkg['bin']));
-  }
-
-  return entries;
-}
-
-/**
- * Resolve entry points for dead code analysis
- *
- * Entry points are the starting files from which reachability analysis begins.
- * The resolution order is:
- * 1. Explicit entries provided as arguments
- * 2. package.json exports/main/bin fields
- * 3. Conventional entry files (src/index.ts, index.ts, etc.)
- */
-export async function resolveEntryPoints(
-  rootDir: string,
-  explicitEntries?: string[]
-): Promise<Result<string[], EntropyError>> {
-  if (explicitEntries && explicitEntries.length > 0) {
-    return Ok(explicitEntries.map((e) => resolve(rootDir, e)));
-  }
-
-  const pkgPath = join(rootDir, 'package.json');
-  if (await fileExists(pkgPath)) {
-    const pkgContent = await readFileContent(pkgPath);
-    if (pkgContent.ok) {
-      try {
-        const pkg = JSON.parse(pkgContent.value) as Record<string, unknown>;
-        const entries = extractPackageEntries(rootDir, pkg);
-        if (entries.length > 0) return Ok(entries);
-      } catch {
-        // Invalid JSON, fall through to conventions
-      }
-    }
-  }
-
-  const conventions = ['src/index.ts', 'src/main.ts', 'index.ts', 'main.ts'];
-  for (const conv of conventions) {
-    const convPath = join(rootDir, conv);
-    if (await fileExists(convPath)) {
-      return Ok([convPath]);
-    }
-  }
-
-  return Err(
-    createEntropyError(
-      'ENTRY_POINT_NOT_FOUND',
-      'Could not resolve entry points',
-      { reason: 'No package.json exports/main and no conventional entry files found' },
-      [
-        'Add "exports" or "main" to package.json',
-        'Create src/index.ts',
-        'Specify entryPoints in config',
-      ]
-    )
-  );
-}
+export { resolveEntryPoints };
 
 /**
  * Extract code blocks from markdown content
