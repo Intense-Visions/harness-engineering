@@ -9,6 +9,7 @@
  */
 import http from 'node:http';
 import type { Context, Next } from 'hono';
+import { isBadPort } from '@harness-engineering/core';
 import { ORCHESTRATOR_PORT } from '../shared/constants';
 
 /**
@@ -33,6 +34,12 @@ const ORCHESTRATOR_PREFIXES = [
 
 /** Resolve the orchestrator base URL from environment, or null if unconfigured. */
 export function getOrchestratorTarget(): URL | null {
+  const target = resolveOrchestratorUrl();
+  if (target) warnIfBadProxyPort(target);
+  return target;
+}
+
+function resolveOrchestratorUrl(): URL | null {
   const explicit = process.env['ORCHESTRATOR_URL'];
   if (explicit) {
     try {
@@ -47,10 +54,51 @@ export function getOrchestratorTarget(): URL | null {
   return null;
 }
 
+let warnedBadProxyPort = false;
+function warnIfBadProxyPort(target: URL): void {
+  if (warnedBadProxyPort) return;
+  const port = Number(target.port) || ORCHESTRATOR_PORT;
+  if (isBadPort(port)) {
+    warnedBadProxyPort = true;
+    console.error(
+      `Orchestrator target ${target.origin} uses port ${port}, which is on the ` +
+        `WHATWG fetch bad-ports list. Every proxy request will fail with 502 ` +
+        `'fetch failed (cause: bad port)'. Restart the orchestrator on a different ` +
+        `port. See https://fetch.spec.whatwg.org/#port-blocking.`
+    );
+  }
+}
+
 function isOrchestratorRoute(pathname: string): boolean {
   return ORCHESTRATOR_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + '/')
   );
+}
+
+/**
+ * Extract the most informative message from a thrown error, including
+ * `cause.message` / `cause.code` when present.
+ *
+ * Node's undici-based `fetch()` wraps the real failure in
+ * `TypeError: fetch failed` and stashes the actionable reason on `err.cause`
+ * (`'bad port'`, `ECONNREFUSED`, `ENOTFOUND`, ...). The default `err.message`
+ * is uniformly `'fetch failed'`, which makes proxy 502s opaque. Surfacing the
+ * cause turns multi-hour goose chases (see #287) into one-line diagnoses.
+ *
+ * Exported for testing.
+ */
+export function formatProxyErrorMessage(err: unknown): string {
+  const baseMsg = err instanceof Error ? err.message : String(err);
+  const cause = err instanceof Error ? (err as { cause?: unknown }).cause : undefined;
+  if (!cause) return baseMsg;
+
+  const causeMsg = cause instanceof Error ? cause.message : undefined;
+  const causeCode =
+    typeof cause === 'object' && cause !== null && 'code' in cause
+      ? String((cause as { code: unknown }).code)
+      : undefined;
+  const detail = causeMsg ?? causeCode;
+  return detail ? `${baseMsg} (cause: ${detail})` : baseMsg;
 }
 
 /**
@@ -89,8 +137,7 @@ export function orchestratorProxyMiddleware() {
         headers: resp.headers,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: `Orchestrator proxy error: ${message}` }, 502);
+      return c.json({ error: `Orchestrator proxy error: ${formatProxyErrorMessage(err)}` }, 502);
     }
   };
 }

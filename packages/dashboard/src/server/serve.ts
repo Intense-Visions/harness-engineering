@@ -3,6 +3,7 @@ import type http from 'node:http';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertPortUsable } from '@harness-engineering/core';
 import { API_PORT, getBindHost } from '../shared/constants';
 import { attachWsProxy, getOrchestratorTarget } from './orchestrator-proxy';
 
@@ -20,6 +21,10 @@ if (existsSync(join(clientDir, 'index.html')) && existsSync(join(clientDir, 'ass
 const { app } = await import('./index');
 
 const port = Number(process.env['DASHBOARD_API_PORT'] ?? API_PORT);
+
+// Refuse to bind to a WHATWG bad port — browsers and Node's fetch() will
+// reject every connection with "bad port" (issue #287).
+assertPortUsable(port, 'dashboard API');
 
 const hostname = getBindHost();
 

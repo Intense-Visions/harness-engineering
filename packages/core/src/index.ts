@@ -41,6 +41,11 @@ export type {
 export { createParseError } from './shared/parsers';
 
 /**
+ * WHATWG bad-ports list and helpers for refusing to bind unreachable ports.
+ */
+export { WHATWG_BAD_PORTS, isBadPort, assertPortUsable } from './shared/port';
+
+/**
  * Validation module for verifying project structure, configuration, and conventions.
  */
 export * from './validation';
