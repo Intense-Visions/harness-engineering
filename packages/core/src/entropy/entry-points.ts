@@ -34,113 +34,148 @@ function extractPackageEntries(rootDir: string, pkg: Record<string, unknown>): s
   return entries;
 }
 
+const TS_HINTS = ['Add "exports" or "main" to package.json', 'Create src/index.ts'];
+const TS_CONVENTIONS = ['src/index.ts', 'src/main.ts', 'src/index.tsx', 'index.ts', 'main.ts'];
+
+async function readPackageJsonEntries(rootDir: string, pkgPath: string): Promise<string[]> {
+  const content = await readFileContent(pkgPath);
+  if (!content.ok) return [];
+  try {
+    const pkg = JSON.parse(content.value) as Record<string, unknown>;
+    return extractPackageEntries(rootDir, pkg);
+  } catch {
+    return [];
+  }
+}
+
 async function resolveTypeScript(rootDir: string): Promise<LanguageResolution> {
-  const hints = ['Add "exports" or "main" to package.json', 'Create src/index.ts'];
   const pkgPath = join(rootDir, 'package.json');
   const detected = await fileExists(pkgPath);
 
   if (detected) {
-    const content = await readFileContent(pkgPath);
-    if (content.ok) {
-      try {
-        const pkg = JSON.parse(content.value) as Record<string, unknown>;
-        const entries = extractPackageEntries(rootDir, pkg);
-        if (entries.length > 0) {
-          return { language: 'typescript', detected: true, entries, hints };
-        }
-      } catch {
-        // Invalid JSON — fall through to conventions
-      }
+    const entries = await readPackageJsonEntries(rootDir, pkgPath);
+    if (entries.length > 0) {
+      return { language: 'typescript', detected: true, entries, hints: TS_HINTS };
     }
   }
 
-  const conventions = ['src/index.ts', 'src/main.ts', 'src/index.tsx', 'index.ts', 'main.ts'];
-  for (const conv of conventions) {
+  for (const conv of TS_CONVENTIONS) {
     const p = join(rootDir, conv);
     if (await fileExists(p)) {
-      return { language: 'typescript', detected: true, entries: [p], hints };
+      return { language: 'typescript', detected: true, entries: [p], hints: TS_HINTS };
     }
   }
 
-  return { language: 'typescript', detected, entries: [], hints };
+  return { language: 'typescript', detected, entries: [], hints: TS_HINTS };
+}
+
+const PYTHON_HINTS = [
+  'Add an entry to [project.scripts] in pyproject.toml',
+  'Create main.py or <package>/__main__.py',
+];
+
+const PYTHON_CONVENTIONS = [
+  '__main__.py',
+  'main.py',
+  'app.py',
+  'src/__main__.py',
+  'src/main.py',
+  'src/app.py',
+];
+
+async function detectPython(rootDir: string): Promise<boolean> {
+  return (
+    (await fileExists(join(rootDir, 'pyproject.toml'))) ||
+    (await fileExists(join(rootDir, 'setup.py'))) ||
+    (await fileExists(join(rootDir, 'requirements.txt')))
+  );
+}
+
+async function readPyProject(rootDir: string): Promise<PyProjectInfo> {
+  const pyproject = join(rootDir, 'pyproject.toml');
+  if (!(await fileExists(pyproject))) return { scriptTargets: [] };
+  const content = await readFileContent(pyproject);
+  if (!content.ok) return { scriptTargets: [] };
+  return parsePyProject(content.value);
+}
+
+async function resolveScriptTargetEntry(
+  rootDir: string,
+  target: string
+): Promise<string | undefined> {
+  const mod = target.split(':')[0];
+  if (!mod) return undefined;
+  const relPath = mod.replaceAll('.', '/') + '.py';
+  for (const candidate of [join(rootDir, relPath), join(rootDir, 'src', relPath)]) {
+    if (await fileExists(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+async function resolvePythonFromScripts(rootDir: string, targets: string[]): Promise<string[]> {
+  const entries: string[] = [];
+  for (const target of targets) {
+    const entry = await resolveScriptTargetEntry(rootDir, target);
+    if (entry) entries.push(entry);
+  }
+  return entries;
+}
+
+async function resolvePythonFromProjectName(
+  rootDir: string,
+  projectName: string | undefined
+): Promise<string[]> {
+  if (!projectName) return [];
+  const normalized = projectName.replaceAll('-', '_');
+  const candidates = [
+    join(rootDir, normalized, '__init__.py'),
+    join(rootDir, normalized, '__main__.py'),
+    join(rootDir, 'src', normalized, '__init__.py'),
+    join(rootDir, 'src', normalized, '__main__.py'),
+  ];
+  const entries: string[] = [];
+  for (const c of candidates) {
+    if (await fileExists(c)) entries.push(c);
+  }
+  return entries;
+}
+
+async function resolvePythonConventions(rootDir: string): Promise<string[]> {
+  const entries: string[] = [];
+  for (const conv of PYTHON_CONVENTIONS) {
+    const p = join(rootDir, conv);
+    if (await fileExists(p)) entries.push(p);
+  }
+  return entries;
+}
+
+async function findPythonTopLevelPackages(rootDir: string): Promise<string[]> {
+  const found = await findFiles('*/__init__.py', rootDir);
+  if (found.length > 0) return found;
+  return findFiles('src/*/__init__.py', rootDir);
 }
 
 async function resolvePython(rootDir: string): Promise<LanguageResolution> {
-  const hints = [
-    'Add an entry to [project.scripts] in pyproject.toml',
-    'Create main.py or <package>/__main__.py',
+  if (!(await detectPython(rootDir))) {
+    return { language: 'python', detected: false, entries: [], hints: PYTHON_HINTS };
+  }
+
+  const info = await readPyProject(rootDir);
+  const strategies: Array<() => Promise<string[]>> = [
+    () => resolvePythonFromScripts(rootDir, info.scriptTargets),
+    () => resolvePythonFromProjectName(rootDir, info.projectName),
+    () => resolvePythonConventions(rootDir),
+    () => findPythonTopLevelPackages(rootDir),
   ];
 
-  const pyproject = join(rootDir, 'pyproject.toml');
-  const setupPy = join(rootDir, 'setup.py');
-  const requirements = join(rootDir, 'requirements.txt');
-  const detected =
-    (await fileExists(pyproject)) ||
-    (await fileExists(setupPy)) ||
-    (await fileExists(requirements));
-
-  if (!detected) return { language: 'python', detected: false, entries: [], hints };
-
-  const entries: string[] = [];
-  let projectName: string | undefined;
-
-  if (await fileExists(pyproject)) {
-    const content = await readFileContent(pyproject);
-    if (content.ok) {
-      const parsed = parsePyProject(content.value);
-      projectName = parsed.projectName;
-      for (const target of parsed.scriptTargets) {
-        const mod = target.split(':')[0];
-        if (!mod) continue;
-        const relPath = mod.replaceAll('.', '/') + '.py';
-        for (const candidate of [join(rootDir, relPath), join(rootDir, 'src', relPath)]) {
-          if (await fileExists(candidate)) {
-            entries.push(candidate);
-            break;
-          }
-        }
-      }
+  for (const strategy of strategies) {
+    const entries = await strategy();
+    if (entries.length > 0) {
+      return { language: 'python', detected: true, entries, hints: PYTHON_HINTS };
     }
   }
 
-  if (entries.length === 0 && projectName) {
-    const normalized = projectName.replaceAll('-', '_');
-    const candidates = [
-      join(rootDir, normalized, '__init__.py'),
-      join(rootDir, normalized, '__main__.py'),
-      join(rootDir, 'src', normalized, '__init__.py'),
-      join(rootDir, 'src', normalized, '__main__.py'),
-    ];
-    for (const c of candidates) {
-      if (await fileExists(c)) entries.push(c);
-    }
-  }
-
-  if (entries.length === 0) {
-    const conventions = [
-      '__main__.py',
-      'main.py',
-      'app.py',
-      'src/__main__.py',
-      'src/main.py',
-      'src/app.py',
-    ];
-    for (const conv of conventions) {
-      const p = join(rootDir, conv);
-      if (await fileExists(p)) entries.push(p);
-    }
-  }
-
-  if (entries.length === 0) {
-    const found = await findFiles('*/__init__.py', rootDir);
-    entries.push(...found);
-    if (entries.length === 0) {
-      const foundSrc = await findFiles('src/*/__init__.py', rootDir);
-      entries.push(...foundSrc);
-    }
-  }
-
-  return { language: 'python', detected: true, entries, hints };
+  return { language: 'python', detected: true, entries: [], hints: PYTHON_HINTS };
 }
 
 async function resolveGo(rootDir: string): Promise<LanguageResolution> {
@@ -209,27 +244,35 @@ interface PyProjectInfo {
   scriptTargets: string[];
 }
 
+function parseTomlLine(raw: string): { section?: string; key?: string; value?: string } {
+  const line = raw.replace(/(^|\s)#.*$/, '').trim();
+  if (!line) return {};
+
+  const sectionMatch = /^\[([^\]]+)\]$/.exec(line);
+  if (sectionMatch) return { section: sectionMatch[1] ?? '' };
+
+  const eq = line.indexOf('=');
+  if (eq <= 0) return {};
+  return {
+    key: line.slice(0, eq).trim(),
+    value: stripTomlString(line.slice(eq + 1).trim()),
+  };
+}
+
 function parsePyProject(content: string): PyProjectInfo {
   const result: PyProjectInfo = { scriptTargets: [] };
   let section: string | null = null;
 
   for (const raw of content.split(/\r?\n/)) {
-    const line = raw.replace(/(^|\s)#.*$/, '').trim();
-    if (!line) continue;
-
-    const sectionMatch = /^\[([^\]]+)\]$/.exec(line);
-    if (sectionMatch) {
-      section = sectionMatch[1] ?? null;
+    const parsed = parseTomlLine(raw);
+    if (parsed.section !== undefined) {
+      section = parsed.section;
       continue;
     }
+    if (parsed.key === undefined || parsed.value === undefined) continue;
 
-    const eq = line.indexOf('=');
-    if (eq <= 0) continue;
-    const key = line.slice(0, eq).trim();
-    const value = stripTomlString(line.slice(eq + 1).trim());
-
-    if (section === 'project' && key === 'name') result.projectName = value;
-    else if (section === 'project.scripts') result.scriptTargets.push(value);
+    if (section === 'project' && parsed.key === 'name') result.projectName = parsed.value;
+    else if (section === 'project.scripts') result.scriptTargets.push(parsed.value);
   }
 
   return result;
