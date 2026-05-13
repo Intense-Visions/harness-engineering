@@ -47,7 +47,7 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/intelligence#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.91.0",
+    "@anthropic-ai/sdk": "^0.95.1",
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "openai": "^6.0.0",

@@ -47,8 +47,8 @@
     "@changesets/cli": "^2.30.0",
     "@eslint/js": "^10.0.1",
     "@harness-engineering/eslint-plugin": "workspace:^",
-    "@typescript-eslint/eslint-plugin": "^8.59.0",
-    "@typescript-eslint/parser": "^8.59.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
     "concurrently": "^9.1.0",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
@@ -76,13 +76,24 @@
     "autoInstallPeers": true,
     "strictPeerDependencies": false,
     "overrides": {
-      "hono": ">=4.12.14",
+      "hono": ">=4.12.18",
       "@hono/node-server": ">=1.19.13",
-      "postcss": ">=8.5.10"
+      "postcss": ">=8.5.10",
+      "basic-ftp": ">=5.3.1",
+      "fast-xml-parser": ">=5.7.0",
+      "ip-address": ">=10.1.1",
+      "fast-uri": ">=3.1.2"
     },
     "auditExceptions": {
       "GHSA-67mh-4wv8-2f99": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",
-      "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin."
+      "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin.",
+      "GHSA-q6x5-8v7m-xcrf": "protobufjs overlong UTF-8 decoding — blocked by @google/genai → protobufjs ^7.5.4 pin. All protobufjs CVEs in this exception list share the same upstream block; track @google/genai release that bumps to protobufjs ^8.",
+      "GHSA-2pr8-phx7-x9h3": "protobufjs DoS via crafted field names — blocked by @google/genai pin (see GHSA-q6x5-8v7m-xcrf).",
+      "GHSA-66ff-xgx4-vchm": "protobufjs code injection via bytes-field defaults — blocked by @google/genai pin. Risk: only exploitable if attacker controls .proto schema; @google/genai consumes Google-published schemas.",
+      "GHSA-fx83-v9x8-x52w": "protobufjs prototype injection in generated message constructors — blocked by @google/genai pin (see GHSA-q6x5-8v7m-xcrf).",
+      "GHSA-75px-5xx7-5xc7": "protobufjs code generation gadget after prototype pollution — blocked by @google/genai pin (see GHSA-q6x5-8v7m-xcrf).",
+      "GHSA-jvwf-75h9-cwgg": "protobufjs process-wide DoS via unsafe option paths — blocked by @google/genai pin (see GHSA-q6x5-8v7m-xcrf).",
+      "GHSA-685m-2w69-288q": "protobufjs DoS via unbounded recursion — blocked by @google/genai pin (see GHSA-q6x5-8v7m-xcrf)."
     }
   },
   "engines": {

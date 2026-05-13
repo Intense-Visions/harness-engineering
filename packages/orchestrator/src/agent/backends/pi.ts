@@ -223,7 +223,6 @@ export class PiBackend implements AgentBackend {
       const { session: piSession } = await piSdk.createAgentSession({
         cwd: params.workspacePath,
         ...(model !== undefined && { model }),
-        tools: piSdk.codingTools,
         sessionManager: piSdk.SessionManager.inMemory(),
       });
 
