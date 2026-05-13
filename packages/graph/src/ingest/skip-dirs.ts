@@ -110,3 +110,16 @@ export function resolveSkipDirs(options?: {
   }
   return base;
 }
+
+/**
+ * Convert a skip-dirs set into minimatch glob patterns of the form
+ * `**\/<name>/\**`. Use for tools that exclude via globs (security scan, doc
+ * coverage, entropy analysis) rather than by reading directory names during
+ * traversal. Defaults to {@link DEFAULT_SKIP_DIRS}.
+ *
+ * Returns a fresh array each call so callers may freely mutate/append
+ * domain-specific patterns (e.g. test/fixture file globs).
+ */
+export function skipDirGlobs(skipDirs: ReadonlySet<string> = DEFAULT_SKIP_DIRS): string[] {
+  return Array.from(skipDirs, (name) => `**/${name}/**`);
+}

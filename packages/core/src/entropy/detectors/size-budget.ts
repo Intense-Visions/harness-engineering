@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 
 /**
  * Parse a human-readable size string into bytes.
@@ -32,7 +33,7 @@ export function parseSize(size: string): number {
 
 /**
  * Recursively compute directory size in bytes.
- * Skips node_modules and .git.
+ * Skips dirs listed in DEFAULT_SKIP_DIRS (node_modules, .git, build outputs, caches, etc.).
  */
 function dirSize(dirPath: string): number {
   let total = 0;
@@ -43,7 +44,7 @@ function dirSize(dirPath: string): number {
     return 0;
   }
   for (const entry of entries) {
-    if (entry === 'node_modules' || entry === '.git') continue;
+    if (DEFAULT_SKIP_DIRS.has(entry)) continue;
     const fullPath = join(dirPath, entry);
     try {
       const stat = statSync(fullPath);

@@ -23,6 +23,7 @@ import {
 import { getBundledSkillNames } from '../registry/bundled-skills';
 import { resolveGlobalSkillsDir, resolveGlobalCommunityBaseDir } from '../utils/paths';
 import { logger } from '../output/logger';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 
 export interface InstallOptions {
   version?: string;
@@ -146,7 +147,7 @@ function discoverSkillDirs(rootDir: string): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (entry.name.startsWith('.') || DEFAULT_SKIP_DIRS.has(entry.name)) continue;
       scan(path.join(dir, entry.name), depth + 1);
     }
   }

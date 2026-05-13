@@ -3,34 +3,8 @@ import * as path from 'node:path';
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult, GraphNode, GraphEdge, EdgeType } from '../../types.js';
 import { hash } from '../ingestUtils.js';
+import { DEFAULT_SKIP_DIRS } from '../skip-dirs.js';
 import type { ExtractionRecord, Language, SignalExtractor } from './types.js';
-
-/** Directories to skip during file walking (matches CodeIngestor). */
-const SKIP_DIRS = new Set([
-  'node_modules',
-  'dist',
-  'target',
-  'build',
-  '.git',
-  '__pycache__',
-  '.venv',
-  '.turbo',
-  '.harness',
-  '.next',
-  '.vscode',
-  '.idea',
-  'vendor',
-  'out',
-  '.gradle',
-  '.gradle-home',
-  'bin',
-  'obj',
-  'venv',
-  '_build',
-  'deps',
-  'coverage',
-  '.nyc_output',
-]);
 
 /** Map file extensions to Language. */
 const EXT_TO_LANGUAGE: Record<string, Language> = {
@@ -264,7 +238,7 @@ export class ExtractionRunner {
     }
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
+      if (entry.isDirectory() && !DEFAULT_SKIP_DIRS.has(entry.name)) {
         results.push(...(await this.findSourceFiles(fullPath)));
       } else if (entry.isFile() && detectLanguage(fullPath) !== undefined) {
         results.push(fullPath);

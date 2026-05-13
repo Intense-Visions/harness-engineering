@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import type { SecurityConfig, SecuritySeverity, RuleOverride } from './types';
 import { DEFAULT_SECURITY_CONFIG } from './types';
 
@@ -11,7 +12,7 @@ export const SecurityConfigSchema = z.object({
   exclude: z
     .array(z.string())
     .optional()
-    .default(['**/node_modules/**', '**/dist/**', '**/*.test.ts', '**/fixtures/**']),
+    .default([...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**']),
   external: z
     .object({
       semgrep: z

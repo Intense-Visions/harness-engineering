@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, IngestResult, NodeType, EdgeType } from '../types.js';
 import { emptyResult } from './ingestUtils.js';
+import { DEFAULT_SKIP_DIRS } from './skip-dirs.js';
 
 // Local schema mirror of @harness-engineering/core's SolutionDocFrontmatterSchema.
 // Inlined because the graph layer cannot depend on core (layer rule:
@@ -294,23 +295,7 @@ export class BusinessKnowledgeIngestor {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (
-        entry.isDirectory() &&
-        entry.name !== 'node_modules' &&
-        entry.name !== 'dist' &&
-        entry.name !== 'target' &&
-        entry.name !== 'build' &&
-        entry.name !== '.git' &&
-        entry.name !== '.gradle' &&
-        entry.name !== '.harness' &&
-        entry.name !== 'vendor' &&
-        entry.name !== 'bin' &&
-        entry.name !== 'obj' &&
-        entry.name !== 'venv' &&
-        entry.name !== '_build' &&
-        entry.name !== 'deps' &&
-        entry.name !== 'coverage'
-      ) {
+      if (entry.isDirectory() && !DEFAULT_SKIP_DIRS.has(entry.name)) {
         results.push(...(await this.findMarkdownFiles(fullPath)));
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         results.push(fullPath);

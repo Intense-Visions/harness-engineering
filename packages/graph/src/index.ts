@@ -43,7 +43,7 @@ export type { ImpactGroups, NodeCategory } from './query/groupImpact.js';
 // Ingest
 export { CodeIngestor } from './ingest/CodeIngestor.js';
 export type { CodeIngestorOptions } from './ingest/CodeIngestor.js';
-export { DEFAULT_SKIP_DIRS, resolveSkipDirs } from './ingest/skip-dirs.js';
+export { DEFAULT_SKIP_DIRS, resolveSkipDirs, skipDirGlobs } from './ingest/skip-dirs.js';
 export { GitIngestor } from './ingest/GitIngestor.js';
 export type { GitRunner } from './ingest/GitIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';

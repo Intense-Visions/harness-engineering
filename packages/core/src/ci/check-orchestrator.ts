@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { ArchBaselineManager } from '../architecture/baseline-manager';
 import { diff } from '../architecture/diff';
 import type {
@@ -116,8 +117,7 @@ async function runDocsCheck(
     docsDir,
     sourceDir: projectRoot,
     excludePatterns: (entropyConfig.excludePatterns as string[]) || [
-      '**/node_modules/**',
-      '**/dist/**',
+      ...skipDirGlobs(),
       '**/*.test.ts',
       '**/fixtures/**',
     ],
@@ -195,12 +195,7 @@ async function runSecurityCheck(
   const { glob: globFn } = await import('glob');
   const sourceFiles = await globFn('**/*.{ts,tsx,js,jsx,go,py}', {
     cwd: projectRoot,
-    ignore: securityConfig.exclude ?? [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/*.test.ts',
-      '**/fixtures/**',
-    ],
+    ignore: securityConfig.exclude ?? [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**'],
     absolute: true,
   });
 

@@ -3,8 +3,14 @@ import * as path from 'node:path';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, IngestResult, EdgeType } from '../types.js';
 import { hash, mergeResults, emptyResult } from './ingestUtils.js';
+import { DEFAULT_SKIP_DIRS } from './skip-dirs.js';
 
 const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
+
+// Subdirectories of docs/ owned by other ingestors. Skipping these avoids
+// duplicating ADRs (ingestADRs), business knowledge (BusinessKnowledgeIngestor),
+// requirements (RequirementIngestor), and solutions docs.
+const DOCS_OWNED_BY_OTHER_INGESTORS = new Set(['adr', 'knowledge', 'changes', 'solutions']);
 
 export class KnowledgeIngestor {
   constructor(private readonly store: GraphStore) {}
@@ -90,15 +96,60 @@ export class KnowledgeIngestor {
     return buildResult(nodesAdded, edgesAdded, [], start);
   }
 
+  async ingestGeneralDocs(projectPath: string): Promise<IngestResult> {
+    const start = Date.now();
+    const errors: string[] = [];
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
+    const files = new Set<string>();
+
+    try {
+      const entries = await fs.readdir(projectPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith('.md')) {
+          files.add(path.join(projectPath, entry.name));
+        }
+      }
+    } catch {
+      return emptyResult(Date.now() - start);
+    }
+
+    const docsRoot = path.join(projectPath, 'docs');
+    try {
+      const scanned = await this.scanDocsDir(docsRoot);
+      for (const f of scanned) files.add(f);
+    } catch {
+      // docs/ absent or unreadable — fine
+    }
+
+    for (const filePath of files) {
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const relPath = path.relative(projectPath, filePath).replaceAll('\\', '/');
+        const nodeId = `doc:${relPath}`;
+        if (this.store.getNode(nodeId)) continue;
+        this.store.addNode(parseDocumentNode(nodeId, filePath, relPath, content));
+        nodesAdded++;
+        edgesAdded += this.linkToCode(content, nodeId, 'documents');
+      } catch (err) {
+        errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return buildResult(nodesAdded, edgesAdded, errors, start);
+  }
+
   async ingestAll(projectPath: string, opts?: { adrDir?: string }): Promise<IngestResult> {
     const start = Date.now();
     const adrDir = opts?.adrDir ?? path.join(projectPath, 'docs', 'adr');
-    const [adrResult, learningsResult, failuresResult] = await Promise.all([
+    const [adrResult, learningsResult, failuresResult, docsResult] = await Promise.all([
       this.ingestADRs(adrDir),
       this.ingestLearnings(projectPath),
       this.ingestFailures(projectPath),
+      this.ingestGeneralDocs(projectPath),
     ]);
-    const merged = mergeResults(adrResult, learningsResult, failuresResult);
+    const merged = mergeResults(adrResult, learningsResult, failuresResult, docsResult);
     return { ...merged, durationMs: Date.now() - start };
   }
 
@@ -141,23 +192,23 @@ export class KnowledgeIngestor {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (
-        entry.isDirectory() &&
-        entry.name !== 'node_modules' &&
-        entry.name !== 'dist' &&
-        entry.name !== 'target' &&
-        entry.name !== 'build' &&
-        entry.name !== '.git' &&
-        entry.name !== '.gradle' &&
-        entry.name !== '.harness' &&
-        entry.name !== 'vendor' &&
-        entry.name !== 'bin' &&
-        entry.name !== 'obj' &&
-        entry.name !== 'venv' &&
-        entry.name !== '_build' &&
-        entry.name !== 'deps' &&
-        entry.name !== 'coverage'
-      ) {
+      if (entry.isDirectory() && !DEFAULT_SKIP_DIRS.has(entry.name)) {
+        results.push(...(await this.findMarkdownFiles(fullPath)));
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  private async scanDocsDir(docsRoot: string): Promise<string[]> {
+    const results: string[] = [];
+    const rootEntries = await fs.readdir(docsRoot, { withFileTypes: true });
+    for (const entry of rootEntries) {
+      const fullPath = path.join(docsRoot, entry.name);
+      if (entry.isDirectory()) {
+        if (DEFAULT_SKIP_DIRS.has(entry.name)) continue;
+        if (DOCS_OWNED_BY_OTHER_INGESTORS.has(entry.name)) continue;
         results.push(...(await this.findMarkdownFiles(fullPath)));
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         results.push(fullPath);
@@ -190,6 +241,23 @@ function buildResult(
     edgesUpdated: 0,
     errors,
     durationMs: Date.now() - start,
+  };
+}
+
+function parseDocumentNode(
+  nodeId: string,
+  filePath: string,
+  relPath: string,
+  content: string
+): GraphNode {
+  const titleMatch = content.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? titleMatch[1]!.trim() : path.basename(filePath, '.md');
+  return {
+    id: nodeId,
+    type: 'document',
+    name: title,
+    path: filePath,
+    metadata: { relPath },
   };
 }
 

@@ -1,12 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import type { CriticalPathEntry, CriticalPathSet } from './types';
 
 export interface GraphCriticalPathData {
   highFanInFunctions: Array<{ file: string; function: string; fanIn: number }>;
 }
 
-const SKIP_DIRS = new Set(['node_modules', 'dist', '.git']);
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 
 const FUNCTION_DECL_RE = /(?:export\s+)?(?:async\s+)?function\s+(\w+)/;
@@ -98,7 +98,7 @@ export class CriticalPathResolver {
 
     for (const item of items) {
       if (item.isDirectory()) {
-        if (SKIP_DIRS.has(item.name)) continue;
+        if (DEFAULT_SKIP_DIRS.has(item.name)) continue;
         this.walkDir(path.join(dir, item.name), entries);
       } else if (item.isFile() && SOURCE_EXTENSIONS.has(path.extname(item.name))) {
         this.scanFile(path.join(dir, item.name), entries);

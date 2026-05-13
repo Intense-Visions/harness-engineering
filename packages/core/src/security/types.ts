@@ -1,3 +1,5 @@
+import { skipDirGlobs } from '@harness-engineering/graph';
+
 export type SecurityCategory =
   | 'secrets'
   | 'injection'
@@ -76,5 +78,5 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   enabled: true,
   strict: false,
   rules: {},
-  exclude: ['**/node_modules/**', '**/dist/**', '**/*.test.ts', '**/fixtures/**'],
+  exclude: [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**'],
 };

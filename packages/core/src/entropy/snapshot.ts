@@ -15,6 +15,7 @@ import type {
 } from './types';
 import type { AST, Export, LanguageParser } from '../shared/parsers';
 import { getDefaultRegistry } from '../shared/parsers';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { createEntropyError } from '../shared/errors';
 import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraph } from '../constraints/dependencies';
@@ -292,12 +293,7 @@ export async function buildSnapshot(
 
   // Find source files
   const includePatterns = config.include || DEFAULT_INCLUDE_PATTERNS;
-  const excludePatterns = config.exclude || [
-    'node_modules/**',
-    'dist/**',
-    '**/*.test.ts',
-    '**/*.spec.ts',
-  ];
+  const excludePatterns = config.exclude || [...skipDirGlobs(), '**/*.test.ts', '**/*.spec.ts'];
 
   let sourceFilePaths: string[] = [];
   for (const pattern of includePatterns) {
