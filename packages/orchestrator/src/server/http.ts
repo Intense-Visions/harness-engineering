@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as path from 'node:path';
+import { assertPortUsable } from '@harness-engineering/core';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
 import { handlePlansRoute } from './routes/plans';
@@ -323,6 +324,11 @@ export class OrchestratorServer {
   }
 
   public async start(): Promise<void> {
+    // Refuse to bind to a WHATWG bad port — browsers and Node's fetch() will
+    // reject every connection with "bad port", producing silent 502s in the
+    // dashboard proxy (issue #287). Better to fail loudly at startup.
+    assertPortUsable(this.port, 'orchestrator');
+
     // Start plan watcher if interaction queue is available
     if (this.interactionQueue) {
       this.planWatcher = new PlanWatcher(this.plansDir, this.interactionQueue);
