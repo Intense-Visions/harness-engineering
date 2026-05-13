@@ -1,0 +1,6 @@
+[project]
+name = "mypkg"
+version = "0.1.0"
+
+[project.scripts]
+mytool = "mypkg.cli:main"
