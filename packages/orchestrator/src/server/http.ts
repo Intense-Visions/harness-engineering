@@ -23,6 +23,10 @@ import type { InteractionQueue, PendingInteraction } from '../core/interaction-q
 import type { AnalysisArchive } from '../core/analysis-archive';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
+import { TokenStore } from '../auth/tokens';
+import { AuditLogger } from '../auth/audit';
+import { hasScope, requiredScopeForRoute } from '../auth/scopes';
+import type { AuthToken } from '@harness-engineering/types';
 
 /* ── In-memory per-IP rate limiter (no external deps) ── */
 const RATE_LIMIT = Number(process.env['HARNESS_RATE_LIMIT']) || 100; // requests per window
@@ -121,6 +125,8 @@ export class OrchestratorServer {
   private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
+  private tokenStore!: TokenStore;
+  private auditLogger!: AuditLogger;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
   private readonly apiRoutes: Array<
@@ -131,6 +137,11 @@ export class OrchestratorServer {
     this.orchestrator = orchestrator;
     this.port = port;
     this.initDependencies(deps);
+    const tokensPath =
+      process.env['HARNESS_TOKENS_PATH'] ?? path.resolve('.harness', 'tokens.json');
+    const auditPath = process.env['HARNESS_AUDIT_PATH'] ?? path.resolve('.harness', 'audit.log');
+    this.tokenStore = new TokenStore(tokensPath);
+    this.auditLogger = new AuditLogger(auditPath);
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
       this.orchestrator.getSnapshot()
@@ -228,12 +239,10 @@ export class OrchestratorServer {
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (this.handleStateEndpoint(req, res)) {
-      return;
-    }
-
-    // Per-IP rate limiting (state/health-check endpoint is exempt above)
-    if (!checkRateLimit(req, res)) {
+    const isState =
+      req.method === 'GET' && (req.url === '/api/state' || req.url === '/api/v1/state');
+    // Per-IP rate limiting (state endpoint exempt — still requires auth below)
+    if (!isState && !checkRateLimit(req, res)) {
       return;
     }
 
@@ -250,34 +259,49 @@ export class OrchestratorServer {
     res.end(JSON.stringify({ error: 'Not Found' }));
   }
 
-  /** Handle GET /api/state and legacy /api/v1/state */
-  private handleStateEndpoint(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    const { method, url } = req;
-    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
-      return true;
-    }
-    return false;
-  }
-
   /**
-   * Check bearer token auth for mutating API routes.
-   * When HARNESS_API_TOKEN is set, all API requests must include it.
-   * Read-only endpoints (state, static) are exempt.
+   * Phase 1 auth: bearer token lookup against TokenStore + scope check.
+   * Legacy HARNESS_API_TOKEN env var still authenticates as a synthetic
+   * admin record (see TokenStore.legacyEnvToken).
+   *
+   * Returns the resolved AuthToken on success; sends 401/403 + returns null on failure.
    */
-  private checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    const token = process.env['HARNESS_API_TOKEN'];
-    if (!token) return true; // Auth not configured — allow (localhost-only)
-
+  private async resolveAuth(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<AuthToken | null> {
     const authHeader = req.headers['authorization'];
-    if (authHeader === `Bearer ${token}`) return true;
+    const legacyEnv = process.env['HARNESS_API_TOKEN'];
 
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <HARNESS_API_TOKEN>' })
-    );
-    return false;
+    // Tokens file empty AND no env var → unauthenticated mode (localhost dev).
+    const listed = await this.tokenStore.list().catch(() => []);
+    if (listed.length === 0 && !legacyEnv) {
+      return {
+        id: 'tok_unauth_dev',
+        name: 'unauth-dev',
+        scopes: ['admin'],
+        hashedSecret: '<none>',
+        createdAt: new Date(0).toISOString(),
+      };
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <token>' }));
+      return null;
+    }
+    const raw = authHeader.slice('Bearer '.length).trim();
+
+    const legacyMatch = this.tokenStore.legacyEnvToken(raw, legacyEnv);
+    if (legacyMatch) return legacyMatch;
+
+    const verified = await this.tokenStore.verify(raw);
+    if (!verified) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized — invalid or expired token' }));
+      return null;
+    }
+    return verified;
   }
 
   /**
@@ -310,13 +334,68 @@ export class OrchestratorServer {
     ];
   }
 
-  /** Dispatch to API route handlers. Returns true if a route matched. */
+  /**
+   * Dispatch to API route handlers. Returns true immediately and resolves the
+   * request asynchronously (auth + scope check + dispatch + audit log).
+   *
+   * Static-file fallback for non-/api/* requests requires returning false so
+   * `handleRequest` can hand the request off to the static handler.
+   */
   private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    if (!this.checkAuth(req, res)) return true;
-    for (const route of this.apiRoutes) {
-      if (route(req, res)) return true;
+    const url = req.url ?? '';
+    // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem path
+    if (!url.startsWith('/api/')) return false;
+    void this.dispatchAuthedRequest(req, res);
+    return true;
+  }
+
+  private async dispatchAuthedRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const token = await this.resolveAuth(req, res);
+    if (!token) {
+      this.audit(req, res, null);
+      return;
     }
-    return false;
+    const required = requiredScopeForRoute(req.method ?? 'GET', req.url ?? '');
+    if (required && !hasScope(token.scopes, required)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Insufficient scope', required }));
+      this.audit(req, res, token);
+      return;
+    }
+    // Inlined state endpoint (previously handled before auth in handleRequest).
+    if (req.method === 'GET' && (req.url === '/api/state' || req.url === '/api/v1/state')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+      this.audit(req, res, token);
+      return;
+    }
+    for (const route of this.apiRoutes) {
+      if (route(req, res)) {
+        this.audit(req, res, token);
+        return;
+      }
+    }
+    // No route matched — emit 404 here so the audit log captures the result.
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not Found' }));
+    this.audit(req, res, token);
+  }
+
+  private audit(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    token: AuthToken | null
+  ): void {
+    void this.auditLogger.append({
+      tokenId: token?.id ?? 'anonymous',
+      ...(token?.tenantId ? { tenantId: token.tenantId } : {}),
+      route: (req.url ?? '').split('?')[0] ?? '',
+      method: req.method ?? 'GET',
+      status: res.statusCode || 0,
+    });
   }
 
   public get wsClientCount(): number {
