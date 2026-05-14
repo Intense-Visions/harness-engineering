@@ -63,6 +63,8 @@ temp/
 # Phase 1 auth runtime artifacts — NEVER commit hashed token DB or audit log
 **/.harness/tokens.json
 **/.harness/audit.log
+# Phase 3 webhook runtime artifact — NEVER commit plaintext webhook secrets
+**/.harness/webhooks.json
 # Test fixtures: ignore the whole security dir (timeline.json there is test scaffolding)
 **/fixtures/**/.harness/security/
 **/fixtures/**/.harness/security/*

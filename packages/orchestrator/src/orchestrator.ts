@@ -152,8 +152,10 @@ export class Orchestrator extends EventEmitter {
   private prDetector: PRDetector;
   private maintenanceScheduler: MaintenanceScheduler | null = null;
   private maintenanceReporter: MaintenanceReporter | null = null;
-  private webhookStore?: WebhookStore;
-  private webhookDelivery?: WebhookDelivery;
+  // Phase 3 webhooks. `webhookStore` and `webhookDelivery` are constructed at
+  // server-start and held only as locals; they're passed into `ServerDependencies`
+  // and `wireWebhookFanout` once and never re-read on `this`. Only the fan-out
+  // teardown handle is kept on the instance so `stop()` can detach listeners.
   private webhookFanoutOff?: () => void;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
@@ -416,8 +418,6 @@ export class Orchestrator extends EventEmitter {
         path.join(this.projectRoot, '.harness', 'webhooks.json')
       );
       const webhookDelivery = new WebhookDelivery();
-      this.webhookStore = webhookStore;
-      this.webhookDelivery = webhookDelivery;
       this.webhookFanoutOff = wireWebhookFanout({
         bus: this,
         store: webhookStore,
@@ -1665,7 +1665,7 @@ export class Orchestrator extends EventEmitter {
     }
     if (this.webhookFanoutOff) {
       this.webhookFanoutOff();
-      this.webhookFanoutOff = undefined;
+      delete this.webhookFanoutOff;
     }
     if (this.server) {
       this.server.stop();
