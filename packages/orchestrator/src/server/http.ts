@@ -13,6 +13,7 @@ import type { DispatchAdHocFn } from './routes/dispatch-actions';
 import { handleAnalysesRoute } from './routes/analyses';
 import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
+import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
 import { handleAuthRoute } from './routes/auth';
@@ -353,6 +354,7 @@ export class OrchestratorServer {
       // Local-models multi-status route (Spec 2 SC38)
       (req, res) => handleLocalModelsRoute(req, res, this.getLocalModelStatuses),
       (req, res) => handleMaintenanceRoute(req, res, this.maintenanceDeps),
+      (req, res) => handleV1JobsMaintenanceRoute(req, res, this.maintenanceDeps),
       (req, res) => !!this.recorder && handleStreamsRoute(req, res, this.recorder),
       (req, res) => handleSessionsRoute(req, res, this.sessionsDir),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
