@@ -190,3 +190,11 @@ export {
   AuthAuditEntrySchema,
 } from './auth';
 export type { TokenScope, BridgeKind, AuthToken, AuthTokenPublic, AuthAuditEntry } from './auth';
+
+// --- Webhooks (Hermes Phase 0 — Phase 3) ---
+export {
+  WebhookSubscriptionSchema,
+  WebhookSubscriptionPublicSchema,
+  GatewayEventSchema,
+} from './webhooks';
+export type { WebhookSubscription, WebhookSubscriptionPublic, GatewayEvent } from './webhooks';
