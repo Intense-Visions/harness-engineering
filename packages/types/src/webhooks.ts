@@ -40,3 +40,19 @@ export const GatewayEventSchema = z.object({
   correlationId: z.string().optional(),
 });
 export type GatewayEvent = z.infer<typeof GatewayEventSchema>;
+
+export const WebhookDeliveryStatusSchema = z.enum(['pending', 'failed', 'delivered', 'dead']);
+export type WebhookDeliveryStatus = z.infer<typeof WebhookDeliveryStatusSchema>;
+
+export const WebhookDeliverySchema = z.object({
+  id: z.string().regex(/^dlv_[a-f0-9]{16}$/),
+  subscriptionId: z.string(),
+  eventType: z.string(),
+  payload: z.string(),
+  attempt: z.number().int().min(0).max(5),
+  status: WebhookDeliveryStatusSchema,
+  nextAttemptAt: z.number().int().nullable(),
+  lastError: z.string().nullable().optional(),
+  deliveredAt: z.number().int().nullable().optional(),
+});
+export type WebhookDelivery = z.infer<typeof WebhookDeliverySchema>;
