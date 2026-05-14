@@ -166,11 +166,13 @@ describe('handleV1WebhooksRoute', () => {
       expect(statusCode()).toBe(200);
       const body = JSON.parse(chunks.join('')) as {
         pending: number;
+        inFlight: number;
         failed: number;
         dead: number;
         delivered: number;
       };
       expect(body.pending).toBe(0);
+      expect(body.inFlight).toBe(0);
       expect(body.failed).toBe(0);
       expect(body.dead).toBe(0);
       expect(body.delivered).toBe(0);

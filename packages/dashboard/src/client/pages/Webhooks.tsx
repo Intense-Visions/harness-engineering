@@ -14,6 +14,7 @@ interface CreatedSubscription {
  */
 interface QueueStats {
   pending: number;
+  inFlight: number;
   failed: number;
   dead: number;
   delivered: number;
@@ -152,7 +153,7 @@ export function Webhooks() {
       {queueStats !== null && (
         <div className="rounded-lg border border-white/10 p-4">
           <h2 className="mb-2 text-sm font-semibold">Delivery Queue</h2>
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+          <div className="grid grid-cols-5 gap-2 text-center text-xs">
             <div className="rounded bg-white/5 p-2">
               <div className="text-lg font-bold">{queueStats.pending}</div>
               <div className="text-neutral-muted">Pending</div>
@@ -160,6 +161,10 @@ export function Webhooks() {
             <div className="rounded bg-white/5 p-2">
               <div className="text-lg font-bold">{queueStats.failed}</div>
               <div className="text-neutral-muted">Retrying</div>
+            </div>
+            <div className="rounded bg-white/5 p-2">
+              <div className="text-lg font-bold">{queueStats.inFlight}</div>
+              <div className="text-neutral-muted">In flight</div>
             </div>
             <div className={`rounded p-2 ${queueStats.dead > 0 ? 'bg-red-900/30' : 'bg-white/5'}`}>
               <div className={`text-lg font-bold ${queueStats.dead > 0 ? 'text-red-400' : ''}`}>

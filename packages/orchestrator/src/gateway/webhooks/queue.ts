@@ -17,7 +17,7 @@ const SCHEMA_SQL = `
   ) STRICT;
   CREATE INDEX IF NOT EXISTS idx_deliverable
     ON webhook_deliveries(status, nextAttemptAt)
-    WHERE status IN ('pending', 'failed');
+    WHERE status IN ('pending', 'failed', 'in_flight');
 `;
 
 export interface QueueInsertInput {
@@ -33,7 +33,7 @@ export interface QueueRow {
   eventType: string;
   payload: string;
   attempt: number;
-  status: 'pending' | 'failed' | 'delivered' | 'dead';
+  status: 'pending' | 'in_flight' | 'failed' | 'delivered' | 'dead';
   nextAttemptAt: number | null;
   lastError: string | null;
   deliveredAt: number | null;
@@ -41,6 +41,7 @@ export interface QueueRow {
 
 export interface QueueStats {
   pending: number;
+  inFlight: number;
   failed: number;
   dead: number;
   delivered: number;
@@ -54,6 +55,10 @@ export class WebhookQueue {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
     this.db.exec(SCHEMA_SQL);
+    // Orphaned in_flight rows from a previous crash/restart get re-queued as
+    // failed so the next tick picks them up. Without this, a row that was
+    // claimed but never settled would be stranded forever.
+    this.recoverInFlight();
   }
 
   insert(row: QueueInsertInput): void {
@@ -66,16 +71,57 @@ export class WebhookQueue {
       .run({ ...row, nextAttemptAt: Date.now() });
   }
 
-  fetchPending(now: number, limit = 20): QueueRow[] {
+  /**
+   * Atomically lease a batch of deliverable rows: select pending|failed rows
+   * whose nextAttemptAt has elapsed, mark them in_flight in the same
+   * transaction, and return the leased rows. Subsequent calls cannot re-claim
+   * the same rows because they are no longer in pending|failed.
+   *
+   * Without this, two overlapping ticks (tick interval 500ms, HTTP timeout
+   * 5s) would both select the same row and double-fire the webhook.
+   */
+  claim(now: number, limit = 20): QueueRow[] {
+    const selectIds = this.db.prepare(
+      `SELECT id FROM webhook_deliveries
+       WHERE (status = 'pending' OR status = 'failed')
+         AND nextAttemptAt <= ?
+       ORDER BY nextAttemptAt
+       LIMIT ?`
+    );
+    const markInFlight = this.db.prepare(
+      `UPDATE webhook_deliveries SET status = 'in_flight' WHERE id = ?`
+    );
+    const fetchById = this.db.prepare(`SELECT * FROM webhook_deliveries WHERE id = ?`);
+
+    const txn = this.db.transaction((tNow: number, tLimit: number): QueueRow[] => {
+      const ids = selectIds.all(tNow, tLimit) as { id: string }[];
+      const claimed: QueueRow[] = [];
+      for (const { id } of ids) {
+        markInFlight.run(id);
+        const row = fetchById.get(id) as QueueRow | undefined;
+        if (row) claimed.push(row);
+      }
+      return claimed;
+    });
+
+    return txn(now, limit);
+  }
+
+  /**
+   * Reset any rows stuck in in_flight (e.g. from a crashed or abruptly
+   * stopped worker) back to failed so they can be re-claimed by the next
+   * tick. At-most-once semantics within a single process; at-least-once
+   * across restarts (a row whose HTTP POST completed but whose DB update was
+   * lost will be re-delivered — bridges must be idempotent on delivery-id).
+   */
+  recoverInFlight(): number {
     return this.db
       .prepare(
-        `SELECT * FROM webhook_deliveries
-         WHERE (status = 'pending' OR status = 'failed')
-           AND nextAttemptAt <= ?
-         ORDER BY nextAttemptAt
-         LIMIT ?`
+        `UPDATE webhook_deliveries
+         SET status = 'failed', nextAttemptAt = ?
+         WHERE status = 'in_flight'`
       )
-      .all(now, limit) as QueueRow[];
+      .run(Date.now()).changes;
   }
 
   markDelivered(id: string, deliveredAt: number): void {
@@ -134,7 +180,7 @@ export class WebhookQueue {
     return this.db.prepare(sql).all(...params) as QueueRow[];
   }
 
-  purge(opts: { deadOnly?: boolean; olderThanMs?: number } = {}): number {
+  purge(opts: { deadOnly?: boolean; olderThanMs?: number; all?: boolean } = {}): number {
     const conditions: string[] = ['1=1'];
     const params: (string | number)[] = [];
     if (opts.deadOnly) {
@@ -149,6 +195,26 @@ export class WebhookQueue {
     return this.db.prepare(sql).run(...params).changes;
   }
 
+  /**
+   * Count the rows a purge() call with these same options would delete.
+   * Used by the CLI to show a confirmation preview before destructive deletes.
+   */
+  previewPurge(opts: { deadOnly?: boolean; olderThanMs?: number; all?: boolean } = {}): number {
+    const conditions: string[] = ['1=1'];
+    const params: (string | number)[] = [];
+    if (opts.deadOnly) {
+      conditions.push("status = 'dead'");
+    }
+    if (opts.olderThanMs !== undefined) {
+      const cutoff = Date.now() - opts.olderThanMs;
+      conditions.push('(deliveredAt IS NOT NULL AND deliveredAt < ?)');
+      params.push(cutoff);
+    }
+    const sql = `SELECT COUNT(*) as count FROM webhook_deliveries WHERE ${conditions.join(' AND ')}`;
+    const row = this.db.prepare(sql).get(...params) as { count: number };
+    return row.count;
+  }
+
   stats(): QueueStats {
     const rows = this.db
       .prepare(`SELECT status, COUNT(*) as count FROM webhook_deliveries GROUP BY status`)
@@ -156,6 +222,7 @@ export class WebhookQueue {
     const m = Object.fromEntries(rows.map((r) => [r.status, r.count]));
     return {
       pending: (m['pending'] as number | undefined) ?? 0,
+      inFlight: (m['in_flight'] as number | undefined) ?? 0,
       failed: (m['failed'] as number | undefined) ?? 0,
       dead: (m['dead'] as number | undefined) ?? 0,
       delivered: (m['delivered'] as number | undefined) ?? 0,

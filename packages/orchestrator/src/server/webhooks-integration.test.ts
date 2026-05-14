@@ -184,7 +184,7 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
       q1.close();
       // Simulate process restart — new queue instance opens same file.
       const q2 = new WebhookQueue(dbPath);
-      const rows = q2.fetchPending(Date.now() + 5000);
+      const rows = q2.claim(Date.now() + 5000);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.id).toBe('dlv_integ00000001');
       q2.close();

@@ -223,6 +223,26 @@ Other deltas from the extension-points sketch:
 | 5       | 256s (~4 min 16s)                    |
 | 6       | DLQ (`status='dead'`, never retried) |
 
+### Lease semantics (in_flight)
+
+The queue uses a five-state machine: `pending → in_flight → delivered`, or
+`pending → in_flight → failed → in_flight → … → dead`. The `in_flight` state
+is a **lease**: `WebhookQueue.claim(now, limit)` runs a transaction that
+selects deliverable rows AND marks them `in_flight` atomically, so overlapping
+ticks (poll interval 500ms, HTTP timeout up to 5s) cannot double-claim the
+same row. Without this lease, the same delivery would be POSTed multiple
+times to the bridge.
+
+On startup, `WebhookQueue.recoverInFlight()` resets any stranded `in_flight`
+rows back to `failed` so the next tick picks them up. The semantics are
+at-most-once-per-process and at-least-once across restarts (a row whose POST
+succeeded but whose `markDelivered` was lost will be re-delivered — bridges
+MUST be idempotent on `X-Harness-Delivery-Id`).
+
+`stats()` reports five counters: `{ pending, inFlight, failed, dead,
+delivered }`. The `GET /api/v1/webhooks/queue/stats` endpoint and the
+dashboard surface all five.
+
 ### Concurrency cap
 
 `maxConcurrentPerSub` (default 4) limits in-flight HTTP calls per
@@ -261,9 +281,9 @@ so recovery commands work when the orchestrator is down.
 ### Dashboard
 
 The `/webhooks` page polls `GET /api/v1/webhooks/queue/stats` at 1s and
-renders a 4-cell panel (Pending, Retrying, Dead, Delivered). The dead-row
-cell switches to a red highlight when `dead > 0`. Source of truth is the
-SQLite queue; the panel never disagrees with the CLI's `list` output.
+renders a 5-cell panel (Pending, Retrying, In flight, Dead, Delivered). The
+dead-row cell switches to a red highlight when `dead > 0`. Source of truth
+is the SQLite queue; the panel never disagrees with the CLI's `list` output.
 
 ### Carry-forwards (Phase 4 → Phase 5)
 

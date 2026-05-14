@@ -41,7 +41,13 @@ export const GatewayEventSchema = z.object({
 });
 export type GatewayEvent = z.infer<typeof GatewayEventSchema>;
 
-export const WebhookDeliveryStatusSchema = z.enum(['pending', 'failed', 'delivered', 'dead']);
+export const WebhookDeliveryStatusSchema = z.enum([
+  'pending',
+  'in_flight',
+  'failed',
+  'delivered',
+  'dead',
+]);
 export type WebhookDeliveryStatus = z.infer<typeof WebhookDeliveryStatusSchema>;
 
 export const WebhookDeliverySchema = z.object({

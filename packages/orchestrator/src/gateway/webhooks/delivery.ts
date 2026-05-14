@@ -67,7 +67,7 @@ export class WebhookDelivery {
 
   private async tick(): Promise<void> {
     if (this.draining) return;
-    const pending = this.queue.fetchPending(Date.now());
+    const pending = this.queue.claim(Date.now());
     for (const row of pending) {
       const inFlight = this.inFlight.get(row.subscriptionId) ?? 0;
       if (inFlight >= this.maxConcurrentPerSub) continue;
