@@ -86,7 +86,7 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
     orchestrator = new FakeOrchestrator();
     store = new WebhookStore(join(dir, 'webhooks.json'));
     queue = new WebhookQueue(':memory:');
-    delivery = new WebhookDelivery({ queue, store, tickIntervalMs: 30 });
+    delivery = new WebhookDelivery({ queue, store, tickIntervalMs: 30, allowPrivateHosts: true });
     delivery.start();
     fanoutOff = wireWebhookFanout({ bus: orchestrator, store, delivery });
 

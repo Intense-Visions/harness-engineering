@@ -64,7 +64,12 @@ describe('WebhookDelivery (queue-backed)', () => {
 
   it('tick delivers a pending row, marks it delivered, POSTs correct headers', async () => {
     const sub = await store.create({ tokenId: 't', url: receiverUrl, events: ['*.*'] });
-    const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 30 });
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 30,
+      allowPrivateHosts: true,
+    });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
     await new Promise((r) => setTimeout(r, 300));
@@ -105,6 +110,7 @@ describe('WebhookDelivery (queue-backed)', () => {
       store,
       tickIntervalMs: 20,
       maxConcurrentPerSub: 1,
+      allowPrivateHosts: true,
     });
     for (let i = 0; i < 3; i++) {
       worker.enqueue(sub, makeGatewayEvent(i));
@@ -119,7 +125,13 @@ describe('WebhookDelivery (queue-backed)', () => {
 
   it('stop() waits for in-flight delivery before resolving', async () => {
     const sub = await store.create({ tokenId: 't', url: receiverUrl, events: ['*.*'] });
-    const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 30, drainTimeoutMs: 5000 });
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 30,
+      drainTimeoutMs: 5000,
+      allowPrivateHosts: true,
+    });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
     await new Promise((r) => setTimeout(r, 50));
@@ -142,6 +154,7 @@ describe('WebhookDelivery (queue-backed)', () => {
       tickIntervalMs: 20,
       drainTimeoutMs: 100,
       timeoutMs: 60_000, // make sure the per-request timer doesn't fire
+      allowPrivateHosts: true,
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
@@ -159,9 +172,36 @@ describe('WebhookDelivery (queue-backed)', () => {
     await new Promise<void>((r) => stalledReceiver.close(() => r()));
   });
 
+  it('dead-letters when subscription URL resolves to a private host (SSRF recheck)', async () => {
+    // Route-level validation blocks loopback at registration, but the
+    // delivery worker re-checks at fire time in case the on-disk
+    // webhooks.json was tampered with or rolled forward from a permissive
+    // earlier build. https:// passes WebhookSubscriptionSchema (valid URL,
+    // https scheme) but 127.0.0.1 still trips the private-host guard.
+    const sub = await store.create({
+      tokenId: 't',
+      url: 'https://127.0.0.1:1/hook',
+      events: ['*.*'],
+    });
+    const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 20 });
+    worker.enqueue(sub, makeGatewayEvent());
+    worker.start();
+    await new Promise((r) => setTimeout(r, 150));
+    await worker.stop();
+    // The row goes straight to dead — no HTTP attempt was made.
+    expect(received).toHaveLength(0);
+    expect(queue.list({ status: 'dead' })).toHaveLength(1);
+    expect(queue.list({ status: 'dead' })[0]?.lastError).toContain('private/loopback');
+  });
+
   it('deleted subscription dead-letters the queued delivery', async () => {
     const sub = await store.create({ tokenId: 't', url: receiverUrl, events: ['*.*'] });
-    const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 30 });
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 30,
+      allowPrivateHosts: true,
+    });
     queue.insert({
       id: 'dlv_orphan00000001',
       subscriptionId: sub.id,

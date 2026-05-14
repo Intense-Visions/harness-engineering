@@ -3,6 +3,7 @@ import type { WebhookSubscription, GatewayEvent } from '@harness-engineering/typ
 import { sign } from './signer.js';
 import { type WebhookQueue, type QueueRow, RETRY_DELAYS_MS, MAX_ATTEMPTS } from './queue.js';
 import type { WebhookStore } from './store.js';
+import { isPrivateHost } from '../../server/utils/url-guard.js';
 
 interface DeliveryWorkerOptions {
   queue: WebhookQueue;
@@ -12,6 +13,12 @@ interface DeliveryWorkerOptions {
   tickIntervalMs?: number;
   maxConcurrentPerSub?: number;
   drainTimeoutMs?: number;
+  /**
+   * Test-only escape hatch: when true, the delivery-time SSRF recheck is
+   * skipped so tests can drive the worker against an http.createServer
+   * bound to 127.0.0.1. Production callers MUST leave this false (default).
+   */
+  allowPrivateHosts?: boolean;
 }
 
 export class WebhookDelivery {
@@ -22,6 +29,7 @@ export class WebhookDelivery {
   private readonly tickIntervalMs: number;
   private readonly maxConcurrentPerSub: number;
   private readonly drainTimeoutMs: number;
+  private readonly allowPrivateHosts: boolean;
   private readonly inFlight = new Map<string, number>();
   /**
    * AbortControllers for currently executing HTTP POSTs, keyed by delivery id.
@@ -40,6 +48,7 @@ export class WebhookDelivery {
     this.tickIntervalMs = opts.tickIntervalMs ?? 500;
     this.maxConcurrentPerSub = opts.maxConcurrentPerSub ?? 4;
     this.drainTimeoutMs = opts.drainTimeoutMs ?? 30_000;
+    this.allowPrivateHosts = opts.allowPrivateHosts ?? false;
   }
 
   enqueue(sub: WebhookSubscription, event: GatewayEvent): void {
@@ -100,6 +109,28 @@ export class WebhookDelivery {
       const sub = subs.find((s) => s.id === row.subscriptionId);
       if (!sub) {
         this.queue.markFailed(row.id, MAX_ATTEMPTS, Date.now(), 'subscription deleted');
+        return;
+      }
+
+      // SSRF recheck at delivery time. Registration already blocks private
+      // hosts via the URL validator, but a stored subscription could become
+      // unsafe if the webhooks.json file is tampered with or rolled forward
+      // from an earlier (more permissive) build. Dead-letter rather than
+      // POST so the operator sees it in the DLQ.
+      let hostname: string;
+      try {
+        hostname = new URL(sub.url).hostname;
+      } catch {
+        this.queue.markFailed(row.id, MAX_ATTEMPTS, Date.now(), 'invalid URL');
+        return;
+      }
+      if (!this.allowPrivateHosts && isPrivateHost(hostname)) {
+        this.queue.markFailed(
+          row.id,
+          MAX_ATTEMPTS,
+          Date.now(),
+          'URL resolves to private/loopback host'
+        );
         return;
       }
 
