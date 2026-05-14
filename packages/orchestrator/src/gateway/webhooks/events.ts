@@ -7,7 +7,7 @@ import type { WebhookDelivery } from './delivery';
 /**
  * Event-bus topics the webhook fan-out subscribes to. Each topic maps 1:1
  * to a GatewayEvent.type — subscriptions filter by glob pattern at the
- * store layer. Phase 3 wires: interaction.*, maintenance.*, auth.*,
+ * store layer. Phase 3 wires: interaction.*, maintenance.*,
  * webhook.subscription.*. Phase 5 adds telemetry.*, dispatch.*.
  */
 const WEBHOOK_TOPICS = [
@@ -16,8 +16,6 @@ const WEBHOOK_TOPICS = [
   'maintenance:started',
   'maintenance:completed',
   'maintenance:error',
-  'auth.token.created',
-  'auth.token.revoked',
   'webhook.subscription.created',
   'webhook.subscription.deleted',
 ] as const;

@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { EventEmitter } from 'node:events';
 import { z } from 'zod';
 import { readBody } from '../../utils.js';
+import { isPrivateHost } from '../../utils/url-guard.js';
 import { WebhookSubscriptionPublicSchema } from '@harness-engineering/types';
 import type { WebhookStore } from '../../../gateway/webhooks/store';
 
@@ -93,6 +94,11 @@ export function handleV1WebhooksRoute(
       }
       if (!parsed.data.url.startsWith('https://')) {
         sendJSON(res, 422, { error: 'URL must use https' });
+        return;
+      }
+      const targetHostname = new URL(parsed.data.url).hostname;
+      if (isPrivateHost(targetHostname)) {
+        sendJSON(res, 422, { error: 'URL must not target private or loopback addresses' });
         return;
       }
       const tokenId =

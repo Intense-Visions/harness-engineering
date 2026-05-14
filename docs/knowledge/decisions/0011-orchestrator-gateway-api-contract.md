@@ -133,6 +133,12 @@ While in-progress, additive decisions inside the same four pillars may be append
 
 **Future escape hatch.** When (and only when) harness gains a hosted / multi-tenant runtime, secret-storage backends should integrate at the **deployment layer**, not the application layer: 1Password CLI, AWS Secrets Manager, HashiCorp Vault, Doppler, or Kubernetes Secrets + sealed-secrets. The current `WebhookStore` interface is small enough (`create / get / list / delete / listForEvent`) to wrap with a pluggable backend without rewriting the contract.
 
+### Webhook URL validation (Phase 3)
+
+`POST /api/v1/webhooks` validates the subscription URL at the route layer (`packages/orchestrator/src/server/utils/url-guard.ts`). The guard rejects `http://` URLs (422 "URL must use https") and rejects hostnames that match known private/loopback/link-local patterns (127.x.x.x, 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 169.254.x.x, 0.0.0.0, localhost, \*.local, IPv6 loopback) with 422 "URL must not target private or loopback addresses".
+
+**Residual risk: DNS-rebinding attacks.** The hostname-pattern guard operates at registration time only, against the hostname string in the URL. It does NOT perform a DNS lookup or check the resolved IP address. An attacker who controls a publicly-routable DNS record can register `https://attacker.example.com/` and, after registration succeeds, remap the DNS entry to a private address (e.g., 169.254.169.254) before the delivery fan-out fires. The orchestrator would then POST the signed event payload to the metadata endpoint. This attack is inherent to any hostname-string-only validator and is not addressed by the current guard. Resolution-time IP checking (resolving the hostname at delivery time and rejecting private IPs) may be added in Phase 4 or later as part of the durable delivery worker, where re-checking on each retry is operationally natural.
+
 ## Related
 
 - Parent meta-spec: `docs/changes/hermes-phase-0-gateway-api/proposal.md`
