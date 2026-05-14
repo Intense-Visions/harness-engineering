@@ -389,6 +389,54 @@ export class OrchestratorServer {
     // recorded the default 200 instead of the wire-final code.
     res.on('finish', () => this.audit(req, res, token));
     if (!token) return;
+
+    // /api/v1/<name>(/...) aliases for legacy routes.
+    // Phase 2 ships the alias by URL rewrite so the 12 legacy handlers stay
+    // untouched. Per-handler v1-prefix awareness was rejected (12 file edits +
+    // 12× test churn). See spec D7 cross-cutting decision.
+    //
+    // /api/v1/state is intentionally NOT in the wrappable set; the state
+    // endpoint is handled by an inlined shortcut below that already accepts
+    // both /api/state and /api/v1/state. The Deprecation header is still
+    // stamped on /api/state via the isLegacyPrefix branch.
+    const V1_WRAPPABLE = new Set([
+      'interactions',
+      'plans',
+      'analyze',
+      'analyses',
+      'roadmap-actions',
+      'dispatch-actions',
+      'local-model',
+      'local-models',
+      'maintenance',
+      'streams',
+      'sessions',
+      'chat-proxy',
+    ]);
+    const v1Match = /^\/api\/v1\/([^/?]+)(.*)$/.exec(req.url ?? '');
+    const rewrittenSlug = v1Match?.[1];
+    if (rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
+      // Mutate req.url for the route-table loop. Existing handlers match on
+      // hardcoded /api/<name> prefixes; rewriting once is cheaper than fanning
+      // out 12 wrapper files. /api/v1/state is handled by the shortcut below,
+      // not via rewrite.
+      req.url = `/api/${rewrittenSlug}${v1Match?.[2] ?? ''}`;
+    }
+    // Original (pre-rewrite) URL drives the Deprecation header: if the caller
+    // hit /api/v1/<wrappable> the v1Match captured it and we MUST NOT stamp
+    // Deprecation. If the caller hit /api/<name> directly, v1Match is null and
+    // the header lands.
+    const isLegacyPrefix =
+      !!req.url &&
+      // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem
+      req.url.startsWith('/api/') &&
+      // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem
+      !req.url.startsWith('/api/v1/') &&
+      !v1Match;
+    if (isLegacyPrefix) {
+      res.setHeader('Deprecation', DEPRECATION_DATE);
+    }
+
     // Strip query string before scope lookup. scopes.ts uses exact path equality
     // (e.g. `path === '/api/v1/auth/token'`), so passing the raw req.url would
     // cause `/api/v1/auth/token?x=1` to miss every map and return null. Matches
