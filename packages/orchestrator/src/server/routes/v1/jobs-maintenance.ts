@@ -68,11 +68,15 @@ export function handleV1JobsMaintenanceRoute(
       sendJSON(res, 200, { ok: true, taskId: parsed.data.taskId, runId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Trigger failed';
-      if (msg.toLowerCase().includes('not found')) {
+      const lower = msg.toLowerCase();
+      // Orchestrator's triggerFn (orchestrator.ts:593) throws "Unknown task: <id>"
+      // when the task ID is not registered. Match both that wording and the
+      // generic "not found" form so callers consistently see 404 for missing tasks.
+      if (lower.includes('unknown task') || lower.includes('not found')) {
         sendJSON(res, 404, { error: msg });
         return;
       }
-      if (msg.toLowerCase().includes('already running')) {
+      if (lower.includes('already running')) {
         sendJSON(res, 409, { error: msg });
         return;
       }

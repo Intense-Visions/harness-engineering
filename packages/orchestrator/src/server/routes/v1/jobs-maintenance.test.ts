@@ -73,7 +73,22 @@ describe('POST /api/v1/jobs/maintenance', () => {
     expect(sent().status).toBe(400);
   });
 
-  it('returns 404 when triggerFn throws "task not found"', async () => {
+  it('returns 404 when triggerFn throws "Unknown task" (real orchestrator wording)', async () => {
+    // Mirrors the actual throw at orchestrator.ts:593 — `Unknown task: ${taskId}`.
+    const trigger = vi.fn().mockRejectedValue(new Error('Unknown task: bogus'));
+    const { req, res, sent } = makeReqRes(
+      'POST',
+      '/api/v1/jobs/maintenance',
+      JSON.stringify({ taskId: 'bogus' })
+    );
+    handleV1JobsMaintenanceRoute(req, res, fakeDeps(trigger));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(sent().status).toBe(404);
+  });
+
+  it('returns 404 when triggerFn throws "not found" (alternate wording)', async () => {
+    // Defensive: keep the generic-substring path covered for callers that
+    // surface their own "not found" error variants.
     const trigger = vi.fn().mockRejectedValue(new Error('task not found: bogus'));
     const { req, res, sent } = makeReqRes(
       'POST',
