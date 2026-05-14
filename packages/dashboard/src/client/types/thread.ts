@@ -63,6 +63,7 @@ export const SYSTEM_PAGES = [
   { page: 'streams', label: 'Streams', route: '/s/streams' },
   { page: 'roadmap', label: 'Roadmap', route: '/s/roadmap' },
   { page: 'adoption', label: 'Adoption', route: '/s/adoption' },
+  { page: 'tokens', label: 'API Tokens', route: '/s/tokens' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];
