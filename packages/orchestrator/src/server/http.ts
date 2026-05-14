@@ -31,6 +31,7 @@ import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 import { TokenStore } from '../auth/tokens';
 import { AuditLogger } from '../auth/audit';
 import { hasScope, requiredScopeForRoute } from '../auth/scopes';
+import { isV1Bridge } from './v1-bridge-routes';
 import type { AuthToken } from '@harness-engineering/types';
 
 /* ── In-memory per-IP rate limiter (no external deps) ── */
@@ -434,16 +435,10 @@ export class OrchestratorServer {
     // → /api/interactions/{id}/resolve, which the v1 handler regex won't
     // match → falls through to legacy handler → 404).
     //
-    // Bridge primitives live alongside V1_WRAPPABLE prefixes, so a slug-only
-    // check isn't enough; we must inspect the full path+method. Scales as
-    // Phase 3/4 add more bridge primitives — append to v1BridgePaths.
-    const v1BridgePaths: Array<(method: string, url: string) => boolean> = [
-      (m, u) => m === 'POST' && u === '/api/v1/jobs/maintenance',
-      (m, u) => m === 'POST' && /^\/api\/v1\/interactions\/[^/]+\/resolve(?:\?.*)?$/.test(u),
-      (m, u) => m === 'GET' && /^\/api\/v1\/events(?:\?.*)?$/.test(u),
-    ];
-    const isV1Bridge = v1BridgePaths.some((pred) => pred(req.method ?? 'GET', req.url ?? ''));
-    if (!isV1Bridge && rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
+    // Phase 3 Task 2: route knowledge moved to v1-bridge-routes.ts (shared
+    // with scopes.ts). Adding a bridge route is a one-line append in that file.
+    const v1BridgeMatch = isV1Bridge(req.method ?? 'GET', req.url ?? '');
+    if (!v1BridgeMatch && rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
       // Mutate req.url for the route-table loop. Existing handlers match on
       // hardcoded /api/<name> prefixes; rewriting once is cheaper than fanning
       // out 12 wrapper files. /api/v1/state is handled by the shortcut below,

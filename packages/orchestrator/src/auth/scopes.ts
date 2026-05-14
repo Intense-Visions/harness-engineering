@@ -1,5 +1,6 @@
 /* eslint-disable @harness-engineering/no-hardcoded-path-separator -- file contains URL paths, not filesystem paths */
 import type { TokenScope } from '@harness-engineering/types';
+import { requiredBridgeScope } from '../server/v1-bridge-routes';
 
 /**
  * Pinned scope vocabulary. Changes require an ADR per spec D2.
@@ -29,6 +30,10 @@ export function hasScope(held: TokenScope[], required: TokenScope): boolean {
  * bridge primitives below.
  */
 export function requiredScopeForRoute(method: string, path: string): TokenScope | null {
+  // Phase 3 Task 2: bridge primitives live in the shared V1_BRIDGE_ROUTES registry.
+  const bridgeScope = requiredBridgeScope(method, path);
+  if (bridgeScope) return bridgeScope;
+
   // Auth admin routes
   if (path === '/api/v1/auth/token' && method === 'POST') return 'admin';
   if (path === '/api/v1/auth/tokens' && method === 'GET') return 'admin';
@@ -36,12 +41,6 @@ export function requiredScopeForRoute(method: string, path: string): TokenScope 
 
   // State endpoint (legacy + v1)
   if ((path === '/api/state' || path === '/api/v1/state') && method === 'GET') return 'read-status';
-
-  // Phase 2 bridge-primitive endpoints (new in /api/v1/* only).
-  if (path === '/api/v1/jobs/maintenance' && method === 'POST') return 'trigger-job';
-  if (/^\/api\/v1\/interactions\/[^/]+\/resolve$/.test(path) && method === 'POST')
-    return 'resolve-interaction';
-  if (path === '/api/v1/events' && method === 'GET') return 'read-telemetry';
 
   // Existing routes — Phase 1 default mapping
   if (path.startsWith('/api/interactions')) return 'resolve-interaction';
