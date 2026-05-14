@@ -256,8 +256,24 @@ not a correctness invariant.
 `WebhookDelivery.stop()` clears the polling timer, sets `draining = true`,
 then awaits up to `drainTimeoutMs` (default 30s) for in-flight deliveries to
 complete. Pending rows stay in the queue; only the executing HTTP calls
-drain. The orchestrator's `stop()` awaits this drain before closing the
-SQLite handle (`queue.close()`) so the WAL never sees a half-written row.
+drain. If the deadline elapses with deliveries still in flight, `stop()`
+aborts each one via its `AbortController` and yields ~100ms for the abort
+to settle. Rows aborted this way are left in `status='in_flight'` and
+recovered to `failed` on next startup (see "Lease semantics" above) — the
+worker never writes to the queue after the abort lands, so `queue.close()`
+in the orchestrator's `stop()` is safe.
+
+### Delivery-time SSRF recheck
+
+In addition to the registration-time `isPrivateHost()` block (Phase 3), the
+worker re-validates the target URL inside `executeDelivery` before each
+POST. If the hostname now resolves to a loopback / RFC-1918 / link-local
+address (e.g. via DNS rebinding, or a subscription that pre-dates the
+registration guard), the delivery is dead-lettered with
+`lastError = 'URL resolves to private/loopback host'` rather than retried.
+A test-only `allowPrivateHosts: true` constructor option exists for the
+unit tests that POST against `127.0.0.1:PORT` receivers; the production
+call site in `Orchestrator.start()` leaves it at the default `false`.
 
 ### CLI
 
@@ -269,9 +285,14 @@ harness gateway deliveries list [--status dead] [--subscription whk_...]
 # next tick. No-op (returns false, exit 1) if the row isn't in dead status.
 harness gateway deliveries retry <delivery-id>
 
-# Maintenance: bulk delete. --dead-only keeps the live queue intact;
-# --older-than <ms> deletes delivered rows older than that age.
-harness gateway deliveries purge [--dead-only] [--older-than <ms>]
+# Maintenance: bulk delete. At least one filter is REQUIRED — invoking
+# purge with no filter is rejected (exit 1, "purge requires one of:
+# --dead-only, --older-than <ms>, --all"). On a TTY, the command previews
+# the affected row count and prompts y/N before deleting; non-TTY (CI,
+# scripts) skips the prompt and proceeds.
+harness gateway deliveries purge --dead-only
+harness gateway deliveries purge --older-than <ms>
+harness gateway deliveries purge --all     # nuke every row; use with care
 ```
 
 Path override: `HARNESS_WEBHOOK_QUEUE_PATH` env var; defaults to
