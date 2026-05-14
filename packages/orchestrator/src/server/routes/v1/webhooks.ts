@@ -1,0 +1,137 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { EventEmitter } from 'node:events';
+import { z } from 'zod';
+import { readBody } from '../../utils.js';
+import { WebhookSubscriptionPublicSchema } from '@harness-engineering/types';
+import type { WebhookStore } from '../../../gateway/webhooks/store';
+
+const CreateBody = z.object({
+  url: z.string().url(),
+  events: z.array(z.string().min(1)).min(1),
+});
+
+const DELETE_PATH_RE = /^\/api\/v1\/webhooks\/([a-zA-Z0-9_-]+)(?:\?.*)?$/;
+const LIST_OR_CREATE_PATH_RE = /^\/api\/v1\/webhooks(?:\?.*)?$/;
+
+interface Deps {
+  store: WebhookStore;
+  bus: EventEmitter;
+}
+
+function sendJSON(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+/**
+ * SUG-5 carry-forward: unauth-dev mode (synthetic admin token from empty
+ * tokens.json + missing HARNESS_API_TOKEN) escalates blast radius when a
+ * mutate path is added. Webhook creation is the most sensitive new mutate
+ * path in Phase 3 (an unintended subscription can exfiltrate every internal
+ * event to an attacker URL).
+ *
+ * Phase 3's mitigation: emit a one-time per-process console.warn at the
+ * FIRST webhook creation under unauth-dev. Operators see the warning during
+ * `harness orchestrator start` smoke; intentional unauth-dev use stays
+ * unblocked. Phase 4 may upgrade to scope downgrade if telemetry shows
+ * accidental leakage.
+ */
+let unauthDevWarnedThisProcess = false;
+function maybeWarnUnauthDev(tokenId: string, url: string): void {
+  if (unauthDevWarnedThisProcess) return;
+  const isUnauthDev =
+    tokenId === 'tok_legacy_env' || process.env['HARNESS_UNAUTH_DEV_ACTIVE'] === '1';
+  if (!isUnauthDev) return;
+  unauthDevWarnedThisProcess = true;
+  console.warn(
+    `[webhook] subscription created under unauth-dev mode (tokenId=${tokenId}). ` +
+      `Webhook target URL: ${url}. ` +
+      `Set HARNESS_API_TOKEN or configure tokens.json to silence this warning.`
+  );
+}
+
+export function handleV1WebhooksRoute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  deps: Deps
+): boolean {
+  const url = req.url ?? '';
+  const method = req.method ?? 'GET';
+
+  // GET /api/v1/webhooks — list
+  if (method === 'GET' && LIST_OR_CREATE_PATH_RE.test(url)) {
+    void (async () => {
+      const subs = await deps.store.list();
+      const publicView = subs.map((s) => WebhookSubscriptionPublicSchema.parse(s));
+      sendJSON(res, 200, publicView);
+    })();
+    return true;
+  }
+
+  // POST /api/v1/webhooks — create
+  if (method === 'POST' && LIST_OR_CREATE_PATH_RE.test(url)) {
+    void (async () => {
+      let raw: string;
+      try {
+        raw = await readBody(req);
+      } catch (err) {
+        sendJSON(res, 413, { error: err instanceof Error ? err.message : 'Body too large' });
+        return;
+      }
+      let json: unknown;
+      try {
+        // harness-ignore SEC-DES-001: validated by Zod CreateBody below
+        json = JSON.parse(raw);
+      } catch {
+        sendJSON(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const parsed = CreateBody.safeParse(json);
+      if (!parsed.success) {
+        sendJSON(res, 400, { error: 'Invalid body', issues: parsed.error.issues });
+        return;
+      }
+      if (!parsed.data.url.startsWith('https://')) {
+        sendJSON(res, 422, { error: 'URL must use https' });
+        return;
+      }
+      const tokenId =
+        (req as unknown as { _authToken?: { id: string } })._authToken?.id ?? 'unknown';
+      const sub = await deps.store.create({
+        tokenId,
+        url: parsed.data.url,
+        events: parsed.data.events,
+      });
+      maybeWarnUnauthDev(tokenId, parsed.data.url);
+      // Emit allow-list-shaped event for SSE + webhook fan-out (DELTA-SUG-2
+      // carry-forward: positive shape discipline at the emit site).
+      deps.bus.emit('webhook.subscription.created', {
+        id: sub.id,
+        tokenId: sub.tokenId,
+        url: sub.url,
+        events: sub.events,
+        createdAt: sub.createdAt,
+      });
+      sendJSON(res, 200, sub);
+    })();
+    return true;
+  }
+
+  // DELETE /api/v1/webhooks/{id} — delete
+  const m = method === 'DELETE' ? DELETE_PATH_RE.exec(url) : null;
+  if (m) {
+    const id = m[1] ?? '';
+    void (async () => {
+      const ok = await deps.store.delete(id);
+      if (!ok) {
+        sendJSON(res, 404, { error: 'Subscription not found' });
+        return;
+      }
+      deps.bus.emit('webhook.subscription.deleted', { id });
+      sendJSON(res, 200, { deleted: true });
+    })();
+    return true;
+  }
+
+  return false;
+}
