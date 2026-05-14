@@ -28,6 +28,20 @@ describe('requiredScopeForRoute', () => {
   it('returns null for unknown routes (default-deny upstream)', () => {
     expect(requiredScopeForRoute('GET', '/api/unknown')).toBeNull();
   });
+  it('maps POST /api/v1/jobs/maintenance to trigger-job', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/jobs/maintenance')).toBe('trigger-job');
+  });
+  it('maps POST /api/v1/interactions/<id>/resolve to resolve-interaction', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/interactions/abc/resolve')).toBe(
+      'resolve-interaction'
+    );
+  });
+  it('maps GET /api/v1/events to read-telemetry', () => {
+    expect(requiredScopeForRoute('GET', '/api/v1/events')).toBe('read-telemetry');
+  });
+  it('returns null (default-deny) for unmapped POST /api/v1/events', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/events')).toBeNull();
+  });
 });
 
 describe('hasScope', () => {

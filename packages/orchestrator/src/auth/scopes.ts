@@ -25,8 +25,8 @@ export function hasScope(held: TokenScope[], required: TokenScope): boolean {
  * Resolve the scope required for a given method + path. Returns null for
  * unknown routes — callers MUST default-deny (return 403) on null.
  *
- * Phase 1 covers only the routes mounted today + the three new
- * auth-admin routes. Phase 2 extends with /api/v1/* primitives.
+ * Phase 2 covers /api/v1/* aliases (via URL rewrite in dispatch) + the three
+ * bridge primitives below.
  */
 export function requiredScopeForRoute(method: string, path: string): TokenScope | null {
   // Auth admin routes
@@ -36,6 +36,12 @@ export function requiredScopeForRoute(method: string, path: string): TokenScope 
 
   // State endpoint (legacy + v1)
   if ((path === '/api/state' || path === '/api/v1/state') && method === 'GET') return 'read-status';
+
+  // Phase 2 bridge-primitive endpoints (new in /api/v1/* only).
+  if (path === '/api/v1/jobs/maintenance' && method === 'POST') return 'trigger-job';
+  if (/^\/api\/v1\/interactions\/[^/]+\/resolve$/.test(path) && method === 'POST')
+    return 'resolve-interaction';
+  if (path === '/api/v1/events' && method === 'GET') return 'read-telemetry';
 
   // Existing routes — Phase 1 default mapping
   if (path.startsWith('/api/interactions')) return 'resolve-interaction';
