@@ -39,6 +39,7 @@ import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router'
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
+import { WebhookQueue } from './gateway/webhooks/queue';
 import { wireWebhookFanout } from './gateway/webhooks/events';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
@@ -417,7 +418,10 @@ export class Orchestrator extends EventEmitter {
       const webhookStore = new WebhookStore(
         path.join(this.projectRoot, '.harness', 'webhooks.json')
       );
-      const webhookDelivery = new WebhookDelivery();
+      const webhookQueue = new WebhookQueue(
+        path.join(this.projectRoot, '.harness', 'webhook-deliveries.sqlite')
+      );
+      const webhookDelivery = new WebhookDelivery({ queue: webhookQueue, store: webhookStore });
       this.webhookFanoutOff = wireWebhookFanout({
         bus: this,
         store: webhookStore,

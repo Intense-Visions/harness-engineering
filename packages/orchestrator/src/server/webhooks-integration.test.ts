@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events';
 import { OrchestratorServer } from './http';
 import { WebhookStore } from '../gateway/webhooks/store';
 import { WebhookDelivery } from '../gateway/webhooks/delivery';
+import { WebhookQueue } from '../gateway/webhooks/queue';
 import { wireWebhookFanout } from '../gateway/webhooks/events';
 
 /**
@@ -58,6 +59,8 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
   let receiverPort: number;
   let orchestrator: FakeOrchestrator;
   let store: WebhookStore;
+  let queue: WebhookQueue;
+  let delivery: WebhookDelivery;
   let fanoutOff: () => void;
 
   beforeEach(async () => {
@@ -82,7 +85,9 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
 
     orchestrator = new FakeOrchestrator();
     store = new WebhookStore(join(dir, 'webhooks.json'));
-    const delivery = new WebhookDelivery();
+    queue = new WebhookQueue(':memory:');
+    delivery = new WebhookDelivery({ queue, store, tickIntervalMs: 30 });
+    delivery.start();
     fanoutOff = wireWebhookFanout({ bus: orchestrator, store, delivery });
 
     server = new OrchestratorServer(orchestrator as never, 0, {
@@ -97,6 +102,8 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
 
   afterEach(async () => {
     fanoutOff();
+    await delivery.stop();
+    queue.close();
     (server as unknown as { httpServer: http.Server }).httpServer.close();
     await new Promise<void>((r) => receiver.close(() => r()));
     rmSync(dir, { recursive: true, force: true });

@@ -55,7 +55,7 @@ export function wireWebhookFanout({ bus, store, delivery }: WireParams): () => v
         };
         // Fan out without awaiting — slow subscribers do not block others.
         for (const sub of subs) {
-          void delivery.deliver(sub, event);
+          delivery.enqueue(sub, event);
         }
       })();
     };
