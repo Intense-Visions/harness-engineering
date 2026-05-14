@@ -1,15 +1,16 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { stringify } from 'yaml';
-import { buildAuthDocument } from './registry';
+import { buildV1Document } from './registry';
 
 /**
- * Emit the OpenAPI artifact for the auth routes to `out`.
+ * Emit the OpenAPI artifact for the full /api/v1/* surface to `out`.
+ * Covers auth (Phase 1) + legacy aliases + bridge primitives (Phase 2).
  * Idempotent: identical inputs produce byte-identical output (sorted keys,
  * stable indent).
  */
 export function generateOpenApiYaml(out: string): void {
-  const doc = buildAuthDocument();
+  const doc = buildV1Document();
   // JSON round-trip strips reference identity so `yaml.stringify` does not
   // emit anchors/aliases (which break under sortMapEntries: true).
   const plain = JSON.parse(JSON.stringify(doc)) as unknown;

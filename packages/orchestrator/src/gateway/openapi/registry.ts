@@ -102,3 +102,26 @@ export function buildAuthDocument(): ReturnType<OpenApiGeneratorV31['generateDoc
     servers: [{ url: 'http://127.0.0.1:8080' }],
   });
 }
+
+// Phase 2 Task 9: composed document covering auth + legacy aliases +
+// bridge primitives. Import is at the bottom to avoid a load-order cycle
+// (v1-registry depends on buildAuthRegistry above).
+//
+// `buildAuthDocument` above is intentionally retained for callers that only
+// want the Phase 1 surface (none in-tree today, but the API contract is
+// public via openapi.yaml generation tooling).
+import { buildV1Registry } from './v1-registry';
+
+export function buildV1Document(): ReturnType<OpenApiGeneratorV31['generateDocument']> {
+  const generator = new OpenApiGeneratorV31(buildV1Registry().definitions);
+  return generator.generateDocument({
+    openapi: '3.1.0',
+    info: {
+      title: 'Harness Gateway API',
+      version: '0.2.0',
+      description:
+        'Hermes Phase 0 — Phase 2: versioned /api/v1/* surface with auth, legacy aliases, and bridge primitives.',
+    },
+    servers: [{ url: 'http://127.0.0.1:8080' }],
+  });
+}
