@@ -58,6 +58,7 @@
     "@harness-engineering/types": "workspace:*",
     "@mariozechner/pi-coding-agent": "^0.73.1",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.10.0",
     "ink": "^4.4.1",
     "liquidjs": "^10.25.7",
     "openai": "^6.0.0",
@@ -69,6 +70,7 @@
   "devDependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.0",
     "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.15",
     "@types/react": "^18.3.28",
     "@types/ws": "^8.18.1",
