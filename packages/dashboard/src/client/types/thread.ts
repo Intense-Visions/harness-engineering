@@ -64,6 +64,7 @@ export const SYSTEM_PAGES = [
   { page: 'roadmap', label: 'Roadmap', route: '/s/roadmap' },
   { page: 'adoption', label: 'Adoption', route: '/s/adoption' },
   { page: 'tokens', label: 'API Tokens', route: '/s/tokens' },
+  { page: 'webhooks', label: 'Webhooks', route: '/s/webhooks' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];

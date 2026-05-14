@@ -21,6 +21,7 @@ import { Adoption } from '../../pages/Adoption';
 import { Attention } from '../../pages/Attention';
 import { Analyze } from '../../pages/Analyze';
 import { Tokens } from '../../pages/Tokens';
+import { Webhooks } from '../../pages/Webhooks';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
@@ -36,6 +37,7 @@ const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
   roadmap: Roadmap,
   adoption: Adoption,
   tokens: Tokens,
+  webhooks: Webhooks,
   // Legacy: these are now thread types but kept for /s/ URL compat
   attention: Attention,
   analyze: Analyze,
