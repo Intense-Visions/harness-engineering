@@ -1,0 +1,164 @@
+components:
+  parameters: {}
+  schemas:
+    AuthTokenPublic:
+      properties:
+        bridgeKind:
+          enum:
+            - slack
+            - discord
+            - github-app
+            - custom
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          pattern: ^tok_[a-f0-9]{16}$
+          type: string
+        lastUsedAt:
+          format: date-time
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        scopes:
+          items:
+            enum:
+              - admin
+              - trigger-job
+              - read-status
+              - resolve-interaction
+              - subscribe-webhook
+              - modify-roadmap
+              - read-telemetry
+            type: string
+          minItems: 1
+          type: array
+        tenantId:
+          type: string
+      required:
+        - id
+        - name
+        - scopes
+        - createdAt
+      type: object
+    BridgeKind:
+      enum:
+        - slack
+        - discord
+        - github-app
+        - custom
+      type: string
+    CreateTokenRequest:
+      properties:
+        bridgeKind:
+          $ref: "#/components/schemas/BridgeKind"
+        expiresAt:
+          format: date-time
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        scopes:
+          items:
+            $ref: "#/components/schemas/TokenScope"
+          minItems: 1
+          type: array
+        tenantId:
+          type: string
+      required:
+        - name
+        - scopes
+      type: object
+    CreateTokenResponse:
+      properties:
+        id:
+          type: string
+        record:
+          $ref: "#/components/schemas/AuthTokenPublic"
+        token:
+          type: string
+      required:
+        - token
+        - id
+        - record
+      type: object
+    TokenScope:
+      enum:
+        - admin
+        - trigger-job
+        - read-status
+        - resolve-interaction
+        - subscribe-webhook
+        - modify-roadmap
+        - read-telemetry
+      type: string
+  securitySchemes:
+    BearerAuth:
+      bearerFormat: tok_<id>.<base64url>
+      scheme: bearer
+      type: http
+info:
+  description: Hermes Phase 0 — auth routes (Phase 1 scope).
+  title: Harness Gateway API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/v1/auth/token:
+    post:
+      description: Create a new auth token. Secret returned once.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTokenResponse"
+          description: Token created
+        "409":
+          description: Duplicate name
+      security:
+        - BearerAuth: []
+  /api/v1/auth/tokens:
+    get:
+      description: List tokens (hashedSecret redacted).
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/AuthTokenPublic"
+                type: array
+          description: OK
+      security:
+        - BearerAuth: []
+  /api/v1/auth/tokens/{id}:
+    delete:
+      description: Revoke a token by id.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          description: Token not found
+      security:
+        - BearerAuth: []
+servers:
+  - url: http://127.0.0.1:8080
+webhooks: {}

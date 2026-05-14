@@ -23,7 +23,8 @@
     "clean": "node ../../scripts/clean.mjs dist",
     "validate": "harness validate",
     "check-deps": "harness check-deps",
-    "check-docs": "harness check-docs"
+    "check-docs": "harness check-docs",
+    "openapi:generate": "tsx src/gateway/openapi/generate.ts ../../docs/api/openapi.yaml"
   },
   "keywords": [
     "harness",
