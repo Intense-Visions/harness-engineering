@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { handleV1WebhooksRoute } from './webhooks';
 import { WebhookStore } from '../../../gateway/webhooks/store';
+import { WebhookQueue } from '../../../gateway/webhooks/queue';
 import { EventEmitter } from 'node:events';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
@@ -151,6 +152,40 @@ describe('handleV1WebhooksRoute', () => {
     expect(warnSpy.mock.calls.filter((c) => String(c[0]).includes('unauth-dev')).length).toBe(1);
     warnSpy.mockRestore();
     delete process.env['HARNESS_UNAUTH_DEV_ACTIVE'];
+  });
+
+  // Phase 4: queue stats endpoint
+  it('GET /api/v1/webhooks/queue/stats returns the four queue counters as JSON', async () => {
+    const queue = new WebhookQueue(':memory:');
+    try {
+      const req = makeReq('GET', '/api/v1/webhooks/queue/stats');
+      const { res, chunks, statusCode } = makeRes();
+      const handled = handleV1WebhooksRoute(req, res, { store, bus, queue });
+      expect(handled).toBe(true);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(200);
+      const body = JSON.parse(chunks.join('')) as {
+        pending: number;
+        failed: number;
+        dead: number;
+        delivered: number;
+      };
+      expect(body.pending).toBe(0);
+      expect(body.failed).toBe(0);
+      expect(body.dead).toBe(0);
+      expect(body.delivered).toBe(0);
+    } finally {
+      queue.close();
+    }
+  });
+
+  it('GET /api/v1/webhooks/queue/stats returns 503 when queue is undefined', async () => {
+    const req = makeReq('GET', '/api/v1/webhooks/queue/stats');
+    const { res, statusCode } = makeRes();
+    const handled = handleV1WebhooksRoute(req, res, { store, bus });
+    expect(handled).toBe(true);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode()).toBe(503);
   });
 
   // DELTA-SUG-2 carry-forward: positive shape assertion (not just block-list)

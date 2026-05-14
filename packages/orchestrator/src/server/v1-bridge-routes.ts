@@ -58,6 +58,13 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'subscribe-webhook',
     description: 'List webhook subscriptions.',
   },
+  // ── Phase 4 bridge primitives ──
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/webhooks\/queue\/stats(?:\?.*)?$/,
+    scope: 'subscribe-webhook',
+    description: 'Webhook delivery queue depth + DLQ stats.',
+  },
 ];
 
 export function isV1Bridge(method: string, url: string): boolean {

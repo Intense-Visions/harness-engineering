@@ -384,11 +384,14 @@ export class OrchestratorServer {
       (req, res) => handleV1EventsSseRoute(req, res, this.orchestrator as unknown as EventEmitter),
       // Phase 3 webhooks — short-circuits to false when webhooks is undefined
       // (e.g. FakeOrchestrator-based tests pass no webhooks dep).
+      // Phase 4: forward the optional queue handle so the stats endpoint can
+      // serve depth/DLQ counts.
       (req, res) =>
         !!this.webhooks &&
         handleV1WebhooksRoute(req, res, {
           store: this.webhooks.store,
           bus: this.orchestrator as unknown as EventEmitter,
+          ...(this.webhooks.queue ? { queue: this.webhooks.queue } : {}),
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),

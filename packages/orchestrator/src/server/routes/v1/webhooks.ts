@@ -5,18 +5,23 @@ import { readBody } from '../../utils.js';
 import { isPrivateHost } from '../../utils/url-guard.js';
 import { WebhookSubscriptionPublicSchema } from '@harness-engineering/types';
 import type { WebhookStore } from '../../../gateway/webhooks/store';
+import type { WebhookQueue } from '../../../gateway/webhooks/queue';
 
 const CreateBody = z.object({
   url: z.string().url(),
   events: z.array(z.string().min(1)).min(1),
 });
 
+// Match /api/v1/webhooks/queue/stats first; the generic DELETE /api/v1/webhooks/:id
+// regex below intentionally excludes "/" so it can't swallow the stats path.
+const QUEUE_STATS_PATH_RE = /^\/api\/v1\/webhooks\/queue\/stats(?:\?.*)?$/;
 const DELETE_PATH_RE = /^\/api\/v1\/webhooks\/([a-zA-Z0-9_-]+)(?:\?.*)?$/;
 const LIST_OR_CREATE_PATH_RE = /^\/api\/v1\/webhooks(?:\?.*)?$/;
 
 interface Deps {
   store: WebhookStore;
   bus: EventEmitter;
+  queue?: WebhookQueue;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -58,6 +63,19 @@ export function handleV1WebhooksRoute(
 ): boolean {
   const url = req.url ?? '';
   const method = req.method ?? 'GET';
+
+  // GET /api/v1/webhooks/queue/stats — Phase 4 delivery queue depth + DLQ count.
+  // Matched FIRST so the more permissive LIST_OR_CREATE_PATH_RE below can't
+  // shadow it (LIST matches exactly /api/v1/webhooks, so it wouldn't, but
+  // future-proof against trailing-slash tolerance changes).
+  if (method === 'GET' && QUEUE_STATS_PATH_RE.test(url)) {
+    if (!deps.queue) {
+      sendJSON(res, 503, { error: 'Queue not available' });
+      return true;
+    }
+    sendJSON(res, 200, deps.queue.stats());
+    return true;
+  }
 
   // GET /api/v1/webhooks — list
   if (method === 'GET' && LIST_OR_CREATE_PATH_RE.test(url)) {
