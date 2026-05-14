@@ -46,6 +46,9 @@
     "url": "https://github.com/Intense-Visions/harness-engineering/issues"
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/types#readme",
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.5",
     "tsup": "^8.5.1",

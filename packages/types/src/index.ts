@@ -180,3 +180,13 @@ export type {
 
 // --- Maintenance ---
 export type { MaintenanceConfig, TaskOverride, MaintenanceHistoryEntry } from './maintenance';
+
+// --- Auth (Hermes Phase 0) ---
+export {
+  TokenScopeSchema,
+  BridgeKindSchema,
+  AuthTokenSchema,
+  AuthTokenPublicSchema,
+  AuthAuditEntrySchema,
+} from './auth';
+export type { TokenScope, BridgeKind, AuthToken, AuthTokenPublic, AuthAuditEntry } from './auth';
