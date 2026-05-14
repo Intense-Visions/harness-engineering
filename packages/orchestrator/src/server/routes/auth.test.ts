@@ -216,4 +216,63 @@ describe('Phase 1 /api/v1/auth/* route handlers', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  // Phase 1 review-cycle-2 regression: query-string scope bypass on admin routes.
+  // scopes.ts uses exact path equality, but http.ts previously passed req.url
+  // (which includes query string) and defaulted to permit when requiredScopeForRoute
+  // returned null. A read-status bearer could mint admin tokens via
+  // POST /api/v1/auth/token?x=1. Fixes:
+  //   1. dispatchAuthedRequest strips the query string before lookup.
+  //   2. The check is now `if (!required || !hasScope(...))` — default-deny.
+  describe('query-string scope bypass regression (Phase 1 cycle-2)', () => {
+    it.each([
+      ['POST', '/api/v1/auth/token?x=1', JSON.stringify({ name: 'evil', scopes: ['admin'] })],
+      [
+        'POST',
+        '/api/v1/auth/token?foo=bar&baz=qux',
+        JSON.stringify({ name: 'evil', scopes: ['admin'] }),
+      ],
+      ['GET', '/api/v1/auth/tokens?_=1', undefined],
+      ['DELETE', '/api/v1/auth/tokens/tok_0000000000000000?force=1', undefined],
+    ])('rejects %s %s with read-status bearer (403, not 200)', async (method, path, body) => {
+      const { token } = await store.create({ name: 'reader', scopes: ['read-status'] });
+      const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      const res = await request(path, method, headers, body);
+      expect(res.status).toBe(403);
+    });
+
+    it('reproduces reviewer exploit: read-status bearer cannot mint admin token via ?x=1', async () => {
+      // Seed a read-status token.
+      const { token } = await store.create({ name: 'reader', scopes: ['read-status'] });
+      // Attempt the exploit: POST /api/v1/auth/token?x=1 with admin scopes in body.
+      const payload = json({ name: 'evil-bypass', scopes: ['admin'] });
+      const res = await request(
+        '/api/v1/auth/token?x=1',
+        'POST',
+        { ...payload.headers, authorization: `Bearer ${token}` },
+        payload.body
+      );
+      expect(res.status).toBe(403);
+      // Verify no admin token was minted: list (with the original admin-less reader) should fail.
+      // A fresh store read should still show only the seeded reader token.
+      const fresh = new TokenStore(process.env['HARNESS_TOKENS_PATH'] as string);
+      const records = await fresh.list();
+      expect(records).toHaveLength(1);
+      expect(records[0]?.name).toBe('reader');
+    });
+
+    it('default-deny on unknown route: GET /api/v1/unknown returns 403 with read-status bearer', async () => {
+      // Seed at least one token so the unauth-dev fallback does NOT fire.
+      await store.create({ name: 'seed', scopes: ['admin'] });
+      const { token } = await store.create({ name: 'reader', scopes: ['read-status'] });
+      const res = await request('/api/v1/unknown', 'GET', {
+        authorization: `Bearer ${token}`,
+      });
+      // requiredScopeForRoute returns null for unmapped paths; dispatch must
+      // default-deny (403), not default-permit (which would let the route table
+      // fall through to a 404 — leaking route existence to unauthorized callers).
+      expect(res.status).toBe(403);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import bcrypt from 'bcryptjs';
 import {
@@ -66,7 +66,15 @@ export class TokenStore {
 
   private async persist(records: AuthToken[]): Promise<void> {
     await mkdir(dirname(this.path), { recursive: true });
-    await writeFile(this.path, JSON.stringify(records, null, 2), 'utf8');
+    // Atomic write-and-rename: avoids leaving tokens.json truncated on power-loss
+    // or SIGKILL mid-write. With the cycle-2 single-writer invariant (orchestrator
+    // only) this no longer guards against cross-writer races, but it does match
+    // the CHANGELOG's documented atomic-rename behavior and provides cheap
+    // crash-consistency. The pid+timestamp suffix is collision-resistant within
+    // a single process even under rapid concurrent calls.
+    const tmp = `${this.path}.tmp-${process.pid}-${Date.now()}-${randomBytes(4).toString('hex')}`;
+    await writeFile(tmp, JSON.stringify(records, null, 2), 'utf8');
+    await rename(tmp, this.path);
     this.cache = records;
   }
 

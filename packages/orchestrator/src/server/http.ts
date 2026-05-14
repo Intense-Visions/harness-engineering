@@ -374,10 +374,19 @@ export class OrchestratorServer {
       this.audit(req, res, null);
       return;
     }
-    const required = requiredScopeForRoute(req.method ?? 'GET', req.url ?? '');
-    if (required && !hasScope(token.scopes, required)) {
+    // Strip query string before scope lookup. scopes.ts uses exact path equality
+    // (e.g. `path === '/api/v1/auth/token'`), so passing the raw req.url would
+    // cause `/api/v1/auth/token?x=1` to miss every map and return null. Matches
+    // the URL normalization already used by audit() (line 411) and handleAuthRoute.
+    const pathname = (req.url ?? '').split('?')[0] ?? '';
+    const required = requiredScopeForRoute(req.method ?? 'GET', pathname);
+    // Default-deny: null required means the route has no scope mapping yet, which
+    // ADR 0011 line 30 and scopes.ts:26 both pin as 403, not allow. Phase 1
+    // review-cycle 2 caught the prior `if (required && ...)` form was default-permit,
+    // which let a read-status bearer mint admin tokens by appending any query string.
+    if (!required || !hasScope(token.scopes, required)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Insufficient scope', required }));
+      res.end(JSON.stringify({ error: 'Insufficient scope', required: required ?? 'unknown' }));
       this.audit(req, res, token);
       return;
     }
