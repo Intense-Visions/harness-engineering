@@ -105,9 +105,9 @@ components:
       scheme: bearer
       type: http
 info:
-  description: "Hermes Phase 0 — Phase 2: versioned /api/v1/* surface with auth, legacy aliases, and bridge primitives."
+  description: "Hermes Phase 0 — Phase 3: versioned /api/v1/* surface with auth, bridge primitives, and webhook subscriptions."
   title: Harness Gateway API
-  version: 0.2.0
+  version: 0.3.0
 openapi: 3.1.0
 paths:
   /api/v1/analyses:
@@ -401,6 +401,106 @@ paths:
           description: Unauthorized
         "403":
           description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/webhooks:
+    get:
+      description: "List webhook subscriptions (secrets redacted). Scope: subscribe-webhook."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items: {}
+                type: array
+          description: OK
+      security:
+        - BearerAuth: []
+    post:
+      description: "Subscribe to outbound webhook fan-out. Returns the secret once. Scope: subscribe-webhook."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                events:
+                  items:
+                    type: string
+                  minItems: 1
+                  type: array
+                url:
+                  format: uri
+                  type: string
+              required:
+                - url
+                - events
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  createdAt:
+                    type: string
+                  events:
+                    items:
+                      type: string
+                    type: array
+                  id:
+                    type: string
+                  secret:
+                    type: string
+                  tokenId:
+                    type: string
+                  url:
+                    type: string
+                required:
+                  - id
+                  - tokenId
+                  - url
+                  - events
+                  - secret
+                  - createdAt
+                type: object
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "404":
+          description: Not found
+        "409":
+          description: Conflict
+      security:
+        - BearerAuth: []
+  /api/v1/webhooks/{id}:
+    delete:
+      description: "Delete a webhook subscription. Scope: subscribe-webhook."
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  deleted:
+                    enum:
+                      - true
+                    type: boolean
+                required:
+                  - deleted
+                type: object
+          description: Deleted
+        "404":
+          description: Subscription not found
       security:
         - BearerAuth: []
 servers:

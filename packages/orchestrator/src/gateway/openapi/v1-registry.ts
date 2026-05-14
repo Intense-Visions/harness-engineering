@@ -120,6 +120,48 @@ export function buildV1Registry(): OpenAPIRegistry {
     },
   });
 
+  // ── Phase 3 webhooks ──
+  registerPostPath(
+    '/api/v1/webhooks',
+    'Subscribe to outbound webhook fan-out. Returns the secret once.',
+    'subscribe-webhook',
+    z.object({ url: z.string().url(), events: z.array(z.string()).min(1) }),
+    z.object({
+      id: z.string(),
+      tokenId: z.string(),
+      url: z.string(),
+      events: z.array(z.string()),
+      secret: z.string(),
+      createdAt: z.string(),
+    })
+  );
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/webhooks',
+    description: 'List webhook subscriptions (secrets redacted). Scope: subscribe-webhook.',
+    security: [{ BearerAuth: [] }],
+    responses: {
+      200: {
+        description: 'OK',
+        content: { 'application/json': { schema: z.array(z.unknown()) } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'delete',
+    path: '/api/v1/webhooks/{id}',
+    description: 'Delete a webhook subscription. Scope: subscribe-webhook.',
+    security: [{ BearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'Deleted',
+        content: { 'application/json': { schema: z.object({ deleted: z.literal(true) }) } },
+      },
+      404: { description: 'Subscription not found' },
+    },
+  });
+
   return registry;
 }
 
@@ -135,9 +177,9 @@ export function buildV1Document(): ReturnType<OpenApiGeneratorV31['generateDocum
     openapi: '3.1.0',
     info: {
       title: 'Harness Gateway API',
-      version: '0.2.0',
+      version: '0.3.0',
       description:
-        'Hermes Phase 0 — Phase 2: versioned /api/v1/* surface with auth, legacy aliases, and bridge primitives.',
+        'Hermes Phase 0 — Phase 3: versioned /api/v1/* surface with auth, bridge primitives, and webhook subscriptions.',
     },
     servers: [{ url: 'http://127.0.0.1:8080' }],
   });

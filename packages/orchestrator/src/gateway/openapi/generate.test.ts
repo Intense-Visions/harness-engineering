@@ -33,8 +33,9 @@ describe('generateOpenApiYaml', () => {
   // Phase 2 Task 9: v1 coverage. The composed document must include every
   // legacy alias plus the three Phase 2 bridge primitives. We lock the
   // path-count to catch silent drift (added/removed routes without an
-  // explicit test update).
-  it('exposes the Phase 2 bridge primitives + legacy aliases', () => {
+  // explicit test update). Phase 3 Task 11: extended with webhook routes;
+  // counts updated accordingly.
+  it('exposes the Phase 2 bridge primitives + legacy aliases + Phase 3 webhooks', () => {
     const dir = mkdtempSync(join(tmpdir(), 'harness-openapi-'));
     const out = join(dir, 'openapi.yaml');
     generateOpenApiYaml(out);
@@ -55,20 +56,25 @@ describe('generateOpenApiYaml', () => {
     expect(yaml).toContain('/api/v1/local-model');
     expect(yaml).toContain('/api/v1/local-models');
 
+    // Phase 3 webhook routes.
+    expect(yaml).toContain('/api/v1/webhooks');
+    expect(yaml).toContain('/api/v1/webhooks/{id}');
+
     // Lock the path count to catch silent drift. 3 auth + 10 legacy GETs +
-    // 3 bridge primitives = 16 distinct paths.
+    // 3 Phase 2 bridge primitives + 2 Phase 3 webhook paths (collection +
+    // {id}; POST/GET share /api/v1/webhooks) = 18 distinct paths.
     const doc = parseYaml(yaml) as { paths: Record<string, unknown> };
-    expect(Object.keys(doc.paths).length).toBe(16);
+    expect(Object.keys(doc.paths).length).toBe(18);
 
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('reports v0.2.0 in the info block (Phase 2)', () => {
+  it('reports v0.3.0 in the info block (Phase 3)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'harness-openapi-'));
     const out = join(dir, 'openapi.yaml');
     generateOpenApiYaml(out);
     const yaml = readFileSync(out, 'utf8');
-    expect(yaml).toContain('version: 0.2.0');
+    expect(yaml).toContain('version: 0.3.0');
     rmSync(dir, { recursive: true, force: true });
   });
 });
