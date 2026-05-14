@@ -524,6 +524,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@asteasolutions/zod-to-openapi':
+        specifier: ^7.3.0
+        version: 7.3.4(zod@3.25.76)
       '@types/bcryptjs':
         specifier: ^2.4.6
         version: 2.4.6
@@ -827,6 +830,15 @@ packages:
 
   /@asamuzakjp/nwsapi@2.3.9:
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
+    dev: true
+
+  /@asteasolutions/zod-to-openapi@7.3.4(zod@3.25.76):
+    resolution: {integrity: sha512-/2rThQ5zPi9OzVwes6U7lK1+Yvug0iXu25olp7S0XsYmOqnyMfxH7gdSQjn/+DSOHRg7wnotwGJSyL+fBKdnEA==}
+    peerDependencies:
+      zod: ^3.20.2
+    dependencies:
+      openapi3-ts: 4.5.0
+      zod: 3.25.76
     dev: true
 
   /@aws-crypto/crc32@5.2.0:
@@ -7819,6 +7831,12 @@ packages:
       ws: 8.20.0
       zod: 3.25.76
     dev: false
+
+  /openapi3-ts@4.5.0:
+    resolution: {integrity: sha512-jaL+HgTq2Gj5jRcfdutgRGLosCy/hT8sQf6VOy+P+g36cZOjI1iukdPnijC+4CmeRzg/jEllJUboEic2FhxhtQ==}
+    dependencies:
+      yaml: 2.8.3
+    dev: true
 
   /optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
