@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { EventEmitter } from 'node:events';
 
 /**
  * A pending human interaction, typically from an escalation.
@@ -62,12 +63,19 @@ export interface PendingInteraction {
 export class InteractionQueue {
   private dir: string;
   private pushListeners: Array<(interaction: PendingInteraction) => void> = [];
+  private emitter: EventEmitter | null;
 
   /**
    * @param dir - Directory path for storing interaction JSON files
+   * @param emitter - Optional event bus that receives `interaction.created`
+   *   and `interaction.resolved` events. When omitted, the queue behaves as
+   *   it did pre-Phase-2 (no emission). Phase 2 Task 8 wires the
+   *   orchestrator (itself an EventEmitter) in as the bus so the SSE
+   *   handler (`GET /api/v1/events`) can fan these out to clients.
    */
-  constructor(dir: string) {
+  constructor(dir: string, emitter?: EventEmitter) {
     this.dir = dir;
+    this.emitter = emitter ?? null;
   }
 
   /**
@@ -99,6 +107,9 @@ export class InteractionQueue {
     for (const listener of this.pushListeners) {
       listener(interaction);
     }
+    // Phase 2 Task 8: fan the new interaction out onto the orchestrator's
+    // event bus so SSE subscribers (`GET /api/v1/events`) receive it.
+    this.emitter?.emit('interaction.created', interaction);
   }
 
   /**
@@ -150,5 +161,14 @@ export class InteractionQueue {
     const interaction = JSON.parse(raw) as PendingInteraction;
     interaction.status = status;
     await fs.writeFile(filePath, JSON.stringify(interaction, null, 2), 'utf-8');
+    // Phase 2 Task 8: emit `interaction.resolved` on resolution so SSE
+    // subscribers can clear stale UI without polling.
+    if (status === 'resolved') {
+      this.emitter?.emit('interaction.resolved', {
+        id,
+        status: 'resolved',
+        resolvedAt: new Date().toISOString(),
+      });
+    }
   }
 }

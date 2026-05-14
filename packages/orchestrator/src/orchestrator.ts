@@ -253,8 +253,12 @@ export class Orchestrator extends EventEmitter {
     // `getResolverModelFor` hook can read `this.localResolvers`.
     this.overrideBackend = overrides?.backend ?? null;
 
+    // Phase 2 Task 8: pass `this` (Orchestrator extends EventEmitter) so
+    // the queue can emit `interaction.created` / `interaction.resolved`
+    // onto the same bus the SSE handler subscribes to.
     this.interactionQueue = new InteractionQueue(
-      path.join(config.workspace.root, '..', 'interactions')
+      path.join(config.workspace.root, '..', 'interactions'),
+      this
     );
 
     this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
