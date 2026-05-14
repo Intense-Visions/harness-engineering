@@ -37,6 +37,9 @@ import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
+import { WebhookStore } from './gateway/webhooks/store';
+import { WebhookDelivery } from './gateway/webhooks/delivery';
+import { wireWebhookFanout } from './gateway/webhooks/events';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
@@ -149,6 +152,9 @@ export class Orchestrator extends EventEmitter {
   private prDetector: PRDetector;
   private maintenanceScheduler: MaintenanceScheduler | null = null;
   private maintenanceReporter: MaintenanceReporter | null = null;
+  private webhookStore?: WebhookStore;
+  private webhookDelivery?: WebhookDelivery;
+  private webhookFanoutOff?: () => void;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
   private intelligenceRunner: IntelligencePipelineRunner;
@@ -401,8 +407,26 @@ export class Orchestrator extends EventEmitter {
     this.completionHandler = new CompletionHandler(ctx, this.postLifecycleComment.bind(this));
 
     if (config.server?.port) {
+      // Phase 3: webhook subscription store + delivery worker + fan-out.
+      // Store persists to .harness/webhooks.json (mode 0600). Fan-out
+      // subscribes to the orchestrator's EventEmitter (`this`) and dispatches
+      // matching events into the delivery worker. stop() invokes
+      // webhookFanoutOff() to drop the listeners cleanly.
+      const webhookStore = new WebhookStore(
+        path.join(this.projectRoot, '.harness', 'webhooks.json')
+      );
+      const webhookDelivery = new WebhookDelivery();
+      this.webhookStore = webhookStore;
+      this.webhookDelivery = webhookDelivery;
+      this.webhookFanoutOff = wireWebhookFanout({
+        bus: this,
+        store: webhookStore,
+        delivery: webhookDelivery,
+      });
+
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
+        webhooks: { store: webhookStore, delivery: webhookDelivery },
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -1638,6 +1662,10 @@ export class Orchestrator extends EventEmitter {
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
       this.maintenanceScheduler = null;
+    }
+    if (this.webhookFanoutOff) {
+      this.webhookFanoutOff();
+      this.webhookFanoutOff = undefined;
     }
     if (this.server) {
       this.server.stop();

@@ -17,6 +17,9 @@ import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
 import { handleV1EventsSseRoute } from './routes/v1/events-sse';
+import { handleV1WebhooksRoute } from './routes/v1/webhooks';
+import type { WebhookStore } from '../gateway/webhooks/store';
+import type { WebhookDelivery } from '../gateway/webhooks/delivery';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
 import { handleAuthRoute } from './routes/auth';
@@ -120,6 +123,13 @@ export interface ServerDependencies {
   getLocalModelStatus?: GetLocalModelStatusFn;
   /** Callback returning all local backends' statuses, one entry per resolver. Spec 2 SC38. */
   getLocalModelStatuses?: GetLocalModelStatusesFn;
+  /**
+   * Phase 3: webhook subscription store + delivery worker. Wired into the
+   * `/api/v1/webhooks` routes and the event-bus fan-out. Optional so legacy
+   * FakeOrchestrator-based tests can omit it; the route handler short-circuits
+   * to `false` when `webhooks` is undefined.
+   */
+  webhooks?: { store: WebhookStore; delivery: WebhookDelivery };
 }
 
 export class OrchestratorServer {
@@ -139,6 +149,7 @@ export class OrchestratorServer {
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private getLocalModelStatus: GetLocalModelStatusFn | null = null;
   private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
+  private webhooks: { store: WebhookStore; delivery: WebhookDelivery } | undefined;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
@@ -181,6 +192,7 @@ export class OrchestratorServer {
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
     this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
     this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
+    this.webhooks = deps?.webhooks;
   }
 
   private wireEvents(): void {
@@ -367,6 +379,14 @@ export class OrchestratorServer {
       // SSE event stream — long-lived; placed near end so cheaper routes
       // short-circuit first, but before the chat-proxy fallback.
       (req, res) => handleV1EventsSseRoute(req, res, this.orchestrator as unknown as EventEmitter),
+      // Phase 3 webhooks — short-circuits to false when webhooks is undefined
+      // (e.g. FakeOrchestrator-based tests pass no webhooks dep).
+      (req, res) =>
+        !!this.webhooks &&
+        handleV1WebhooksRoute(req, res, {
+          store: this.webhooks.store,
+          bus: this.orchestrator as unknown as EventEmitter,
+        }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
     ];

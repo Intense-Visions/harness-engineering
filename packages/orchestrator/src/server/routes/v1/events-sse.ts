@@ -17,6 +17,9 @@ const SSE_TOPICS = [
   'maintenance:error',
   'maintenance:baseref_fallback',
   'local-model:status',
+  // ── Phase 3 ──
+  'webhook.subscription.created',
+  'webhook.subscription.deleted',
 ] as const;
 
 const HEARTBEAT_MS = 15_000;
