@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,14 +22,14 @@ let store: TokenStore;
 async function request(
   p: string,
   headers: Record<string, string> = {}
-): Promise<{ status: number; body: string }> {
+): Promise<{ status: number; body: string; headers: http.IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { host: '127.0.0.1', port, path: p, method: 'GET', headers },
       (res) => {
         let body = '';
         res.on('data', (c) => (body += c));
-        res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body, headers: res.headers }));
       }
     );
     req.on('error', reject);
@@ -84,5 +84,28 @@ describe('Phase 1 auth middleware', () => {
     const res = await request('/api/state', { authorization: 'Bearer legacy-secret-xyz' });
     expect(res.status).toBe(200);
     delete process.env['HARNESS_API_TOKEN'];
+  });
+
+  it('unauth-dev fallback sets X-Harness-Auth-Mode header on response', async () => {
+    // Default beforeEach state: tokens.json empty, no env var → fallback active
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const res = await request('/api/state');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-harness-auth-mode']).toBe('unauth-dev');
+    // Second request: header still present, warning is deduplicated within the server instance
+    const res2 = await request('/api/state');
+    expect(res2.headers['x-harness-auth-mode']).toBe('unauth-dev');
+    const unauthDevWarns = warnSpy.mock.calls.filter((args) =>
+      String(args[0] ?? '').includes('UNAUTHENTICATED dev mode')
+    );
+    expect(unauthDevWarns).toHaveLength(1);
+    warnSpy.mockRestore();
+  });
+
+  it('X-Harness-Auth-Mode header absent when a real token is used', async () => {
+    const { token } = await store.create({ name: 'x', scopes: ['read-status'] });
+    const res = await request('/api/state', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    expect(res.headers['x-harness-auth-mode']).toBeUndefined();
   });
 });

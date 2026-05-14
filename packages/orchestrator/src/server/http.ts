@@ -127,6 +127,7 @@ export class OrchestratorServer {
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
   private auditLogger!: AuditLogger;
+  private warnedUnauthDev = false;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
   private readonly apiRoutes: Array<
@@ -276,6 +277,17 @@ export class OrchestratorServer {
     // Tokens file empty AND no env var → unauthenticated mode (localhost dev).
     const listed = await this.tokenStore.list().catch(() => []);
     if (listed.length === 0 && !legacyEnv) {
+      // Surface the fallback so operators don't deploy un-authed by accident.
+      // Header on every response; one-time warn on first hit per process.
+      res.setHeader('X-Harness-Auth-Mode', 'unauth-dev');
+      if (!this.warnedUnauthDev) {
+        this.warnedUnauthDev = true;
+        console.warn(
+          'harness orchestrator: running in UNAUTHENTICATED dev mode ' +
+            '(tokens.json empty and HARNESS_API_TOKEN not set). ' +
+            'All requests resolve as admin. Configure tokens before exposing the API beyond localhost.'
+        );
+      }
       return {
         id: 'tok_unauth_dev',
         name: 'unauth-dev',
