@@ -184,6 +184,98 @@ Phase 4 will replace the in-memory delivery worker with a durable queue. The `We
 
 When Phase 4 ships, this document expands with the per-piece queue contracts, the retry-ladder rationale, the DLQ replay UX, and the drain-window operational guidance.
 
+## Phase 4 — Delivery Durability
+
+Delivery is now SQLite-backed (`better-sqlite3`, WAL mode). The queue lives at
+`.harness/webhook-queue.sqlite` (mode 0600 is not enforced by SQLite itself —
+operators should restrict permissions on the `.harness/` directory).
+
+The Phase 4 retry ladder is **tighter** than the "extension points" sketch above:
+`1s / 4s / 16s / 64s / 256s` (~5 minutes total). The Phase 0 proposal locked this
+during planning to bound the worst-case time-to-DLQ at ~5 min so operators see
+bridge problems within one alert window. The dead-letter threshold is the 6th
+failed attempt.
+
+Other deltas from the extension-points sketch:
+
+- **File name** is `webhook-queue.sqlite` (not `webhook-deliveries.db`); the
+  spec + plan converged on this name and the CLI assumes it.
+- **CLI command** is `harness gateway deliveries list|retry|purge` (not
+  `harness webhook replay`); deliveries are scoped under the gateway
+  subcommand alongside `gateway token`.
+- **Schema** is denormalized to a single `webhook_deliveries` table —
+  dead-lettered rows live in the same table with `status = 'dead'`. No
+  separate DLQ table; `purge --dead-only` and `list --status dead` are
+  scope filters on the same rows.
+- **Signing** is performed at delivery time by re-reading `sub.secret` from
+  the WebhookStore (not stored in the queue row). Retries produce the same
+  signature because secrets are immutable — rotation requires DELETE +
+  recreate.
+
+### Retry ladder
+
+| Attempt | Delay before retry                   |
+| ------- | ------------------------------------ |
+| 1       | 1s                                   |
+| 2       | 4s                                   |
+| 3       | 16s                                  |
+| 4       | 64s                                  |
+| 5       | 256s (~4 min 16s)                    |
+| 6       | DLQ (`status='dead'`, never retried) |
+
+### Concurrency cap
+
+`maxConcurrentPerSub` (default 4) limits in-flight HTTP calls per
+subscription. The semaphore is held in memory on the `WebhookDelivery`
+instance, not persisted to SQLite — restarting the orchestrator effectively
+resets the cap. This is acceptable because the cap is a flow-control device,
+not a correctness invariant.
+
+### Drain semantics
+
+`WebhookDelivery.stop()` clears the polling timer, sets `draining = true`,
+then awaits up to `drainTimeoutMs` (default 30s) for in-flight deliveries to
+complete. Pending rows stay in the queue; only the executing HTTP calls
+drain. The orchestrator's `stop()` awaits this drain before closing the
+SQLite handle (`queue.close()`) so the WAL never sees a half-written row.
+
+### CLI
+
+```bash
+# Inspect: newest 200 rows, optionally filtered by status or subscription.
+harness gateway deliveries list [--status dead] [--subscription whk_...]
+
+# Recover: reset a dead row to pending so the worker re-attempts it on the
+# next tick. No-op (returns false, exit 1) if the row isn't in dead status.
+harness gateway deliveries retry <delivery-id>
+
+# Maintenance: bulk delete. --dead-only keeps the live queue intact;
+# --older-than <ms> deletes delivered rows older than that age.
+harness gateway deliveries purge [--dead-only] [--older-than <ms>]
+```
+
+Path override: `HARNESS_WEBHOOK_QUEUE_PATH` env var; defaults to
+`.harness/webhook-queue.sqlite` under CWD. The CLI opens the file directly
+so recovery commands work when the orchestrator is down.
+
+### Dashboard
+
+The `/webhooks` page polls `GET /api/v1/webhooks/queue/stats` at 1s and
+renders a 4-cell panel (Pending, Retrying, Dead, Delivered). The dead-row
+cell switches to a red highlight when `dead > 0`. Source of truth is the
+SQLite queue; the panel never disagrees with the CLI's `list` output.
+
+### Carry-forwards (Phase 4 → Phase 5)
+
+- GET /api/v1/webhooks per-token filtering (list returns all subs for any
+  `subscribe-webhook` token; no ownership filter yet).
+- DELETE /api/v1/webhooks/:id ownership check (any `subscribe-webhook` token
+  can delete any sub).
+- DNS-rebinding risk on URL validator (syntactic guard only;
+  resolution-time checking not yet implemented).
+- `.harness/webhook-queue.sqlite` permissions — suggest `chmod 600` in
+  ops guides; SQLite itself does not enforce mode 0600.
+
 ## Related
 
 - Parent: [`docs/knowledge/orchestrator/gateway-api.md`](./gateway-api.md)
