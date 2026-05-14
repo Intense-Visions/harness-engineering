@@ -369,11 +369,16 @@ export class OrchestratorServer {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
+    // Resolve auth first (may write 401 + return null).
     const token = await this.resolveAuth(req, res);
-    if (!token) {
-      this.audit(req, res, null);
-      return;
-    }
+    // Register audit on wire-final status — fires once, regardless of which
+    // path below resolves the response. Captures the real status the client
+    // sees, not whatever was set before an async handler resolved. Phase 2
+    // carry-forward fix: prior inline audit() calls sampled res.statusCode
+    // synchronously, which for `void handleX(...); return true;` patterns
+    // recorded the default 200 instead of the wire-final code.
+    res.on('finish', () => this.audit(req, res, token));
+    if (!token) return;
     // Strip query string before scope lookup. scopes.ts uses exact path equality
     // (e.g. `path === '/api/v1/auth/token'`), so passing the raw req.url would
     // cause `/api/v1/auth/token?x=1` to miss every map and return null. Matches
@@ -387,26 +392,20 @@ export class OrchestratorServer {
     if (!required || !hasScope(token.scopes, required)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Insufficient scope', required: required ?? 'unknown' }));
-      this.audit(req, res, token);
       return;
     }
     // Inlined state endpoint (previously handled before auth in handleRequest).
     if (req.method === 'GET' && (req.url === '/api/state' || req.url === '/api/v1/state')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.orchestrator.getSnapshot()));
-      this.audit(req, res, token);
       return;
     }
     for (const route of this.apiRoutes) {
-      if (route(req, res)) {
-        this.audit(req, res, token);
-        return;
-      }
+      if (route(req, res)) return;
     }
     // No route matched — emit 404 here so the audit log captures the result.
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not Found' }));
-    this.audit(req, res, token);
   }
 
   private audit(
