@@ -436,7 +436,18 @@ export class Orchestrator extends EventEmitter {
 
       this.server.setRecorder(this.recorder);
 
-      // Wire interaction push -> WebSocket broadcast
+      // Phase 2 Task 12: WebSocket fan-out for legacy dashboard consumers
+      // is intentionally retained alongside the Phase 2 event-bus path.
+      // `InteractionQueue.push()` now also fires `interaction.created` on
+      // the shared EventEmitter (Phase 2 Task 8), which feeds the SSE
+      // handler at `GET /api/v1/events`. The two paths coexist by design:
+      // the dashboard's existing `/ws` consumer keeps working unchanged,
+      // and new SSE consumers (CLI bridges, future webhooks) subscribe to
+      // the event bus. No rip-out of the WebSocket fan-out — it's the
+      // legacy compatibility contract for dashboard sessions still on
+      // the WebSocket transport. Phase 3 will graduate `interaction.created`
+      // payloads to the richer `GatewayEvent` envelope; Phase 4 may unify
+      // both fan-outs behind a single broker.
       this.interactionQueue.onPush((interaction) => {
         this.server?.broadcastInteraction(interaction);
       });
