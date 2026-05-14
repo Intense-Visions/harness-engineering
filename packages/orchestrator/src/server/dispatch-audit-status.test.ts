@@ -86,7 +86,8 @@ describe('dispatchAuthedRequest audit captures wire-final status', () => {
     // Allow res.on('finish') to flush + the AuditLogger append to land.
     await new Promise((r) => setTimeout(r, 50));
     const log = readFileSync(join(dir, 'audit.log'), 'utf-8').trim().split('\n');
-    const last = JSON.parse(log[log.length - 1]) as { status: number; route: string };
+    const lastLine = log[log.length - 1] ?? '';
+    const last = JSON.parse(lastLine) as { status: number; route: string };
     expect(last.status).toBe(400);
     expect(last.route).toBe('/api/v1/auth/token');
   });
@@ -99,7 +100,8 @@ describe('dispatchAuthedRequest audit captures wire-final status', () => {
     expect(res.status).toBe(404);
     await new Promise((r) => setTimeout(r, 50));
     const log = readFileSync(join(dir, 'audit.log'), 'utf-8').trim().split('\n');
-    const last = JSON.parse(log[log.length - 1]) as { status: number; route: string };
+    const lastLine = log[log.length - 1] ?? '';
+    const last = JSON.parse(lastLine) as { status: number; route: string };
     expect(last.status).toBe(404);
     expect(last.route).toBe('/api/streams/does-not-exist');
   });

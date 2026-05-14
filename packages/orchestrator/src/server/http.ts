@@ -34,6 +34,16 @@ const RATE_LIMIT = Number(process.env['HARNESS_RATE_LIMIT']) || 100; // requests
 const WINDOW_MS = 60_000; // 1-minute sliding window
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 
+/**
+ * Legacy /api/* alias deprecation horizon. Spec D7 cross-cutting decision:
+ * "removal scheduled for /api/v2 or 12 months post-Phase-0-GA, whichever
+ * comes first." Plan-date 2026-05-14 -> +12mo = 2027-05-14.
+ *
+ * Set via env var HARNESS_DEPRECATION_DATE for ops who need to extend the
+ * horizon; default is the spec-mandated value.
+ */
+export const DEPRECATION_DATE = process.env['HARNESS_DEPRECATION_DATE'] ?? '2027-05-14';
+
 // Prune expired entries every 60 s to prevent unbounded growth
 const ratePruneTimer = setInterval(() => {
   const now = Date.now();
