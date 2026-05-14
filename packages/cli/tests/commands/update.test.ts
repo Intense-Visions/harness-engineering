@@ -9,6 +9,7 @@ import {
   getLatestVersionAsync,
   createUpdateCommand,
 } from '../../src/commands/update';
+import { CLI_VERSION } from '../../src/version';
 
 // Mock node:child_process partially
 vi.mock('node:child_process', async (importOriginal) => {
@@ -160,16 +161,19 @@ describe('update command', () => {
       expect(getInstalledVersion('npm')).toBe('1.2.2');
     });
 
-    it('returns null when CLI is not in output', () => {
+    it('falls back to CLI_VERSION when npm list does not include the CLI (#317)', () => {
+      // Reproduces issue #317: harness installed via Homebrew/bun/asdf or
+      // under a different nvm prefix — `npm list -g` returns no harness deps,
+      // but the CLI is actually running at CLI_VERSION.
       mockedExecFileSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
-      expect(getInstalledVersion('npm')).toBeNull();
+      expect(getInstalledVersion('npm')).toBe(CLI_VERSION);
     });
 
-    it('returns null when execFileSync throws', () => {
+    it('falls back to CLI_VERSION when execFileSync throws (#317)', () => {
       mockedExecFileSync.mockImplementation(() => {
         throw new Error('command failed');
       });
-      expect(getInstalledVersion('npm')).toBeNull();
+      expect(getInstalledVersion('npm')).toBe(CLI_VERSION);
     });
   });
 
@@ -209,7 +213,7 @@ describe('update command', () => {
       expect(versions['@harness-engineering/core']).toBeNull();
     });
 
-    it('returns all nulls when execFileSync throws', () => {
+    it('returns CLI_VERSION for cli and null for other pkgs when execFileSync throws (#317)', () => {
       mockedExecFileSync.mockImplementation(() => {
         throw new Error('command failed');
       });
@@ -217,8 +221,25 @@ describe('update command', () => {
         '@harness-engineering/cli',
         '@harness-engineering/core',
       ]);
-      expect(versions['@harness-engineering/cli']).toBeNull();
+      // CLI is always present (we are running it), so the fallback uses
+      // CLI_VERSION rather than null.
+      expect(versions['@harness-engineering/cli']).toBe(CLI_VERSION);
       expect(versions['@harness-engineering/core']).toBeNull();
+    });
+
+    it('falls back to CLI_VERSION when npm list -g returns no harness packages (#317)', () => {
+      // Reproduces issue #317: `npm list -g --json` returns only npm/corepack
+      // because harness was installed against a different prefix.
+      mockedExecFileSync.mockReturnValue(
+        JSON.stringify({
+          dependencies: {
+            corepack: { version: '0.34.6' },
+            npm: { version: '11.12.1' },
+          },
+        })
+      );
+      const versions = getInstalledVersions('npm', ['@harness-engineering/cli']);
+      expect(versions['@harness-engineering/cli']).toBe(CLI_VERSION);
     });
   });
 
@@ -243,7 +264,9 @@ describe('update command', () => {
       expect(packages).not.toContain('typescript');
     });
 
-    it('returns empty array when no harness packages are installed', () => {
+    it('always includes the running CLI even when npm list -g does not (#317)', () => {
+      // Reproduces issue #317: harness installed via Homebrew / bun / asdf
+      // or a different nvm prefix — `npm list -g` doesn't see it.
       mockedExecFileSync.mockReturnValue(
         JSON.stringify({
           dependencies: {
@@ -251,12 +274,14 @@ describe('update command', () => {
           },
         })
       );
-      expect(getInstalledPackages('npm')).toEqual([]);
+      const packages = getInstalledPackages('npm');
+      expect(packages).toContain('@harness-engineering/cli');
+      expect(packages).not.toContain('typescript');
     });
 
-    it('handles missing dependencies key', () => {
+    it('handles missing dependencies key and still includes the CLI (#317)', () => {
       mockedExecFileSync.mockReturnValue(JSON.stringify({}));
-      expect(getInstalledPackages('npm')).toEqual([]);
+      expect(getInstalledPackages('npm')).toEqual(['@harness-engineering/cli']);
     });
 
     it('falls back to default packages when execFileSync throws', () => {
@@ -526,6 +551,58 @@ describe('update command', () => {
       const args = installCall![1] as string[];
       expect(args.some((a) => a === '@harness-engineering/cli@1.5.0')).toBe(true);
       expect(args.some((a) => a === '@harness-engineering/core@latest')).toBe(true);
+    });
+
+    it('detects outdated CLI even when npm list -g does not include it (#317)', async () => {
+      // Reproduces issue #317. Before the fix: `getInstalledPackages` returns
+      // an empty array because `npm list -g` doesn't see the Homebrew/bun/
+      // multi-prefix-nvm install, `checkAllPackages` has nothing to compare,
+      // and the user is told "All packages are up to date" even though the
+      // registry has a newer version.
+
+      // getInstalledPackages: `npm list -g --json` lists only npm + corepack
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            corepack: { version: '0.34.6' },
+            npm: { version: '11.12.1' },
+          },
+        })
+      );
+      // getInstalledVersions: same shape — cli not present in npm list output
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            corepack: { version: '0.34.6' },
+            npm: { version: '11.12.1' },
+          },
+        })
+      );
+      // install -g succeeds
+      mockedExecFileSync.mockReturnValueOnce(undefined as any);
+
+      // npm view reports a version newer than CLI_VERSION
+      const newerVersion = `${parseInt(CLI_VERSION.split('.')[0]!, 10) + 1}.0.0`;
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(null, { stdout: `${newerVersion}\n`, stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
+
+      // The fix means we reach the install path instead of the false
+      // "up to date" branch.
+      const installCall = mockedExecFileSync.mock.calls.find(
+        (c) => c[1] && Array.isArray(c[1]) && c[1].includes('install')
+      );
+      expect(installCall).toBeDefined();
+      expect(mockExit).toHaveBeenCalledWith(0);
     });
 
     it('uses verbose mode to log extra info', async () => {
