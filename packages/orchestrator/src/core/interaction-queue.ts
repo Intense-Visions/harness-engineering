@@ -109,7 +109,23 @@ export class InteractionQueue {
     }
     // Phase 2 Task 8: fan the new interaction out onto the orchestrator's
     // event bus so SSE subscribers (`GET /api/v1/events`) receive it.
-    this.emitter?.emit('interaction.created', interaction);
+    //
+    // Phase 2 review-fix cycle 1 (IMP-1): emit an allow-listed metadata
+    // payload only. The read-telemetry scope (required for SSE) historically
+    // means "observability metadata", not "issue corpus" — emitting the full
+    // PendingInteraction here would leak issueDescription, enrichedSpec,
+    // relatedFiles, and complexityScore to every dashboard token. Matches
+    // the allow-list pattern used by `interaction.resolved` below.
+    //
+    // Bridges that need full context can fetch it via the authenticated
+    // GET /api/v1/interactions/{id} read path under a tighter scope.
+    this.emitter?.emit('interaction.created', {
+      id: interaction.id,
+      issueId: interaction.issueId,
+      type: interaction.type,
+      status: interaction.status,
+      createdAt: interaction.createdAt,
+    });
   }
 
   /**

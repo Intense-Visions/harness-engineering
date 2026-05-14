@@ -426,7 +426,24 @@ export class OrchestratorServer {
     ]);
     const v1Match = /^\/api\/v1\/([^/?]+)(.*)$/.exec(req.url ?? '');
     const rewrittenSlug = v1Match?.[1];
-    if (rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
+    // Phase 2 review-fix cycle 1 (CRIT-1): some /api/v1/* paths are
+    // v1-ONLY bridge primitives — their dedicated handlers expect the
+    // un-rewritten /api/v1/... URL. Skip the rewrite when the path matches
+    // a dedicated v1 handler, otherwise the rewrite shim mutates the URL
+    // out from under the handler's regex (e.g. /api/v1/interactions/{id}/resolve
+    // → /api/interactions/{id}/resolve, which the v1 handler regex won't
+    // match → falls through to legacy handler → 404).
+    //
+    // Bridge primitives live alongside V1_WRAPPABLE prefixes, so a slug-only
+    // check isn't enough; we must inspect the full path+method. Scales as
+    // Phase 3/4 add more bridge primitives — append to v1BridgePaths.
+    const v1BridgePaths: Array<(method: string, url: string) => boolean> = [
+      (m, u) => m === 'POST' && u === '/api/v1/jobs/maintenance',
+      (m, u) => m === 'POST' && /^\/api\/v1\/interactions\/[^/]+\/resolve(?:\?.*)?$/.test(u),
+      (m, u) => m === 'GET' && /^\/api\/v1\/events(?:\?.*)?$/.test(u),
+    ];
+    const isV1Bridge = v1BridgePaths.some((pred) => pred(req.method ?? 'GET', req.url ?? ''));
+    if (!isV1Bridge && rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
       // Mutate req.url for the route-table loop. Existing handlers match on
       // hardcoded /api/<name> prefixes; rewriting once is cheaper than fanning
       // out 12 wrapper files. /api/v1/state is handled by the shortcut below,
