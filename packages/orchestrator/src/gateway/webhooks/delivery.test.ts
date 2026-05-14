@@ -127,6 +127,38 @@ describe('WebhookDelivery (queue-backed)', () => {
     expect(queue.stats().delivered).toBe(1);
   });
 
+  it('stop() with drainTimeoutMs aborts in-flight POSTs and leaves row in_flight', async () => {
+    // A receiver that never responds — the worker will hold the HTTP POST
+    // open until the abort hits.
+    const stalledReceiver = http.createServer(() => {
+      // intentionally never call res.end()
+    });
+    await new Promise<void>((r) => stalledReceiver.listen(0, '127.0.0.1', () => r()));
+    const stalledUrl = `http://127.0.0.1:${(stalledReceiver.address() as AddressInfo).port}/`;
+    const sub = await store.create({ tokenId: 't', url: stalledUrl, events: ['*.*'] });
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 20,
+      drainTimeoutMs: 100,
+      timeoutMs: 60_000, // make sure the per-request timer doesn't fire
+    });
+    worker.enqueue(sub, makeGatewayEvent());
+    worker.start();
+    // Let the tick fire and the fetch start.
+    await new Promise((r) => setTimeout(r, 80));
+    const t0 = Date.now();
+    await worker.stop();
+    const elapsed = Date.now() - t0;
+    // stop() resolves shortly after drainTimeoutMs (100ms drain + 100ms post-abort yield).
+    expect(elapsed).toBeLessThan(400);
+    // The row is left in_flight (so recoverInFlight on next start re-queues it).
+    expect(queue.stats().inFlight).toBe(1);
+    expect(queue.stats().delivered).toBe(0);
+    expect(queue.stats().failed).toBe(0);
+    await new Promise<void>((r) => stalledReceiver.close(() => r()));
+  });
+
   it('deleted subscription dead-letters the queued delivery', async () => {
     const sub = await store.create({ tokenId: 't', url: receiverUrl, events: ['*.*'] });
     const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 30 });

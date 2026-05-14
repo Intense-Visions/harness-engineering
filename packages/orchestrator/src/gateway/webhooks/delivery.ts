@@ -23,6 +23,12 @@ export class WebhookDelivery {
   private readonly maxConcurrentPerSub: number;
   private readonly drainTimeoutMs: number;
   private readonly inFlight = new Map<string, number>();
+  /**
+   * AbortControllers for currently executing HTTP POSTs, keyed by delivery id.
+   * On drain-timeout exhaustion stop() aborts each one so we never write to
+   * the SQLite handle after orchestrator.stop() closes it.
+   */
+  private readonly inFlightAborts = new Map<string, AbortController>();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private draining = false;
 
@@ -63,6 +69,16 @@ export class WebhookDelivery {
       if (total === 0) break;
       await new Promise<void>((r) => setTimeout(r, 100));
     }
+    // Drain window exhausted with rows still in flight. Abort them so the
+    // outgoing HTTP POSTs do not race with the SQLite handle close that
+    // orchestrator.stop() is about to do. The rows stay in `in_flight` and
+    // will be re-claimed by recoverInFlight() on next startup.
+    if (this.inFlightAborts.size > 0) {
+      for (const ctrl of this.inFlightAborts.values()) ctrl.abort();
+      // Yield once so each executeDelivery's finally has a chance to settle
+      // (the abort rejects the in-flight fetch synchronously next tick).
+      await new Promise<void>((r) => setTimeout(r, 100));
+    }
   }
 
   private async tick(): Promise<void> {
@@ -77,6 +93,8 @@ export class WebhookDelivery {
   }
 
   private async executeDelivery(row: QueueRow): Promise<void> {
+    const ctrl = new AbortController();
+    this.inFlightAborts.set(row.id, ctrl);
     try {
       const subs = await this.store.list();
       const sub = subs.find((s) => s.id === row.subscriptionId);
@@ -86,10 +104,10 @@ export class WebhookDelivery {
       }
 
       const signature = sign(sub.secret, row.payload);
-      const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
       let ok = false;
       let lastError = '';
+      let aborted = false;
       try {
         const res = await this.fetchImpl(sub.url, {
           method: 'POST',
@@ -106,9 +124,18 @@ export class WebhookDelivery {
         ok = res.ok;
         if (!ok) lastError = `HTTP ${res.status}`;
       } catch (err) {
+        aborted = ctrl.signal.aborted;
         lastError = err instanceof Error ? err.message : String(err);
       } finally {
         clearTimeout(timer);
+      }
+
+      // If the abort came from drain (not the per-request timeout), leave
+      // the row in `in_flight` so it is re-claimed on next startup via
+      // recoverInFlight(). Calling markFailed here would also be unsafe:
+      // the orchestrator may already have closed the SQLite handle.
+      if (aborted && this.draining) {
+        return;
       }
 
       if (ok) {
@@ -119,6 +146,7 @@ export class WebhookDelivery {
         this.queue.markFailed(row.id, nextAttempt, Date.now() + delay, lastError);
       }
     } finally {
+      this.inFlightAborts.delete(row.id);
       const cur = this.inFlight.get(row.subscriptionId) ?? 1;
       this.inFlight.set(row.subscriptionId, Math.max(0, cur - 1));
     }
