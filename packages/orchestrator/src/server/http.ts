@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as path from 'node:path';
+import type { EventEmitter } from 'node:events';
 import { assertPortUsable } from '@harness-engineering/core';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
@@ -15,6 +16,7 @@ import { handleAnalysesRoute } from './routes/analyses';
 import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
+import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
 import { handleAuthRoute } from './routes/auth';
@@ -361,6 +363,9 @@ export class OrchestratorServer {
       (req, res) => handleV1JobsMaintenanceRoute(req, res, this.maintenanceDeps),
       (req, res) => !!this.recorder && handleStreamsRoute(req, res, this.recorder),
       (req, res) => handleSessionsRoute(req, res, this.sessionsDir),
+      // SSE event stream — long-lived; placed near end so cheaper routes
+      // short-circuit first, but before the chat-proxy fallback.
+      (req, res) => handleV1EventsSseRoute(req, res, this.orchestrator as unknown as EventEmitter),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
     ];
