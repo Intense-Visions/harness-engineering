@@ -499,6 +499,9 @@ importers:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.1
         version: 0.73.1(ws@8.20.0)(zod@3.25.76)
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       ink:
         specifier: ^4.4.1
         version: 4.4.1(@types/react@18.3.28)(react@18.3.1)
@@ -521,6 +524,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       '@types/node':
         specifier: ^22.19.15
         version: 22.19.15
@@ -4017,6 +4023,10 @@ packages:
       '@babel/types': 7.29.0
     dev: true
 
+  /@types/bcryptjs@2.4.6:
+    resolution: {integrity: sha512-9xlo6R2qDs5uixm0bcIqCeMCE6HiQsIyel9KQySStiyqNl2tnj2mP3DX1Nf56MD6KMenNNlBBsy3LJ7gUEQPXQ==}
+    dev: true
+
   /@types/chai@5.2.3:
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
     dependencies:
@@ -4929,6 +4939,10 @@ packages:
   /basic-ftp@6.0.1:
     resolution: {integrity: sha512-3ilxa3n4276wGQp/ImRAuz4ALdsj/2Wd3FqoZBZlajDYnByCZ0JMb4+26Rde0wGXIbM0G2HWSfr/Fi8b21KX8g==}
     engines: {node: '>=10.0.0'}
+    dev: false
+
+  /bcryptjs@2.4.3:
+    resolution: {integrity: sha512-V/Hy/X9Vt7f3BbPJEi8BdVFMByHi+jNXrYkW3huaybV/kQ0KJg0Y6PkEMbn+zeT+i+SiKZ/HMqJGIIt4LZDqNQ==}
     dev: false
 
   /better-path-resolve@1.0.0:
