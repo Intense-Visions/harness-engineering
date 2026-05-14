@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { assertPortUsable } from '@harness-engineering/core';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
+import { handleV1InteractionsResolveRoute } from './routes/v1/interactions-resolve';
 import { handlePlansRoute } from './routes/plans';
 import { handleChatProxyRoute } from './routes/chat-proxy';
 import { handleAnalyzeRoute } from './routes/analyze';
@@ -345,6 +346,9 @@ export class OrchestratorServer {
       (req, res) => handleAuthRoute(req, res, this.tokenStore),
       (req, res) =>
         !!this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue),
+      (req, res) =>
+        !!this.interactionQueue &&
+        handleV1InteractionsResolveRoute(req, res, this.interactionQueue),
       (req, res) => handlePlansRoute(req, res, this.plansDir),
       (req, res) => handleAnalyzeRoute(req, res, this.pipeline),
       (req, res) => handleAnalysesRoute(req, res, this.analysisArchive),
