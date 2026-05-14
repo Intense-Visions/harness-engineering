@@ -194,6 +194,15 @@ export class Orchestrator extends EventEmitter {
     overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend; execFileFn?: ExecFileFn }
   ) {
     super();
+    // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
+    // subscribes to 9 event-bus topics per connection (maintenance:*,
+    // interaction.created, interaction.resolved, etc.). Node's default
+    // EventEmitter max-listeners cap is 10, so two concurrent SSE clients
+    // would trip MaxListenersExceededWarning at runtime. Raise the cap to
+    // 50 to absorb multi-client load; Phase 4 will move SSE fan-out
+    // behind a broker (per spec D7 — webhook delivery worker shares the
+    // same bus) and this lift can be revisited then.
+    this.setMaxListeners(50);
     this.config = config;
     this.promptTemplate = promptTemplate;
     this.state = createEmptyState(config);
