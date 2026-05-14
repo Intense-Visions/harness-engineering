@@ -53,8 +53,9 @@ const STANDARD_EXTRA: readonly string[] = [
   'recommend_skills',
   'search_skills',
   'code_unfold',
-  // Gateway tools (Phase 2 Task 11)
+  // Gateway tools (Phase 2 Task 11 + Phase 3 Task 9)
   'trigger_maintenance_job',
+  'subscribe_webhook',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

@@ -156,6 +156,8 @@ import {
   listGatewayTokensDefinition,
   handleListGatewayTokens,
 } from './tools/gateway-tools.js';
+// Phase 3 Task 9: MCP wrapper for the webhook subscription endpoint.
+import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -232,6 +234,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   generateBlueprintDefinition,
   triggerMaintenanceJobDefinition,
   listGatewayTokensDefinition,
+  subscribeWebhookDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -297,6 +300,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   generate_blueprint: handleGenerateBlueprint as ToolHandler,
   trigger_maintenance_job: handleTriggerMaintenanceJob as ToolHandler,
   list_gateway_tokens: handleListGatewayTokens as ToolHandler,
+  subscribe_webhook: handleSubscribeWebhook as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
