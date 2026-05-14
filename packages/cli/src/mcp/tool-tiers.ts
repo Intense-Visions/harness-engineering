@@ -23,6 +23,7 @@ export const CORE_TOOL_NAMES: readonly string[] = [
   'check_docs',
   'query_graph',
   'get_impact',
+  'list_gateway_tokens',
   'manage_state',
   'run_skill',
   'code_search',
@@ -52,6 +53,8 @@ const STANDARD_EXTRA: readonly string[] = [
   'recommend_skills',
   'search_skills',
   'code_unfold',
+  // Gateway tools (Phase 2 Task 11)
+  'trigger_maintenance_job',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

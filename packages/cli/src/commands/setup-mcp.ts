@@ -113,6 +113,9 @@ export const ALL_MCP_TOOLS: string[] = [
   'detect_constraint_emergence',
   'run_ci_checks',
   'generate_blueprint',
+  // Phase 2 Task 11 — Gateway API MCP wrappers
+  'trigger_maintenance_job',
+  'list_gateway_tokens',
 ];
 
 /**
