@@ -1,0 +1,36 @@
+name: OpenAPI Drift Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/orchestrator/src/gateway/openapi/**'
+      - 'packages/types/src/auth.ts'
+      - 'docs/api/openapi.yaml'
+      - '.github/workflows/openapi-drift-check.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @harness-engineering/types build
+      - run: pnpm --filter @harness-engineering/orchestrator build
+      - name: Regenerate OpenAPI artifact
+        run: pnpm --filter @harness-engineering/orchestrator openapi:generate
+      - name: Verify no drift
+        run: |
+          if ! git diff --exit-code docs/api/openapi.yaml; then
+            echo "::error::OpenAPI artifact is out of sync with code. Run 'pnpm --filter @harness-engineering/orchestrator openapi:generate' and commit the result."
+            exit 1
+          fi
