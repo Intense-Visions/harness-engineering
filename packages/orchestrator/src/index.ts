@@ -44,3 +44,11 @@ export type { SyncMainResult, SyncMainOptions, SyncSkipReason } from './maintena
 // reaching into the `./auth` subpath (decision phase1-d4).
 export { TokenStore } from './auth';
 export type { CreateTokenInput, CreateTokenResult } from './auth';
+
+// Hermes Phase 0 / Phase 4: expose WebhookQueue so the CLI (`harness gateway
+// deliveries`) can open the SQLite file directly without depending on the
+// orchestrator being running. MAX_ATTEMPTS is re-exported so test fixtures
+// can drive markFailed past the dead-letter threshold without re-deriving
+// the constant.
+export { WebhookQueue, MAX_ATTEMPTS, RETRY_DELAYS_MS } from './gateway/webhooks/queue';
+export type { QueueStats, QueueRow, QueueInsertInput } from './gateway/webhooks/queue';
