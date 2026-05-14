@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
 import { WebhookQueue } from '@harness-engineering/orchestrator';
 import type { QueueRow } from '@harness-engineering/orchestrator';
@@ -34,11 +35,62 @@ export function runDeliveriesRetry(queue: WebhookQueue, id: string): boolean {
   return queue.retryDead(id);
 }
 
-export function runDeliveriesPurge(
+export interface PurgeOptions {
+  deadOnly?: boolean;
+  olderThanMs?: number;
+  all?: boolean;
+}
+
+export interface PurgeRunOptions {
+  /**
+   * Confirmation callback. Receives the number of rows that would be deleted
+   * and returns true to proceed, false to abort. When omitted, the runner
+   * proceeds without prompting (CI / non-TTY default).
+   */
+  confirm?: (count: number) => boolean | Promise<boolean>;
+  /** Stream to write errors / preview text to. Defaults to process.stderr. */
+  errOut?: NodeJS.WritableStream;
+}
+
+/**
+ * Purge runner with two safety rails:
+ *   1. At least one of --dead-only / --older-than / --all MUST be set; an
+ *      unbounded purge silently wiping every row was C2 in code review.
+ *   2. When run on a TTY the caller-supplied `confirm` callback gates the
+ *      delete with a row-count preview. Non-TTY scripts skip the prompt by
+ *      passing no confirm.
+ *
+ * Returns the number of rows deleted, or -1 when the runner refused to act
+ * (missing filter or confirmation declined). The CLI command sets
+ * process.exitCode = 1 on -1.
+ */
+export async function runDeliveriesPurge(
   queue: WebhookQueue,
-  opts: { deadOnly?: boolean; olderThanMs?: number }
-): number {
+  opts: PurgeOptions,
+  runOpts: PurgeRunOptions = {}
+): Promise<number> {
+  const errOut = runOpts.errOut ?? process.stderr;
+  if (!opts.deadOnly && opts.olderThanMs === undefined && !opts.all) {
+    errOut.write('purge requires one of: --dead-only, --older-than <ms>, --all\n');
+    return -1;
+  }
+  if (runOpts.confirm) {
+    const count = queue.previewPurge(opts);
+    const ok = await runOpts.confirm(count);
+    if (!ok) return -1;
+  }
   return queue.purge(opts);
+}
+
+function promptYesNo(message: string): Promise<boolean> {
+  return new Promise((resolveAns) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(message, (answer) => {
+      rl.close();
+      const a = answer.trim().toLowerCase();
+      resolveAns(a === 'y' || a === 'yes');
+    });
+  });
 }
 
 export function createDeliveriesCommand(): Command {
@@ -82,17 +134,35 @@ export function createDeliveriesCommand(): Command {
 
   cmd
     .command('purge')
-    .description('Delete delivery rows from the queue')
+    .description('Delete delivery rows from the queue (requires at least one filter)')
     .option('--dead-only', 'Delete only dead-lettered rows')
     .option('--older-than <ms>', 'Delete delivered rows older than N milliseconds')
-    .action((opts: { deadOnly?: boolean; olderThan?: string }) => {
+    .option('--all', 'Delete every row in the queue (use with caution)')
+    .action(async (opts: { deadOnly?: boolean; olderThan?: string; all?: boolean }) => {
       const queue = getQueue();
       try {
-        const purgeOpts: { deadOnly?: boolean; olderThanMs?: number } = {};
+        const purgeOpts: PurgeOptions = {};
         if (opts.deadOnly) purgeOpts.deadOnly = true;
         if (opts.olderThan !== undefined) purgeOpts.olderThanMs = Number(opts.olderThan);
-        const count = runDeliveriesPurge(queue, purgeOpts);
-        console.log(`Deleted ${count} row(s).`);
+        if (opts.all) purgeOpts.all = true;
+
+        const isTty = Boolean(process.stdout.isTTY);
+        const runOpts: PurgeRunOptions = {};
+        if (isTty) {
+          runOpts.confirm = (count) => {
+            if (count === 0) {
+              console.log('No matching rows to delete.');
+              return false;
+            }
+            return promptYesNo(`Delete ${count} row(s)? [y/N] `);
+          };
+        }
+        const result = await runDeliveriesPurge(queue, purgeOpts, runOpts);
+        if (result === -1) {
+          process.exitCode = 1;
+          return;
+        }
+        console.log(`Deleted ${result} row(s).`);
       } finally {
         queue.close();
       }

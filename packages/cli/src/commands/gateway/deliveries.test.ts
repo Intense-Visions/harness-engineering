@@ -83,7 +83,7 @@ describe('deliveries CLI', () => {
     expect(runDeliveriesRetry(queue, 'dlv_0000000000000001')).toBe(false);
   });
 
-  it('purge --dead-only removes only dead rows', () => {
+  it('purge --dead-only removes only dead rows', async () => {
     queue.insert({
       id: 'dlv_0000000000000001',
       subscriptionId: 'whk_a',
@@ -97,9 +97,88 @@ describe('deliveries CLI', () => {
       payload: '{}',
     });
     queue.markFailed('dlv_0000000000000001', MAX_ATTEMPTS, Date.now(), 'err');
-    const n = runDeliveriesPurge(queue, { deadOnly: true });
+    const n = await runDeliveriesPurge(queue, { deadOnly: true });
     expect(n).toBe(1);
     expect(queue.list()).toHaveLength(1);
     expect(queue.list()[0]?.id).toBe('dlv_0000000000000002');
+  });
+
+  it('purge without any filter refuses to delete (exit 1)', async () => {
+    queue.insert({
+      id: 'dlv_0000000000000001',
+      subscriptionId: 'whk_a',
+      eventType: 'x',
+      payload: '{}',
+    });
+    let errText = '';
+    const errOut: NodeJS.WritableStream = {
+      write: (chunk: string | Buffer) => {
+        errText += typeof chunk === 'string' ? chunk : chunk.toString();
+        return true;
+      },
+    } as unknown as NodeJS.WritableStream;
+    const result = await runDeliveriesPurge(queue, {}, { errOut });
+    expect(result).toBe(-1);
+    expect(errText).toContain('--dead-only');
+    expect(errText).toContain('--all');
+    expect(queue.list()).toHaveLength(1); // row untouched
+  });
+
+  it('purge --all deletes every row', async () => {
+    queue.insert({
+      id: 'dlv_0000000000000001',
+      subscriptionId: 'whk_a',
+      eventType: 'x',
+      payload: '{}',
+    });
+    queue.insert({
+      id: 'dlv_0000000000000002',
+      subscriptionId: 'whk_b',
+      eventType: 'x',
+      payload: '{}',
+    });
+    queue.markFailed('dlv_0000000000000001', MAX_ATTEMPTS, Date.now(), 'err');
+    const n = await runDeliveriesPurge(queue, { all: true });
+    expect(n).toBe(2);
+    expect(queue.list()).toHaveLength(0);
+  });
+
+  it('purge calls confirm with the row count and aborts when confirm returns false', async () => {
+    queue.insert({
+      id: 'dlv_0000000000000001',
+      subscriptionId: 'whk_a',
+      eventType: 'x',
+      payload: '{}',
+    });
+    queue.insert({
+      id: 'dlv_0000000000000002',
+      subscriptionId: 'whk_a',
+      eventType: 'x',
+      payload: '{}',
+    });
+    queue.markFailed('dlv_0000000000000001', MAX_ATTEMPTS, Date.now(), 'err');
+    queue.markFailed('dlv_0000000000000002', MAX_ATTEMPTS, Date.now(), 'err');
+    const calls: number[] = [];
+    const confirm = (count: number): boolean => {
+      calls.push(count);
+      return false;
+    };
+    const result = await runDeliveriesPurge(queue, { deadOnly: true }, { confirm });
+    expect(calls).toEqual([2]); // confirm saw the right row count
+    expect(result).toBe(-1); // declined → no-op
+    expect(queue.list()).toHaveLength(2); // nothing deleted
+  });
+
+  it('purge proceeds when confirm returns true', async () => {
+    queue.insert({
+      id: 'dlv_0000000000000001',
+      subscriptionId: 'whk_a',
+      eventType: 'x',
+      payload: '{}',
+    });
+    queue.markFailed('dlv_0000000000000001', MAX_ATTEMPTS, Date.now(), 'err');
+    const result = await runDeliveriesPurge(queue, { deadOnly: true }, { confirm: () => true });
+    expect(result).toBe(1);
+    expect(queue.list()).toHaveLength(0);
   });
 });
