@@ -1,4 +1,4 @@
-import type { ToolDefinition } from './server.js';
+import type { ToolDefinition } from './tool-types.js';
 
 /**
  * Abstract MCP tool tier. Higher tiers include more tools.

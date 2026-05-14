@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import {
+  OpenAPIRegistry,
+  OpenApiGeneratorV31,
+  extendZodWithOpenApi,
+} from '@asteasolutions/zod-to-openapi';
 import { buildAuthRegistry } from './registry';
 
 extendZodWithOpenApi(z);
@@ -117,4 +121,24 @@ export function buildV1Registry(): OpenAPIRegistry {
   });
 
   return registry;
+}
+
+/**
+ * Phase 2 Task 9: composed document covering auth + legacy aliases +
+ * bridge primitives. Lives here (rather than in registry.ts) so
+ * registry.ts has zero imports from this file; the previous cross-
+ * file dependency was a circular pair flagged by `harness check-deps`.
+ */
+export function buildV1Document(): ReturnType<OpenApiGeneratorV31['generateDocument']> {
+  const generator = new OpenApiGeneratorV31(buildV1Registry().definitions);
+  return generator.generateDocument({
+    openapi: '3.1.0',
+    info: {
+      title: 'Harness Gateway API',
+      version: '0.2.0',
+      description:
+        'Hermes Phase 0 — Phase 2: versioned /api/v1/* surface with auth, legacy aliases, and bridge primitives.',
+    },
+    servers: [{ url: 'http://127.0.0.1:8080' }],
+  });
 }

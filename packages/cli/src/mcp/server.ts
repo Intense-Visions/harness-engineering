@@ -157,13 +157,10 @@ import {
   handleListGatewayTokens,
 } from './tools/gateway-tools.js';
 
-export type ToolDefinition = {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  /** When true, output scanning is skipped for this tool (internal content, not external). */
-  trustedOutput?: boolean;
-};
+// Re-exported from ./tool-types so tool files can import the type without
+// pulling in server.ts (which would create a cycle). See ./tool-types.ts.
+export type { ToolDefinition } from './tool-types.js';
+import type { ToolDefinition } from './tool-types.js';
 type ToolHandler = (
   input: Record<string, unknown>
 ) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;

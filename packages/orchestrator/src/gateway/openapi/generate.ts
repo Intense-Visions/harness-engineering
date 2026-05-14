@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { stringify } from 'yaml';
-import { buildV1Document } from './registry';
+import { buildV1Document } from './v1-registry';
 
 /**
  * Emit the OpenAPI artifact for the full /api/v1/* surface to `out`.

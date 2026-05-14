@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../server.js';
+import type { ToolDefinition } from '../tool-types.js';
 
 /**
  * Phase 2 Task 11: MCP wrappers around the new bridge primitives served
