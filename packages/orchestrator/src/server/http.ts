@@ -15,6 +15,7 @@ import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
+import { handleAuthRoute } from './routes/auth';
 import { handleLocalModelRoute, handleLocalModelsRoute } from './routes/local-model';
 import type { GetLocalModelStatusFn, GetLocalModelStatusesFn } from './routes/local-model';
 import { handleStaticFile } from './static';
@@ -328,6 +329,9 @@ export class OrchestratorServer {
     (req: http.IncomingMessage, res: http.ServerResponse) => boolean
   > {
     return [
+      // Auth admin routes — scope-gated to `admin` by requiredScopeForRoute.
+      // First in the table so the auth surface is unambiguously owned by the orchestrator.
+      (req, res) => handleAuthRoute(req, res, this.tokenStore),
       (req, res) =>
         !!this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue),
       (req, res) => handlePlansRoute(req, res, this.plansDir),
