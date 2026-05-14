@@ -14,7 +14,9 @@ export function Tokens() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/tokens');
+    // /api/v1/auth/tokens is owned by the orchestrator; the dashboard server
+    // proxies the /api/v1 prefix (see orchestrator-proxy.ts).
+    const res = await fetch('/api/v1/auth/tokens');
     if (res.ok) setTokens(((await res.json()) as AuthTokenPublic[]) ?? []);
   }, []);
 
@@ -25,7 +27,7 @@ export function Tokens() {
   async function createToken(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch('/api/tokens', {
+    const res = await fetch('/api/v1/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, scopes: scopes.split(',').map((s) => s.trim()) }),
@@ -43,7 +45,9 @@ export function Tokens() {
 
   async function revoke(id: string) {
     if (!window.confirm(`Revoke ${id}?`)) return;
-    await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+    // encodeURIComponent guards against future custom-id formats containing
+    // URL-significant characters (review suggestion: tokens-page-url-id-encoding).
+    await fetch(`/api/v1/auth/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await refresh();
   }
 

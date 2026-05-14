@@ -14,7 +14,6 @@ import { buildCIRouter } from './routes/ci';
 import { buildImpactRouter } from './routes/impact';
 import { buildDecayTrendsRouter } from './routes/decay-trends';
 import { buildTraceabilityRouter } from './routes/traceability';
-import { buildTokensRouter } from './routes/tokens';
 import { buildContext, type ServerContext } from './context';
 import { SSEManager } from './sse';
 import { DASHBOARD_PORT } from '../shared/constants';
@@ -55,7 +54,12 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildImpactRouter(ctx));
   app.route('/api', buildDecayTrendsRouter(ctx));
   app.route('/api', buildTraceabilityRouter(ctx));
-  app.route('/api', buildTokensRouter());
+
+  // Auth admin routes (/api/v1/auth/*) are owned by the orchestrator and
+  // reached through the orchestrator proxy registered above. The dashboard
+  // intentionally does NOT mount a parallel TokenStore surface — keeping a
+  // single writer to .harness/tokens.json (orchestrator) and avoiding the
+  // unauthenticated-CRUD finding (review: dashboard-tokens-unauthenticated).
 
   // Serve built client static files (assets, etc.)
   const clientRoot = process.env['DASHBOARD_CLIENT_ROOT'];
