@@ -20,6 +20,7 @@ import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleV1WebhooksRoute } from './routes/v1/webhooks';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
+import type { WebhookQueue } from '../gateway/webhooks/queue';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
 import { handleAuthRoute } from './routes/auth';
@@ -129,7 +130,7 @@ export interface ServerDependencies {
    * FakeOrchestrator-based tests can omit it; the route handler short-circuits
    * to `false` when `webhooks` is undefined.
    */
-  webhooks?: { store: WebhookStore; delivery: WebhookDelivery };
+  webhooks?: { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue };
 }
 
 export class OrchestratorServer {
@@ -149,7 +150,9 @@ export class OrchestratorServer {
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private getLocalModelStatus: GetLocalModelStatusFn | null = null;
   private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
-  private webhooks: { store: WebhookStore; delivery: WebhookDelivery } | undefined;
+  private webhooks:
+    | { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue }
+    | undefined;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;

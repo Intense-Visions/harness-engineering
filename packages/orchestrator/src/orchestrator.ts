@@ -153,11 +153,18 @@ export class Orchestrator extends EventEmitter {
   private prDetector: PRDetector;
   private maintenanceScheduler: MaintenanceScheduler | null = null;
   private maintenanceReporter: MaintenanceReporter | null = null;
-  // Phase 3 webhooks. `webhookStore` and `webhookDelivery` are constructed at
-  // server-start and held only as locals; they're passed into `ServerDependencies`
-  // and `wireWebhookFanout` once and never re-read on `this`. Only the fan-out
+  // Phase 3 webhooks. `webhookStore` is constructed at server-start and held
+  // only as a local; it's passed into `ServerDependencies` and
+  // `wireWebhookFanout` once and never re-read on `this`. The fan-out
   // teardown handle is kept on the instance so `stop()` can detach listeners.
+  //
+  // Phase 4 delivery durability: the WebhookQueue (SQLite at
+  // `.harness/webhook-queue.sqlite`) and the WebhookDelivery worker are
+  // retained as instance fields so `stop()` can drain in-flight deliveries
+  // (await worker.stop()) and close the SQLite handle (queue.close()).
   private webhookFanoutOff?: () => void;
+  private webhookQueue?: WebhookQueue;
+  private webhookDeliveryWorker?: WebhookDelivery;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
   private intelligenceRunner: IntelligencePipelineRunner;
@@ -418,19 +425,28 @@ export class Orchestrator extends EventEmitter {
       const webhookStore = new WebhookStore(
         path.join(this.projectRoot, '.harness', 'webhooks.json')
       );
-      const webhookQueue = new WebhookQueue(
-        path.join(this.projectRoot, '.harness', 'webhook-deliveries.sqlite')
+      this.webhookQueue = new WebhookQueue(
+        path.join(this.projectRoot, '.harness', 'webhook-queue.sqlite')
       );
-      const webhookDelivery = new WebhookDelivery({ queue: webhookQueue, store: webhookStore });
+      const webhookDelivery = new WebhookDelivery({
+        queue: this.webhookQueue,
+        store: webhookStore,
+      });
+      this.webhookDeliveryWorker = webhookDelivery;
       this.webhookFanoutOff = wireWebhookFanout({
         bus: this,
         store: webhookStore,
         delivery: webhookDelivery,
       });
+      webhookDelivery.start();
 
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
-        webhooks: { store: webhookStore, delivery: webhookDelivery },
+        webhooks: {
+          store: webhookStore,
+          delivery: webhookDelivery,
+          queue: this.webhookQueue,
+        },
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -1670,6 +1686,15 @@ export class Orchestrator extends EventEmitter {
     if (this.webhookFanoutOff) {
       this.webhookFanoutOff();
       delete this.webhookFanoutOff;
+    }
+    if (this.webhookDeliveryWorker) {
+      // Drain in-flight HTTP deliveries before closing the SQLite handle.
+      await this.webhookDeliveryWorker.stop();
+      delete this.webhookDeliveryWorker;
+    }
+    if (this.webhookQueue) {
+      this.webhookQueue.close();
+      delete this.webhookQueue;
     }
     if (this.server) {
       this.server.stop();
