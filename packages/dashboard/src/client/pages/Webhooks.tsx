@@ -6,12 +6,26 @@ interface CreatedSubscription {
   secret: string;
 }
 
+/**
+ * Phase 4: live snapshot of the SQLite delivery queue. Source is
+ * GET /api/v1/webhooks/queue/stats, polled at 1s. Spec D7 confirms
+ * REST polling (not SSE) because the panel needs only a periodic
+ * counter, not per-row events.
+ */
+interface QueueStats {
+  pending: number;
+  failed: number;
+  dead: number;
+  delivered: number;
+}
+
 export function Webhooks() {
   const [subs, setSubs] = useState<WebhookSubscriptionPublic[]>([]);
   const [url, setUrl] = useState('');
   const [events, setEvents] = useState('maintenance.completed,interaction.*');
   const [created, setCreated] = useState<CreatedSubscription | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/v1/webhooks');
@@ -21,6 +35,27 @@ export function Webhooks() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Poll the queue stats endpoint every 1s. `mounted` guards against the
+  // common React 18 race where a slow fetch resolves after the component
+  // unmounts.
+  useEffect(() => {
+    let mounted = true;
+    async function fetchStats(): Promise<void> {
+      try {
+        const res = await fetch('/api/v1/webhooks/queue/stats');
+        if (res.ok && mounted) setQueueStats((await res.json()) as QueueStats);
+      } catch {
+        // Network blip — silently skip this tick; next poll will retry.
+      }
+    }
+    void fetchStats();
+    const id = setInterval(() => void fetchStats(), 1000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
 
   async function createSub(e: React.FormEvent) {
     e.preventDefault();
@@ -113,6 +148,32 @@ export function Webhooks() {
           </ul>
         )}
       </div>
+
+      {queueStats !== null && (
+        <div className="rounded-lg border border-white/10 p-4">
+          <h2 className="mb-2 text-sm font-semibold">Delivery Queue</h2>
+          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="rounded bg-white/5 p-2">
+              <div className="text-lg font-bold">{queueStats.pending}</div>
+              <div className="text-neutral-muted">Pending</div>
+            </div>
+            <div className="rounded bg-white/5 p-2">
+              <div className="text-lg font-bold">{queueStats.failed}</div>
+              <div className="text-neutral-muted">Retrying</div>
+            </div>
+            <div className={`rounded p-2 ${queueStats.dead > 0 ? 'bg-red-900/30' : 'bg-white/5'}`}>
+              <div className={`text-lg font-bold ${queueStats.dead > 0 ? 'text-red-400' : ''}`}>
+                {queueStats.dead}
+              </div>
+              <div className="text-neutral-muted">Dead</div>
+            </div>
+            <div className="rounded bg-white/5 p-2">
+              <div className="text-lg font-bold">{queueStats.delivered}</div>
+              <div className="text-neutral-muted">Delivered</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
