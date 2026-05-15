@@ -74,7 +74,7 @@ The Phase 1 artifact covers only the three auth-admin routes (`POST /api/v1/auth
 
 ## Status: accepted
 
-Phases 1, 2, and 3 shipped pillars 1, 2, 3 (with one residual: legacy alias response schemas in the artifact, deferred to `/api/v2` per plan risk #5), and 4 (registry covers every `/api/v1/*` path — 3 auth + 3 bridge primitives + 10 documented legacy aliases + 2 webhook routes + 2 stats endpoints — 20 paths total after Phase 0 FINAL*REVIEW #3 closed the queue/stats + cache/stats registry gap). Phase 3 added the webhook subscription/signing/in-memory-delivery surface; Phase 4 landed durable at-least-once delivery (SQLite-backed queue, exponential backoff, DLQ); Phase 5 landed the OTLP telemetry exporter + prompt-cache analytics. The "every `/api/v1/*` route is contracted \_and* operationally durable" criterion is met.
+Phases 1, 2, and 3 shipped pillars 1, 2, 3 (with one residual: legacy alias response schemas in the artifact, deferred to `/api/v2` per plan risk #5), and 4 (registry covers every `/api/v1/*` path — 3 auth + 3 bridge primitives + 10 documented legacy aliases + 2 webhook routes + 2 stats endpoints — 20 paths total after Phase 0 FINAL*REVIEW #3 closed the queue/stats + cache/stats registry gap). Phase 3 added the webhook subscription/signing/in-memory-delivery surface; Phase 4 landed durable at-least-once delivery (SQLite-backed queue, exponential backoff, DLQ); Phase 5 landed the OTLP telemetry exporter + prompt-cache analytics. The "every `/api/v1/*` route is contracted \_and\* operationally durable" criterion is met.
 
 ### Status / decision history
 
