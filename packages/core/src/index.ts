@@ -189,7 +189,9 @@ export {
   getOrCreateInstallId,
   collectEvents,
   send,
+  CacheMetricsRecorder,
 } from './telemetry';
+export type { CacheMetricsRecorderOptions } from './telemetry';
 
 /**
  * Locks module.

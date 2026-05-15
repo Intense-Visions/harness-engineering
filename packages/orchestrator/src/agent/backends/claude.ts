@@ -13,6 +13,7 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import type { CacheMetricsRecorder } from '@harness-engineering/core';
 
 function resolveExitCode(
   code: number | null,
@@ -240,6 +241,25 @@ function extractUsage(usage: any): import('@harness-engineering/types').TokenUsa
   };
 }
 
+/**
+ * Record prompt-cache observation for a single completed API response.
+ *
+ * Called once per terminal API chunk — i.e. an assistant message with
+ * `stop_reason !== null` or a `result`/`turn_complete` event. Mirrors the
+ * `extractUsage` attribution rule so cache-hit accounting and token totals
+ * advance in lock-step. Safe when `recorder` is undefined (no-op).
+ */
+function recordCacheUsage(
+  recorder: CacheMetricsRecorder | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rawUsage: any
+): void {
+  if (!recorder || !rawUsage) return;
+  const cacheRead = rawUsage.cache_read_input_tokens ?? 0;
+  const cacheCreation = rawUsage.cache_creation_input_tokens ?? 0;
+  recorder.record('anthropic', cacheRead > 0, cacheCreation, cacheRead);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractToolResultText(blockContent: any): string {
   if (typeof blockContent === 'string') return blockContent;
@@ -362,12 +382,27 @@ function mapClaudeEvent(rawEvent: any, sessionId: string): AgentEvent[] {
     : [];
 }
 
+export interface ClaudeBackendOptions {
+  /** Path to the `claude` CLI binary. Defaults to `'claude'`. */
+  command?: string;
+  /**
+   * Optional prompt-cache hit/miss recorder. When provided, the backend
+   * invokes `record('anthropic', hit, cacheCreation, cacheRead)` once per
+   * completed Anthropic API response (each terminal assistant chunk and
+   * each `result`/`turn_complete` event). The orchestrator owns the
+   * recorder lifecycle; non-Anthropic backends ignore the option.
+   */
+  cacheMetrics?: CacheMetricsRecorder;
+}
+
 export class ClaudeBackend implements AgentBackend {
   readonly name = 'claude';
   private command: string;
+  private cacheMetrics?: CacheMetricsRecorder;
 
-  constructor(command = 'claude') {
-    this.command = command;
+  constructor(command = 'claude', options: ClaudeBackendOptions = {}) {
+    this.command = options.command ?? command;
+    if (options.cacheMetrics) this.cacheMetrics = options.cacheMetrics;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -458,6 +493,17 @@ export class ClaudeBackend implements AgentBackend {
                 totalTokens: 0,
               },
             };
+            // Record cache hit/miss off the aggregated turn-level usage.
+            recordCacheUsage(this.cacheMetrics, rawEvent.usage);
+          } else if (
+            rawEvent.type === 'assistant' &&
+            rawEvent.message?.stop_reason !== null &&
+            rawEvent.message?.stop_reason !== undefined
+          ) {
+            // Each terminal assistant chunk corresponds to a single completed
+            // Anthropic API request; record cache stats alongside the same
+            // attribution boundary `mapAssistantBlocks` uses for token totals.
+            recordCacheUsage(this.cacheMetrics, rawEvent.message?.usage);
           }
 
           for (const mapped of mapClaudeEvent(rawEvent, session.sessionId)) {
