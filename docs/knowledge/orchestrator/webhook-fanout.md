@@ -115,6 +115,24 @@ The two **subscription-lifecycle** topics emitted BY the fan-out (`webhook.subsc
 
 Minimatch features (`**`, `?`, brace expansion, character classes) are intentionally out of scope. If a future phase needs richer matching (e.g., negation patterns), revisit.
 
+## Telemetry events on the fanout (Phase 5)
+
+Phase 5 adds three new event types riding the same fanout: `telemetry.maintenance_run`, `telemetry.skill_invocation`, `telemetry.dispatch_decision`. They are produced by `wireTelemetryFanout` (`packages/orchestrator/src/gateway/telemetry/fanout.ts`), which subscribes to the orchestrator's lifecycle bus events and emits both an OTLP span (for the OTel exporter — see [telemetry-export.md](./telemetry-export.md)) and a `GatewayEvent` per emit.
+
+**These events are excluded from `*.*` wildcard subscriptions by default.** A subscription with `events: ['*.*']` will NOT receive any `telemetry.*` events. To receive them, operators must opt in explicitly:
+
+| Pattern                       | Matches `telemetry.skill_invocation`               | Matches `telemetry.dispatch_decision` |
+| ----------------------------- | -------------------------------------------------- | ------------------------------------- |
+| `*.*`                         | **no** (Phase 5 exclusion)                         | **no** (Phase 5 exclusion)            |
+| `telemetry.*`                 | yes                                                | yes                                   |
+| `telemetry.skill_invocation`  | yes                                                | no                                    |
+| `telemetry.dispatch_decision` | no                                                 | yes                                   |
+| `*.skill_invocation`          | **no** (first-segment must be literal `telemetry`) | no                                    |
+
+Rationale: telemetry span volume can be orders of magnitude higher than the existing `interaction.*` / `maintenance.*` topics. Letting `*.*` subscriptions silently start receiving telemetry on upgrade would flood debug bridges and test harnesses. The opt-in pattern is explicit, additive, and consistent with the rest of the segment-glob matcher (existing literal-prefix patterns continue to work — `interaction.*` is unaffected).
+
+The exclusion is enforced inside `eventMatches` itself (`packages/orchestrator/src/gateway/webhooks/signer.ts`), so every consumer of the matcher (store lookup, fanout filter, future SSE subscribers) gets the rule uniformly. Tests live in `signer.test.ts` under the "telemetry.\* exclusion (Phase 5 Task 9)" describe block.
+
 ## Delivery worker
 
 `WebhookDelivery.deliver(sub, event)` in `packages/orchestrator/src/gateway/webhooks/delivery.ts`. Each call POSTs the serialized `GatewayEvent` envelope to `sub.url` with four canonical headers:

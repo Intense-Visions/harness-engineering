@@ -328,11 +328,48 @@ See sibling node [`webhook-fanout.md`](./webhook-fanout.md) for the in-depth fan
 - **`phase-3-arch-hook-noise` (low, informational).** Pre-commit lint-staged arch check reports NEW: violations against a stale baseline diff, but standalone `harness check-arch` reports `28 violation(s) resolved since baseline`. Hook output is misleading at commit time; rely on the standalone check for the authoritative signal.
 - **`phase-3-slash-command-coverage-gap` (low, backlog).** `pnpm harness generate-slash-commands` covers 2 of 4 host targets (claude-code + gemini-cli); cursor + codex have command dirs maintained outside the generator; opencode is unregistered (ADR 0011 Phase 2 carry-forward). Adding `subscribe_webhook` to the MCP registry is invisible at the slash-command layer because manifests describe SKILLS, not raw MCP tool names — Task 13 was a documented no-op as a result.
 
-## Phase 4/5 Will Add
+## Phase 4 Will Add
 
 Out of scope for this document; flagged here so future readers know the boundary:
 
 - **Phase 4** — Durable webhook delivery. SQLite-backed delivery queue, exponential-backoff retry ladder (1s/5s/25s/2m/10m/1h with jitter), dead-letter queue for subscriptions that fail consistently, drain-on-shutdown so in-flight deliveries complete before SIGTERM resolves, and `Last-Event-ID` reconnection support on the SSE channel (same persistence layer). The `WebhookDelivery.deliver(sub, event)` API shape is already what Phase 4 will subclass — the swap is purely additive.
-- **Phase 5** — Telemetry export via OTLP/HTTP. The `read-telemetry` scope is reserved.
 
 When those phases land, this document expands further — the sibling [`webhook-fanout.md`](./webhook-fanout.md) is the dedicated landing zone for Phase 4 material (durable queue, retry ladder, DLQ, drain semantics).
+
+## Telemetry (Phase 5)
+
+Phase 5 adds an in-tree OTLP/HTTP trace exporter that publishes three trace
+kinds (`maintenance_run`, `skill_invocation`, `dispatch_decision`) to a
+configurable OTel collector endpoint, plus a corresponding webhook fanout
+under the `telemetry.*` topic prefix. The dedicated knowledge node for the
+exporter — attribute keys, configuration, trace correlation, OTLP envelope
+shape — is [`telemetry-export.md`](./telemetry-export.md). The
+topic-exclusion rule that keeps `telemetry.*` events out of legacy `*.*`
+subscriptions is documented in
+[`webhook-fanout.md`](./webhook-fanout.md#telemetry-events-on-the-fanout-phase-5).
+
+The phase ships one new authenticated route under the `read-telemetry` scope.
+
+### `GET /api/v1/telemetry/cache/stats` — prompt-cache hit/miss snapshot
+
+Returns the rolling-window `PromptCacheStats` from the in-memory
+`CacheMetricsRecorder` (capacity 1000 records, FIFO eviction). Powers the
+dashboard `/insights/cache` widget (polls at 5 s). Returns 503 if the
+orchestrator has not wired a recorder (FakeOrchestrator tests, legacy
+configs). Scope: `read-telemetry`.
+
+```json
+{
+  "totalRequests": 10,
+  "hits": 7,
+  "misses": 3,
+  "hitRate": 0.7,
+  "byBackend": { "anthropic": { "hits": 7, "misses": 3 } },
+  "windowStartedAt": 1715671234567
+}
+```
+
+The recorder is read-only over the API — there is no `reset` endpoint.
+Restarts clear the window; that is intentional. See
+[ADR 0012](../decisions/0012-telemetry-export-otlp-http.md) for the
+rationale on the exporter transport choice (hand-rolled OTLP/HTTP JSON).

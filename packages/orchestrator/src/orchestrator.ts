@@ -41,6 +41,8 @@ import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
 import { WebhookQueue } from './gateway/webhooks/queue';
 import { wireWebhookFanout } from './gateway/webhooks/events';
+import { wireTelemetryFanout } from './gateway/telemetry/fanout';
+import { CacheMetricsRecorder, OTLPExporter } from '@harness-engineering/core';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
@@ -165,6 +167,13 @@ export class Orchestrator extends EventEmitter {
   private webhookFanoutOff?: () => void;
   private webhookQueue?: WebhookQueue;
   private webhookDeliveryWorker?: WebhookDelivery;
+  // Phase 5: prompt-cache metrics + OTLP trace export. Both are constructed
+  // unconditionally so non-telemetry call sites can reference them safely; the
+  // OTLPExporter is only handed a fanout subscription when config supplies an
+  // endpoint, and `enabled: false` keeps push() a constant-time no-op.
+  private cacheMetrics?: CacheMetricsRecorder;
+  private otlpExporter?: OTLPExporter;
+  private telemetryFanoutOff?: () => void;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
   private intelligenceRunner: IntelligencePipelineRunner;
@@ -339,6 +348,12 @@ export class Orchestrator extends EventEmitter {
     // as 'none' to preserve the current behavior of the deleted
     // `createBackend` path: only 'docker' triggered container wrapping;
     // every other value (including unset) was effectively 'none'.
+    // Phase 5: prompt-cache metrics recorder. Constructed unconditionally so
+    // the backend factory below can forward it to Anthropic-capable backends
+    // even when the server is disabled. The route handler at
+    // GET /api/v1/telemetry/cache/stats reads getStats() on the same instance.
+    this.cacheMetrics = new CacheMetricsRecorder();
+
     if (
       this.config.agent.backends !== undefined &&
       Object.keys(this.config.agent.backends).length > 0
@@ -361,6 +376,7 @@ export class Orchestrator extends EventEmitter {
           ? { container: this.config.agent.container }
           : {}),
         ...(this.config.agent.secrets !== undefined ? { secrets: this.config.agent.secrets } : {}),
+        cacheMetrics: this.cacheMetrics,
         getResolverModelFor: (name) => {
           const resolver = this.localResolvers.get(name);
           return resolver ? () => resolver.resolveModel() : undefined;
@@ -440,6 +456,31 @@ export class Orchestrator extends EventEmitter {
       });
       webhookDelivery.start();
 
+      // Phase 5: OTLP/HTTP trace exporter. Constructed only when the
+      // operator configures `telemetry.export.otlp` in harness.config.json.
+      // The fanout wires bus events (maintenance:*, skill_invocation,
+      // dispatch:decision) to both the exporter and the webhook delivery
+      // worker. The telemetry.* GatewayEvents respect the Task 9 exclusion
+      // (legacy *.* subscriptions do not receive them).
+      const otlpCfg = config.telemetry?.export?.otlp;
+      if (otlpCfg) {
+        this.otlpExporter = new OTLPExporter({
+          endpoint: otlpCfg.endpoint,
+          ...(otlpCfg.enabled !== undefined ? { enabled: otlpCfg.enabled } : {}),
+          ...(otlpCfg.headers !== undefined ? { headers: otlpCfg.headers } : {}),
+          ...(otlpCfg.flushIntervalMs !== undefined
+            ? { flushIntervalMs: otlpCfg.flushIntervalMs }
+            : {}),
+          ...(otlpCfg.batchSize !== undefined ? { batchSize: otlpCfg.batchSize } : {}),
+        });
+        this.telemetryFanoutOff = wireTelemetryFanout({
+          bus: this,
+          exporter: this.otlpExporter,
+          webhookDelivery,
+          store: webhookStore,
+        });
+      }
+
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
         webhooks: {
@@ -447,6 +488,7 @@ export class Orchestrator extends EventEmitter {
           delivery: webhookDelivery,
           queue: this.webhookQueue,
         },
+        cacheMetrics: this.cacheMetrics,
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -1607,6 +1649,12 @@ export class Orchestrator extends EventEmitter {
       void this.server.start();
     }
 
+    // Phase 5: kick off the OTLP timer flush. start() is idempotent and a
+    // no-op when `enabled === false`.
+    if (this.otlpExporter) {
+      this.otlpExporter.start();
+    }
+
     await this.initLocalModelAndPipeline();
 
     // Resolve orchestrator identity and initialize ClaimManager before first tick
@@ -1686,6 +1734,17 @@ export class Orchestrator extends EventEmitter {
     if (this.webhookFanoutOff) {
       this.webhookFanoutOff();
       delete this.webhookFanoutOff;
+    }
+    // Phase 5: tear down telemetry fanout BEFORE the delivery worker so
+    // late-arriving bus events do not enqueue into a draining queue.
+    if (this.telemetryFanoutOff) {
+      this.telemetryFanoutOff();
+      delete this.telemetryFanoutOff;
+    }
+    if (this.otlpExporter) {
+      // exporter.stop() flushes remaining buffered spans before resolving.
+      await this.otlpExporter.stop();
+      delete this.otlpExporter;
     }
     if (this.webhookDeliveryWorker) {
       // Drain in-flight HTTP deliveries before closing the SQLite handle.
