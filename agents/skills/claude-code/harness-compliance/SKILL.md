@@ -123,6 +123,15 @@
 
 ---
 
+### Phase 3.5: INTERNAL COMPLIANCE -- Project Conventions
+
+1. **Verify branch naming convention.** Check the current branch name against project rules:
+   - Allowed prefixes: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `perf/`
+   - Format: `prefix/kebab-case-description` or `prefix/PROJ-123-description`
+   - Command: `harness verify`
+
+---
+
 ### Phase 4: REPORT -- Generate Gap Analysis and Remediation Plan
 
 1. **Score compliance posture per framework.** For each applicable framework:

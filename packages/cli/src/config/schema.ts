@@ -334,6 +334,30 @@ export const KnowledgeConfigSchema = z.object({
   domainBlocklist: z.array(z.string().min(1)).optional().default([]),
 });
 
+/**
+ * Schema for branch naming convention configuration.
+ */
+export const BranchingConfigSchema = z.object({
+  /** Allowed branch name prefixes */
+  prefixes: z
+    .array(z.string())
+    .default(['feat', 'fix', 'chore', 'docs', 'refactor', 'test', 'perf']),
+  /** Whether to enforce kebab-case for the branch slug */
+  enforceKebabCase: z.boolean().default(true),
+  /** Optional regex for custom branch naming rules */
+  customRegex: z.string().optional(),
+  /** List of ignored branch names (exact match or glob) */
+  ignore: z.array(z.string()).default(['main', 'release/**', 'dependabot/**', 'harness/**']),
+});
+
+/**
+ * Schema for compliance-specific configuration.
+ */
+export const ComplianceConfigSchema = z.object({
+  /** Branch naming convention settings */
+  branching: BranchingConfigSchema.default({}),
+});
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -434,6 +458,8 @@ export const HarnessConfigSchema = z.object({
       enabled: z.boolean().default(true),
     })
     .optional(),
+  /** Compliance and convention enforcement settings */
+  compliance: ComplianceConfigSchema.optional(),
   /** Central telemetry collection settings */
   telemetry: z
     .object({

@@ -51,6 +51,12 @@ export { WHATWG_BAD_PORTS, isBadPort, assertPortUsable } from './shared/port';
 export * from './validation';
 
 /**
+ * Branch name validation.
+ */
+export { validateBranchName } from './validation/branch';
+export type { BranchingConfig, BranchValidationResult } from './validation/branch';
+
+/**
  * Context module for managing AI agent context and knowledge maps.
  */
 export * from './context';
