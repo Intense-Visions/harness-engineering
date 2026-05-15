@@ -175,8 +175,26 @@ export function handleV1WebhooksRoute(
   if (m) {
     const id = m[1] ?? '';
     void (async () => {
+      // Phase 0 FINAL_REVIEW #5: per-token ownership check. Fetch first,
+      // refuse cross-token revocation, then delete. The 403 for "found but
+      // not yours" leaks existence vs. 404 for "absent", but that's the
+      // documented spec §D2 trade-off — per-bridge revocation requires the
+      // caller to distinguish the two on the audit side.
+      const authContext = getAuthContext(req);
+      const subs = await deps.store.list();
+      const sub = subs.find((s) => s.id === id);
+      if (!sub) {
+        sendJSON(res, 404, { error: 'Subscription not found' });
+        return;
+      }
+      if (!isAdminAuth(authContext) && sub.tokenId !== authContext?.id) {
+        sendJSON(res, 403, { error: 'forbidden' });
+        return;
+      }
       const ok = await deps.store.delete(id);
       if (!ok) {
+        // Race: another writer deleted between list() and delete(). Treat
+        // as 404 to match the pre-existing behavior on absent ids.
         sendJSON(res, 404, { error: 'Subscription not found' });
         return;
       }

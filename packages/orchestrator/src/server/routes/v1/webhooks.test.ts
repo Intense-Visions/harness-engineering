@@ -289,4 +289,87 @@ describe('handleV1WebhooksRoute', () => {
       expect(body).toHaveLength(2);
     });
   });
+
+  // ── Phase 0 FINAL_REVIEW #5: DELETE enforces token ownership ──
+  describe('DELETE ownership enforcement (spec §D2 per-bridge revocation)', () => {
+    it('refuses cross-token DELETE with 403', async () => {
+      const sub = await store.create({
+        tokenId: 'tok_owner',
+        url: 'https://o.test/h',
+        events: ['*.*'],
+      });
+      const req = makeReq('DELETE', `/api/v1/webhooks/${sub.id}`, undefined, {
+        id: 'tok_intruder',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res, chunks, statusCode } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(403);
+      expect(JSON.parse(chunks.join('')) as { error: string }).toEqual({ error: 'forbidden' });
+      // Sub still present in the store.
+      expect((await store.list()).map((s) => s.id)).toContain(sub.id);
+    });
+
+    it('owner DELETE succeeds with 200', async () => {
+      const sub = await store.create({
+        tokenId: 'tok_owner',
+        url: 'https://o.test/h',
+        events: ['*.*'],
+      });
+      const req = makeReq('DELETE', `/api/v1/webhooks/${sub.id}`, undefined, {
+        id: 'tok_owner',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res, statusCode } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(200);
+      expect(await store.list()).toEqual([]);
+    });
+
+    it('admin DELETE of any sub succeeds with 200', async () => {
+      const sub = await store.create({
+        tokenId: 'tok_other',
+        url: 'https://o.test/h',
+        events: ['*.*'],
+      });
+      const req = makeReq('DELETE', `/api/v1/webhooks/${sub.id}`, undefined, {
+        id: 'tok_admin',
+        scopes: ['admin'],
+      });
+      const { res, statusCode } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(200);
+      expect(await store.list()).toEqual([]);
+    });
+
+    it('legacy env synthetic-admin DELETE of any sub succeeds', async () => {
+      const sub = await store.create({
+        tokenId: 'tok_other',
+        url: 'https://o.test/h',
+        events: ['*.*'],
+      });
+      const req = makeReq('DELETE', `/api/v1/webhooks/${sub.id}`, undefined, {
+        id: 'tok_legacy_env',
+        scopes: ['admin'],
+      });
+      const { res, statusCode } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(200);
+    });
+
+    it('DELETE of nonexistent id still returns 404 regardless of auth', async () => {
+      const req = makeReq('DELETE', '/api/v1/webhooks/whk_doesnotexist000', undefined, {
+        id: 'tok_intruder',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res, statusCode } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(statusCode()).toBe(404);
+    });
+  });
 });
