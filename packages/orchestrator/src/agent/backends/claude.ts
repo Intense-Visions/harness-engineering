@@ -248,8 +248,15 @@ function extractUsage(usage: any): import('@harness-engineering/types').TokenUsa
  * `stop_reason !== null` or a `result`/`turn_complete` event. Mirrors the
  * `extractUsage` attribution rule so cache-hit accounting and token totals
  * advance in lock-step. Safe when `recorder` is undefined (no-op).
+ *
+ * Skips recording when both `cache_read_input_tokens` and
+ * `cache_creation_input_tokens` are zero — that's the wire-level "this turn
+ * didn't participate in caching" signal. Counting it as a miss would drag the
+ * displayed hit-rate toward 0 in mixed workloads where most turns never
+ * request cache control. Only turns that actually opted into caching
+ * contribute to the hit/miss ratio.
  */
-function recordCacheUsage(
+export function recordCacheUsage(
   recorder: CacheMetricsRecorder | undefined,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rawUsage: any
@@ -257,6 +264,7 @@ function recordCacheUsage(
   if (!recorder || !rawUsage) return;
   const cacheRead = rawUsage.cache_read_input_tokens ?? 0;
   const cacheCreation = rawUsage.cache_creation_input_tokens ?? 0;
+  if (cacheRead === 0 && cacheCreation === 0) return;
   recorder.record('anthropic', cacheRead > 0, cacheCreation, cacheRead);
 }
 

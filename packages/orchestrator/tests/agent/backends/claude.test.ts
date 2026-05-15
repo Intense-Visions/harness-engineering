@@ -5,6 +5,7 @@ import {
   ClaudeBackend,
   parseSubscriptionLimit,
   looksLikeUnparsedLimit,
+  recordCacheUsage,
 } from '../../../src/agent/backends/claude';
 import { CacheMetricsRecorder } from '@harness-engineering/core';
 import type { AgentSession, TurnResult, AgentEvent } from '@harness-engineering/types';
@@ -362,6 +363,16 @@ describe('ClaudeBackend cacheMetrics wiring', () => {
     );
 
     expect(recordSpy).not.toHaveBeenCalled();
+  });
+
+  // Cache-miss pollution guard (I1): when the wire-level usage carries neither
+  // a cache read nor a cache creation, the turn never participated in caching
+  // — recording it as a "miss" would drag the displayed hit-rate toward 0 in
+  // mixed workloads. The helper must early-return and leave totalRequests at 0.
+  it('does not record when usage carries no cache fields (cache control not requested)', () => {
+    const recorder = new CacheMetricsRecorder();
+    recordCacheUsage(recorder, { input_tokens: 100, output_tokens: 50 });
+    expect(recorder.getStats().totalRequests).toBe(0);
   });
 
   it('is a no-op when no recorder is injected (existing call sites unaffected)', async () => {
