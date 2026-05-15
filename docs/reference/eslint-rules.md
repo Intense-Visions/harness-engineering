@@ -511,6 +511,53 @@ const rel = path.relative(root, file).replaceAll('\\', '/');
 
 ---
 
+## Security Rules
+
+### `no-process-env-in-spawn`
+
+Disallows passing `process.env` directly to `spawn`, `execFile`, `fork`, and their sync variants. When `process.env` is forwarded to a child process, every environment variable -- including API keys, database credentials, and secrets -- is inherited by that child. Instead, build an explicit env object containing only the variables the child process actually needs.
+
+| Property             | Value                                   |
+| -------------------- | --------------------------------------- |
+| **Category**         | Security                                |
+| **Default severity** | `error` (recommended), `error` (strict) |
+| **Requires config**  | No                                      |
+| **Fixable**          | No                                      |
+| **Options**          | None                                    |
+
+**Affected functions:** `spawn`, `spawnSync`, `execFile`, `execFileSync`, `fork` (bare identifiers and `child_process.*` member expressions).
+
+**What it detects:** An options argument to a spawn-family function that sets `env: process.env`, or spreads `process.env` via `{ ...process.env }` inside the options object.
+
+**Violation:**
+
+```ts
+import { spawn } from 'child_process';
+
+spawn('node', ['script.js'], { env: process.env }); // ERROR: Do not pass process.env directly to 'spawn'
+```
+
+Spread pattern is also caught:
+
+```ts
+spawn('node', ['script.js'], { ...process.env }); // ERROR
+```
+
+**Correct:**
+
+```ts
+import { spawn } from 'child_process';
+
+spawn('node', ['script.js'], {
+  env: {
+    PATH: process.env.PATH,
+    NODE_ENV: process.env.NODE_ENV,
+  },
+});
+```
+
+---
+
 ## Rule Summary
 
 | Rule                          | Category       | Default | Config Required |
@@ -526,6 +573,7 @@ const rel = path.relative(root, file).replaceAll('\\', '/');
 | `no-unix-shell-command`       | Cross-Platform | `warn`  | No              |
 | `no-hardcoded-path-separator` | Cross-Platform | `warn`  | No              |
 | `require-path-normalization`  | Cross-Platform | `warn`  | No              |
+| `no-process-env-in-spawn`     | Security       | `error` | No              |
 
 **Note:** The `recommended` config enables all 12 rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
 

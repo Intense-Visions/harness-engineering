@@ -13,7 +13,7 @@ describe('computeHotspots', () => {
       cwd: tmp,
     });
   });
-  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+  afterEach(() => rmSync(tmp, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
 
   it('returns files modified more than threshold times, sorted desc', async () => {
     for (let i = 0; i < 5; i++) {
