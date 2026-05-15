@@ -36,6 +36,42 @@ interface CheckResult {
   detailed?: unknown;
 }
 
+interface ToolResponse {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+}
+
+/**
+ * Safely extract parsed JSON from a sub-tool response.
+ * Returns `null` (with a pre-built CheckResult) when the response is an error
+ * or contains non-JSON text, instead of letting JSON.parse throw.
+ */
+export function parseToolResponse(
+  result: ToolResponse,
+  checkName: string
+): { parsed: Record<string, unknown> } | { error: CheckResult } {
+  if ('isError' in result && result.isError) {
+    const msg = result.content[0]?.text ?? `${checkName} check failed`;
+    return {
+      error: { name: checkName, passed: false, issueCount: 1, topIssue: msg },
+    };
+  }
+  const first = result.content[0];
+  try {
+    const parsed: Record<string, unknown> = first ? JSON.parse(first.text) : {};
+    return { parsed };
+  } catch {
+    return {
+      error: {
+        name: checkName,
+        passed: false,
+        issueCount: 1,
+        topIssue: first?.text ?? `Invalid ${checkName} output`,
+      },
+    };
+  }
+}
+
 export async function handleAssessProject(input: {
   path: string;
   checks?: CheckName[];
@@ -69,35 +105,20 @@ export async function handleAssessProject(input: {
     try {
       const { handleValidateProject } = await import('./validate.js');
       const result = await handleValidateProject({ path: projectPath });
-      if ('isError' in result && result.isError) {
-        const msg = result.content[0]?.text ?? 'Validate check failed';
-        validateResult = { name: 'validate', passed: false, issueCount: 1, topIssue: msg };
+      const out = parseToolResponse(result, 'validate');
+      if ('error' in out) {
+        validateResult = out.error;
       } else {
-        const first = result.content[0];
-        let parsed: Record<string, unknown> = {};
-        try {
-          parsed = first ? JSON.parse(first.text) : {};
-        } catch {
-          validateResult = {
-            name: 'validate',
-            passed: false,
-            issueCount: 1,
-            topIssue: first?.text ?? 'Invalid validate output',
-          };
-          // skip remaining parsing
-          parsed = {};
-        }
-        if (!validateResult) {
-          validateResult = {
-            name: 'validate',
-            passed: (parsed as { valid?: boolean }).valid === true,
-            issueCount: (parsed as { errors?: unknown[] }).errors?.length ?? 0,
-            ...((parsed as { errors?: string[] }).errors?.length
-              ? { topIssue: (parsed as { errors: string[] }).errors[0] }
-              : {}),
-            ...(mode === 'detailed' ? { detailed: parsed } : {}),
-          };
-        }
+        const { parsed } = out;
+        validateResult = {
+          name: 'validate',
+          passed: (parsed as { valid?: boolean }).valid === true,
+          issueCount: (parsed as { errors?: unknown[] }).errors?.length ?? 0,
+          ...((parsed as { errors?: string[] }).errors?.length
+            ? { topIssue: (parsed as { errors: string[] }).errors[0] }
+            : {}),
+          ...(mode === 'detailed' ? { detailed: parsed } : {}),
+        };
       }
     } catch (error) {
       validateResult = {
@@ -118,26 +139,13 @@ export async function handleAssessProject(input: {
         try {
           const { handleCheckDependencies } = await import('./architecture.js');
           const result = await handleCheckDependencies({ path: projectPath });
-          if ('isError' in result && result.isError) {
-            const msg = result.content[0]?.text ?? 'Deps check failed';
-            return { name: 'deps', passed: false, issueCount: 1, topIssue: msg };
-          }
-          const first = result.content[0];
-          let parsed: Record<string, unknown> = {};
-          try {
-            parsed = first ? JSON.parse(first.text) : {};
-          } catch {
-            return {
-              name: 'deps',
-              passed: false,
-              issueCount: 1,
-              topIssue: first?.text ?? 'Invalid deps output',
-            };
-          }
+          const out = parseToolResponse(result, 'deps');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
           const violations = (parsed.violations as Array<{ message?: string }>) ?? [];
           return {
             name: 'deps',
-            passed: !result.isError && violations.length === 0,
+            passed: violations.length === 0,
             issueCount: violations.length,
             ...(violations.length > 0
               ? { topIssue: violations[0]?.message ?? JSON.stringify(violations[0]) }
@@ -162,29 +170,16 @@ export async function handleAssessProject(input: {
         try {
           const { handleCheckDocs } = await import('./docs.js');
           const result = await handleCheckDocs({ path: projectPath, scope: 'coverage' });
-          if ('isError' in result && result.isError) {
-            const msg = result.content[0]?.text ?? 'Docs check failed';
-            return { name: 'docs', passed: false, issueCount: 1, topIssue: msg };
-          }
-          const first = result.content[0];
-          let parsed: Record<string, unknown> = {};
-          try {
-            parsed = first ? JSON.parse(first.text) : {};
-          } catch {
-            return {
-              name: 'docs',
-              passed: false,
-              issueCount: 1,
-              topIssue: first?.text ?? 'Invalid docs output',
-            };
-          }
+          const out = parseToolResponse(result, 'docs');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
           const undocumented =
             (parsed.undocumented as unknown[]) ??
             (parsed.files as { undocumented?: unknown[] } | undefined)?.undocumented ??
             [];
           return {
             name: 'docs',
-            passed: !result.isError,
+            passed: true,
             issueCount: Array.isArray(undocumented) ? undocumented.length : 0,
             ...(Array.isArray(undocumented) && undocumented.length > 0
               ? { topIssue: `Undocumented: ${String(undocumented[0])}` }
@@ -209,22 +204,9 @@ export async function handleAssessProject(input: {
         try {
           const { handleDetectEntropy } = await import('./entropy.js');
           const result = await handleDetectEntropy({ path: projectPath, type: 'all' });
-          if ('isError' in result && result.isError) {
-            const msg = result.content[0]?.text ?? 'Entropy check failed';
-            return { name: 'entropy', passed: false, issueCount: 1, topIssue: msg };
-          }
-          const first = result.content[0];
-          let parsed: Record<string, unknown> = {};
-          try {
-            parsed = first ? JSON.parse(first.text) : {};
-          } catch {
-            return {
-              name: 'entropy',
-              passed: false,
-              issueCount: 1,
-              topIssue: first?.text ?? 'Invalid entropy output',
-            };
-          }
+          const out = parseToolResponse(result, 'entropy');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
           const drift = parsed.drift as
             | { staleReferences?: unknown[]; missingTargets?: unknown[] }
             | undefined;
@@ -240,7 +222,7 @@ export async function handleAssessProject(input: {
             (patterns?.violations?.length ?? 0);
           return {
             name: 'entropy',
-            passed: !('isError' in result && result.isError) && issues === 0,
+            passed: issues === 0,
             issueCount: issues,
             ...(issues > 0
               ? { topIssue: 'Entropy detected -- run detect_entropy for details' }
@@ -265,22 +247,9 @@ export async function handleAssessProject(input: {
         try {
           const { handleRunSecurityScan } = await import('./security.js');
           const result = await handleRunSecurityScan({ path: projectPath });
-          if ('isError' in result && result.isError) {
-            const msg = result.content[0]?.text ?? 'Security check failed';
-            return { name: 'security', passed: false, issueCount: 1, topIssue: msg };
-          }
-          const first = result.content[0];
-          let parsed: Record<string, unknown> = {};
-          try {
-            parsed = first ? JSON.parse(first.text) : {};
-          } catch {
-            return {
-              name: 'security',
-              passed: false,
-              issueCount: 1,
-              topIssue: first?.text ?? 'Invalid security output',
-            };
-          }
+          const out = parseToolResponse(result, 'security');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
           const findings =
             (parsed.findings as Array<{
               severity: string;
@@ -293,7 +262,7 @@ export async function handleAssessProject(input: {
           ).length;
           return {
             name: 'security',
-            passed: !result.isError && errorCount === 0,
+            passed: errorCount === 0,
             issueCount: findings.length,
             ...(findings.length > 0
               ? {
