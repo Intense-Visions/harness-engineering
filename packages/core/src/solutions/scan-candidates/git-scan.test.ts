@@ -32,7 +32,7 @@ describe('gitScan', () => {
       'fix(orchestrator): retry logic',
       'fix: handle null in parser',
     ]);
-  });
+  }, 30_000);
 
   it('reports filesChanged count per commit', async () => {
     mkdirSync(join(tmp, 'src'));

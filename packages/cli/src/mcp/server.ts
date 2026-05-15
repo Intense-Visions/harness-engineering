@@ -497,7 +497,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
   const compactedHandlers = applyCompaction(guardedHandlers);
 
   const server = new Server(
-    { name: 'harness-engineering', version: '0.1.0' },
+    { name: 'harness-engineering', version: '2.3.1' },
     { capabilities: { tools: {}, resources: {} } }
   );
 

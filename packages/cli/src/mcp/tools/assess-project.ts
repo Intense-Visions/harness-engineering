@@ -36,6 +36,42 @@ interface CheckResult {
   detailed?: unknown;
 }
 
+interface ToolResponse {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+}
+
+/**
+ * Safely extract parsed JSON from a sub-tool response.
+ * Returns `null` (with a pre-built CheckResult) when the response is an error
+ * or contains non-JSON text, instead of letting JSON.parse throw.
+ */
+export function parseToolResponse(
+  result: ToolResponse,
+  checkName: string
+): { parsed: Record<string, unknown> } | { error: CheckResult } {
+  if ('isError' in result && result.isError) {
+    const msg = result.content[0]?.text ?? `${checkName} check failed`;
+    return {
+      error: { name: checkName, passed: false, issueCount: 1, topIssue: msg },
+    };
+  }
+  const first = result.content[0];
+  try {
+    const parsed: Record<string, unknown> = first ? JSON.parse(first.text) : {};
+    return { parsed };
+  } catch {
+    return {
+      error: {
+        name: checkName,
+        passed: false,
+        issueCount: 1,
+        topIssue: first?.text ?? `Invalid ${checkName} output`,
+      },
+    };
+  }
+}
+
 export async function handleAssessProject(input: {
   path: string;
   checks?: CheckName[];
@@ -69,15 +105,21 @@ export async function handleAssessProject(input: {
     try {
       const { handleValidateProject } = await import('./validate.js');
       const result = await handleValidateProject({ path: projectPath });
-      const first = result.content[0];
-      const parsed = first ? JSON.parse(first.text) : {};
-      validateResult = {
-        name: 'validate',
-        passed: parsed.valid === true,
-        issueCount: parsed.errors?.length ?? 0,
-        ...(parsed.errors?.length > 0 ? { topIssue: parsed.errors[0] } : {}),
-        ...(mode === 'detailed' ? { detailed: parsed } : {}),
-      };
+      const out = parseToolResponse(result, 'validate');
+      if ('error' in out) {
+        validateResult = out.error;
+      } else {
+        const { parsed } = out;
+        validateResult = {
+          name: 'validate',
+          passed: (parsed as { valid?: boolean }).valid === true,
+          issueCount: (parsed as { errors?: unknown[] }).errors?.length ?? 0,
+          ...((parsed as { errors?: string[] }).errors?.length
+            ? { topIssue: (parsed as { errors: string[] }).errors[0] }
+            : {}),
+          ...(mode === 'detailed' ? { detailed: parsed } : {}),
+        };
+      }
     } catch (error) {
       validateResult = {
         name: 'validate',
@@ -97,15 +139,16 @@ export async function handleAssessProject(input: {
         try {
           const { handleCheckDependencies } = await import('./architecture.js');
           const result = await handleCheckDependencies({ path: projectPath });
-          const first = result.content[0];
-          const parsed = first ? JSON.parse(first.text) : {};
-          const violations = parsed.violations ?? [];
+          const out = parseToolResponse(result, 'deps');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
+          const violations = (parsed.violations as Array<{ message?: string }>) ?? [];
           return {
             name: 'deps',
-            passed: !result.isError && violations.length === 0,
+            passed: violations.length === 0,
             issueCount: violations.length,
             ...(violations.length > 0
-              ? { topIssue: violations[0]?.message ?? String(violations[0]) }
+              ? { topIssue: violations[0]?.message ?? JSON.stringify(violations[0]) }
               : {}),
             ...(mode === 'detailed' ? { detailed: parsed } : {}),
           };
@@ -127,15 +170,19 @@ export async function handleAssessProject(input: {
         try {
           const { handleCheckDocs } = await import('./docs.js');
           const result = await handleCheckDocs({ path: projectPath, scope: 'coverage' });
-          const first = result.content[0];
-          const parsed = first ? JSON.parse(first.text) : {};
-          const undocumented = parsed.undocumented ?? parsed.files?.undocumented ?? [];
+          const out = parseToolResponse(result, 'docs');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
+          const undocumented =
+            (parsed.undocumented as unknown[]) ??
+            (parsed.files as { undocumented?: unknown[] } | undefined)?.undocumented ??
+            [];
           return {
             name: 'docs',
-            passed: !result.isError,
+            passed: true,
             issueCount: Array.isArray(undocumented) ? undocumented.length : 0,
             ...(Array.isArray(undocumented) && undocumented.length > 0
-              ? { topIssue: `Undocumented: ${undocumented[0]}` }
+              ? { topIssue: `Undocumented: ${String(undocumented[0])}` }
               : {}),
             ...(mode === 'detailed' ? { detailed: parsed } : {}),
           };
@@ -157,17 +204,25 @@ export async function handleAssessProject(input: {
         try {
           const { handleDetectEntropy } = await import('./entropy.js');
           const result = await handleDetectEntropy({ path: projectPath, type: 'all' });
-          const first = result.content[0];
-          const parsed = first ? JSON.parse(first.text) : {};
+          const out = parseToolResponse(result, 'entropy');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
+          const drift = parsed.drift as
+            | { staleReferences?: unknown[]; missingTargets?: unknown[] }
+            | undefined;
+          const deadCode = parsed.deadCode as
+            | { unusedImports?: unknown[]; unusedExports?: unknown[] }
+            | undefined;
+          const patterns = parsed.patterns as { violations?: unknown[] } | undefined;
           const issues =
-            (parsed.drift?.staleReferences?.length ?? 0) +
-            (parsed.drift?.missingTargets?.length ?? 0) +
-            (parsed.deadCode?.unusedImports?.length ?? 0) +
-            (parsed.deadCode?.unusedExports?.length ?? 0) +
-            (parsed.patterns?.violations?.length ?? 0);
+            (drift?.staleReferences?.length ?? 0) +
+            (drift?.missingTargets?.length ?? 0) +
+            (deadCode?.unusedImports?.length ?? 0) +
+            (deadCode?.unusedExports?.length ?? 0) +
+            (patterns?.violations?.length ?? 0);
           return {
             name: 'entropy',
-            passed: !('isError' in result && result.isError) && issues === 0,
+            passed: issues === 0,
             issueCount: issues,
             ...(issues > 0
               ? { topIssue: 'Entropy detected -- run detect_entropy for details' }
@@ -192,15 +247,22 @@ export async function handleAssessProject(input: {
         try {
           const { handleRunSecurityScan } = await import('./security.js');
           const result = await handleRunSecurityScan({ path: projectPath });
-          const first = result.content[0];
-          const parsed = first ? JSON.parse(first.text) : {};
-          const findings = parsed.findings ?? [];
+          const out = parseToolResponse(result, 'security');
+          if ('error' in out) return out.error;
+          const { parsed } = out;
+          const findings =
+            (parsed.findings as Array<{
+              severity: string;
+              rule?: string;
+              type?: string;
+              message?: string;
+            }>) ?? [];
           const errorCount = findings.filter(
             (f: { severity: string }) => f.severity === 'error'
           ).length;
           return {
             name: 'security',
-            passed: !result.isError && errorCount === 0,
+            passed: errorCount === 0,
             issueCount: findings.length,
             ...(findings.length > 0
               ? {

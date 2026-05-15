@@ -29,7 +29,7 @@ Use this when setting up or modifying your project configuration.
 
 ### [ESLint Rules Reference](./eslint-rules.md)
 
-Complete reference for all 11 rules in `@harness-engineering/eslint-plugin`:
+Complete reference for all 12 rules in `@harness-engineering/eslint-plugin`:
 
 - Architecture rules (layer violations, circular deps, forbidden imports)
 - Boundary rules (Zod schema validation at API boundaries)
@@ -39,6 +39,22 @@ Complete reference for all 11 rules in `@harness-engineering/eslint-plugin`:
 - Configuration examples, inline suppression, and violation/correct code pairs
 
 Use this when configuring or troubleshooting ESLint rules from the harness plugin.
+
+### [CLI Commands Reference](./cli-commands.md)
+
+Auto-generated comprehensive reference for all CLI commands with full option details.
+
+### [MCP Tools Reference](./mcp-tools.md)
+
+Auto-generated reference for all MCP tools exposed by the harness server.
+
+### [Skills Catalog](./skills-catalog.md)
+
+Complete catalog of all 741 skills across all tiers.
+
+### [Source Map](./source-map.md)
+
+Comprehensive source file index for navigating the codebase.
 
 ## How to Use This Reference
 

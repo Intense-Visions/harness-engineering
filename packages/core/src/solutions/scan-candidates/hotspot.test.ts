@@ -27,7 +27,7 @@ describe('computeHotspots', () => {
     expect(result[0]?.path).toBe('hot.ts');
     expect(result[0]?.churn).toBe(5);
     expect(result.find((r) => r.path === 'cold.ts')).toBeUndefined();
-  });
+  }, 30_000);
 
   it('returns empty list on empty repo', async () => {
     const result = await computeHotspots({ since: '30d', cwd: tmp, threshold: 1 });

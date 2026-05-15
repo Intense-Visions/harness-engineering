@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.25.6
+**Version:** 2.3.1
 
 ## Installation
 
@@ -451,7 +451,7 @@ Handlebars-based template engine for code generation.
 
 ## MCP Tools
 
-The MCP server registers **59 tools** organized by category. Source: [`packages/cli/src/mcp/server.ts`](../../packages/cli/src/mcp/server.ts)
+The MCP server registers **62 tools** organized by category. Source: [`packages/cli/src/mcp/server.ts`](../../packages/cli/src/mcp/server.ts)
 
 ### Validation & Project Setup
 
