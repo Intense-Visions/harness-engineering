@@ -95,7 +95,7 @@ export class OTLPExporter {
 
   private buffer: TraceSpan[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
-  private flushing: Promise<void> | null = null;
+  private readonly inFlightFlushes = new Set<Promise<void>>();
 
   constructor(opts: OTLPExporterOptions) {
     this.endpoint = opts.endpoint;
@@ -132,30 +132,32 @@ export class OTLPExporter {
     }
   }
 
-  /** Flush any pending spans and stop the timer. Awaits the in-flight flush. */
+  /** Flush any pending spans and stop the timer. Awaits all in-flight flushes. */
   async stop(): Promise<void> {
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
     }
-    await this.flush();
+    void this.flush();
+    while (this.inFlightFlushes.size > 0) {
+      await Promise.all([...this.inFlightFlushes]);
+    }
   }
 
   /**
-   * Serialize and POST the current buffer to `/v1/traces`. Retries up
-   * to 3 times on transport or 5xx failure, then drops with a single
-   * warning. Concurrent calls are coalesced — a second `flush()` while
-   * the first is still in-flight awaits the same promise.
+   * Synchronously claim the current buffer and POST it to `/v1/traces`.
+   * Each invocation runs independently — concurrent flushes (e.g. one
+   * from the timer, one from a `batchSize` trip) each drain their own
+   * batch. Retries up to 3 times on transport or 5xx failure, then
+   * drops with a single warning.
    */
-  private async flush(): Promise<void> {
-    if (this.buffer.length === 0) return;
-    if (this.flushing) return this.flushing;
-
+  private flush(): Promise<void> {
+    if (this.buffer.length === 0) return Promise.resolve();
     const batch = this.buffer;
     this.buffer = [];
     const payload = this.spansToOTLPJSON(batch);
 
-    this.flushing = (async () => {
+    const work = (async () => {
       let lastError: unknown = null;
       for (let attempt = 0; attempt < RETRY_BACKOFFS_MS.length; attempt++) {
         try {
@@ -165,7 +167,6 @@ export class OTLPExporter {
             body: JSON.stringify(payload),
           });
           if (response.ok) return;
-          // Drain the body so the connection can be reused.
           try {
             await response.text();
           } catch {
@@ -186,11 +187,9 @@ export class OTLPExporter {
       );
     })();
 
-    try {
-      await this.flushing;
-    } finally {
-      this.flushing = null;
-    }
+    this.inFlightFlushes.add(work);
+    void work.finally(() => this.inFlightFlushes.delete(work));
+    return work;
   }
 
   /**
