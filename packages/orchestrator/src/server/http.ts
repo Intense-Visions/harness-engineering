@@ -18,9 +18,11 @@ import type { MaintenanceRouteDeps } from './routes/maintenance';
 import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
 import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleV1WebhooksRoute } from './routes/v1/webhooks';
+import { handleV1TelemetryRoute } from './routes/v1/telemetry';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
 import type { WebhookQueue } from '../gateway/webhooks/queue';
+import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
 import { handleAuthRoute } from './routes/auth';
@@ -131,6 +133,12 @@ export interface ServerDependencies {
    * to `false` when `webhooks` is undefined.
    */
   webhooks?: { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue };
+  /**
+   * Phase 5: in-memory prompt-cache metrics recorder. Wired into the
+   * `/api/v1/telemetry/cache/stats` endpoint. Optional so legacy tests can
+   * omit it; the route handler returns 503 when undefined.
+   */
+  cacheMetrics?: CacheMetricsRecorder;
 }
 
 export class OrchestratorServer {
@@ -153,6 +161,7 @@ export class OrchestratorServer {
   private webhooks:
     | { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue }
     | undefined;
+  private cacheMetrics: CacheMetricsRecorder | undefined;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
@@ -196,6 +205,7 @@ export class OrchestratorServer {
     this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
     this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
     this.webhooks = deps?.webhooks;
+    this.cacheMetrics = deps?.cacheMetrics;
   }
 
   private wireEvents(): void {
@@ -392,6 +402,12 @@ export class OrchestratorServer {
           store: this.webhooks.store,
           bus: this.orchestrator as unknown as EventEmitter,
           ...(this.webhooks.queue ? { queue: this.webhooks.queue } : {}),
+        }),
+      // Phase 5 — telemetry/cache/stats. Returns 503 when cacheMetrics is unset
+      // (FakeOrchestrator tests, exporter-disabled configs).
+      (req, res) =>
+        handleV1TelemetryRoute(req, res, {
+          ...(this.cacheMetrics ? { cacheMetrics: this.cacheMetrics } : {}),
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
