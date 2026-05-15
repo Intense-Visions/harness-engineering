@@ -95,6 +95,13 @@ export type { StabilityTier, StabilityMetadata } from './caching';
 
 // --- Telemetry ---
 export type { TelemetryConfig, TelemetryIdentity, ConsentState, TelemetryEvent } from './telemetry';
+export {
+  TrajectoryMetadataSchema,
+  PromptCacheStatsSchema,
+  OTLPKeyValueSchema,
+  OTLPSpanSchema,
+} from './telemetry';
+export type { TrajectoryMetadata, PromptCacheStats, OTLPKeyValue, OTLPSpan } from './telemetry';
 
 // --- Orchestrator ---
 export type {
