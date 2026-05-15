@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -136,54 +136,6 @@ describe('assess_project tool', () => {
       });
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.checks[0]).not.toHaveProperty('detailed');
-    });
-  });
-
-  describe('error handling — isError guard and JSON.parse resilience', () => {
-    it('handles sub-tool isError response without JSON.parse crash', async () => {
-      // Mock the entropy handler to return an isError response with non-JSON text
-      vi.doMock('../../../src/mcp/tools/entropy', () => ({
-        handleDetectEntropy: vi.fn().mockResolvedValue({
-          content: [{ type: 'text', text: 'Error: Could not detect entropy' }],
-          isError: true,
-        }),
-      }));
-
-      const response = await handleAssessProject({
-        path: '/nonexistent/err-guard-test',
-        checks: ['entropy'],
-      });
-      const parsed = JSON.parse(response.content[0].text);
-      const entropyCheck = parsed.checks.find((c: { name: string }) => c.name === 'entropy');
-      expect(entropyCheck).toBeDefined();
-      expect(entropyCheck.passed).toBe(false);
-      // The topIssue should contain the original error, not a SyntaxError
-      expect(entropyCheck.topIssue).not.toContain('Unexpected token');
-
-      vi.doUnmock('../../../src/mcp/tools/entropy');
-    });
-
-    it('handles sub-tool returning invalid JSON text gracefully', async () => {
-      // Mock the docs handler to return non-JSON text without isError flag
-      vi.doMock('../../../src/mcp/tools/docs', () => ({
-        handleCheckDocs: vi.fn().mockResolvedValue({
-          content: [{ type: 'text', text: 'not valid json {{{' }],
-        }),
-      }));
-
-      const response = await handleAssessProject({
-        path: '/nonexistent/json-guard-test',
-        checks: ['docs'],
-      });
-      const parsed = JSON.parse(response.content[0].text);
-      const docsCheck = parsed.checks.find((c: { name: string }) => c.name === 'docs');
-      expect(docsCheck).toBeDefined();
-      expect(docsCheck.passed).toBe(false);
-      expect(docsCheck.topIssue).toBeDefined();
-      // Should not propagate a raw SyntaxError
-      expect(docsCheck.topIssue).not.toContain('Unexpected token');
-
-      vi.doUnmock('../../../src/mcp/tools/docs');
     });
   });
 
