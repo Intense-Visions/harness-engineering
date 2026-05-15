@@ -5,10 +5,17 @@ export interface BranchingConfig {
   prefixes: string[];
   /** Whether to enforce kebab-case for the branch slug */
   enforceKebabCase: boolean;
-  /** Optional regex for custom branch naming rules */
-  customRegex?: string;
+  /**
+   * Optional regex that fully replaces the default prefix and kebab-case checks.
+   * When set, only the ignore list and this regex are evaluated -- the `prefixes`,
+   * `enforceKebabCase`, and `maxLength` settings are bypassed. Use for projects
+   * whose convention does not fit the prefix/slug model.
+   */
+  customRegex?: string | undefined;
   /** List of ignored branch names (exact match or glob) */
   ignore: string[];
+  /** Maximum slug length (everything after the first `/`). Omit or set 0 to disable. */
+  maxLength?: number | undefined;
 }
 
 export interface BranchValidationResult {
@@ -17,6 +24,11 @@ export interface BranchValidationResult {
   message?: string;
   suggestion?: string;
 }
+
+// Strict kebab-case: lowercase alphanumeric segments separated by single hyphens,
+// no leading/trailing hyphens, no double hyphens.
+const KEBAB_CASE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const TICKET_ID = /^([A-Z0-9]+-[0-9]+)-(.*)$/;
 
 /**
  * Validates a branch name against the provided configuration.
@@ -29,14 +41,12 @@ export function validateBranchName(
   branchName: string,
   config: BranchingConfig
 ): BranchValidationResult {
-  // 1. Check ignored branches
   for (const pattern of config.ignore) {
     if (minimatch(branchName, pattern)) {
       return { valid: true, branchName };
     }
   }
 
-  // 2. Check custom regex if provided
   if (config.customRegex) {
     const regex = new RegExp(config.customRegex);
     if (!regex.test(branchName)) {
@@ -49,7 +59,6 @@ export function validateBranchName(
     return { valid: true, branchName };
   }
 
-  // 3. Check prefixes
   const parts = branchName.split('/');
   if (parts.length < 2) {
     return {
@@ -72,33 +81,41 @@ export function validateBranchName(
     };
   }
 
-  // 4. Check kebab-case
   if (config.enforceKebabCase) {
-    const kebabRegex = /^[a-z0-9-]+$/;
-
-    const slugParts = slug.split('/');
-    for (const part of slugParts) {
-      // Support optional pattern: prefix/PROJ-123-short-desc
-      const ticketMatch = part.match(/^([A-Z0-9]+-[0-9]+)-(.*)$/);
+    for (const part of slug.split('/')) {
+      const ticketMatch = part.match(TICKET_ID);
       if (ticketMatch) {
         const rest = ticketMatch[2];
-        if (rest && !kebabRegex.test(rest)) {
+        if (rest && !KEBAB_CASE.test(rest)) {
           return {
             valid: false,
             branchName,
             message: `Branch slug part "${part}" does not follow kebab-case after the ticket ID.`,
-            suggestion: `Ensure the description after "${ticketMatch[1]}" uses kebab-case (lowercase and hyphens only).`,
+            suggestion: `Ensure the description after "${ticketMatch[1]}" uses kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
           };
         }
-      } else if (!kebabRegex.test(part)) {
+      } else if (!KEBAB_CASE.test(part)) {
         return {
           valid: false,
           branchName,
-          message: `Branch slug part "${part}" must be in kebab-case (lowercase and hyphens only).`,
+          message: `Branch slug part "${part}" must be in kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
           suggestion: `Change "${part}" to match the convention.`,
         };
       }
     }
+  }
+
+  if (
+    typeof config.maxLength === 'number' &&
+    config.maxLength > 0 &&
+    slug.length > config.maxLength
+  ) {
+    return {
+      valid: false,
+      branchName,
+      message: `Branch slug is ${slug.length} characters; max allowed is ${config.maxLength}.`,
+      suggestion: `Shorten the description after "${prefix}/" to ${config.maxLength} characters or fewer.`,
+    };
   }
 
   return { valid: true, branchName };

@@ -66,4 +66,24 @@ describe('validateBranchName', () => {
     expect(result.valid).toBe(false);
     expect(result.message).toContain('must be in kebab-case');
   });
+
+  it('rejects double, leading, and trailing hyphens', () => {
+    expect(validateBranchName('feat/foo--bar', defaultConfig).valid).toBe(false);
+    expect(validateBranchName('feat/-foo', defaultConfig).valid).toBe(false);
+    expect(validateBranchName('feat/foo-', defaultConfig).valid).toBe(false);
+  });
+
+  it('enforces maxLength when configured', () => {
+    const cfg: BranchingConfig = { ...defaultConfig, maxLength: 10 };
+    expect(validateBranchName('feat/short', cfg).valid).toBe(true);
+
+    const tooLong = validateBranchName('feat/this-slug-is-too-long', cfg);
+    expect(tooLong.valid).toBe(false);
+    expect(tooLong.message).toContain('max allowed is 10');
+  });
+
+  it('skips length check when maxLength is undefined', () => {
+    const long = 'feat/' + 'a-'.repeat(100) + 'b';
+    expect(validateBranchName(long, defaultConfig).valid).toBe(true);
+  });
 });

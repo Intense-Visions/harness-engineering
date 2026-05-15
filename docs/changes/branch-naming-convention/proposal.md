@@ -16,13 +16,16 @@ Implement a project-wide branch naming convention and a verification mechanism t
 
 ## Decisions
 
-| Decision                 | Rationale                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| Standard Prefixes        | `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `perf/` cover 99% of use cases. |
-| Forward Slash Separator  | Standard convention for grouping branches in git clients.                                 |
-| `kebab-case` Slugs       | Improves readability and matches URL-safe patterns.                                       |
-| Optional Ticket IDs      | Support for `prefix/PROJ-123-short-desc` allows integration with issue trackers.          |
-| `harness verify` Command | Provides immediate feedback to developers without requiring a full validation pass.       |
+| Decision                     | Rationale                                                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Standard Prefixes            | `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `perf/` cover 99% of use cases.                                                                  |
+| Forward Slash Separator      | Standard convention for grouping branches in git clients.                                                                                                  |
+| Strict `kebab-case` Slugs    | Lowercase alphanumerics joined by single hyphens. No leading/trailing hyphens, no `--` runs. URL-safe and unambiguous.                                     |
+| Slug Length Cap              | Default `maxLength: 60` characters (after the prefix). Set to `0` in config to disable. Keeps names under FS / CI label caps.                              |
+| Optional Ticket IDs          | Support for `prefix/PROJ-123-short-desc` allows integration with issue trackers.                                                                           |
+| `customRegex` Is an Override | When set, fully replaces prefix/kebab/length checks. Only the ignore list and this regex run. For orgs whose convention doesn't fit the prefix/slug model. |
+| `harness verify` Command     | Provides immediate feedback without requiring a full validation pass. Works with or without a `harness.config.json`.                                       |
+| CI-aware Branch Resolution   | Reads `--branch`, then `HARNESS_BRANCH` / `GITHUB_HEAD_REF` / `CI_COMMIT_REF_NAME` / `BUILDKITE_BRANCH`, then `git rev-parse`.                             |
 
 ## Technical Design
 
@@ -37,14 +40,17 @@ A new `validateBranchName` function is added to `@harness-engineering/core`. It 
 
 ### Configuration Schema
 
-The `HarnessConfigSchema` is extended with a `compliance.branching` section:
+The `HarnessConfigSchema` is extended with a `compliance.branching` section.
+Defaults declared in `BranchingConfigSchema` are the single source of truth --
+the CLI does not re-declare fallback values.
 
 ```typescript
 branching: {
-  prefixes: string[]; // default: ['feat', 'fix', 'chore', ...]
-  enforceKebabCase: boolean; // default: true
-  customRegex?: string;
-  ignore: string[]; // default: ['main', 'release/**', ...]
+  prefixes: string[];          // default: ['feat','fix','chore','docs','refactor','test','perf']
+  enforceKebabCase: boolean;   // default: true
+  customRegex?: string;        // when set, fully replaces prefix/kebab/length checks
+  ignore: string[];            // default: ['main','release/**','dependabot/**','harness/**']
+  maxLength: number;           // default: 60 (0 disables)
 }
 ```
 
@@ -52,9 +58,14 @@ branching: {
 
 A new `harness verify` command is implemented in `packages/cli`. It:
 
-1.  Determines the current branch name using `git rev-parse --abbrev-ref HEAD`.
-2.  Resolves configuration (using defaults if none provided).
-3.  Runs validation and outputs success or error messages with suggestions.
+1.  Resolves the branch name from (in order) `--branch`, `HARNESS_BRANCH`,
+    `GITHUB_HEAD_REF`, `CI_COMMIT_REF_NAME`, `BUILDKITE_BRANCH`, then
+    `git rev-parse --abbrev-ref HEAD`. The env-var fallbacks handle CI runners
+    that build PRs in detached-HEAD state where `git rev-parse` returns `HEAD`.
+2.  Resolves configuration if `harness.config.json` exists; otherwise uses
+    schema defaults so the command works on un-onboarded repos.
+3.  Runs validation. Prints a human-readable message + suggestion, or a
+    machine-readable JSON payload when `--json` is passed.
 
 ## Integration Points
 

@@ -336,6 +336,9 @@ export const KnowledgeConfigSchema = z.object({
 
 /**
  * Schema for branch naming convention configuration.
+ *
+ * Defaults declared here are the single source of truth -- consumers should call
+ * `BranchingConfigSchema.parse({})` rather than re-declaring fallback values.
  */
 export const BranchingConfigSchema = z.object({
   /** Allowed branch name prefixes */
@@ -344,10 +347,16 @@ export const BranchingConfigSchema = z.object({
     .default(['feat', 'fix', 'chore', 'docs', 'refactor', 'test', 'perf']),
   /** Whether to enforce kebab-case for the branch slug */
   enforceKebabCase: z.boolean().default(true),
-  /** Optional regex for custom branch naming rules */
+  /**
+   * Optional regex that fully replaces the default prefix and kebab-case checks.
+   * When set, only the ignore list and this regex are evaluated; `prefixes`,
+   * `enforceKebabCase`, and `maxLength` are bypassed.
+   */
   customRegex: z.string().optional(),
   /** List of ignored branch names (exact match or glob) */
   ignore: z.array(z.string()).default(['main', 'release/**', 'dependabot/**', 'harness/**']),
+  /** Maximum slug length (characters after the first `/`). Set to 0 to disable. */
+  maxLength: z.number().int().nonnegative().default(60),
 });
 
 /**
