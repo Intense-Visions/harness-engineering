@@ -53,7 +53,15 @@ export class WebhookStore {
     await rename(tmp, this.path);
     // chmod after rename: on some filesystems rename preserves the mode of
     // the renamed-to path. Explicit chmod is the defensive guarantee.
-    await chmod(this.path, 0o600);
+    try {
+      await chmod(this.path, 0o600);
+    } catch (err) {
+      // ENOENT means the file was removed between rename and chmod (e.g. by
+      // a parallel test-cleanup rmSync). The data is gone either way — no
+      // production caller racing against persist() should still trust this
+      // store. Swallowing here avoids an unhandled-rejection on test teardown.
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
     this.cache = records;
   }
 
