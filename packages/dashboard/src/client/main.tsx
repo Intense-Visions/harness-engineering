@@ -36,6 +36,9 @@ const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
   { from: '/orchestrator/maintenance', to: '/s/maintenance' },
   { from: '/orchestrator/streams', to: '/s/streams' },
   { from: '/adoption', to: '/s/adoption' },
+  // Phase 5: prompt-cache insights surface — preferred URL is `/insights/cache`
+  // per the plan; the actual page lives at the SystemRoute-style `/s/insights-cache`.
+  { from: '/insights/cache', to: '/s/insights-cache' },
 ];
 
 const root = document.getElementById('root');

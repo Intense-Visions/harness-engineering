@@ -22,6 +22,7 @@ import { Attention } from '../../pages/Attention';
 import { Analyze } from '../../pages/Analyze';
 import { Tokens } from '../../pages/Tokens';
 import { Webhooks } from '../../pages/Webhooks';
+import { Cache as InsightsCache } from '../../pages/insights/Cache';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
@@ -38,6 +39,8 @@ const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
   adoption: Adoption,
   tokens: Tokens,
   webhooks: Webhooks,
+  // Phase 5: prompt-cache insights widget.
+  'insights-cache': InsightsCache,
   // Legacy: these are now thread types but kept for /s/ URL compat
   attention: Attention,
   analyze: Analyze,
