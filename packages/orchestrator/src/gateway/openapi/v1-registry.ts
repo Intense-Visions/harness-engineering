@@ -4,6 +4,7 @@ import {
   OpenApiGeneratorV31,
   extendZodWithOpenApi,
 } from '@asteasolutions/zod-to-openapi';
+import { PromptCacheStatsSchema } from '@harness-engineering/types';
 import { buildAuthRegistry } from './registry';
 
 extendZodWithOpenApi(z);
@@ -158,7 +159,63 @@ export function buildV1Registry(): OpenAPIRegistry {
         description: 'Deleted',
         content: { 'application/json': { schema: z.object({ deleted: z.literal(true) }) } },
       },
+      403: { description: 'Forbidden — cross-token revocation refused' },
       404: { description: 'Subscription not found' },
+    },
+  });
+
+  // ── Phase 4 — webhook delivery queue stats ──
+  // Phase 0 FINAL_REVIEW #3: this route was wired in v1-bridge-routes.ts and
+  // implemented in routes/v1/webhooks.ts, but the OpenAPI artifact never
+  // documented it. External adapters discovering the contract via the
+  // published YAML had no machine-readable path entry to bind against.
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/webhooks/queue/stats',
+    description:
+      'Webhook delivery queue depth + DLQ stats. Scope: subscribe-webhook. Returns 503 when the queue dependency is unavailable (e.g. ephemeral test orchestrators).',
+    security: [{ BearerAuth: [] }],
+    responses: {
+      200: {
+        description: 'Queue counter snapshot',
+        content: {
+          'application/json': {
+            schema: z.object({
+              pending: z.number().int().nonnegative(),
+              inFlight: z.number().int().nonnegative(),
+              failed: z.number().int().nonnegative(),
+              dead: z.number().int().nonnegative(),
+              delivered: z.number().int().nonnegative(),
+            }),
+          },
+        },
+      },
+      401: { description: 'Unauthorized' },
+      403: { description: 'Insufficient scope' },
+      503: { description: 'Queue not available' },
+    },
+  });
+
+  // ── Phase 5 — prompt-cache telemetry stats ──
+  // Phase 0 FINAL_REVIEW #3: same gap as queue/stats — handler shipped in
+  // Phase 5 Task 11 (routes/v1/telemetry.ts) but the OpenAPI registry never
+  // grew the documentation. Backed by PromptCacheStatsSchema from
+  // @harness-engineering/types so the wire shape and the OpenAPI shape can
+  // never drift.
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/telemetry/cache/stats',
+    description:
+      'Prompt-cache hit/miss snapshot (rolling window). Scope: read-telemetry. Returns 503 when no CacheMetricsRecorder is wired (e.g. exporter-disabled configs).',
+    security: [{ BearerAuth: [] }],
+    responses: {
+      200: {
+        description: 'Cache stats snapshot',
+        content: { 'application/json': { schema: PromptCacheStatsSchema } },
+      },
+      401: { description: 'Unauthorized' },
+      403: { description: 'Insufficient scope' },
+      503: { description: 'Cache metrics recorder not available' },
     },
   });
 

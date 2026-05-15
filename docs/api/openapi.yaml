@@ -403,6 +403,61 @@ paths:
           description: Insufficient scope
       security:
         - BearerAuth: []
+  /api/v1/telemetry/cache/stats:
+    get:
+      description: "Prompt-cache hit/miss snapshot (rolling window). Scope: read-telemetry. Returns 503 when no CacheMetricsRecorder is wired (e.g. exporter-disabled configs)."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  byBackend:
+                    additionalProperties:
+                      properties:
+                        hits:
+                          minimum: 0
+                          type: integer
+                        misses:
+                          minimum: 0
+                          type: integer
+                      required:
+                        - hits
+                        - misses
+                      type: object
+                    type: object
+                  hitRate:
+                    maximum: 1
+                    minimum: 0
+                    type: number
+                  hits:
+                    minimum: 0
+                    type: integer
+                  misses:
+                    minimum: 0
+                    type: integer
+                  totalRequests:
+                    minimum: 0
+                    type: integer
+                  windowStartedAt:
+                    type: integer
+                required:
+                  - totalRequests
+                  - hits
+                  - misses
+                  - hitRate
+                  - byBackend
+                  - windowStartedAt
+                type: object
+          description: Cache stats snapshot
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "503":
+          description: Cache metrics recorder not available
+      security:
+        - BearerAuth: []
   /api/v1/webhooks:
     get:
       description: "List webhook subscriptions (secrets redacted). Scope: subscribe-webhook."
@@ -476,6 +531,46 @@ paths:
           description: Conflict
       security:
         - BearerAuth: []
+  /api/v1/webhooks/queue/stats:
+    get:
+      description: "Webhook delivery queue depth + DLQ stats. Scope: subscribe-webhook. Returns 503 when the queue dependency is unavailable (e.g. ephemeral test orchestrators)."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  dead:
+                    minimum: 0
+                    type: integer
+                  delivered:
+                    minimum: 0
+                    type: integer
+                  failed:
+                    minimum: 0
+                    type: integer
+                  inFlight:
+                    minimum: 0
+                    type: integer
+                  pending:
+                    minimum: 0
+                    type: integer
+                required:
+                  - pending
+                  - inFlight
+                  - failed
+                  - dead
+                  - delivered
+                type: object
+          description: Queue counter snapshot
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "503":
+          description: Queue not available
+      security:
+        - BearerAuth: []
   /api/v1/webhooks/{id}:
     delete:
       description: "Delete a webhook subscription. Scope: subscribe-webhook."
@@ -499,6 +594,8 @@ paths:
                   - deleted
                 type: object
           description: Deleted
+        "403":
+          description: Forbidden — cross-token revocation refused
         "404":
           description: Subscription not found
       security:

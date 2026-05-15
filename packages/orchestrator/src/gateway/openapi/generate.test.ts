@@ -34,8 +34,10 @@ describe('generateOpenApiYaml', () => {
   // legacy alias plus the three Phase 2 bridge primitives. We lock the
   // path-count to catch silent drift (added/removed routes without an
   // explicit test update). Phase 3 Task 11: extended with webhook routes;
-  // counts updated accordingly.
-  it('exposes the Phase 2 bridge primitives + legacy aliases + Phase 3 webhooks', () => {
+  // counts updated accordingly. Phase 0 FINAL_REVIEW #3: extended with the
+  // two stats endpoints (queue/stats + telemetry/cache/stats) that shipped
+  // in Phase 4/5 but were never registered with the OpenAPI generator.
+  it('exposes the Phase 2 bridge primitives + legacy aliases + Phase 3 webhooks + stats endpoints', () => {
     const dir = mkdtempSync(join(tmpdir(), 'harness-openapi-'));
     const out = join(dir, 'openapi.yaml');
     generateOpenApiYaml(out);
@@ -60,11 +62,16 @@ describe('generateOpenApiYaml', () => {
     expect(yaml).toContain('/api/v1/webhooks');
     expect(yaml).toContain('/api/v1/webhooks/{id}');
 
+    // Phase 4 + Phase 5 stats endpoints (Phase 0 FINAL_REVIEW #3).
+    expect(yaml).toContain('/api/v1/webhooks/queue/stats');
+    expect(yaml).toContain('/api/v1/telemetry/cache/stats');
+
     // Lock the path count to catch silent drift. 3 auth + 10 legacy GETs +
     // 3 Phase 2 bridge primitives + 2 Phase 3 webhook paths (collection +
-    // {id}; POST/GET share /api/v1/webhooks) = 18 distinct paths.
+    // {id}; POST/GET share /api/v1/webhooks) + 2 stats endpoints
+    // (webhooks/queue/stats + telemetry/cache/stats) = 20 distinct paths.
     const doc = parseYaml(yaml) as { paths: Record<string, unknown> };
-    expect(Object.keys(doc.paths).length).toBe(18);
+    expect(Object.keys(doc.paths).length).toBe(20);
 
     rmSync(dir, { recursive: true, force: true });
   });
