@@ -185,17 +185,22 @@ describe('update command', () => {
       return JSON.stringify({ name: '@harness-engineering/cli', version });
     }
 
+    // `path.join` produces backslashes on Windows but the test inputs use POSIX
+    // separators. Normalize both sides so the mocks match regardless of host
+    // separator — the production code already handles separator differences.
+    const toPosix = (p: string): string => p.replace(/\\/g, '/');
+
     // Helper: configures fs mocks so package.json lookups only succeed at
     // the given package root directories (one per install). Mirrors real
     // npm layout where intermediate dirs like `cli/dist/bin` have no
     // package.json.
     function mockPackageRoots(roots: Record<string, string>): void {
       mockedExistsSync.mockImplementation((p) => {
-        const s = String(p);
+        const s = toPosix(String(p));
         return Object.keys(roots).some((root) => s === `${root}/package.json`);
       });
       mockedReadFileSync.mockImplementation((p) => {
-        const s = String(p);
+        const s = toPosix(String(p));
         for (const [root, pkg] of Object.entries(roots)) {
           if (s === `${root}/package.json`) return pkg;
         }
@@ -227,12 +232,11 @@ describe('update command', () => {
 
       const installs = findAllInstalls();
       expect(installs).toHaveLength(1);
-      expect(installs[0]).toMatchObject({
-        binPath: '/Users/me/.nvm/versions/node/v20.0.0/bin/harness',
-        version: '2.4.0',
-        packageManager: 'npm',
-        prefix: '/Users/me/.nvm/versions/node/v20.0.0',
-      });
+      expect(installs[0]).toBeDefined();
+      expect(installs[0]?.binPath).toBe('/Users/me/.nvm/versions/node/v20.0.0/bin/harness');
+      expect(installs[0]?.version).toBe('2.4.0');
+      expect(installs[0]?.packageManager).toBe('npm');
+      expect(toPosix(installs[0]!.prefix ?? '')).toBe('/Users/me/.nvm/versions/node/v20.0.0');
     });
 
     it('surfaces multiple installs at different versions (the duplicate-install hazard)', () => {
@@ -257,8 +261,8 @@ describe('update command', () => {
       const installs = findAllInstalls();
       expect(installs).toHaveLength(2);
       expect(installs.map((i) => i.version)).toEqual(['2.4.0', '2.3.0']);
-      expect(installs[0]?.prefix).toBe('/Users/me/.nvm/versions/node/v20.0.0');
-      expect(installs[1]?.prefix).toBe('/opt/homebrew');
+      expect(toPosix(installs[0]!.prefix ?? '')).toBe('/Users/me/.nvm/versions/node/v20.0.0');
+      expect(toPosix(installs[1]!.prefix ?? '')).toBe('/opt/homebrew');
     });
 
     it('deduplicates entries that realpath to the same target', () => {
@@ -297,11 +301,18 @@ describe('update command', () => {
         '/opt/homebrew/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
       );
       const pkgRoot = '/opt/homebrew/lib/node_modules/@harness-engineering/cli';
-      mockedExistsSync.mockImplementation((p) => String(p) === `${pkgRoot}/package.json`);
+      // Production code calls existsSync with a `path.join`-formed path that
+      // uses backslashes on Windows. Normalize before comparing so the test
+      // works on every host OS.
+      mockedExistsSync.mockImplementation(
+        (p) => String(p).replace(/\\/g, '/') === `${pkgRoot}/package.json`
+      );
       mockedReadFileSync.mockReturnValue(
         JSON.stringify({ name: '@harness-engineering/cli', version: '2.3.0' })
       );
-      expect(getActiveInstallDir()).toBe(pkgRoot);
+      const result = getActiveInstallDir();
+      expect(result).not.toBeNull();
+      expect(result!.replace(/\\/g, '/')).toBe(pkgRoot);
     });
   });
 
