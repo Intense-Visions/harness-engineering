@@ -74,8 +74,14 @@ harness-engineering/
 1. **Create a branch:**
 
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout -b feat/your-feature-name
    ```
+
+   **Branch Naming Convention:**
+   - Use prefixes: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `perf/`.
+   - Use `kebab-case` for the description.
+   - Optional ticket ID: `feat/PROJ-123-description`.
+   - Verify compliance: `harness verify`.
 
 2. **Make your changes**
 

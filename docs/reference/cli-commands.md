@@ -438,6 +438,15 @@ Run all validation checks
 - `--strict` — Treat warnings as errors (applies to --agent-configs)
 - `--agnix-bin` — Override the agnix binary path discovered on PATH
 
+### `harness verify`
+
+Verify project conventions (currently: branch naming). Works with or without a harness.config.json.
+
+**Options:**
+
+- `--branch` — Branch name to verify (defaults to HARNESS_BRANCH/GITHUB_HEAD_REF/current branch)
+- `--json` — Emit machine-readable JSON output
+
 ## Adoption Commands
 
 View skill adoption telemetry

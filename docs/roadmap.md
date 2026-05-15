@@ -1121,6 +1121,14 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Blockers:** —
 - **Plan:** —
 
+### Branch Naming Convention and Compliance Verification
+
+- **Status:** done
+- **Spec:** docs/changes/branch-naming-convention/proposal.md
+- **Summary:** Standardize branch naming prefixes (feat/, fix/, etc.) and kebab-case slugs. Implement harness verify command and @harness-engineering/core validation logic.
+- **Blockers:** —
+- **Plan:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
