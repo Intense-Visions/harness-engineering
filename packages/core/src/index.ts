@@ -190,8 +190,15 @@ export {
   collectEvents,
   send,
   CacheMetricsRecorder,
+  OTLPExporter,
+  SpanKind,
 } from './telemetry';
-export type { CacheMetricsRecorderOptions } from './telemetry';
+export type {
+  CacheMetricsRecorderOptions,
+  OTLPExporterOptions,
+  TraceSpan,
+  SpanAttributes,
+} from './telemetry';
 
 /**
  * Locks module.

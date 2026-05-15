@@ -4,3 +4,7 @@ export { collectEvents } from './collector';
 export { send } from './transport';
 export { CacheMetricsRecorder } from './cache-metrics';
 export type { CacheMetricsRecorderOptions } from './cache-metrics';
+export { OTLPExporter } from './exporter/otlp-http';
+export type { OTLPExporterOptions } from './exporter/otlp-http';
+export { SpanKind } from './exporter/types';
+export type { SpanAttributes, TraceSpan } from './exporter/types';
