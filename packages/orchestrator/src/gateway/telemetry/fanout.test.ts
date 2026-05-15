@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { GatewayEvent, WebhookSubscription } from '@harness-engineering/types';
 import type { TraceSpan } from '@harness-engineering/core';
-import { wireTelemetryFanout } from './fanout';
+import { wireTelemetryFanout, ActiveRunRegistry, MAX_ACTIVE_RUNS } from './fanout';
 
 /** Build a minimally valid WebhookSubscription stub for the in-memory store. */
 function makeSub(id: string, events: string[]): WebhookSubscription {
@@ -131,5 +131,93 @@ describe('wireTelemetryFanout (Phase 5 Task 10)', () => {
     await new Promise((r) => setImmediate(r));
     expect(exporter.push).not.toHaveBeenCalled();
     expect(webhookDelivery.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * I2 fixes: the registry must be bounded (no unbounded leak when close events
+ * are dropped) and must NOT fall back to "latest open" when correlation/task
+ * lookups miss (that mis-correlates orphan events onto unrelated traces).
+ */
+describe('ActiveRunRegistry (I2)', () => {
+  it('caps size at MAX_ACTIVE_RUNS and evicts the OLDEST entry on overflow', () => {
+    const reg = new ActiveRunRegistry();
+    for (let i = 0; i < MAX_ACTIVE_RUNS + 1; i++) {
+      reg.open(`run-${i}`, { traceId: `t-${i}`, spanId: `s-${i}` });
+    }
+    expect(reg.size).toBe(MAX_ACTIVE_RUNS);
+    // The oldest entry (`run-0`) was evicted to make room for entry 256.
+    expect(reg.resolve({ taskId: 'run-0' })).toBeUndefined();
+    // The most-recently-opened entry is still present.
+    expect(reg.resolve({ taskId: `run-${MAX_ACTIVE_RUNS}` })).toEqual({
+      traceId: `t-${MAX_ACTIVE_RUNS}`,
+      spanId: `s-${MAX_ACTIVE_RUNS}`,
+    });
+    // run-1 (the new oldest) is still present — only ONE eviction happened.
+    expect(reg.resolve({ taskId: 'run-1' })).toBeDefined();
+  });
+
+  it('close() removes the entry and decrements size', () => {
+    const reg = new ActiveRunRegistry();
+    reg.open('run-a', { traceId: 'tA', spanId: 'sA' });
+    reg.open('run-b', { traceId: 'tB', spanId: 'sB' });
+    expect(reg.size).toBe(2);
+
+    reg.close('run-a');
+    expect(reg.size).toBe(1);
+    expect(reg.resolve({ taskId: 'run-a' })).toBeUndefined();
+    expect(reg.resolve({ taskId: 'run-b' })).toEqual({ traceId: 'tB', spanId: 'sB' });
+  });
+
+  it('resolve() returns undefined when neither correlationId nor taskId matches (no latest-key fallback)', () => {
+    const reg = new ActiveRunRegistry();
+    // Open run A, never close. Open run B (also still in registry).
+    reg.open('run-a', { traceId: 'tA', spanId: 'sA' });
+    reg.open('run-b', { traceId: 'tB', spanId: 'sB' });
+
+    // A child event whose keys match neither A nor B must return undefined
+    // (becomes a root span). With the removed `latestKey` fallback, the
+    // result is NOT the most-recently-opened entry.
+    const resolved = reg.resolve({ taskId: 'run-c' });
+    expect(resolved).toBeUndefined();
+    // Specifically: it is not run-b (the latest).
+    expect(resolved).not.toEqual({ traceId: 'tB', spanId: 'sB' });
+  });
+});
+
+/**
+ * Integration check: with the latestKey fallback removed, a skill_invocation
+ * whose taskId/correlationId does not match any open run must produce a span
+ * with no parentSpanId (a root). Previously it would inherit from the most
+ * recently opened run — a zombie correlation.
+ */
+describe('wireTelemetryFanout — orphan child events become roots (I2)', () => {
+  it('skill_invocation with unmatched taskId emits a root span (no parentSpanId)', async () => {
+    const bus = new EventEmitter();
+    const pushedSpans: TraceSpan[] = [];
+    const exporter = { push: (s: TraceSpan) => pushedSpans.push(s) };
+    const webhookDelivery = { enqueue: vi.fn() };
+    const store = makeStore([]);
+
+    const unsub = wireTelemetryFanout({ bus, exporter, webhookDelivery, store });
+
+    // Open a maintenance run, never close it.
+    bus.emit('maintenance:started', { taskId: 'parent-run' });
+    // Emit a child event whose taskId does NOT match any open run.
+    bus.emit('skill_invocation', { skill: 'review', taskId: 'unrelated-run' });
+    await new Promise((r) => setImmediate(r));
+
+    expect(pushedSpans).toHaveLength(2);
+    const parent = pushedSpans[0]!;
+    const orphan = pushedSpans[1]!;
+
+    expect(parent.name).toBe('maintenance_run');
+    expect(orphan.name).toBe('skill_invocation');
+
+    // Orphan must be a root span — no parentSpanId, distinct traceId.
+    expect(orphan.parentSpanId).toBeUndefined();
+    expect(orphan.traceId).not.toBe(parent.traceId);
+
+    unsub();
   });
 });

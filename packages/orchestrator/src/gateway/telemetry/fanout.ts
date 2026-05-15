@@ -25,10 +25,11 @@ import { eventMatches } from '../webhooks/signer';
  *     `{ traceId, spanId }` keyed by `taskId`.
  *   - `maintenance:completed` / `maintenance:error` close the parent and
  *     forget the entry.
- *   - `skill_invocation` and `dispatch:decision` events look up the most
- *     recent open maintenance entry (or by `correlationId` if present) and
- *     set `parentSpanId` accordingly so the OTel collector can stitch the
- *     trace together.
+ *   - `skill_invocation` and `dispatch:decision` events look up an open
+ *     maintenance entry by `correlationId` (preferred) or `taskId`. If
+ *     neither key matches an active run, the child emits as a root span
+ *     rather than guessing a parent — guessing mis-correlates orphan events
+ *     onto unrelated traces.
  */
 
 export interface MaintenanceStartedPayload {
@@ -127,24 +128,54 @@ function nowNs(): bigint {
 }
 
 /**
+ * Soft cap on concurrently tracked maintenance runs. Prevents the registry
+ * from growing without bound when `maintenance:started` fires without a
+ * matching `maintenance:completed`/`error` (e.g. orchestrator crash, dropped
+ * close event). When the cap is hit, the OLDEST entry is evicted — that run's
+ * remaining child events become root spans, which the collector handles
+ * gracefully. 256 is sized for "more than any realistic concurrent maintenance
+ * fan-out, less than a memory pressure concern."
+ */
+export const MAX_ACTIVE_RUNS = 256;
+
+/**
  * Tracks active maintenance runs so child events (skill invocations, dispatch
  * decisions) can inherit the parent's `traceId` and `parentSpanId`.
  *
  * Key strategy: prefer `correlationId` (explicit threading); fall back to
- * `taskId` when no correlation id is set; fall back to "latest active" if
- * neither is present so we still get *some* correlation when call sites are
- * out-of-band.
+ * `taskId` when no correlation id is set. If neither matches, the event has
+ * no parent and becomes a root span — we DO NOT fall back to "latest active"
+ * because that mis-correlates orphan events onto unrelated (possibly dead)
+ * traces. A new root is the safer signal.
+ *
+ * Bounded by {@link MAX_ACTIVE_RUNS}; oldest entries are evicted first
+ * (insertion-order Map).
  */
-class ActiveRunRegistry {
+export class ActiveRunRegistry {
   private byKey = new Map<string, { traceId: string; spanId: string }>();
-  private latestKey: string | null = null;
 
   open(key: string, ids: { traceId: string; spanId: string }): void {
+    // If `key` already exists, refresh the value but DO NOT bump insertion
+    // order — re-emits of `maintenance:started` for the same key should not
+    // promote it past entries opened more recently. To preserve original
+    // insertion position we set in place.
+    if (this.byKey.has(key)) {
+      this.byKey.set(key, ids);
+      return;
+    }
+    // Enforce the cap BEFORE insert so size never exceeds MAX_ACTIVE_RUNS.
+    if (this.byKey.size >= MAX_ACTIVE_RUNS) {
+      const oldest = this.byKey.keys().next().value;
+      if (oldest !== undefined) this.byKey.delete(oldest);
+    }
     this.byKey.set(key, ids);
-    this.latestKey = key;
   }
 
-  /** Look up an active run; tries `correlationId`, then `taskId`, then latest. */
+  /**
+   * Look up an active run; tries `correlationId`, then `taskId`. Returns
+   * `undefined` when neither matches — the caller should treat the event as
+   * a root span rather than guessing a parent.
+   */
   resolve(args: {
     correlationId?: string;
     taskId?: string;
@@ -155,19 +186,16 @@ class ActiveRunRegistry {
     if (args.taskId && this.byKey.has(args.taskId)) {
       return this.byKey.get(args.taskId);
     }
-    if (this.latestKey !== null) {
-      return this.byKey.get(this.latestKey);
-    }
     return undefined;
   }
 
   close(key: string): void {
     this.byKey.delete(key);
-    if (this.latestKey === key) {
-      // Pick any remaining as the new "latest" (insertion order via Map).
-      const remaining = [...this.byKey.keys()];
-      this.latestKey = remaining.length > 0 ? remaining[remaining.length - 1]! : null;
-    }
+  }
+
+  /** Number of currently tracked runs. Exposed for tests + diagnostics. */
+  get size(): number {
+    return this.byKey.size;
   }
 }
 
