@@ -2,7 +2,7 @@
 number: 0011
 title: Orchestrator Gateway API contract
 date: 2026-05-13
-status: in-progress
+status: accepted
 tier: large
 source: docs/changes/hermes-phase-0-gateway-api/proposal.md
 ---
@@ -72,11 +72,17 @@ The contract is published as a vendored OpenAPI 3.1.0 artifact at `docs/api/open
 
 The Phase 1 artifact covers only the three auth-admin routes (`POST /api/v1/auth/token`, `GET /api/v1/auth/tokens`, `DELETE /api/v1/auth/tokens/{id}`). Each subsequent phase appends to the registry; the drift-check workflow ensures the artifact never lags the code.
 
-## Status: in-progress
+## Status: accepted
 
-Phases 1, 2, and 3 have shipped pillars 1, 2, 3 (with one residual: legacy alias response schemas in the artifact, deferred to `/api/v2` per plan risk #5), and 4 (registry now covers all 18 `/api/v1/*` paths in the artifact — 3 auth + 3 bridge primitives + 10 documented legacy aliases + 2 webhook routes; `/api/v1/webhooks` is POST+GET on the same path, `/api/v1/webhooks/{id}` is DELETE only). Phase 3 added the webhook subscription/signing/in-memory-delivery surface, but the ADR remains in-progress until Phase 4 (durable webhook delivery, at-least-once semantics, SQLite-backed queue) and Phase 5 (telemetry export) land — those phases close out the "every `/api/v1/*` route is contracted _and_ operationally durable" criterion that promotes this ADR to `accepted`.
+Phases 1, 2, and 3 shipped pillars 1, 2, 3 (with one residual: legacy alias response schemas in the artifact, deferred to `/api/v2` per plan risk #5), and 4 (registry covers every `/api/v1/*` path — 3 auth + 3 bridge primitives + 10 documented legacy aliases + 2 webhook routes + 2 stats endpoints — 20 paths total after Phase 0 FINAL*REVIEW #3 closed the queue/stats + cache/stats registry gap). Phase 3 added the webhook subscription/signing/in-memory-delivery surface; Phase 4 landed durable at-least-once delivery (SQLite-backed queue, exponential backoff, DLQ); Phase 5 landed the OTLP telemetry exporter + prompt-cache analytics. The "every `/api/v1/*` route is contracted \_and* operationally durable" criterion is met.
 
-While in-progress, additive decisions inside the same four pillars may be appended below without superseding the ADR. Structural changes (a new pillar, a breaking change to the scope vocabulary, a switch off OpenAPI as the contract substrate) require a new ADR that supersedes this one.
+### Status / decision history
+
+- **2026-05-13** — Drafted at status `in-progress` during Phase 1 (Auth Foundation + OpenAPI Scaffolding).
+- **2026-05-14** — Webhook secret storage model (plaintext at rest, file mode 0600) appended as an additive decision after Phase 3 review-cycle 1.
+- **2026-05-15** — Promoted to `accepted`. Phase 4 (durable webhook delivery) and Phase 5 (telemetry export) shipped; Phase 0 FINAL_REVIEW landed three blocking criticals (#3 OpenAPI registry coverage, #4 GET ownership filtering, #5 DELETE ownership check). The four pillars are now feature-complete; the deferred slack-echo-bridge reference consumer and the gateway-tunnel guide are tracked separately as Phase 0.1 and Phase 0.2 roadmap entries.
+
+Now accepted, additive decisions inside the same four pillars may still be appended below as long as they do not contradict the locked contract. Structural changes (a new pillar, a breaking change to the scope vocabulary, a switch off OpenAPI as the contract substrate) require a new ADR that supersedes this one.
 
 ## Consequences
 
