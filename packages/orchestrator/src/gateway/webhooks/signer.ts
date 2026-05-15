@@ -39,8 +39,23 @@ export function verify(secret: string, body: string, presented: string): boolean
  *   eventMatches('interaction.*', 'interaction.foo.bar') → false (segment count mismatch)
  *   eventMatches('*', 'anything')                         → true (single segment)
  *   eventMatches('*.*', 'a.b')                            → true
+ *
+ * Telemetry exclusion (Phase 5 Task 9):
+ *   `telemetry.*` events are excluded from wildcard `*.*` matches by default.
+ *   Operators must explicitly subscribe to `telemetry.*` or a specific
+ *   `telemetry.<topic>` to receive them. This prevents accidental fan-out
+ *   of high-volume telemetry data to legacy `*.*` consumers.
+ *
+ *   eventMatches('*.*', 'telemetry.skill_invocation')      → false (opt-in required)
+ *   eventMatches('telemetry.*', 'telemetry.skill_invocation') → true
  */
 export function eventMatches(pattern: string, type: string): boolean {
+  // Telemetry exclusion: telemetry.* events only match patterns that
+  // explicitly name `telemetry.` as the first segment (literally — not via wildcard).
+  if (type.startsWith('telemetry.')) {
+    const pSegs = pattern.split('.');
+    if (pSegs[0] !== 'telemetry') return false;
+  }
   const pSegs = pattern.split('.');
   const tSegs = type.split('.');
   if (pSegs.length !== tSegs.length) return false;

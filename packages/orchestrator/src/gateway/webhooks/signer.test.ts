@@ -48,3 +48,31 @@ describe('signer.eventMatches', () => {
     expect(eventMatches('*', 'interaction.created')).toBe(false); // not single-segment
   });
 });
+
+describe('signer.eventMatches — telemetry.* exclusion (Phase 5 Task 9)', () => {
+  it('legacy *.* still matches non-telemetry two-segment events', () => {
+    // Sanity: the exclusion does not regress existing wildcard behavior.
+    expect(eventMatches('*.*', 'maintenance.completed')).toBe(true);
+    expect(eventMatches('*.*', 'interaction.created')).toBe(true);
+  });
+  it('*.* does NOT match telemetry.* events (opt-in required)', () => {
+    // New behavior: high-volume telemetry events are excluded from *.* by default.
+    expect(eventMatches('*.*', 'telemetry.skill_invocation')).toBe(false);
+    expect(eventMatches('*.*', 'telemetry.maintenance_run')).toBe(false);
+    expect(eventMatches('*.*', 'telemetry.dispatch_decision')).toBe(false);
+  });
+  it('telemetry.* explicit wildcard matches all telemetry topics', () => {
+    expect(eventMatches('telemetry.*', 'telemetry.skill_invocation')).toBe(true);
+    expect(eventMatches('telemetry.*', 'telemetry.maintenance_run')).toBe(true);
+    expect(eventMatches('telemetry.*', 'telemetry.dispatch_decision')).toBe(true);
+  });
+  it('telemetry.<specific> matches the named topic only', () => {
+    expect(eventMatches('telemetry.skill_invocation', 'telemetry.skill_invocation')).toBe(true);
+    expect(eventMatches('telemetry.skill_invocation', 'telemetry.dispatch_decision')).toBe(false);
+  });
+  it('non-telemetry patterns never match telemetry events even with wildcard first segment', () => {
+    // `*` as the first segment is treated as a wildcard but still cannot match `telemetry`
+    // because the exclusion guard rejects any pattern whose first literal segment is not `telemetry`.
+    expect(eventMatches('*.skill_invocation', 'telemetry.skill_invocation')).toBe(false);
+  });
+});
