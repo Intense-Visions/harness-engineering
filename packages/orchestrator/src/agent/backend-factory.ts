@@ -1,4 +1,5 @@
 import type { AgentBackend, BackendDef } from '@harness-engineering/types';
+import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { MockBackend } from './backends/mock.js';
 import { ClaudeBackend } from './backends/claude.js';
 import { AnthropicBackend } from './backends/anthropic.js';
@@ -6,6 +7,18 @@ import { OpenAIBackend } from './backends/openai.js';
 import { GeminiBackend } from './backends/gemini.js';
 import { LocalBackend } from './backends/local.js';
 import { PiBackend } from './backends/pi.js';
+
+/**
+ * Orchestrator-owned dependencies threaded into backend constructors. Today
+ * only the prompt-cache recorder is plumbed (consumed by ClaudeBackend); other
+ * backends accept the option without using it so a single recorder instance
+ * can be shared across the dispatch tree. The recorder itself is instantiated
+ * by the orchestrator at startup — Phase 5 Task 16.
+ */
+export interface CreateBackendOptions {
+  /** Optional prompt-cache recorder shared across Anthropic-capable backends. */
+  cacheMetrics?: CacheMetricsRecorder;
+}
 
 /**
  * Resolve a BackendDef.model (string | string[]) into a getModel function
@@ -24,13 +37,19 @@ function makeGetModel(model: string | string[] | undefined): () => string | null
  * Pure constructor: BackendDef -> concrete AgentBackend instance.
  * No side effects beyond the underlying class constructors.
  * Container wrapping (sandbox policy) is the orchestrator's job, not the factory's.
+ *
+ * `options.cacheMetrics`, when provided, is forwarded to backends that
+ * record prompt-cache hits (currently `ClaudeBackend`). Other backends
+ * accept-but-ignore the recorder.
  */
-export function createBackend(def: BackendDef): AgentBackend {
+export function createBackend(def: BackendDef, options: CreateBackendOptions = {}): AgentBackend {
   switch (def.type) {
     case 'mock':
       return new MockBackend();
     case 'claude':
-      return new ClaudeBackend(def.command ?? 'claude');
+      return new ClaudeBackend(def.command ?? 'claude', {
+        ...(options.cacheMetrics ? { cacheMetrics: options.cacheMetrics } : {}),
+      });
     case 'anthropic':
       return new AnthropicBackend({
         model: def.model,

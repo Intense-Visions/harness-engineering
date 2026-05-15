@@ -61,6 +61,7 @@ describe('selectTier()', () => {
     def('check_docs'),
     def('query_graph'),
     def('get_impact'),
+    def('list_gateway_tokens'),
     def('manage_state'),
     def('run_skill'),
     def('code_search'),
@@ -69,6 +70,7 @@ describe('selectTier()', () => {
     // additional standard tools
     def('run_code_review'),
     def('run_security_scan'),
+    def('trigger_maintenance_job'),
     // extras not in any tier
     def('fancy_new_tool'),
     def('yet_another_tool'),

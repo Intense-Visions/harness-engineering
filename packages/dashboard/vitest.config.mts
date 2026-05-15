@@ -16,7 +16,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'server',
-          include: ['tests/server/**/*.test.ts'],
+          include: ['tests/server/**/*.test.ts', 'src/server/**/*.test.ts'],
           environment: 'node',
         },
       },

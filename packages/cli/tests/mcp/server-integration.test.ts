@@ -49,7 +49,10 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('get_security_trends');
     expect(names).toContain('run_ci_checks');
     expect(names).toContain('generate_blueprint');
-    expect(tools).toHaveLength(61);
+    expect(names).toContain('trigger_maintenance_job');
+    expect(names).toContain('list_gateway_tokens');
+    expect(names).toContain('subscribe_webhook');
+    expect(tools).toHaveLength(64);
   });
 
   it('all tool definitions have inputSchema', () => {

@@ -63,6 +63,10 @@ export const SYSTEM_PAGES = [
   { page: 'streams', label: 'Streams', route: '/s/streams' },
   { page: 'roadmap', label: 'Roadmap', route: '/s/roadmap' },
   { page: 'adoption', label: 'Adoption', route: '/s/adoption' },
+  { page: 'tokens', label: 'API Tokens', route: '/s/tokens' },
+  { page: 'webhooks', label: 'Webhooks', route: '/s/webhooks' },
+  // Phase 5: prompt-cache hit/miss insight surface.
+  { page: 'insights-cache', label: 'Prompt Cache', route: '/s/insights-cache' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];

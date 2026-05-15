@@ -1,4 +1,4 @@
-import type { ToolDefinition } from './server.js';
+import type { ToolDefinition } from './tool-types.js';
 
 /**
  * Abstract MCP tool tier. Higher tiers include more tools.
@@ -23,6 +23,7 @@ export const CORE_TOOL_NAMES: readonly string[] = [
   'check_docs',
   'query_graph',
   'get_impact',
+  'list_gateway_tokens',
   'manage_state',
   'run_skill',
   'code_search',
@@ -52,6 +53,9 @@ const STANDARD_EXTRA: readonly string[] = [
   'recommend_skills',
   'search_skills',
   'code_unfold',
+  // Gateway tools (Phase 2 Task 11 + Phase 3 Task 9)
+  'trigger_maintenance_job',
+  'subscribe_webhook',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

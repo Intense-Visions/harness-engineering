@@ -27,6 +27,7 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 - **Entropy Management** — Automated detection of dead code, doc drift, and structural decay
 - **Implementation Strategy** — Depth-first execution: one feature to 100% before the next begins
 - **Key Performance Indicators** — Measure agent autonomy, harness coverage, and context density
+- **Orchestrator Gateway API** — Token-scoped bearer auth on a versioned `/api/v1/*` surface with append-only audit log, three bridge-primitive endpoints (`jobs/maintenance`, `interactions/{id}/resolve`, `events` SSE), HMAC SHA-256-signed webhook subscriptions (`X-Harness-Signature: sha256=<hex>`) with event-bus fan-out, and a vendored OpenAPI artifact at [`docs/api/openapi.yaml`](docs/api/openapi.yaml). External bridges (Slack, Discord, GitHub Apps) build against a published, versioned contract instead of coupling to internals. See [ADR 0011](docs/knowledge/decisions/0011-orchestrator-gateway-api-contract.md)
 
 ## Quick Start
 

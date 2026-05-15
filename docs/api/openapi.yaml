@@ -1,0 +1,605 @@
+components:
+  parameters: {}
+  schemas:
+    AuthTokenPublic:
+      properties:
+        bridgeKind:
+          enum:
+            - slack
+            - discord
+            - github-app
+            - custom
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          pattern: ^tok_[a-f0-9]{16}$
+          type: string
+        lastUsedAt:
+          format: date-time
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        scopes:
+          items:
+            enum:
+              - admin
+              - trigger-job
+              - read-status
+              - resolve-interaction
+              - subscribe-webhook
+              - modify-roadmap
+              - read-telemetry
+            type: string
+          minItems: 1
+          type: array
+        tenantId:
+          type: string
+      required:
+        - id
+        - name
+        - scopes
+        - createdAt
+      type: object
+    BridgeKind:
+      enum:
+        - slack
+        - discord
+        - github-app
+        - custom
+      type: string
+    CreateTokenRequest:
+      properties:
+        bridgeKind:
+          $ref: "#/components/schemas/BridgeKind"
+        expiresAt:
+          format: date-time
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        scopes:
+          items:
+            $ref: "#/components/schemas/TokenScope"
+          minItems: 1
+          type: array
+        tenantId:
+          type: string
+      required:
+        - name
+        - scopes
+      type: object
+    CreateTokenResponse:
+      properties:
+        id:
+          type: string
+        record:
+          $ref: "#/components/schemas/AuthTokenPublic"
+        token:
+          type: string
+      required:
+        - token
+        - id
+        - record
+      type: object
+    TokenScope:
+      enum:
+        - admin
+        - trigger-job
+        - read-status
+        - resolve-interaction
+        - subscribe-webhook
+        - modify-roadmap
+        - read-telemetry
+      type: string
+  securitySchemes:
+    BearerAuth:
+      bearerFormat: tok_<id>.<base64url>
+      scheme: bearer
+      type: http
+info:
+  description: "Hermes Phase 0 — Phase 3: versioned /api/v1/* surface with auth, bridge primitives, and webhook subscriptions."
+  title: Harness Gateway API
+  version: 0.3.0
+openapi: 3.1.0
+paths:
+  /api/v1/analyses:
+    get:
+      description: "List analyses. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/auth/token:
+    post:
+      description: Create a new auth token. Secret returned once.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTokenResponse"
+          description: Token created
+        "409":
+          description: Duplicate name
+      security:
+        - BearerAuth: []
+  /api/v1/auth/tokens:
+    get:
+      description: List tokens (hashedSecret redacted).
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/AuthTokenPublic"
+                type: array
+          description: OK
+      security:
+        - BearerAuth: []
+  /api/v1/auth/tokens/{id}:
+    delete:
+      description: Revoke a token by id.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          description: Token not found
+      security:
+        - BearerAuth: []
+  /api/v1/events:
+    get:
+      description: "Server-Sent Events stream of GatewayEvent frames. Scope: read-telemetry."
+      responses:
+        "200":
+          content:
+            text/event-stream:
+              schema:
+                type: string
+          description: SSE stream
+      security:
+        - BearerAuth: []
+  /api/v1/interactions:
+    get:
+      description: "List interactions. Scope: resolve-interaction."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/interactions/{id}/resolve:
+    post:
+      description: "Resolve a pending interaction. Scope: resolve-interaction."
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                answer: {}
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  resolved:
+                    enum:
+                      - true
+                    type: boolean
+                required:
+                  - resolved
+                type: object
+          description: Resolved
+        "404":
+          description: Interaction not found
+        "409":
+          description: Already resolved
+      security:
+        - BearerAuth: []
+  /api/v1/jobs/maintenance:
+    post:
+      description: "Trigger a maintenance task ad-hoc. Scope: trigger-job."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                params:
+                  additionalProperties: {}
+                  type: object
+                taskId:
+                  type: string
+              required:
+                - taskId
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  ok:
+                    type: boolean
+                  runId:
+                    type: string
+                  taskId:
+                    type: string
+                required:
+                  - ok
+                  - taskId
+                  - runId
+                type: object
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "404":
+          description: Not found
+        "409":
+          description: Conflict
+      security:
+        - BearerAuth: []
+  /api/v1/local-model:
+    get:
+      description: "Local model status. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/local-models:
+    get:
+      description: "Local models statuses. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/maintenance/history:
+    get:
+      description: "Maintenance history. Scope: trigger-job."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/maintenance/status:
+    get:
+      description: "Maintenance status. Scope: trigger-job."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/plans:
+    get:
+      description: "List plans. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/sessions:
+    get:
+      description: "List session metadata. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/state:
+    get:
+      description: "Orchestrator snapshot. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/streams:
+    get:
+      description: "List recorded streams. Scope: read-status."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+      security:
+        - BearerAuth: []
+  /api/v1/telemetry/cache/stats:
+    get:
+      description: "Prompt-cache hit/miss snapshot (rolling window). Scope: read-telemetry. Returns 503 when no CacheMetricsRecorder is wired (e.g. exporter-disabled configs)."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  byBackend:
+                    additionalProperties:
+                      properties:
+                        hits:
+                          minimum: 0
+                          type: integer
+                        misses:
+                          minimum: 0
+                          type: integer
+                      required:
+                        - hits
+                        - misses
+                      type: object
+                    type: object
+                  hitRate:
+                    maximum: 1
+                    minimum: 0
+                    type: number
+                  hits:
+                    minimum: 0
+                    type: integer
+                  misses:
+                    minimum: 0
+                    type: integer
+                  totalRequests:
+                    minimum: 0
+                    type: integer
+                  windowStartedAt:
+                    type: integer
+                required:
+                  - totalRequests
+                  - hits
+                  - misses
+                  - hitRate
+                  - byBackend
+                  - windowStartedAt
+                type: object
+          description: Cache stats snapshot
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "503":
+          description: Cache metrics recorder not available
+      security:
+        - BearerAuth: []
+  /api/v1/webhooks:
+    get:
+      description: "List webhook subscriptions (secrets redacted). Scope: subscribe-webhook."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items: {}
+                type: array
+          description: OK
+      security:
+        - BearerAuth: []
+    post:
+      description: "Subscribe to outbound webhook fan-out. Returns the secret once. Scope: subscribe-webhook."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                events:
+                  items:
+                    type: string
+                  minItems: 1
+                  type: array
+                url:
+                  format: uri
+                  type: string
+              required:
+                - url
+                - events
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  createdAt:
+                    type: string
+                  events:
+                    items:
+                      type: string
+                    type: array
+                  id:
+                    type: string
+                  secret:
+                    type: string
+                  tokenId:
+                    type: string
+                  url:
+                    type: string
+                required:
+                  - id
+                  - tokenId
+                  - url
+                  - events
+                  - secret
+                  - createdAt
+                type: object
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "404":
+          description: Not found
+        "409":
+          description: Conflict
+      security:
+        - BearerAuth: []
+  /api/v1/webhooks/queue/stats:
+    get:
+      description: "Webhook delivery queue depth + DLQ stats. Scope: subscribe-webhook. Returns 503 when the queue dependency is unavailable (e.g. ephemeral test orchestrators)."
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  dead:
+                    minimum: 0
+                    type: integer
+                  delivered:
+                    minimum: 0
+                    type: integer
+                  failed:
+                    minimum: 0
+                    type: integer
+                  inFlight:
+                    minimum: 0
+                    type: integer
+                  pending:
+                    minimum: 0
+                    type: integer
+                required:
+                  - pending
+                  - inFlight
+                  - failed
+                  - dead
+                  - delivered
+                type: object
+          description: Queue counter snapshot
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient scope
+        "503":
+          description: Queue not available
+      security:
+        - BearerAuth: []
+  /api/v1/webhooks/{id}:
+    delete:
+      description: "Delete a webhook subscription. Scope: subscribe-webhook."
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  deleted:
+                    enum:
+                      - true
+                    type: boolean
+                required:
+                  - deleted
+                type: object
+          description: Deleted
+        "403":
+          description: Forbidden — cross-token revocation refused
+        "404":
+          description: Subscription not found
+      security:
+        - BearerAuth: []
+servers:
+  - url: http://127.0.0.1:8080
+webhooks: {}

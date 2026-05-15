@@ -22,6 +22,7 @@ import { createCreateSkillCommand } from './create-skill';
 import { createDashboardCommand } from './dashboard';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
+import { createGatewayCommand } from './gateway';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
@@ -92,6 +93,7 @@ export const commandCreators: Array<() => Command> = [
   createDashboardCommand,
   createDoctorCommand,
   createFixDriftCommand,
+  createGatewayCommand,
   createGenerateAgentDefinitionsCommand,
   createGenerateCommand,
   createGenerateSlashCommandsCommand,

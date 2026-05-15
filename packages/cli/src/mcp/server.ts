@@ -149,14 +149,20 @@ import {
 } from './tools/constraint-emergence.js';
 import { runCIChecksDefinition, handleRunCIChecks } from './tools/ci.js';
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './tools/blueprint.js';
+// Phase 2 Task 11: MCP wrappers around the Gateway API bridge primitives.
+import {
+  triggerMaintenanceJobDefinition,
+  handleTriggerMaintenanceJob,
+  listGatewayTokensDefinition,
+  handleListGatewayTokens,
+} from './tools/gateway-tools.js';
+// Phase 3 Task 9: MCP wrapper for the webhook subscription endpoint.
+import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 
-export type ToolDefinition = {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  /** When true, output scanning is skipped for this tool (internal content, not external). */
-  trustedOutput?: boolean;
-};
+// Re-exported from ./tool-types so tool files can import the type without
+// pulling in server.ts (which would create a cycle). See ./tool-types.ts.
+export type { ToolDefinition } from './tool-types.js';
+import type { ToolDefinition } from './tool-types.js';
 type ToolHandler = (
   input: Record<string, unknown>
 ) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
@@ -226,6 +232,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   detectConstraintEmergenceDefinition,
   runCIChecksDefinition,
   generateBlueprintDefinition,
+  triggerMaintenanceJobDefinition,
+  listGatewayTokensDefinition,
+  subscribeWebhookDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -289,6 +298,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   detect_constraint_emergence: handleDetectConstraintEmergence as ToolHandler,
   run_ci_checks: handleRunCIChecks as ToolHandler,
   generate_blueprint: handleGenerateBlueprint as ToolHandler,
+  trigger_maintenance_job: handleTriggerMaintenanceJob as ToolHandler,
+  list_gateway_tokens: handleListGatewayTokens as ToolHandler,
+  subscribe_webhook: handleSubscribeWebhook as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

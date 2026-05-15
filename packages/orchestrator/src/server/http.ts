@@ -1,9 +1,11 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as path from 'node:path';
+import type { EventEmitter } from 'node:events';
 import { assertPortUsable } from '@harness-engineering/core';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
+import { handleV1InteractionsResolveRoute } from './routes/v1/interactions-resolve';
 import { handlePlansRoute } from './routes/plans';
 import { handleChatProxyRoute } from './routes/chat-proxy';
 import { handleAnalyzeRoute } from './routes/analyze';
@@ -13,8 +15,17 @@ import type { DispatchAdHocFn } from './routes/dispatch-actions';
 import { handleAnalysesRoute } from './routes/analyses';
 import { handleMaintenanceRoute } from './routes/maintenance';
 import type { MaintenanceRouteDeps } from './routes/maintenance';
+import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
+import { handleV1EventsSseRoute } from './routes/v1/events-sse';
+import { handleV1WebhooksRoute } from './routes/v1/webhooks';
+import { handleV1TelemetryRoute } from './routes/v1/telemetry';
+import type { WebhookStore } from '../gateway/webhooks/store';
+import type { WebhookDelivery } from '../gateway/webhooks/delivery';
+import type { WebhookQueue } from '../gateway/webhooks/queue';
+import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleStreamsRoute } from './routes/streams';
+import { handleAuthRoute } from './routes/auth';
 import { handleLocalModelRoute, handleLocalModelsRoute } from './routes/local-model';
 import type { GetLocalModelStatusFn, GetLocalModelStatusesFn } from './routes/local-model';
 import { handleStaticFile } from './static';
@@ -23,11 +34,26 @@ import type { InteractionQueue, PendingInteraction } from '../core/interaction-q
 import type { AnalysisArchive } from '../core/analysis-archive';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
+import { TokenStore } from '../auth/tokens';
+import { AuditLogger } from '../auth/audit';
+import { hasScope, requiredScopeForRoute } from '../auth/scopes';
+import { isV1Bridge } from './v1-bridge-routes';
+import type { AuthToken, TokenScope } from '@harness-engineering/types';
 
 /* ── In-memory per-IP rate limiter (no external deps) ── */
 const RATE_LIMIT = Number(process.env['HARNESS_RATE_LIMIT']) || 100; // requests per window
 const WINDOW_MS = 60_000; // 1-minute sliding window
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/**
+ * Legacy /api/* alias deprecation horizon. Spec D7 cross-cutting decision:
+ * "removal scheduled for /api/v2 or 12 months post-Phase-0-GA, whichever
+ * comes first." Plan-date 2026-05-14 -> +12mo = 2027-05-14.
+ *
+ * Set via env var HARNESS_DEPRECATION_DATE for ops who need to extend the
+ * horizon; default is the spec-mandated value.
+ */
+export const DEPRECATION_DATE = process.env['HARNESS_DEPRECATION_DATE'] ?? '2027-05-14';
 
 // Prune expired entries every 60 s to prevent unbounded growth
 const ratePruneTimer = setInterval(() => {
@@ -100,6 +126,19 @@ export interface ServerDependencies {
   getLocalModelStatus?: GetLocalModelStatusFn;
   /** Callback returning all local backends' statuses, one entry per resolver. Spec 2 SC38. */
   getLocalModelStatuses?: GetLocalModelStatusesFn;
+  /**
+   * Phase 3: webhook subscription store + delivery worker. Wired into the
+   * `/api/v1/webhooks` routes and the event-bus fan-out. Optional so legacy
+   * FakeOrchestrator-based tests can omit it; the route handler short-circuits
+   * to `false` when `webhooks` is undefined.
+   */
+  webhooks?: { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue };
+  /**
+   * Phase 5: in-memory prompt-cache metrics recorder. Wired into the
+   * `/api/v1/telemetry/cache/stats` endpoint. Optional so legacy tests can
+   * omit it; the route handler returns 503 when undefined.
+   */
+  cacheMetrics?: CacheMetricsRecorder;
 }
 
 export class OrchestratorServer {
@@ -119,8 +158,15 @@ export class OrchestratorServer {
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private getLocalModelStatus: GetLocalModelStatusFn | null = null;
   private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
+  private webhooks:
+    | { store: WebhookStore; delivery: WebhookDelivery; queue?: WebhookQueue }
+    | undefined;
+  private cacheMetrics: CacheMetricsRecorder | undefined;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
+  private tokenStore!: TokenStore;
+  private auditLogger!: AuditLogger;
+  private warnedUnauthDev = false;
   private stateChangeListener!: (snapshot: unknown) => void;
   private agentEventListener!: (event: unknown) => void;
   private readonly apiRoutes: Array<
@@ -131,6 +177,11 @@ export class OrchestratorServer {
     this.orchestrator = orchestrator;
     this.port = port;
     this.initDependencies(deps);
+    const tokensPath =
+      process.env['HARNESS_TOKENS_PATH'] ?? path.resolve('.harness', 'tokens.json');
+    const auditPath = process.env['HARNESS_AUDIT_PATH'] ?? path.resolve('.harness', 'audit.log');
+    this.tokenStore = new TokenStore(tokensPath);
+    this.auditLogger = new AuditLogger(auditPath);
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
       this.orchestrator.getSnapshot()
@@ -153,6 +204,8 @@ export class OrchestratorServer {
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
     this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
     this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
+    this.webhooks = deps?.webhooks;
+    this.cacheMetrics = deps?.cacheMetrics;
   }
 
   private wireEvents(): void {
@@ -228,12 +281,10 @@ export class OrchestratorServer {
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (this.handleStateEndpoint(req, res)) {
-      return;
-    }
-
-    // Per-IP rate limiting (state/health-check endpoint is exempt above)
-    if (!checkRateLimit(req, res)) {
+    const isState =
+      req.method === 'GET' && (req.url === '/api/state' || req.url === '/api/v1/state');
+    // Per-IP rate limiting (state endpoint exempt — still requires auth below)
+    if (!isState && !checkRateLimit(req, res)) {
       return;
     }
 
@@ -250,34 +301,60 @@ export class OrchestratorServer {
     res.end(JSON.stringify({ error: 'Not Found' }));
   }
 
-  /** Handle GET /api/state and legacy /api/v1/state */
-  private handleStateEndpoint(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    const { method, url } = req;
-    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
-      return true;
-    }
-    return false;
-  }
-
   /**
-   * Check bearer token auth for mutating API routes.
-   * When HARNESS_API_TOKEN is set, all API requests must include it.
-   * Read-only endpoints (state, static) are exempt.
+   * Phase 1 auth: bearer token lookup against TokenStore + scope check.
+   * Legacy HARNESS_API_TOKEN env var still authenticates as a synthetic
+   * admin record (see TokenStore.legacyEnvToken).
+   *
+   * Returns the resolved AuthToken on success; sends 401/403 + returns null on failure.
    */
-  private checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    const token = process.env['HARNESS_API_TOKEN'];
-    if (!token) return true; // Auth not configured — allow (localhost-only)
-
+  private async resolveAuth(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<AuthToken | null> {
     const authHeader = req.headers['authorization'];
-    if (authHeader === `Bearer ${token}`) return true;
+    const legacyEnv = process.env['HARNESS_API_TOKEN'];
 
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <HARNESS_API_TOKEN>' })
-    );
-    return false;
+    // Tokens file empty AND no env var → unauthenticated mode (localhost dev).
+    const listed = await this.tokenStore.list().catch(() => []);
+    if (listed.length === 0 && !legacyEnv) {
+      // Surface the fallback so operators don't deploy un-authed by accident.
+      // Header on every response; one-time warn on first hit per process.
+      res.setHeader('X-Harness-Auth-Mode', 'unauth-dev');
+      if (!this.warnedUnauthDev) {
+        this.warnedUnauthDev = true;
+        console.warn(
+          'harness orchestrator: running in UNAUTHENTICATED dev mode ' +
+            '(tokens.json empty and HARNESS_API_TOKEN not set). ' +
+            'All requests resolve as admin. Configure tokens before exposing the API beyond localhost.'
+        );
+      }
+      return {
+        id: 'tok_unauth_dev',
+        name: 'unauth-dev',
+        scopes: ['admin'],
+        hashedSecret: '<none>',
+        createdAt: new Date(0).toISOString(),
+      };
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <token>' }));
+      return null;
+    }
+    const raw = authHeader.slice('Bearer '.length).trim();
+
+    const legacyMatch = this.tokenStore.legacyEnvToken(raw, legacyEnv);
+    if (legacyMatch) return legacyMatch;
+
+    const verified = await this.tokenStore.verify(raw);
+    if (!verified) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized — invalid or expired token' }));
+      return null;
+    }
+    return verified;
   }
 
   /**
@@ -292,8 +369,14 @@ export class OrchestratorServer {
     (req: http.IncomingMessage, res: http.ServerResponse) => boolean
   > {
     return [
+      // Auth admin routes — scope-gated to `admin` by requiredScopeForRoute.
+      // First in the table so the auth surface is unambiguously owned by the orchestrator.
+      (req, res) => handleAuthRoute(req, res, this.tokenStore),
       (req, res) =>
         !!this.interactionQueue && handleInteractionsRoute(req, res, this.interactionQueue),
+      (req, res) =>
+        !!this.interactionQueue &&
+        handleV1InteractionsResolveRoute(req, res, this.interactionQueue),
       (req, res) => handlePlansRoute(req, res, this.plansDir),
       (req, res) => handleAnalyzeRoute(req, res, this.pipeline),
       (req, res) => handleAnalysesRoute(req, res, this.analysisArchive),
@@ -303,20 +386,175 @@ export class OrchestratorServer {
       // Local-models multi-status route (Spec 2 SC38)
       (req, res) => handleLocalModelsRoute(req, res, this.getLocalModelStatuses),
       (req, res) => handleMaintenanceRoute(req, res, this.maintenanceDeps),
+      (req, res) => handleV1JobsMaintenanceRoute(req, res, this.maintenanceDeps),
       (req, res) => !!this.recorder && handleStreamsRoute(req, res, this.recorder),
       (req, res) => handleSessionsRoute(req, res, this.sessionsDir),
+      // SSE event stream — long-lived; placed near end so cheaper routes
+      // short-circuit first, but before the chat-proxy fallback.
+      (req, res) => handleV1EventsSseRoute(req, res, this.orchestrator as unknown as EventEmitter),
+      // Phase 3 webhooks — short-circuits to false when webhooks is undefined
+      // (e.g. FakeOrchestrator-based tests pass no webhooks dep).
+      // Phase 4: forward the optional queue handle so the stats endpoint can
+      // serve depth/DLQ counts.
+      (req, res) =>
+        !!this.webhooks &&
+        handleV1WebhooksRoute(req, res, {
+          store: this.webhooks.store,
+          bus: this.orchestrator as unknown as EventEmitter,
+          ...(this.webhooks.queue ? { queue: this.webhooks.queue } : {}),
+        }),
+      // Phase 5 — telemetry/cache/stats. Returns 503 when cacheMetrics is unset
+      // (FakeOrchestrator tests, exporter-disabled configs).
+      (req, res) =>
+        handleV1TelemetryRoute(req, res, {
+          ...(this.cacheMetrics ? { cacheMetrics: this.cacheMetrics } : {}),
+        }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
     ];
   }
 
-  /** Dispatch to API route handlers. Returns true if a route matched. */
+  /**
+   * Dispatch to API route handlers. Returns true immediately and resolves the
+   * request asynchronously (auth + scope check + dispatch + audit log).
+   *
+   * Static-file fallback for non-/api/* requests requires returning false so
+   * `handleRequest` can hand the request off to the static handler.
+   */
   private handleApiRoutes(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    if (!this.checkAuth(req, res)) return true;
-    for (const route of this.apiRoutes) {
-      if (route(req, res)) return true;
+    const url = req.url ?? '';
+    // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem path
+    if (!url.startsWith('/api/')) return false;
+    void this.dispatchAuthedRequest(req, res);
+    return true;
+  }
+
+  private async dispatchAuthedRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    // Resolve auth first (may write 401 + return null).
+    const token = await this.resolveAuth(req, res);
+    // Register audit on wire-final status — fires once, regardless of which
+    // path below resolves the response. Captures the real status the client
+    // sees, not whatever was set before an async handler resolved. Phase 2
+    // carry-forward fix: prior inline audit() calls sampled res.statusCode
+    // synchronously, which for `void handleX(...); return true;` patterns
+    // recorded the default 200 instead of the wire-final code.
+    res.on('finish', () => this.audit(req, res, token));
+    if (!token) return;
+
+    // Phase 0 FINAL_REVIEW #4/#5: attach the resolved token to the request
+    // so downstream handlers can enforce per-token ownership (e.g. webhooks
+    // GET filtering, DELETE ownership check). Tests previously stubbed this
+    // by manually setting `_authToken` on the IncomingMessage; production
+    // code now wires it from the auth-resolved token. The shape exposes
+    // `id` + `scopes` because that's what the spec D2 per-bridge audit and
+    // per-bridge revocation paths require.
+    (req as unknown as { _authToken: { id: string; scopes: TokenScope[] } })._authToken = {
+      id: token.id,
+      scopes: token.scopes,
+    };
+
+    // /api/v1/<name>(/...) aliases for legacy routes.
+    // Phase 2 ships the alias by URL rewrite so the 12 legacy handlers stay
+    // untouched. Per-handler v1-prefix awareness was rejected (12 file edits +
+    // 12× test churn). See spec D7 cross-cutting decision.
+    //
+    // /api/v1/state is intentionally NOT in the wrappable set; the state
+    // endpoint is handled by an inlined shortcut below that already accepts
+    // both /api/state and /api/v1/state. The Deprecation header is still
+    // stamped on /api/state via the isLegacyPrefix branch.
+    const V1_WRAPPABLE = new Set([
+      'interactions',
+      'plans',
+      'analyze',
+      'analyses',
+      'roadmap-actions',
+      'dispatch-actions',
+      'local-model',
+      'local-models',
+      'maintenance',
+      'streams',
+      'sessions',
+      'chat-proxy',
+    ]);
+    const v1Match = /^\/api\/v1\/([^/?]+)(.*)$/.exec(req.url ?? '');
+    const rewrittenSlug = v1Match?.[1];
+    // Phase 2 review-fix cycle 1 (CRIT-1): some /api/v1/* paths are
+    // v1-ONLY bridge primitives — their dedicated handlers expect the
+    // un-rewritten /api/v1/... URL. Skip the rewrite when the path matches
+    // a dedicated v1 handler, otherwise the rewrite shim mutates the URL
+    // out from under the handler's regex (e.g. /api/v1/interactions/{id}/resolve
+    // → /api/interactions/{id}/resolve, which the v1 handler regex won't
+    // match → falls through to legacy handler → 404).
+    //
+    // Phase 3 Task 2: route knowledge moved to v1-bridge-routes.ts (shared
+    // with scopes.ts). Adding a bridge route is a one-line append in that file.
+    const v1BridgeMatch = isV1Bridge(req.method ?? 'GET', req.url ?? '');
+    if (!v1BridgeMatch && rewrittenSlug && V1_WRAPPABLE.has(rewrittenSlug)) {
+      // Mutate req.url for the route-table loop. Existing handlers match on
+      // hardcoded /api/<name> prefixes; rewriting once is cheaper than fanning
+      // out 12 wrapper files. /api/v1/state is handled by the shortcut below,
+      // not via rewrite.
+      req.url = `/api/${rewrittenSlug}${v1Match?.[2] ?? ''}`;
     }
-    return false;
+    // Original (pre-rewrite) URL drives the Deprecation header: if the caller
+    // hit /api/v1/<wrappable> the v1Match captured it and we MUST NOT stamp
+    // Deprecation. If the caller hit /api/<name> directly, v1Match is null and
+    // the header lands.
+    const isLegacyPrefix =
+      !!req.url &&
+      // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem
+      req.url.startsWith('/api/') &&
+      // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- URL path, not filesystem
+      !req.url.startsWith('/api/v1/') &&
+      !v1Match;
+    if (isLegacyPrefix) {
+      res.setHeader('Deprecation', DEPRECATION_DATE);
+    }
+
+    // Strip query string before scope lookup. scopes.ts uses exact path equality
+    // (e.g. `path === '/api/v1/auth/token'`), so passing the raw req.url would
+    // cause `/api/v1/auth/token?x=1` to miss every map and return null. Matches
+    // the URL normalization already used by audit() (line 411) and handleAuthRoute.
+    const pathname = (req.url ?? '').split('?')[0] ?? '';
+    const required = requiredScopeForRoute(req.method ?? 'GET', pathname);
+    // Default-deny: null required means the route has no scope mapping yet, which
+    // ADR 0011 line 30 and scopes.ts:26 both pin as 403, not allow. Phase 1
+    // review-cycle 2 caught the prior `if (required && ...)` form was default-permit,
+    // which let a read-status bearer mint admin tokens by appending any query string.
+    if (!required || !hasScope(token.scopes, required)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Insufficient scope', required: required ?? 'unknown' }));
+      return;
+    }
+    // Inlined state endpoint (previously handled before auth in handleRequest).
+    if (req.method === 'GET' && (req.url === '/api/state' || req.url === '/api/v1/state')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.orchestrator.getSnapshot()));
+      return;
+    }
+    for (const route of this.apiRoutes) {
+      if (route(req, res)) return;
+    }
+    // No route matched — emit 404 here so the audit log captures the result.
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not Found' }));
+  }
+
+  private audit(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    token: AuthToken | null
+  ): void {
+    void this.auditLogger.append({
+      tokenId: token?.id ?? 'anonymous',
+      ...(token?.tenantId ? { tenantId: token.tenantId } : {}),
+      route: (req.url ?? '').split('?')[0] ?? '',
+      method: req.method ?? 'GET',
+      status: res.statusCode || 0,
+    });
   }
 
   public get wsClientCount(): number {

@@ -335,6 +335,54 @@ export const KnowledgeConfigSchema = z.object({
 });
 
 /**
+ * Schema for the in-tree OTLP/HTTP trace exporter (Phase 5).
+ *
+ * When present and `enabled !== false`, the orchestrator instantiates an
+ * `OTLPExporter` that POSTs span batches to `endpoint` (typically a local
+ * collector at `http://localhost:4318/v1/traces`). `headers` are forwarded
+ * verbatim on each request (used for collector auth tokens). `flushIntervalMs`
+ * and `batchSize` control buffer flushing — defaults match
+ * `OTLPExporterOptions` in @harness-engineering/core.
+ *
+ * Disabling the section (`enabled: false`) keeps the exporter constructed
+ * but converts `push()` into a no-op (zero hot-path cost). Omitting the
+ * section entirely removes the exporter from the dispatch path.
+ */
+export const TelemetryExportOTLPSchema = z.object({
+  /** Full URL to the OTLP/HTTP traces ingestion endpoint. */
+  endpoint: z.string().url(),
+  /** Whether the exporter is active. Default: true. */
+  enabled: z.boolean().default(true),
+  /** Optional headers forwarded on every flush (e.g. collector auth tokens). */
+  headers: z.record(z.string(), z.string()).optional(),
+  /** Flush cadence in milliseconds. Default: 2000. */
+  flushIntervalMs: z.number().int().positive().default(2000),
+  /** Maximum buffered spans before forcing an early flush. Default: 64. */
+  batchSize: z.number().int().positive().default(64),
+});
+
+/**
+ * Telemetry configuration block. Combines:
+ *   - `enabled` — top-level central-telemetry kill switch (PostHog batch upload)
+ *   - `export.otlp` — Phase 5 in-tree OTLP/HTTP trace exporter (optional, adjacent sibling)
+ *
+ * The two systems are intentionally adjacent rather than duplicated keys: the
+ * `enabled` flag controls the PostHog uploader in core/telemetry; the
+ * `export.otlp` block is consumed by the orchestrator-level
+ * `OTLPExporter` wiring and is independent of PostHog consent.
+ */
+export const TelemetryConfigSchema = z.object({
+  /** Whether anonymous central telemetry (PostHog) is enabled (default: true). */
+  enabled: z.boolean().default(true),
+  /** Trace exporter configuration. Currently the only export channel is OTLP/HTTP. */
+  export: z
+    .object({
+      otlp: TelemetryExportOTLPSchema.optional(),
+    })
+    .optional(),
+});
+
+/**
  * Schema for branch naming convention configuration.
  *
  * Defaults declared here are the single source of truth -- consumers should call
@@ -469,13 +517,8 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   /** Compliance and convention enforcement settings */
   compliance: ComplianceConfigSchema.optional(),
-  /** Central telemetry collection settings */
-  telemetry: z
-    .object({
-      /** Whether anonymous telemetry is enabled (default: true) */
-      enabled: z.boolean().default(true),
-    })
-    .optional(),
+  /** Central telemetry + trace export settings */
+  telemetry: TelemetryConfigSchema.optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
   /** Graph ingest and connector settings */
@@ -531,3 +574,13 @@ export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
  * Type for knowledge-pipeline-specific configuration.
  */
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
+
+/**
+ * Type for telemetry block configuration (PostHog opt-in + OTLP export).
+ */
+export type TelemetryConfigZod = z.infer<typeof TelemetryConfigSchema>;
+
+/**
+ * Type for the OTLP/HTTP trace exporter block.
+ */
+export type TelemetryExportOTLPConfig = z.infer<typeof TelemetryExportOTLPSchema>;

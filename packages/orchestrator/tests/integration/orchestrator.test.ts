@@ -166,4 +166,13 @@ describe('Orchestrator Integration', () => {
     // but the state machine might still have it as running until tick() or worker_exit.
     // But orchestrator.stop() calls return() on generators.
   });
+
+  // Phase 2 carry-forward from plan risk #3: the SSE handler at
+  // GET /api/v1/events subscribes to 9 event-bus topics per connection.
+  // Node's default EventEmitter max-listeners is 10, so two concurrent
+  // SSE clients would trip MaxListenersExceededWarning. The orchestrator
+  // raises the cap to 50 in its constructor; this test pins that contract.
+  it('raises EventEmitter max-listeners cap to absorb multi-client SSE load', () => {
+    expect(orchestrator.getMaxListeners()).toBeGreaterThanOrEqual(50);
+  });
 });

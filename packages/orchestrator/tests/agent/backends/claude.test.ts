@@ -5,7 +5,9 @@ import {
   ClaudeBackend,
   parseSubscriptionLimit,
   looksLikeUnparsedLimit,
+  recordCacheUsage,
 } from '../../../src/agent/backends/claude';
+import { CacheMetricsRecorder } from '@harness-engineering/core';
 import type { AgentSession, TurnResult, AgentEvent } from '@harness-engineering/types';
 
 vi.mock('node:child_process', async () => {
@@ -242,6 +244,168 @@ describe('ClaudeBackend runTurn', () => {
     expect(resultEvent!.usage!.inputTokens).toBe(1000);
     expect(resultEvent!.usage!.outputTokens).toBe(500);
     expect(resultEvent!.usage!.totalTokens).toBe(1500);
+  });
+});
+
+describe('ClaudeBackend cacheMetrics wiring', () => {
+  const mockSpawn = vi.mocked(child_process.spawn);
+  let session: AgentSession;
+
+  beforeEach(async () => {
+    const backend = new ClaudeBackend('claude');
+    const started = await backend.startSession({
+      workspacePath: '/tmp/workspace',
+      permissionMode: 'full',
+    });
+    if (!started.ok) throw new Error('failed to start session');
+    session = started.value;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Phase 5 Task 7: every completed Anthropic response (terminal assistant
+  // chunk + result event) must record a prompt-cache observation so the
+  // /api/v1/telemetry/cache/stats endpoint can surface live hit-rate.
+  it('records cache hit/miss for terminal assistant chunks and result events', async () => {
+    const recorder = new CacheMetricsRecorder();
+    const recordSpy = vi.spyOn(recorder, 'record');
+    const backend = new ClaudeBackend('claude', { cacheMetrics: recorder });
+    const ses = (await backend.startSession({ workspacePath: '/tmp', permissionMode: 'full' }))
+      .value as AgentSession;
+
+    const child = createMockChild([
+      // Terminal assistant chunk — stop_reason set, cache_read=0 -> miss
+      {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: {} }],
+          stop_reason: 'tool_use',
+          usage: {
+            input_tokens: 10,
+            output_tokens: 5,
+            cache_creation_input_tokens: 28604,
+            cache_read_input_tokens: 0,
+          },
+        },
+      },
+      // Final result event — cache_read>0 -> hit
+      {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        result: 'ok',
+        session_id: ses.sessionId,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 1234,
+        },
+      },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    await consumeTurn(
+      backend.runTurn(ses, {
+        sessionId: ses.sessionId,
+        prompt: 'do work',
+        isContinuation: false,
+      })
+    );
+
+    // Two terminal observations: one miss (cache_read=0) and one hit (cache_read=1234).
+    expect(recordSpy).toHaveBeenCalledTimes(2);
+    expect(recordSpy).toHaveBeenNthCalledWith(1, 'anthropic', false, 28604, 0);
+    expect(recordSpy).toHaveBeenNthCalledWith(2, 'anthropic', true, 0, 1234);
+
+    const stats = recorder.getStats();
+    expect(stats.totalRequests).toBe(2);
+    expect(stats.hits).toBe(1);
+    expect(stats.misses).toBe(1);
+    expect(stats.hitRate).toBe(0.5);
+    expect(stats.byBackend['anthropic']).toEqual({ hits: 1, misses: 1 });
+  });
+
+  it('does not record cache observations for intermediate (non-terminal) assistant chunks', async () => {
+    const recorder = new CacheMetricsRecorder();
+    const recordSpy = vi.spyOn(recorder, 'record');
+    const backend = new ClaudeBackend('claude', { cacheMetrics: recorder });
+    const ses = (await backend.startSession({ workspacePath: '/tmp', permissionMode: 'full' }))
+      .value as AgentSession;
+
+    const child = createMockChild([
+      {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'thinking', thinking: '...', signature: 'sig' }],
+          stop_reason: null,
+          usage: {
+            input_tokens: 6,
+            output_tokens: 0,
+            cache_creation_input_tokens: 999,
+            cache_read_input_tokens: 0,
+          },
+        },
+      },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    await consumeTurn(
+      backend.runTurn(ses, {
+        sessionId: ses.sessionId,
+        prompt: 'do work',
+        isContinuation: false,
+      })
+    );
+
+    expect(recordSpy).not.toHaveBeenCalled();
+  });
+
+  // Cache-miss pollution guard (I1): when the wire-level usage carries neither
+  // a cache read nor a cache creation, the turn never participated in caching
+  // — recording it as a "miss" would drag the displayed hit-rate toward 0 in
+  // mixed workloads. The helper must early-return and leave totalRequests at 0.
+  it('does not record when usage carries no cache fields (cache control not requested)', () => {
+    const recorder = new CacheMetricsRecorder();
+    recordCacheUsage(recorder, { input_tokens: 100, output_tokens: 50 });
+    expect(recorder.getStats().totalRequests).toBe(0);
+  });
+
+  it('is a no-op when no recorder is injected (existing call sites unaffected)', async () => {
+    const backend = new ClaudeBackend('claude');
+    const ses = (await backend.startSession({ workspacePath: '/tmp', permissionMode: 'full' }))
+      .value as AgentSession;
+
+    const child = createMockChild([
+      {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        result: 'ok',
+        session_id: ses.sessionId,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_creation_input_tokens: 10,
+          cache_read_input_tokens: 5,
+        },
+      },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    // Should consume cleanly with no recorder injected.
+    const { result } = await consumeTurn(
+      backend.runTurn(ses, {
+        sessionId: ses.sessionId,
+        prompt: 'do work',
+        isContinuation: false,
+      })
+    );
+    expect(result.success).toBe(true);
   });
 });
 

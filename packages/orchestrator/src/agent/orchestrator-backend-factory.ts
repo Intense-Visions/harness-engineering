@@ -6,6 +6,7 @@ import type {
   ContainerConfig,
   SecretConfig,
 } from '@harness-engineering/types';
+import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { BackendRouter } from './backend-router.js';
 import { createBackend } from './backend-factory.js';
 import { ContainerBackend } from './backends/container.js';
@@ -42,6 +43,12 @@ export interface OrchestratorBackendFactoryOptions {
    * route through the resolver Map.
    */
   getResolverModelFor?: (backendName: string) => (() => string | null) | undefined;
+  /**
+   * Phase 5: prompt-cache recorder forwarded to Anthropic-capable backends.
+   * Other backends accept-but-ignore. Shared across dispatches so the
+   * `/api/v1/telemetry/cache/stats` endpoint sees the full rolling window.
+   */
+  cacheMetrics?: CacheMetricsRecorder;
 }
 
 /**
@@ -88,12 +95,15 @@ export class OrchestratorBackendFactory {
     const def = this.router.resolveDefinition(useCase);
     const name = this.router.resolve(useCase);
     let backend: AgentBackend;
+    const createOpts = this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {};
 
     if ((def.type === 'local' || def.type === 'pi') && this.opts.getResolverModelFor) {
       const getModel = this.opts.getResolverModelFor(name);
-      backend = getModel ? this.buildLocalLikeWithResolver(def, getModel) : createBackend(def);
+      backend = getModel
+        ? this.buildLocalLikeWithResolver(def, getModel)
+        : createBackend(def, createOpts);
     } else {
-      backend = createBackend(def);
+      backend = createBackend(def, createOpts);
     }
 
     if (this.opts.sandboxPolicy === 'docker' && this.opts.container) {

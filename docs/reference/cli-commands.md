@@ -555,6 +555,18 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
+## Gateway Commands
+
+Gateway API administration
+
+### `harness gateway deliveries`
+
+Inspect and manage webhook delivery queue
+
+### `harness gateway token`
+
+Manage Gateway API tokens
+
 ## Graph Commands
 
 Knowledge graph management

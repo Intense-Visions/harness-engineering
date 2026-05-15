@@ -195,6 +195,15 @@ export {
   getOrCreateInstallId,
   collectEvents,
   send,
+  CacheMetricsRecorder,
+  OTLPExporter,
+  SpanKind,
+} from './telemetry';
+export type {
+  CacheMetricsRecorderOptions,
+  OTLPExporterOptions,
+  TraceSpan,
+  SpanAttributes,
 } from './telemetry';
 
 /**

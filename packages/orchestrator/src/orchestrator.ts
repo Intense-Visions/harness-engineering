@@ -37,6 +37,12 @@ import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
+import { WebhookStore } from './gateway/webhooks/store';
+import { WebhookDelivery } from './gateway/webhooks/delivery';
+import { WebhookQueue } from './gateway/webhooks/queue';
+import { wireWebhookFanout } from './gateway/webhooks/events';
+import { wireTelemetryFanout } from './gateway/telemetry/fanout';
+import { CacheMetricsRecorder, OTLPExporter } from '@harness-engineering/core';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
@@ -149,6 +155,25 @@ export class Orchestrator extends EventEmitter {
   private prDetector: PRDetector;
   private maintenanceScheduler: MaintenanceScheduler | null = null;
   private maintenanceReporter: MaintenanceReporter | null = null;
+  // Phase 3 webhooks. `webhookStore` is constructed at server-start and held
+  // only as a local; it's passed into `ServerDependencies` and
+  // `wireWebhookFanout` once and never re-read on `this`. The fan-out
+  // teardown handle is kept on the instance so `stop()` can detach listeners.
+  //
+  // Phase 4 delivery durability: the WebhookQueue (SQLite at
+  // `.harness/webhook-queue.sqlite`) and the WebhookDelivery worker are
+  // retained as instance fields so `stop()` can drain in-flight deliveries
+  // (await worker.stop()) and close the SQLite handle (queue.close()).
+  private webhookFanoutOff?: () => void;
+  private webhookQueue?: WebhookQueue;
+  private webhookDeliveryWorker?: WebhookDelivery;
+  // Phase 5: prompt-cache metrics + OTLP trace export. Both are constructed
+  // unconditionally so non-telemetry call sites can reference them safely; the
+  // OTLPExporter is only handed a fanout subscription when config supplies an
+  // endpoint, and `enabled: false` keeps push() a constant-time no-op.
+  private cacheMetrics?: CacheMetricsRecorder;
+  private otlpExporter?: OTLPExporter;
+  private telemetryFanoutOff?: () => void;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
   private intelligenceRunner: IntelligencePipelineRunner;
@@ -194,6 +219,15 @@ export class Orchestrator extends EventEmitter {
     overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend; execFileFn?: ExecFileFn }
   ) {
     super();
+    // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
+    // subscribes to 9 event-bus topics per connection (maintenance:*,
+    // interaction.created, interaction.resolved, etc.). Node's default
+    // EventEmitter max-listeners cap is 10, so two concurrent SSE clients
+    // would trip MaxListenersExceededWarning at runtime. Raise the cap to
+    // 50 to absorb multi-client load; Phase 4 will move SSE fan-out
+    // behind a broker (per spec D7 — webhook delivery worker shares the
+    // same bus) and this lift can be revisited then.
+    this.setMaxListeners(50);
     this.config = config;
     this.promptTemplate = promptTemplate;
     this.state = createEmptyState(config);
@@ -253,8 +287,12 @@ export class Orchestrator extends EventEmitter {
     // `getResolverModelFor` hook can read `this.localResolvers`.
     this.overrideBackend = overrides?.backend ?? null;
 
+    // Phase 2 Task 8: pass `this` (Orchestrator extends EventEmitter) so
+    // the queue can emit `interaction.created` / `interaction.resolved`
+    // onto the same bus the SSE handler subscribes to.
     this.interactionQueue = new InteractionQueue(
-      path.join(config.workspace.root, '..', 'interactions')
+      path.join(config.workspace.root, '..', 'interactions'),
+      this
     );
 
     this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
@@ -310,6 +348,12 @@ export class Orchestrator extends EventEmitter {
     // as 'none' to preserve the current behavior of the deleted
     // `createBackend` path: only 'docker' triggered container wrapping;
     // every other value (including unset) was effectively 'none'.
+    // Phase 5: prompt-cache metrics recorder. Constructed unconditionally so
+    // the backend factory below can forward it to Anthropic-capable backends
+    // even when the server is disabled. The route handler at
+    // GET /api/v1/telemetry/cache/stats reads getStats() on the same instance.
+    this.cacheMetrics = new CacheMetricsRecorder();
+
     if (
       this.config.agent.backends !== undefined &&
       Object.keys(this.config.agent.backends).length > 0
@@ -332,6 +376,7 @@ export class Orchestrator extends EventEmitter {
           ? { container: this.config.agent.container }
           : {}),
         ...(this.config.agent.secrets !== undefined ? { secrets: this.config.agent.secrets } : {}),
+        cacheMetrics: this.cacheMetrics,
         getResolverModelFor: (name) => {
           const resolver = this.localResolvers.get(name);
           return resolver ? () => resolver.resolveModel() : undefined;
@@ -388,8 +433,62 @@ export class Orchestrator extends EventEmitter {
     this.completionHandler = new CompletionHandler(ctx, this.postLifecycleComment.bind(this));
 
     if (config.server?.port) {
+      // Phase 3: webhook subscription store + delivery worker + fan-out.
+      // Store persists to .harness/webhooks.json (mode 0600). Fan-out
+      // subscribes to the orchestrator's EventEmitter (`this`) and dispatches
+      // matching events into the delivery worker. stop() invokes
+      // webhookFanoutOff() to drop the listeners cleanly.
+      const webhookStore = new WebhookStore(
+        path.join(this.projectRoot, '.harness', 'webhooks.json')
+      );
+      this.webhookQueue = new WebhookQueue(
+        path.join(this.projectRoot, '.harness', 'webhook-queue.sqlite')
+      );
+      const webhookDelivery = new WebhookDelivery({
+        queue: this.webhookQueue,
+        store: webhookStore,
+      });
+      this.webhookDeliveryWorker = webhookDelivery;
+      this.webhookFanoutOff = wireWebhookFanout({
+        bus: this,
+        store: webhookStore,
+        delivery: webhookDelivery,
+      });
+      webhookDelivery.start();
+
+      // Phase 5: OTLP/HTTP trace exporter. Constructed only when the
+      // operator configures `telemetry.export.otlp` in harness.config.json.
+      // The fanout wires bus events (maintenance:*, skill_invocation,
+      // dispatch:decision) to both the exporter and the webhook delivery
+      // worker. The telemetry.* GatewayEvents respect the Task 9 exclusion
+      // (legacy *.* subscriptions do not receive them).
+      const otlpCfg = config.telemetry?.export?.otlp;
+      if (otlpCfg) {
+        this.otlpExporter = new OTLPExporter({
+          endpoint: otlpCfg.endpoint,
+          ...(otlpCfg.enabled !== undefined ? { enabled: otlpCfg.enabled } : {}),
+          ...(otlpCfg.headers !== undefined ? { headers: otlpCfg.headers } : {}),
+          ...(otlpCfg.flushIntervalMs !== undefined
+            ? { flushIntervalMs: otlpCfg.flushIntervalMs }
+            : {}),
+          ...(otlpCfg.batchSize !== undefined ? { batchSize: otlpCfg.batchSize } : {}),
+        });
+        this.telemetryFanoutOff = wireTelemetryFanout({
+          bus: this,
+          exporter: this.otlpExporter,
+          webhookDelivery,
+          store: webhookStore,
+        });
+      }
+
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
+        webhooks: {
+          store: webhookStore,
+          delivery: webhookDelivery,
+          queue: this.webhookQueue,
+        },
+        cacheMetrics: this.cacheMetrics,
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -423,7 +522,18 @@ export class Orchestrator extends EventEmitter {
 
       this.server.setRecorder(this.recorder);
 
-      // Wire interaction push -> WebSocket broadcast
+      // Phase 2 Task 12: WebSocket fan-out for legacy dashboard consumers
+      // is intentionally retained alongside the Phase 2 event-bus path.
+      // `InteractionQueue.push()` now also fires `interaction.created` on
+      // the shared EventEmitter (Phase 2 Task 8), which feeds the SSE
+      // handler at `GET /api/v1/events`. The two paths coexist by design:
+      // the dashboard's existing `/ws` consumer keeps working unchanged,
+      // and new SSE consumers (CLI bridges, future webhooks) subscribe to
+      // the event bus. No rip-out of the WebSocket fan-out — it's the
+      // legacy compatibility contract for dashboard sessions still on
+      // the WebSocket transport. Phase 3 will graduate `interaction.created`
+      // payloads to the richer `GatewayEvent` envelope; Phase 4 may unify
+      // both fan-outs behind a single broker.
       this.interactionQueue.onPush((interaction) => {
         this.server?.broadcastInteraction(interaction);
       });
@@ -1539,6 +1649,12 @@ export class Orchestrator extends EventEmitter {
       void this.server.start();
     }
 
+    // Phase 5: kick off the OTLP timer flush. start() is idempotent and a
+    // no-op when `enabled === false`.
+    if (this.otlpExporter) {
+      this.otlpExporter.start();
+    }
+
     await this.initLocalModelAndPipeline();
 
     // Resolve orchestrator identity and initialize ClaimManager before first tick
@@ -1614,6 +1730,30 @@ export class Orchestrator extends EventEmitter {
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
       this.maintenanceScheduler = null;
+    }
+    if (this.webhookFanoutOff) {
+      this.webhookFanoutOff();
+      delete this.webhookFanoutOff;
+    }
+    // Phase 5: tear down telemetry fanout BEFORE the delivery worker so
+    // late-arriving bus events do not enqueue into a draining queue.
+    if (this.telemetryFanoutOff) {
+      this.telemetryFanoutOff();
+      delete this.telemetryFanoutOff;
+    }
+    if (this.otlpExporter) {
+      // exporter.stop() flushes remaining buffered spans before resolving.
+      await this.otlpExporter.stop();
+      delete this.otlpExporter;
+    }
+    if (this.webhookDeliveryWorker) {
+      // Drain in-flight HTTP deliveries before closing the SQLite handle.
+      await this.webhookDeliveryWorker.stop();
+      delete this.webhookDeliveryWorker;
+    }
+    if (this.webhookQueue) {
+      this.webhookQueue.close();
+      delete this.webhookQueue;
     }
     if (this.server) {
       this.server.stop();

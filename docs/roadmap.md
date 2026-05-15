@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-24
-last_synced: 2026-04-24T14:00:00.000Z
-last_manual_edit: 2026-05-09T21:07:20.759Z
+last_synced: 2026-05-15T00:00:00.000Z
+last_manual_edit: 2026-05-15T00:00:00.000Z
 ---
 
 # Roadmap
@@ -1112,6 +1112,9 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Summary:** Opt-in mode where the configured external tracker is the canonical roadmap, eliminating docs/roadmap.md as a multi-session conflict surface
 - **Blockers:** —
 - **Plan:** docs/changes/roadmap-tracker-only/plans/
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#308
 
 ### Orchestrator Main-Branch Sync
 
@@ -1120,6 +1123,97 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Summary:** Periodic 15-min cron task to fast-forward the orchestrator's local default branch from origin (FF-only, surfaced warnings); plus dashboard generalization so "Run Now" works for any maintenance task.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#309
+
+## Hermes Adoption
+
+### Hermes Phase 0: Gateway API + Telemetry
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
+- **Summary:** Versioned external REST API on orchestrator with token-scoped auth and outbound webhook fanout; OpenTelemetry/Langfuse exporter for skill_invocation events; prompt-cache hit-rate analytics. Foundation for Phases 3, 4, and observability across all subsequent phases. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#310
+
+### Hermes Phase 0.1: Reference Slack Bridge
+
+- **Status:** planned
+- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
+- **Summary:** External test consumer `examples/slack-echo-bridge/` — ~150 LOC Node bridge that subscribes to `maintenance.completed` webhooks, verifies HMAC SHA-256 signatures, posts to Slack. Validates the Phase 0 API contract is usable from an external bridge author's perspective (anti-success #4). Deferred from Phase 0 to ship Phase 0 surface promptly.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+
+### Hermes Phase 0.2: Gateway Tunnel Guide
+
+- **Status:** planned
+- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
+- **Summary:** `docs/guides/gateway-tunnel.md` covering Tailscale, Cloudflare Tunnel, and ngrok as canonical bridge-exposure patterns. Required to complete the spec §D5 "localhost-by-default + tunnel-pattern guide" decision. Deferred from Phase 0.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+
+### Hermes Phase 1: Session Search + Insights
+
+- **Status:** planned
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** SQLite FTS5 index over .harness/sessions/ with auto-LLM summarization on session close; harness search CLI and dashboard search; harness insights aggregator composing entropy/decay/attention/impact/health views. Independent of Phase 0 — can run in parallel. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#311
+
+### Hermes Phase 2: Custom Maintenance Jobs
+
+- **Status:** blocked
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** Extend MaintenanceScheduler beyond 21 built-in tasks: user-defined custom jobs with output persistence, context_from chaining, skill-content injection, origin tracking, arbitrary pre-check scripts. Plus pre-launch OSV malware guard on MCP/npx packages and expanded cleanup-sessions to general .harness disk hygiene. From Hermes adoption meta-spec.
+- **Blockers:** Hermes Phase 0: Gateway API + Telemetry
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#312
+
+### Hermes Phase 3: Multi-Sink Notifications
+
+- **Status:** blocked
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** Generalize CINotifier to NotificationSink interface with Slack-first concrete adapter; wrap_response envelope option for platform-shape delivery formatting; harden harness doctor with live pings, hook validity, baseline freshness, session corruption check. Requires Phase 0 webhook fanout. From Hermes adoption meta-spec.
+- **Blockers:** Hermes Phase 0: Gateway API + Telemetry
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#313
+
+### Hermes Phase 4: Skill Proposal Loop
+
+- **Status:** blocked
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
+- **Blockers:** Hermes Phase 0: Gateway API + Telemetry, Hermes Phase 1: Session Search + Insights, Hermes Phase 3: Multi-Sink Notifications
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#314
+
+### Hermes Phase 5: Dispatch Hardening
+
+- **Status:** blocked
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** SSH agent dispatch backend, serverless backend interface (Modal-style not Modal-coupled), isolation tier as fourth axis on BackendRouter (local/container/remote-sandbox), per-task cost ceiling with abort-on-exceed. Cost ceiling requires Phase 0 telemetry. From Hermes adoption meta-spec.
+- **Blockers:** Hermes Phase 0: Gateway API + Telemetry
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#315
 
 ### Branch Naming Convention and Compliance Verification
 
@@ -1827,6 +1921,17 @@ last_manual_edit: 2026-05-09T21:07:20.759Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#299
+
+### harness:design-pipeline orchestrator
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Multi-phase orchestrator skill composing existing design-_, a11y-_, and harness-design skills into a convergence-loop pipeline (pattern: docs-pipeline, knowledge-pipeline). Anticipated phases: design-system drift detection → accessibility audit → brand/token compliance → component-anatomy coverage → remediation. Output: design-system health report + remediation PRs through the maintenance-task lifecycle. Surfaced 2026-05-13 during Hermes feature-evaluation conversation; deferred so it doesn't multi-thread the Hermes adoption work. Re-evaluate after Hermes Phase 0 lands. See memory: project_design_pipeline_idea.md.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#316
 
 ## v4.0 Business Knowledge System
 

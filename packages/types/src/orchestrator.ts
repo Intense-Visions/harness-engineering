@@ -525,6 +525,27 @@ export interface ServerConfig {
 }
 
 /**
+ * Phase 5: OTLP/HTTP trace exporter configuration. When present and
+ * `enabled !== false`, the orchestrator instantiates an OTLPExporter
+ * targeting `endpoint` and wires it into the telemetry fanout.
+ *
+ * Schema enforcement lives in `@harness-engineering/cli` (config/schema.ts).
+ * This is the structural shape consumed at runtime by `orchestrator.ts`.
+ */
+export interface OTLPExportConfig {
+  endpoint: string;
+  enabled?: boolean;
+  headers?: Record<string, string>;
+  flushIntervalMs?: number;
+  batchSize?: number;
+}
+
+export interface TelemetryWorkflowConfig {
+  /** OTLP/HTTP trace exporter wiring. Omit to disable export entirely. */
+  export?: { otlp?: OTLPExportConfig };
+}
+
+/**
  * Root workflow configuration object.
  */
 export interface WorkflowConfig {
@@ -544,6 +565,8 @@ export interface WorkflowConfig {
   intelligence?: IntelligenceConfig;
   /** Scheduled maintenance settings */
   maintenance?: MaintenanceConfig;
+  /** Phase 5: telemetry export wiring (OTLP/HTTP traces). */
+  telemetry?: TelemetryWorkflowConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
 }

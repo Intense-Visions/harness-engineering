@@ -95,6 +95,13 @@ export type { StabilityTier, StabilityMetadata } from './caching';
 
 // --- Telemetry ---
 export type { TelemetryConfig, TelemetryIdentity, ConsentState, TelemetryEvent } from './telemetry';
+export {
+  TrajectoryMetadataSchema,
+  PromptCacheStatsSchema,
+  OTLPKeyValueSchema,
+  OTLPSpanSchema,
+} from './telemetry';
+export type { TrajectoryMetadata, PromptCacheStats, OTLPKeyValue, OTLPSpan } from './telemetry';
 
 // --- Orchestrator ---
 export type {
@@ -180,3 +187,29 @@ export type {
 
 // --- Maintenance ---
 export type { MaintenanceConfig, TaskOverride, MaintenanceHistoryEntry } from './maintenance';
+
+// --- Auth (Hermes Phase 0) ---
+export {
+  TokenScopeSchema,
+  BridgeKindSchema,
+  AuthTokenSchema,
+  AuthTokenPublicSchema,
+  AuthAuditEntrySchema,
+} from './auth';
+export type { TokenScope, BridgeKind, AuthToken, AuthTokenPublic, AuthAuditEntry } from './auth';
+
+// --- Webhooks (Hermes Phase 0 — Phase 4) ---
+export {
+  WebhookSubscriptionSchema,
+  WebhookSubscriptionPublicSchema,
+  GatewayEventSchema,
+  WebhookDeliveryStatusSchema,
+  WebhookDeliverySchema,
+} from './webhooks';
+export type {
+  WebhookSubscription,
+  WebhookSubscriptionPublic,
+  GatewayEvent,
+  WebhookDeliveryStatus,
+  WebhookDelivery,
+} from './webhooks';

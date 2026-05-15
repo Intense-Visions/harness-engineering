@@ -333,8 +333,14 @@ function isIdentifierUsedInAST(
   identifier: string,
   skipImportDeclaration: boolean = true
 ): boolean {
-  // Simple heuristic: convert AST to string and search for identifier usage
-  const astString = JSON.stringify(ast);
+  // Simple heuristic: convert AST to string and search for identifier usage.
+  // BigInt literals (e.g. `1_000_000n`) appear in the AST as bigint values;
+  // JSON.stringify rejects bigint without a replacer, so stringify them to
+  // their decimal form — the identifier-name matcher below only cares about
+  // string content, not the original literal type.
+  const astString = JSON.stringify(ast, (_key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  );
 
   // Look for identifier references (not just the declaration)
   // The identifier should appear as a value in the AST (not just in the name field of declarations)
