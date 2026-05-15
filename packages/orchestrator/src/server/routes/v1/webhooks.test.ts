@@ -9,11 +9,20 @@ import { EventEmitter } from 'node:events';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 
-function makeReq(method: string, url: string, body?: unknown): IncomingMessage {
+function makeReq(
+  method: string,
+  url: string,
+  body?: unknown,
+  auth?: { id: string; scopes?: string[] }
+): IncomingMessage {
   const r = new IncomingMessage(new Socket());
   r.method = method;
   r.url = url;
-  (r as unknown as { _authToken: { id: string } })._authToken = { id: 'tok_test' };
+  // Default: a non-admin bearer scoped to subscribe-webhook (matches the
+  // production scope check upstream in dispatchAuthedRequest).
+  const id = auth?.id ?? 'tok_test';
+  const scopes = auth?.scopes ?? ['subscribe-webhook'];
+  (r as unknown as { _authToken: { id: string; scopes: string[] } })._authToken = { id, scopes };
   if (body !== undefined) {
     process.nextTick(() => {
       r.emit('data', Buffer.from(JSON.stringify(body)));
@@ -128,11 +137,12 @@ describe('handleV1WebhooksRoute', () => {
   // SUG-5 + DELTA-SUG-2 carry-forwards
   it('POST under unauth-dev emits exactly one console.warn per process', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const req1 = makeReq('POST', '/api/v1/webhooks', {
-      url: 'https://example.com/hook1',
-      events: ['*.*'],
-    });
-    (req1 as unknown as { _authToken: { id: string } })._authToken = { id: 'tok_legacy_env' };
+    const req1 = makeReq(
+      'POST',
+      '/api/v1/webhooks',
+      { url: 'https://example.com/hook1', events: ['*.*'] },
+      { id: 'tok_legacy_env', scopes: ['admin'] }
+    );
     // synthetic-admin sentinel ID matches tokens.ts:LEGACY_ENV_ID — but the
     // unauth-dev synthetic admin uses a distinct sentinel; webhooks.ts uses
     // both legacy-env and unauth-dev sentinel IDs as the "warn" trigger.
@@ -141,11 +151,12 @@ describe('handleV1WebhooksRoute', () => {
     const { res: r1 } = makeRes();
     handleV1WebhooksRoute(req1, r1, { store, bus });
     await new Promise((r) => setTimeout(r, 20));
-    const req2 = makeReq('POST', '/api/v1/webhooks', {
-      url: 'https://example.com/hook2',
-      events: ['*.*'],
-    });
-    (req2 as unknown as { _authToken: { id: string } })._authToken = { id: 'tok_legacy_env' };
+    const req2 = makeReq(
+      'POST',
+      '/api/v1/webhooks',
+      { url: 'https://example.com/hook2', events: ['*.*'] },
+      { id: 'tok_legacy_env', scopes: ['admin'] }
+    );
     const { res: r2 } = makeRes();
     handleV1WebhooksRoute(req2, r2, { store, bus });
     await new Promise((r) => setTimeout(r, 20));
@@ -203,5 +214,79 @@ describe('handleV1WebhooksRoute', () => {
     );
     // belt-and-braces block-list scan
     expect(JSON.stringify(body)).not.toMatch(/secret/i);
+  });
+
+  // ── Phase 0 FINAL_REVIEW #4: GET filters by token ownership ──
+  describe('GET ownership filtering (spec §D2 per-bridge audit)', () => {
+    it('each token sees ONLY its own subscriptions', async () => {
+      await store.create({ tokenId: 'tok_A', url: 'https://a.test/h', events: ['*.*'] });
+      await store.create({ tokenId: 'tok_B', url: 'https://b.test/h', events: ['*.*'] });
+
+      // Token A
+      const reqA = makeReq('GET', '/api/v1/webhooks', undefined, {
+        id: 'tok_A',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res: resA, chunks: chunksA, statusCode: scA } = makeRes();
+      handleV1WebhooksRoute(reqA, resA, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(scA()).toBe(200);
+      const bodyA = JSON.parse(chunksA.join('')) as Array<{ tokenId: string }>;
+      expect(bodyA).toHaveLength(1);
+      expect(bodyA[0]?.tokenId).toBe('tok_A');
+
+      // Token B
+      const reqB = makeReq('GET', '/api/v1/webhooks', undefined, {
+        id: 'tok_B',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res: resB, chunks: chunksB } = makeRes();
+      handleV1WebhooksRoute(reqB, resB, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      const bodyB = JSON.parse(chunksB.join('')) as Array<{ tokenId: string }>;
+      expect(bodyB).toHaveLength(1);
+      expect(bodyB[0]?.tokenId).toBe('tok_B');
+    });
+
+    it('non-admin token does NOT see other tokens subscriptions', async () => {
+      await store.create({ tokenId: 'tok_owner', url: 'https://o.test/h', events: ['*.*'] });
+      const req = makeReq('GET', '/api/v1/webhooks', undefined, {
+        id: 'tok_intruder',
+        scopes: ['subscribe-webhook'],
+      });
+      const { res, chunks } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      const body = JSON.parse(chunks.join('')) as unknown[];
+      expect(body).toEqual([]);
+    });
+
+    it('admin scope sees ALL subscriptions across tokens', async () => {
+      await store.create({ tokenId: 'tok_A', url: 'https://a.test/h', events: ['*.*'] });
+      await store.create({ tokenId: 'tok_B', url: 'https://b.test/h', events: ['*.*'] });
+      const req = makeReq('GET', '/api/v1/webhooks', undefined, {
+        id: 'tok_admin',
+        scopes: ['admin'],
+      });
+      const { res, chunks } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      const body = JSON.parse(chunks.join('')) as unknown[];
+      expect(body).toHaveLength(2);
+    });
+
+    it('legacy env synthetic-admin token (tok_legacy_env) sees ALL subs', async () => {
+      await store.create({ tokenId: 'tok_A', url: 'https://a.test/h', events: ['*.*'] });
+      await store.create({ tokenId: 'tok_B', url: 'https://b.test/h', events: ['*.*'] });
+      const req = makeReq('GET', '/api/v1/webhooks', undefined, {
+        id: 'tok_legacy_env',
+        scopes: ['admin'],
+      });
+      const { res, chunks } = makeRes();
+      handleV1WebhooksRoute(req, res, { store, bus });
+      await new Promise((r) => setTimeout(r, 20));
+      const body = JSON.parse(chunks.join('')) as unknown[];
+      expect(body).toHaveLength(2);
+    });
   });
 });

@@ -3,9 +3,31 @@ import type { EventEmitter } from 'node:events';
 import { z } from 'zod';
 import { readBody } from '../../utils.js';
 import { isPrivateHost } from '../../utils/url-guard.js';
-import { WebhookSubscriptionPublicSchema } from '@harness-engineering/types';
+import { WebhookSubscriptionPublicSchema, type TokenScope } from '@harness-engineering/types';
 import type { WebhookStore } from '../../../gateway/webhooks/store';
 import type { WebhookQueue } from '../../../gateway/webhooks/queue';
+
+/**
+ * Phase 0 FINAL_REVIEW #4/#5: per-bridge audit + per-bridge revocation
+ * (spec §D2) require GET /api/v1/webhooks to return only the requesting
+ * token's subscriptions, and DELETE to refuse cross-token revocation.
+ *
+ * `admin` scope is exempt — admin tokens see everything (legacy
+ * `tok_legacy_env` and unauth-dev `tok_unauth_dev` both carry `admin`,
+ * so the scope check covers them naturally). The id-prefix check is a
+ * defense-in-depth belt against a hypothetical future synthetic-admin
+ * record that omits the scope.
+ */
+function isAdminAuth(authContext: { id: string; scopes: TokenScope[] } | undefined): boolean {
+  if (!authContext) return false;
+  if (authContext.scopes.includes('admin')) return true;
+  if (authContext.id.startsWith('tok_legacy_env')) return true;
+  return false;
+}
+
+function getAuthContext(req: IncomingMessage): { id: string; scopes: TokenScope[] } | undefined {
+  return (req as unknown as { _authToken?: { id: string; scopes: TokenScope[] } })._authToken;
+}
 
 const CreateBody = z.object({
   url: z.string().url(),
@@ -81,7 +103,15 @@ export function handleV1WebhooksRoute(
   if (method === 'GET' && LIST_OR_CREATE_PATH_RE.test(url)) {
     void (async () => {
       const subs = await deps.store.list();
-      const publicView = subs.map((s) => WebhookSubscriptionPublicSchema.parse(s));
+      // Phase 0 FINAL_REVIEW #4: per-token filtering. Non-admin tokens see
+      // ONLY their own subscriptions; admin sees everything. The legacy
+      // env synthetic admin and the unauth-dev synthetic admin both carry
+      // the 'admin' scope so they pass through naturally.
+      const authContext = getAuthContext(req);
+      const visible = isAdminAuth(authContext)
+        ? subs
+        : subs.filter((s) => s.tokenId === authContext?.id);
+      const publicView = visible.map((s) => WebhookSubscriptionPublicSchema.parse(s));
       sendJSON(res, 200, publicView);
     })();
     return true;
@@ -119,8 +149,7 @@ export function handleV1WebhooksRoute(
         sendJSON(res, 422, { error: 'URL must not target private or loopback addresses' });
         return;
       }
-      const tokenId =
-        (req as unknown as { _authToken?: { id: string } })._authToken?.id ?? 'unknown';
+      const tokenId = getAuthContext(req)?.id ?? 'unknown';
       const sub = await deps.store.create({
         tokenId,
         url: parsed.data.url,

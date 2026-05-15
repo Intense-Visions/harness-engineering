@@ -38,7 +38,7 @@ import { TokenStore } from '../auth/tokens';
 import { AuditLogger } from '../auth/audit';
 import { hasScope, requiredScopeForRoute } from '../auth/scopes';
 import { isV1Bridge } from './v1-bridge-routes';
-import type { AuthToken } from '@harness-engineering/types';
+import type { AuthToken, TokenScope } from '@harness-engineering/types';
 
 /* ── In-memory per-IP rate limiter (no external deps) ── */
 const RATE_LIMIT = Number(process.env['HARNESS_RATE_LIMIT']) || 100; // requests per window
@@ -443,6 +443,18 @@ export class OrchestratorServer {
     // recorded the default 200 instead of the wire-final code.
     res.on('finish', () => this.audit(req, res, token));
     if (!token) return;
+
+    // Phase 0 FINAL_REVIEW #4/#5: attach the resolved token to the request
+    // so downstream handlers can enforce per-token ownership (e.g. webhooks
+    // GET filtering, DELETE ownership check). Tests previously stubbed this
+    // by manually setting `_authToken` on the IncomingMessage; production
+    // code now wires it from the auth-resolved token. The shape exposes
+    // `id` + `scopes` because that's what the spec D2 per-bridge audit and
+    // per-bridge revocation paths require.
+    (req as unknown as { _authToken: { id: string; scopes: TokenScope[] } })._authToken = {
+      id: token.id,
+      scopes: token.scopes,
+    };
 
     // /api/v1/<name>(/...) aliases for legacy routes.
     // Phase 2 ships the alias by URL rewrite so the 12 legacy handlers stay
