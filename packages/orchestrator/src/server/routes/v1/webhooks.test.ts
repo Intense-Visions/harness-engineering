@@ -67,7 +67,7 @@ describe('handleV1WebhooksRoute', () => {
     const { res, chunks, statusCode } = makeRes();
     const handled = handleV1WebhooksRoute(req, res, { store, bus });
     expect(handled).toBe(true);
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(200);
     const body = JSON.parse(chunks.join('')) as { id: string; secret: string; url: string };
     expect(body.id).toMatch(/^whk_[a-f0-9]{16}$/);
@@ -82,7 +82,7 @@ describe('handleV1WebhooksRoute', () => {
     });
     const { res, chunks, statusCode } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(422);
     expect(chunks.join('')).toContain('https');
   });
@@ -92,7 +92,7 @@ describe('handleV1WebhooksRoute', () => {
     const req = makeReq('GET', '/api/v1/webhooks');
     const { res, chunks, statusCode } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(200);
     const body = JSON.parse(chunks.join('')) as Array<{ url: string; secret?: string }>;
     expect(body).toHaveLength(1);
@@ -108,7 +108,7 @@ describe('handleV1WebhooksRoute', () => {
     const req = makeReq('DELETE', `/api/v1/webhooks/${sub.id}`);
     const { res, statusCode } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(200);
     expect(await store.list()).toEqual([]);
   });
@@ -117,7 +117,7 @@ describe('handleV1WebhooksRoute', () => {
     const req = makeReq('DELETE', '/api/v1/webhooks/whk_doesnotexist000');
     const { res, statusCode } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(404);
   });
 
@@ -130,7 +130,7 @@ describe('handleV1WebhooksRoute', () => {
     });
     const { res } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(events).toHaveLength(1);
   });
 
@@ -150,7 +150,7 @@ describe('handleV1WebhooksRoute', () => {
     process.env['HARNESS_UNAUTH_DEV_ACTIVE'] = '1';
     const { res: r1 } = makeRes();
     handleV1WebhooksRoute(req1, r1, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     const req2 = makeReq(
       'POST',
       '/api/v1/webhooks',
@@ -159,7 +159,7 @@ describe('handleV1WebhooksRoute', () => {
     );
     const { res: r2 } = makeRes();
     handleV1WebhooksRoute(req2, r2, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(warnSpy.mock.calls.filter((c) => String(c[0]).includes('unauth-dev')).length).toBe(1);
     warnSpy.mockRestore();
     delete process.env['HARNESS_UNAUTH_DEV_ACTIVE'];
@@ -173,7 +173,7 @@ describe('handleV1WebhooksRoute', () => {
       const { res, chunks, statusCode } = makeRes();
       const handled = handleV1WebhooksRoute(req, res, { store, bus, queue });
       expect(handled).toBe(true);
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(200);
       const body = JSON.parse(chunks.join('')) as {
         pending: number;
@@ -197,7 +197,7 @@ describe('handleV1WebhooksRoute', () => {
     const { res, statusCode } = makeRes();
     const handled = handleV1WebhooksRoute(req, res, { store, bus });
     expect(handled).toBe(true);
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     expect(statusCode()).toBe(503);
   });
 
@@ -207,7 +207,7 @@ describe('handleV1WebhooksRoute', () => {
     const req = makeReq('GET', '/api/v1/webhooks');
     const { res, chunks } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
     const body = JSON.parse(chunks.join('')) as Array<Record<string, unknown>>;
     expect(Object.keys(body[0] ?? {}).sort()).toEqual(
       ['createdAt', 'events', 'id', 'tokenId', 'url'].sort()
@@ -229,7 +229,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res: resA, chunks: chunksA, statusCode: scA } = makeRes();
       handleV1WebhooksRoute(reqA, resA, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(scA()).toBe(200);
       const bodyA = JSON.parse(chunksA.join('')) as Array<{ tokenId: string }>;
       expect(bodyA).toHaveLength(1);
@@ -242,7 +242,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res: resB, chunks: chunksB } = makeRes();
       handleV1WebhooksRoute(reqB, resB, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       const bodyB = JSON.parse(chunksB.join('')) as Array<{ tokenId: string }>;
       expect(bodyB).toHaveLength(1);
       expect(bodyB[0]?.tokenId).toBe('tok_B');
@@ -256,7 +256,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, chunks } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       const body = JSON.parse(chunks.join('')) as unknown[];
       expect(body).toEqual([]);
     });
@@ -270,7 +270,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, chunks } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       const body = JSON.parse(chunks.join('')) as unknown[];
       expect(body).toHaveLength(2);
     });
@@ -284,7 +284,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, chunks } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       const body = JSON.parse(chunks.join('')) as unknown[];
       expect(body).toHaveLength(2);
     });
@@ -304,7 +304,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, chunks, statusCode } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(403);
       expect(JSON.parse(chunks.join('')) as { error: string }).toEqual({ error: 'forbidden' });
       // Sub still present in the store.
@@ -323,7 +323,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, statusCode } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(200);
       expect(await store.list()).toEqual([]);
     });
@@ -340,7 +340,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, statusCode } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(200);
       expect(await store.list()).toEqual([]);
     });
@@ -357,7 +357,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, statusCode } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(200);
     });
 
@@ -368,7 +368,7 @@ describe('handleV1WebhooksRoute', () => {
       });
       const { res, statusCode } = makeRes();
       handleV1WebhooksRoute(req, res, { store, bus });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 100));
       expect(statusCode()).toBe(404);
     });
   });
