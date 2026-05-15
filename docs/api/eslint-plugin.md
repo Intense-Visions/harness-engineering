@@ -1,8 +1,8 @@
 # @harness-engineering/eslint-plugin
 
-ESLint plugin for enforcing harness engineering architectural constraints. Provides 11 rules and 2 shared configurations.
+ESLint plugin for enforcing harness engineering architectural constraints. Provides 12 rules and 2 shared configurations.
 
-**Version:** 0.2.4
+**Version:** 0.3.0
 
 ## Installation
 
@@ -28,7 +28,7 @@ export default [
 
 ### `recommended`
 
-Enables 8 of 11 rules. Architectural rules are set to `error`, documentation and portability rules to `warn`. The 3 performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are opt-in.
+Enables all 12 rules. Architectural rules are set to `error`, documentation and portability rules to `warn`. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn`.
 
 | Rule                          | Severity |
 | ----------------------------- | -------- |
@@ -40,10 +40,14 @@ Enables 8 of 11 rules. Architectural rules are set to `error`, documentation and
 | `no-unix-shell-command`       | warn     |
 | `no-hardcoded-path-separator` | warn     |
 | `require-path-normalization`  | warn     |
+| `no-nested-loops-in-critical` | warn     |
+| `no-sync-io-in-async`         | warn     |
+| `no-unbounded-array-chains`   | warn     |
+| `no-process-env-in-spawn`     | error    |
 
 ### `strict`
 
-Same rules as `recommended` (8 of 11), but all set to `error`. The 3 opt-in performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) remain opt-in in both configs.
+Same rules as `recommended` (all 12), but all set to `error`.
 
 ## Rules
 
