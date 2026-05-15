@@ -458,6 +458,24 @@ Spawn an agent subprocess to perform code review. Returns structured feedback wi
 - `diff` (string, required) — Git diff string to review
 - `context` (string, optional) — Optional additional context for the reviewer
 
+### `subscribe_webhook`
+
+Subscribe to outbound webhook fan-out via POST /api/v1/webhooks. Returns the secret once. Requires subscribe-webhook scope.
+
+**Parameters:**
+
+- `url` (string, required) — https URL to POST events to
+- `events` (array, required) — Event-type globs (e.g. ["maintenance.completed", "interaction.*"])
+
+### `trigger_maintenance_job`
+
+Trigger a maintenance task ad-hoc via POST /api/v1/jobs/maintenance. Requires trigger-job scope.
+
+**Parameters:**
+
+- `taskId` (string, required) — Registered maintenance task identifier (e.g. cleanup-sessions)
+- `params` (object, optional) — Optional task-specific parameters
+
 ## Queries & Search
 
 ### `ask_graph`
@@ -698,6 +716,10 @@ Emit a structured interaction (question, confirmation, phase transition, or batc
 - `confirmation` (object, optional) — Confirmation payload (required when type is confirmation)
 - `transition` (object, optional) — Transition payload (required when type is transition)
 - `batch` (object, optional) — Batch decision payload (required when type is batch)
+
+### `list_gateway_tokens`
+
+List Gateway API tokens via GET /api/v1/auth/tokens. Secrets are redacted. Requires admin scope.
 
 ### `list_personas`
 
