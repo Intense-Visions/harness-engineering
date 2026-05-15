@@ -25,6 +25,9 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @harness-engineering/types build
+      - run: pnpm --filter @harness-engineering/core build
+      - run: pnpm --filter @harness-engineering/graph build
+      - run: pnpm --filter @harness-engineering/intelligence build
       - run: pnpm --filter @harness-engineering/orchestrator build
       - name: Regenerate OpenAPI artifact
         run: pnpm --filter @harness-engineering/orchestrator openapi:generate
