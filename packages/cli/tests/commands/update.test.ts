@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import {
   detectPackageManager,
+  detectPackageManagerFromPath,
+  findAllInstalls,
+  getActiveInstallDir,
   getInstalledVersion,
   getInstalledVersions,
   getInstalledPackages,
@@ -55,11 +58,13 @@ vi.mock('../../src/commands/hooks/init', () => ({
 }));
 
 import { execFileSync, execFile } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { realpathSync, existsSync, readFileSync } from 'node:fs';
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRealpathSync = vi.mocked(realpathSync);
 const mockedExecFile = vi.mocked(execFile);
+const mockedExistsSync = vi.mocked(existsSync);
+const mockedReadFileSync = vi.mocked(readFileSync);
 
 function createProgram(): Command {
   const program = new Command();
@@ -146,6 +151,157 @@ describe('update command', () => {
         throw new Error('ENOENT');
       });
       expect(detectPackageManager()).toBe('npm');
+    });
+  });
+
+  describe('detectPackageManagerFromPath', () => {
+    it('classifies npm-style global layout', () => {
+      expect(
+        detectPackageManagerFromPath(
+          '/opt/homebrew/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+        )
+      ).toBe('npm');
+    });
+
+    it('classifies pnpm global layout', () => {
+      expect(
+        detectPackageManagerFromPath(
+          '/home/user/.local/share/pnpm/global/5/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+        )
+      ).toBe('pnpm');
+    });
+
+    it('classifies yarn global layout', () => {
+      expect(
+        detectPackageManagerFromPath(
+          '/home/user/.yarn/global/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+        )
+      ).toBe('yarn');
+    });
+  });
+
+  describe('findAllInstalls', () => {
+    function harnessPkgJson(version: string): string {
+      return JSON.stringify({ name: '@harness-engineering/cli', version });
+    }
+
+    // Helper: configures fs mocks so package.json lookups only succeed at
+    // the given package root directories (one per install). Mirrors real
+    // npm layout where intermediate dirs like `cli/dist/bin` have no
+    // package.json.
+    function mockPackageRoots(roots: Record<string, string>): void {
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        return Object.keys(roots).some((root) => s === `${root}/package.json`);
+      });
+      mockedReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        for (const [root, pkg] of Object.entries(roots)) {
+          if (s === `${root}/package.json`) return pkg;
+        }
+        throw new Error(`unexpected readFileSync: ${s}`);
+      });
+    }
+
+    it('returns empty array when which/where command throws', () => {
+      mockedExecFileSync.mockImplementation(() => {
+        throw new Error('command not found');
+      });
+      expect(findAllInstalls()).toEqual([]);
+    });
+
+    it('returns empty array when execFileSync returns a non-string (mocked default)', () => {
+      mockedExecFileSync.mockReturnValueOnce(undefined as any);
+      expect(findAllInstalls()).toEqual([]);
+    });
+
+    it('returns one install for a single binary on PATH', () => {
+      mockedExecFileSync.mockReturnValueOnce('/Users/me/.nvm/versions/node/v20.0.0/bin/harness\n');
+      mockedRealpathSync.mockReturnValue(
+        '/Users/me/.nvm/versions/node/v20.0.0/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+      );
+      mockPackageRoots({
+        '/Users/me/.nvm/versions/node/v20.0.0/lib/node_modules/@harness-engineering/cli':
+          harnessPkgJson('2.4.0'),
+      });
+
+      const installs = findAllInstalls();
+      expect(installs).toHaveLength(1);
+      expect(installs[0]).toMatchObject({
+        binPath: '/Users/me/.nvm/versions/node/v20.0.0/bin/harness',
+        version: '2.4.0',
+        packageManager: 'npm',
+        prefix: '/Users/me/.nvm/versions/node/v20.0.0',
+      });
+    });
+
+    it('surfaces multiple installs at different versions (the duplicate-install hazard)', () => {
+      // Reproduces the field scenario: harness installed via both nvm and
+      // homebrew, `which -a` returns both, and they're at different versions.
+      mockedExecFileSync.mockReturnValueOnce(
+        '/Users/me/.nvm/versions/node/v20.0.0/bin/harness\n' + '/opt/homebrew/bin/harness\n'
+      );
+      mockedRealpathSync
+        .mockReturnValueOnce(
+          '/Users/me/.nvm/versions/node/v20.0.0/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+        )
+        .mockReturnValueOnce(
+          '/opt/homebrew/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+        );
+      mockPackageRoots({
+        '/Users/me/.nvm/versions/node/v20.0.0/lib/node_modules/@harness-engineering/cli':
+          harnessPkgJson('2.4.0'),
+        '/opt/homebrew/lib/node_modules/@harness-engineering/cli': harnessPkgJson('2.3.0'),
+      });
+
+      const installs = findAllInstalls();
+      expect(installs).toHaveLength(2);
+      expect(installs.map((i) => i.version)).toEqual(['2.4.0', '2.3.0']);
+      expect(installs[0]?.prefix).toBe('/Users/me/.nvm/versions/node/v20.0.0');
+      expect(installs[1]?.prefix).toBe('/opt/homebrew');
+    });
+
+    it('deduplicates entries that realpath to the same target', () => {
+      mockedExecFileSync.mockReturnValueOnce('/usr/local/bin/harness\n/opt/homebrew/bin/harness\n');
+      // Both PATH entries are symlinks pointing to the same actual binary.
+      mockedRealpathSync.mockReturnValue(
+        '/opt/homebrew/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+      );
+      mockPackageRoots({
+        '/opt/homebrew/lib/node_modules/@harness-engineering/cli': harnessPkgJson('2.4.0'),
+      });
+
+      const installs = findAllInstalls();
+      expect(installs).toHaveLength(1);
+    });
+
+    it('skips entries whose package.json is missing or unparseable', () => {
+      mockedExecFileSync.mockReturnValueOnce('/some/orphan/bin/harness\n');
+      mockedRealpathSync.mockReturnValue('/some/orphan/bin/harness.js');
+      mockedExistsSync.mockReturnValue(false);
+
+      expect(findAllInstalls()).toEqual([]);
+    });
+  });
+
+  describe('getActiveInstallDir', () => {
+    it('returns null when realpathSync throws', () => {
+      mockedRealpathSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+      expect(getActiveInstallDir()).toBeNull();
+    });
+
+    it('returns the install dir for the currently-running binary', () => {
+      mockedRealpathSync.mockReturnValue(
+        '/opt/homebrew/lib/node_modules/@harness-engineering/cli/dist/bin/harness.js'
+      );
+      const pkgRoot = '/opt/homebrew/lib/node_modules/@harness-engineering/cli';
+      mockedExistsSync.mockImplementation((p) => String(p) === `${pkgRoot}/package.json`);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({ name: '@harness-engineering/cli', version: '2.3.0' })
+      );
+      expect(getActiveInstallDir()).toBe(pkgRoot);
     });
   });
 

@@ -30,8 +30,13 @@ async function main(): Promise<void> {
     handleError(error);
   }
 
-  // Show update notification from previous check's cached result
-  printUpdateNotification();
+  // Show update notification from previous check's cached result.
+  // Skip on the `update` subcommand: that flow already reports update status
+  // from a fresh `npm view`, and the cached state can disagree with it
+  // (cache TTL 24h), producing contradictory output on the same invocation.
+  if (process.argv[2] !== 'update') {
+    printUpdateNotification();
+  }
 
   // Show skill dispatch recommendations if HEAD changed
   const dispatchResult = await dispatchPromise;
