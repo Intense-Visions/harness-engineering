@@ -1,6 +1,6 @@
 # ESLint Rules Reference
 
-Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 11 rules across 5 categories, enforcing architecture, boundary, documentation, performance, and cross-platform constraints at lint time.
+Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 12 rules across 5 categories, enforcing architecture, boundary, documentation, performance, and cross-platform constraints at lint time.
 
 ## Quick Start
 
@@ -527,7 +527,7 @@ const rel = path.relative(root, file).replaceAll('\\', '/');
 | `no-hardcoded-path-separator` | Cross-Platform | `warn`  | No              |
 | `require-path-normalization`  | Cross-Platform | `warn`  | No              |
 
-**Note:** The `recommended` config enables 8 of 11 rules. The three performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are not included in either preset. Enable them explicitly if needed:
+**Note:** The `recommended` config enables all 12 rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
 
 ```js
 '@harness-engineering/no-nested-loops-in-critical': 'warn',

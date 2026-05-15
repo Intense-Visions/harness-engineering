@@ -36,4 +36,4 @@ See [@harness-engineering/cli MCP exports](cli.md) for the programmatic API:
 - `resultToMcpResponse(result)` — Converts a `Result<T, E>` to an MCP response.
 - `resolveProjectConfig(path?)` — Resolves the project configuration for the MCP server.
 
-For the full tool and resource reference (59 tools, 9 resources), see the [CLI documentation](cli.md).
+For the full tool and resource reference (62 tools, 9 resources), see the [CLI documentation](cli.md).

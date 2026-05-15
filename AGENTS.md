@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 738 skills (claude-code and gemini-cli), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -35,10 +35,10 @@ harness-engineering/
 │   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues; supports multi-backend routing via `agent.backends` / `agent.routing`
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 738 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 738 skills (symlinked to claude-code for platform parity)
-│   ├── skills/codex/         # 738 skills (symlinked to claude-code for platform parity)
-│   ├── skills/cursor/        # 738 skills (symlinked to claude-code for platform parity)
+│   ├── skills/claude-code/   # 741 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 741 skills (mirrored from claude-code for platform parity)
+│   ├── skills/codex/         # 741 skills (mirrored from claude-code for platform parity)
+│   ├── skills/cursor/        # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more)
@@ -46,14 +46,22 @@ harness-engineering/
 │   ├── hello-world/          # Basic adoption level
 │   ├── task-api/             # Intermediate adoption level
 │   └── multi-tenant-api/     # Advanced adoption level
-├── docs/                     # Complete documentation suite
+├── docs/                     # Complete documentation suite (VitePress site; config at docs/.vitepress/config.mts)
 │   ├── standard/            # Harness Engineering principles and standard
 │   ├── guides/              # How-to guides and tutorials
 │   ├── reference/           # Configuration and API reference
+│   ├── api/                 # Handcrafted API documentation for all packages
+│   ├── architecture/        # Architecture analysis and diagrams
 │   ├── changes/             # Design change proposals and technical specifications
 │   ├── plans/               # Implementation and execution plans
 │   ├── research/            # Framework research and analysis
-│   └── conventions/          # Format conventions (markdown interaction patterns)
+│   ├── conventions/         # Format conventions (markdown interaction patterns)
+│   ├── knowledge/           # ADRs and package-specific knowledge docs
+│   ├── guidelines/          # Decision guides (e.g., MCP vs CLI)
+│   ├── solutions/           # Solved-problem playbooks
+│   └── blueprint/           # Blueprint HTML artifacts
+├── design-system/            # Design tokens and DESIGN.md for the dashboard
+├── scripts/                  # Build and maintenance scripts (barrel gen, coverage ratchet, doc gen, etc.)
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition
@@ -106,8 +114,9 @@ Each package has a clear responsibility:
 - **core**: Runtime library with validation, constraints, entropy detection, architecture checks, and pricing/cost calculation (depends on types, graph)
 - **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
-- **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues. Modern config surface is `agent.backends` (named-map) + `agent.routing` (per-use-case). Legacy `agent.backend` / `agent.localBackend` accepted via in-memory migration shim with deprecation warning. (depends on types, core)
-- **dashboard**: Web dashboard — React + Hono full-stack app with 10 pages (Overview, Roadmap, Health, Graph, Impact, Adoption, Analyze, Attention, Chat, Orchestrator), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
+- **intelligence**: Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation (depends on types, graph)
+- **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues. Modern config surface is `agent.backends` (named-map) + `agent.routing` (per-use-case). Legacy `agent.backend` / `agent.localBackend` accepted via in-memory migration shim with deprecation warning. (depends on types, core, intelligence)
+- **dashboard**: Web dashboard — React + Hono full-stack app with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ### Notable Core Modules
@@ -163,6 +172,48 @@ Each package has a clear responsibility:
   - `status-rank.ts` — Status rank ordering (backlog < planned/blocked < in-progress < done) for directional sync protection
   - `pilot-scoring.ts` — Pilot selection algorithm scoring candidates by position, dependents, and affinity within priority tiers
   - `adapters/github-issues.ts` — GitHub Issues sync adapter with label-based status disambiguation
+
+### Notable Intelligence Modules
+
+- **sel** (`packages/intelligence/src/sel/`): Spec Enrichment Layer — enriches raw work items with blast radius, affected systems, and graph-validated context.
+- **cml** (`packages/intelligence/src/cml/`): Complexity Modeling Layer — scores structural and semantic complexity, computes historical trends, and emits concern signals.
+- **pesl** (`packages/intelligence/src/pesl/`): Pre-Execution Simulation Layer — runs graph-only constraint checks and LLM-based simulations before agent dispatch.
+- **outcome** (`packages/intelligence/src/outcome/`): Execution outcome ingestion — connects actual execution results back into the intelligence pipeline for feedback.
+- **effectiveness** (`packages/intelligence/src/effectiveness/`): Persona effectiveness scoring, blind spot detection, and persona recommendation for agent routing.
+- **specialization** (`packages/intelligence/src/specialization/`): Persistent agent expertise tracking with temporal decay, specialization profiles, and weighted persona recommendation.
+- **analysis-provider** (`packages/intelligence/src/analysis-provider/`): Pluggable LLM analysis backends (Anthropic, OpenAI-compatible, Claude CLI).
+- **adapters** (`packages/intelligence/src/adapters/`): Work item adapters for Jira, GitHub, Linear, and manual input normalization.
+
+### Additional Core Modules
+
+- **compaction** (`packages/core/src/compaction/`): Reduces MCP tool response token consumption through structural and truncation strategies with pagination support.
+- **annotations** (`packages/core/src/annotations/`): Parses and manages protected code regions marked with annotations to prevent modification.
+- **blueprint** (`packages/core/src/blueprint/`): Generates HTML documentation/UI from module data using templating and content pipeline processing.
+- **ci** (`packages/core/src/ci/`): Orchestrates CI checks and formatting, producing reports and notifications.
+- **caching** (`packages/core/src/caching/`): Manages prompt cache adapters and stability classification for multiple LLM providers.
+- **constraints** (`packages/core/src/constraints/`): Validates architectural layers, detects circular dependencies, and enforces boundary rules across modules.
+- **context** (`packages/core/src/context/`): Documentation coverage analysis, knowledge map validation, and progressive skill loading with token budgets.
+- **entropy** (`packages/core/src/entropy/`): Detects and remediates codebase entropy including dead code, drift, complexity violations, and coupling problems.
+- **feedback** (`packages/core/src/feedback/`): Self-review, peer review, telemetry, and action tracking for code change analysis and agent feedback loops.
+- **interaction** (`packages/core/src/interaction/`): Schemas and types for structured agent-to-human interactions (questions, confirmations, transitions).
+- **locks** (`packages/core/src/locks/`): Compound locking mechanisms for coordinating concurrent access to shared resources.
+- **performance** (`packages/core/src/performance/`): Benchmarks, tracks baselines, detects regressions, and identifies critical paths in code.
+- **pipeline** (`packages/core/src/pipeline/`): Executes multiple skills sequentially or in turn-based workflows with result aggregation.
+- **pulse** (`packages/core/src/pulse/`): Orchestrates data collection from multiple sources with sanitization, windowing, and headline extraction.
+- **solutions** (`packages/core/src/solutions/`): Scans and validates solution documentation with frontmatter schemas for bug tracking and knowledge categories.
+- **validation** (`packages/core/src/validation/`): Validates project structure, configuration, commit messages, and agent/roadmap/solutions compliance.
+- **workflow** (`packages/core/src/workflow/`): Executes structured workflows with multiple steps (experimental, internal use only).
+
+### Additional Graph Subsystems
+
+- **nlq** (`packages/graph/src/nlq/`): Natural language query interface — translates questions about the codebase into graph operations with intent classification, entity extraction, and human-readable summaries.
+- **independence** (`packages/graph/src/independence/`): Task independence analysis and conflict severity prediction by detecting file overlaps and transitive dependency conflicts.
+- **constraints** (`packages/graph/src/constraints/`): Validates architectural layer boundaries and detects import violations against design constraints via the graph.
+- **feedback** (`packages/graph/src/feedback/`): Computes impact data tracking affected tests and documentation when files change, with harness health checks.
+- **context** (`packages/graph/src/context/`): Assembles contextual graph data filtered by development phase with token budgets and coverage reporting.
+- **entropy** (`packages/graph/src/entropy/`): Detects structural anomalies including statistical outliers and articulation points in the codebase graph.
+- **search** (`packages/graph/src/search/`): Hybrid search layer using keyword and semantic fusion to find relevant nodes in the knowledge graph.
+- **store** (`packages/graph/src/store/`): Core graph persistence and querying layer with node/edge management, serialization, and in-memory indexing.
 
 ## Development Workflow
 
@@ -311,23 +362,29 @@ Configuration example:
 
 ### CLI Subsystems
 
-**Commands** (`packages/cli/src/commands/`):
+**Commands** (`packages/cli/src/commands/`): ~50 commands organized by domain.
+
+_Project Setup:_ `init`, `install`, `uninstall`, `setup`, `setup-mcp`, `setup-types`, `migrate`, `install-constraints`, `uninstall-constraints`, `generate`
+
+_Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-deps`, `check-docs`, `check-perf`, `check-phase-gate`, `check-security`, `audit-protected`
+
+_Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`
+
+_Maintenance:_ `cleanup`, `cleanup-sessions`, `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`
+
+_Content & Generation:_ `blueprint`, `create-skill`, `generate-agent-definitions`, `generate-slash-commands`, `knowledge-pipeline`, `share`
+
+_Dashboard & Orchestrator:_ `dashboard`, `orchestrator`, `mcp`, `perf`
+
+_Command groups_ (subdirectories): `agent/`, `ci/`, `compound/`, `graph/`, `hooks/`, `integrations/`, `learnings/`, `linter/`, `persona/`, `pulse/`, `roadmap/`, `skill/`, `state/`, `telemetry/`
+
+_Notable single commands:_
 
 - `usage.ts` — Loads and prices usage records from cost data and Claude sessions
-- `traceability.ts` — Checks requirement-to-code-to-test traceability for specs with confidence levels
 - `taint.ts` — Manages session taint state to block destructive operations after injection detection
-- `scan-config.ts` — Scans configuration files for injection patterns and security violations
-- `recommend.ts` — Recommends skills based on codebase health snapshot with urgency markers
-- `predict.ts` — Predicts architectural constraint violations using decay trends and roadmap features
 - `doctor.ts` — Runs system health checks (Node version, MCP config, integrations)
 - `dashboard.ts` — Launches the web dashboard server on configurable ports
-- `integrations/dismiss.ts` — Dismisses integrations by adding them to the dismissed list in config
 - `_registry.ts` — Auto-generated barrel export aggregating all command constructors
-- `adoption.ts` — View skill adoption telemetry (subcommands: skills, recent, skill)
-- `cleanup-sessions.ts` — Removes stale session directories from `.harness/sessions/` older than 24 hours
-- `telemetry/index.ts` — Parent command group for telemetry management (identify + status)
-- `telemetry/identify.ts` — Sets or clears identity fields in `.harness/telemetry.json`
-- `telemetry/status.ts` — Displays current consent state, install ID, identity, and env overrides
 
 **Hooks** (`packages/cli/src/hooks/`): Claude Code lifecycle hooks for security and quality enforcement.
 
@@ -342,16 +399,25 @@ Configuration example:
 - `telemetry-reporter.js` — Stop hook that reads adoption.jsonl, resolves consent, sends anonymous events to PostHog, and shows first-run privacy notice
 - `profiles.ts` — Defines hook profile tiers (minimal/standard/strict) with event matchers
 
-**MCP Tools** (`packages/cli/src/mcp/tools/`):
+**MCP Tools** (`packages/cli/src/mcp/tools/`): ~62 tools organized by domain.
 
-- `traceability.ts` — MCP tool for checking requirement-to-code-to-test traceability
-- `recommend-skills.ts` — MCP tool that recommends skills based on codebase health with caching
-- `predict-failures.ts` — MCP tool that forecasts architectural constraint violations using decay trends
-- `dispatch-skills.ts` — MCP tool that recommends optimal skill sequences based on git diffs
-- `decay-trends.ts` — MCP tool that analyzes architecture decay trends over timeline snapshots
-- `code-nav.ts` — MCP tool that extracts structural skeletons and searches symbols from code files
-- `graph/compute-blast-radius.ts` — MCP tool that simulates cascading failure propagation using probability-weighted BFS
-- `middleware/injection-guard.ts` — Wraps MCP tool handlers with pre/post injection scanning for tainted session enforcement
+_Project & Validation:_ `init`, `validate`, `assess-project`, `phase-gate`, `state`, `compact`
+
+_Architecture & Quality:_ `architecture`, `entropy`, `stale-constraints`, `constraint-emergence`, `cross-check`, `linter`, `performance`
+
+_Code Navigation & Search:_ `code-nav`, `search-skills`, `recommend-skills`, `advise-skills`, `dispatch-skills`, `gather-context`, `find-context-for` (graph)
+
+_Documentation & Review:_ `docs`, `review-changes`, `review-pipeline`, `feedback`, `interaction`, `interaction-schemas`, `interaction-renderer`
+
+_Roadmap & CI:_ `roadmap`, `roadmap-auto-sync`, `roadmap-file-less`, `ci`
+
+_Security & Traceability:_ `security`, `traceability`, `predict-failures`, `decay-trends`, `task-independence`, `conflict-prediction`
+
+_Agent & Persona:_ `agent`, `persona`, `agent-definitions`, `generate-slash-commands`, `blueprint`, `event-emitter`
+
+_Graph tools_ (`graph/` subdir): `compute-blast-radius`, `ask-graph`, `query-graph`, `detect-anomalies`, `ingest-source`, `find-context-for`, `search-similar`, `get-relationships`, `get-impact`
+
+_Infrastructure:_ `middleware/injection-guard.ts` — wraps tool handlers with injection scanning for tainted session enforcement
 
 **Skill Dispatch** (`packages/cli/src/skill/`): Intelligent skill recommendation and dispatch.
 
@@ -399,20 +465,24 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
 
-**Client** (`src/client/`): React SPA with 10 pages (Overview, Roadmap, Health, Graph, Impact, Adoption, Analyze, Attention, Chat, Orchestrator), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
+**Client** (`src/client/`): React SPA with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
 
-**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: overview, health, impact, ci, actions, sse, health-check. Data gatherers: health, ci, blast-radius, arch, anomalies.
+**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: actions, actions-claim-file-less, adoption, ci, decay-trends, graph, health, health-check, impact, overview, roadmap, sse, traceability. Data gatherers: adoption, anomalies, arch, blast-radius, ci, decay-trends, entry-points, graph, health, perf, roadmap, security, traceability.
+
+### Orchestrator Intelligence Integration
+
+The orchestrator depends on `@harness-engineering/intelligence` for persona-aware dispatch. The `IntelligencePipelineRunner` (`packages/orchestrator/src/intelligence/pipeline-runner.ts`) orchestrates: spec enrichment (SEL), complexity scoring (CML), pre-execution simulation (PESL), analysis archiving, and auto-publishing. It imports `weightedRecommendPersona` and `refreshProfiles` from the intelligence package to route issues to the best-fit persona based on specialization profiles. Execution outcomes feed back into effectiveness scoring to improve future routing.
 
 ### Orchestrator Maintenance Tasks
 
-`packages/orchestrator/src/maintenance/task-registry.ts` defines 20 built-in scheduled tasks across four execution strategies:
+`packages/orchestrator/src/maintenance/task-registry.ts` defines 21 built-in scheduled tasks across four execution strategies:
 
 - **mechanical-ai (7):** `arch-violations`, `dep-violations`, `doc-drift`, `security-findings`, `entropy`, `traceability`, `cross-check` — run a check command first, dispatch an AI agent only if fixable findings exist.
 - **pure-ai (4):** `dead-code`, `dependency-health`, `hotspot-remediation`, `security-review` — always dispatch an AI agent on schedule.
 - **report-only (7):** `perf-check`, `decay-trends`, `project-health`, `stale-constraints`, `graph-refresh`, `product-pulse`, `compound-candidates` — run a command and record metrics; never create branches or PRs. Honors a JSON status contract (`{status, candidatesFound?, error?, reason?}`) emitted by the new `--non-interactive` CLIs; legacy free-form output falls through to `success`.
   - `product-pulse` (daily 8am, gated on `pulse.enabled`) — generates `docs/pulse-reports/` via `harness pulse run --non-interactive`.
   - `compound-candidates` (Mondays 9am) — surfaces undocumented learnings into `docs/solutions/.candidates/` via `harness compound scan-candidates --non-interactive`. Scheduled at 9am rather than 6am to avoid collision with the existing Monday 6am block (cross-check, perf-check, traceability).
-- **housekeeping (2):** `session-cleanup`, `perf-baselines` — run a mechanical command directly, no AI, no PR.
+- **housekeeping (3):** `session-cleanup`, `perf-baselines`, `main-sync` — run a mechanical command directly, no AI, no PR.
 
 The dashboard `Maintenance` page renders a candidate-count badge on `compound-candidates` history rows when `findings > 0`.
 
@@ -486,9 +556,9 @@ The tier is estimated during planning and confirmed from execution results. The 
 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
-- **Tier 1 (Workflow, 11 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component.
-- **Tier 2 (Maintenance, 21 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot.
-- **Tier 3 (Catalog, 43 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
+- **Tier 1 (Workflow, 14 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component, harness-integration, harness-router, initialize-test-suite-project.
+- **Tier 2 (Maintenance, 24 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot, harness-compound, harness-knowledge-pipeline, harness-pulse.
+- **Tier 3 (Catalog, 697 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
 - **Internal (6 skills):** Dependency-only, never surfaced. Invoked by other skills as part of pipelines.
 
 The `search_skills` MCP tool (`packages/cli/src/mcp/tools/search-skills.ts`) queries a merged index of bundled + community skills. The index uses hash-based staleness detection. An intelligent dispatcher (`packages/cli/src/skill/dispatcher.ts`) suggests relevant Tier 3 skills when Tier 1 workflow skills start. Stack profile detection (`packages/cli/src/skill/stack-profile.ts`) identifies project technologies to bias suggestions. Configuration overrides in `harness.config.json` support `skills.alwaysSuggest`, `skills.neverSuggest`, and `skills.tierOverrides`.
@@ -548,10 +618,17 @@ This creates a permanent record that AI agents can access and understand.
   - CLI documentation
   - API reference
 
-- **[docs/api/](./docs/api/)** - API documentation for all packages
+- **[docs/api/](./docs/api/)** - Handcrafted API documentation for packages (see also `docs/reference/api/` for auto-generated source indexes)
 
 - **[docs/changes/](./docs/changes/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
+- **[docs/architecture/](./docs/architecture/)** - Architecture analysis and diagrams
+- **[docs/knowledge/](./docs/knowledge/)** - ADRs (`decisions/`) and package-specific knowledge docs
+- **[docs/research/](./docs/research/)** - Framework research and analysis
+- **[docs/conventions/](./docs/conventions/)** - Format conventions (markdown interaction patterns)
+- **[docs/guidelines/](./docs/guidelines/)** - Decision guides (e.g., MCP vs CLI)
+- **[docs/solutions/](./docs/solutions/)** - Solved-problem playbooks
+- **[docs/blueprint/](./docs/blueprint/)** - Blueprint HTML artifacts
 
 ### Key Documentation
 
@@ -779,14 +856,16 @@ This makes error handling explicit and type-safe.
 
 ### Important Configuration Files
 
-| File                  | Purpose                                               |
-| --------------------- | ----------------------------------------------------- |
-| `package.json`        | Root project metadata and scripts                     |
-| `pnpm-workspace.yaml` | Monorepo workspace definition                         |
-| `tsconfig.json`       | Root TypeScript configuration with project references |
-| `turbo.json`          | Turborepo build orchestration                         |
-| `eslint.config.js`    | ESLint configuration (flat config format)             |
-| `.prettierrc.json`    | Code formatting rules                                 |
+| File                      | Purpose                                                                |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `package.json`            | Root project metadata and scripts                                      |
+| `pnpm-workspace.yaml`     | Monorepo workspace definition                                          |
+| `tsconfig.json`           | Root TypeScript configuration with project references                  |
+| `turbo.json`              | Turborepo build orchestration                                          |
+| `eslint.config.js`        | ESLint configuration (flat config format)                              |
+| `.prettierrc.json`        | Code formatting rules                                                  |
+| `harness.config.json`     | Harness project settings (skills, roadmap, telemetry)                  |
+| `harness.orchestrator.md` | Orchestrator runtime config (tracker, polling, agent backends/routing) |
 
 ### Development Commands Cheat Sheet
 

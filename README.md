@@ -250,7 +250,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 61 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 9 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships, business-knowledge).
+This gives your AI agent access to 62 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 9 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships, business-knowledge).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -341,7 +341,7 @@ enabled = true
 | Component                              | Count | Description                                                                                                    |
 | -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 9     | Core library, CLI, ESLint plugin, linter generator, graph, intelligence, orchestrator, dashboard, shared types |
-| [Skills](./agents/skills/claude-code/) | 738   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                                      |
+| [Skills](./agents/skills/claude-code/) | 741   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                                      |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                             |
 | [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more)        |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                             |
