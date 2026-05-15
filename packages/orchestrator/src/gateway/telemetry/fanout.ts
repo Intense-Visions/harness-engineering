@@ -238,7 +238,10 @@ export function wireTelemetryFanout(params: WireParams): () => void {
         // Close-event spans inherit traceId from the parent; spanId is the
         // parent itself (the parent open/close pair forms one span on OTel
         // collectors that key on (traceId, spanId)).
-        const existing = registry.resolve({ correlationId, taskId });
+        const existing = registry.resolve({
+          ...(correlationId !== undefined ? { correlationId } : {}),
+          ...(taskId !== undefined ? { taskId } : {}),
+        });
         if (existing !== undefined) {
           traceId = existing.traceId;
           spanId = existing.spanId;
@@ -252,7 +255,10 @@ export function wireTelemetryFanout(params: WireParams): () => void {
         if (key) registry.close(key);
       } else {
         // Child span: skill_invocation or dispatch:decision.
-        const parent = registry.resolve({ correlationId, taskId });
+        const parent = registry.resolve({
+          ...(correlationId !== undefined ? { correlationId } : {}),
+          ...(taskId !== undefined ? { taskId } : {}),
+        });
         traceId = parent?.traceId ?? newTraceId();
         spanId = newSpanId();
         parentSpanId = parent?.spanId;
