@@ -1,5 +1,83 @@
 # @harness-engineering/cli
 
+## 2.4.0
+
+### Minor Changes
+
+- 56176cd: feat(compliance): branch naming convention and `harness verify` command (closes #319)
+
+  Adds a project-wide branch naming convention with optional `harness.config.json`
+  override under `compliance.branching`, and a `harness verify` command that
+  checks the current branch against the convention.
+  - **Core:** New `validateBranchName` export from `@harness-engineering/core`
+    with `BranchingConfig` type. Enforces prefix list, strict kebab-case slugs
+    (no leading/trailing or doubled hyphens), optional ticket-ID pattern
+    (`feat/PROJ-123-desc`), slug length cap, and ignore globs for long-lived
+    branches.
+  - **CLI:** New `harness verify` command. Works without a `harness.config.json`
+    by falling back to schema defaults. Supports `--branch <name>` and reads
+    `HARNESS_BRANCH` / `GITHUB_HEAD_REF` / `CI_COMMIT_REF_NAME` /
+    `BUILDKITE_BRANCH` so CI runners in detached-HEAD state can still verify
+    the PR source branch. `--json` emits a machine-readable result.
+  - **Config:** Adds `compliance.branching` to `HarnessConfigSchema` with
+    fields `prefixes`, `enforceKebabCase`, `customRegex`, `ignore`, and
+    `maxLength` (default 60; set to 0 to disable). Defaults declared in the
+    schema are the single source of truth.
+
+  Defaults: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`; ignore
+  `main`, `release/**`, `dependabot/**`, `harness/**`. `customRegex` is a full
+  override -- when set, the prefix, kebab-case, and length checks are bypassed.
+
+### Patch Changes
+
+- bed30c4: fix(deps): bump `@typescript-eslint/typescript-estree` to `^8.29.0` (closes #318)
+
+  The bundled `@typescript-eslint/typescript-estree@7.18.0` capped supported
+  TypeScript at `<5.6.0`, so every CLI invocation that parsed TS on a modern
+  TypeScript (5.6+ / 6.x) emitted a noisy "you are running a version of
+  TypeScript which is not officially supported" warning to stderr. The warning
+  cluttered CI logs and hook output and falsely implied a project misconfig.
+
+  Bumps both `@harness-engineering/cli` and `@harness-engineering/core` to
+  `^8.29.0`. The 8.x line supports TS 5.6+ and has experimental support for
+  newer versions; parser behavior for valid TS is unchanged.
+
+- Updated dependencies [bed30c4]
+- Updated dependencies [56176cd]
+  - @harness-engineering/core@0.26.0
+  - @harness-engineering/dashboard@0.6.2
+  - @harness-engineering/orchestrator@0.4.2
+
+## 2.3.2
+
+### Patch Changes
+
+- bdcfdec: fix(cli/update): detect outdated CLI even when `npm list -g` does not see it (closes #317)
+
+  `harness update` was reporting "All packages are up to date" while a separate
+  banner inside the same transcript advertised "Update available: vX -> vY", and
+  never actually performed the self-upgrade. Repeated runs were a no-op.
+
+  Root cause: the foreground check in `runUpdateAction` discovered installed
+  packages by parsing `npm list -g --json`. When harness was installed via
+  Homebrew, bun, asdf, or under a different nvm prefix than the shell's current
+  `npm`, `npm list -g` returned no `@harness-engineering/*` entries. `packages`
+  came out empty, `checkAllPackages` had nothing to compare, and the code fell
+  straight into the "up to date" exit path — printing the success line, refreshing
+  hooks, and shelling out to a child `harness generate`. That child process is
+  where the contradictory "Update available" banner came from: its own
+  `printUpdateNotification` reads the cached state populated by the background
+  `npm view` check (which doesn't depend on `npm list` and so works correctly),
+  and its stderr inherits to the parent terminal.
+
+  Fix: trust `CLI_VERSION` (loaded from the running CLI's `package.json`) as the
+  authoritative current version for `@harness-engineering/cli`, exactly as the
+  background check already does. `getInstalledPackages` always includes the CLI;
+  `getInstalledVersions` falls back to `CLI_VERSION` when `npm list -g` doesn't
+  report it; `getInstalledVersion` does the same. The foreground check now
+  correctly identifies the outdated CLI and reaches the install path on the
+  user's first `harness update` invocation.
+
 ## 2.3.1
 
 ### Patch Changes

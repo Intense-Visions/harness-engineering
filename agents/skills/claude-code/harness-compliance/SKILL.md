@@ -123,6 +123,25 @@
 
 ---
 
+### Phase 3.5: INTERNAL COMPLIANCE -- Project Conventions
+
+1. **Verify branch naming convention.** Before creating a branch and again before
+   opening a PR, run `harness verify` (or `harness verify --json` for parsable
+   output) and act on the result -- do not just describe the rule to the user.
+   - Default prefixes: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `perf/`
+   - Default slug format: strict `kebab-case` (lowercase, single hyphens, no
+     leading/trailing hyphen), max 60 chars after the prefix
+   - Optional ticket form: `prefix/PROJ-123-short-desc`
+   - Projects may override via `compliance.branching` in `harness.config.json`
+     (`prefixes`, `enforceKebabCase`, `customRegex`, `ignore`, `maxLength`). If
+     `customRegex` is set, it fully replaces the prefix/kebab/length checks --
+     read the project config before suggesting a branch name.
+   - On a non-compliant branch, surface the suggested fix from `harness verify`
+     to the user and offer to rename (`git branch -m <new-name>`) before
+     continuing. Do not push or open a PR from a non-compliant branch.
+
+---
+
 ### Phase 4: REPORT -- Generate Gap Analysis and Remediation Plan
 
 1. **Score compliance posture per framework.** For each applicable framework:

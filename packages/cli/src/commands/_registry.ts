@@ -66,6 +66,7 @@ import { createUninstallConstraintsCommand } from './uninstall-constraints';
 import { createUpdateCommand } from './update';
 import { createUsageCommand } from './usage';
 import { createValidateCommand } from './validate';
+import { createVerifyCommand } from './verify';
 
 /**
  * All discovered command creators, sorted alphabetically.
@@ -136,4 +137,5 @@ export const commandCreators: Array<() => Command> = [
   createUpdateCommand,
   createUsageCommand,
   createValidateCommand,
+  createVerifyCommand,
 ];

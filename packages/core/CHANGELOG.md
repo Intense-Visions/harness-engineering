@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.26.0
+
+### Minor Changes
+
+- 56176cd: feat(compliance): branch naming convention and `harness verify` command (closes #319)
+
+  Adds a project-wide branch naming convention with optional `harness.config.json`
+  override under `compliance.branching`, and a `harness verify` command that
+  checks the current branch against the convention.
+  - **Core:** New `validateBranchName` export from `@harness-engineering/core`
+    with `BranchingConfig` type. Enforces prefix list, strict kebab-case slugs
+    (no leading/trailing or doubled hyphens), optional ticket-ID pattern
+    (`feat/PROJ-123-desc`), slug length cap, and ignore globs for long-lived
+    branches.
+  - **CLI:** New `harness verify` command. Works without a `harness.config.json`
+    by falling back to schema defaults. Supports `--branch <name>` and reads
+    `HARNESS_BRANCH` / `GITHUB_HEAD_REF` / `CI_COMMIT_REF_NAME` /
+    `BUILDKITE_BRANCH` so CI runners in detached-HEAD state can still verify
+    the PR source branch. `--json` emits a machine-readable result.
+  - **Config:** Adds `compliance.branching` to `HarnessConfigSchema` with
+    fields `prefixes`, `enforceKebabCase`, `customRegex`, `ignore`, and
+    `maxLength` (default 60; set to 0 to disable). Defaults declared in the
+    schema are the single source of truth.
+
+  Defaults: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`; ignore
+  `main`, `release/**`, `dependabot/**`, `harness/**`. `customRegex` is a full
+  override -- when set, the prefix, kebab-case, and length checks are bypassed.
+
+### Patch Changes
+
+- bed30c4: fix(deps): bump `@typescript-eslint/typescript-estree` to `^8.29.0` (closes #318)
+
+  The bundled `@typescript-eslint/typescript-estree@7.18.0` capped supported
+  TypeScript at `<5.6.0`, so every CLI invocation that parsed TS on a modern
+  TypeScript (5.6+ / 6.x) emitted a noisy "you are running a version of
+  TypeScript which is not officially supported" warning to stderr. The warning
+  cluttered CI logs and hook output and falsely implied a project misconfig.
+
+  Bumps both `@harness-engineering/cli` and `@harness-engineering/core` to
+  `^8.29.0`. The 8.x line supports TS 5.6+ and has experimental support for
+  newer versions; parser behavior for valid TS is unchanged.
+
 ## 0.25.0
 
 ### Minor Changes

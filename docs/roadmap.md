@@ -1215,6 +1215,14 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#315
 
+### Branch Naming Convention and Compliance Verification
+
+- **Status:** done
+- **Spec:** docs/changes/branch-naming-convention/proposal.md
+- **Summary:** Standardize branch naming prefixes (feat/, fix/, etc.) and kebab-case slugs. Implement harness verify command and @harness-engineering/core validation logic.
+- **Blockers:** —
+- **Plan:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection

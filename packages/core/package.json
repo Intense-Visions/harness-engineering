@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/core",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "Core library for Harness Engineering toolkit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -56,7 +56,7 @@
   "dependencies": {
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/types": "workspace:*",
-    "@typescript-eslint/typescript-estree": "^7.18.0",
+    "@typescript-eslint/typescript-estree": "^8.29.0",
     "ejs": "^3.1.10",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",

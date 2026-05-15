@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.6.2
+
+### Patch Changes
+
+- Updated dependencies [bed30c4]
+- Updated dependencies [56176cd]
+  - @harness-engineering/core@0.26.0
+
 ## 0.6.1
 
 ### Patch Changes

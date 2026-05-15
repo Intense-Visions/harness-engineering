@@ -10,8 +10,11 @@ import { ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
 import { ensureTelemetryConfigured } from './telemetry-wizard';
+import { CLI_VERSION } from '../version';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
+
+const CLI_PACKAGE = '@harness-engineering/cli';
 
 export function detectPackageManager(): PackageManager {
   try {
@@ -56,15 +59,15 @@ export async function getLatestVersionAsync(pkg: string): Promise<string> {
 
 export function getInstalledVersion(pm: PackageManager): string | null {
   try {
-    const output = execFileSync(pm, ['list', '-g', '@harness-engineering/cli', '--json'], {
+    const output = execFileSync(pm, ['list', '-g', CLI_PACKAGE, '--json'], {
       encoding: 'utf-8',
       timeout: 15000,
     });
     const data = JSON.parse(output);
     const deps = data.dependencies ?? {};
-    return deps['@harness-engineering/cli']?.version ?? null;
+    return deps[CLI_PACKAGE]?.version ?? CLI_VERSION;
   } catch {
-    return null;
+    return CLI_VERSION;
   }
 }
 
@@ -88,6 +91,14 @@ export function getInstalledVersions(
       versions[pkg] = null;
     }
   }
+  // The running CLI is, by definition, installed. When `npm list -g` doesn't
+  // see it (Homebrew / bun / asdf install, or a multi-prefix nvm setup), the
+  // running package.json's CLI_VERSION is the authoritative current version.
+  // Without this fallback, the foreground update check produces a false
+  // "All packages are up to date" — see issue #317.
+  if (packages.includes(CLI_PACKAGE) && versions[CLI_PACKAGE] === null) {
+    versions[CLI_PACKAGE] = CLI_VERSION;
+  }
   return versions;
 }
 
@@ -102,10 +113,16 @@ export function getInstalledPackages(pm: PackageManager): string[] {
     // npm: { dependencies: { "pkg": {...} } }
     // pnpm: { dependencies: { "pkg": {...} } } (similar structure)
     const deps = data.dependencies ?? {};
-    return Object.keys(deps).filter((name) => name.startsWith('@harness-engineering/'));
+    const found = Object.keys(deps).filter((name) => name.startsWith('@harness-engineering/'));
+    // The CLI we are running is always installed, even if `npm list -g` was
+    // run against a different prefix and didn't see it (issue #317).
+    if (!found.includes(CLI_PACKAGE)) {
+      found.unshift(CLI_PACKAGE);
+    }
+    return found;
   } catch {
     // Fallback: assume the core packages are installed
-    return ['@harness-engineering/cli', '@harness-engineering/core'];
+    return [CLI_PACKAGE, '@harness-engineering/core'];
   }
 }
 
