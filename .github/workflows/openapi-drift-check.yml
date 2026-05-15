@@ -24,9 +24,12 @@ jobs:
           node-version: 22
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      # Build in dependency order: types → graph → core+intelligence → orchestrator.
+      # graph must build before core because core/src/entropy/snapshot.ts imports
+      # types from @harness-engineering/graph via DTS.
       - run: pnpm --filter @harness-engineering/types build
-      - run: pnpm --filter @harness-engineering/core build
       - run: pnpm --filter @harness-engineering/graph build
+      - run: pnpm --filter @harness-engineering/core build
       - run: pnpm --filter @harness-engineering/intelligence build
       - run: pnpm --filter @harness-engineering/orchestrator build
       - name: Regenerate OpenAPI artifact
