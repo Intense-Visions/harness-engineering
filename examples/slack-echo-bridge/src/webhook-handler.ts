@@ -11,6 +11,19 @@ export interface HandlerOptions {
   path?: string;
   /** Max ms to allow in-flight handlers during graceful shutdown. Default: 5000. */
   shutdownTimeoutMs?: number;
+  /** Max request body size in bytes before the bridge responds 413. Default: 1 MiB. */
+  maxBodyBytes?: number;
+}
+
+/** Default body-size cap. Orchestrator payloads are tiny (kilobytes); 1 MiB is far more than enough. */
+export const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
+
+/** Sentinel error class so readBody rejection can be distinguished from a generic stream error. */
+class BodyTooLargeError extends Error {
+  constructor(public readonly bytes: number) {
+    super(`body exceeded max bytes (${bytes})`);
+    this.name = 'BodyTooLargeError';
+  }
 }
 
 /**
@@ -27,11 +40,21 @@ export interface HandlerOptions {
  */
 export function createServer_(opts: HandlerOptions): Server {
   const path = opts.path ?? '/webhooks/maintenance-completed';
+  const maxBodyBytes = opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
 
   async function readBody(req: IncomingMessage): Promise<Buffer> {
     const chunks: Buffer[] = [];
+    let total = 0;
     for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += buf.length;
+      if (total > maxBodyBytes) {
+        // Stop accumulating immediately so we cap memory use. We do NOT
+        // destroy() the request — the response writer still needs the
+        // socket open long enough to send the 413 back to the peer.
+        throw new BodyTooLargeError(total);
+      }
+      chunks.push(buf);
     }
     return Buffer.concat(chunks);
   }
@@ -54,7 +77,17 @@ export function createServer_(opts: HandlerOptions): Server {
       const sig = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
 
       try {
-        const rawBody = await readBody(req);
+        let rawBody: Buffer;
+        try {
+          rawBody = await readBody(req);
+        } catch (err) {
+          if (err instanceof BodyTooLargeError) {
+            log.warn('webhook.body_too_large', { deliveryId, bytes: err.bytes });
+            sendJson(res, 413, { error: 'payload too large' });
+            return;
+          }
+          throw err;
+        }
 
         if (!verify(opts.secret, rawBody, sig)) {
           log.warn('webhook.signature.mismatch', { deliveryId, eventType });

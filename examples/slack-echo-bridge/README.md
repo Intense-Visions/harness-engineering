@@ -97,7 +97,11 @@ The orchestrator runs on `127.0.0.1` by default and will only deliver to `https:
   ```ts
   // Sketch — NOT in this bridge by default.
   const seen = new Set<string>(); // or Redis SETNX with TTL for multi-instance
-  if (seen.has(deliveryId)) return res.writeHead(200).end(); // already processed
+  if (seen.has(deliveryId)) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true })); // matches the bridge's success-response shape
+    return;
+  }
   seen.add(deliveryId);
   // … then post to Slack
   ```
@@ -107,6 +111,8 @@ The orchestrator runs on `127.0.0.1` by default and will only deliver to `https:
 - **Single event type.** This bridge handles `maintenance.completed` only; other event types receive 400. To handle more, edit `webhook-handler.ts`'s type filter.
 
 - **Verbatim Slack errors.** Slack API errors (rate-limit, channel-not-found, token-revoked) surface in the response body to the orchestrator. The orchestrator's Phase 4 delivery worker retries 5xx with exponential backoff; 4xx is treated as terminal failure.
+
+  Adopters running in regulated environments should be aware that `@slack/web-api` transport-layer errors (network failures, DNS errors) can in rare cases embed request configuration — including a `Bearer xoxb-…` header — inside the error string the bridge surfaces verbatim. The orchestrator's Phase 4 delivery worker persists the 502 response body to the `lastError` column of `.harness/webhook-queue.sqlite`, so a leaked token would land in that file. The bridge's default verbatim behavior is the right teaching shape for a reference; production adopters in regulated environments should consider wrapping `createSlackPoster` to redact `Bearer …` substrings and `xoxb-…` prefixes from the error string before it propagates back to the orchestrator.
 
 ## Troubleshooting
 
@@ -128,6 +134,7 @@ The bridge is ~150 LoC of idiomatic Node. Common edits:
 - **Swap the logger:** the structured-logger seam is `src/logger.ts` — drop in pino / winston / your favorite.
 - **Use Express or Fastify:** keep `verify()` from `src/signer.ts` and the raw-body capture pattern; the rest is yours.
 - **Add idempotency suppression:** see the sketch under "Known properties → No idempotency suppression".
+- **Tune the body-size cap:** `createWebhookServer` accepts `maxBodyBytes` (default 1 MiB). Orchestrator payloads are kilobytes; the cap is a defense-in-depth limit for adopters who expose the bridge through a tunnel.
 
 ## Tests
 
@@ -135,7 +142,7 @@ The bridge is ~150 LoC of idiomatic Node. Common edits:
 npm test
 ```
 
-Twelve tests covering signature verification (6 cases) and HTTP flow (6 cases). All run under Node 20+ via vitest with no harness-engineering source dependency.
+Fourteen tests covering signature verification (6 cases) and HTTP flow (8 cases — happy path, invalid signature, unsupported event type, Slack failure, invalid JSON body, 404 path, oversized body, SIGTERM smoke). All run under Node 20+ via vitest with no harness-engineering source dependency.
 
 To typecheck without emitting:
 

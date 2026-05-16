@@ -127,9 +127,54 @@ describe('webhook-handler', () => {
     expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
   });
 
+  it('returns 413 "payload too large" when the request body exceeds the configured cap', async () => {
+    // Build a small bridge with a 1 KiB cap and POST 2 KiB. The body never
+    // reaches verify() / JSON.parse / Slack — the cap fires inside readBody().
+    const cappedSlack: SlackPoster & { postMaintenanceCompleted: ReturnType<typeof vi.fn> } = {
+      postMaintenanceCompleted: vi.fn(async () => undefined),
+    };
+    const cappedServer = createWebhookServer({
+      secret: TEST_SECRET,
+      slack: cappedSlack,
+      maxBodyBytes: 1024,
+    });
+    const cappedPort = await startOnPort0(cappedServer);
+    try {
+      const oversized = 'x'.repeat(2048);
+      // Sign the oversized body so it would otherwise pass verify(); the point
+      // is to prove the cap fires BEFORE signature/JSON checks consume CPU.
+      const sig = signBody(TEST_SECRET, oversized);
+      const res = await fetch(`http://127.0.0.1:${cappedPort}/webhooks/maintenance-completed`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-harness-signature': sig,
+          'x-harness-delivery-id': 'dlv_too_large',
+          'x-harness-event-type': 'maintenance.completed',
+        },
+        body: oversized,
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      expect(res.status).toBe(413);
+      expect(json).toMatchObject({ error: 'payload too large' });
+      expect(cappedSlack.postMaintenanceCompleted).not.toHaveBeenCalled();
+    } finally {
+      await stop(cappedServer);
+    }
+  });
+
   it('installShutdownHandlers wires SIGTERM/SIGINT without throwing', () => {
-    // Smoke: we cannot actually emit SIGTERM in-test without killing the
-    // vitest process. Assert the function is invokable and does not throw.
-    expect(() => installShutdownHandlers(server, 1)).not.toThrow();
+    // Spy on process.on so we do not actually attach real listeners to the
+    // vitest worker process (which would accumulate across test runs and
+    // eventually trip MaxListenersExceededWarning).
+    const spy = vi.spyOn(process, 'on').mockImplementation((..._args: unknown[]) => process);
+    try {
+      expect(() => installShutdownHandlers(server, 1)).not.toThrow();
+      const signals = spy.mock.calls.map((c) => c[0]);
+      expect(signals).toContain('SIGTERM');
+      expect(signals).toContain('SIGINT');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
