@@ -47,6 +47,10 @@ describe('ensureHarnessGitignore', () => {
     expect(content).toContain('.install-id');
     expect(content).toContain('.telemetry-notice-shown');
     expect(content).toContain('telemetry.json');
+    expect(content).toContain('webhook-queue.sqlite');
+    expect(content).toContain('webhook-queue.sqlite-wal');
+    expect(content).toContain('webhook-queue.sqlite-shm');
+    expect(content).toContain('maintenance/');
   });
 
   // Issue #270: hooks/ are team-policy code and security/timeline.json is a shared
