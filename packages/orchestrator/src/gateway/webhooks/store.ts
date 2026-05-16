@@ -47,18 +47,18 @@ export class WebhookStore {
   }
 
   private async persist(records: WebhookSubscription[]): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp-${process.pid}-${Date.now()}-${randomBytes(4).toString('hex')}`;
     try {
+      await mkdir(dirname(this.path), { recursive: true });
       await writeFile(tmp, JSON.stringify(records, null, 2), { encoding: 'utf8', mode: 0o600 });
       await rename(tmp, this.path);
       // chmod after rename: on some filesystems rename preserves the mode of
       // the renamed-to path. Explicit chmod is the defensive guarantee.
       await chmod(this.path, 0o600);
     } catch (err) {
-      // ENOENT during writeFile/rename/chmod means the temp directory was
-      // removed mid-operation (e.g. a parallel test-cleanup rmSync). The
-      // data is gone either way — no production caller racing against
+      // ENOENT during mkdir/writeFile/rename/chmod means the temp directory
+      // was removed mid-operation (e.g. a parallel test-cleanup rmSync).
+      // The data is gone either way — no production caller racing against
       // persist() should still trust this store. Swallowing here avoids
       // unhandled rejections on test teardown without masking real I/O
       // errors in production (EACCES, ENOSPC, etc.).

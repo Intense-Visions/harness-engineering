@@ -145,6 +145,7 @@ export {
   isUpdateCheckEnabled,
   shouldRunCheck,
   readCheckState,
+  invalidateCheckState,
   spawnBackgroundCheck,
   getUpdateNotification,
 } from './update-checker';

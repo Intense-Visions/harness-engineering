@@ -3,6 +3,7 @@ import {
   isUpdateCheckEnabled,
   shouldRunCheck,
   readCheckState,
+  invalidateCheckState,
   spawnBackgroundCheck,
   getUpdateNotification,
   type UpdateCheckState,
@@ -161,6 +162,71 @@ describe('readCheckState', () => {
     );
     // Missing required fields; readCheckState should treat as corrupt
     expect(readCheckState()).toBeNull();
+  });
+});
+
+describe('invalidateCheckState', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-invalidate-'));
+    originalHome = os.homedir();
+    process.env['HOME'] = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('removes the state file so subsequent readCheckState returns null', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    const statePath = path.join(harnessDir, 'update-check.json');
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({
+        lastCheckTime: 1000,
+        latestVersion: '2.3.1',
+        currentVersion: '2.3.0',
+      })
+    );
+    // Sanity check: pre-state is readable.
+    expect(readCheckState()).not.toBeNull();
+
+    invalidateCheckState();
+
+    expect(fs.existsSync(statePath)).toBe(false);
+    expect(readCheckState()).toBeNull();
+  });
+
+  it('does not throw when the state file is missing', () => {
+    expect(() => invalidateCheckState()).not.toThrow();
+  });
+
+  it('suppresses stale "Update available" output after invalidation', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      // Mirrors the contradiction reproduced in the field: cached latest is
+      // older than what's now installed, but the notification would still
+      // fire on every invocation until the 24h TTL elapses.
+      JSON.stringify({
+        lastCheckTime: 1000,
+        latestVersion: '2.3.1',
+        currentVersion: '2.3.0',
+      })
+    );
+
+    // With cache present, notification fires for an older running version.
+    expect(getUpdateNotification('2.3.0')).not.toBeNull();
+
+    invalidateCheckState();
+
+    // After invalidation, no notification regardless of current version.
+    expect(getUpdateNotification('2.3.0')).toBeNull();
   });
 });
 

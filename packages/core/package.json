@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/core",
-  "version": "0.26.0",
+  "version": "0.26.2",
   "description": "Core library for Harness Engineering toolkit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

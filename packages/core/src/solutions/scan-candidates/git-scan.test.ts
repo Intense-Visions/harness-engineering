@@ -20,7 +20,7 @@ describe('gitScan', () => {
     tmp = mkdtempSync(join(tmpdir(), 'git-scan-'));
     gitInit(tmp);
   });
-  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+  afterEach(() => rmSync(tmp, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
 
   it('returns only fix: commits within the lookback window', async () => {
     commit(tmp, 'a.ts', 'a', 'feat: initial');
