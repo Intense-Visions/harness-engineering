@@ -39,14 +39,39 @@ export async function readFileContent(path: string): Promise<Result<string, Erro
 }
 
 /**
+ * Default ignore patterns applied to every `findFiles` call. These are
+ * directories that never contain user source the analyzer cares about:
+ * `node_modules` is dependencies, `dist`/`build` are build output, `coverage`
+ * is test artifacts. Without these defaults, scanners like `harness check-arch`
+ * crawl into nested `node_modules` (e.g. a standalone example's bundled
+ * `typescript/lib/lib.dom.d.ts`) and produce hundreds of false-positive
+ * complexity findings.
+ */
+export const DEFAULT_FIND_FILES_IGNORE: readonly string[] = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/build/**',
+  '**/coverage/**',
+];
+
+/**
  * Finds files matching a glob pattern.
  *
  * @param pattern - The glob pattern to search for.
  * @param cwd - The current working directory for the search (default: process.cwd()).
+ * @param extraIgnore - Additional ignore patterns, applied on top of {@link DEFAULT_FIND_FILES_IGNORE}.
  * @returns A promise that resolves to an array of absolute file paths matching the pattern.
  */
-export async function findFiles(pattern: string, cwd: string = process.cwd()): Promise<string[]> {
-  return glob(pattern, { cwd, absolute: true });
+export async function findFiles(
+  pattern: string,
+  cwd: string = process.cwd(),
+  extraIgnore: readonly string[] = []
+): Promise<string[]> {
+  return glob(pattern, {
+    cwd,
+    absolute: true,
+    ignore: [...DEFAULT_FIND_FILES_IGNORE, ...extraIgnore],
+  });
 }
 
 /**
