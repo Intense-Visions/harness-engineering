@@ -5,6 +5,14 @@ on:
     types: [completed]
     branches: [main]
 
+# Why this exists: the previous smoke test only ran `harness --version`,
+# which exits via commander before loading orchestrator. Incident #332
+# slipped past it — orchestrator's dist imported symbols from a stale
+# published types build, but `--version` never triggered that code path.
+# This workflow now imports every published @harness-engineering/*
+# package directly and exercises a CLI command that walks the
+# orchestrator dep chain, so a module-load mismatch fails the release.
+
 jobs:
   smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -13,16 +21,64 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+
       - name: Wait for npm CDN propagation
         run: sleep 30
+
       - name: Install published CLI
         run: npm install -g @harness-engineering/cli
-      - name: Verify CLI runs
+
+      - name: Verify CLI version command
         run: harness --version
-      - name: Verify core exports
+
+      - name: Verify CLI help loads every subcommand module
+        # Commander lazily registers subcommands but `--help` traverses them
+        # all to print the listing. A bad import in any subcommand surfaces
+        # here even when `--version` would short-circuit.
+        run: harness --help
+
+      - name: Verify every published @harness-engineering/* package imports cleanly
         run: |
           mkdir /tmp/smoke && cd /tmp/smoke
-          npm init -y
-          npm install @harness-engineering/core @harness-engineering/types
-          node -e "const c = require('@harness-engineering/core'); console.log('core OK:', typeof c.validateConfig)"
-          node -e "const t = require('@harness-engineering/types'); console.log('types OK:', Object.keys(t).length > 0)"
+          npm init -y >/dev/null
+          # Pin nothing: install whatever the registry now resolves for each
+          # public package. If any pair is incompatible (incident #332-style),
+          # the dynamic import below blows up.
+          npm install \
+            @harness-engineering/cli \
+            @harness-engineering/core \
+            @harness-engineering/types \
+            @harness-engineering/orchestrator \
+            @harness-engineering/intelligence \
+            @harness-engineering/graph \
+            @harness-engineering/dashboard \
+            @harness-engineering/linter-gen
+          node --input-type=module -e "
+            const pkgs = [
+              '@harness-engineering/cli',
+              '@harness-engineering/core',
+              '@harness-engineering/types',
+              '@harness-engineering/orchestrator',
+              '@harness-engineering/intelligence',
+              '@harness-engineering/graph',
+              '@harness-engineering/dashboard',
+              '@harness-engineering/linter-gen',
+            ];
+            const failures = [];
+            for (const pkg of pkgs) {
+              try {
+                const mod = await import(pkg);
+                const exportCount = Object.keys(mod).length;
+                console.log(\`ok  \${pkg}  (\${exportCount} exports)\`);
+              } catch (err) {
+                failures.push({ pkg, message: err?.message ?? String(err) });
+                console.error(\`fail \${pkg}: \${err?.message ?? err}\`);
+              }
+            }
+            if (failures.length > 0) {
+              console.error('');
+              console.error(\`\${failures.length} package(s) failed to import. Most likely a\`);
+              console.error('cross-package version mismatch — see incident #332 for the pattern.');
+              process.exit(1);
+            }
+          "

@@ -11,6 +11,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fail PRs that change a publishable package without a corresponding
+  # .changeset entry. Skipped on release PRs opened by the changesets bot
+  # (those delete changesets and bump versions, which is the opposite signal).
+  changeset-check:
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Fetch enough history that origin/main is a usable diff base.
+          fetch-depth: 0
+
+      - name: Verify every changed package has a changeset
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: node scripts/check-changesets.mjs
+
   build-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
