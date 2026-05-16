@@ -65,6 +65,8 @@ temp/
 **/.harness/audit.log
 # Phase 3 webhook runtime artifact — NEVER commit plaintext webhook secrets
 **/.harness/webhooks.json
+# Phase 6 reference bridge — NEVER commit Slack tokens or HMAC secret
+examples/slack-echo-bridge/.env
 # Test fixtures: ignore the whole security dir (timeline.json there is test scaffolding)
 **/fixtures/**/.harness/security/
 **/fixtures/**/.harness/security/*
