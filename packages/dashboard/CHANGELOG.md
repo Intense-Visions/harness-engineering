@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.6.5
+
+### Patch Changes
+
+- Updated dependencies [1796528]
+  - @harness-engineering/core@0.26.3
+  - @harness-engineering/orchestrator@0.4.5
+
 ## 0.6.4
 
 ### Patch Changes
