@@ -29,6 +29,9 @@ export const CORE_TOOL_NAMES: readonly string[] = [
   'code_search',
   'code_outline',
   'compact',
+  // Hermes Phase 1 — read-only, cheap, high-value
+  'search_sessions',
+  'insights_summary',
 ];
 
 const STANDARD_EXTRA: readonly string[] = [
@@ -56,6 +59,8 @@ const STANDARD_EXTRA: readonly string[] = [
   // Gateway tools (Phase 2 Task 11 + Phase 3 Task 9)
   'trigger_maintenance_job',
   'subscribe_webhook',
+  // Hermes Phase 1 — has LLM-spend implication, kept out of core
+  'summarize_session',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

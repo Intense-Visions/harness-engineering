@@ -77,6 +77,11 @@ export * from './annotations';
 export * from './entropy';
 
 /**
+ * Insights aggregator — composite report of health, entropy, decay, attention, impact (Hermes Phase 1).
+ */
+export * from './insights';
+
+/**
  * Performance module for benchmarking and regression detection.
  */
 export * from './performance';

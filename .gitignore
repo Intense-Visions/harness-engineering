@@ -69,6 +69,10 @@ temp/
 **/.harness/webhook-queue.sqlite
 **/.harness/webhook-queue.sqlite-wal
 **/.harness/webhook-queue.sqlite-shm
+# Hermes Phase 1 session-search index — SQLite runtime DB (and WAL/SHM sidecars)
+**/.harness/search-index.sqlite
+**/.harness/search-index.sqlite-wal
+**/.harness/search-index.sqlite-shm
 # Maintenance task run history (regenerated each tick)
 **/.harness/maintenance/
 # Phase 6 reference bridge — NEVER commit Slack tokens or HMAC secret
