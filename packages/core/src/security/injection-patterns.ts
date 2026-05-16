@@ -67,7 +67,12 @@ const reRolingPatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'explicit-re-roling',
     description: 'Direct instruction override attempt',
-    pattern: /(?:new\s+)?(?:system\s+)?(?:instruction|directive|role|persona)\s*[:=]\s*/i,
+    // Requires an override verb (new/override/replace/set/reassign/reset/switch/update/change)
+    // before the keyword so plain documentation headings like `_Agent & Persona:_` or YAML
+    // keys like `role: developer` do not trigger. Real overrides ("new system instruction:",
+    // "override directive:", "set role: admin") still match.
+    pattern:
+      /(?:new|override|replace|set|reassign|reset|switch(?:\s+to)?|update|change)\s+(?:system\s+)?(?:instruction|directive|role|persona)s?\s*[:=]\s*/i,
   },
 ];
 
