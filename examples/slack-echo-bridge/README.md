@@ -47,7 +47,7 @@ curl -X POST http://localhost:3000/api/v1/webhooks \
     "url": "https://<your-tunnel-host>/webhooks/maintenance-completed",
     "events": ["maintenance.completed"]
   }'
-# → returns { id: "whk_…", secret: "<32-byte-hex>", … }
+# → returns { id: "whk_…", secret: "<base64url-secret>", … }
 
 # 3. Copy the `secret` field into HARNESS_WEBHOOK_SECRET in .env, then restart the bridge.
 

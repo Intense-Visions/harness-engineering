@@ -61,7 +61,7 @@ Ship `examples/slack-echo-bridge/` as a standalone, externally-installable Node 
 
 - **[ASSUMPTION] No idempotency suppression in the bridge.** The orchestrator's Phase 4 retry ladder will replay the same `dlv_<hex>` Delivery-Id on transient failure. A naive Slack-poster will then post duplicate messages. The README documents this as a known property of the reference: "If you care about exactly-once Slack messages, store the `X-Harness-Delivery-Id` and drop duplicates yourself." Rejected: a Map-backed dedup cache in the reference — would mask the actual contract and add a state-leak (cache eviction policy, memory bound) for teaching purposes that should belong in real bridges, not the reference.
 
-- **[ASSUMPTION] The bridge's webhook subscription is created out-of-band** (`harness gateway` CLI or `POST /api/v1/webhooks`), not by the bridge itself. The README's quickstart walks an operator through: (1) start the orchestrator, (2) create a token with `subscribe-webhook` scope, (3) `POST /api/v1/webhooks { url: 'https://<tunnel-host>/webhooks/maintenance-completed', events: ['maintenance.completed'], secret: '<HARNESS_WEBHOOK_SECRET>' }` — note the secret is supplied by the operator and matches the bridge's env var. Wait — the orchestrator GENERATES the secret server-side (Phase 3 spec §791 and `webhooks.ts` line 23: "generate a 32-byte hex secret server-side"). The README MUST tell the operator to (a) call the API, (b) capture the one-shot `secret` field from the response, (c) export it as `HARNESS_WEBHOOK_SECRET` before starting the bridge. This is the load-bearing operator workflow detail; getting it wrong defeats verification.
+- **[ASSUMPTION] The bridge's webhook subscription is created out-of-band** (`harness gateway` CLI or `POST /api/v1/webhooks`), not by the bridge itself. The README's quickstart walks an operator through: (1) start the orchestrator, (2) create a token with `subscribe-webhook` scope, (3) `POST /api/v1/webhooks { url: 'https://<tunnel-host>/webhooks/maintenance-completed', events: ['maintenance.completed'], secret: '<HARNESS_WEBHOOK_SECRET>' }` — note the secret is supplied by the operator and matches the bridge's env var. Wait — the orchestrator GENERATES the secret server-side (Phase 3 spec §791 and `webhooks.ts` line 23: "generate a 32-byte secret server-side, base64url (~44 chars)"). The README MUST tell the operator to (a) call the API, (b) capture the one-shot `secret` field from the response, (c) export it as `HARNESS_WEBHOOK_SECRET` before starting the bridge. This is the load-bearing operator workflow detail; getting it wrong defeats verification.
 
 - **[ASSUMPTION] Test runner.** `vitest run` — already the harness convention; Node 20+ compatible; no test runner dep beyond `vitest`. Rejected: Node's built-in `node --test` — would split the harness ecosystem into "examples use node:test, packages use vitest" with no operator-visible benefit.
 
@@ -210,7 +210,7 @@ _Skeleton approval gate: standard mode + task count < 8 → skipped per Rigor Le
    ```bash
    # Required: secret shared with the harness orchestrator's webhook subscription.
    # Capture this from the one-time `secret` field in POST /api/v1/webhooks response.
-   HARNESS_WEBHOOK_SECRET=replace-me-32-byte-hex-from-orchestrator-response
+   HARNESS_WEBHOOK_SECRET=replace-me-base64url-secret-from-orchestrator-response
 
    # Required: Slack bot token with chat:write scope.
    # https://api.slack.com/authentication/token-types#bot
@@ -920,7 +920,7 @@ _Skeleton approval gate: standard mode + task count < 8 → skipped per Rigor Le
        "url": "https://<your-tunnel-host>/webhooks/maintenance-completed",
        "events": ["maintenance.completed"]
      }'
-   # → returns { id: "whk_…", secret: "<32-byte-hex>", … }
+   # → returns { id: "whk_…", secret: "<base64url-secret>", … }
 
    # 3. Copy the `secret` field into HARNESS_WEBHOOK_SECRET in .env, then restart the bridge.
    ```
@@ -929,12 +929,12 @@ _Skeleton approval gate: standard mode + task count < 8 → skipped per Rigor Le
 
    ## Environment variables
 
-   | Name                     | Required | Description                                                                                                                        |
-   | ------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-   | `HARNESS_WEBHOOK_SECRET` | yes      | The 32-byte hex secret returned **once** by `POST /api/v1/webhooks`. Bridges that lose it must delete + recreate the subscription. |
-   | `SLACK_BOT_TOKEN`        | yes      | Slack bot token with `chat:write` scope. See https://api.slack.com/authentication/token-types#bot.                                 |
-   | `SLACK_CHANNEL`          | yes      | Slack channel **ID** (not name — find it via channel details → "About").                                                           |
-   | `PORT`                   | no       | HTTP port the bridge listens on. Default: `3000`.                                                                                  |
+   | Name                     | Required | Description                                                                                                                              |
+   | ------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+   | `HARNESS_WEBHOOK_SECRET` | yes      | Opaque base64url (~44 chars) returned **once** by `POST /api/v1/webhooks`. Bridges that lose it must delete + recreate the subscription. |
+   | `SLACK_BOT_TOKEN`        | yes      | Slack bot token with `chat:write` scope. See https://api.slack.com/authentication/token-types#bot.                                       |
+   | `SLACK_CHANNEL`          | yes      | Slack channel **ID** (not name — find it via channel details → "About").                                                                 |
+   | `PORT`                   | no       | HTTP port the bridge listens on. Default: `3000`.                                                                                        |
 
    ## Verifying signatures (the 5-line snippet)
 
