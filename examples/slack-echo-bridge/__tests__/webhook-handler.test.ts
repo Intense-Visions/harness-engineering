@@ -1,0 +1,230 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AddressInfo } from 'node:net';
+import type { Server } from 'node:http';
+import { createWebhookServer, installShutdownHandlers } from '../src/webhook-handler.js';
+import type { SlackPoster } from '../src/slack-client.js';
+import type { MaintenanceCompletedData } from '../src/types.js';
+import { TEST_SECRET, makeMaintenanceCompletedEvent, signBody } from './fixtures.js';
+
+function startOnPort0(server: Server): Promise<number> {
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      resolve((server.address() as AddressInfo).port);
+    });
+  });
+}
+
+function stop(server: Server): Promise<void> {
+  return new Promise((resolve) => server.close(() => resolve()));
+}
+
+describe('webhook-handler', () => {
+  let slack: SlackPoster & { postMaintenanceCompleted: ReturnType<typeof vi.fn> };
+  let server: Server;
+  let port: number;
+
+  beforeEach(async () => {
+    slack = { postMaintenanceCompleted: vi.fn(async () => undefined) };
+    server = createWebhookServer({ secret: TEST_SECRET, slack });
+    port = await startOnPort0(server);
+  });
+
+  afterEach(async () => {
+    await stop(server);
+    vi.restoreAllMocks();
+  });
+
+  async function post(
+    headers: Record<string, string>,
+    body: string
+  ): Promise<{ status: number; json: unknown }> {
+    const res = await fetch(`http://127.0.0.1:${port}/webhooks/maintenance-completed`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body,
+    });
+    const json = await res.json().catch(() => null);
+    return { status: res.status, json };
+  }
+
+  it('accepts a valid signed delivery and calls Slack', async () => {
+    const event = makeMaintenanceCompletedEvent();
+    const body = JSON.stringify(event);
+    const sig = signBody(TEST_SECRET, body);
+    const { status, json } = await post(
+      {
+        'x-harness-signature': sig,
+        'x-harness-delivery-id': 'dlv_test',
+        'x-harness-event-type': event.type,
+      },
+      body
+    );
+    expect(status).toBe(200);
+    expect(json).toEqual({ ok: true });
+    expect(slack.postMaintenanceCompleted).toHaveBeenCalledOnce();
+    // FINAL-1 regression guard: prove the wire-shape -> rendered-text path is
+    // intact. The fixture emits findings: 3, fixed: 1 as NUMBERS (per the
+    // orchestrator's RunResult contract). Before the FINAL-1 fix, types.ts
+    // declared these as arrays and slack-client.ts called `.length` on them —
+    // a runtime delivery would have rendered "0 findings, 0 fixed" regardless
+    // of payload. Asserting the rendered text contains the fixture's actual
+    // counts catches that exact regression.
+    const data = slack.postMaintenanceCompleted.mock.calls[0]?.[0] as MaintenanceCompletedData;
+    expect(data.findings).toBe(3);
+    expect(data.fixed).toBe(1);
+    const rendered = `Maintenance task \`${data.taskId}\` completed: *${data.status}* (${data.findings} findings, ${data.fixed} fixed)`;
+    expect(rendered).toContain('3 findings');
+    expect(rendered).toContain('1 fixed');
+  });
+
+  it('rejects invalid signatures with 401 and does NOT call Slack', async () => {
+    const event = makeMaintenanceCompletedEvent();
+    const body = JSON.stringify(event);
+    const { status, json } = await post(
+      { 'x-harness-signature': 'sha256=deadbeef', 'x-harness-event-type': event.type },
+      body
+    );
+    expect(status).toBe(401);
+    expect(json).toEqual({ error: 'signature mismatch' });
+    expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported event types with 400', async () => {
+    const event = { ...makeMaintenanceCompletedEvent(), type: 'maintenance.error' };
+    const body = JSON.stringify(event);
+    const sig = signBody(TEST_SECRET, body);
+    const { status } = await post(
+      { 'x-harness-signature': sig, 'x-harness-event-type': event.type },
+      body
+    );
+    expect(status).toBe(400);
+    expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 with verbatim Slack error when chat.postMessage throws', async () => {
+    slack.postMaintenanceCompleted.mockRejectedValueOnce(new Error('rate_limited'));
+    const event = makeMaintenanceCompletedEvent();
+    const body = JSON.stringify(event);
+    const sig = signBody(TEST_SECRET, body);
+    const { status, json } = await post(
+      { 'x-harness-signature': sig, 'x-harness-event-type': event.type },
+      body
+    );
+    expect(status).toBe(502);
+    expect(json).toMatchObject({
+      error: 'slack delivery failed',
+      detail: expect.stringContaining('rate_limited'),
+    });
+  });
+
+  it('returns 400 with "invalid json body" when a signed-but-malformed body fails JSON.parse and does NOT call Slack', async () => {
+    // Body is a valid HMAC input (so it passes verify()) but is NOT valid JSON.
+    // Exercises the JSON.parse catch branch in webhook-handler.ts.
+    const body = 'not-json';
+    const sig = signBody(TEST_SECRET, body);
+    const { status, json } = await post(
+      {
+        'x-harness-signature': sig,
+        'x-harness-delivery-id': 'dlv_invalid_json',
+        'x-harness-event-type': 'maintenance.completed',
+      },
+      body
+    );
+    expect(status).toBe(400);
+    expect(json).toMatchObject({ error: expect.stringContaining('invalid json body') });
+    expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for unrelated paths', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/random`, { method: 'POST' });
+    expect(res.status).toBe(404);
+    expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
+  });
+
+  it('returns 413 "payload too large" when the request body exceeds the configured cap', async () => {
+    // Build a small bridge with a 1 KiB cap and POST 2 KiB. The body never
+    // reaches verify() / JSON.parse / Slack — the cap fires inside readBody().
+    const cappedSlack: SlackPoster & { postMaintenanceCompleted: ReturnType<typeof vi.fn> } = {
+      postMaintenanceCompleted: vi.fn(async () => undefined),
+    };
+    const cappedServer = createWebhookServer({
+      secret: TEST_SECRET,
+      slack: cappedSlack,
+      maxBodyBytes: 1024,
+    });
+    const cappedPort = await startOnPort0(cappedServer);
+    try {
+      const oversized = 'x'.repeat(2048);
+      // Sign the oversized body so it would otherwise pass verify(); the point
+      // is to prove the cap fires BEFORE signature/JSON checks consume CPU.
+      const sig = signBody(TEST_SECRET, oversized);
+      const res = await fetch(`http://127.0.0.1:${cappedPort}/webhooks/maintenance-completed`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-harness-signature': sig,
+          'x-harness-delivery-id': 'dlv_too_large',
+          'x-harness-event-type': 'maintenance.completed',
+        },
+        body: oversized,
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      expect(res.status).toBe(413);
+      expect(json).toMatchObject({ error: 'payload too large' });
+      expect(cappedSlack.postMaintenanceCompleted).not.toHaveBeenCalled();
+    } finally {
+      await stop(cappedServer);
+    }
+  });
+
+  it('installShutdownHandlers registers SIGTERM/SIGINT and invoking the handler calls server.close + exits', () => {
+    // Fake timers so the forced-exit setTimeout inside the shutdown closure
+    // does not fire post-test against an already-restored process.exit mock
+    // (that would leak as a deferred error in the vitest worker).
+    vi.useFakeTimers();
+    // Spy on process.on so we do not actually attach real listeners to the
+    // vitest worker process (which would accumulate across test runs and
+    // eventually trip MaxListenersExceededWarning).
+    const onSpy = vi.spyOn(process, 'on').mockImplementation((..._args: unknown[]) => process);
+    // Stub process.exit so invoking the captured shutdown handler does not
+    // actually kill the vitest worker. Cast: process.exit's signature is
+    // `(code?: number) => never`; we substitute a no-op for the test only.
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(((..._args: unknown[]) => undefined) as never);
+    // Stub server.close so the captured shutdown handler completes without
+    // touching the bound socket; immediately invoke the close-callback so
+    // the SIGTERM happy path (process.exit(0)) runs synchronously.
+    const closeSpy = vi.spyOn(server, 'close').mockImplementation(((cb?: (err?: Error) => void) => {
+      cb?.();
+      return server;
+    }) as never);
+    try {
+      installShutdownHandlers(server, 5000);
+      const sigtermCall = onSpy.mock.calls.find((c) => c[0] === 'SIGTERM');
+      const sigintCall = onSpy.mock.calls.find((c) => c[0] === 'SIGINT');
+      expect(sigtermCall).toBeDefined();
+      expect(sigintCall).toBeDefined();
+      // Invoke the captured SIGTERM handler — proves the wiring routes to
+      // server.close(...) and then process.exit(0). Both calls happen
+      // synchronously because closeSpy invokes its callback immediately;
+      // the forced-exit setTimeout is queued on fake timers but never
+      // advanced (the happy-path graceful-close beat it).
+      const sigtermHandler = sigtermCall?.[1] as () => void;
+      sigtermHandler();
+      expect(closeSpy).toHaveBeenCalledOnce();
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      // Drain pending timers under fake clock so the queued forced-exit
+      // setTimeout fires now (still under the exitSpy mock) rather than
+      // leaking past .mockRestore() and crashing the worker.
+      exitSpy.mockClear();
+      vi.runAllTimers();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    } finally {
+      closeSpy.mockRestore();
+      exitSpy.mockRestore();
+      onSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});

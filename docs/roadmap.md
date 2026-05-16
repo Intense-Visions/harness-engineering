@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-24
-last_synced: 2026-05-15T00:00:00.000Z
-last_manual_edit: 2026-05-15T00:00:00.000Z
+last_synced: 2026-05-15T18:43:18.077Z
+last_manual_edit: 2026-05-16T13:50:11.526Z
 ---
 
 # Roadmap
@@ -1142,13 +1142,14 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 
 ### Hermes Phase 0.1: Reference Slack Bridge
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
 - **Summary:** External test consumer `examples/slack-echo-bridge/` — ~150 LOC Node bridge that subscribes to `maintenance.completed` webhooks, verifies HMAC SHA-256 signatures, posts to Slack. Validates the Phase 0 API contract is usable from an external bridge author's perspective (anti-success #4). Deferred from Phase 0 to ship Phase 0 surface promptly.
 - **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/changes/hermes-phase-0-gateway-api/plans/2026-05-15-phase-6-reference-slack-bridge-plan.md
+- **Assignee:** @cwarner
 - **Priority:** —
+- **External-ID:** —
 
 ### Hermes Phase 0.2: Gateway Tunnel Guide
 
@@ -1159,6 +1160,7 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#328
 
 ### Hermes Phase 1: Session Search + Insights
 
@@ -1173,7 +1175,7 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 
 ### Hermes Phase 2: Custom Maintenance Jobs
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** docs/changes/hermes-adoption/proposal.md
 - **Summary:** Extend MaintenanceScheduler beyond 21 built-in tasks: user-defined custom jobs with output persistence, context_from chaining, skill-content injection, origin tracking, arbitrary pre-check scripts. Plus pre-launch OSV malware guard on MCP/npx packages and expanded cleanup-sessions to general .harness disk hygiene. From Hermes adoption meta-spec.
 - **Blockers:** Hermes Phase 0: Gateway API + Telemetry
@@ -1184,7 +1186,7 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 
 ### Hermes Phase 3: Multi-Sink Notifications
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** docs/changes/hermes-adoption/proposal.md
 - **Summary:** Generalize CINotifier to NotificationSink interface with Slack-first concrete adapter; wrap_response envelope option for platform-shape delivery formatting; harden harness doctor with live pings, hook validity, baseline freshness, session corruption check. Requires Phase 0 webhook fanout. From Hermes adoption meta-spec.
 - **Blockers:** Hermes Phase 0: Gateway API + Telemetry
@@ -1206,7 +1208,7 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 
 ### Hermes Phase 5: Dispatch Hardening
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** docs/changes/hermes-adoption/proposal.md
 - **Summary:** SSH agent dispatch backend, serverless backend interface (Modal-style not Modal-coupled), isolation tier as fourth axis on BackendRouter (local/container/remote-sandbox), per-task cost ceiling with abort-on-exceed. Cost ceiling requires Phase 0 telemetry. From Hermes adoption meta-spec.
 - **Blockers:** Hermes Phase 0: Gateway API + Telemetry
@@ -1222,6 +1224,9 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 - **Summary:** Standardize branch naming prefixes (feat/, fix/, etc.) and kebab-case slugs. Implement harness verify command and @harness-engineering/core validation logic.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#329
 
 ## v3.0 Graph Intelligence
 
@@ -2003,3 +2008,4 @@ last_manual_edit: 2026-05-15T00:00:00.000Z
 | Phase 2: Code Signal Extractors          | @chadjw  | assigned | 2026-04-23 |
 | Phase 3: Connector Enhancement           | @chadjw  | assigned | 2026-04-22 |
 | Phase 4: Knowledge Pipeline & Diagrams   | @chadjw  | assigned | 2026-04-23 |
+| Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |

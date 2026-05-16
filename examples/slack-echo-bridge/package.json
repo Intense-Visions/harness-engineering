@@ -1,0 +1,27 @@
+{
+  "name": "@harness-engineering/example-slack-echo-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reference Slack bridge for harness Gateway API webhooks — verifies HMAC SHA-256, posts to Slack on maintenance.completed.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
