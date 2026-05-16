@@ -1118,11 +1118,11 @@ last_manual_edit: 2026-05-16T13:50:11.526Z
 
 ### Orchestrator Main-Branch Sync
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/orchestrator-main-sync/proposal.md
 - **Summary:** Periodic 15-min cron task to fast-forward the orchestrator's local default branch from origin (FF-only, surfaced warnings); plus dashboard generalization so "Run Now" works for any maintenance task.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/orchestrator-main-sync/plans/
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#309
