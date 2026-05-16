@@ -103,6 +103,24 @@ describe('webhook-handler', () => {
     });
   });
 
+  it('returns 400 with "invalid json body" when a signed-but-malformed body fails JSON.parse and does NOT call Slack', async () => {
+    // Body is a valid HMAC input (so it passes verify()) but is NOT valid JSON.
+    // Exercises the JSON.parse catch branch in webhook-handler.ts.
+    const body = 'not-json';
+    const sig = signBody(TEST_SECRET, body);
+    const { status, json } = await post(
+      {
+        'x-harness-signature': sig,
+        'x-harness-delivery-id': 'dlv_invalid_json',
+        'x-harness-event-type': 'maintenance.completed',
+      },
+      body
+    );
+    expect(status).toBe(400);
+    expect(json).toMatchObject({ error: expect.stringContaining('invalid json body') });
+    expect(slack.postMaintenanceCompleted).not.toHaveBeenCalled();
+  });
+
   it('returns 404 for unrelated paths', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/random`, { method: 'POST' });
     expect(res.status).toBe(404);
