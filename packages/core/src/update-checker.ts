@@ -50,6 +50,24 @@ export function shouldRunCheck(state: UpdateCheckState | null, intervalMs: numbe
 // ---------------------------------------------------------------------------
 
 /**
+ * Removes the cached update-check state.
+ *
+ * Call after a successful `harness update` so the next CLI invocation cannot
+ * print a stale "Update available" notification reflecting the pre-upgrade
+ * state. With the file gone, `readCheckState` returns null and the
+ * notification path bails out; the next invocation will rerun the background
+ * check on its normal cadence.
+ */
+export function invalidateCheckState(): void {
+  try {
+    fs.unlinkSync(getStatePath());
+  } catch {
+    // Missing file / permission error — fine, the notification path returns
+    // null when state is absent.
+  }
+}
+
+/**
  * Reads the update check state from ~/.harness/update-check.json.
  * Returns null if the file is missing, unreadable, or has invalid content.
  */
