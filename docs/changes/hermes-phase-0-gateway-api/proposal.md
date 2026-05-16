@@ -847,14 +847,36 @@ _≈ week 4_
 
 **Exit gate:** OTel collector receives all three trace kinds; spans correlate end-to-end; cache widget shows non-zero hit-rate after a 10-prompt dogfood run; `telemetry.*` events visible on a test webhook subscription.
 
+### Phase 6: Reference Slack Bridge
+
+<!-- complexity: low -->
+
+_≈ 2 days_
+
+**Goal:** External test consumer at `examples/slack-echo-bridge/` that proves the Phase 0 gateway API is usable by an outside bridge author (anti-success #4). Subscribes to `maintenance.completed` webhooks, verifies HMAC SHA-256 signatures via constant-time compare, posts to Slack. Treated as the canonical example for the tunnel guide (Phase 0.2). Deferred from the initial Phase 0 ship; tracked as roadmap item "Hermes Phase 0.1".
+
+**Tasks:**
+
+1. `examples/slack-echo-bridge/package.json`: standalone Node project, no harness workspace deps — must be installable by an external author
+2. `webhook-handler.ts`: HTTP listener for `POST /webhooks/maintenance-completed`; raw-body capture for HMAC verification
+3. `signer.ts`: HMAC SHA-256 verify using constant-time compare (mirror the helper from §792); reject on missing/malformed `X-Harness-Signature`
+4. `slack-client.ts`: `chat.postMessage` with configurable channel; surface Slack API errors verbatim
+5. `index.ts`: wire handler → signer → slack-client; structured logs
+6. `README.md`: env vars (`HARNESS_WEBHOOK_SECRET`, `SLACK_BOT_TOKEN`, `SLACK_CHANNEL`), local-run quickstart, pointer to tunnel guide
+7. `__tests__/signer.test.ts`: valid signature accepted, invalid/missing rejected, timing-equality (constant-time) property test
+8. `__tests__/webhook-handler.test.ts`: full request flow with mocked Slack client
+9. Manual: subscribe the bridge to a live orchestrator via tunnel; trigger a maintenance job; verify message lands in Slack; log every API-contract friction point as a `phase-0-contract-gap` issue
+
+**Exit gate:** Real `maintenance.completed` webhook delivered end-to-end, HMAC verified, message visible in the target Slack channel; any contract-gap issues filed are either resolved or explicitly deferred with rationale in `decisions[]`. Satisfies success-criteria §672 ("reference bridge built against the API") and §685 ("external test consumer exists").
+
 ### Step N — Finalization _(handled by autopilot's PHASE_COMPLETE + FINAL_REVIEW + DONE flow)_
 
-After all 5 phases:
+After all 6 phases:
 
 1. Run `harness:verification` three-tier (EXISTS / SUBSTANTIVE / WIRED)
 2. Run `harness:integration` to ingest the new `business_concept` / `business_process` / `business_rule` nodes via knowledge pipeline
 3. Land the two parent-meta-spec-named ADRs in `docs/knowledge/decisions/`
-4. Build the reference Slack-echo bridge at `examples/slack-echo-bridge/` and verify against a real Slack workspace
+4. Reference Slack-echo bridge: see Phase 6 (deferred from initial Phase 0 ship as roadmap item "Hermes Phase 0.1")
 5. README + AGENTS.md + plugin marketplace listings updated
 6. Roadmap item #310 moves `in-progress → done`
 7. Parent meta-spec roadmap entry status reflects Phase 0 complete; downstream phases (2/3/4) become unblocked
