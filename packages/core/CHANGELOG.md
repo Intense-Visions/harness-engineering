@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.2
+
+### Patch Changes
+
+- Updated dependencies [48e0b5b]
+  - @harness-engineering/types@0.12.0
+
 ## 0.26.1
 
 ### Patch Changes
