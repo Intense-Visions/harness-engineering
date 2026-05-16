@@ -7,15 +7,39 @@ import { resolveSessionDir } from './session-resolver';
 import { HARNESS_DIR, ARCHIVE_DIR } from './constants';
 
 /**
+ * Hook invoked after a session directory has been successfully moved into
+ * `.harness/archive/sessions/`. Concrete implementations live in
+ * `@harness-engineering/orchestrator` (Hermes Phase 1 — summary + index).
+ * Failures inside the hook are non-fatal: the archive itself has already
+ * succeeded by the time this runs.
+ */
+export interface ArchiveHooks {
+  onArchived: (info: {
+    sessionId: string;
+    /** Absolute path of the new archived directory. */
+    archiveDir: string;
+    projectPath: string;
+  }) => Promise<void> | void;
+}
+
+export interface ArchiveSessionOptions {
+  hooks?: ArchiveHooks;
+}
+
+/**
  * Archives a session by moving its directory to
  * `.harness/archive/sessions/<slug>-<date>`.
  *
  * The original session directory is removed. If an archive with the same
  * date already exists, a numeric counter is appended.
+ *
+ * Optional `options.hooks.onArchived` is called after the move succeeds.
+ * Hook failures are caught and logged; they do not propagate to the caller.
  */
 export async function archiveSession(
   projectPath: string,
-  sessionSlug: string
+  sessionSlug: string,
+  options: ArchiveSessionOptions = {}
 ): Promise<Result<void, Error>> {
   const dirResult = resolveSessionDir(projectPath, sessionSlug);
   if (!dirResult.ok) return dirResult;
@@ -55,6 +79,23 @@ export async function archiveSession(
         throw renameErr;
       }
     }
+
+    if (options.hooks?.onArchived) {
+      try {
+        await options.hooks.onArchived({
+          sessionId: sessionSlug,
+          archiveDir: dest,
+          projectPath,
+        });
+      } catch (hookErr) {
+        console.warn(
+          `[archive-hooks] onArchived failed for ${sessionSlug}: ${
+            hookErr instanceof Error ? hookErr.message : String(hookErr)
+          }`
+        );
+      }
+    }
+
     return Ok(undefined);
   } catch (error) {
     return Err(

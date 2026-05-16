@@ -1,6 +1,7 @@
 import type { Result } from './result';
 import type { ContainerConfig, SecretConfig } from './container';
 import type { MaintenanceConfig } from './maintenance';
+import type { HermesConfig } from './hermes';
 
 // --- Token Usage ---
 
@@ -567,6 +568,8 @@ export interface WorkflowConfig {
   maintenance?: MaintenanceConfig;
   /** Phase 5: telemetry export wiring (OTLP/HTTP traces). */
   telemetry?: TelemetryWorkflowConfig;
+  /** Hermes Phase 1: session search + LLM summarization on archive. */
+  hermes?: HermesConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
 }

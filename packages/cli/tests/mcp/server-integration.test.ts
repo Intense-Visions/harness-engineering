@@ -52,7 +52,11 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('trigger_maintenance_job');
     expect(names).toContain('list_gateway_tokens');
     expect(names).toContain('subscribe_webhook');
-    expect(tools).toHaveLength(64);
+    // Hermes Phase 1
+    expect(names).toContain('search_sessions');
+    expect(names).toContain('summarize_session');
+    expect(names).toContain('insights_summary');
+    expect(tools).toHaveLength(67);
   });
 
   it('all tool definitions have inputSchema', () => {
