@@ -23,6 +23,13 @@ events.jsonl
 telemetry.json
 .telemetry-notice-shown
 
+# Phase 3 webhook delivery queue — SQLite runtime DB (and WAL/SHM sidecars)
+webhook-queue.sqlite
+webhook-queue.sqlite-wal
+webhook-queue.sqlite-shm
+# Maintenance task run history (regenerated each tick)
+maintenance/
+
 # security/: track timeline.json (trend ledger), ignore everything else
 security/*
 !security/timeline.json
