@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { createWebhookServer, installShutdownHandlers } from '../src/webhook-handler.js';
 import type { SlackPoster } from '../src/slack-client.js';
+import type { MaintenanceCompletedData } from '../src/types.js';
 import { TEST_SECRET, makeMaintenanceCompletedEvent, signBody } from './fixtures.js';
 
 function startOnPort0(server: Server): Promise<number> {
@@ -61,6 +62,19 @@ describe('webhook-handler', () => {
     expect(status).toBe(200);
     expect(json).toEqual({ ok: true });
     expect(slack.postMaintenanceCompleted).toHaveBeenCalledOnce();
+    // FINAL-1 regression guard: prove the wire-shape -> rendered-text path is
+    // intact. The fixture emits findings: 3, fixed: 1 as NUMBERS (per the
+    // orchestrator's RunResult contract). Before the FINAL-1 fix, types.ts
+    // declared these as arrays and slack-client.ts called `.length` on them —
+    // a runtime delivery would have rendered "0 findings, 0 fixed" regardless
+    // of payload. Asserting the rendered text contains the fixture's actual
+    // counts catches that exact regression.
+    const data = slack.postMaintenanceCompleted.mock.calls[0]?.[0] as MaintenanceCompletedData;
+    expect(data.findings).toBe(3);
+    expect(data.fixed).toBe(1);
+    const rendered = `Maintenance task \`${data.taskId}\` completed: *${data.status}* (${data.findings} findings, ${data.fixed} fixed)`;
+    expect(rendered).toContain('3 findings');
+    expect(rendered).toContain('1 fixed');
   });
 
   it('rejects invalid signatures with 401 and does NOT call Slack', async () => {

@@ -23,9 +23,7 @@ export function createSlackPoster(opts: { token: string; channel: string }): Sla
   const client = new WebClient(opts.token);
   return {
     async postMaintenanceCompleted(data: MaintenanceCompletedData): Promise<void> {
-      const findings = data.findings?.length ?? 0;
-      const fixed = data.fixed?.length ?? 0;
-      const text = `Maintenance task \`${data.taskId}\` completed: *${data.status}* (${findings} findings, ${fixed} fixed)`;
+      const text = `Maintenance task \`${data.taskId}\` completed: *${data.status}* (${data.findings} findings, ${data.fixed} fixed)`;
       const res = await client.chat.postMessage({ channel: opts.channel, text });
       if (!res.ok) {
         // The SDK throws on transport errors; this catches the `{ ok: false }` rare path.

@@ -7,8 +7,7 @@
  * proving the wire contract is sufficient.
  *
  * If the orchestrator's GatewayEvent shape evolves, this file MUST be
- * updated and the README's example payload regenerated. Drift is caught
- * by webhook-handler.test.ts's parse step.
+ * updated and the README's example payload regenerated.
  */
 
 /** A single envelope delivered to the bridge URL. */
@@ -28,14 +27,29 @@ export interface GatewayEvent {
 /**
  * Shape of `data` for `maintenance.completed` events.
  *
- * Source: packages/orchestrator/src/orchestrator.ts:672-681 emits the
- * MaintenanceResult verbatim. The fields below are the load-bearing
- * subset; additional fields are tolerated (the bridge does not validate
- * unknown keys).
+ * Source: packages/orchestrator/src/maintenance/types.ts:39-58 (`RunResult`)
+ * — the orchestrator emits the RunResult verbatim at
+ * packages/orchestrator/src/orchestrator.ts:680-681. The fields below
+ * mirror that interface; additional fields are tolerated (the bridge
+ * does not validate unknown keys).
  */
 export interface MaintenanceCompletedData {
+  /** ID of the task that was run (e.g., 'arch-violations'). */
   taskId: string;
-  status: 'success' | 'failure' | string;
-  findings?: Array<{ severity?: string; message?: string }>;
-  fixed?: Array<unknown>;
+  /** ISO timestamp when the run started. */
+  startedAt: string;
+  /** ISO timestamp when the run completed. */
+  completedAt: string;
+  /** Outcome of the run. */
+  status: 'success' | 'failure' | 'skipped' | 'no-issues';
+  /** Number of issues/findings detected. */
+  findings: number;
+  /** Number of issues fixed. */
+  fixed: number;
+  /** URL of the created/updated PR, or null if no PR was created. */
+  prUrl: string | null;
+  /** Whether an existing PR was updated (vs newly created). */
+  prUpdated: boolean;
+  /** Error message if status is 'failure'. */
+  error?: string;
 }

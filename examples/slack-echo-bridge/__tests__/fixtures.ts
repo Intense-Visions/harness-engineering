@@ -10,9 +10,17 @@ export function makeMaintenanceCompletedEvent(): GatewayEvent {
     timestamp: '2026-05-15T12:00:00.000Z',
     data: {
       taskId: 'rule-coverage-scan',
+      startedAt: '2026-05-15T11:59:50.000Z',
+      completedAt: '2026-05-15T12:00:00.000Z',
       status: 'success',
-      findings: [{ severity: 'info', message: '12 rules covered' }],
-      fixed: [],
+      // Use NON-zero counts so any future regression that defaulted both to 0
+      // (e.g., re-introducing `?.length ?? 0` over a non-array field) would
+      // produce "0 findings, 0 fixed" — which the rendered-text assertion in
+      // webhook-handler.test.ts would then fail on.
+      findings: 3,
+      fixed: 1,
+      prUrl: null,
+      prUpdated: false,
     },
   };
 }
