@@ -117,7 +117,7 @@ export function installShutdownHandlers(server: Server, shutdownTimeoutMs = 5_00
     });
     setTimeout(() => {
       log.warn('shutdown.timeout_forced_exit', { shutdownTimeoutMs });
-      process.exit(0);
+      process.exit(1);
     }, shutdownTimeoutMs).unref();
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
