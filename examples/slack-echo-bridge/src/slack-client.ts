@@ -27,7 +27,10 @@ export function createSlackPoster(opts: { token: string; channel: string }): Sla
       const res = await client.chat.postMessage({ channel: opts.channel, text });
       if (!res.ok) {
         // The SDK throws on transport errors; this catches the `{ ok: false }` rare path.
-        throw new Error(`slack chat.postMessage returned ok=false: ${String(res.error)}`);
+        // Surface the Slack-supplied error code verbatim — matches the transport-error
+        // path (which already propagates Error.message untouched). The README's
+        // "Verbatim Slack errors" section is the spec for this behavior.
+        throw new Error(String(res.error));
       }
     },
   };

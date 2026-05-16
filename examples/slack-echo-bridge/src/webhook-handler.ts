@@ -1,4 +1,9 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import {
+  createServer as createNodeServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import { verify } from './signer.js';
 import { log } from './logger.js';
 import type { GatewayEvent, MaintenanceCompletedData } from './types.js';
@@ -38,7 +43,7 @@ class BodyTooLargeError extends Error {
  * The factory returns the server WITHOUT calling listen(); the caller
  * picks the port. SIGTERM wiring is the CALLER's responsibility (index.ts).
  */
-export function createServer_(opts: HandlerOptions): Server {
+export function createWebhookServer(opts: HandlerOptions): Server {
   const path = opts.path ?? '/webhooks/maintenance-completed';
   const maxBodyBytes = opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
 
@@ -65,7 +70,7 @@ export function createServer_(opts: HandlerOptions): Server {
     res.end(payload);
   }
 
-  return createServer((req, res) => {
+  return createNodeServer((req, res) => {
     void (async () => {
       if (req.method !== 'POST' || req.url !== path) {
         sendJson(res, 404, { error: 'not found' });
@@ -131,10 +136,6 @@ export function createServer_(opts: HandlerOptions): Server {
     })();
   });
 }
-
-// Re-export with the natural name for callers; the trailing underscore on
-// the implementation avoids shadowing the imported `createServer`.
-export { createServer_ as createWebhookServer };
 
 /**
  * Wire SIGTERM / SIGINT to a graceful shutdown: stop accepting new

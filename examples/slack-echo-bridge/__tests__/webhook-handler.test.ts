@@ -177,18 +177,54 @@ describe('webhook-handler', () => {
     }
   });
 
-  it('installShutdownHandlers wires SIGTERM/SIGINT without throwing', () => {
+  it('installShutdownHandlers registers SIGTERM/SIGINT and invoking the handler calls server.close + exits', () => {
+    // Fake timers so the forced-exit setTimeout inside the shutdown closure
+    // does not fire post-test against an already-restored process.exit mock
+    // (that would leak as a deferred error in the vitest worker).
+    vi.useFakeTimers();
     // Spy on process.on so we do not actually attach real listeners to the
     // vitest worker process (which would accumulate across test runs and
     // eventually trip MaxListenersExceededWarning).
-    const spy = vi.spyOn(process, 'on').mockImplementation((..._args: unknown[]) => process);
+    const onSpy = vi.spyOn(process, 'on').mockImplementation((..._args: unknown[]) => process);
+    // Stub process.exit so invoking the captured shutdown handler does not
+    // actually kill the vitest worker. Cast: process.exit's signature is
+    // `(code?: number) => never`; we substitute a no-op for the test only.
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(((..._args: unknown[]) => undefined) as never);
+    // Stub server.close so the captured shutdown handler completes without
+    // touching the bound socket; immediately invoke the close-callback so
+    // the SIGTERM happy path (process.exit(0)) runs synchronously.
+    const closeSpy = vi.spyOn(server, 'close').mockImplementation(((cb?: (err?: Error) => void) => {
+      cb?.();
+      return server;
+    }) as never);
     try {
-      expect(() => installShutdownHandlers(server, 1)).not.toThrow();
-      const signals = spy.mock.calls.map((c) => c[0]);
-      expect(signals).toContain('SIGTERM');
-      expect(signals).toContain('SIGINT');
+      installShutdownHandlers(server, 5000);
+      const sigtermCall = onSpy.mock.calls.find((c) => c[0] === 'SIGTERM');
+      const sigintCall = onSpy.mock.calls.find((c) => c[0] === 'SIGINT');
+      expect(sigtermCall).toBeDefined();
+      expect(sigintCall).toBeDefined();
+      // Invoke the captured SIGTERM handler — proves the wiring routes to
+      // server.close(...) and then process.exit(0). Both calls happen
+      // synchronously because closeSpy invokes its callback immediately;
+      // the forced-exit setTimeout is queued on fake timers but never
+      // advanced (the happy-path graceful-close beat it).
+      const sigtermHandler = sigtermCall?.[1] as () => void;
+      sigtermHandler();
+      expect(closeSpy).toHaveBeenCalledOnce();
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      // Drain pending timers under fake clock so the queued forced-exit
+      // setTimeout fires now (still under the exitSpy mock) rather than
+      // leaking past .mockRestore() and crashing the worker.
+      exitSpy.mockClear();
+      vi.runAllTimers();
+      expect(exitSpy).toHaveBeenCalledWith(1);
     } finally {
-      spy.mockRestore();
+      closeSpy.mockRestore();
+      exitSpy.mockRestore();
+      onSpy.mockRestore();
+      vi.useRealTimers();
     }
   });
 });
