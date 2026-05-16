@@ -11,7 +11,8 @@ import { log } from './logger.js';
  * half-running bridge.
  *
  * Env-var contract (see README "Environment variables"):
- *   HARNESS_WEBHOOK_SECRET  (required) — 32-byte hex from POST /api/v1/webhooks response
+ *   HARNESS_WEBHOOK_SECRET  (required) — opaque base64url string (~44 chars) from POST /api/v1/webhooks response.
+ *                                        Treat as a one-time secret — capture once, store securely, never log.
  *   SLACK_BOT_TOKEN         (required) — Slack bot token with chat:write scope
  *   SLACK_CHANNEL           (required) — Slack channel ID (NOT name)
  *   PORT                    (optional) — bind port, default 3000

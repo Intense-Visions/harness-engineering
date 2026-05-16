@@ -59,13 +59,13 @@ curl -X POST http://localhost:3000/api/v1/webhooks \
 
 ## Environment variables
 
-| Name                     | Required | Default     | Description                                                                                                                          |
-| ------------------------ | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `HARNESS_WEBHOOK_SECRET` | yes      | —           | The 32-byte hex secret returned **once** by `POST /api/v1/webhooks`. Bridges that lose it must delete + recreate the subscription.   |
-| `SLACK_BOT_TOKEN`        | yes      | —           | Slack bot token with `chat:write` scope. See https://api.slack.com/authentication/token-types#bot.                                   |
-| `SLACK_CHANNEL`          | yes      | —           | Slack channel **ID** (not name — find it via channel details → "About").                                                             |
-| `PORT`                   | no       | `3000`      | HTTP port the bridge listens on.                                                                                                     |
-| `HOST`                   | no       | `127.0.0.1` | HTTP bind address. Override to `0.0.0.0` only when the bridge MUST accept off-host connections directly (otherwise prefer a tunnel). |
+| Name                     | Required | Default     | Description                                                                                                                                                                                                        |
+| ------------------------ | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HARNESS_WEBHOOK_SECRET` | yes      | —           | Opaque base64url string (~44 chars) from the `POST /api/v1/webhooks` response. Treat as a one-time secret — capture once, store securely, never log. Bridges that lose it must delete + recreate the subscription. |
+| `SLACK_BOT_TOKEN`        | yes      | —           | Slack bot token with `chat:write` scope. See https://api.slack.com/authentication/token-types#bot.                                                                                                                 |
+| `SLACK_CHANNEL`          | yes      | —           | Slack channel **ID** (not name — find it via channel details → "About").                                                                                                                                           |
+| `PORT`                   | no       | `3000`      | HTTP port the bridge listens on.                                                                                                                                                                                   |
+| `HOST`                   | no       | `127.0.0.1` | HTTP bind address. Override to `0.0.0.0` only when the bridge MUST accept off-host connections directly (otherwise prefer a tunnel).                                                                               |
 
 ## Verifying signatures (the snippet)
 
