@@ -436,6 +436,15 @@ Scaffold a new harness engineering project from a template
 
 **CLI equivalent:** [`harness init`](cli-commands.md#harness-init)
 
+### `insights_summary`
+
+Composite report combining health, entropy, decay, attention, and impact (Hermes Phase 1).
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `skip` (array, optional) — Top-level keys to skip.
+
 ### `recommend_skills`
 
 Recommend skills based on codebase health. Returns sequenced workflow with urgency markers.
@@ -466,6 +475,16 @@ Subscribe to outbound webhook fan-out via POST /api/v1/webhooks. Returns the sec
 
 - `url` (string, required) — https URL to POST events to
 - `events` (array, required) — Event-type globs (e.g. ["maintenance.completed", "interaction.*"])
+
+### `summarize_session`
+
+Generate or regenerate the LLM `llm-summary.md` for an archived session (Hermes Phase 1).
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `sessionId` (string, required) — Archived session id (basename of the directory inside .harness/archive/sessions/)
+- `force` (boolean, optional) — If true, overwrite an existing llm-summary.md. Default: false (no-op when present).
 
 ### `trigger_maintenance_job`
 
@@ -584,6 +603,18 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 - `limit` (number, optional) — Max nodes to return (pagination). Default: 50.
 
 **CLI equivalent:** [`harness query`](cli-commands.md#harness-query-rootnodeid)
+
+### `search_sessions`
+
+Full-text search over archived + live session content (Hermes Phase 1, FTS5/BM25).
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `query` (string, required) — FTS5 query (bare words AND-joined)
+- `limit` (number, optional) — Max results (default 20)
+- `archivedOnly` (boolean, optional) — Only search archived sessions (skip live).
+- `fileKinds` (array, optional) — Subset of file kinds to search.
 
 ### `search_similar`
 
