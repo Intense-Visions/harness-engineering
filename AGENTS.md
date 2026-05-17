@@ -368,7 +368,7 @@ _Project Setup:_ `init`, `install`, `uninstall`, `setup`, `setup-mcp`, `setup-ty
 
 _Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-deps`, `check-docs`, `check-perf`, `check-phase-gate`, `check-security`, `audit-protected`
 
-_Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`
+_Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`, `search`, `insights`
 
 _Maintenance:_ `cleanup`, `cleanup-sessions`, `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`
 
@@ -384,6 +384,8 @@ _Notable single commands:_
 - `taint.ts` — Manages session taint state to block destructive operations after injection detection
 - `doctor.ts` — Runs system health checks (Node version, MCP config, integrations)
 - `dashboard.ts` — Launches the web dashboard server on configurable ports
+- `search.ts` — Hermes Phase 1: FTS5 + BM25 over `.harness/sessions/` and `.harness/archive/sessions/` (`harness search "<query>" [--reindex] [--archived-only] [--json]`)
+- `insights.ts` — Hermes Phase 1: composite report combining health, entropy, decay, attention, impact (`harness insights [--json] [--skip <list>]`)
 - `_registry.ts` — Auto-generated barrel export aggregating all command constructors
 
 **Hooks** (`packages/cli/src/hooks/`): Claude Code lifecycle hooks for security and quality enforcement.
@@ -405,7 +407,7 @@ _Project & Validation:_ `init`, `validate`, `assess-project`, `phase-gate`, `sta
 
 _Architecture & Quality:_ `architecture`, `entropy`, `stale-constraints`, `constraint-emergence`, `cross-check`, `linter`, `performance`
 
-_Code Navigation & Search:_ `code-nav`, `search-skills`, `recommend-skills`, `advise-skills`, `dispatch-skills`, `gather-context`, `find-context-for` (graph)
+_Code Navigation & Search:_ `code-nav`, `search-skills`, `recommend-skills`, `advise-skills`, `dispatch-skills`, `gather-context`, `find-context-for` (graph), `search-sessions` (Hermes Phase 1), `summarize-session` (Hermes Phase 1), `insights-summary` (Hermes Phase 1)
 
 _Documentation & Review:_ `docs`, `review-changes`, `review-pipeline`, `feedback`, `interaction`, `interaction-schemas`, `interaction-renderer`
 

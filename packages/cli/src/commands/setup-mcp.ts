@@ -118,6 +118,10 @@ export const ALL_MCP_TOOLS: string[] = [
   'list_gateway_tokens',
   // Phase 3 Task 9 — Gateway API webhook wrapper
   'subscribe_webhook',
+  // Hermes Phase 1 — session search, summarization, insights aggregator
+  'search_sessions',
+  'summarize_session',
+  'insights_summary',
 ];
 
 /**

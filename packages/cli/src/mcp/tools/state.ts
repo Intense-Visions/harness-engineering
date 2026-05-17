@@ -288,7 +288,9 @@ async function handleReadSections(projectPath: string, input: StateInput) {
 async function handleArchiveSession(projectPath: string, input: StateInput) {
   if (!input.session) return mcpError('Error: session is required for archive_session action');
   const { archiveSession } = await import('@harness-engineering/core');
-  const result = await archiveSession(projectPath, input.session);
+  const { buildArchiveHooks } = await import('@harness-engineering/orchestrator');
+  const hooks = buildArchiveHooks({ projectPath });
+  const result = await archiveSession(projectPath, input.session, { hooks });
   if (!result.ok) return resultToMcpResponse(result);
 
   // Auto-sync roadmap after archiving session (mechanical enforcement)

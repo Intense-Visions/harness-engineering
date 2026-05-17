@@ -137,6 +137,7 @@ export {
  * Session archival for preserving previous session state.
  */
 export { archiveSession } from './session-archive';
+export type { ArchiveHooks, ArchiveSessionOptions } from './session-archive';
 
 /**
  * Structured event log for skill lifecycle moments.

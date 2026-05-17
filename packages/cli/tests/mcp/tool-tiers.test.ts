@@ -67,10 +67,14 @@ describe('selectTier()', () => {
     def('code_search'),
     def('code_outline'),
     def('compact'),
+    // Hermes Phase 1 — core tier
+    def('search_sessions'),
+    def('insights_summary'),
     // additional standard tools
     def('run_code_review'),
     def('run_security_scan'),
     def('trigger_maintenance_job'),
+    def('summarize_session'),
     // extras not in any tier
     def('fancy_new_tool'),
     def('yet_another_tool'),

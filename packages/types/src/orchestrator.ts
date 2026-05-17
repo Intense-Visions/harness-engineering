@@ -1,6 +1,7 @@
 import type { Result } from './result';
 import type { ContainerConfig, SecretConfig } from './container';
 import type { MaintenanceConfig } from './maintenance';
+import type { SessionsConfig } from './sessions';
 
 // --- Token Usage ---
 
@@ -567,8 +568,10 @@ export interface WorkflowConfig {
   maintenance?: MaintenanceConfig;
   /** Phase 5: telemetry export wiring (OTLP/HTTP traces). */
   telemetry?: TelemetryWorkflowConfig;
+  /** Session search + LLM summarization on archive. */
+  sessions?: SessionsConfig;
   /**
-   * Hermes Phase 3: notification sinks (Slack-first). When present + non-empty,
+   * Notification sinks (Slack-first). When present + non-empty,
    * orchestrator boot constructs a `SinkRegistry` from this section and wires
    * `wireNotificationSinks` against the orchestrator's event bus.
    */

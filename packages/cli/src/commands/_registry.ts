@@ -31,6 +31,7 @@ import { createHooksCommand } from './hooks';
 import { createImpactPreviewCommand } from './impact-preview';
 import { createIngestCommand } from './graph/ingest';
 import { createInitCommand } from './init';
+import { createInsightsCommand } from './insights';
 import { createInstallCommand } from './install';
 import { createInstallConstraintsCommand } from './install-constraints';
 import { createIntegrationsCommand } from './integrations';
@@ -51,6 +52,7 @@ import { createRecommendCommand } from './recommend';
 import { createRoadmapCommand } from './roadmap';
 import { createScanCommand } from './graph/scan';
 import { createScanConfigCommand } from './scan-config';
+import { createSearchCommand } from './search';
 import { createSetupCommand } from './setup';
 import { createSetupMcpCommand } from './setup-mcp';
 import { createShareCommand } from './share';
@@ -103,6 +105,7 @@ export const commandCreators: Array<() => Command> = [
   createImpactPreviewCommand,
   createIngestCommand,
   createInitCommand,
+  createInsightsCommand,
   createInstallCommand,
   createInstallConstraintsCommand,
   createIntegrationsCommand,
@@ -123,6 +126,7 @@ export const commandCreators: Array<() => Command> = [
   createRoadmapCommand,
   createScanCommand,
   createScanConfigCommand,
+  createSearchCommand,
   createSetupCommand,
   createSetupMcpCommand,
   createShareCommand,

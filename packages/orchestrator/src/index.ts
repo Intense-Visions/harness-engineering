@@ -53,9 +53,31 @@ export type { CreateTokenInput, CreateTokenResult } from './auth';
 export { WebhookQueue, MAX_ATTEMPTS, RETRY_DELAYS_MS } from './gateway/webhooks/queue';
 export type { QueueStats, QueueRow, QueueInsertInput } from './gateway/webhooks/queue';
 
-// Hermes Phase 3: notification sinks (envelope wrapper, Slack adapter, in-process
-// dispatcher). The CLI's `harness notifications test` and the integration tests
-// reach for these directly; everything else is wired by the orchestrator boot.
+// Session search + summarization + archive hooks.
+export {
+  SqliteSearchIndex,
+  openSearchIndex,
+  searchIndexPath,
+  normalizeFts5Query,
+  indexSessionDirectory,
+  reindexFromArchive,
+} from './sessions/search-index';
+export type { IndexedDoc, SearchOptions } from './sessions/search-index';
+
+export {
+  summarizeArchivedSession,
+  renderLlmSummaryMarkdown,
+  truncateForBudget,
+  isSummaryEnabled,
+} from './sessions/summarize';
+export type { SummarizeContext, SummarizeResult } from './sessions/summarize';
+
+export { buildArchiveHooks } from './sessions/archive-hooks';
+export type { BuildArchiveHooksOptions } from './sessions/archive-hooks';
+
+// Notification sinks (envelope wrapper, Slack adapter, in-process dispatcher).
+// The CLI's `harness notifications test` and the integration tests reach for
+// these directly; everything else is wired by the orchestrator boot.
 export {
   wrapAsEnvelope,
   SlackSink,
