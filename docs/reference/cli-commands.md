@@ -214,6 +214,15 @@ Initialize a new harness-engineering project
 - `-f, --force` — Overwrite existing files
 - `-y, --yes` — Use defaults without prompting
 
+### `harness insights`
+
+Composite project report — health, entropy, decay, attention, impact (Hermes Phase 1).
+
+**Options:**
+
+- `--json` — Emit JSON to stdout instead of pretty text
+- `--skip` — Comma-separated keys to skip (health,entropy,decay,attention,impact)
+
 ### `harness install <skill>`
 
 Install skills from npm registry, local directory, or GitHub repository
@@ -340,6 +349,22 @@ Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt inje
 
 - `--path` — Target directory to scan (default: cwd)
 - `--fix` — Strip high-severity patterns from files in-place
+
+### `harness search <query>`
+
+Full-text search over archived + live session content (Hermes Phase 1).
+
+**Arguments:**
+
+- `query` (required) — FTS5 query (bare words AND-joined; quotes/AND/OR/NOT/column: for advanced syntax)
+
+**Options:**
+
+- `-n, --limit` — Max results (default: "20")
+- `--archived-only` — Skip live sessions, only search archived ones
+- `--json` — Emit JSON to stdout instead of pretty text
+- `--reindex` — Drop and rebuild the index from .harness/archive/sessions before searching
+- `--file-kinds` — Comma-separated subset of {summary,learnings,failures,sections,llm_summary}
 
 ### `harness setup`
 

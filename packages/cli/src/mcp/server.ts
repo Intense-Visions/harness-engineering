@@ -14,6 +14,9 @@ import { validateToolDefinition, handleValidateProject } from './tools/validate.
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
 import { detectEntropyDefinition, handleDetectEntropy } from './tools/entropy.js';
+import { searchSessionsDefinition, handleSearchSessions } from './tools/search-sessions.js';
+import { summarizeSessionDefinition, handleSummarizeSession } from './tools/summarize-session.js';
+import { insightsSummaryDefinition, handleInsightsSummary } from './tools/insights-summary.js';
 import {
   checkPerformanceDefinition,
   handleCheckPerformance,
@@ -235,6 +238,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   triggerMaintenanceJobDefinition,
   listGatewayTokensDefinition,
   subscribeWebhookDefinition,
+  searchSessionsDefinition,
+  summarizeSessionDefinition,
+  insightsSummaryDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -301,6 +307,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   trigger_maintenance_job: handleTriggerMaintenanceJob as ToolHandler,
   list_gateway_tokens: handleListGatewayTokens as ToolHandler,
   subscribe_webhook: handleSubscribeWebhook as ToolHandler,
+  search_sessions: handleSearchSessions as unknown as ToolHandler,
+  summarize_session: handleSummarizeSession as unknown as ToolHandler,
+  insights_summary: handleInsightsSummary as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

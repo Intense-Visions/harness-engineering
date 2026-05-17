@@ -52,3 +52,25 @@ export type { CreateTokenInput, CreateTokenResult } from './auth';
 // the constant.
 export { WebhookQueue, MAX_ATTEMPTS, RETRY_DELAYS_MS } from './gateway/webhooks/queue';
 export type { QueueStats, QueueRow, QueueInsertInput } from './gateway/webhooks/queue';
+
+// Hermes Phase 1 — Session search + summarization + archive hooks.
+export {
+  SqliteSearchIndex,
+  openSearchIndex,
+  searchIndexPath,
+  normalizeFts5Query,
+  indexSessionDirectory,
+  reindexFromArchive,
+} from './sessions/search-index';
+export type { IndexedDoc, SearchOptions } from './sessions/search-index';
+
+export {
+  summarizeArchivedSession,
+  renderLlmSummaryMarkdown,
+  truncateForBudget,
+  isSummaryEnabled,
+} from './sessions/summarize';
+export type { SummarizeContext, SummarizeResult } from './sessions/summarize';
+
+export { buildArchiveHooks } from './sessions/archive-hooks';
+export type { BuildArchiveHooksOptions } from './sessions/archive-hooks';

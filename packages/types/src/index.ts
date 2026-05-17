@@ -213,3 +213,29 @@ export type {
   WebhookDeliveryStatus,
   WebhookDelivery,
 } from './webhooks';
+
+// --- Session search + insights ---
+export {
+  SessionSummarySchema,
+  INDEXED_FILE_KINDS,
+  INSIGHTS_KEYS,
+  SESSIONS_DEFAULTS,
+} from './sessions';
+export type {
+  IndexedFileKind,
+  SessionSummary,
+  SessionSummaryMeta,
+  SessionSearchMatch,
+  SessionSearchResult,
+  ReindexStats,
+  InsightsKey,
+  InsightsHealthBlock,
+  InsightsEntropyBlock,
+  InsightsDecayBlock,
+  InsightsAttentionBlock,
+  InsightsImpactBlock,
+  InsightsReport,
+  SessionSummarizationConfig,
+  SessionSearchConfig,
+  SessionsConfig,
+} from './sessions';
