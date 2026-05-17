@@ -243,3 +243,23 @@ export type {
   SessionSearchConfig,
   SessionsConfig,
 } from './sessions';
+
+// --- Notifications ---
+export {
+  NotificationSinkKindSchema,
+  NotificationSeveritySchema,
+  NotificationActionSchema,
+  NotificationEnvelopeSchema,
+  NotificationSinkConfigSchema,
+  NotificationsConfigSchema,
+  NotificationDeliveryResultSchema,
+} from './notifications';
+export type {
+  NotificationSinkKind,
+  NotificationSeverity,
+  NotificationAction,
+  NotificationEnvelope,
+  NotificationSinkConfig,
+  NotificationsConfig,
+  NotificationDeliveryResult,
+} from './notifications';

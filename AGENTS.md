@@ -509,6 +509,47 @@ Anonymous product analytics collection implemented across `packages/types`, `pac
 
 See [`docs/knowledge/orchestrator/gateway-api.md`](docs/knowledge/orchestrator/gateway-api.md) for the gateway API contract business-process node, [`docs/knowledge/orchestrator/webhook-fanout.md`](docs/knowledge/orchestrator/webhook-fanout.md) for the Phase 3 webhook fan-out pipeline (subscription lifecycle, segment-glob filter, delivery worker, Phase 4 extension points), and [ADR 0011](docs/knowledge/decisions/0011-orchestrator-gateway-api-contract.md) (status: in-progress, promotion to `accepted` deferred to Phase 4 + Phase 5) for the contract decisions including the "Webhook secret storage model (Phase 3)" addendum.
 
+### Notifications (Hermes Phase 3)
+
+`packages/orchestrator/src/notifications/` ships an in-process `NotificationSink` abstraction layered on top of the Phase 0 webhook fanout. Sinks subscribe to the orchestrator event bus (`wireNotificationSinks` in `events.ts`, structurally parallel to `wireWebhookFanout`) and deliver each filtered event directly to a destination (Slack incoming webhook for v1) with optional `wrap_response` envelope formatting. Failures emit `notification.delivery.failed` for operator visibility; sinks never retry (durable delivery is the Phase 0 webhook fanout's job).
+
+**Sink config** lives in `harness.config.json` under `notifications.sinks[]`:
+
+```jsonc
+{
+  "notifications": {
+    "sinks": [
+      {
+        "id": "team-alerts",
+        "kind": "slack",
+        "events": ["maintenance.error", "interaction.created"],
+        "wrap_response": true,
+        "config": { "webhookUrlEnv": "HARNESS_SLACK_WEBHOOK_URL" },
+      },
+    ],
+  },
+}
+```
+
+`webhookUrlEnv` names the env var holding the Slack incoming-webhook URL (must match `https://hooks.slack.com/`); the URL never lands in the config file. `wrap_response: true` wraps each `GatewayEvent` into a `NotificationEnvelope` (six fields: `title`, `summary`, `severity`, optional `actions[]`, `permalink?`, `correlationId?`) before delivery; `false` delivers the raw event.
+
+**CLI.** `harness notifications test <sink-id>` synthesizes a `notification.test` event and routes it through the named sink. Used after first-config to verify the env var is set and the URL works; also the Phase 3 phase-readiness gate for "external test consumer exists."
+
+**Layer compliance.** Contract types in `packages/types/src/notifications.ts`; concrete sinks in `packages/orchestrator/src/notifications/`; config loader in `packages/core/src/notifications/config-loader.ts`; CLI in `packages/cli/src/commands/notifications/`. No cross-layer leak (orchestrator never imports core/cli; core's loader uses only types).
+
+See [`docs/knowledge/orchestrator/notification-sinks.md`](docs/knowledge/orchestrator/notification-sinks.md) for the business-process node and [ADR 0013](docs/knowledge/decisions/0013-notification-sink-interface.md) for the contract decisions.
+
+### Doctor Hardening (Hermes Phase 3 / A7)
+
+`harness doctor` runs four new check classes alongside the legacy presence checks (Node, slash commands, MCP, integrations registry). All are synchronous and file-IO only; outbound HTTP probes are explicitly out of scope per [ADR 0014](docs/knowledge/decisions/0014-doctor-live-state-checks.md).
+
+- **`checkLivePings`** — env-var presence + shape for `ANTHROPIC_API_KEY` (prefix `sk-ant-`), `OPENAI_API_KEY` (prefix `sk-`), `GITHUB_TOKEN` (length ≥ 30). Absent → `info`; malformed → `warn`; well-shaped → `pass`.
+- **`checkHookValidity`** — for each file under `.harness/hooks/`: JSON parse or shebang detection. Empty file → `fail`; missing shebang → `warn`; parses OK → `pass`. Directory absent → single `info`.
+- **`checkBaselineFreshness`** — mtime check for `.harness/arch/baselines.json`, `benchmark-baselines.json`, `coverage-baselines.json`. < 30 days → `pass`; 30–89 → `warn`; ≥ 90 → `fail`; absent → `info`. Fix hints point at the canonical refresh commands.
+- **`checkSessionCorruption`** — parse the five most-recent `session-summary.json` files under `.harness/sessions/`. All parse → `pass`; some malformed → `warn`; all malformed → `fail`; no sessions → `info`.
+
+`runDoctor(cwd)` remains synchronous and the JSON output shape is additive (existing check names unchanged; new checks add `live-pings-*`, `hook-validity-*`, `baseline-freshness-*`, `session-corruption` entries). See [`docs/knowledge/cli/doctor-hardening.md`](docs/knowledge/cli/doctor-hardening.md).
+
 ### Dashboard Package
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.

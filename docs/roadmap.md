@@ -1186,12 +1186,12 @@ last_manual_edit: 2026-05-16T13:50:11.526Z
 
 ### Hermes Phase 3: Multi-Sink Notifications
 
-- **Status:** planned
-- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Status:** in-progress
+- **Spec:** docs/changes/hermes-phase-3-notifications/proposal.md
 - **Summary:** Generalize CINotifier to NotificationSink interface with Slack-first concrete adapter; wrap_response envelope option for platform-shape delivery formatting; harden harness doctor with live pings, hook validity, baseline freshness, session corruption check. Requires Phase 0 webhook fanout. From Hermes adoption meta-spec.
 - **Blockers:** Hermes Phase 0: Gateway API + Telemetry
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/changes/hermes-phase-3-notifications/plans/main.md
+- **Assignee:** @cwarner
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#313
 

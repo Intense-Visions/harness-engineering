@@ -93,7 +93,11 @@ describe('runDoctor', () => {
     const result = runDoctor('/tmp/project');
 
     expect(result.allPassed).toBe(true);
-    expect(result.checks.every((c) => c.status === 'pass')).toBe(true);
+    // Hermes Phase 3 / A7 checks (live-pings, hooks, baselines, sessions)
+    // produce `info` results when their prerequisites are not configured,
+    // which counts as "passed" (info != fail). The original assertion was
+    // pre-hardening; relax to allowing any non-fail status.
+    expect(result.checks.every((c) => c.status !== 'fail')).toBe(true);
   });
 
   it('reports Node version check', () => {
@@ -176,9 +180,12 @@ describe('runDoctor', () => {
 
     const result = runDoctor('/tmp/project');
 
-    // node + 2 slash command platforms + 2 MCP platforms + 3 Tier 0 integrations = 8 checks
-    // (Tier 1 dismissed, so no info checks)
-    expect(result.checks).toHaveLength(8);
+    // node + 2 slash command platforms + 2 MCP platforms + 3 Tier 0
+    // integrations = 8 legacy checks. Hermes Phase 3 / A7 adds 8 more:
+    // 3 live-pings credentials, 1 hook-validity (info: dir absent),
+    // 3 baseline-freshness (info: each absent), 1 session-corruption
+    // (info: dir absent). Total = 16. (Tier 1 dismissed in mock.)
+    expect(result.checks).toHaveLength(16);
   });
 
   it('is read-only — does not call writeFileSync or mkdirSync', () => {

@@ -183,6 +183,12 @@ export {
 } from './adoption';
 
 /**
+ * Notifications module — loader for the `notifications.sinks[]` section
+ * of harness.config.json. Hermes Phase 3.
+ */
+export { loadNotificationsConfig } from './notifications';
+
+/**
  * Compaction module for reducing MCP tool response token consumption.
  */
 export * from './compaction';

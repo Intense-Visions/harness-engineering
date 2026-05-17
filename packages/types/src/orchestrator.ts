@@ -676,6 +676,12 @@ export interface WorkflowConfig {
   telemetry?: TelemetryWorkflowConfig;
   /** Session search + LLM summarization on archive. */
   sessions?: SessionsConfig;
+  /**
+   * Notification sinks (Slack-first). When present + non-empty,
+   * orchestrator boot constructs a `SinkRegistry` from this section and wires
+   * `wireNotificationSinks` against the orchestrator's event bus.
+   */
+  notifications?: import('./notifications').NotificationsConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
 }

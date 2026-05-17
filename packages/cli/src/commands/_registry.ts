@@ -40,6 +40,7 @@ import { createLearningsCommand } from './learnings';
 import { createLinterCommand } from './linter';
 import { createMcpCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
+import { createNotificationsCommand } from './notifications';
 import { createOrchestratorCommand } from './orchestrator';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
@@ -113,6 +114,7 @@ export const commandCreators: Array<() => Command> = [
   createLinterCommand,
   createMcpCommand,
   createMigrateCommand,
+  createNotificationsCommand,
   createOrchestratorCommand,
   createPerfCommand,
   createPersonaCommand,
