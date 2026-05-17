@@ -131,7 +131,7 @@ Start the Harness local web dashboard
 
 ### `harness doctor`
 
-Check environment health: Node version, slash commands, MCP configuration
+Check environment health: Node, slash commands, MCP, integrations, integration credentials, hooks, baselines, sessions
 
 ### `harness fix-drift`
 
@@ -681,6 +681,22 @@ Validate harness-linter.yml config
 
 - `-c, --config` — Path to harness-linter.yml (default: "./harness-linter.yml")
 - `--json` — Output as JSON
+
+## Notifications Commands
+
+Manage notification sinks (Slack and others)
+
+### `harness notifications test <sink-id>`
+
+Send a synthetic notification.test event through the named sink
+
+**Arguments:**
+
+- `sink-id` (required) — Sink id from harness.config.json `notifications.sinks[].id`
+
+**Options:**
+
+- `--message` — Override the default test message
 
 ## Orchestrator Commands
 
