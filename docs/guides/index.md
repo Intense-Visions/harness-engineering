@@ -67,6 +67,17 @@ Run and deploy harness via Docker containers:
 
 **Best for:** Teams deploying harness as containerized services or running without local Node.js
 
+### [Gateway Tunnel Guide](./gateway-tunnel.md)
+
+Expose a Gateway API bridge to a remote orchestrator (or a remote bridge to a local orchestrator) using a tunnel, since the orchestrator binds `127.0.0.1` by default and only delivers to public `https://` URLs:
+
+- Cloudflare Tunnel, Tailscale, and ngrok as the three canonical patterns
+- Per-pattern recipe: install, start, register subscription, verify, teardown
+- Both topology variants: bridge-local + orchestrator-remote, and bridge-remote + orchestrator-local
+- Troubleshooting table, security notes (HMAC is the authn boundary, not the tunnel), and pointers to the reference Slack bridge
+
+**Best for:** Anyone wiring an external webhook bridge to a running harness orchestrator across hosts
+
 ### [Templates and Framework Overlays](./templates-and-overlays.md)
 
 How project scaffolding works -- the template system behind `harness init`:

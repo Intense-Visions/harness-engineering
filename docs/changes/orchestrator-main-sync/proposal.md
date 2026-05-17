@@ -1,6 +1,6 @@
 ---
 title: Orchestrator Main-Branch Sync
-status: proposed
+status: shipped
 owner: Chad Warner
 keywords: [orchestrator, maintenance, git-sync, fast-forward, dashboard, run-now]
 ---

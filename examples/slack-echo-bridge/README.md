@@ -86,9 +86,7 @@ See `src/signer.ts` for the full implementation with the length-mismatch guard (
 
 ## Exposing the bridge to the internet
 
-The orchestrator runs on `127.0.0.1` by default and will only deliver to `https://` URLs. To accept deliveries from a live orchestrator on a developer machine, expose the bridge via a tunnel. See `docs/guides/gateway-tunnel.md` for the canonical setups (Tailscale, Cloudflare Tunnel, ngrok).
-
-> _Note: `docs/guides/gateway-tunnel.md` is a forthcoming Hermes Phase 0.2 deliverable and has not been written yet. Until then, use Tailscale, Cloudflare Tunnel, or ngrok directly per their own docs — point the tunnel at `http://127.0.0.1:3000` (or whatever `PORT` you chose) and use the resulting public HTTPS URL as the `url` field when calling `POST /api/v1/webhooks`._
+The orchestrator runs on `127.0.0.1` by default and will only deliver to `https://` URLs. To accept deliveries from a live orchestrator on a developer machine, expose the bridge via a tunnel. See [`docs/guides/gateway-tunnel.md`](../../docs/guides/gateway-tunnel.md) for the canonical setups (Cloudflare Tunnel, Tailscale, ngrok) with this bridge as the end-to-end worked example.
 
 ## Known properties (intentional)
 

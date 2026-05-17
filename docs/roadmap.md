@@ -1118,11 +1118,11 @@ last_manual_edit: 2026-05-16T13:50:11.526Z
 
 ### Orchestrator Main-Branch Sync
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/orchestrator-main-sync/proposal.md
 - **Summary:** Periodic 15-min cron task to fast-forward the orchestrator's local default branch from origin (FF-only, surfaced warnings); plus dashboard generalization so "Run Now" works for any maintenance task.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/orchestrator-main-sync/plans/
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#309
@@ -1153,12 +1153,12 @@ last_manual_edit: 2026-05-16T13:50:11.526Z
 
 ### Hermes Phase 0.2: Gateway Tunnel Guide
 
-- **Status:** planned
-- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
-- **Summary:** `docs/guides/gateway-tunnel.md` covering Tailscale, Cloudflare Tunnel, and ngrok as canonical bridge-exposure patterns. Required to complete the spec §D5 "localhost-by-default + tunnel-pattern guide" decision. Deferred from Phase 0.
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-0-2-gateway-tunnel-guide/proposal.md
+- **Summary:** `docs/guides/gateway-tunnel.md` covering Cloudflare Tunnel, Tailscale, and ngrok as canonical bridge-exposure patterns. Completes the parent spec §D5 "localhost-by-default + tunnel-pattern guide" decision (parent: docs/changes/hermes-phase-0-gateway-api/proposal.md). Slack echo bridge is the worked end-to-end example.
 - **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/changes/hermes-phase-0-2-gateway-tunnel-guide/plans/2026-05-16-gateway-tunnel-guide-plan.md
+- **Assignee:** @cwarner
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#328
 
