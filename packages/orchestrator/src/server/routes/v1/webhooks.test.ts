@@ -130,7 +130,12 @@ describe('handleV1WebhooksRoute', () => {
     });
     const { res } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 500));
+    // Poll up to ~2s so coverage-instrumented runs (much slower than the
+    // dev path) don't flake on the original fixed 500ms wait.
+    for (let i = 0; i < 40; i++) {
+      if (events.length >= 1) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
     expect(events).toHaveLength(1);
   });
 
