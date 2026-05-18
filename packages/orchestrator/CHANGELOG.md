@@ -1,5 +1,134 @@
 # @harness-engineering/orchestrator
 
+## 0.6.0
+
+### Minor Changes
+
+- 4aa241f: Hermes Phase 2: Custom maintenance jobs + pre-launch OSV malware guard + disk hygiene
+
+  Extends `MaintenanceScheduler` beyond the 21 built-in tasks with user-defined
+  `customTasks` in `harness.orchestrator.md`. Adds a pre-launch OSV malware
+  guard via `harness mcp-guard check`, and broadens `harness cleanup-sessions`
+  into a per-target `.harness/` disk-hygiene sweep.
+
+  **New surfaces:**
+  - `CustomTaskDefinition` + `CheckScriptDefinition` + `OutputRetentionConfig` +
+    `CleanupConfig` + `OsvGuardConfig` types (`@harness-engineering/types`).
+  - `RunResult.origin: RunOrigin` discriminated provenance tag set by the
+    scheduler / CLI / API / chain entry point.
+  - `TaskOutputStore` persists per-run outputs to
+    `.harness/maintenance/<task-id>/outputs/<iso>.json` with last-N + maxAgeDays
+    retention. Default 50 runs / 30 days, overridable per-task.
+  - `CheckScriptRunner` spawns arbitrary executables and parses a JSON status
+    envelope (`{status, findings?, wakeAgent?, message?, outputs?}`) from the
+    last non-empty stdout line.
+  - `ContextResolver` injects `## Upstream context` (from `contextFrom`) and
+    `## Reference skills` (from `inlineSkills`) into the agent prompt, with a
+    warn-then-truncate token budget.
+  - `validateCustomTasks` runs at orchestrator boot: cycle detection across the
+    merged `contextFrom` graph, per-type required-field checks, skill / script
+    existence (when injected), kebab-case task IDs, no-collision with built-ins.
+  - `createOsvClient` (`@harness-engineering/core`) — OSV.dev REST client with
+    24h disk cache (`.harness/cache/osv/`), fail-open default, `strict` mode.
+  - `harness mcp-guard check [--strict] [--json]` CLI subcommand. Exits 2 on any
+    `MAL-*` advisory match against an `.mcp.json` `mcpServers` `npx`-launched
+    package. Suitable as a `pre-mcp-launch` hook from host plugin manifests.
+  - `harness mcp-guard cache clear` subcommand.
+  - `harness cleanup-sessions --all` / `--include` / `--exclude` extension.
+    Default no-flag behavior unchanged. Registered targets: `sessions` (24h),
+    `cache` (7d), `maintenance` (30d), `dashboard-state` (14d), `snapshots`
+    (14d), `analyzer-output` (7d).
+  - `harness maintenance list` / `harness maintenance show <task-id>` CLI
+    subcommands.
+
+  **Backwards compatibility:** All 21 built-in tasks run through the legacy
+  `CheckCommandRunner` + `CommandExecutor` paths unchanged. New fields on
+  `TaskDefinition` / `RunResult` / `MaintenanceConfig` are optional. The
+  `harness maintenance run <task-id>` CLI subcommand and `/api/v1/jobs/maintenance/{id}/*`
+  routes are deferred to a follow-up that lands alongside the Phase 0 Gateway API.
+
+  **Knowledge artifacts:**
+  - ADR 0015 — Custom maintenance task model.
+  - `docs/knowledge/orchestrator/custom-maintenance-jobs.md`.
+  - `docs/knowledge/cli/pre-launch-osv-guard.md`.
+
+- c3653ff: Hermes Phase 4: Skill proposal / refinement loop with provenance + soundness gate
+
+  Agent-emitted skill proposals routed through a review queue gated by a
+  mechanical soundness check before promotion to the catalog. Closes the
+  K1 killer-adoption row from the Hermes adoption meta-spec.
+
+  **New surfaces:**
+  - MCP tool `emit_skill_proposal` (tier `standard`) — writes
+    `.harness/proposals/<id>.json` and emits `proposal.created`. Emit is
+    non-blocking; the soundness gate fires on approve, not on emit.
+  - CLI `harness proposals list|show|approve|reject` for queue management
+    plus one-shot `harness backfill-skill-provenance` migration that
+    stamps `provenance: user-authored` on every pre-Phase-4 catalog skill.
+  - Dashboard `/s/proposals` page with inline content, gate findings,
+    approve / reject / edit / run-gate actions; reviewer-UX budget < 30s
+    per proposal.
+  - Seven gateway routes under `/api/v1/proposals/*` (list / get /
+    run-gate / approve / reject / edit) — reads use `read-status`,
+    mutations require the new `manage-proposals` scope (8th entry in
+    `SCOPE_VOCABULARY` and `TokenScopeSchema`).
+  - Three lifecycle events (`proposal.created` / `approved` / `rejected`)
+    fan out via the Phase 0 webhook bus and Phase 3 notification sinks
+    with envelope derivers.
+  - Maintenance task `proposal-provenance-backfill` (housekeeping #4,
+    Feb 31 cron so the loop never fires automatically).
+
+  **Strict invariants:** `kind` ↔ content shape (new-skill ⇒
+  skillYaml+skillMd; refinement ⇒ targetSkill+diff); gate freshness
+  < 24h before promotion; refinement edits must diverge from git HEAD
+  before approval stamps provenance; provenance enum is closed
+  (`community | agent-proposed | user-authored`, expansion requires ADR
+  amendment).
+
+  **Skills-mode soundness review degradation:** v1 ships mechanical
+  structural checks (kebab-case name, parseable skill.yaml, SKILL.md
+  bounds, unified-diff well-formedness). The full
+  `harness:soundness-review --mode skill` vocabulary is a follow-up spec;
+  both implementations share the same finding shape so the swap is
+  purely additive.
+
+  **Test coverage:** 75 new tests across five packages (types schema 15,
+  core store + usage 9, MCP tool 8, CLI subcommand 6 + backfill 6,
+  orchestrator gate 6 + promote 7 + events 4 + routes 10, envelope
+  derivers 4 new rows). Existing scopes test passes with the new
+  vocabulary entry.
+
+  ADRs: 0016 (workflow), 0017 (token scope). Knowledge nodes:
+  `skill-proposals.md`, `skill-provenance.md`. Spec + plan at
+  `docs/changes/hermes-phase-4-skill-proposals/`.
+
+  **Incidental fix:** Replaces a fixed 150ms wait in
+  `packages/orchestrator/src/server/webhooks-integration.test.ts` with a
+  poll loop. The fixed wait flaked under coverage instrumentation and
+  blocked the Phase 4 pre-push hook.
+
+### Patch Changes
+
+- c94bac8: Harden `harness update` against empty `npm view` responses and migrate to the renamed `@earendil-works/pi-coding-agent` SDK.
+  - `getLatestVersionAsync` now rejects when `npm view <pkg> dist-tags.latest`
+    returns empty stdout. Previously a transient registry hiccup rendered as
+    `cli: v2.4.5 → v` in the update banner; now the package is silently
+    skipped by the caller's `Promise.allSettled`.
+  - `@mariozechner/pi-coding-agent@^0.73.1` → `@earendil-works/pi-coding-agent@^0.74.1`
+    (the maintainer renamed the package family). Eliminates 4 of 6 npm
+    deprecation warnings during `harness update`. The 2 remaining
+    (`prebuild-install`, `node-domexception`) are transitives through
+    `better-sqlite3` and `@google/genai` respectively — out of our control
+    until upstream bumps.
+
+  No behavior change beyond the deprecation cleanup.
+
+- Updated dependencies [4aa241f]
+- Updated dependencies [c3653ff]
+  - @harness-engineering/types@0.14.0
+  - @harness-engineering/core@0.28.0
+  - @harness-engineering/intelligence@0.2.5
+
 ## 0.5.0
 
 ### Minor Changes
