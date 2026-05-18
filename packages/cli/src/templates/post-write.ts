@@ -96,7 +96,22 @@ security/*
 `;
 
   fs.mkdirSync(path.dirname(gitignorePath), { recursive: true });
-  fs.writeFileSync(gitignorePath, content);
+
+  if (!fs.existsSync(gitignorePath)) {
+    fs.writeFileSync(gitignorePath, content);
+    return;
+  }
+
+  // Preserve user customizations: only append template entries not already present.
+  const existing = fs.readFileSync(gitignorePath, 'utf8');
+  const existingLines = new Set(existing.split('\n').map((l) => l.trim()));
+  const missing = content
+    .split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#') && !existingLines.has(l.trim()));
+  if (missing.length > 0) {
+    const prefix = existing.endsWith('\n') ? '' : '\n';
+    fs.appendFileSync(gitignorePath, prefix + missing.join('\n') + '\n');
+  }
 }
 
 /**

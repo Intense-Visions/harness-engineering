@@ -1197,14 +1197,15 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 
 ### Hermes Phase 4: Skill Proposal Loop
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/hermes-adoption/proposal.md
 - **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-ad1c7656
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#314
+- **Updated-At:** 2026-05-18T11:28:52.297Z
 
 ### Hermes Phase 5: Dispatch Hardening
 

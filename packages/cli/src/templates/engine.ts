@@ -69,6 +69,9 @@ const NON_JSON_PACKAGE_CONFIGS = new Set([
 /** Files that are part of harness infrastructure, not project scaffolding. */
 const HARNESS_CONFIG_FILES = new Set(['harness.config.json', 'AGENTS.md', '.harness/.gitignore']);
 
+/** OS-generated files that may exist on a contributor's machine but are not part of any template. */
+const IGNORED_TEMPLATE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
+
 function isHarnessConfigFile(relativePath: string): boolean {
   return HARNESS_CONFIG_FILES.has(relativePath);
 }
@@ -427,6 +430,7 @@ export class TemplateEngine {
     const walk = (currentDir: string): void => {
       const entries = fs.readdirSync(currentDir, { withFileTypes: true });
       for (const entry of entries) {
+        if (IGNORED_TEMPLATE_FILES.has(entry.name)) continue;
         const fullPath = path.join(currentDir, entry.name);
         if (entry.isDirectory()) {
           walk(fullPath);

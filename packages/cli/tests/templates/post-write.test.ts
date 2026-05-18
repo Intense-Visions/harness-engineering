@@ -53,6 +53,37 @@ describe('ensureHarnessGitignore', () => {
     expect(content).toContain('maintenance/');
   });
 
+  // Issue #360: custom entries added by users must survive MCP restarts.
+  it('preserves custom entries when merging into an existing .gitignore', () => {
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.harness', '.gitignore'),
+      'graph/\ndebug/\nknowledge/\nmy-secret-notes.md\n'
+    );
+
+    ensureHarnessGitignore(tmpDir);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8');
+    // Custom entries preserved
+    expect(content).toContain('knowledge/');
+    expect(content).toContain('my-secret-notes.md');
+    // Template entries added
+    expect(content).toContain('telemetry.json');
+    expect(content).toContain('maintenance/');
+    // No duplicate of pre-existing entries
+    const graphCount = content.split('\n').filter((l) => l.trim() === 'graph/').length;
+    expect(graphCount).toBe(1);
+  });
+
+  it('does not modify a .gitignore that already contains all template entries', () => {
+    ensureHarnessGitignore(tmpDir);
+    const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
+    const before = fs.readFileSync(gitignorePath, 'utf-8');
+
+    ensureHarnessGitignore(tmpDir);
+    const after = fs.readFileSync(gitignorePath, 'utf-8');
+    expect(after).toBe(before);
+  });
+
   // Issue #270: hooks/ are team-policy code and security/timeline.json is a shared
   // trend ledger — both must be tracked by default. Pin the .gitignore semantics so
   // future edits cannot quietly opt them back out.
