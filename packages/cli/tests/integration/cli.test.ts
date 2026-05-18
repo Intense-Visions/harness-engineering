@@ -56,7 +56,7 @@ describe('CLI Integration', { timeout: 30000 }, () => {
   });
 
   describe('harness validate', () => {
-    it('validates initialized project', { timeout: 15000 }, () => {
+    it('validates initialized project', () => {
       // Initialize first
       runCLI(['init', '--name', 'test'], tempDir);
 
@@ -65,7 +65,7 @@ describe('CLI Integration', { timeout: 30000 }, () => {
       expect(result.status).toBe(0);
     });
 
-    it('outputs JSON when --json flag used', { timeout: 15000 }, () => {
+    it('outputs JSON when --json flag used', () => {
       runCLI(['init', '--name', 'test'], tempDir);
       const result = runCLI(['validate', '--json'], tempDir);
       expect(result.status).toBe(0);
@@ -75,7 +75,7 @@ describe('CLI Integration', { timeout: 30000 }, () => {
   });
 
   describe('harness add', () => {
-    it('adds layer to project', { timeout: 15000 }, () => {
+    it('adds layer to project', () => {
       runCLI(['init', '--name', 'test'], tempDir);
       fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
 
