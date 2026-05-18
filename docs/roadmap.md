@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-24
 last_synced: 2026-05-15T18:43:18.077Z
-last_manual_edit: 2026-05-17T22:00:00.000Z
+last_manual_edit: 2026-05-17T22:30:00.000Z
 ---
 
 # Roadmap
@@ -1164,12 +1164,12 @@ last_manual_edit: 2026-05-17T22:00:00.000Z
 
 ### Hermes Phase 1: Session Search + Insights
 
-- **Status:** planned
-- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-1-session-search/proposal.md
 - **Summary:** SQLite FTS5 index over .harness/sessions/ with auto-LLM summarization on session close; harness search CLI and dashboard search; harness insights aggregator composing entropy/decay/attention/impact/health views. Independent of Phase 0 — can run in parallel. From Hermes adoption meta-spec.
 - **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/changes/hermes-phase-1-session-search/plans/2026-05-16-phase-1-foundation-plan.md
+- **Assignee:** @cwarner
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#311
 
@@ -1197,10 +1197,10 @@ last_manual_edit: 2026-05-17T22:00:00.000Z
 
 ### Hermes Phase 4: Skill Proposal Loop
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** docs/changes/hermes-adoption/proposal.md
 - **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
-- **Blockers:** Hermes Phase 0: Gateway API + Telemetry, Hermes Phase 1: Session Search + Insights, Hermes Phase 3: Multi-Sink Notifications
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
