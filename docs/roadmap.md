@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-24
+updated: 2026-05-17
 last_synced: 2026-05-15T18:43:18.077Z
-last_manual_edit: 2026-05-17T22:30:00.000Z
+last_manual_edit: 2026-05-17T23:30:00.000Z
 ---
 
 # Roadmap
@@ -1929,14 +1929,58 @@ last_manual_edit: 2026-05-17T22:30:00.000Z
 
 ### harness:design-pipeline orchestrator
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** —
-- **Summary:** Multi-phase orchestrator skill composing existing design-_, a11y-_, and harness-design skills into a convergence-loop pipeline (pattern: docs-pipeline, knowledge-pipeline). Anticipated phases: design-system drift detection → accessibility audit → brand/token compliance → component-anatomy coverage → remediation. Output: design-system health report + remediation PRs through the maintenance-task lifecycle. Surfaced 2026-05-13 during Hermes feature-evaluation conversation; deferred so it doesn't multi-thread the Hermes adoption work. Re-evaluate after Hermes Phase 0 lands. See memory: project_design_pipeline_idea.md.
-- **Blockers:** —
+- **Summary:** Initiative parent. Decomposed 2026-05-17 into 5 sub-projects (Path B chosen — full roadmap promise). Sub-projects: #1 detect-design-drift + align-design-system, #2 audit-component-anatomy, #3 audit-brand-compliance (blocked on brand-guidelines source-of-truth decision), #4 harness check-design verifier, #5 (this entry) the orchestrator itself composing #1-#4 with FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT phases mirroring harness-docs-pipeline. Existing operational dependency wired in as-is: harness-accessibility. See memory project_design_pipeline_idea.md.
+- **Blockers:** design-pipeline sub-project #1 (#354), design-pipeline sub-project #2 (#355), design-pipeline sub-project #3 (#356), design-pipeline sub-project #4 (#357)
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#316
+
+### design-pipeline sub-project #1: detect-design-drift + align-design-system
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Detection skill (detect-design-drift) and remediation skill (align-design-system) for token bypass, variant proliferation, and components not adopting design-system primitives. Pattern-mirrors detect-doc-drift + align-documentation. Detect skill can land independently; align skill blocks on #4 verifier for its convergence loop.
+- **Blockers:** design-pipeline sub-project #4 (#357) for align skill only
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#354
+
+### design-pipeline sub-project #2: audit-component-anatomy
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Audit skill detecting missing required anatomy parts (label, helper text, error state, loading state, empty state). Rules sourced from design-component-anatomy reference content. Lowest-ambiguity sub-project. Needs documented overlap-resolution with harness-accessibility (no double-counting label-missing findings).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#355
+
+### design-pipeline sub-project #3: audit-brand-compliance
+
+- **Status:** blocked
+- **Spec:** —
+- **Summary:** Audit skill for semantic token misuse, brand voice violations in copy, and asset misuse. Highest-ambiguity sub-project. Blocked on brand-guidelines source-of-truth decision (sub-project #0): extend DESIGN.md schema with structured brand rules, or add a brand-guidelines authoring skill. Overlaps with #1 — raw token bypass goes to #1, semantic misuse to this.
+- **Blockers:** brand-guidelines source-of-truth decision (sub-project #0, not yet filed)
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#356
+
+### design-pipeline sub-project #4: harness check-design verifier
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#357
 
 ## v4.0 Business Knowledge System
 
