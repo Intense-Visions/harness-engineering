@@ -3,8 +3,8 @@ import { BUILT_IN_TASKS } from '../../src/maintenance/task-registry';
 import type { TaskDefinition, TaskType } from '../../src/maintenance/types';
 
 describe('task-registry', () => {
-  it('exports exactly 21 built-in task definitions', () => {
-    expect(BUILT_IN_TASKS).toHaveLength(21);
+  it('exports exactly 22 built-in task definitions', () => {
+    expect(BUILT_IN_TASKS).toHaveLength(22);
   });
 
   it('every task has a unique id', () => {
@@ -60,7 +60,8 @@ describe('task-registry', () => {
 
   it('housekeeping tasks have checkCommand and null branch', () => {
     const housekeeping = BUILT_IN_TASKS.filter((t) => t.type === 'housekeeping');
-    expect(housekeeping.length).toBe(3);
+    // Phase 4 adds `proposal-provenance-backfill` (manual-only, Feb 31 cron).
+    expect(housekeeping.length).toBe(4);
     for (const task of housekeeping) {
       expect(task.checkCommand).toBeDefined();
       expect(task.branch).toBeNull();

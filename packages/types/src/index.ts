@@ -273,3 +273,31 @@ export type {
   NotificationsConfig,
   NotificationDeliveryResult,
 } from './notifications';
+
+// --- Skill Proposals (Hermes Phase 4) ---
+export {
+  SkillProvenanceSchema,
+  ProposalKindSchema,
+  ProposalStatusSchema,
+  ProposalGateFindingSchema,
+  ProposalGateSchema,
+  ProposalDecisionSchema,
+  ProposalContentSchema,
+  ProposalSourceSchema,
+  SkillProposalSchema,
+  EmitSkillProposalInputSchema,
+  EditProposalInputSchema,
+} from './proposals';
+export type {
+  SkillProvenance,
+  ProposalKind,
+  ProposalStatus,
+  ProposalGateFinding,
+  ProposalGate,
+  ProposalDecision,
+  ProposalContent,
+  ProposalSource,
+  SkillProposal,
+  EmitSkillProposalInput,
+  EditProposalInput,
+} from './proposals';

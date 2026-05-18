@@ -67,6 +67,8 @@ export const SYSTEM_PAGES = [
   { page: 'webhooks', label: 'Webhooks', route: '/s/webhooks' },
   // Phase 5: prompt-cache hit/miss insight surface.
   { page: 'insights-cache', label: 'Prompt Cache', route: '/s/insights-cache' },
+  // Hermes Phase 4 — skill proposal review queue.
+  { page: 'proposals', label: 'Proposals', route: '/s/proposals' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];

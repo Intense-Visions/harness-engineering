@@ -409,6 +409,8 @@ _Architecture & Quality:_ `architecture`, `entropy`, `stale-constraints`, `const
 
 _Code Navigation & Search:_ `code-nav`, `search-skills`, `recommend-skills`, `advise-skills`, `dispatch-skills`, `gather-context`, `find-context-for` (graph), `search-sessions` (Hermes Phase 1), `summarize-session` (Hermes Phase 1), `insights-summary` (Hermes Phase 1)
 
+_Skill Proposals (Hermes Phase 4):_ `emit_skill_proposal` (tier `standard`) — agents emit candidate skills or refinements; proposals land at `.harness/proposals/<id>.json` with `status: open`. Reviewers triage via the dashboard `/s/proposals` page or the `harness proposals list|show|approve|reject` CLI. The soundness-review gate runs at approve time, not at emit time; promotion writes skill files into `agents/skills/claude-code/<name>/` with `provenance: agent-proposed` + `originatingProposalId`. Pre-Phase-4 skills are backfilled with `provenance: user-authored` via `harness backfill-skill-provenance`. New token scope: `manage-proposals` (ADR 0017). Emits `proposal.created` / `proposal.approved` / `proposal.rejected` events.
+
 _Documentation & Review:_ `docs`, `review-changes`, `review-pipeline`, `feedback`, `interaction`, `interaction-schemas`, `interaction-renderer`
 
 _Roadmap & CI:_ `roadmap`, `roadmap-auto-sync`, `roadmap-file-less`, `ci`
@@ -550,6 +552,22 @@ See [`docs/knowledge/orchestrator/notification-sinks.md`](docs/knowledge/orchest
 
 `runDoctor(cwd)` remains synchronous and the JSON output shape is additive (existing check names unchanged; new checks add `live-pings-*`, `hook-validity-*`, `baseline-freshness-*`, `session-corruption` entries). See [`docs/knowledge/cli/doctor-hardening.md`](docs/knowledge/cli/doctor-hardening.md).
 
+### Skill Proposals (Hermes Phase 4)
+
+Agents can emit skill candidates — either a fully-formed new skill or a unified-diff refinement against an existing one — through the `emit_skill_proposal` MCP tool (`packages/cli/src/mcp/tools/skill-proposal.ts`, tier `standard`). The tool writes a strict-validated JSON record to `.harness/proposals/<id>.json` and returns immediately; agents are never blocked on review.
+
+**Storage + schema.** Proposals are validated through `SkillProposalSchema` (`packages/types/src/proposals.ts`). The schema enforces a kind ↔ content invariant: `new-skill` requires `skillYaml` + `skillMd`; `refinement` requires `targetSkill` + unified-diff `diff`. Status transitions are `open → gate-running | gate-failed → approved | rejected`.
+
+**Soundness gate.** Reviewers trigger `POST /api/v1/proposals/<id>/run-gate` (UI button or `harness proposals approve` indirectly). The gate (`packages/orchestrator/src/proposals/gate.ts`) runs mechanical structural checks today — kebab-case name, parseable skill.yaml, SKILL.md size bounds, unified-diff well-formedness — and persists findings. A future `harness:soundness-review --mode skill` follow-up replaces the mechanical checks without changing the integration surface (ADR 0016).
+
+**Promotion.** With a clean gate fresh within 24h, `POST /api/v1/proposals/<id>/approve` invokes `promote()` (`packages/orchestrator/src/proposals/promote.ts`) which writes `agents/skills/claude-code/<name>/{skill.yaml,SKILL.md}` with `provenance: agent-proposed` and `originatingProposalId: <id>`. Refinements stamp provenance on the existing target after verifying the reviewer applied the diff. The slash-command generator regenerates per-host plugin manifests on next run.
+
+**Provenance.** Every skill now carries `provenance: community | agent-proposed | user-authored`. The one-shot `proposal-provenance-backfill` maintenance task (`harness backfill-skill-provenance`) stamps `user-authored` on every catalog skill missing the field; idempotent re-runs are no-ops. Scheduled cron is Feb 31 so the scheduler never fires it; operators trigger via dashboard or CLI.
+
+**Surfaces.** MCP tool `emit_skill_proposal`. CLI `harness proposals list|show|approve|reject` and `harness backfill-skill-provenance`. Dashboard page `/s/proposals` (`packages/dashboard/src/client/pages/Proposals.tsx`). Seven gateway routes under `/api/v1/proposals/*` registered in `V1_BRIDGE_ROUTES`; reads use `read-status`, mutations require the new `manage-proposals` scope (ADR 0017). Events `proposal.created`, `proposal.approved`, `proposal.rejected` fan out via the Phase 0 webhook bus and Phase 3 notification sinks; envelope derivers in `notifications/envelope.ts` render them with appropriate severities.
+
+See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals.md) and [`docs/knowledge/cli/skill-provenance.md`](docs/knowledge/cli/skill-provenance.md). ADRs: [0016](docs/knowledge/decisions/0016-hermes-phase-4-skill-proposal-workflow.md), [0017](docs/knowledge/decisions/0017-manage-proposals-scope.md).
+
 ### Dashboard Package
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
@@ -564,14 +582,14 @@ The orchestrator depends on `@harness-engineering/intelligence` for persona-awar
 
 ### Orchestrator Maintenance Tasks
 
-`packages/orchestrator/src/maintenance/task-registry.ts` defines 21 built-in scheduled tasks across four execution strategies:
+`packages/orchestrator/src/maintenance/task-registry.ts` defines 22 built-in scheduled tasks across four execution strategies:
 
 - **mechanical-ai (7):** `arch-violations`, `dep-violations`, `doc-drift`, `security-findings`, `entropy`, `traceability`, `cross-check` — run a check command first, dispatch an AI agent only if fixable findings exist.
 - **pure-ai (4):** `dead-code`, `dependency-health`, `hotspot-remediation`, `security-review` — always dispatch an AI agent on schedule.
 - **report-only (7):** `perf-check`, `decay-trends`, `project-health`, `stale-constraints`, `graph-refresh`, `product-pulse`, `compound-candidates` — run a command and record metrics; never create branches or PRs. Honors a JSON status contract (`{status, candidatesFound?, error?, reason?}`) emitted by the new `--non-interactive` CLIs; legacy free-form output falls through to `success`.
   - `product-pulse` (daily 8am, gated on `pulse.enabled`) — generates `docs/pulse-reports/` via `harness pulse run --non-interactive`.
   - `compound-candidates` (Mondays 9am) — surfaces undocumented learnings into `docs/solutions/.candidates/` via `harness compound scan-candidates --non-interactive`. Scheduled at 9am rather than 6am to avoid collision with the existing Monday 6am block (cross-check, perf-check, traceability).
-- **housekeeping (3):** `session-cleanup`, `perf-baselines`, `main-sync` — run a mechanical command directly, no AI, no PR.
+- **housekeeping (4):** `session-cleanup`, `perf-baselines`, `main-sync`, `proposal-provenance-backfill` (one-shot, manual trigger via Feb 31 cron) — run a mechanical command directly, no AI, no PR.
 
 The dashboard `Maintenance` page renders a candidate-count badge on `compound-candidates` history rows when `findings > 0`.
 

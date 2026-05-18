@@ -18,6 +18,10 @@ const NOTIFICATION_TOPICS = [
   'maintenance:started',
   'maintenance:completed',
   'maintenance:error',
+  // Hermes Phase 4 — skill proposal lifecycle.
+  'proposal.created',
+  'proposal.approved',
+  'proposal.rejected',
 ] as const;
 
 function newEventId(): string {

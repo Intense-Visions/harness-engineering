@@ -18,6 +18,11 @@ const WEBHOOK_TOPICS = [
   'maintenance:error',
   'webhook.subscription.created',
   'webhook.subscription.deleted',
+  // Hermes Phase 4 — skill proposal lifecycle. Subscriptions can use the
+  // `proposal.*` glob pattern to receive all three.
+  'proposal.created',
+  'proposal.approved',
+  'proposal.rejected',
 ] as const;
 
 interface WireParams {

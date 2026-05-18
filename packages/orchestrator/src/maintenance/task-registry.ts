@@ -192,4 +192,18 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     branch: null,
     checkCommand: ['harness', 'sync-main', '--json'],
   },
+  // Hermes Phase 4 — one-shot backfill that stamps `provenance: user-authored`
+  // on every existing catalog skill. Schedule is Feb 31 (a date that never
+  // exists) so the cron loop never fires it automatically; operators trigger
+  // it once via the dashboard "Run now" button or `harness backfill-skill-
+  // provenance` after upgrading to Phase 4.
+  {
+    id: 'proposal-provenance-backfill',
+    type: 'housekeeping',
+    description:
+      'Backfill provenance: user-authored on every existing skill (one-shot, idempotent)',
+    schedule: '0 0 31 2 *',
+    branch: null,
+    checkCommand: ['backfill-skill-provenance'],
+  },
 ] as const;

@@ -42,7 +42,11 @@ const ITERATIONS = 200;
 // and noisy neighbors that push single-run microbenchmarks well above the
 // production target. 25 ms is loose enough to absorb CI variance while
 // still catching a real exporter regression (orders-of-magnitude slowdown).
-const P99_BUDGET_MS = process.env['CI'] === 'true' ? 25 : 5;
+// Coverage instrumentation (v8/istanbul) adds another order of magnitude
+// of overhead — skip the assertion's tight budget in that case, while still
+// running the body so coverage stays accurate.
+const COVERAGE = process.env['NODE_V8_COVERAGE'] || process.env['VITEST_COVERAGE'];
+const P99_BUDGET_MS = COVERAGE ? 250 : process.env['CI'] === 'true' ? 25 : 5;
 const UNREACHABLE_ENDPOINT = 'http://127.0.0.1:1/v1/traces';
 
 interface MockWebhookDelivery {

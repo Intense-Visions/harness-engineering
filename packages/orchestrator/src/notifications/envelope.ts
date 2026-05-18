@@ -26,6 +26,17 @@ interface NotificationTestData {
   message?: string;
 }
 
+interface ProposalEventData {
+  id?: string;
+  name?: string;
+  kind?: 'new-skill' | 'refinement';
+  targetSkill?: string;
+  proposedBy?: string;
+  decidedBy?: string;
+  reason?: string;
+  justification?: string;
+}
+
 function asObj(data: unknown): Record<string, unknown> {
   return typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
 }
@@ -77,6 +88,36 @@ const ENVELOPE_DERIVERS: Record<string, EnvelopeDeriver> = {
       title: 'Test notification from harness',
       summary: data.message ?? 'If you see this, your notification sink is working.',
       severity: 'info',
+    };
+  },
+  // Hermes Phase 4 — skill proposal lifecycle events.
+  'proposal.created': (event) => {
+    const data = asObj(event.data) as ProposalEventData;
+    const label =
+      data.kind === 'refinement'
+        ? `refinement of ${data.targetSkill ?? '(unknown skill)'}`
+        : (data.name ?? '(new skill)');
+    return {
+      title: `New skill proposal: ${label}`,
+      summary: truncate(data.justification ?? 'No justification provided.', 240),
+      severity: 'info',
+    };
+  },
+  'proposal.approved': (event) => {
+    const data = asObj(event.data) as ProposalEventData;
+    const label = data.name ?? data.targetSkill ?? '(unknown skill)';
+    return {
+      title: `Skill proposal approved: ${label}`,
+      summary: `Approved by ${data.decidedBy ?? '(unknown reviewer)'}.`,
+      severity: 'success',
+    };
+  },
+  'proposal.rejected': (event) => {
+    const data = asObj(event.data) as ProposalEventData;
+    return {
+      title: 'Skill proposal rejected',
+      summary: truncate(data.reason ?? 'No reason provided.', 240),
+      severity: 'warning',
     };
   },
 };

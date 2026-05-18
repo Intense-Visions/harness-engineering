@@ -39,6 +39,8 @@ const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
   // Phase 5: prompt-cache insights surface — preferred URL is `/insights/cache`
   // per the plan; the actual page lives at the SystemRoute-style `/s/insights-cache`.
   { from: '/insights/cache', to: '/s/insights-cache' },
+  // Hermes Phase 4 — skill proposal review queue.
+  { from: '/proposals', to: '/s/proposals' },
 ];
 
 const root = document.getElementById('root');

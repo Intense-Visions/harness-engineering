@@ -234,6 +234,12 @@ export * from './pulse';
 export * from './solutions';
 
 /**
+ * Skill proposals module (Hermes Phase 4) — `.harness/proposals/` storage,
+ * usage derivation, and `emit_skill_proposal` payload helpers.
+ */
+export * from './proposals';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`

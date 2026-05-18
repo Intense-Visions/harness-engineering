@@ -14,6 +14,9 @@ export const SCOPE_VOCABULARY: readonly TokenScope[] = [
   'subscribe-webhook',
   'modify-roadmap',
   'read-telemetry',
+  // Hermes Phase 4 — list / approve / reject / edit skill proposals.
+  // Reads (list, get) fall under `read-status`; only mutations require this.
+  'manage-proposals',
 ] as const;
 
 /** Returns true if `held` contains `required`, or includes 'admin'. */

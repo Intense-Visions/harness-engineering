@@ -64,4 +64,63 @@ describe('wrapAsEnvelope', () => {
     const env = wrapAsEnvelope(event('maintenance.started', { taskId: 'x'.repeat(500) }));
     expect(env.title.length).toBeLessThanOrEqual(280);
   });
+
+  // ── Hermes Phase 4 — proposal lifecycle envelopes ──
+
+  it('wraps proposal.created (new-skill) with info severity', () => {
+    const env = wrapAsEnvelope(
+      event('proposal.created', {
+        id: 'proposal_x',
+        kind: 'new-skill',
+        name: 'auto-rename',
+        proposedBy: 'agent-id',
+        justification: 'we keep doing this manually',
+      })
+    );
+    expect(env.severity).toBe('info');
+    expect(env.title).toContain('auto-rename');
+    expect(env.summary).toContain('manually');
+  });
+
+  it('wraps proposal.created (refinement) with target skill in title', () => {
+    const env = wrapAsEnvelope(
+      event('proposal.created', {
+        id: 'proposal_y',
+        kind: 'refinement',
+        name: 'auto-rename',
+        targetSkill: 'auto-rename',
+        proposedBy: 'agent-id',
+        justification: 'add a barrel-rewrite phase',
+      })
+    );
+    expect(env.title).toContain('refinement');
+    expect(env.title).toContain('auto-rename');
+  });
+
+  it('wraps proposal.approved with success severity', () => {
+    const env = wrapAsEnvelope(
+      event('proposal.approved', {
+        id: 'proposal_z',
+        kind: 'new-skill',
+        name: 'auto-rename',
+        decidedBy: 'reviewer',
+      })
+    );
+    expect(env.severity).toBe('success');
+    expect(env.summary).toContain('reviewer');
+  });
+
+  it('wraps proposal.rejected with warning severity and surfaces the reason', () => {
+    const env = wrapAsEnvelope(
+      event('proposal.rejected', {
+        id: 'proposal_z',
+        kind: 'new-skill',
+        name: 'auto-rename',
+        decidedBy: 'reviewer',
+        reason: 'duplicate of existing skill',
+      })
+    );
+    expect(env.severity).toBe('warning');
+    expect(env.summary).toContain('duplicate');
+  });
 });

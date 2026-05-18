@@ -103,3 +103,24 @@ export type {
   FromConfigOptions,
   SlackSinkOptions,
 } from './notifications';
+
+// Phase 4 skill-proposal pipeline (gate + promote + lifecycle emitters).
+// The HTTP routes wire these into the v1 bridge; CLI and tests reach for
+// them via this barrel.
+export {
+  runGate,
+  promote,
+  GateRunError,
+  GateNotReadyError,
+  PromotionError,
+  emitProposalCreated,
+  emitProposalApproved,
+  emitProposalRejected,
+} from './proposals';
+export type {
+  GateResult,
+  PromotionResult,
+  ProposalCreatedData,
+  ProposalApprovedData,
+  ProposalRejectedData,
+} from './proposals';

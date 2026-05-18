@@ -19,6 +19,7 @@ import { handleV1JobsMaintenanceRoute } from './routes/v1/jobs-maintenance';
 import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleV1WebhooksRoute } from './routes/v1/webhooks';
 import { handleV1TelemetryRoute } from './routes/v1/telemetry';
+import { handleV1ProposalsRoute } from './routes/v1/proposals';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
 import type { WebhookQueue } from '../gateway/webhooks/queue';
@@ -139,6 +140,12 @@ export interface ServerDependencies {
    * omit it; the route handler returns 503 when undefined.
    */
   cacheMetrics?: CacheMetricsRecorder;
+  /**
+   * Hermes Phase 4: project root used as the base path for
+   * `.harness/proposals/` reads/writes and `agents/skills/` promotion.
+   * Defaults to `process.cwd()`.
+   */
+  projectPath?: string;
 }
 
 export class OrchestratorServer {
@@ -155,6 +162,11 @@ export class OrchestratorServer {
   private roadmapPath!: string | null;
   private dispatchAdHoc!: DispatchAdHocFn | null;
   private sessionsDir!: string;
+  /**
+   * Project root used by file-backed routes (Phase 4 proposals at
+   * `.harness/proposals/`). Defaults to process.cwd().
+   */
+  private projectPath!: string;
   private maintenanceDeps: MaintenanceRouteDeps | null = null;
   private getLocalModelStatus: GetLocalModelStatusFn | null = null;
   private getLocalModelStatuses: GetLocalModelStatusesFn | null = null;
@@ -201,6 +213,8 @@ export class OrchestratorServer {
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
+    // Phase 4 proposals route reads `.harness/proposals/` relative to this root.
+    this.projectPath = deps?.projectPath ?? process.cwd();
     this.maintenanceDeps = deps?.maintenanceDeps ?? null;
     this.getLocalModelStatus = deps?.getLocalModelStatus ?? null;
     this.getLocalModelStatuses = deps?.getLocalModelStatuses ?? null;
@@ -408,6 +422,16 @@ export class OrchestratorServer {
       (req, res) =>
         handleV1TelemetryRoute(req, res, {
           ...(this.cacheMetrics ? { cacheMetrics: this.cacheMetrics } : {}),
+        }),
+      // Hermes Phase 4 — skill proposal review queue. Read scopes
+      // (`read-status`) and write scopes (`manage-proposals`) are enforced
+      // upstream by V1_BRIDGE_ROUTES; this dispatcher only handles
+      // business logic. `projectPath` defaults to process.cwd() — that is
+      // where `.harness/proposals/` lives in every deployment we ship.
+      (req, res) =>
+        handleV1ProposalsRoute(req, res, {
+          projectPath: this.projectPath,
+          bus: this.orchestrator as unknown as EventEmitter,
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),

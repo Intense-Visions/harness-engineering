@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { SCOPE_VOCABULARY, requiredScopeForRoute, hasScope } from './scopes';
 
 describe('SCOPE_VOCABULARY', () => {
-  it('contains exactly the seven scopes pinned in the spec', () => {
+  it('contains exactly the eight scopes pinned in the spec (post-Phase-4)', () => {
     expect([...SCOPE_VOCABULARY].sort()).toEqual([
       'admin',
+      'manage-proposals',
       'modify-roadmap',
       'read-status',
       'read-telemetry',
@@ -41,6 +42,34 @@ describe('requiredScopeForRoute', () => {
   });
   it('returns null (default-deny) for unmapped POST /api/v1/events', () => {
     expect(requiredScopeForRoute('POST', '/api/v1/events')).toBeNull();
+  });
+
+  // Hermes Phase 4 — proposal routes.
+  it('maps GET /api/v1/proposals to read-status', () => {
+    expect(requiredScopeForRoute('GET', '/api/v1/proposals')).toBe('read-status');
+  });
+  it('maps GET /api/v1/proposals/<id> to read-status', () => {
+    expect(requiredScopeForRoute('GET', '/api/v1/proposals/proposal_abc')).toBe('read-status');
+  });
+  it('maps POST /api/v1/proposals/<id>/run-gate to manage-proposals', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/proposals/proposal_abc/run-gate')).toBe(
+      'manage-proposals'
+    );
+  });
+  it('maps POST /api/v1/proposals/<id>/approve to manage-proposals', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/proposals/proposal_abc/approve')).toBe(
+      'manage-proposals'
+    );
+  });
+  it('maps POST /api/v1/proposals/<id>/reject to manage-proposals', () => {
+    expect(requiredScopeForRoute('POST', '/api/v1/proposals/proposal_abc/reject')).toBe(
+      'manage-proposals'
+    );
+  });
+  it('maps PATCH /api/v1/proposals/<id> to manage-proposals', () => {
+    expect(requiredScopeForRoute('PATCH', '/api/v1/proposals/proposal_abc')).toBe(
+      'manage-proposals'
+    );
   });
 });
 

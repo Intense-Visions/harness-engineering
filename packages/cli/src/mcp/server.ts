@@ -161,6 +161,8 @@ import {
 } from './tools/gateway-tools.js';
 // Phase 3 Task 9: MCP wrapper for the webhook subscription endpoint.
 import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
+// Phase 4: emit a skill proposal into `.harness/proposals/`.
+import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/skill-proposal.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -241,6 +243,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   searchSessionsDefinition,
   summarizeSessionDefinition,
   insightsSummaryDefinition,
+  emitSkillProposalDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -310,6 +313,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   search_sessions: handleSearchSessions as unknown as ToolHandler,
   summarize_session: handleSummarizeSession as unknown as ToolHandler,
   insights_summary: handleInsightsSummary as unknown as ToolHandler,
+  emit_skill_proposal: handleEmitSkillProposal as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

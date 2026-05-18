@@ -65,6 +65,43 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'subscribe-webhook',
     description: 'Webhook delivery queue depth + DLQ stats.',
   },
+  // Hermes Phase 4 — skill proposal review queue.
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/proposals(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'List skill proposals (open + decided).',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/proposals\/[^/]+(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'Get a single skill proposal.',
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/proposals\/[^/]+\/run-gate(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Run the soundness-review gate against a proposal.',
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/proposals\/[^/]+\/approve(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Approve a proposal — promotes the skill into the catalog.',
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/proposals\/[^/]+\/reject(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Reject a proposal with a one-line reason.',
+  },
+  {
+    method: 'PATCH',
+    pattern: /^\/api\/v1\/proposals\/[^/]+(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Edit proposal content (resets gate to not-run).',
+  },
   // ── Phase 5 bridge primitives ──
   {
     method: 'GET',

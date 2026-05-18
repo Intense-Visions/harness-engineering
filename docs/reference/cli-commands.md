@@ -30,6 +30,14 @@ Content-based skill recommendations for a spec
 
 Report all harness-ignore protected code regions
 
+### `harness backfill-skill-provenance`
+
+Stamp `provenance: user-authored` on every catalog skill missing the field (Hermes Phase 4 one-shot)
+
+**Options:**
+
+- `--root` — Project root containing agents/skills/ (default: current working directory)
+
 ### `harness blueprint [path]`
 
 Generate a self-contained, interactive blueprint of the codebase
@@ -818,6 +826,34 @@ Generate artifacts from a persona config
 ### `harness persona list`
 
 List available agent personas
+
+## Proposals Commands
+
+Skill-proposal review queue (Hermes Phase 4)
+
+### `harness proposals approve <id>`
+
+Approve a proposal (runs the soundness-review gate then promotes). Requires the orchestrator to be running.
+
+### `harness proposals list`
+
+List skill proposals in the local queue
+
+**Options:**
+
+- `--status` — Filter by status — one of open | gate-running | gate-failed | approved | rejected | all (default: "open")
+
+### `harness proposals reject <id>`
+
+Reject a proposal with a one-line reason
+
+**Options:**
+
+- `--reason` — Why the proposal is being rejected
+
+### `harness proposals show <id>`
+
+Show a single proposal in full
 
 ## Pulse Commands
 

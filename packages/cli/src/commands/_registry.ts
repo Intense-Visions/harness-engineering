@@ -7,6 +7,7 @@ import { createAdoptionCommand } from './adoption';
 import { createAdviseSkillsCommand } from './advise-skills';
 import { createAgentCommand } from './agent';
 import { createAuditProtectedCommand } from './audit-protected';
+import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
@@ -47,6 +48,7 @@ import { createOrchestratorCommand } from './orchestrator';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
+import { createProposalsCommand } from './proposals';
 import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createQueryCommand } from './graph/query';
@@ -83,6 +85,7 @@ export const commandCreators: Array<() => Command> = [
   createAdviseSkillsCommand,
   createAgentCommand,
   createAuditProtectedCommand,
+  createBackfillSkillProvenanceCommand,
   createBlueprintCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
@@ -123,6 +126,7 @@ export const commandCreators: Array<() => Command> = [
   createPerfCommand,
   createPersonaCommand,
   createPredictCommand,
+  createProposalsCommand,
   createPublishAnalysesCommand,
   createPulseCommand,
   createQueryCommand,

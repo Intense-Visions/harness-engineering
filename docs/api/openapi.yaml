@@ -36,6 +36,7 @@ components:
               - subscribe-webhook
               - modify-roadmap
               - read-telemetry
+              - manage-proposals
             type: string
           minItems: 1
           type: array
@@ -98,6 +99,7 @@ components:
         - subscribe-webhook
         - modify-roadmap
         - read-telemetry
+        - manage-proposals
       type: string
   securitySchemes:
     BearerAuth:

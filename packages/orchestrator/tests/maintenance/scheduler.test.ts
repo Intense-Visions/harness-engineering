@@ -73,11 +73,11 @@ describe('MaintenanceScheduler', () => {
       const tasks = scheduler.getResolvedTasks();
       expect(tasks.find((t) => t.id === 'session-cleanup')).toBeUndefined();
       expect(tasks.find((t) => t.id === 'perf-baselines')).toBeUndefined();
-      // Total should be 21 - 2 = 19
-      expect(tasks).toHaveLength(19);
+      // Total should be 22 - 2 = 20 (Phase 4 added the provenance backfill task).
+      expect(tasks).toHaveLength(20);
     });
 
-    it('uses all 21 built-in tasks when no overrides are provided', () => {
+    it('uses all 22 built-in tasks when no overrides are provided', () => {
       const config: MaintenanceConfig = { enabled: true };
 
       const scheduler = new MaintenanceScheduler({
@@ -87,7 +87,7 @@ describe('MaintenanceScheduler', () => {
         onTaskDue: vi.fn(),
       });
 
-      expect(scheduler.getResolvedTasks()).toHaveLength(21);
+      expect(scheduler.getResolvedTasks()).toHaveLength(22);
     });
 
     it('appends Hermes Phase 2 custom tasks after the built-ins', () => {
@@ -113,7 +113,8 @@ describe('MaintenanceScheduler', () => {
       });
 
       const tasks = scheduler.getResolvedTasks();
-      expect(tasks).toHaveLength(22);
+      // 22 built-ins + 1 custom (Phase 4 added the provenance backfill task).
+      expect(tasks).toHaveLength(23);
       const custom = tasks.find((t) => t.id === 'weekly-audit');
       expect(custom?.isCustom).toBe(true);
       expect(custom?.fixSkill).toBe('my-fix-skill');
@@ -398,7 +399,7 @@ describe('MaintenanceScheduler', () => {
       expect(status.isLeader).toBe(false);
       expect(status.lastLeaderClaim).toBeNull();
       expect(status.activeRun).toBeNull();
-      expect(status.schedule).toHaveLength(21);
+      expect(status.schedule).toHaveLength(22);
       expect(status.history).toHaveLength(0);
 
       // Each schedule entry should have a taskId and nextRun

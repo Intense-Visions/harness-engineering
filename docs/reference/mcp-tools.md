@@ -748,6 +748,21 @@ Emit a structured interaction (question, confirmation, phase transition, or batc
 - `transition` (object, optional) — Transition payload (required when type is transition)
 - `batch` (object, optional) — Batch decision payload (required when type is batch)
 
+### `emit_skill_proposal`
+
+Emit a skill proposal (new-skill or refinement) into the review queue. Writes `.harness/proposals/<id>.json` and returns the queue URL. The proposal does not gate the agent — soundness-review runs at approval time.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `kind` (string, required) — new-skill = full content; refinement = unified-diff against targetSkill
+- `targetSkill` (string, optional) — Existing skill name (required when kind is refinement)
+- `proposedBy` (string, required) — Agent identifier, e.g. "claude-code:harness-execution"
+- `justification` (string, required) — Why this skill / refinement is worth promoting (20–2000 chars)
+- `sessionId` (string, optional) — Originating session id (optional)
+- `taskId` (string, optional) — Originating maintenance task id (optional)
+- `content` (object, required) — Proposal content. new-skill ⇒ skillYaml+skillMd; refinement ⇒ diff
+
 ### `list_gateway_tokens`
 
 List Gateway API tokens via GET /api/v1/auth/tokens. Secrets are redacted. Requires admin scope.

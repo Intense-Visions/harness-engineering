@@ -61,6 +61,8 @@ const STANDARD_EXTRA: readonly string[] = [
   'subscribe_webhook',
   // Hermes Phase 1 — has LLM-spend implication, kept out of core
   'summarize_session',
+  // Hermes Phase 4 — agents emit skill proposals into the review queue
+  'emit_skill_proposal',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

@@ -12,6 +12,7 @@ export const TokenScopeSchema = z.enum([
   'subscribe-webhook',
   'modify-roadmap',
   'read-telemetry',
+  'manage-proposals',
 ]);
 export type TokenScope = z.infer<typeof TokenScopeSchema>;
 

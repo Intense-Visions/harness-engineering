@@ -122,6 +122,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'search_sessions',
   'summarize_session',
   'insights_summary',
+  // Hermes Phase 4 — agent-emitted skill proposals
+  'emit_skill_proposal',
 ];
 
 /**
