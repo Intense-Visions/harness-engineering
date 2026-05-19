@@ -835,11 +835,13 @@ export class Orchestrator extends EventEmitter {
     } = pipelineResult ?? {};
 
     // 4. Dispatch tick event to state machine
+    const selfAssignee = await this.orchestratorIdPromise;
     const tickEvent: OrchestratorEvent = {
       type: 'tick' as const,
       candidates,
       runningStates: runningStatesResult.value,
       nowMs,
+      selfAssignee,
       ...(concernSignals !== undefined && { concernSignals }),
       ...(enrichedSpecs !== undefined && { enrichedSpecs }),
       ...(complexityScores !== undefined && { complexityScores }),

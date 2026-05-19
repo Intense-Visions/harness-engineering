@@ -131,6 +131,14 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       const target = this.findFeatureById(roadmap.milestones, issueId);
       if (!target) return Ok(undefined);
 
+      // Compare-and-set: never overwrite an assignment held by a third
+      // party (another orchestrator OR a human). The no-op write lets the
+      // post-claim verify in ClaimManager.claimAndVerify read back the
+      // unchanged file and return 'rejected'.
+      if (target.assignee != null && target.assignee !== orchestratorId) {
+        return Ok(undefined);
+      }
+
       // Idempotent: already claimed by same orchestrator
       if (target.status === 'in-progress' && target.assignee === orchestratorId) {
         return Ok(undefined);

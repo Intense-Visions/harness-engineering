@@ -256,7 +256,10 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
-    it('overwrites claim when a different orchestrator claims', async () => {
+    it('does not overwrite when another orchestrator currently holds the claim', async () => {
+      // Compare-and-set: skip the write when the on-disk assignee is a
+      // third party. ClaimManager.claimAndVerify then reads back the
+      // unchanged file and returns 'rejected'.
       const claimedByOther = writableRoadmap
         .replace('**Status:** planned', '**Status:** in-progress')
         .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orch-other');
@@ -267,9 +270,22 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).toHaveBeenCalledTimes(1);
-      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
-      expect(written).toContain('**Assignee:** orch-abc123');
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('does not overwrite when a human currently holds the assignment', async () => {
+      const claimedByHuman = writableRoadmap.replace(
+        '- **Plan:** —',
+        '- **Plan:** —\n- **Assignee:** @alice'
+      );
+      vi.mocked(fs.readFile).mockResolvedValue(claimedByHuman);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
     it('is a no-op when the feature is not found', async () => {

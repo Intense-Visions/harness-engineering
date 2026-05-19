@@ -416,7 +416,8 @@ function handleTick(
     candidates,
     next,
     config.tracker.activeStates,
-    config.tracker.terminalStates
+    config.tracker.terminalStates,
+    event.selfAssignee
   );
 
   const escalationConfig = resolveEscalationConfig(config);

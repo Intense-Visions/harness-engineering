@@ -36,7 +36,8 @@ export function isEligible(
   issue: Issue,
   state: OrchestratorState,
   activeStates: string[],
-  terminalStates: string[]
+  terminalStates: string[],
+  selfAssignee?: string | null
 ): boolean {
   // Must have required fields
   if (!issue.id || !issue.identifier || !issue.title || !issue.state) {
@@ -70,6 +71,13 @@ export function isEligible(
     return false;
   }
 
+  // Assignee gate: if the caller provided a self-identity, skip items
+  // assigned to anyone else. When omitted, behavior is unchanged
+  // (preserves existing call-sites that don't yet thread identity).
+  if (selfAssignee !== undefined && issue.assignee != null && issue.assignee !== selfAssignee) {
+    return false;
+  }
+
   // Blocker rule for Todo state: block if any blocker is non-terminal
   if (normalizedState === 'todo' && issue.blockedBy.length > 0) {
     const hasNonTerminalBlocker = issue.blockedBy.some((blocker) => {
@@ -91,8 +99,11 @@ export function selectCandidates(
   issues: readonly Issue[],
   state: OrchestratorState,
   activeStates: string[],
-  terminalStates: string[]
+  terminalStates: string[],
+  selfAssignee?: string | null
 ): Issue[] {
   const sorted = sortCandidates(issues);
-  return sorted.filter((issue) => isEligible(issue, state, activeStates, terminalStates));
+  return sorted.filter((issue) =>
+    isEligible(issue, state, activeStates, terminalStates, selfAssignee)
+  );
 }

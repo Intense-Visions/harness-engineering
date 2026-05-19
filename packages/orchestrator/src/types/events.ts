@@ -34,6 +34,10 @@ export interface TickEvent {
   simulationResults?: Map<string, SimulationResult>;
   /** Pre-computed persona recommendations from specialization scorer (issueId -> recommendations) */
   personaRecommendations?: Map<string, WeightedRecommendation[]>;
+  /** Identity of this orchestrator. Items assigned to a different value are
+   *  filtered out of dispatch by `selectCandidates`. Omit for back-compat
+   *  (preserves today's permissive behavior). */
+  selfAssignee?: string;
 }
 
 export interface WorkerExitEvent {

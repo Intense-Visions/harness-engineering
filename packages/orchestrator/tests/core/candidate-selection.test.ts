@@ -155,6 +155,28 @@ describe('isEligible', () => {
     });
     expect(isEligible(issue, makeState(), ['todo', 'in progress'], ['done'])).toBe(true);
   });
+
+  describe('assignee gate', () => {
+    it('excludes items assigned to another developer when selfAssignee is provided', () => {
+      const issue = makeIssue({ state: 'planned', assignee: '@alice' });
+      expect(isEligible(issue, makeState(), ['planned'], ['done'], 'orchestrator-1')).toBe(false);
+    });
+
+    it('includes items with null assignee when selfAssignee is provided', () => {
+      const issue = makeIssue({ state: 'planned', assignee: null });
+      expect(isEligible(issue, makeState(), ['planned'], ['done'], 'orchestrator-1')).toBe(true);
+    });
+
+    it('includes items assigned to self when selfAssignee is provided', () => {
+      const issue = makeIssue({ state: 'planned', assignee: 'orchestrator-1' });
+      expect(isEligible(issue, makeState(), ['planned'], ['done'], 'orchestrator-1')).toBe(true);
+    });
+
+    it('ignores assignee when selfAssignee is omitted (back-compat)', () => {
+      const issue = makeIssue({ state: 'planned', assignee: '@alice' });
+      expect(isEligible(issue, makeState(), ['planned'], ['done'])).toBe(true);
+    });
+  });
 });
 
 describe('selectCandidates', () => {
