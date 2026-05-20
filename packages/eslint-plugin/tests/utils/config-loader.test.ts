@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getConfig, clearConfigCache } from '../../src/utils/config-loader';
+import { getConfig, getConfigRoot, clearConfigCache } from '../../src/utils/config-loader';
 
 describe('config-loader', () => {
   const fixturesDir = path.join(__dirname, '../fixtures');
@@ -66,5 +66,23 @@ describe('config-loader', () => {
     const config1 = getConfig(path.join(tempDir, 'file1.ts'));
     const config2 = getConfig(path.join(tempDir, 'file2.ts'));
     expect(config1).toBe(config2); // Same object reference
+  });
+
+  describe('getConfigRoot', () => {
+    it('returns the directory containing harness.config.json', () => {
+      fs.copyFileSync(
+        path.join(fixturesDir, 'harness.config.json'),
+        path.join(tempDir, 'harness.config.json')
+      );
+      const nestedDir = path.join(tempDir, 'src', 'deep');
+      fs.mkdirSync(nestedDir, { recursive: true });
+
+      expect(getConfigRoot(path.join(nestedDir, 'file.ts'))).toBe(tempDir);
+    });
+
+    it('returns null when no harness.config.json is found', () => {
+      // tempDir has no config and no ancestor config — guarantees null branch.
+      expect(getConfigRoot(path.join(tempDir, 'no-config', 'file.ts'))).toBeNull();
+    });
   });
 });

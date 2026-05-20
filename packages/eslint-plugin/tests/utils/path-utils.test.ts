@@ -32,6 +32,12 @@ describe('path-utils', () => {
       // uses the same .replace(/\\/g, '/') + indexOf('/src/') pattern.
       expect(normalizePath('C:\\project\\src\\domain\\helper')).toBe('src/domain/helper');
     });
+
+    it('returns original importPath when resolved path has no /src/ and no projectRoot', () => {
+      // Final fallback path: relative import resolves to a location outside
+      // any /src/ boundary, no projectRoot anchor — return import unchanged.
+      expect(resolveImportPath('../sibling', '/lib/pkg/foo.ts')).toBe('../sibling');
+    });
   });
 
   describe('matchesPattern', () => {
@@ -98,6 +104,83 @@ describe('path-utils', () => {
     it('handles mixed separators', () => {
       expect(normalizePath('C:\\Users/dev\\project/src/api\\handler.ts')).toBe(
         'src/api/handler.ts'
+      );
+    });
+
+    describe('with projectRoot (monorepo)', () => {
+      it('preserves package prefix when file is under projectRoot', () => {
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts', '/abs/repo')).toBe(
+          'packages/types/src/foo.ts'
+        );
+      });
+
+      it('handles files without /src/ when projectRoot supplied', () => {
+        // No /src/ in path — the project-root anchor must win over the fallback,
+        // not fall back to returning the absolute path.
+        expect(normalizePath('/abs/repo/apps/web/app/foo.tsx', '/abs/repo')).toBe(
+          'apps/web/app/foo.tsx'
+        );
+      });
+
+      it('falls back to /src/ heuristic when file is outside projectRoot', () => {
+        expect(normalizePath('/elsewhere/pkg/src/foo.ts', '/abs/repo')).toBe('src/foo.ts');
+      });
+
+      it('treats trailing-slash projectRoot the same as no trailing slash', () => {
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts', '/abs/repo/')).toBe(
+          'packages/types/src/foo.ts'
+        );
+      });
+
+      it('preserves legacy behavior when projectRoot is omitted', () => {
+        // Existing single-package projects must keep working.
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts')).toBe('src/foo.ts');
+      });
+    });
+  });
+
+  describe('resolveImportPath with projectRoot (monorepo)', () => {
+    // These cases exercise `path.resolve`, which on Windows prepends a drive
+    // letter to Unix-style absolute paths (e.g. '/abs/repo/...' becomes
+    // 'D:/abs/repo/...'). That breaks the synthetic Unix path setup but
+    // cannot happen in real Windows ESLint usage, where both
+    // `context.filename` and the `getConfigRoot` result share a drive
+    // prefix. The integration test exercises real cross-platform paths.
+    const skipOnWindows = process.platform === 'win32';
+
+    it.skipIf(skipOnWindows)(
+      'returns project-root-relative path preserving package identity',
+      () => {
+        // packages/types/src/foo.ts importing '../api' resolves to
+        // packages/types/api which the legacy /src/ heuristic would mangle.
+        expect(
+          resolveImportPath('../api', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')
+        ).toBe('packages/types/api');
+      }
+    );
+
+    it.skipIf(skipOnWindows)('resolves intra-package imports under projectRoot', () => {
+      expect(
+        resolveImportPath('./helper', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')
+      ).toBe('packages/types/src/helper');
+    });
+
+    it.skipIf(skipOnWindows)('handles trailing-slash projectRoot', () => {
+      expect(
+        resolveImportPath('./helper', '/abs/repo/packages/types/src/foo.ts', '/abs/repo/')
+      ).toBe('packages/types/src/helper');
+    });
+
+    it('falls back to legacy /src/ heuristic when projectRoot is omitted', () => {
+      // Existing test parity: no projectRoot threaded through.
+      expect(resolveImportPath('../types/user', '/project/src/domain/service.ts')).toBe(
+        'src/types/user'
+      );
+    });
+
+    it('keeps absolute imports unchanged even with projectRoot', () => {
+      expect(resolveImportPath('lodash', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')).toBe(
+        'lodash'
       );
     });
   });

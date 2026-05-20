@@ -5,9 +5,18 @@ import type { Layer } from './schema';
 
 /**
  * Resolve an import path relative to the importing file
- * Returns path relative to project root (assumes /project/ prefix)
+ * Returns path relative to project root.
+ *
+ * When `projectRoot` is provided and the resolved file lives under it, the
+ * project-root-relative path is returned (preserves package identity in
+ * monorepos). Otherwise falls back to the `/src/` heuristic for
+ * single-package projects.
  */
-export function resolveImportPath(importPath: string, importingFile: string): string {
+export function resolveImportPath(
+  importPath: string,
+  importingFile: string,
+  projectRoot?: string
+): string {
   // External/absolute imports stay as-is
   if (!importPath.startsWith('.')) {
     return importPath;
@@ -16,10 +25,18 @@ export function resolveImportPath(importPath: string, importingFile: string): st
   // Resolve relative to importing file's directory
   const importingDir = path.dirname(importingFile);
   const resolved = path.resolve(importingDir, importPath);
-
-  // Extract path relative to project root
-  // Assumes paths like /project/src/... or /path/to/project/src/...
   const normalized = resolved.replace(/\\/g, '/');
+
+  // Preferred: anchor to project root (monorepo-safe)
+  if (projectRoot) {
+    const root = projectRoot.replace(/\\/g, '/').replace(/\/$/, '');
+    if (normalized.startsWith(root + '/')) {
+      return normalized.slice(root.length + 1);
+    }
+  }
+
+  // Legacy fallback: /src/ heuristic for single-package projects and any
+  // caller not threading a project root through.
   const srcIndex = normalized.indexOf('/src/'); // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1); // Remove leading /
@@ -60,11 +77,22 @@ export function getLayerByName(name: string, layers: Layer[]): Layer | undefined
 }
 
 /**
- * Normalize a file path to project-relative format
- * Extracts path from /any/path/src/... to src/...
+ * Normalize a file path to project-relative format.
+ *
+ * When `projectRoot` is provided and the file lives under it, returns the
+ * project-relative path (preserves package prefix in monorepos). Otherwise
+ * falls back to the `/src/` heuristic for single-package projects.
  */
-export function normalizePath(filePath: string): string {
+export function normalizePath(filePath: string, projectRoot?: string): string {
   const normalized = filePath.replace(/\\/g, '/');
+
+  if (projectRoot) {
+    const root = projectRoot.replace(/\\/g, '/').replace(/\/$/, '');
+    if (normalized.startsWith(root + '/')) {
+      return normalized.slice(root.length + 1);
+    }
+  }
+
   const srcIndex = normalized.indexOf('/src/'); // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1);

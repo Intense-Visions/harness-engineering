@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "layers": [
+    {
+      "name": "package-a",
+      "pattern": "packages/a/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "package-b",
+      "pattern": "packages/b/**",
+      "allowedDependencies": []
+    }
+  ],
+  "forbiddenImports": [
+    {
+      "from": "packages/a/**",
+      "disallow": ["react", "packages/b/**"],
+      "message": "package-a may not import from package-b or react"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 // src/rules/no-layer-violation.ts
 import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
-import { getConfig } from '../utils/config-loader';
+import { getConfig, getConfigRoot } from '../utils/config-loader';
 import {
   resolveImportPath,
   getLayerForFile,
@@ -31,10 +31,11 @@ function isLayerViolation(
 function resolveImportLayer(
   importPath: string,
   filename: string,
-  layers: LayerDef[]
+  layers: LayerDef[],
+  projectRoot: string | null
 ): string | null {
   if (!importPath.startsWith('.')) return null;
-  const resolvedImport = resolveImportPath(importPath, filename);
+  const resolvedImport = resolveImportPath(importPath, filename, projectRoot ?? undefined);
   return getLayerForFile(resolvedImport, layers) ?? null;
 }
 
@@ -45,9 +46,10 @@ function checkLayerImport(
   context: RuleContext,
   currentLayer: string,
   currentLayerDef: LayerDef,
-  layers: LayerDef[]
+  layers: LayerDef[],
+  projectRoot: string | null
 ): void {
-  const importLayer = resolveImportLayer(node.source.value, context.filename, layers);
+  const importLayer = resolveImportLayer(node.source.value, context.filename, layers, projectRoot);
   if (!importLayer) return;
   if (isLayerViolation(importLayer, currentLayer, currentLayerDef)) {
     context.report({
@@ -77,7 +79,8 @@ export default createRule<[], MessageIds>({
       return {}; // No-op if no layers configured
     }
 
-    const filePath = normalizePath(context.filename);
+    const projectRoot = getConfigRoot(context.filename);
+    const filePath = normalizePath(context.filename, projectRoot ?? undefined);
     const currentLayer = getLayerForFile(filePath, config.layers);
 
     if (!currentLayer) {
@@ -92,7 +95,7 @@ export default createRule<[], MessageIds>({
     const layers = config.layers;
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
-        checkLayerImport(node, context, currentLayer, currentLayerDef, layers);
+        checkLayerImport(node, context, currentLayer, currentLayerDef, layers, projectRoot);
       },
     };
   },
