@@ -1,5 +1,12 @@
 # @harness-engineering/dashboard
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [bce809f]
+  - @harness-engineering/orchestrator@0.6.1
+
 ## 0.7.0
 
 ### Minor Changes
