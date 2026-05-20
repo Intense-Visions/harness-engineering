@@ -105,7 +105,14 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     permissions:
+      # `contents: write` for the direct-push path; `pull-requests: write` is
+      # required for the `gh pr create` fallback used when branch protection
+      # blocks direct pushes to main (which is the current configuration —
+      # without this permission gh fails with "Resource not accessible by
+      # integration" and the merge run is marked failed even when the
+      # baseline diff was empty).
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
         with:

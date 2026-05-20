@@ -54,22 +54,31 @@ jobs:
             @harness-engineering/dashboard \
             @harness-engineering/linter-gen
           node --input-type=module -e "
-            const pkgs = [
-              '@harness-engineering/cli',
-              '@harness-engineering/core',
-              '@harness-engineering/types',
-              '@harness-engineering/orchestrator',
-              '@harness-engineering/intelligence',
-              '@harness-engineering/graph',
-              '@harness-engineering/dashboard',
-              '@harness-engineering/linter-gen',
+            // Bare specifier for library packages. The dashboard publishes no
+            // '.' export — it's a runnable server with no library API and a
+            // side-effectful entrypoint — so probe its package.json subpath
+            // instead. That still exercises module resolution (incident #332
+            // would surface as a missing transitive dep at npm install time).
+            const targets = [
+              ['@harness-engineering/cli', '@harness-engineering/cli'],
+              ['@harness-engineering/core', '@harness-engineering/core'],
+              ['@harness-engineering/types', '@harness-engineering/types'],
+              ['@harness-engineering/orchestrator', '@harness-engineering/orchestrator'],
+              ['@harness-engineering/intelligence', '@harness-engineering/intelligence'],
+              ['@harness-engineering/graph', '@harness-engineering/graph'],
+              ['@harness-engineering/dashboard', '@harness-engineering/dashboard/package.json'],
+              ['@harness-engineering/linter-gen', '@harness-engineering/linter-gen'],
             ];
             const failures = [];
-            for (const pkg of pkgs) {
+            for (const [pkg, spec] of targets) {
               try {
-                const mod = await import(pkg);
+                const isJson = spec.endsWith('.json');
+                const mod = isJson
+                  ? await import(spec, { with: { type: 'json' } })
+                  : await import(spec);
                 const exportCount = Object.keys(mod).length;
-                console.log(\`ok  \${pkg}  (\${exportCount} exports)\`);
+                const note = spec === pkg ? '' : \` via \${spec}\`;
+                console.log(\`ok  \${pkg}  (\${exportCount} exports)\${note}\`);
               } catch (err) {
                 failures.push({ pkg, message: err?.message ?? String(err) });
                 console.error(\`fail \${pkg}: \${err?.message ?? err}\`);
