@@ -1,6 +1,6 @@
 // src/rules/no-forbidden-imports.ts
 import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
-import { getConfig } from '../utils/config-loader';
+import { getConfig, getConfigRoot } from '../utils/config-loader';
 import { matchesPattern, resolveImportPath, normalizePath } from '../utils/path-utils';
 
 const createRule = ESLintUtils.RuleCreator(
@@ -50,6 +50,7 @@ function checkImportDeclaration(
   node: TSESTree.ImportDeclaration,
   applicableRules: ForbiddenImportRule[],
   filename: string,
+  projectRoot: string | null,
   report: (opts: {
     node: TSESTree.Node;
     messageId: MessageIds;
@@ -57,7 +58,7 @@ function checkImportDeclaration(
   }) => void
 ): void {
   const importPath = node.source.value;
-  const resolvedImport = resolveImportPath(importPath, filename);
+  const resolvedImport = resolveImportPath(importPath, filename, projectRoot ?? undefined);
   const violatedRule = findViolatedRule(applicableRules, importPath, resolvedImport);
   if (violatedRule) {
     report({
@@ -87,7 +88,8 @@ export default createRule<[], MessageIds>({
       return {}; // No-op if no config
     }
 
-    const filePath = normalizePath(context.filename);
+    const projectRoot = getConfigRoot(context.filename);
+    const filePath = normalizePath(context.filename, projectRoot ?? undefined);
     const applicableRules = config.forbiddenImports.filter((rule) =>
       matchesPattern(filePath, rule.from)
     );
@@ -104,7 +106,7 @@ export default createRule<[], MessageIds>({
 
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
-        checkImportDeclaration(node, applicableRules, context.filename, report);
+        checkImportDeclaration(node, applicableRules, context.filename, projectRoot, report);
       },
     };
   },

@@ -100,5 +100,71 @@ describe('path-utils', () => {
         'src/api/handler.ts'
       );
     });
+
+    describe('with projectRoot (monorepo)', () => {
+      it('preserves package prefix when file is under projectRoot', () => {
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts', '/abs/repo')).toBe(
+          'packages/types/src/foo.ts'
+        );
+      });
+
+      it('handles files without /src/ when projectRoot supplied', () => {
+        // No /src/ in path — the project-root anchor must win over the fallback,
+        // not fall back to returning the absolute path.
+        expect(normalizePath('/abs/repo/apps/web/app/foo.tsx', '/abs/repo')).toBe(
+          'apps/web/app/foo.tsx'
+        );
+      });
+
+      it('falls back to /src/ heuristic when file is outside projectRoot', () => {
+        expect(normalizePath('/elsewhere/pkg/src/foo.ts', '/abs/repo')).toBe('src/foo.ts');
+      });
+
+      it('treats trailing-slash projectRoot the same as no trailing slash', () => {
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts', '/abs/repo/')).toBe(
+          'packages/types/src/foo.ts'
+        );
+      });
+
+      it('preserves legacy behavior when projectRoot is omitted', () => {
+        // Existing single-package projects must keep working.
+        expect(normalizePath('/abs/repo/packages/types/src/foo.ts')).toBe('src/foo.ts');
+      });
+    });
+  });
+
+  describe('resolveImportPath with projectRoot (monorepo)', () => {
+    it('returns project-root-relative path preserving package identity', () => {
+      // packages/types/src/foo.ts importing '../api' resolves to
+      // packages/types/api which the legacy /src/ heuristic would mangle.
+      expect(resolveImportPath('../api', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')).toBe(
+        'packages/types/api'
+      );
+    });
+
+    it('resolves intra-package imports under projectRoot', () => {
+      expect(
+        resolveImportPath('./helper', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')
+      ).toBe('packages/types/src/helper');
+    });
+
+    it('handles trailing-slash projectRoot', () => {
+      expect(
+        resolveImportPath('./helper', '/abs/repo/packages/types/src/foo.ts', '/abs/repo/')
+      ).toBe('packages/types/src/helper');
+    });
+
+    it('falls back to legacy /src/ heuristic when projectRoot is omitted', () => {
+      // Existing test parity: no projectRoot threaded through.
+      expect(resolveImportPath('../types/user', '/project/src/domain/service.ts')).toBe(
+        'src/types/user'
+      );
+    });
+
+    it('keeps absolute imports unchanged even with projectRoot', () => {
+      expect(resolveImportPath('lodash', '/abs/repo/packages/types/src/foo.ts', '/abs/repo')).toBe(
+        'lodash'
+      );
+    });
   });
 });

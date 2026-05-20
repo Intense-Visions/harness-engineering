@@ -54,6 +54,16 @@ export function getConfig(filePath: string): HarnessConfig | null {
 }
 
 /**
+ * Resolve the project root directory for a given file by locating the
+ * nearest ancestor `harness.config.json`. Returns the directory containing
+ * the config, or null if none is found.
+ */
+export function getConfigRoot(filePath: string): string | null {
+  const configPath = findConfigFile(path.dirname(filePath));
+  return configPath ? path.dirname(configPath) : null;
+}
+
+/**
  * Clear the config cache (for testing)
  */
 export function clearConfigCache(): void {
