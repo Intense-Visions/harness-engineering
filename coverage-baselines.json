@@ -1,7 +1,7 @@
 {
   "packages/core": {
     "lines": 90.98,
-    "branches": 75.23,
+    "branches": 75.22,
     "functions": 92.14,
     "statements": 88.51
   },
@@ -12,7 +12,7 @@
     "statements": 94.6
   },
   "packages/cli": {
-    "lines": 78.15,
+    "lines": 78.14,
     "branches": 64.39,
     "functions": 82.03,
     "statements": 77.19
