@@ -510,7 +510,9 @@ Four ADRs warranted (cross-cutting decisions establishing new patterns for the h
 
 Approach 3: parallel streams + convergence.
 
-### Sprint 0 — Schema Spike (~1 day)
+### Phase 0: Schema Spike <!-- complexity: low -->
+
+(~1 day)
 
 **Goal:** lock the 3-axis finding schema, 5-dim radar schema, rubric/pattern/exemplar contribution schemas BEFORE streams diverge.
 
@@ -521,7 +523,9 @@ Approach 3: parallel streams + convergence.
 
 **Exit criteria:** schemas accept all spec'd content without ambiguity. Both streams have locked-down input contracts.
 
-### Sprint 1 (~7 days) — Streams A and B in parallel
+### Phase 1: Vertical Slice + Seed Catalog Half <!-- complexity: high -->
+
+(~7 days; two parallel streams A engineering + B curation collapsed for autopilot; APPROVE_PLAN will pause)
 
 **Stream A (engineering, ~7 days):**
 - LLM provider integration (extending `packages/intelligence/` if needed for vision)
@@ -547,7 +551,9 @@ Approach 3: parallel streams + convergence.
 
 **Stop conditions:** if schema needs revision → halt convergence; iterate before Sprint 2.
 
-### Sprint 2 (~7 days) — Streams continue, visual productionization
+### Phase 2: Visual Productionization + Catalog Completion <!-- complexity: high -->
+
+(~7 days; visual pipeline + remaining catalog; APPROVE_PLAN will pause)
 
 **Stream A:**
 - Productionize visual pipeline (render cache, viewport variants, error handling, cost tracking)
@@ -567,7 +573,9 @@ Approach 3: parallel streams + convergence.
 - Visual pipeline production-quality
 - B' upgrade path works for all 4 precondition states
 
-### Sprint 3 (~5 days) — Convergence + Growth infrastructure
+### Phase 3: Convergence + Growth Infrastructure <!-- complexity: medium -->
+
+(~5 days)
 
 - Wire full catalog into all 3 phases at scale
 - Signal feedback loop implementation (CRITIQUE-recurrence → pattern-proposal)
@@ -582,7 +590,9 @@ Approach 3: parallel streams + convergence.
 - Growth infrastructure operational (signal loop, measurement, contribution validation)
 - Integration tests cover the matrix
 
-### Sprint 4 (~5 days) — Polish
+### Phase 4: Polish <!-- complexity: medium -->
+
+(~5 days)
 
 - ADRs filed (4)
 - Knowledge entries filed (4)

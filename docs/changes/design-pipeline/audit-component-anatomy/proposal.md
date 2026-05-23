@@ -468,7 +468,9 @@ Three ADRs warranted (medium-large tier change with cross-cutting implications):
 
 Three sprints over ~3 weeks, preceded by a 1-day schema spike to de-risk the rule schema before Sprint 1 commits. Each sprint exits on a named subset of the success criteria.
 
-### Phase 0 — Schema Spike (~1 day)
+### Phase 0: Schema Spike <!-- complexity: low -->
+
+(~1 day)
 
 **Goal:** validate that the v1 rule schemas (ConventionRule, PatternRule, AnatomyFinding, JSDoc tag grammar) can express the representative edge cases before Sprint 1 locks them in code.
 
@@ -482,7 +484,9 @@ Three sprints over ~3 weeks, preceded by a 1-day schema spike to de-risk the rul
 
 **Risk addressed:** the "rule schema needs revision on edge cases" risk called out in the brainstorming PRIORITIZE phase.
 
-### Phase 1 / Sprint 1 — Vertical Slice (~5-7 days)
+### Phase 1: Vertical Slice <!-- complexity: high -->
+
+(~5-7 days; task count >15 expected — APPROVE_PLAN will pause for review)
 
 **Goal:** end-to-end pipeline working for ONE convention (Button) and ONE pattern (ANAT-P001 map-without-empty), proving architecture across all integration points before scaling.
 
@@ -508,7 +512,9 @@ Three sprints over ~3 weeks, preceded by a 1-day schema spike to de-risk the rul
 
 **Stop conditions:** if the rule schema or parser stack reveals a blocker that requires architectural rework, halt and re-spec before Sprint 2 begins.
 
-### Phase 2 / Sprint 2 — Catalog Expansion (~10-12 days)
+### Phase 2: Catalog Expansion <!-- complexity: high -->
+
+(~10-12 days; 28 catalog deliverables — APPROVE_PLAN will pause)
 
 **Goal:** scale the catalog to the comprehensive scope committed in Decision #5.
 
@@ -531,7 +537,9 @@ Three sprints over ~3 weeks, preceded by a 1-day schema spike to de-risk the rul
 
 **Stop conditions:** if false-positive rate exceeds 15% on the benchmark corpus at any point, halt catalog work and triage the pattern engine before continuing.
 
-### Phase 3 / Sprint 3 — Polish (~3-5 days)
+### Phase 3: Polish <!-- complexity: medium -->
+
+(~3-5 days)
 
 **Goal:** ship-ready quality on severity, reporting, documentation, and performance.
 
