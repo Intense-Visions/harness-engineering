@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-05-17
-last_synced: 2026-05-15T18:43:18.077Z
-last_manual_edit: 2026-05-17T23:30:00.000Z
+last_synced: 2026-05-23T01:07:35.489Z
+last_manual_edit: 2026-05-23T14:48:11.958Z
 ---
 
 # Roadmap
@@ -1158,7 +1158,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Summary:** `docs/guides/gateway-tunnel.md` covering Cloudflare Tunnel, Tailscale, and ngrok as canonical bridge-exposure patterns. Completes the parent spec §D5 "localhost-by-default + tunnel-pattern guide" decision (parent: docs/changes/hermes-phase-0-gateway-api/proposal.md). Slack echo bridge is the worked end-to-end example.
 - **Blockers:** —
 - **Plan:** docs/changes/hermes-phase-0-2-gateway-tunnel-guide/plans/2026-05-16-gateway-tunnel-guide-plan.md
-- **Assignee:** @cwarner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#328
 
@@ -1169,7 +1169,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Summary:** SQLite FTS5 index over .harness/sessions/ with auto-LLM summarization on session close; harness search CLI and dashboard search; harness insights aggregator composing entropy/decay/attention/impact/health views. Independent of Phase 0 — can run in parallel. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** docs/changes/hermes-phase-1-session-search/plans/2026-05-16-phase-1-foundation-plan.md
-- **Assignee:** @cwarner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#311
 
@@ -1191,7 +1191,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Summary:** Generalize CINotifier to NotificationSink interface with Slack-first concrete adapter; wrap_response envelope option for platform-shape delivery formatting; harden harness doctor with live pings, hook validity, baseline freshness, session corruption check. Requires Phase 0 webhook fanout. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** docs/changes/hermes-phase-3-notifications/plans/main.md
-- **Assignee:** @cwarner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#313
 
@@ -1202,7 +1202,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-ad1c7656
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#314
 - **Updated-At:** 2026-05-18T11:28:52.297Z
@@ -1214,7 +1214,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Summary:** SSH agent dispatch backend, serverless backend interface (Modal-style not Modal-coupled), isolation tier as fourth axis on BackendRouter (local/container/remote-sandbox), per-task cost ceiling with abort-on-exceed. Cost ceiling requires Phase 0 telemetry. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** docs/changes/hermes-phase-5-dispatch-hardening/plans/2026-05-16-main-plan.md
-- **Assignee:** @cwarner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#315
 
@@ -1932,8 +1932,8 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 
 - **Status:** blocked
 - **Spec:** —
-- **Summary:** Initiative parent. Decomposed 2026-05-17 into 5 sub-projects (Path B chosen — full roadmap promise). Sub-projects: #1 detect-design-drift + align-design-system, #2 audit-component-anatomy, #3 audit-brand-compliance (blocked on brand-guidelines source-of-truth decision), #4 harness check-design verifier, #5 (this entry) the orchestrator itself composing #1-#4 with FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT phases mirroring harness-docs-pipeline. Existing operational dependency wired in as-is: harness-accessibility. See memory project_design_pipeline_idea.md.
-- **Blockers:** design-pipeline sub-project #1 (#354), design-pipeline sub-project #2 (#355), design-pipeline sub-project #3 (#356), design-pipeline sub-project #4 (#357)
+- **Summary:** Initiative parent. **Two-layer architecture (decomposition refined 2026-05-23):** the FLOOR-RAISING layer (consistency engine, rule-based) is sub-projects #1-#4 + #0 brand-guidelines decision. The CEILING-RAISING layer (craft elevator, LLM-judgment-based) is sub-project #6 design-craft-elevator — a fundamentally different infrastructure (LLM critique passes, polish pattern library, exemplar corpus) that produces stunning output not just consistent output. Floor + ceiling together = world-class designs; floor alone = consistent mediocrity. Sub-projects: #1 detect-design-drift + align-design-system, #2 audit-component-anatomy, #3 audit-brand-compliance (blocked on #0 brand-guidelines decision), #4 harness check-design verifier, #5 (this entry) the orchestrator composing all sub-projects with FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT phases mirroring harness-docs-pipeline, #6 design-craft-elevator (ceiling-raising LLM-judgment work). Existing operational dependency wired in as-is: harness-accessibility. See memory project_design_pipeline_idea.md. **Prior-art bar (must-beat references for all sub-projects):** docs/changes/design-pipeline/REFERENCES.md. #1-#4 lean on REFERENCES.md entries #5-#10 (DTCG, ESLint plugins, anatomy specs). #6 leans on REFERENCES.md entries #2, #3, #4 (impeccable, emil-design-eng, huashu-design).
+- **Blockers:** design-pipeline sub-project #1: detect-design-drift + align-design-system, design-pipeline sub-project #2: audit-component-anatomy, design-pipeline sub-project #3: audit-brand-compliance, design-pipeline sub-project #4: harness check-design verifier, design-pipeline sub-project #6: design-craft-elevator
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1941,7 +1941,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 
 ### design-pipeline sub-project #1: detect-design-drift + align-design-system
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** —
 - **Summary:** Detection skill (detect-design-drift) and remediation skill (align-design-system) for token bypass, variant proliferation, and components not adopting design-system primitives. Pattern-mirrors detect-doc-drift + align-documentation. Detect skill can land independently; align skill blocks on #4 verifier for its convergence loop.
 - **Blockers:** design-pipeline sub-project #4 (#357) for align skill only
@@ -1953,11 +1953,11 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 ### design-pipeline sub-project #2: audit-component-anatomy
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/design-pipeline/audit-component-anatomy/proposal.md
 - **Summary:** Audit skill detecting missing required anatomy parts (label, helper text, error state, loading state, empty state). Rules sourced from design-component-anatomy reference content. Lowest-ambiguity sub-project. Needs documented overlap-resolution with harness-accessibility (no double-counting label-missing findings).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#355
 
@@ -1966,7 +1966,7 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Status:** blocked
 - **Spec:** —
 - **Summary:** Audit skill for semantic token misuse, brand voice violations in copy, and asset misuse. Highest-ambiguity sub-project. Blocked on brand-guidelines source-of-truth decision (sub-project #0): extend DESIGN.md schema with structured brand rules, or add a brand-guidelines authoring skill. Overlaps with #1 — raw token bypass goes to #1, semantic misuse to this.
-- **Blockers:** brand-guidelines source-of-truth decision (sub-project #0, not yet filed)
+- **Blockers:** design-pipeline sub-project #0: brand-guidelines source-of-truth
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1982,6 +1982,28 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#357
+
+### design-pipeline sub-project #0: brand-guidelines source-of-truth
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** ADR-style decision artifact (hours, not days). Choose: (a) extend DESIGN.md schema with a structured brand-rules block — and claim the DTCG `$extensions.harness.brand` namespace as the de-facto open schema, or (b) new brand-guidelines authoring skill. Strategic urgency: Frontify shipped Brand-Intelligence-as-MCP (vendor-locked); DTCG `$extensions` vendor prefix is first-come-first-served. Output: one-page ADR + schema sketch if path (a). Unblocks sub-project #3 (audit-brand-compliance). Load REFERENCES.md tier-1 entries #1, #5, #11, #12, #41 before starting.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** @chadjw
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#370
+
+### design-pipeline sub-project #6: design-craft-elevator
+
+- **Status:** planned
+- **Spec:** docs/changes/design-pipeline/design-craft-elevator/proposal.md
+- **Summary:** CEILING-RAISING counterpart to sub-projects #1-#4 (which are floor-raising / consistency-engine work). LLM-judgment-based craft elevator that produces stunning, professional-tier output — not just consistent output. Three distinct capability classes, each requiring different infrastructure than the rule-based audits: (a) aesthetic critique — LLM passes with curated rubrics that flag muddy hierarchy, nested cards, low-contrast accents, generic spinners where skeletons belong; pattern-mirrors REFERENCES.md tier-1 #2 (impeccable.style /impeccable polish commands) and #4 (alchaincyf/huashu-design 5-dimension critique with radar output). (b) Polish pattern library — vocabulary of high-craft moves to APPLY (not enforce): spring physics with named constants, stagger timing, easing curves per gesture, skeleton-matches-content-shape, progressive corner rounding; pattern-mirrors REFERENCES.md tier-1 #3 (emilkowalski/skill emil-design-eng SKILL.md). (c) Exemplar-driven targets — curated reference corpus of "this is the bar" anchors per component type (Linear empty list, Stripe loading state, Raycast command palette, Vercel error page); enables visual/LLM-evaluated proximity-to-exemplar scoring. Fundamentally different infrastructure from #1-#4: LLM passes (not AST/tree-sitter queries), pattern application (not constraint enforcement), exemplar corpus (not rule catalog). Composes into #5 orchestrator alongside the floor-raising audits. See docs/changes/design-pipeline/REFERENCES.md tier-1 entries #2, #3, #4 for direct prior art.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#371
 
 ## v4.0 Business Knowledge System
 
@@ -2046,11 +2068,12 @@ last_manual_edit: 2026-05-17T23:30:00.000Z
 - **Updated-At:** 2026-04-24T11:23:48.933Z
 
 ## Assignment History
-
-| Feature                                  | Assignee | Action   | Date       |
-| ---------------------------------------- | -------- | -------- | ---------- |
-| Performance Engineering Knowledge Skills | @chadjw  | assigned | 2026-04-09 |
-| Phase 2: Code Signal Extractors          | @chadjw  | assigned | 2026-04-23 |
-| Phase 3: Connector Enhancement           | @chadjw  | assigned | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams   | @chadjw  | assigned | 2026-04-23 |
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
+| Performance Engineering Knowledge Skills | @chadjw | assigned | 2026-04-09 |
+| Phase 2: Code Signal Extractors | @chadjw | assigned | 2026-04-23 |
+| Phase 3: Connector Enhancement | @chadjw | assigned | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams | @chadjw | assigned | 2026-04-23 |
 | Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |
+| design-pipeline sub-project #2: audit-component-anatomy | @chadjw | assigned | 2026-05-23 |
+| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw | assigned | 2026-05-23 |
