@@ -1,5 +1,5 @@
 ---
-number: 0004
+number: 0024
 title: Pulse and compound-candidates as report-only maintenance tasks
 date: 2026-05-05
 status: accepted

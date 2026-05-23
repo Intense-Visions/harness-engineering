@@ -8,11 +8,11 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ## Observable Truths (Acceptance Criteria)
 
-1. `docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md` exists, follows the existing ADR frontmatter format (number, title, date, status, tier, source), and states the post-mortem-playbook vs. structural-domain-fact split with its rationale and consequences.
-2. `docs/knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md` exists and explains the report-only maintenance-task choice (vs. standalone /schedule wiring), referencing the Phase 6 `BUILT_IN_TASKS` registration.
-3. `docs/knowledge/decisions/0005-pulse-config-in-harness-config-json.md` exists and records the decision to keep pulse config under `harness.config.json` (vs. a separate config file), referencing the Phase 1 schema and Phase 3 writer.
-4. `docs/knowledge/decisions/0006-compound-auto-invocation-deferred.md` exists and records the deferral of trigger-phrase auto-invocation, referencing the Phase 7 orchestrator step 6b mechanical-trigger alternative.
-5. `docs/knowledge/decisions/0007-learnings-md-deprecation-scope.md` exists and explicitly scopes the deprecation to the orchestrator's compounding-knowledge-sink semantic only — NOT the file or the runtime read paths in `packages/core/src/state/learnings*.ts`.
+1. `docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md` exists, follows the existing ADR frontmatter format (number, title, date, status, tier, source), and states the post-mortem-playbook vs. structural-domain-fact split with its rationale and consequences.
+2. `docs/knowledge/decisions/0024-report-only-maintenance-tasks-for-pulse-and-compound.md` exists and explains the report-only maintenance-task choice (vs. standalone /schedule wiring), referencing the Phase 6 `BUILT_IN_TASKS` registration.
+3. `docs/knowledge/decisions/0025-pulse-config-in-harness-config-json.md` exists and records the decision to keep pulse config under `harness.config.json` (vs. a separate config file), referencing the Phase 1 schema and Phase 3 writer.
+4. `docs/knowledge/decisions/0026-compound-auto-invocation-deferred.md` exists and records the deferral of trigger-phrase auto-invocation, referencing the Phase 7 orchestrator step 6b mechanical-trigger alternative.
+5. `docs/knowledge/decisions/0027-learnings-md-deprecation-scope.md` exists and explicitly scopes the deprecation to the orchestrator's compounding-knowledge-sink semantic only — NOT the file or the runtime read paths in `packages/core/src/state/learnings*.ts`.
 6. `AGENTS.md` contains a new short section that surfaces `docs/solutions/` and `docs/pulse-reports/` for agent discovery, cross-links ADR-3 (0003) for the boundary, and references Phase 6 maintenance-task wiring.
 7. `docs/conventions/compound-vs-knowledge-pipeline.md` exists with concrete examples of when to write a compound doc vs. when to add a `business_fact` to the knowledge graph, and documents the connection (compound output → `BusinessKnowledgeIngestor.ingestSolutions` → `business_concept` nodes). Flags real PostHog/Sentry/Stripe adapters as "Phase 4.5 follow-up."
 8. `agents/skills/claude-code/harness-observability/SKILL.md` has a one-line note that `harness-pulse` is the read-side companion (pulse READS observability data; observability skill DESIGNS instrumentation).
@@ -20,11 +20,11 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ## File Map
 
-- CREATE `docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`
-- CREATE `docs/knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md`
-- CREATE `docs/knowledge/decisions/0005-pulse-config-in-harness-config-json.md`
-- CREATE `docs/knowledge/decisions/0006-compound-auto-invocation-deferred.md`
-- CREATE `docs/knowledge/decisions/0007-learnings-md-deprecation-scope.md`
+- CREATE `docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md`
+- CREATE `docs/knowledge/decisions/0024-report-only-maintenance-tasks-for-pulse-and-compound.md`
+- CREATE `docs/knowledge/decisions/0025-pulse-config-in-harness-config-json.md`
+- CREATE `docs/knowledge/decisions/0026-compound-auto-invocation-deferred.md`
+- CREATE `docs/knowledge/decisions/0027-learnings-md-deprecation-scope.md`
 - CREATE `docs/conventions/compound-vs-knowledge-pipeline.md`
 - MODIFY `AGENTS.md` (add short section surfacing solutions/pulse-reports + boundary cross-link)
 - MODIFY `agents/skills/claude-code/harness-observability/SKILL.md` (one-line companion note)
@@ -33,7 +33,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ### Task 1: Write ADR-3 — compound vs. knowledge-pipeline boundary
 
-**Depends on:** none | **Files:** `docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`
+**Depends on:** none | **Files:** `docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md`
 
 1. Create the file with the following content (matches existing ADR format from 0001/0002):
 
@@ -91,7 +91,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ### Task 2: Write ADR-4 — report-only maintenance tasks for pulse and compound
 
-**Depends on:** Task 1 | **Files:** `docs/knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md`
+**Depends on:** Task 1 | **Files:** `docs/knowledge/decisions/0024-report-only-maintenance-tasks-for-pulse-and-compound.md`
 
 1. Create the file with frontmatter `number: 0004`, `title: Pulse and compound-candidates as report-only maintenance tasks`, `date: 2026-05-05`, `status: accepted`, `tier: medium`, source as the proposal path.
 2. Sections:
@@ -103,7 +103,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ### Task 3: Write ADR-5 — pulse config in harness.config.json
 
-**Depends on:** Task 2 | **Files:** `docs/knowledge/decisions/0005-pulse-config-in-harness-config-json.md`
+**Depends on:** Task 2 | **Files:** `docs/knowledge/decisions/0025-pulse-config-in-harness-config-json.md`
 
 1. Create the file with frontmatter `number: 0005`, `title: Pulse config in harness.config.json`, `date: 2026-05-05`, `status: accepted`, `tier: small`, source as the proposal path.
 2. Sections:
@@ -115,7 +115,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ### Task 4: Write ADR-6 — compound auto-invocation deferred
 
-**Depends on:** Task 3 | **Files:** `docs/knowledge/decisions/0006-compound-auto-invocation-deferred.md`
+**Depends on:** Task 3 | **Files:** `docs/knowledge/decisions/0026-compound-auto-invocation-deferred.md`
 
 1. Create the file with frontmatter `number: 0006`, `title: Compound auto-invocation deferred`, `date: 2026-05-05`, `status: accepted`, `tier: small`, source as the proposal path.
 2. Sections:
@@ -127,7 +127,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
 
 ### Task 5: Write ADR-7 — learnings.md deprecation scope
 
-**Depends on:** Task 4 | **Files:** `docs/knowledge/decisions/0007-learnings-md-deprecation-scope.md`
+**Depends on:** Task 4 | **Files:** `docs/knowledge/decisions/0027-learnings-md-deprecation-scope.md`
 
 1. Create the file with frontmatter `number: 0007`, `title: .harness/learnings.md deprecation scope`, `date: 2026-05-05`, `status: accepted`, `tier: medium`, source as the proposal path.
 2. Sections:
@@ -151,11 +151,11 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
    # Compound vs Knowledge-Pipeline: Operational Guidance
 
    **Date:** 2026-05-05
-   **ADR:** docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md
+   **ADR:** docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md
 
    ## Purpose
 
-   ADR-0003 defines the boundary at the decision level. This doc gives the day-to-day
+   ADR-0023 defines the boundary at the decision level. This doc gives the day-to-day
    operational guidance: when to write a compound doc vs. when to add a `business_fact`
    to the knowledge graph, and how the two connect.
 
@@ -252,7 +252,7 @@ Ship the documentation deliverables that close out the feedback-loops feature: 5
      written by the `product-pulse` maintenance task. Read these when prioritizing.
 
    The boundary with `harness-knowledge-pipeline` is documented in
-   ADR-0003 (`docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`):
+   ADR-0023 (`docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md`):
    compound captures post-mortem playbooks; the pipeline extracts structural facts
    from code. Both `product-pulse` and `compound-candidates` are registered as
    `report-only` maintenance tasks (see the orchestrator maintenance section).

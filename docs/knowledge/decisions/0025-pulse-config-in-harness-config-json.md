@@ -1,5 +1,5 @@
 ---
-number: 0005
+number: 0025
 title: Pulse config in harness.config.json
 date: 2026-05-05
 status: accepted

@@ -238,11 +238,11 @@ Update `harness-knowledge-pipeline` Phase 1 EXTRACT to include `docs/solutions/`
 
 ### Architectural Decisions
 
-- **[ADR-0003](../../../knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md)**: Compound vs knowledge-pipeline scope boundary (post-mortem playbooks vs structural domain facts)
-- **[ADR-0004](../../../knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md)**: Pulse and compound-candidates as report-only maintenance tasks (vs standalone /schedule wiring)
-- **[ADR-0005](../../../knowledge/decisions/0005-pulse-config-in-harness-config-json.md)**: Pulse config in `harness.config.json` (vs separate config file)
-- **[ADR-0006](../../../knowledge/decisions/0006-compound-auto-invocation-deferred.md)**: Compound auto-invocation deferred (vs trigger-phrase detection)
-- **[ADR-0007](../../../knowledge/decisions/0007-learnings-md-deprecation-scope.md)**: Deprecation of `.harness/learnings.md` as a learnings sink
+- **[ADR-0023](../../../knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md)**: Compound vs knowledge-pipeline scope boundary (post-mortem playbooks vs structural domain facts)
+- **[ADR-0024](../../../knowledge/decisions/0024-report-only-maintenance-tasks-for-pulse-and-compound.md)**: Pulse and compound-candidates as report-only maintenance tasks (vs standalone /schedule wiring)
+- **[ADR-0025](../../../knowledge/decisions/0025-pulse-config-in-harness-config-json.md)**: Pulse config in `harness.config.json` (vs separate config file)
+- **[ADR-0026](../../../knowledge/decisions/0026-compound-auto-invocation-deferred.md)**: Compound auto-invocation deferred (vs trigger-phrase detection)
+- **[ADR-0027](../../../knowledge/decisions/0027-learnings-md-deprecation-scope.md)**: Deprecation of `.harness/learnings.md` as a learnings sink
 
 ### Knowledge Impact
 
@@ -319,7 +319,7 @@ Write 5 ADRs (compound-vs-knowledge-pipeline boundary, maintenance-task-vs-sched
 
 ## Risks and Mitigations
 
-- **Risk:** `harness-pulse` and `harness-knowledge-pipeline` boundary blurs over time → **Mitigation:** ADR-0003 explicitly defines the boundary; conventions doc with examples; periodic check during code review
+- **Risk:** `harness-pulse` and `harness-knowledge-pipeline` boundary blurs over time → **Mitigation:** ADR-0023 explicitly defines the boundary; conventions doc with examples; periodic check during code review
 - **Risk:** Compound categories proliferate (every new fix invents a category) → **Mitigation:** Schema validation rejects unknown categories; new category requires PR with rationale
 - **Risk:** Pulse reports accumulate as commit churn (1 commit/day) → **Mitigation:** Pulse report writes are explicit commits with consistent message format; tooling can ignore them in change-impact analysis
 - **Risk:** `compound-candidates` produces noisy lists nobody acts on → **Mitigation:** Dashboard badge shows count; week-over-week trend visible; if action rate < 10% the task should be revisited

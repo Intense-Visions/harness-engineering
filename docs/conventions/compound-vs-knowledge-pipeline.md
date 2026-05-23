@@ -3,7 +3,7 @@
 This document gives contributors concrete guidance on when to write a compound
 solution doc versus when to add structural facts to the knowledge pipeline. For
 the high-level architectural rationale, see
-[ADR-0003](../knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md).
+[ADR-0023](../knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md).
 
 ## Decision Tree
 
@@ -100,9 +100,9 @@ explicitly so they do not appear authoritative before the adapters ship.
 
 ## See Also
 
-- [ADR-0003](../knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md) —
+- [ADR-0023](../knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md) —
   architectural decision and full rationale.
-- [ADR-0004](../knowledge/decisions/0004-report-only-maintenance-tasks-for-pulse-and-compound.md) —
+- [ADR-0024](../knowledge/decisions/0024-report-only-maintenance-tasks-for-pulse-and-compound.md) —
   why `compound-candidates` and `product-pulse` run as `report-only` tasks.
 - `agents/skills/claude-code/harness-compound/SKILL.md` — agent guidance for
   writing compound docs.

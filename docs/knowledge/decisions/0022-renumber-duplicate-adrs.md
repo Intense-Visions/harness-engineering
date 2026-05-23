@@ -12,13 +12,13 @@ supersedes:
 
 The ADR README at `docs/knowledge/decisions/README.md` states unambiguously: **"Never reuse a number, even if the ADR is deprecated or superseded."** Yet a scan of the directory reveals five duplicate-numbered ADR pairs in the 0003-0007 range:
 
-| Number | ADR A (first by git history) | ADR B (later, conflicting) |
-|---|---|---|
-| 0003 | `0003-compound-vs-knowledge-pipeline-boundary.md` | `0003-local-model-resolution-strategy.md` |
-| 0004 | `0004-local-availability-disables-not-escalates.md` | `0004-report-only-maintenance-tasks-for-pulse-and-compound.md` |
-| 0005 | `0005-named-backends-map.md` | `0005-pulse-config-in-harness-config-json.md` |
-| 0006 | `0006-compound-auto-invocation-deferred.md` | `0006-single-runner-orchestrator-dispatch.md` |
-| 0007 | `0007-learnings-md-deprecation-scope.md` | `0007-multi-provider-intelligence-pipeline.md` |
+| Number | ADR A (first by git history — KEEPS number)                      | ADR B (later — gets renumbered)                                             |
+| ------ | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 0003   | `0003-local-model-resolution-strategy.md` (2026-05-01)           | `0003-compound-vs-knowledge-pipeline-boundary.md` (2026-05-06)              |
+| 0004   | `0004-local-availability-disables-not-escalates.md` (2026-05-01) | `0004-report-only-maintenance-tasks-for-pulse-and-compound.md` (2026-05-06) |
+| 0005   | `0005-named-backends-map.md` (2026-05-05)                        | `0005-pulse-config-in-harness-config-json.md` (2026-05-06)                  |
+| 0006   | `0006-single-runner-orchestrator-dispatch.md` (2026-05-05)       | `0006-compound-auto-invocation-deferred.md` (2026-05-06)                    |
+| 0007   | `0007-multi-provider-intelligence-pipeline.md` (2026-05-05)      | `0007-learnings-md-deprecation-scope.md` (2026-05-06)                       |
 
 This was discovered while filing ADRs 0018-0021 for the design-pipeline initiative. The new ADRs picked 0018+ specifically because the lower duplicates made the "next sequential" rule ambiguous.
 
@@ -37,15 +37,15 @@ Consequences of leaving it unfixed:
 
 ### Renumbering plan
 
-The "second" of each pair (the later-filed ADR by git history) is renumbered to 0023+:
+The later-by-git-history of each pair is renumbered to 0023+ (the older keeps its number for citation stability):
 
-| Old number | New number | File |
-|---|---|---|
-| 0003 (second) | **0023** | `local-model-resolution-strategy` |
-| 0004 (second) | **0024** | `report-only-maintenance-tasks-for-pulse-and-compound` |
-| 0005 (second) | **0025** | `pulse-config-in-harness-config-json` |
-| 0006 (second) | **0026** | `single-runner-orchestrator-dispatch` |
-| 0007 (second) | **0027** | `multi-provider-intelligence-pipeline` |
+| Old number | New number | File                                                   |
+| ---------- | ---------- | ------------------------------------------------------ |
+| 0003       | **0023**   | `compound-vs-knowledge-pipeline-boundary`              |
+| 0004       | **0024**   | `report-only-maintenance-tasks-for-pulse-and-compound` |
+| 0005       | **0025**   | `pulse-config-in-harness-config-json`                  |
+| 0006       | **0026**   | `compound-auto-invocation-deferred`                    |
+| 0007       | **0027**   | `learnings-md-deprecation-scope`                       |
 
 ### Renumbering procedure (for the follow-up PR)
 
@@ -78,17 +78,20 @@ If a duplicate is observed, halt and rebase before picking a number.
 ## Consequences
 
 **Positive:**
+
 - README rule honored.
 - ADR citations become unambiguous.
 - Knowledge graph stops producing collision artifacts on ingestion.
 - Future authors regain confidence that "next number" means what it says.
 
 **Negative:**
+
 - All inbound references to the renumbered ADRs must be updated. Grep + careful review needed. Risk of missing one in a comment, scratch note, or external reference.
 - Git blame on the renumbered file becomes harder to follow (the rename is visible in `git log --follow` but inline citations to commits-before-renumber will show the old number).
 - Any external documentation or blog post that cites the old number breaks (low risk — the project is internal).
 
 **Neutral:**
+
 - 0023-0027 are now reserved for this renumbering; future ADRs continue at 0028+.
 - The duplicate state was already documented in the design-pipeline `AMENDMENTS.md`; this ADR formalizes the remediation plan.
 

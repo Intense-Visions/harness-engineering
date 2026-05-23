@@ -625,7 +625,7 @@ Two artifact roots support the feedback-loops feature:
   written by the `product-pulse` maintenance task. Read these when prioritizing.
 
 The boundary with `harness-knowledge-pipeline` is documented in
-ADR-0003 (`docs/knowledge/decisions/0003-compound-vs-knowledge-pipeline-boundary.md`):
+ADR-0023 (`docs/knowledge/decisions/0023-compound-vs-knowledge-pipeline-boundary.md`):
 compound captures post-mortem playbooks; the pipeline extracts structural facts
 from code. Both `product-pulse` and `compound-candidates` are registered as
 `report-only` maintenance tasks (see the orchestrator maintenance section).
