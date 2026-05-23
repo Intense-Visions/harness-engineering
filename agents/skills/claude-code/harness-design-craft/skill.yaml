@@ -1,0 +1,57 @@
+name: harness-design-craft
+version: "0.1.0"
+description: LLM-judgment-based design ceiling-raiser. CRITIQUE finds what's mediocre, POLISH applies high-craft moves, BENCHMARK scores against curated exemplars. The ceiling counterpart to rule-based audit skills.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-design-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: "fast (code-only LLM critique) or deep (rendered + vision-LLM)"
+      required: false
+    - name: phases
+      description: "Subset of critique,polish,benchmark (comma-separated). Default: all three."
+      required: false
+    - name: files
+      description: Optional glob/path scoping
+      required: false
+    - name: autoCapture
+      description: "B' upgrade behavior: prompt | auto | skip. Default: prompt."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-design-craft
+    path: string
+type: flexible
+tier: 2
+phases:
+  - name: critique
+    description: LLM-judgment finding what is craft-mediocre (3-axis tier/impact/confidence output)
+    required: false
+  - name: polish
+    description: Apply polish patterns with before/after sketches (3-axis output)
+    required: false
+  - name: benchmark
+    description: Score against curated exemplars (5-dim radar output)
+    required: false
+state:
+  persistent: false
+depends_on:
+  - harness-design
+  - harness-design-system
