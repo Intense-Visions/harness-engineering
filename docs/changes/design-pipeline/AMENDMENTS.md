@@ -2,6 +2,20 @@
 
 > Findings discovered during execution that don't match what the specs assumed. Listed for human decision: fold into the specs proper, or leave as standalone amendments.
 
+## Resolution status (2026-05-23, second pass)
+
+| Amendment | Status | Resolution |
+|---|---|---|
+| A1 Skill source location | RESOLVED | Both proposal.md files have corrected File-layout sections (commit `<this PR>`). Skill markdown is at `agents/skills/claude-code/`; impl modules go in `packages/{audit,design-craft}/` (new packages, decided in Phase 1 first task); catalogs at `agents/skills/shared/design-knowledge/`. |
+| A2 Visual pipeline | RESOLVED | playwright MCP server (`mcp__playwright__browser_*`) used instead of npm dep. Confirmed available. #6 Render pipeline section rewritten in proposal.md. No new package install needed; users configure the MCP server one-time. |
+| A3 ADR numbering | RESOLVED | #6 proposal.md updated to cite ADR 0018-0021 (filed) instead of placeholder 0004-0007. Body text references corrected. |
+| A4 Tabs trigger/panel constraint | DEFERRED to Phase 1 | Runner responsibility for v1; revisit only if more compound components need similar pairing. |
+| A5 BenchmarkScore.overall aggregation | DEFERRED to Phase 1 | Spike recommendation: equal-weight mean + min for confidence. Required for SC #34. To be locked at Phase 1 first task. |
+| A6 Catalog data home | RESOLVED | Both File-layout corrections place catalogs at `agents/skills/shared/design-knowledge/{anatomy-conventions,craft-rubrics,craft-patterns,craft-exemplars}/`. |
+| Duplicate ADR numbers (0003-0007) | DOCUMENTED | ADR 0022 filed documenting the renumbering plan (second-of-pair → 0023-0027). Execution is a separate follow-up PR. |
+
+---
+
 ## Amendment A1: Skill source location
 
 **Specs say:** TypeScript implementation lives at `packages/cli/src/skills/<skill-name>/src/`.

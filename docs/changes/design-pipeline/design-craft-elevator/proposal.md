@@ -72,56 +72,74 @@ Compiled from the brainstorming Q&A.
 
 ### File layout
 
+**Correction (2026-05-23):** the original layout assumed `packages/cli/src/skills/<name>/src/` but skills in this repo are markdown-only at `agents/skills/<platform>/<name>/`. Implementation code lives in conventional homes elsewhere. Corrected layout below.
+
 ```
-packages/cli/src/skills/harness-design-craft/
+# Skill markdown (already authored 2026-05-23)
+agents/skills/claude-code/harness-design-craft/
   SKILL.md
   skill.yaml
-  src/
-    index.ts                              # MCP tool entry + phase orchestrator
-    phases/
-      critique.ts                          # CRITIQUE phase impl
-      polish.ts                            # POLISH phase impl
-      benchmark.ts                         # BENCHMARK phase impl
-    llm/
-      provider.ts                          # Wraps existing intelligence provider
-      vision.ts                            # Vision-capable LLM call wrapper
-      text.ts                              # Text LLM call wrapper
-    render/
-      playwright.ts                        # Component render + screenshot pipeline
-      target-discovery.ts                  # Find components/pages to render
-    findings/
-      schema.ts                            # 3-axis + 5-dim radar types
-      formatter.ts                         # Markdown/JSON output formatters
-      derived.ts                           # priority field derivation
-    catalog/
-      rubrics/                             # 10 critique rubrics
-      patterns/                            # 15 polish patterns
-      exemplars/                           # 50 exemplars
-      index.ts                             # Catalog loader / version / measurement
-    resolvers/
-      preconditions.ts                     # B' precondition detection
-      offer.ts                             # B' detect-and-offer + chain transition
-    contribution/
-      schema.ts                            # Contribution format for new items
-      review.ts                            # Review-process hooks
-      signal.ts                            # CRITIQUE-recurrence → pattern-proposal
-    measurement/
-      usage.ts                             # Apply/cite/trigger counters
-      dashboard.ts                         # Stats surfaced to dashboard
-    integrations/
-      design-constraint-adapter.ts         # Graph edges for craft findings
-      harness-design.ts                    # Chained-invocation helpers (B')
-  tests/
-    fixtures/
-      rubrics/
-      patterns/
-      exemplars/
-    phases/
-    llm/                                   # LLM mocks for deterministic tests
-    render/
-    findings/
-    resolvers/
+
+# MCP tool
+packages/cli/src/mcp/tools/design-craft.ts      # mcp__harness__design_craft entry
+
+# Craft implementation modules (NEW package or new dir under packages/cli/src/)
+# Preferred home: packages/design-craft/ (new package) — keeps LLM-judgment code isolated
+# Alternative: packages/cli/src/design-craft/ if a new package is too heavy
+packages/design-craft/src/
+  index.ts                                       # entry point consumed by MCP tool
+  phases/
+    critique.ts                                  # CRITIQUE phase impl
+    polish.ts                                    # POLISH phase impl
+    benchmark.ts                                 # BENCHMARK phase impl
+  llm/
+    provider.ts                                  # Wraps packages/intelligence/
+    vision.ts                                    # Vision-capable LLM call wrapper
+    text.ts                                      # Text LLM call wrapper
+  render/
+    mcp-playwright.ts                            # Wraps mcp__playwright__* tools
+    target-discovery.ts                          # Find components/pages to render
+  findings/
+    schema.ts                                    # 3-axis + 5-dim radar types
+    formatter.ts                                 # Markdown/JSON output formatters
+    derived.ts                                   # priority field derivation
+  resolvers/
+    preconditions.ts                             # B' precondition detection
+    offer.ts                                     # B' detect-and-offer + chain transition
+  contribution/
+    schema.ts                                    # Contribution format for new items
+    review.ts                                    # Review-process hooks
+    signal.ts                                    # CRITIQUE-recurrence → pattern-proposal
+  measurement/
+    usage.ts                                     # Apply/cite/trigger counters
+    dashboard.ts                                 # Stats surfaced to dashboard
+  integrations/
+    harness-design.ts                            # Chained-invocation helpers (B')
+
+# Catalog data (mirrors existing agents/skills/shared/design-knowledge/ convention)
+agents/skills/shared/design-knowledge/
+  craft-rubrics/                                 # 10 critique rubrics (yaml/md)
+  craft-patterns/                                # 15 polish patterns (yaml/md)
+  craft-exemplars/                               # 50 exemplars (yaml/md, link-based)
+
+# Graph adapter extension (extend existing file, do not create new)
+packages/graph/src/constraints/DesignConstraintAdapter.ts
+  # add CRAFT-* code namespace + VIOLATES_CRAFT edge handling + CRAFT_SCORE node type
+
+# Tests live alongside source per package convention
+packages/design-craft/tests/
+  fixtures/
+    rubrics/
+    patterns/
+    exemplars/
+  phases/
+  llm/                                           # LLM mocks for deterministic tests
+  render/                                        # playwright MCP mocks
+  findings/
+  resolvers/
 ```
+
+The exact home for the craft implementation (`packages/design-craft/` new package vs `packages/cli/src/design-craft/`) is the only remaining architectural decision — to be made in Phase 1's first task.
 
 ### Data structures
 
@@ -295,9 +313,31 @@ Cost tracking: every LLM call records `{ provider, model, tokens, costUsd }` agg
 
 ### Render pipeline
 
-`render/playwright.ts` boots a headless browser, renders the component via Storybook if available else via a synthetic harness, screenshots at multiple viewports (default: 1440, 768, 375), passes images to the vision model. Caches renders per content hash to avoid re-rendering unchanged components.
+**Architecture decision (2026-05-23):** the visual render pipeline uses the **playwright MCP server** (`mcp__playwright__browser_*` tools) rather than a local `playwright` npm dependency. Confirmed playwright MCP is available in this environment; no existing harness skill consumes it today — this skill establishes the pattern.
 
-`render/target-discovery.ts` finds components or pages to render via Storybook stories, route manifests, or explicit file lists from the `files` MCP input.
+`render/mcp-playwright.ts` orchestrates the visual capture via MCP calls:
+
+1. `mcp__playwright__browser_navigate({ url })` — navigate to the component's URL (Storybook story URL, dev-server route, or explicit URL from `files` input)
+2. `mcp__playwright__browser_resize({ width, height })` — set viewport (default sequence: 1440×900, 768×1024, 375×667)
+3. `mcp__playwright__browser_take_screenshot({ type: 'png', filename, fullPage })` — capture
+4. Optionally `mcp__playwright__browser_snapshot()` — accessibility tree for structural critique alongside the screenshot
+
+Caching: per-content-hash directory under `.harness/design-craft/cache/<hash>/{viewport}.png`. Hash is computed from component source + props + relevant tokens to avoid re-rendering unchanged components.
+
+`render/target-discovery.ts` finds components or pages to render:
+- Storybook stories (via `.storybook/` config + story discovery)
+- Route manifests (Next.js `app/`, Remix `routes/`, etc.)
+- Explicit file lists from the `files` MCP input
+- DESIGN.md Component Registry entries with associated URLs
+
+**Soft requirement on the audited project:** components must be reachable at URLs (Storybook running, dev server up, or static export). If no rendering surface is available, deep mode degrades to a "render-unreachable" finding and falls back to fast-mode (code-only) for that component.
+
+**Why playwright MCP and not local npm dep:**
+
+- Zero new dev dependency for this repo
+- One-time MCP server setup by the project consuming harness (much less invasive than per-project playwright install + browser downloads)
+- Aligns with the broader harness pattern of consuming external capabilities via MCP servers (Gmail, Calendar, Drive, context7, etc.)
+- Vision-LLM integration remains the separate concern via `packages/intelligence/`
 
 ### B' detect-and-offer logic
 
@@ -399,14 +439,14 @@ The skill respects an i18n-style deferral pattern (same shape as #2's a11y defer
 
 ### Architectural Decisions
 
-Four ADRs warranted (cross-cutting decisions establishing new patterns for the harness ecosystem):
+Four ADRs warranted (cross-cutting decisions establishing new patterns for the harness ecosystem). Filed 2026-05-23 as numbers 0018-0021 (the spec-time placeholders 0004-0007 were already taken by pre-existing ADRs):
 
 | ADR | One-line rationale |
 |-----|---------------------|
-| **ADR-004: LLM-judgment-based skill pattern** | First LLM-judgment skill in harness; sets the pattern for confidence-as-first-class output, autoCapture progressive upgrade, vision-model integration. Reusable for future LLM-judgment skills. |
-| **ADR-005: 3-axis craft output model (tier × impact × confidence)** | Replaces error/warn/info for LLM-judgment outputs where the standard severity vocabulary fails. Codifies tier/impact/confidence as the standard for any future LLM-judgment skill. |
-| **ADR-006: Living catalog with growth infrastructure (the H pattern)** | Documents seed-plus-growth (contribution + signal + measurement). Codifies the pattern for any future skill that depends on a catalog so growth infrastructure is built in not bolted on. |
-| **ADR-007: Detect-and-offer progressive upgrade pattern (the B' pattern)** | Documents soft-dependency-with-inline-upgrade as the standard for skills with prerequisite skills. Reusable for any future skill that has soft dependencies. |
+| **[ADR 0018: LLM-judgment-based skill pattern](../../knowledge/decisions/0018-llm-judgment-skill-pattern.md)** | First LLM-judgment skill in harness; sets the pattern for confidence-as-first-class output, autoCapture progressive upgrade, vision-model integration. Reusable for future LLM-judgment skills. |
+| **[ADR 0019: 3-axis craft output model (tier × impact × confidence)](../../knowledge/decisions/0019-3-axis-craft-output-model.md)** | Replaces error/warn/info for LLM-judgment outputs where the standard severity vocabulary fails. Codifies tier/impact/confidence as the standard for any future LLM-judgment skill. |
+| **[ADR 0020: Living catalog with growth infrastructure (the H pattern)](../../knowledge/decisions/0020-living-catalog-h-pattern.md)** | Documents seed-plus-growth (contribution + signal + measurement). Codifies the pattern for any future skill that depends on a catalog so growth infrastructure is built in not bolted on. |
+| **[ADR 0021: Detect-and-offer progressive upgrade pattern (the B' pattern)](../../knowledge/decisions/0021-detect-and-offer-b-prime-pattern.md)** | Documents soft-dependency-with-inline-upgrade as the standard for skills with prerequisite skills. Reusable for any future skill that has soft dependencies. |
 
 ### Knowledge Impact
 
@@ -415,7 +455,7 @@ Four ADRs warranted (cross-cutting decisions establishing new patterns for the h
 - `docs/knowledge/design/llm-judgment-skills.md` — codifies the LLM-judgment skill pattern (confidence as first-class, deterministic-vs-judgment separation, vision-vs-text mode selection)
 - `docs/knowledge/design/craft-output-vocabulary.md` — codifies 3-axis (tier × impact × confidence) and 5-dim radar as the standard craft output vocabulary
 - `docs/knowledge/design/living-catalogs.md` — codifies the H-pattern (seed + growth) as the standard for catalog-backed skills
-- `docs/knowledge/skills/detect-and-offer.md` — codifies B' as the standard soft-dependency-with-upgrade pattern; references ADR-007
+- `docs/knowledge/skills/detect-and-offer.md` — codifies B' as the standard soft-dependency-with-upgrade pattern; references ADR 0021
 
 **New graph node types**:
 
@@ -426,7 +466,7 @@ Four ADRs warranted (cross-cutting decisions establishing new patterns for the h
 
 - `VIOLATES_CRAFT (code_file → design_rule)` keyed by `CRAFT-C*` or `CRAFT-P*` code — emitted by DesignConstraintAdapter
 - `CITES_EXEMPLAR (CRAFT_SCORE → exemplar)` — for BENCHMARK exemplar provenance
-- `OFFERS_UPGRADE (skill → skill)` (optional) — for B' relationships, codified by ADR-007
+- `OFFERS_UPGRADE (skill → skill)` (optional) — for B' relationships, codified by ADR 0021
 
 **Existing nodes that gain meaning**:
 
@@ -489,7 +529,7 @@ Four ADRs warranted (cross-cutting decisions establishing new patterns for the h
 ### Documentation
 
 30. **AGENTS.md, designer-quickstart.md, finding-codes.md, contribution.md, growth-trajectory.md** all created/updated.
-31. **Four ADRs filed** (ADR-004 through ADR-007) under `docs/knowledge/decisions/`.
+31. **Four ADRs filed** (ADR 0018 through ADR 0021) under `docs/knowledge/decisions/`.
 32. **Four knowledge entries filed**: `llm-judgment-skills.md`, `craft-output-vocabulary.md`, `living-catalogs.md`, `detect-and-offer.md`.
 
 ### Composition with sub-projects #4 and #5

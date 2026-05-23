@@ -67,45 +67,64 @@ Compiled from the brainstorming Q&A. Each row records the question, the chosen o
 
 ### File layout
 
+**Correction (2026-05-23):** the original layout assumed `packages/cli/src/skills/<name>/src/` but skills in this repo are markdown-only at `agents/skills/<platform>/<name>/`. Implementation code lives in conventional homes elsewhere. Corrected layout below.
+
 ```
-packages/cli/src/skills/audit-component-anatomy/
+# Skill markdown (already authored 2026-05-23)
+agents/skills/claude-code/audit-component-anatomy/
   SKILL.md
   skill.yaml
-  src/
-    index.ts                          # MCP tool entry + skill orchestrator
-    parsers/
-      ast.ts                          # TypeScript Compiler API wrapper
-      tree-sitter.ts                  # tree-sitter wrapper + query runner
-    resolvers/
-      source-of-truth.ts              # JSDoc → DESIGN.md → conventions
-      component-type.ts               # JSDoc → registry → export-name
-    rules/
-      convention-rule.ts              # ConventionRule type + runner (AST-based)
-      pattern-rule.ts                 # PatternRule type + runner (tree-sitter)
-    catalog/
-      conventions/
-        button.ts
-        input.ts
-        ...                           # 20 files, one per component type
-      patterns/
-        ANAT-P001-map-without-empty.ts
-        ANAT-P002-fetch-without-loading.ts
-        ...                           # 10+ files, one per pattern
-    findings/
-      finding.ts                      # Finding type + code scheme
-      severity.ts                     # design.strictness → severity mapping
-      formatter.ts                    # Markdown/JSON formatters
-    integrations/
-      design-constraint-adapter.ts    # Graph VIOLATES-edge emitter
-      validate.ts                     # harness validate fast-mode hook
-  tests/
-    fixtures/                         # JSX/TSX fixtures for each rule
-    parsers/
-    resolvers/
-    rules/
-    catalog/
-    integrations/
+
+# MCP tool
+packages/cli/src/mcp/tools/audit-anatomy.ts     # mcp__harness__audit_anatomy entry
+
+# Audit implementation modules (NEW package or new dir under packages/cli/src/)
+# Preferred home: packages/audit/ (new package) — keeps audit code isolated
+# Alternative: packages/cli/src/audit/component-anatomy/ if a new package is too heavy
+packages/audit/src/component-anatomy/           # (or packages/cli/src/audit/component-anatomy/)
+  index.ts                                       # entry point consumed by MCP tool
+  parsers/
+    ast.ts                                       # TypeScript Compiler API wrapper
+    tree-sitter.ts                               # tree-sitter wrapper + query runner
+  resolvers/
+    source-of-truth.ts                           # JSDoc → DESIGN.md → conventions
+    component-type.ts                            # JSDoc → registry → export-name
+  rules/
+    convention-rule.ts                           # ConventionRule type + runner
+    pattern-rule.ts                              # PatternRule type + runner
+  findings/
+    finding.ts                                   # Finding type + code scheme
+    severity.ts                                  # design.strictness → severity
+    formatter.ts                                 # Markdown/JSON formatters
+  integrations/
+    validate.ts                                  # harness validate fast-mode hook
+
+# Catalog data (mirrors existing agents/skills/shared/design-knowledge/ convention)
+agents/skills/shared/design-knowledge/anatomy-conventions/
+  conventions/
+    button.yaml
+    input.yaml
+    ...                                          # 20 yaml files, one per component type
+  patterns/
+    ANAT-P001-map-without-empty.yaml
+    ANAT-P002-fetch-without-loading.yaml
+    ...                                          # 10+ yaml files, one per pattern
+
+# Graph adapter extension (extend existing file, do not create new)
+packages/graph/src/constraints/DesignConstraintAdapter.ts
+  # add ANAT-* code namespace + VIOLATES_CRAFT edge handling
+
+# Tests live alongside source per package convention
+packages/audit/tests/                            # (or packages/cli/tests/audit/...)
+  fixtures/
+  parsers/
+  resolvers/
+  rules/
+  catalog/
+  integrations/
 ```
+
+The exact home for the audit implementation (`packages/audit/` new package vs `packages/cli/src/audit/`) is the only remaining architectural decision — to be made in Phase 1's first task. Everything else is now path-grounded.
 
 ### Data structures
 

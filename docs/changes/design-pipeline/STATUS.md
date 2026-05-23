@@ -61,15 +61,20 @@ a6a66704 exec(design-pipeline): complete Phase 0 schema spikes for #2 and #6
 
 ## Decisions waiting for you (read `AMENDMENTS.md` for full detail)
 
-1. **Skill source-location amendment.** Both specs reference `packages/cli/src/skills/<name>/src/` which doesn't exist. Right home is `agents/skills/<platform>/` (markdown) + `packages/cli/src/mcp/tools/` (MCP tools) + `agents/skills/shared/design-knowledge/` (catalogs). The skill scaffolding is in the correct place; the proposals' "Technical Design — File layout" sections need editing before Phase 1 implementation work.
+**Update (second pass, 2026-05-23):** items 1-3 and 5 below are RESOLVED in the second commit batch. Only architectural decisions inherent to Phase 1 remain.
 
-2. **Visual pipeline Q3 go/no-go for #6.** `playwright` is not installed in this repo and vision-LLM render pipeline doesn't exist. Spec documented fallback is code-only mode. Plan Task 12 is the explicit decision gate. Either accept the downgrade or schedule the playwright integration as a precursor.
+1. ~~**Skill source-location amendment.**~~ ✓ RESOLVED — both spec File-layout sections rewritten with corrected paths (`agents/skills/claude-code/` for skill markdown, `packages/{audit,design-craft}/` new packages for impl code, `packages/cli/src/mcp/tools/` for MCP tools, `agents/skills/shared/design-knowledge/` for catalogs).
 
-3. **ADR numbering correction in spec text.** Spec for #6 references ADRs 0004-0007 as the four new patterns; actual ADRs filed as 0018-0021 (existing 0004-0007 slots taken). Spec text should be updated to match filed numbers.
+2. ~~**Visual pipeline Q3 go/no-go for #6.**~~ ✓ RESOLVED — playwright MCP server (`mcp__playwright__browser_*`) used instead of npm dep. Confirmed available in this environment. Spec render-pipeline section rewritten. No new install required; users configure the MCP server one-time.
 
-4. **`BenchmarkScore.overall` aggregation rule.** Spec says "weighted aggregate" without specifics. Spike recommended equal-weight mean with config override + min for confidence. Need to make the call and update the spec.
+3. ~~**ADR numbering correction in spec text.**~~ ✓ RESOLVED — #6 proposal.md now references ADRs 0018-0021 with hyperlinks.
 
-5. **Pre-existing ADR duplicate numbers (0003-0007 range).** Out of scope but worth flagging — README says "Never reuse a number." Probably a 1-commit cleanup ADR.
+4. **`BenchmarkScore.overall` aggregation rule.** Deferred to Phase 1's first task. Spike recommendation: equal-weight mean with config override + `min` for confidence. Required for SC #34 (fixpoint detection).
+
+5. ~~**Pre-existing ADR duplicate numbers (0003-0007 range).**~~ ✓ DOCUMENTED — ADR 0022 filed with renumbering plan (second-of-pair → 0023-0027). Execution is a separate follow-up PR (file moves + reference updates).
+
+**New remaining decision** (surfaced by amendments work):
+6. **`packages/audit/` and `packages/design-craft/` as new packages, or co-locate under `packages/cli/src/`?** The path corrections leave this open. Decided in Phase 1 first task of each sub-project. The choice affects build scripts, tsconfig refs, and whether the audit/craft code is consumable by non-CLI surfaces (e.g., the dashboard package).
 
 ## What's NOT done (deliberately)
 
