@@ -88,13 +88,14 @@
 
 - **`harness validate`** — Fast-mode audit hook (convention catalog only; patterns are opt-in via `fastMode.patterns: true`). Findings respect `design.strictness`.
 - **`mcp__harness__audit_anatomy`** — Programmatic API (input: path, mode, files, designStrictness, catalog; output: findings, summary, catalog applied, deferrals count). Consumed by harness check-design verifier (sub-project #4) and design-pipeline orchestrator (sub-project #5).
-- **`DesignConstraintAdapter`** — Extended to register `ANAT-*` rule code namespace and write VIOLATES_CRAFT edges. Mirrors how harness-accessibility uses it for A11Y-* codes.
+- **`DesignConstraintAdapter`** — Extended to register `ANAT-*` rule code namespace and write VIOLATES_CRAFT edges. Mirrors how harness-accessibility uses it for A11Y-\* codes.
 - **`harness-accessibility`** — Coordinates via i18n-style deferral pattern. When `design.audit.componentAnatomy.enabled = true`, a11y defers A11Y-010 and A11Y-050 for catalogued components.
 - **`design-component-anatomy`** (knowledge skill) — Source of convention vocabulary (slot, variant, state, size, exclusivity, required). This skill's catalog operationalizes that knowledge.
 
 ## Success Criteria
 
 See `docs/changes/design-pipeline/audit-component-anatomy/proposal.md` for the full 30 success criteria. Highlights:
+
 - Convention findings produced for known component types only (silent skip for unknown — zero false positives)
 - JSDoc self-declaration overrides convention; DESIGN.md overrides convention but not JSDoc
 - Pattern false-positive rate ≤ 5% on the 50-fixture corpus
@@ -111,6 +112,7 @@ See `docs/changes/design-pipeline/audit-component-anatomy/proposal.md` for the f
 ## Status
 
 **v1 — in implementation.** See:
+
 - Spec: `docs/changes/design-pipeline/audit-component-anatomy/proposal.md`
 - Plan: `docs/changes/design-pipeline/audit-component-anatomy/plans/2026-05-23-audit-component-anatomy-plan.md`
 - Finding codes: `docs/changes/design-pipeline/audit-component-anatomy/finding-codes.md`

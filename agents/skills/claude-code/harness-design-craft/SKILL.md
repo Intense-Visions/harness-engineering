@@ -29,14 +29,15 @@
 
 Before any phase runs, check four preconditions and offer to fulfill missing ones:
 
-| Precondition | Source | If missing |
-|---|---|---|
-| `designMdExists` | `design-system/DESIGN.md` present | Offer to chain to harness-design (INTENT + DIRECTION) |
-| `aestheticIntentDeclared` | DESIGN.md Aesthetic Direction section populated | Offer to chain to harness-design (INTENT) |
-| `tokensExist` | `design-system/tokens.json` present | Note in summary; do not auto-chain (harness-design-system territory) |
-| `componentRegistryPopulated` | DESIGN.md Component Registry section | Note in summary; falls back to export-name resolution |
+| Precondition                 | Source                                          | If missing                                                           |
+| ---------------------------- | ----------------------------------------------- | -------------------------------------------------------------------- |
+| `designMdExists`             | `design-system/DESIGN.md` present               | Offer to chain to harness-design (INTENT + DIRECTION)                |
+| `aestheticIntentDeclared`    | DESIGN.md Aesthetic Direction section populated | Offer to chain to harness-design (INTENT)                            |
+| `tokensExist`                | `design-system/tokens.json` present             | Note in summary; do not auto-chain (harness-design-system territory) |
+| `componentRegistryPopulated` | DESIGN.md Component Registry section            | Note in summary; falls back to export-name resolution                |
 
 `autoCapture` controls behavior:
+
 - `prompt`: emit `upgradeOffer` interaction; pause for user choice
 - `auto`: chain to harness-design transition automatically (for autopilot)
 - `skip`: run with generic-craft rubrics (degrades quality but unblocks first-run)
@@ -98,12 +99,13 @@ Before any phase runs, check four preconditions and offer to fulfill missing one
 - **`mcp__harness__design_craft`** — Programmatic API. Consumed by harness check-design verifier (#4) and design-pipeline orchestrator (#5). Phase selector exposed.
 - **`harness-design`** — Soft dependency. B' progressive upgrade chains to it when AestheticIntent missing. Defers declared-anti-pattern findings to it.
 - **`harness-design-system`** — Soft dependency. Token-related polish patterns enriched when tokens exist.
-- **`DesignConstraintAdapter`** — Extended for `CRAFT-*` codes (CRAFT-C* critique, CRAFT-P* polish, CRAFT-B* benchmark identifiers) + `CRAFT_SCORE` node type.
+- **`DesignConstraintAdapter`** — Extended for `CRAFT-*` codes (CRAFT-C* critique, CRAFT-P* polish, CRAFT-B\* benchmark identifiers) + `CRAFT_SCORE` node type.
 - **`packages/intelligence/`** — Wrapped by `llm/provider.ts` for vision-capable LLM calls. May need extension if no vision support today.
 
 ## Success Criteria
 
 See `docs/changes/design-pipeline/design-craft-elevator/proposal.md` for the full 38 success criteria. Highlights:
+
 - Three phases independently invocable via `phases` arg
 - 3-axis output for CRITIQUE/POLISH; 5-dim radar for BENCHMARK
 - Confidence is honest (low-confidence findings emitted, not silently dropped)
@@ -124,6 +126,7 @@ See `docs/changes/design-pipeline/design-craft-elevator/proposal.md` for the ful
 ## Status
 
 **v1 — in implementation.** See:
+
 - Spec: `docs/changes/design-pipeline/design-craft-elevator/proposal.md`
 - Plan: `docs/changes/design-pipeline/design-craft-elevator/plans/2026-05-23-design-craft-elevator-plan.md`
 - Finding codes: `docs/changes/design-pipeline/design-craft-elevator/finding-codes.md`
