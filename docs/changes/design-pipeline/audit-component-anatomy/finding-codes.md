@@ -17,7 +17,7 @@
   - [Source citation prefixes](#source-citation-prefixes)
   - [Entry format](#entry-format)
 - [ANAT-D000 — JSDoc-vs-convention divergence (info)](#anat-d000--jsdoc-vs-convention-divergence-info)
-- [ANAT-D* — Definition findings](#anat-d--definition-findings)
+- [ANAT-D\* — Definition findings](#anat-d--definition-findings)
   - [Tier-1 critical: required-slot missing (D001–D029)](#tier-1-critical-required-slot-missing-d001d029)
     - [ANAT-D001 — Button: missing required `content` slot](#anat-d001--button-missing-required-content-slot)
     - [ANAT-D002 — Button: missing required `focus` state](#anat-d002--button-missing-required-focus-state)
@@ -33,13 +33,13 @@
     - [ANAT-D022–D029 — RESERVED (critical required-slot)](#anat-d022d029--reserved-critical-required-slot)
   - [Tier-2 recommended: recommended-state missing (D030–D099)](#tier-2-recommended-recommended-state-missing-d030d099)
   - [Tier-3 optional: variant / size / cosmetic missing (D100–D199)](#tier-3-optional-variant--size--cosmetic-missing-d100d199)
-- [ANAT-P* — Pattern-presence findings](#anat-p--pattern-presence-findings)
+- [ANAT-P\* — Pattern-presence findings](#anat-p--pattern-presence-findings)
   - [Tier-1 critical structural (P001–P019)](#tier-1-critical-structural-p001p019)
     - [ANAT-P001 — Data list rendered via `.map()` without empty-state guard](#anat-p001--data-list-rendered-via-map-without-empty-state-guard)
   - [Tier-2 recommended (P020–P059)](#tier-2-recommended-p020p059)
     - [ANAT-P004 — Conditional render without fallback affordance](#anat-p004--conditional-render-without-fallback-affordance)
   - [Tier-3 informational (P060–P099)](#tier-3-informational-p060p099)
-- [ANAT-U* — Usage findings (v2 reservation)](#anat-u--usage-findings-v2-reservation)
+- [ANAT-U\* — Usage findings (v2 reservation)](#anat-u--usage-findings-v2-reservation)
 - [Reserved-code authoring convention](#reserved-code-authoring-convention)
 - [Cross-references](#cross-references)
 
@@ -49,11 +49,11 @@
 
 ### Code-family scheme
 
-| Family    | Meaning                                                                                                                                                                                   | v1 status |
-|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| `ANAT-D*` | **Definition findings.** A component **definition** omits an anatomy part the convention library marks as required or recommended for its `componentType`.                                | Ships     |
-| `ANAT-P*` | **Pattern-presence findings.** A usage site exhibits a structural pattern (e.g., `.map(...)` over data) without the conventional companion affordance (e.g., an empty-state branch).      | Ships     |
-| `ANAT-U*` | **Usage findings.** A specific call site of a known component omits a required prop (e.g., `<Input>` without `label`). Reserved namespace — **not emitted in v1**; planned for v2.        | Reserved  |
+| Family    | Meaning                                                                                                                                                                              | v1 status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `ANAT-D*` | **Definition findings.** A component **definition** omits an anatomy part the convention library marks as required or recommended for its `componentType`.                           | Ships     |
+| `ANAT-P*` | **Pattern-presence findings.** A usage site exhibits a structural pattern (e.g., `.map(...)` over data) without the conventional companion affordance (e.g., an empty-state branch). | Ships     |
+| `ANAT-U*` | **Usage findings.** A specific call site of a known component omits a required prop (e.g., `<Input>` without `label`). Reserved namespace — **not emitted in v1**; planned for v2.   | Reserved  |
 
 All codes are formatted `ANAT-{family}{3-digit}`. The format is stable: `ANAT-D023`, `ANAT-P001`, `ANAT-U045`. Three digits leave headroom (up to 999 per family) without pushing toward a fourth.
 
@@ -63,28 +63,28 @@ The range allocation below is the **authoritative reservation** Sprint 2 catalog
 
 **ANAT-D (definition):**
 
-| Range         | Tier   | Semantic                                                                                                              | Default severity (at `standard` strictness) |
-|---------------|--------|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
-| `ANAT-D000`   | Info   | Authoring-divergence info finding — JSDoc declaration diverges from convention library. Always emitted.               | `info`                                     |
-| `D001–D029`   | Tier-1 | **Critical:** a component definition lacks a required slot/state from its convention (e.g., Button missing `content`).| `error`                                    |
-| `D030–D099`   | Tier-2 | **Recommended:** a component definition lacks a recommended state from its convention (e.g., Button missing `hover`). | `warn`                                     |
-| `D100–D199`   | Tier-3 | **Optional/cosmetic:** a component lacks a conventional variant or sizing token.                                      | `info`                                     |
-| `D200`        | —      | Reserved as the post-v1 catalog ceiling sentinel. Do not emit.                                                        | —                                          |
+| Range       | Tier   | Semantic                                                                                                               | Default severity (at `standard` strictness) |
+| ----------- | ------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `ANAT-D000` | Info   | Authoring-divergence info finding — JSDoc declaration diverges from convention library. Always emitted.                | `info`                                      |
+| `D001–D029` | Tier-1 | **Critical:** a component definition lacks a required slot/state from its convention (e.g., Button missing `content`). | `error`                                     |
+| `D030–D099` | Tier-2 | **Recommended:** a component definition lacks a recommended state from its convention (e.g., Button missing `hover`).  | `warn`                                      |
+| `D100–D199` | Tier-3 | **Optional/cosmetic:** a component lacks a conventional variant or sizing token.                                       | `info`                                      |
+| `D200`      | —      | Reserved as the post-v1 catalog ceiling sentinel. Do not emit.                                                         | —                                           |
 
 **ANAT-P (pattern-presence):**
 
-| Range         | Tier   | Semantic                                                                                                              | Default severity (at `standard` strictness) |
-|---------------|--------|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
-| `P001–P019`   | Tier-1 | **Critical structural:** a structural pattern reliably implies a missing affordance (e.g., `.map()` without empty).   | `warn`                                     |
-| `P020–P059`   | Tier-2 | **Recommended:** an ambiguous pattern that frequently indicates a craft gap (e.g., conditional render w/o fallback).  | `info`                                     |
-| `P060–P099`   | Tier-3 | **Informational:** patterns that are stylistic signals worth surfacing but rarely worth blocking.                     | `info`                                     |
-| `P100`        | —      | Reserved as the post-v1 catalog ceiling sentinel. Do not emit.                                                        | —                                          |
+| Range       | Tier   | Semantic                                                                                                             | Default severity (at `standard` strictness) |
+| ----------- | ------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `P001–P019` | Tier-1 | **Critical structural:** a structural pattern reliably implies a missing affordance (e.g., `.map()` without empty).  | `warn`                                      |
+| `P020–P059` | Tier-2 | **Recommended:** an ambiguous pattern that frequently indicates a craft gap (e.g., conditional render w/o fallback). | `info`                                      |
+| `P060–P099` | Tier-3 | **Informational:** patterns that are stylistic signals worth surfacing but rarely worth blocking.                    | `info`                                      |
+| `P100`      | —      | Reserved as the post-v1 catalog ceiling sentinel. Do not emit.                                                       | —                                           |
 
 **ANAT-U (usage — v2):**
 
-| Range         | Tier   | Semantic                                                                | v1 status                |
-|---------------|--------|-------------------------------------------------------------------------|--------------------------|
-| `U001–U199`   | Tier-1 | Usage findings (e.g., `<Input>` without `label` prop at call site).     | Reserved — **v1: none**  |
+| Range       | Tier   | Semantic                                                            | v1 status               |
+| ----------- | ------ | ------------------------------------------------------------------- | ----------------------- |
+| `U001–U199` | Tier-1 | Usage findings (e.g., `<Input>` without `label` prop at call site). | Reserved — **v1: none** |
 
 ### Severity defaults and strictness
 
@@ -94,12 +94,12 @@ Every finding declares a `severityDefault` in its rule definition. The runtime s
 
 Per the Phase 0 schema-fit review recommendation (review.md §EmptyState), each rule's `source.ref` field uses one of the published prefixes below. Adding a new prefix requires updating this list AND the schema validator.
 
-| Prefix                       | Authority                                                                       |
-|------------------------------|---------------------------------------------------------------------------------|
-| `APG/`                       | W3C ARIA Authoring Practices Guide — primary authority for accessible patterns.|
-| `OpenUI/`                    | Open UI community proposals — used for emerging components without APG coverage.|
-| `Radix/`                     | Radix Primitives — used for well-established compound-component shapes.         |
-| `design-component-anatomy/`  | Internal harness knowledge skill — used for taste-driven patterns without APG. |
+| Prefix                      | Authority                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| `APG/`                      | W3C ARIA Authoring Practices Guide — primary authority for accessible patterns.  |
+| `OpenUI/`                   | Open UI community proposals — used for emerging components without APG coverage. |
+| `Radix/`                    | Radix Primitives — used for well-established compound-component shapes.          |
+| `design-component-anatomy/` | Internal harness knowledge skill — used for taste-driven patterns without APG.   |
 
 ### Entry format
 
@@ -107,7 +107,7 @@ Each defined code entry uses this shape:
 
 - **Code** — the `ANAT-X###` identifier.
 - **Severity default** — `error` | `warn` | `info` at `standard` strictness.
-- **Component type** *(D family only)* — the `componentType` the convention applies to.
+- **Component type** _(D family only)_ — the `componentType` the convention applies to.
 - **Source citation** — `source.ref` plus optional `url`.
 - **Message template** — the human-readable message string (or template-function signature for P family).
 - **Fix hint** — the verbatim guidance text written into the finding's `fix.description` field.
@@ -179,7 +179,7 @@ JSDoc matches convention; no divergence; no finding.
 
 ---
 
-## ANAT-D* — Definition findings
+## ANAT-D\* — Definition findings
 
 ### Tier-1 critical: required-slot missing (D001–D029)
 
@@ -229,7 +229,9 @@ interface ButtonProps {
 }
 
 export const Button = ({ children, onClick, variant }: ButtonProps) => (
-  <button onClick={onClick} className={variant}>{children}</button>
+  <button onClick={onClick} className={variant}>
+    {children}
+  </button>
 );
 ```
 
@@ -275,9 +277,7 @@ Emits one `ANAT-D002` error finding.
 
 ```tsx
 export const Button = ({ children }: { children: React.ReactNode }) => (
-  <button
-    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 focus-visible:ring-2 focus-visible:ring-blue-300 disabled:opacity-50"
-  >
+  <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 focus-visible:ring-2 focus-visible:ring-blue-300 disabled:opacity-50">
     {children}
   </button>
 );
@@ -409,9 +409,7 @@ Emits one `ANAT-D011` error finding.
 **Negative example (no finding):**
 
 ```tsx
-export const TabsList = ({ children }) => (
-  <div role="tablist">{children}</div>
-);
+export const TabsList = ({ children }) => <div role="tablist">{children}</div>;
 ```
 
 `TabsList` subcomponent present and renders `role="tablist"`; no finding.
@@ -539,7 +537,9 @@ Emits one `ANAT-D014` error finding.
 export const TabsTrigger = ({ value, children }) => {
   const ctx = useTabsContext();
   return (
-    <button role="tab" aria-selected={ctx.value === value}>{children}</button>
+    <button role="tab" aria-selected={ctx.value === value}>
+      {children}
+    </button>
   );
 };
 ```
@@ -570,7 +570,9 @@ export const TabsTrigger = ({ value, children }) => {
 
 ```tsx
 export const TabsTrigger = ({ value, children }) => (
-  <button role="tab" aria-selected={/* ... */}>{children}</button>
+  <button role="tab" aria-selected={/* ... */}>
+    {children}
+  </button>
   // No tabIndex management.
 );
 ```
@@ -584,11 +586,7 @@ export const TabsTrigger = ({ value, children }) => {
   const ctx = useTabsContext();
   const isActive = ctx.value === value;
   return (
-    <button
-      role="tab"
-      aria-selected={isActive}
-      tabIndex={isActive ? 0 : -1}
-    >
+    <button role="tab" aria-selected={isActive} tabIndex={isActive ? 0 : -1}>
       {children}
     </button>
   );
@@ -681,7 +679,11 @@ export const EmptyState = ({ title, icon, description, action }: EmptyStateProps
 ```tsx
 export const EmptyState = ({ shouldShow, title }: EmptyStateProps) => {
   if (!shouldShow) return null;
-  return <div><h2>{title}</h2></div>;
+  return (
+    <div>
+      <h2>{title}</h2>
+    </div>
+  );
   // The component owns the gate — caller cannot rely on it always rendering.
 };
 ```
@@ -692,7 +694,9 @@ Emits one `ANAT-D021` error finding.
 
 ```tsx
 export const EmptyState = ({ title }: EmptyStateProps) => (
-  <div><h2>{title}</h2></div>
+  <div>
+    <h2>{title}</h2>
+  </div>
 );
 // Caller decides whether to render; EmptyState itself always renders when called.
 ```
@@ -707,19 +711,19 @@ These codes are RESERVED for Phase 2 catalog expansion. Convention authors assig
 
 ### Tier-2 recommended: recommended-state missing (D030–D099)
 
-Tier-2 codes flag definitions that omit a part the convention marks as *recommended* (not `required: true`) but conventionally expected (e.g., Button missing `hover` state, Tabs missing `disabled` state). Default severity `warn` at `standard` strictness.
+Tier-2 codes flag definitions that omit a part the convention marks as _recommended_ (not `required: true`) but conventionally expected (e.g., Button missing `hover` state, Tabs missing `disabled` state). Default severity `warn` at `standard` strictness.
 
 **Bucket allocation within D030–D099:**
 
-| Sub-band   | Component family                                          |
-|------------|-----------------------------------------------------------|
-| D030–D039  | Button (hover, disabled, loading recommended states)      |
-| D040–D049  | Input / Select / Form (label-suggestion, helper-text, error-text recommended slots) |
-| D050–D059  | Tabs / Accordion / Menu (recommended secondary states)    |
-| D060–D069  | Modal / Dialog / Drawer / Popover (recommended overlay states) |
-| D070–D079  | Toast / Tooltip / Snackbar (recommended dismiss/timing states) |
-| D080–D089  | Slider / Switch / Checkbox / Radio (recommended pressed/active states) |
-| D090–D099  | Avatar / Badge / Card / Tooltip (recommended sizing / cosmetic state) |
+| Sub-band  | Component family                                                                    |
+| --------- | ----------------------------------------------------------------------------------- |
+| D030–D039 | Button (hover, disabled, loading recommended states)                                |
+| D040–D049 | Input / Select / Form (label-suggestion, helper-text, error-text recommended slots) |
+| D050–D059 | Tabs / Accordion / Menu (recommended secondary states)                              |
+| D060–D069 | Modal / Dialog / Drawer / Popover (recommended overlay states)                      |
+| D070–D079 | Toast / Tooltip / Snackbar (recommended dismiss/timing states)                      |
+| D080–D089 | Slider / Switch / Checkbox / Radio (recommended pressed/active states)              |
+| D090–D099 | Avatar / Badge / Card / Tooltip (recommended sizing / cosmetic state)               |
 
 > **All codes in D030–D099 are RESERVED — to be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
@@ -729,19 +733,19 @@ Tier-3 codes flag definitions whose convention defines variants or sizes the com
 
 **Bucket allocation within D100–D199:**
 
-| Sub-band    | Semantic                                                                 |
-|-------------|--------------------------------------------------------------------------|
-| D100–D119   | Missing variants (`primary`, `secondary`, `ghost`, `danger`, etc.) across all component types |
-| D120–D139   | Missing sizes (`sm`, `md`, `lg`, `xl`) across all component types        |
-| D140–D159   | Missing cosmetic slots (icons, indicators, decorative children)          |
-| D160–D179   | Missing taxonomy variants (EmptyState `zero-data` / `no-results` / `error`, Toast `success` / `error` / `info`) |
-| D180–D199   | Reserved overflow for high-density components (Form-family, Slider, etc.)|
+| Sub-band  | Semantic                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| D100–D119 | Missing variants (`primary`, `secondary`, `ghost`, `danger`, etc.) across all component types                   |
+| D120–D139 | Missing sizes (`sm`, `md`, `lg`, `xl`) across all component types                                               |
+| D140–D159 | Missing cosmetic slots (icons, indicators, decorative children)                                                 |
+| D160–D179 | Missing taxonomy variants (EmptyState `zero-data` / `no-results` / `error`, Toast `success` / `error` / `info`) |
+| D180–D199 | Reserved overflow for high-density components (Form-family, Slider, etc.)                                       |
 
 > **All codes in D100–D199 are RESERVED — to be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ---
 
-## ANAT-P* — Pattern-presence findings
+## ANAT-P\* — Pattern-presence findings
 
 ### Tier-1 critical structural (P001–P019)
 
@@ -762,13 +766,17 @@ Tier-1 pattern codes flag structural patterns that reliably indicate a missing a
 > Guard the .map() call with an empty-state branch. Examples:
 >
 > ```tsx
-> {items.length === 0
->   ? <EmptyState title="No results" />
->   : items.map(item => <Row key={item.id} {...item} />)}
+> {
+>   items.length === 0 ? (
+>     <EmptyState title="No results" />
+>   ) : (
+>     items.map((item) => <Row key={item.id} {...item} />)
+>   );
+> }
 >
 > // or:
 > if (!items.length) return <EmptyState title="No results" />;
-> return items.map(item => <Row key={item.id} {...item} />);
+> return items.map((item) => <Row key={item.id} {...item} />);
 > ```
 >
 > If the empty case is genuinely unreachable here (e.g., parent component guarantees non-empty input), add an `@anatomy-guarantee non-empty` JSDoc tag to suppress this finding for the file.
@@ -800,7 +808,9 @@ A postprocessing step walks ancestors of the matched `@map-call` looking for a t
 function Inbox({ messages }: { messages: Message[] }) {
   return (
     <ul>
-      {messages.map(m => <li key={m.id}>{m.subject}</li>)}
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
     </ul>
   );
 }
@@ -812,9 +822,15 @@ The `.map()` is unguarded — when `messages` is empty, the `<ul>` renders empty
 
 ```tsx
 function Inbox({ messages }: { messages: Message[] }) {
-  return messages.length === 0
-    ? <EmptyState title="Inbox zero" />
-    : <ul>{messages.map(m => <li key={m.id}>{m.subject}</li>)}</ul>;
+  return messages.length === 0 ? (
+    <EmptyState title="Inbox zero" />
+  ) : (
+    <ul>
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
+    </ul>
+  );
 }
 ```
 
@@ -823,7 +839,13 @@ function Inbox({ messages }: { messages: Message[] }) {
 ```tsx
 function Inbox({ messages }: { messages: Message[] }) {
   if (!messages.length) return <EmptyState title="Inbox zero" />;
-  return <ul>{messages.map(m => <li key={m.id}>{m.subject}</li>)}</ul>;
+  return (
+    <ul>
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
+    </ul>
+  );
 }
 ```
 
@@ -836,17 +858,17 @@ function Inbox({ messages }: { messages: Message[] }) {
 
 Codes P002, P003, P005–P019 are RESERVED for Phase 2 catalog expansion. The 9 additional patterns required by success criterion #8 will land sequentially during Phase 2 against this band. Probable assignments per the proposal:
 
-| Likely code | Probable pattern (not yet committed)                                                                  |
-|-------------|-------------------------------------------------------------------------------------------------------|
-| ANAT-P002   | Async fetch / mutation without loading-state affordance                                               |
-| ANAT-P003   | Error boundary missing around an async/suspense root                                                  |
-| ANAT-P005   | Form submission without disable-during-submit affordance                                              |
-| ANAT-P006   | Long list without virtualization signal                                                               |
-| ANAT-P007   | Image render without alt / width / height (anatomy-side complement to A11Y image-alt)                 |
-| ANAT-P008   | Click handler on non-button element without keyboard handler                                          |
-| ANAT-P009   | Modal/Dialog without close affordance                                                                 |
-| ANAT-P010   | Toast / Snackbar without dismiss affordance                                                           |
-| ANAT-P011–P019 | Overflow reservation for catalog-expansion patterns not yet enumerated                             |
+| Likely code    | Probable pattern (not yet committed)                                                  |
+| -------------- | ------------------------------------------------------------------------------------- |
+| ANAT-P002      | Async fetch / mutation without loading-state affordance                               |
+| ANAT-P003      | Error boundary missing around an async/suspense root                                  |
+| ANAT-P005      | Form submission without disable-during-submit affordance                              |
+| ANAT-P006      | Long list without virtualization signal                                               |
+| ANAT-P007      | Image render without alt / width / height (anatomy-side complement to A11Y image-alt) |
+| ANAT-P008      | Click handler on non-button element without keyboard handler                          |
+| ANAT-P009      | Modal/Dialog without close affordance                                                 |
+| ANAT-P010      | Toast / Snackbar without dismiss affordance                                           |
+| ANAT-P011–P019 | Overflow reservation for catalog-expansion patterns not yet enumerated                |
 
 > **All codes in P002–P003 and P005–P019 are RESERVED — to be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
@@ -865,6 +887,7 @@ Tier-2 pattern codes flag ambiguous patterns that frequently indicate a craft ga
 > `Conditional render via {form} has no else-branch affordance. When the condition is false, this region collapses silently. If that is intentional, annotate with \`@anatomy-conditional intentional\`. (file: {file}, line {line})`
 >
 > where `{form}` is one of:
+>
 > - `` `condition && <JSX/>` `` (when the short-circuit arm matches)
 > - `` `condition ? <JSX/> : null` `` (when the explicit-null ternary arm matches)
 
@@ -874,12 +897,14 @@ Tier-2 pattern codes flag ambiguous patterns that frequently indicate a craft ga
 >
 > ```tsx
 > // Add a fallback element:
-> {isLoading ? <Spinner /> : <ContentReady />}
+> {
+>   isLoading ? <Spinner /> : <ContentReady />;
+> }
 >
 > // Promote to a guard with content fallback:
-> {user.permissions.canEdit
->   ? <EditButton />
->   : <ReadOnlyHint />}
+> {
+>   user.permissions.canEdit ? <EditButton /> : <ReadOnlyHint />;
+> }
 >
 > // Or annotate (suppresses the finding for the enclosing function):
 > /** @anatomy-conditional intentional — admin-only badge */
@@ -969,7 +994,7 @@ Tier-3 pattern codes flag stylistic patterns worth surfacing but rarely worth bl
 
 ---
 
-## ANAT-U* — Usage findings (v2 reservation)
+## ANAT-U\* — Usage findings (v2 reservation)
 
 The `ANAT-U*` namespace is reserved for **usage-side findings** — `<Input>` call site missing a `label` prop, `<Toast>` call site missing a `duration` prop, and similar. These findings overlap heavily with harness-accessibility's call-site checks and require the a11y deferral pattern (Decision #6) to be proven on definition-side findings before extension.
 
@@ -977,11 +1002,11 @@ The `ANAT-U*` namespace is reserved for **usage-side findings** — `<Input>` ca
 
 Allocation strategy at v2 ship time (informational only — not committed):
 
-| Range          | Tier   | Likely semantic                                                  |
-|----------------|--------|------------------------------------------------------------------|
-| `U001–U049`    | Tier-1 | Critical missing call-site props (label, name, id, value)        |
-| `U050–U099`    | Tier-2 | Recommended call-site props (helper text, aria-describedby)      |
-| `U100–U199`    | Tier-3 | Optional call-site props (variant, size cosmetic at usage time)  |
+| Range       | Tier   | Likely semantic                                                 |
+| ----------- | ------ | --------------------------------------------------------------- |
+| `U001–U049` | Tier-1 | Critical missing call-site props (label, name, id, value)       |
+| `U050–U099` | Tier-2 | Recommended call-site props (helper text, aria-describedby)     |
+| `U100–U199` | Tier-3 | Optional call-site props (variant, size cosmetic at usage time) |
 
 ---
 

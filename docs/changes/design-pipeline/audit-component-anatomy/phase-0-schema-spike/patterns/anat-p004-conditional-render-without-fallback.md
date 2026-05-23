@@ -4,11 +4,11 @@
 
 ## Intent
 
-Detect call sites that render JSX conditionally using the short-circuit `&&` form (or a ternary whose else branch is `null` / `false` / omitted), where the unrendered branch represents a *user-facing condition that warrants an affordance*. Examples:
+Detect call sites that render JSX conditionally using the short-circuit `&&` form (or a ternary whose else branch is `null` / `false` / omitted), where the unrendered branch represents a _user-facing condition that warrants an affordance_. Examples:
 
 - `{isLoading && <Spinner />}` — when not loading and there are no children, the region collapses silently. If loading is the only signal, fine; if it gates other content, the false branch needs an affordance.
 - `{user.permissions.canEdit && <EditButton />}` — when the user lacks permission, an empty space appears where the action used to be. Often correct (hiding is appropriate), but flagged for human review at strictness=strict.
-- `{error ? <ErrorBanner/> : null}` — the explicit `null` is the giveaway; an error UI without a non-error counterpart is fine, but a *content* slot with a `null` fallback usually warrants either a placeholder or a removed conditional.
+- `{error ? <ErrorBanner/> : null}` — the explicit `null` is the giveaway; an error UI without a non-error counterpart is fine, but a _content_ slot with a `null` fallback usually warrants either a placeholder or a removed conditional.
 
 The pattern is genuinely ambiguous — many `&&`-renders are correct. The audit emits this finding at `severity: 'info'` by default and lets the human / strictness model promote it.
 
@@ -18,8 +18,8 @@ The pattern is genuinely ambiguous — many `&&`-renders are correct. The audit 
 code: ANAT-P004
 severityDefault: info
 source:
-  ref: "design-component-anatomy/conditional-content"
-  url: "https://harness.dev/knowledge/design/conditional-content"  # internal knowledge skill
+  ref: 'design-component-anatomy/conditional-content'
+  url: 'https://harness.dev/knowledge/design/conditional-content' # internal knowledge skill
 
 treeSitterQuery: |
   (jsx_expression
@@ -129,7 +129,7 @@ function Wrapper({ error }: { error: Error | null }) {
 ## Notes on schema fit
 
 - `treeSitterQuery` accommodates the two query alternatives (short-circuit and explicit-`null` ternary) via top-level `[...]` alternation. The schema's `string` field is again sufficient.
-- The postprocessing list here is *substantial* (3 distinct suppression rules) and includes a hard-coded fallback-component name list ("EmptyState, ErrorBoundary, Skeleton, Spinner, ..."). This list is implementation data the rule needs but the schema does not surface — it lives in the runner as a side-channel constant. Acceptable for v1 but worth surfacing as a schema field (`PatternRule.knownFallbackComponents?: string[]`) so each rule can tune its own list. See `review.md`.
+- The postprocessing list here is _substantial_ (3 distinct suppression rules) and includes a hard-coded fallback-component name list ("EmptyState, ErrorBoundary, Skeleton, Spinner, ..."). This list is implementation data the rule needs but the schema does not surface — it lives in the runner as a side-channel constant. Acceptable for v1 but worth surfacing as a schema field (`PatternRule.knownFallbackComponents?: string[]`) so each rule can tune its own list. See `review.md`.
 - `message` reads `capture.shortCircuit` to vary phrasing based on which arm of the query matched — the schema's `(capture) => string` shape supports this once captures carry which alternative matched. Tree-sitter does expose this via named captures (`@short-circuit` vs `@ternary`), so the runner can populate `capture.shortCircuit: boolean` from match identity. Schema-fit is fine; this is a runner contract detail.
 - `severityDefault: info` correctly expresses that this is a low-confidence pattern (genuinely ambiguous). The downstream strictness × severity matrix will let strict projects promote it.
 - `source.ref` again points to an internal knowledge entry — appropriate because conditional-render conventions are project-design taste, not an ARIA contract.

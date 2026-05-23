@@ -19,19 +19,19 @@
   - [Priority derivation](#priority-derivation)
   - [Source citation prefixes](#source-citation-prefixes)
   - [Entry format](#entry-format)
-- [CRAFT-C* — Critique findings](#craft-c--critique-findings)
+- [CRAFT-C\* — Critique findings](#craft-c--critique-findings)
   - [CRAFT-C001 — Hierarchy Clarity](#craft-c001--hierarchy-clarity)
   - [CRAFT-C002 — Typography Craft](#craft-c002--typography-craft)
   - [CRAFT-C003 — Motion Quality](#craft-c003--motion-quality)
   - [CRAFT-C004–C010 — RESERVED (Phase 1 / Phase 2 seed)](#craft-c004c010--reserved-phase-1--phase-2-seed)
   - [CRAFT-C011–C100 — RESERVED (post-seed growth)](#craft-c011c100--reserved-post-seed-growth)
-- [CRAFT-P* — Polish findings](#craft-p--polish-findings)
+- [CRAFT-P\* — Polish findings](#craft-p--polish-findings)
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
   - [CRAFT-P002 — Skeleton (Content-Matched)](#craft-p002--skeleton-content-matched)
   - [CRAFT-P003 — Stagger Timing](#craft-p003--stagger-timing)
   - [CRAFT-P004–P015 — RESERVED (Phase 1 / Phase 2 seed)](#craft-p004p015--reserved-phase-1--phase-2-seed)
   - [CRAFT-P016–P100 — RESERVED (post-seed growth)](#craft-p016p100--reserved-post-seed-growth)
-- [CRAFT-B* — Benchmark identifiers](#craft-b--benchmark-identifiers)
+- [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
   - [CRAFT-B001–B005 — anchor benchmark identifiers (seed exemplar set)](#craft-b001b005--anchor-benchmark-identifiers-seed-exemplar-set)
   - [CRAFT-B006–B100 — RESERVED (catalog growth)](#craft-b006b100--reserved-catalog-growth)
@@ -45,11 +45,11 @@
 
 ### Code-family scheme
 
-| Family    | Phase     | Meaning                                                                                                                                                            | Output model                       |
-|-----------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| `CRAFT-C*` | CRITIQUE  | An LLM-judgment finding about a craft quality gap (hierarchy, typography, motion, etc.). Sourced from a `rubric` in `catalog/rubrics/`.                            | 3-axis (tier × impact × confidence) |
-| `CRAFT-P*` | POLISH    | An LLM-judgment suggestion with before/after sketches that elevates a specific code region. Sourced from a `pattern` in `catalog/patterns/`.                       | 3-axis (tier × impact × confidence) |
-| `CRAFT-B*` | BENCHMARK | An identifier for a single BENCHMARK run targeting one component against one or more exemplars. Each `CRAFT-B*` code corresponds to a stable benchmark identity.   | 5-dimension radar                  |
+| Family     | Phase     | Meaning                                                                                                                                                          | Output model                        |
+| ---------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `CRAFT-C*` | CRITIQUE  | An LLM-judgment finding about a craft quality gap (hierarchy, typography, motion, etc.). Sourced from a `rubric` in `catalog/rubrics/`.                          | 3-axis (tier × impact × confidence) |
+| `CRAFT-P*` | POLISH    | An LLM-judgment suggestion with before/after sketches that elevates a specific code region. Sourced from a `pattern` in `catalog/patterns/`.                     | 3-axis (tier × impact × confidence) |
+| `CRAFT-B*` | BENCHMARK | An identifier for a single BENCHMARK run targeting one component against one or more exemplars. Each `CRAFT-B*` code corresponds to a stable benchmark identity. | 5-dimension radar                   |
 
 All codes are formatted `CRAFT-{family}{3-digit}`. The format is stable: `CRAFT-C001`, `CRAFT-P017`, `CRAFT-B042`. Three digits provide headroom (up to 100 per family within v1 reservation; the post-100 band exists in the type system but is unallocated).
 
@@ -59,29 +59,29 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range         | Phase landed | Status (v1)                                                                  |
-|---------------|--------------|------------------------------------------------------------------------------|
-| `C001–C003`   | Phase 0      | Defined (hierarchy, typography, motion — Phase 0 spike artifacts).           |
-| `C004–C010`   | Phase 1–2    | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics). |
-| `C011–C020`   | Post-v1      | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).   |
-| `C021–C100`   | Long-term    | Reserved for community contribution + signal-loop proposals.                 |
+| Range       | Phase landed | Status (v1)                                                                   |
+| ----------- | ------------ | ----------------------------------------------------------------------------- |
+| `C001–C003` | Phase 0      | Defined (hierarchy, typography, motion — Phase 0 spike artifacts).            |
+| `C004–C010` | Phase 1–2    | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics). |
+| `C011–C020` | Post-v1      | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).    |
+| `C021–C100` | Long-term    | Reserved for community contribution + signal-loop proposals.                  |
 
 **CRAFT-P (polish patterns):**
 
-| Range         | Phase landed | Status (v1)                                                                            |
-|---------------|--------------|----------------------------------------------------------------------------------------|
-| `P001–P003`   | Phase 0      | Defined (spring-physics, skeleton-content-matched, stagger-timing — Phase 0 spike).    |
-| `P004–P015`   | Phase 1–2    | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). |
-| `P016–P075`   | Post-v1      | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).            |
-| `P076–P100`   | Long-term    | Reserved for community contribution + signal-loop proposals.                           |
+| Range       | Phase landed | Status (v1)                                                                                                                                      |
+| ----------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `P001–P003` | Phase 0      | Defined (spring-physics, skeleton-content-matched, stagger-timing — Phase 0 spike).                                                              |
+| `P004–P015` | Phase 1–2    | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). |
+| `P016–P075` | Post-v1      | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                      |
+| `P076–P100` | Long-term    | Reserved for community contribution + signal-loop proposals.                                                                                     |
 
 **CRAFT-B (benchmark identifiers):**
 
-| Range         | Phase landed | Status (v1)                                                                                  |
-|---------------|--------------|----------------------------------------------------------------------------------------------|
-| `B001–B005`   | Phase 0      | Anchor identifiers reserved for the 3 Phase 0 exemplars + 2 reserved early v1 exemplars.     |
-| `B006–B050`   | Phase 1–2    | Reserved for seed exemplar set (success criterion #9 lists 50 exemplars across 5 types).     |
-| `B051–B100`   | Post-v1      | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                         |
+| Range       | Phase landed | Status (v1)                                                                              |
+| ----------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `B001–B005` | Phase 0      | Anchor identifiers reserved for the 3 Phase 0 exemplars + 2 reserved early v1 exemplars. |
+| `B006–B050` | Phase 1–2    | Reserved for seed exemplar set (success criterion #9 lists 50 exemplars across 5 types). |
+| `B051–B100` | Post-v1      | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                     |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
 
@@ -91,11 +91,11 @@ Beyond 100 in any family, the type system continues to accept the format, but no
 
 Per Decision #5 (proposal lines 50–67) and ADR-005 (proposal line 407), CRITIQUE and POLISH findings use a **3-axis output model** rather than the standard error/warn/info severity vocabulary. The three axes are:
 
-| Axis         | Values                                                                 | Meaning                                                                                                           |
-|--------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `tier`       | `foundational` \| `polish` \| `aspirational`                          | **What rung of the craft ladder.** Foundational = baseline craft (hierarchy, type system, basic motion). Polish = elevation moves (spring physics, content-matched skeletons, density rhythm). Aspirational = signature craft moves (novel interaction, brand-defining moments). |
-| `impact`     | `small` \| `medium` \| `large`                                        | **How much the change moves perceived quality** for the target component or page. Independent of tier — a small impact at foundational tier is still worth fixing; a large impact at aspirational tier may be future work. |
-| `confidence` | `high` \| `medium` \| `low`                                           | **How sure the LLM is about the judgment.** Essential for honest output — when the LLM is asked to evaluate ambiguous fixtures, low-confidence findings are emitted rather than silently dropped or upgraded. Per success criterion #6. |
+| Axis         | Values                                       | Meaning                                                                                                                                                                                                                                                                          |
+| ------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tier`       | `foundational` \| `polish` \| `aspirational` | **What rung of the craft ladder.** Foundational = baseline craft (hierarchy, type system, basic motion). Polish = elevation moves (spring physics, content-matched skeletons, density rhythm). Aspirational = signature craft moves (novel interaction, brand-defining moments). |
+| `impact`     | `small` \| `medium` \| `large`               | **How much the change moves perceived quality** for the target component or page. Independent of tier — a small impact at foundational tier is still worth fixing; a large impact at aspirational tier may be future work.                                                       |
+| `confidence` | `high` \| `medium` \| `low`                  | **How sure the LLM is about the judgment.** Essential for honest output — when the LLM is asked to evaluate ambiguous fixtures, low-confidence findings are emitted rather than silently dropped or upgraded. Per success criterion #6.                                          |
 
 The axes are **independent** — no rule constrains `tier ↔ impact` correlation (Phase 0 spike `patterns/stagger-timing.md` deliberately exercises `tier: polish` × `impact: small`; Phase 0 spike `patterns/skeleton-content-matched.md` deliberately exercises `tier: polish` × `impact: large`). The three axes plus the derived `priority` field fully describe a craft finding's salience.
 
@@ -107,7 +107,7 @@ export type Impact = 'small' | 'medium' | 'large';
 export type Confidence = 'high' | 'medium' | 'low';
 
 export interface CraftFinding {
-  code: string;                              // e.g. 'CRAFT-C001', 'CRAFT-P001'
+  code: string; // e.g. 'CRAFT-C001', 'CRAFT-P001'
   phase: 'critique' | 'polish';
   tier: Tier;
   impact: Impact;
@@ -115,9 +115,9 @@ export interface CraftFinding {
   target: { file: string; line?: number; component?: string };
   message: string;
   cite: { rubricOrPatternId: string; source: string };
-  before?: string;                           // POLISH only
-  after?: string;                            // POLISH only
-  derived: { priority: number };             // computed from tier × impact × confidence
+  before?: string; // POLISH only
+  after?: string; // POLISH only
+  derived: { priority: number }; // computed from tier × impact × confidence
 }
 ```
 
@@ -125,13 +125,13 @@ export interface CraftFinding {
 
 Per Decision #5 and ADR-005, the BENCHMARK phase produces **5-dimension radar scores** rather than findings. Each `CRAFT-B*` code identifies a benchmark run (one target component compared against one or more exemplars); the run emits a `BenchmarkScore` object carrying scores across five dimensions.
 
-| Dimension                  | What it measures                                                                                          |
-|----------------------------|-----------------------------------------------------------------------------------------------------------|
-| `philosophicalCoherence`   | Does the component's design language cohere with its parent product's aesthetic intent? (huashu-design #1)|
-| `hierarchy`                | Is there a clear primary / secondary / tertiary visual order? (huashu-design #2, mirrored by `CRAFT-C001`) |
-| `craftExecution`           | Quality of typography, color, spacing, motion at the pixel level — the "look closer" axis.                |
-| `function`                 | Does the component do its job clearly and reachably? Distinct from accessibility (`harness-accessibility` owns WCAG) — this is functional clarity. |
-| `innovation`               | Does the component contribute a signature move beyond the reference set? Often middling for production-quality work; high only for genuinely novel craft. |
+| Dimension                | What it measures                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `philosophicalCoherence` | Does the component's design language cohere with its parent product's aesthetic intent? (huashu-design #1)                                                |
+| `hierarchy`              | Is there a clear primary / secondary / tertiary visual order? (huashu-design #2, mirrored by `CRAFT-C001`)                                                |
+| `craftExecution`         | Quality of typography, color, spacing, motion at the pixel level — the "look closer" axis.                                                                |
+| `function`               | Does the component do its job clearly and reachably? Distinct from accessibility (`harness-accessibility` owns WCAG) — this is functional clarity.        |
+| `innovation`             | Does the component contribute a signature move beyond the reference set? Often middling for production-quality work; high only for genuinely novel craft. |
 
 Per-dimension scores are integers 0–100. Each dimension also carries a `confidence` value (`high`/`medium`/`low`) and a narrative `notes` field explaining the score. The `overall` score is a **weighted aggregate** (Phase 0 spike review.md observation O6 flags that the weighting rule must be selected and documented in Phase 1 — equal weights / mean is the recommended starting point with a config knob to override). The `overall` confidence aggregation is documented separately in Phase 0 review.md observation O7 — `min` is the recommended conservative starting rule.
 
@@ -140,7 +140,7 @@ The schema lives in `findings/schema.ts`:
 ```ts
 export interface BenchmarkScore {
   target: { file: string; component: string };
-  exemplars: string[];                       // ids cited
+  exemplars: string[]; // ids cited
   radar: {
     philosophicalCoherence: { score: number; confidence: Confidence; notes: string };
     hierarchy: { score: number; confidence: Confidence; notes: string };
@@ -149,7 +149,7 @@ export interface BenchmarkScore {
     innovation: { score: number; confidence: Confidence; notes: string };
   };
   overall: { score: number; confidence: Confidence }; // weighted aggregate
-  gaps: string[];                             // narrative gap analysis
+  gaps: string[]; // narrative gap analysis
 }
 ```
 
@@ -159,11 +159,11 @@ Per Phase 0 review observation O8, `gaps` is currently `string[]`. Forward-compa
 
 Every `CRAFT-C*` and `CRAFT-P*` finding includes a `derived.priority: number` field computed from `tier × impact × confidence` (success criterion #5, #26). The derivation is deterministic so consumers (verifier #4, orchestrator #5) can sort and group findings without rerunning the LLM. The default derivation in `findings/derived.ts`:
 
-| Axis          | Weight contribution                                                  |
-|---------------|----------------------------------------------------------------------|
-| `tier`        | `foundational` = 3, `polish` = 2, `aspirational` = 1                  |
-| `impact`      | `large` = 3, `medium` = 2, `small` = 1                                |
-| `confidence`  | `high` = 1.0, `medium` = 0.7, `low` = 0.4 (confidence as a multiplier)|
+| Axis         | Weight contribution                                                    |
+| ------------ | ---------------------------------------------------------------------- |
+| `tier`       | `foundational` = 3, `polish` = 2, `aspirational` = 1                   |
+| `impact`     | `large` = 3, `medium` = 2, `small` = 1                                 |
+| `confidence` | `high` = 1.0, `medium` = 0.7, `low` = 0.4 (confidence as a multiplier) |
 
 `priority = (tier_weight + impact_weight) × confidence_multiplier`. The result is in the open range (0.8, 6.0]; consumers should treat it as an opaque ordering scalar, not an absolute severity. The derivation may evolve (recorded in ADR-005) but the deterministic guarantee is part of the public contract.
 
@@ -171,15 +171,15 @@ Every `CRAFT-C*` and `CRAFT-P*` finding includes a `derived.priority: number` fi
 
 Each catalog entry's `source.ref` field cites a published authority. The seed prefixes:
 
-| Prefix                    | Authority                                                                          |
-|---------------------------|------------------------------------------------------------------------------------|
-| `huashu-design#`          | huashu-design (REFERENCES.md #4) — the seed source for the 5-dim radar model.       |
-| `vercel-geist#`           | Vercel's Geist design system — public, comprehensive, frequently cited.            |
-| `emil-design-eng#`        | emilkowalski/skill (REFERENCES.md) — the working reference on motion design craft. |
-| `linear-app`              | Linear product surface — exemplar source for restrained empty/loading states.      |
-| `stripe-checkout`         | Stripe checkout surface — exemplar source for production-quality skeletons.        |
-| `raycast-app`             | Raycast product surface — exemplar source for keyboard-driven density.             |
-| `design-component-anatomy/` | Internal harness knowledge skill (shared with sub-project #2's audit).            |
+| Prefix                      | Authority                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `huashu-design#`            | huashu-design (REFERENCES.md #4) — the seed source for the 5-dim radar model.      |
+| `vercel-geist#`             | Vercel's Geist design system — public, comprehensive, frequently cited.            |
+| `emil-design-eng#`          | emilkowalski/skill (REFERENCES.md) — the working reference on motion design craft. |
+| `linear-app`                | Linear product surface — exemplar source for restrained empty/loading states.      |
+| `stripe-checkout`           | Stripe checkout surface — exemplar source for production-quality skeletons.        |
+| `raycast-app`               | Raycast product surface — exemplar source for keyboard-driven density.             |
+| `design-component-anatomy/` | Internal harness knowledge skill (shared with sub-project #2's audit).             |
 
 New prefixes added during catalog growth must be recorded in this table AND in the contribution-format schema validator.
 
@@ -192,8 +192,8 @@ Each defined code entry uses this shape:
 - **Code** — the `CRAFT-X###` identifier.
 - **Catalog entry id** — the `id` field of the source rubric / pattern / exemplar (e.g., `rubric-hierarchy-clarity`).
 - **Tier / impact / confidence ceiling** — for C and P entries, the `findingTemplate` values plus any `confidenceCap` (e.g., motion quality caps at `medium` for code-only mode per spike notes).
-- **Applies to** *(C only)* — `[component, page]` or `[component]`, per the rubric's `appliesTo`.
-- **Applicable to** *(P only)* — pattern-match discriminators from the rubric's `applicableTo` array.
+- **Applies to** _(C only)_ — `[component, page]` or `[component]`, per the rubric's `appliesTo`.
+- **Applicable to** _(P only)_ — pattern-match discriminators from the rubric's `applicableTo` array.
 - **Source citation** — `source.ref` plus optional `url`.
 - **Prompt or trigger** — for C, the rubric prompt to the LLM. For P, the `when` condition that triggers the pattern match.
 - **Suggestion / message** — for C, the message template the finding produces. For P, the `suggest` text and the before/after sketches.
@@ -203,7 +203,7 @@ Each defined code entry uses this shape:
 
 ---
 
-## CRAFT-C* — Critique findings
+## CRAFT-C\* — Critique findings
 
 ### CRAFT-C001 — Hierarchy Clarity
 
@@ -218,12 +218,13 @@ Each defined code entry uses this shape:
 **Prompt** (verbatim from Phase 0 spike `rubrics/hierarchy-clarity.md`):
 
 > Evaluate the visual hierarchy of {target}.
+>
 > - Is there a clear primary, secondary, tertiary level?
 > - Does typographic scale support the hierarchy or muddy it?
 > - Are spacing, color, and weight all aligned with hierarchy intent?
 > - Identify any "competing for primary" elements (e.g., two buttons with equal weight, two headings with equal size, color/weight pulling against scale).
 > - Where does the eye land first? Is that the intended entry point?
-> Use the 3-axis output model (tier × impact × confidence). Be honest about confidence — if the target is ambiguous, say so.
+>   Use the 3-axis output model (tier × impact × confidence). Be honest about confidence — if the target is ambiguous, say so.
 
 **Message** (LLM-generated; example shape):
 
@@ -255,13 +256,14 @@ Linear command palette — primary action reads with weight + saturation + spaci
 **Prompt** (verbatim from Phase 0 spike `rubrics/typography-craft.md`):
 
 > Evaluate the typographic craft of {target}.
+>
 > - Is the type scale consistent (modular, or at least intentionally chosen ratios) or arbitrary?
 > - Are line-heights tuned to font size and reading width? (Body copy typically 1.4–1.6; headings 1.05–1.25.)
 > - Is measure (line length) within the 45–75 char reading band for body copy?
 > - Is letter-spacing tuned at display sizes? (Large headings usually benefit from slight negative tracking.)
 > - Is font-weight contrast meaningful (e.g., 400 vs 600) or muddy (e.g., 400 vs 500)?
 > - Are numerals tabular where alignment matters (tables, prices)?
-> Use the 3-axis output model. Confidence should drop when the target lacks a declared type scale to compare against.
+>   Use the 3-axis output model. Confidence should drop when the target lacks a declared type scale to compare against.
 
 **Message** (LLM-generated; example shape):
 
@@ -293,13 +295,14 @@ Geist Sans + Geist Mono pair: explicit modular scale, tuned line-heights per rol
 **Prompt** (verbatim from Phase 0 spike `rubrics/motion-quality.md`):
 
 > Evaluate the motion quality of {target}.
+>
 > - Does the motion communicate something (state change, causality, spatial relationship) or is it decorative?
 > - Is the easing physically plausible? (Spring physics or custom-tuned curves beat default ease/ease-in-out.)
 > - Are durations proportionate? (Microinteractions <150ms; transitions 150–400ms; large layout shifts up to 600ms but rare.)
 > - Do entrances/exits use the same envelope, or do they feel jarring?
 > - Does the motion respect `prefers-reduced-motion`?
 > - Are interruptions handled gracefully (e.g., reversing mid-flight instead of snap-resetting)?
-> Use the 3-axis output model. Confidence should drop on code-only analysis — motion quality is hard to judge without rendering.
+>   Use the 3-axis output model. Confidence should drop on code-only analysis — motion quality is hard to judge without rendering.
 
 **Message** (LLM-generated; example shape):
 
@@ -323,15 +326,15 @@ Stripe checkout amount input: spring-physics character ticker on value change, 1
 
 Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion). The remaining 7 rubrics in the seed must be authored during Phase 1 Stream B (5 additional Phase 1 rubrics) and Phase 2 Stream B (2 final rubrics to complete the seed). Per the proposal's success criterion #7 enumeration, the seed list is:
 
-| Likely code | Probable rubric (per success criterion #7 enumeration)                        |
-|-------------|--------------------------------------------------------------------------------|
-| `CRAFT-C004` | Color confidence                                                              |
-| `CRAFT-C005` | Density rhythm                                                                |
-| `CRAFT-C006` | Restraint                                                                     |
-| `CRAFT-C007` | Polish details                                                                |
-| `CRAFT-C008` | Copy voice                                                                    |
-| `CRAFT-C009` | Interaction craft                                                             |
-| `CRAFT-C010` | Brand coherence                                                               |
+| Likely code  | Probable rubric (per success criterion #7 enumeration) |
+| ------------ | ------------------------------------------------------ |
+| `CRAFT-C004` | Color confidence                                       |
+| `CRAFT-C005` | Density rhythm                                         |
+| `CRAFT-C006` | Restraint                                              |
+| `CRAFT-C007` | Polish details                                         |
+| `CRAFT-C008` | Copy voice                                             |
+| `CRAFT-C009` | Interaction craft                                      |
+| `CRAFT-C010` | Brand coherence                                        |
 
 > **All codes in C004–C010 are RESERVED — to be defined during Phase 1 / Phase 2 catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
@@ -345,7 +348,7 @@ Codes C021–C100 are long-term reservation. No catalog growth plan commits to f
 
 ---
 
-## CRAFT-P* — Polish findings
+## CRAFT-P\* — Polish findings
 
 ### CRAFT-P001 — Spring Physics Micro-interaction
 
@@ -423,17 +426,23 @@ transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 **Before (positive — finding emitted):**
 
 ```tsx
-{isLoading && <Spinner />}
-{data && <UserList users={data} />}
+{
+  isLoading && <Spinner />;
+}
+{
+  data && <UserList users={data} />;
+}
 ```
 
 **After (suggestion content):**
 
 ```tsx
-{isLoading && (
-  <UserListSkeleton rows={data?.length ?? 5} />
-)}
-{data && <UserList users={data} />}
+{
+  isLoading && <UserListSkeleton rows={data?.length ?? 5} />;
+}
+{
+  data && <UserList users={data} />;
+}
 
 // UserListSkeleton mirrors UserList: same avatar circle, same
 // 60%-width name bar, same 40%-width metadata bar per row.
@@ -473,30 +482,34 @@ transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 **Before (positive — finding emitted):**
 
 ```tsx
-{items.map(item => (
-  <motion.div
-    initial={{ opacity: 0, y: 8 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.2 }}
-  />
-))}
+{
+  items.map((item) => (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    />
+  ));
+}
 ```
 
 **After (suggestion content):**
 
 ```tsx
-{items.map((item, i) => (
-  <motion.div
-    initial={{ opacity: 0, y: 8 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{
-      delay: Math.min(i * 0.04, 0.6),
-      type: 'spring',
-      stiffness: 200,
-      damping: 25,
-    }}
-  />
-))}
+{
+  items.map((item, i) => (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        delay: Math.min(i * 0.04, 0.6),
+        type: 'spring',
+        stiffness: 200,
+        damping: 25,
+      }}
+    />
+  ));
+}
 ```
 
 **Schema notes:**
@@ -510,13 +523,13 @@ Success criterion #8 ships **15 polish patterns** in the H seed (3 motion + 3 sk
 
 Probable bucket assignments within the band:
 
-| Sub-band       | Category       | Patterns to define                                                                                  |
-|----------------|----------------|------------------------------------------------------------------------------------------------------|
-| `P004–P005`    | Motion         | 2 more motion patterns to complete the 3-motion bucket (P001, P003 already motion; P004/P005 = ?)    |
-| `P006–P007`    | Skeleton       | 2 more skeleton patterns to complete the 3-skeleton bucket (P002 already content-matched; P006/P007 = ?) |
-| `P008–P010`    | Typography     | 3 typography polish patterns (modular scale, tabular numerals, display tracking, etc.)              |
-| `P011–P013`    | Interaction    | 3 interaction polish patterns (hover-state-overlay, focus-ring craft, drag-affordance, etc.)         |
-| `P014–P015`    | Layout         | 2 of 3 layout polish patterns (density rhythm, vertical rhythm, gestalt grouping, etc.)              |
+| Sub-band    | Category    | Patterns to define                                                                                       |
+| ----------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `P004–P005` | Motion      | 2 more motion patterns to complete the 3-motion bucket (P001, P003 already motion; P004/P005 = ?)        |
+| `P006–P007` | Skeleton    | 2 more skeleton patterns to complete the 3-skeleton bucket (P002 already content-matched; P006/P007 = ?) |
+| `P008–P010` | Typography  | 3 typography polish patterns (modular scale, tabular numerals, display tracking, etc.)                   |
+| `P011–P013` | Interaction | 3 interaction polish patterns (hover-state-overlay, focus-ring craft, drag-affordance, etc.)             |
+| `P014–P015` | Layout      | 2 of 3 layout polish patterns (density rhythm, vertical rhythm, gestalt grouping, etc.)                  |
 
 The bucket boundaries are guidance only — Phase 2 Stream B authors may rebalance if a category requires more entries than its band reserves.
 
@@ -532,7 +545,7 @@ Codes P076–P100 are long-term reservation.
 
 ---
 
-## CRAFT-B* — Benchmark identifiers
+## CRAFT-B\* — Benchmark identifiers
 
 ### Benchmark-identifier semantics
 
@@ -549,13 +562,13 @@ The radar dimensions are documented in [5-dimension radar (CRAFT-B)](#5-dimensio
 
 The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen. The anchor `CRAFT-B*` reservations align with the Phase 0 exemplar set so any subsequent BENCHMARK run on these target/exemplar pairs reuses the same code:
 
-| Code         | Anchor exemplar (citation target)         | componentType  | Source citation                              |
-|--------------|-------------------------------------------|----------------|----------------------------------------------|
-| `CRAFT-B001` | `exemplar-linear-empty-list`              | EmptyState     | `linear-app` — <https://linear.app/method>   |
-| `CRAFT-B002` | `exemplar-stripe-loading-state`           | LoadingState   | `stripe-checkout` — <https://docs.stripe.com/elements/appearance-api> |
-| `CRAFT-B003` | `exemplar-raycast-command-palette`        | CommandPalette | `raycast-app` — <https://www.raycast.com>    |
-| `CRAFT-B004` | Reserved — early v1 ErrorState exemplar (Phase 1 Stream B authors will land it) | ErrorState | RESERVED |
-| `CRAFT-B005` | Reserved — early v1 Modal exemplar (Phase 1 Stream B authors will land it)       | Modal      | RESERVED |
+| Code         | Anchor exemplar (citation target)                                               | componentType  | Source citation                                                       |
+| ------------ | ------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------- |
+| `CRAFT-B001` | `exemplar-linear-empty-list`                                                    | EmptyState     | `linear-app` — <https://linear.app/method>                            |
+| `CRAFT-B002` | `exemplar-stripe-loading-state`                                                 | LoadingState   | `stripe-checkout` — <https://docs.stripe.com/elements/appearance-api> |
+| `CRAFT-B003` | `exemplar-raycast-command-palette`                                              | CommandPalette | `raycast-app` — <https://www.raycast.com>                             |
+| `CRAFT-B004` | Reserved — early v1 ErrorState exemplar (Phase 1 Stream B authors will land it) | ErrorState     | RESERVED                                                              |
+| `CRAFT-B005` | Reserved — early v1 Modal exemplar (Phase 1 Stream B authors will land it)      | Modal          | RESERVED                                                              |
 
 Phase 0 spike `benchmark-specimens/empty-state-vs-linear.md` is the canonical worked example for `CRAFT-B001`: a hypothetical `MyEmptyState` component scored against `exemplar-linear-empty-list`. The specimen output (overall 64, per-dimension scores 65/70/55/80/50, five gaps narratives) demonstrates the full BenchmarkScore shape and confirms the 3-axis × 5-dim schemas hold together.
 

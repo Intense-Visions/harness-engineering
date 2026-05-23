@@ -76,13 +76,13 @@ source: { ref: <citation key>, url: <canonical url> }  # required
     default catalog loads but retained for citation resolution in
     historical reports. Deprecated entries MUST include
     `deprecatedAt: YYYY-MM-DD` and SHOULD include `replacedBy:
-    <id>` pointing to the successor entry if one exists.
+<id>` pointing to the successor entry if one exists.
 - `authoredAt` — the date the entry was first authored. Does not
   change with version bumps.
 - `contributors` — GitHub handles of authors AND substantive
   reviewers. Append-only as the entry evolves.
 - `source.ref` — citation key matching an entry in `docs/changes/
-  design-pipeline/REFERENCES.md` when applicable, OR a short citation
+design-pipeline/REFERENCES.md` when applicable, OR a short citation
   key for prior art not yet in REFERENCES.md.
 - `source.url` — canonical URL for the source. Required for review-
   process verification.
@@ -92,25 +92,26 @@ source: { ref: <citation key>, url: <canonical url> }  # required
 Adds to the common header:
 
 ```yaml
-name: <human-readable name>             # required
-appliesTo: [component, page, flow]      # required, ≥1
-prompt: |                               # required, multi-line
+name: <human-readable name> # required
+appliesTo: [component, page, flow] # required, ≥1
+prompt: | # required, multi-line
   <The LLM prompt that drives critique. Should reference {target}
   for the audited entity. Should explicitly request the 3-axis
   output model (tier × impact × confidence) per ADR-0019. Should
   reference any rubric-specific weighting.>
-positiveExample: |                      # required
+positiveExample: | # required
   <A short prose example of design that exemplifies the rubric.
   Concrete: name a product, describe the move, name the property
   that matters.>
-negativeExample: |                      # required
+negativeExample: | # required
   <A short prose example of design that violates the rubric. Same
   concreteness requirement.>
-findingTemplate:                        # required
-  code: CRAFT-C<NNN>                    # required, unique within
-                                        # CRAFT-C namespace
-  tier: foundational | polish | aspirational   # required
-  impact: small | medium | large        # required
+findingTemplate: # required
+  code:
+    CRAFT-C<NNN> # required, unique within
+    # CRAFT-C namespace
+  tier: foundational | polish | aspirational # required
+  impact: small | medium | large # required
 ```
 
 **Authoring guidance:**
@@ -131,26 +132,28 @@ findingTemplate:                        # required
 Adds to the common header:
 
 ```yaml
-name: <human-readable name>             # required
-applicableTo:                           # required, ≥1
+name: <human-readable name> # required
+applicableTo: # required, ≥1
   - { kind: <ast-or-css-match-kind>, match: <pattern> }
-when: |                                 # required
+when: | # required
   <Plain-language description of the condition this pattern fires
   on. The reviewer's mental "this applies when…" line.>
-suggest: |                              # required
+suggest: | # required
   <Plain-language description of the suggested change. Why it's an
   upgrade.>
-before: |                               # required
+before: | # required
   <Concrete code snippet showing the current state.>
-after: |                                # required
+after: | # required
   <Concrete code snippet showing the suggested state.>
-findingTemplate:                        # required
-  code: CRAFT-P<NNN>                    # required, unique within
-                                        # CRAFT-P namespace
-  tier: polish | aspirational           # required (rarely
-                                        # foundational; patterns are
-                                        # mostly polish)
-  impact: small | medium | large        # required
+findingTemplate: # required
+  code:
+    CRAFT-P<NNN> # required, unique within
+    # CRAFT-P namespace
+  tier:
+    polish | aspirational # required (rarely
+    # foundational; patterns are
+    # mostly polish)
+  impact: small | medium | large # required
 ```
 
 **Authoring guidance:**

@@ -57,7 +57,7 @@ Prior art reinforces the diagnosis:
   is gated.
 - **MDN** — succeeds because of community contribution + editorial
   review + per-page usage metrics. Stalls would be visible.
-- **awesome-*** lists — succeed (when they do) because of explicit
+- **awesome-\*** lists — succeed (when they do) because of explicit
   contribution guidelines + maintainer review + curated removal of
   dead entries.
 - **getdesign.md** (REFERENCES #37) — 50+ analyses curated by a
@@ -115,15 +115,16 @@ make the skill immediately useful without overspending curator
 attention.
 
 For `harness-design-craft`: 10 critique rubrics + 15 polish patterns
-+ 50 exemplars (the "H seed"). Sized so:
 
-- Each rubric covers one named craft dimension (hierarchy clarity,
+- 50 exemplars (the "H seed"). Sized so:
+
+* Each rubric covers one named craft dimension (hierarchy clarity,
   typography craft, motion quality, color confidence, density
   rhythm, restraint, polish details, copy voice, interaction craft,
   brand coherence).
-- Each pattern is wired end-to-end (when-detected → suggested
+* Each pattern is wired end-to-end (when-detected → suggested
   before/after).
-- Each exemplar carries radar reference scores and a citation
+* Each exemplar carries radar reference scores and a citation
   rationale (`whyExemplar`).
 
 Future catalog-backed skills MUST document their seed shape in their
@@ -244,7 +245,7 @@ across runs without false fixpoints.
 ### What the pattern does NOT mandate
 
 - The seed size — that is domain-specific. The pattern requires
-  *justifying* the seed size in the spec.
+  _justifying_ the seed size in the spec.
 - The catalog file layout — YAML, JSON, or hybrid is the skill's
   choice. The contribution validator enforces the schema regardless.
 - The signal threshold N — defaults to 5 for design-craft but is
@@ -340,13 +341,13 @@ growth-trajectory.md`.
 ## References
 
 - First instance: `docs/changes/design-pipeline/design-craft-elevator/
-  proposal.md` §"Catalog entry formats", §"Contribution and growth
+proposal.md` §"Catalog entry formats", §"Contribution and growth
   infrastructure", §"Success Criteria — Catalog".
 - Companion documents:
   - `docs/changes/design-pipeline/design-craft-elevator/
-    contribution.md` — contribution format + review process spec.
+contribution.md` — contribution format + review process spec.
   - `docs/changes/design-pipeline/design-craft-elevator/
-    growth-trajectory.md` — long-term catalog growth model + signal
+growth-trajectory.md` — long-term catalog growth model + signal
     feedback loop mechanics.
 - Parent pattern: `0018-llm-judgment-skill-pattern.md` (catalog
   citations populate `cite` block on 3-axis findings).

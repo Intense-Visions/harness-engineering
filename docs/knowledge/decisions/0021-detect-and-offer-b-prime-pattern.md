@@ -120,16 +120,16 @@ constructs an `upgradeOffer` payload:
 
 ```ts
 {
-  message: string;             // human-readable description of what
-                                // is missing and what offering it
-                                // would unlock
+  message: string; // human-readable description of what
+  // is missing and what offering it
+  // would unlock
   options: Array<{
     id: string;
-    label: string;             // user-facing option label
-    chainedSkill?: string;     // upstream skill to chain to
-    chainedPhases?: string[];  // specific phases of the upstream
-                                // skill to invoke (e.g. ['intent',
-                                // 'direction'])
+    label: string; // user-facing option label
+    chainedSkill?: string; // upstream skill to chain to
+    chainedPhases?: string[]; // specific phases of the upstream
+    // skill to invoke (e.g. ['intent',
+    // 'direction'])
   }>;
 }
 ```
@@ -243,7 +243,7 @@ and is overridable via per-invocation input (`autoCapture?: 'prompt'
   opted out via `autoCapture: 'skip'`).
 - Headless/autopilot use is supported via `autoCapture: 'auto'`
   (no prompts) and CI-gate use is supported via `autoCapture:
-  'skip'` (no chaining surprises).
+'skip'` (no chaining surprises).
 - Skill authors gain a documented pattern for soft dependencies,
   reducing the per-skill design burden.
 - Reusing the existing skill-transition machinery means B' is
@@ -291,7 +291,7 @@ and is overridable via per-invocation input (`autoCapture?: 'prompt'
 ## References
 
 - First instance: `docs/changes/design-pipeline/design-craft-elevator/
-  proposal.md` §"B' detect-and-offer logic", §"autoCapture config".
+proposal.md` §"B' detect-and-offer logic", §"autoCapture config".
 - Parent pattern: `0018-llm-judgment-skill-pattern.md` §4 (soft
   dependency + progressive upgrade is listed as a required property
   of LLM-judgment skills that benefit from upstream intent).

@@ -75,7 +75,7 @@ The team considered four shapes:
   third LLM-judgment skill ships and the shared seams are clear.
 - **D. Codify the pattern as an ADR + first instance.** Build the
   infrastructure inside `harness-design-craft` for v1, but document
-  the *shape* (confidence-as-first-class, deterministic/judgment
+  the _shape_ (confidence-as-first-class, deterministic/judgment
   separation, vision/text mode selection, fast/deep) as a reusable
   pattern so future skills follow it without re-debating.
 
@@ -215,7 +215,7 @@ future migration cost when intelligence-provider seams change.
   that only need a single LLM call without findings infrastructure.
 - The pattern locks future skills to the harness intelligence provider.
   Skills that need a niche model not exposed via `packages/
-  intelligence/` must either extend that package or file a superseding
+intelligence/` must either extend that package or file a superseding
   ADR.
 - Codifying the pattern before the second instance ships carries
   generalization risk. The first revision-triggering signal will be
@@ -247,7 +247,7 @@ future migration cost when intelligence-provider seams change.
 ## References
 
 - First instance: `docs/changes/design-pipeline/design-craft-elevator/
-  proposal.md` (sub-project #6, harness-design-craft).
+proposal.md` (sub-project #6, harness-design-craft).
 - Companion ADRs:
   - `0019-3-axis-craft-output-model.md` — output vocabulary for
     LLM-judgment craft findings.

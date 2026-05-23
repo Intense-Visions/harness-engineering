@@ -4,15 +4,15 @@
 
 ## Resolution status (2026-05-23, second pass)
 
-| Amendment | Status | Resolution |
-|---|---|---|
-| A1 Skill source location | RESOLVED | Both proposal.md files have corrected File-layout sections (commit `<this PR>`). Skill markdown is at `agents/skills/claude-code/`; impl modules go in `packages/{audit,design-craft}/` (new packages, decided in Phase 1 first task); catalogs at `agents/skills/shared/design-knowledge/`. |
-| A2 Visual pipeline | RESOLVED | playwright MCP server (`mcp__playwright__browser_*`) used instead of npm dep. Confirmed available. #6 Render pipeline section rewritten in proposal.md. No new package install needed; users configure the MCP server one-time. |
-| A3 ADR numbering | RESOLVED | #6 proposal.md updated to cite ADR 0018-0021 (filed) instead of placeholder 0004-0007. Body text references corrected. |
-| A4 Tabs trigger/panel constraint | DEFERRED to Phase 1 | Runner responsibility for v1; revisit only if more compound components need similar pairing. |
-| A5 BenchmarkScore.overall aggregation | DEFERRED to Phase 1 | Spike recommendation: equal-weight mean + min for confidence. Required for SC #34. To be locked at Phase 1 first task. |
-| A6 Catalog data home | RESOLVED | Both File-layout corrections place catalogs at `agents/skills/shared/design-knowledge/{anatomy-conventions,craft-rubrics,craft-patterns,craft-exemplars}/`. |
-| Duplicate ADR numbers (0003-0007) | DOCUMENTED | ADR 0022 filed documenting the renumbering plan (second-of-pair → 0023-0027). Execution is a separate follow-up PR. |
+| Amendment                             | Status              | Resolution                                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1 Skill source location              | RESOLVED            | Both proposal.md files have corrected File-layout sections (commit `<this PR>`). Skill markdown is at `agents/skills/claude-code/`; impl modules go in `packages/{audit,design-craft}/` (new packages, decided in Phase 1 first task); catalogs at `agents/skills/shared/design-knowledge/`. |
+| A2 Visual pipeline                    | RESOLVED            | playwright MCP server (`mcp__playwright__browser_*`) used instead of npm dep. Confirmed available. #6 Render pipeline section rewritten in proposal.md. No new package install needed; users configure the MCP server one-time.                                                              |
+| A3 ADR numbering                      | RESOLVED            | #6 proposal.md updated to cite ADR 0018-0021 (filed) instead of placeholder 0004-0007. Body text references corrected.                                                                                                                                                                       |
+| A4 Tabs trigger/panel constraint      | DEFERRED to Phase 1 | Runner responsibility for v1; revisit only if more compound components need similar pairing.                                                                                                                                                                                                 |
+| A5 BenchmarkScore.overall aggregation | DEFERRED to Phase 1 | Spike recommendation: equal-weight mean + min for confidence. Required for SC #34. To be locked at Phase 1 first task.                                                                                                                                                                       |
+| A6 Catalog data home                  | RESOLVED            | Both File-layout corrections place catalogs at `agents/skills/shared/design-knowledge/{anatomy-conventions,craft-rubrics,craft-patterns,craft-exemplars}/`.                                                                                                                                  |
+| Duplicate ADR numbers (0003-0007)     | DOCUMENTED          | ADR 0022 filed documenting the renumbering plan (second-of-pair → 0023-0027). Execution is a separate follow-up PR.                                                                                                                                                                          |
 
 ---
 
@@ -45,6 +45,7 @@
 **Reality:** This repo does **not** have playwright installed (`which playwright` → not found; no playwright packages in `node_modules`). Vision-capable LLM via `@anthropic-ai/sdk` is available, but the render step is blocking.
 
 **Two paths from the spec:**
+
 - Spec's documented fallback: downgrade Q3 to A (code-only), drop deep mode from v1. Documented in the spec's Phase 4 stop condition.
 - Alternative: add `playwright` as a dev dependency under the skill (or peer-dep with install detection). ~1 day of work to set up render pipeline.
 
@@ -75,6 +76,7 @@
 **Phase 0 spike found:** spec says "weighted aggregate" without naming the weights, and `overall.confidence` aggregation is unspecified.
 
 **Recommended action:** Phase 1 must pick concrete rules. Spike review proposed:
+
 - `overall.score`: equal-weight mean of the 5 radar dimensions, with config override (`design.craft.benchmark.weights: { philosophicalCoherence: 1, hierarchy: 1, ... }`).
 - `overall.confidence`: `min` of the 5 per-dimension confidences (conservative).
 
@@ -89,6 +91,7 @@ These rules are required for success criterion #34 (fixpoint detection across ru
 **Reality:** Existing shared catalogs (industry profiles, palettes, typography pairings, anti-patterns) live at `agents/skills/shared/design-knowledge/`. New catalogs should plausibly follow that convention so other skills can consume them.
 
 **Recommended action:** locate the new catalogs at:
+
 - `agents/skills/shared/design-knowledge/anatomy-conventions/` (sub-project #2)
 - `agents/skills/shared/design-knowledge/craft-rubrics/`, `craft-patterns/`, `craft-exemplars/` (sub-project #6)
 

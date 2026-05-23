@@ -21,43 +21,43 @@ a6a66704 exec(design-pipeline): complete Phase 0 schema spikes for #2 and #6
 
 ### Sub-project #2 — audit-component-anatomy (FLOOR)
 
-| Artifact | Path | Status |
-|---|---|---|
-| Spec | `docs/changes/design-pipeline/audit-component-anatomy/proposal.md` | approved + heading-reshaped |
-| Skill recommendations | `.../SKILLS.md` | written by skill advisor |
-| Plan | `.../plans/2026-05-23-audit-component-anatomy-plan.md` | 71 tasks, 5 checkpoints |
-| Skill scaffolding | `agents/skills/claude-code/audit-component-anatomy/{SKILL.md,skill.yaml}` | status: draft |
-| Phase 0 spike | `.../phase-0-schema-spike/{conventions,patterns,review.md}` | 6 paper artifacts; schemas locked |
-| Finding codes ref | `.../finding-codes.md` | 12 defined + ~286 reserved |
-| Roadmap entry | `docs/roadmap.md #355` | status: in-progress; spec + plan attached |
+| Artifact              | Path                                                                      | Status                                    |
+| --------------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
+| Spec                  | `docs/changes/design-pipeline/audit-component-anatomy/proposal.md`        | approved + heading-reshaped               |
+| Skill recommendations | `.../SKILLS.md`                                                           | written by skill advisor                  |
+| Plan                  | `.../plans/2026-05-23-audit-component-anatomy-plan.md`                    | 71 tasks, 5 checkpoints                   |
+| Skill scaffolding     | `agents/skills/claude-code/audit-component-anatomy/{SKILL.md,skill.yaml}` | status: draft                             |
+| Phase 0 spike         | `.../phase-0-schema-spike/{conventions,patterns,review.md}`               | 6 paper artifacts; schemas locked         |
+| Finding codes ref     | `.../finding-codes.md`                                                    | 12 defined + ~286 reserved                |
+| Roadmap entry         | `docs/roadmap.md #355`                                                    | status: in-progress; spec + plan attached |
 
 ### Sub-project #6 — design-craft-elevator (CEILING)
 
-| Artifact | Path | Status |
-|---|---|---|
-| Spec | `docs/changes/design-pipeline/design-craft-elevator/proposal.md` | approved + heading-reshaped |
-| Skill recommendations | `.../SKILLS.md` | written by skill advisor |
-| Plan | `.../plans/2026-05-23-design-craft-elevator-plan.md` | 74 tasks, 8 checkpoints |
-| Skill scaffolding | `agents/skills/claude-code/harness-design-craft/{SKILL.md,skill.yaml}` | status: draft |
-| Phase 0 spike | `.../phase-0-schema-spike/{rubrics,patterns,exemplars,benchmark-specimens,review.md}` | 11 paper artifacts; schemas locked |
-| Finding codes ref | `.../finding-codes.md` | 9 defined + ~292 reserved |
-| Contribution guide | `.../contribution.md` | spec/policy doc |
-| Growth trajectory | `.../growth-trajectory.md` | long-term catalog model |
-| Roadmap entry | `docs/roadmap.md #6` | status: in-progress; spec + plan attached |
+| Artifact              | Path                                                                                  | Status                                    |
+| --------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Spec                  | `docs/changes/design-pipeline/design-craft-elevator/proposal.md`                      | approved + heading-reshaped               |
+| Skill recommendations | `.../SKILLS.md`                                                                       | written by skill advisor                  |
+| Plan                  | `.../plans/2026-05-23-design-craft-elevator-plan.md`                                  | 74 tasks, 8 checkpoints                   |
+| Skill scaffolding     | `agents/skills/claude-code/harness-design-craft/{SKILL.md,skill.yaml}`                | status: draft                             |
+| Phase 0 spike         | `.../phase-0-schema-spike/{rubrics,patterns,exemplars,benchmark-specimens,review.md}` | 11 paper artifacts; schemas locked        |
+| Finding codes ref     | `.../finding-codes.md`                                                                | 9 defined + ~292 reserved                 |
+| Contribution guide    | `.../contribution.md`                                                                 | spec/policy doc                           |
+| Growth trajectory     | `.../growth-trajectory.md`                                                            | long-term catalog model                   |
+| Roadmap entry         | `docs/roadmap.md #6`                                                                  | status: in-progress; spec + plan attached |
 
 ### Cross-cutting
 
-| Artifact | Path | Note |
-|---|---|---|
-| Initiative README (prior art) | `docs/changes/design-pipeline/REFERENCES.md` | 60 entries unchanged |
-| Architecture amendments | `docs/changes/design-pipeline/AMENDMENTS.md` | discovered issues for spec amendment |
-| ADR 0018 | `docs/knowledge/decisions/0018-llm-judgment-skill-pattern.md` | new pattern |
-| ADR 0019 | `.../0019-3-axis-craft-output-model.md` | new pattern |
-| ADR 0020 | `.../0020-living-catalog-h-pattern.md` | new pattern |
-| ADR 0021 | `.../0021-detect-and-offer-b-prime-pattern.md` | new pattern |
-| Initiative parent #316 | `docs/roadmap.md` | reframed two-layer (floor + ceiling); blockers updated to include #6 |
-| #0 brand-guidelines decision | `docs/roadmap.md` | filed and assigned (still no ADR drafted) |
-| Learnings | `.harness/learnings.md` | new entry: autopilot constraint + skill location convention + visual pipeline non-availability |
+| Artifact                      | Path                                                          | Note                                                                                           |
+| ----------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Initiative README (prior art) | `docs/changes/design-pipeline/REFERENCES.md`                  | 60 entries unchanged                                                                           |
+| Architecture amendments       | `docs/changes/design-pipeline/AMENDMENTS.md`                  | discovered issues for spec amendment                                                           |
+| ADR 0018                      | `docs/knowledge/decisions/0018-llm-judgment-skill-pattern.md` | new pattern                                                                                    |
+| ADR 0019                      | `.../0019-3-axis-craft-output-model.md`                       | new pattern                                                                                    |
+| ADR 0020                      | `.../0020-living-catalog-h-pattern.md`                        | new pattern                                                                                    |
+| ADR 0021                      | `.../0021-detect-and-offer-b-prime-pattern.md`                | new pattern                                                                                    |
+| Initiative parent #316        | `docs/roadmap.md`                                             | reframed two-layer (floor + ceiling); blockers updated to include #6                           |
+| #0 brand-guidelines decision  | `docs/roadmap.md`                                             | filed and assigned (still no ADR drafted)                                                      |
+| Learnings                     | `.harness/learnings.md`                                       | new entry: autopilot constraint + skill location convention + visual pipeline non-availability |
 
 ## Decisions waiting for you (read `AMENDMENTS.md` for full detail)
 
@@ -73,12 +73,12 @@ a6a66704 exec(design-pipeline): complete Phase 0 schema spikes for #2 and #6
 
 5. ~~**Pre-existing ADR duplicate numbers (0003-0007 range).**~~ ✓ DOCUMENTED — ADR 0022 filed with renumbering plan (second-of-pair → 0023-0027). Execution is a separate follow-up PR (file moves + reference updates).
 
-~~**New remaining decision**~~ ✓ RESOLVED:
-6. ~~**`packages/audit/` and `packages/design-craft/` as new packages, or co-locate under `packages/cli/src/`?**~~ **Decided: co-locate under `packages/cli/src/audit/component-anatomy/` and `packages/cli/src/design-craft/`.** Rationale: only consumer is the CLI's MCP tool surface; precedent set by packages/cli/src/skill/ (148 KB substantial subsystem hosted inside CLI without packaging); new-package overhead (tsconfig, build pipeline, release config, dep wiring) not justified for a CLI-MCP-driven concern; extraction to a separate package later is straightforward if multi-consumer use emerges. Both spec File-layout sections updated to reflect this as the primary path (no "alternative" escape-hatch language remaining).
+~~**New remaining decision**~~ ✓ RESOLVED: 6. ~~**`packages/audit/` and `packages/design-craft/` as new packages, or co-locate under `packages/cli/src/`?**~~ **Decided: co-locate under `packages/cli/src/audit/component-anatomy/` and `packages/cli/src/design-craft/`.** Rationale: only consumer is the CLI's MCP tool surface; precedent set by packages/cli/src/skill/ (148 KB substantial subsystem hosted inside CLI without packaging); new-package overhead (tsconfig, build pipeline, release config, dep wiring) not justified for a CLI-MCP-driven concern; extraction to a separate package later is straightforward if multi-consumer use emerges. Both spec File-layout sections updated to reflect this as the primary path (no "alternative" escape-hatch language remaining).
 
 **All amendments resolved. No remaining architectural decisions before Phase 1 implementation work begins.**
 
 Two narrow Phase-1-first-task spike items remain (per A4 + A5 in AMENDMENTS):
+
 - Lock `BenchmarkScore.overall` aggregation rule (equal-weight mean + min for confidence per spike recommendation)
 - Decide where to encode the Tabs trigger/panel pairing invariant (runner responsibility per spike recommendation)
 

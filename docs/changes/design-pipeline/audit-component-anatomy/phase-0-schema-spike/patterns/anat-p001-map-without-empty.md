@@ -10,7 +10,7 @@ Detect call sites where a data list is rendered via `array.map(item => <JSX/>)` 
 - `{items.length > 0 && items.map(...)}` paired with an `else` branch rendering an empty affordance
 - An early return `if (!items.length) return <EmptyState/>`
 
-When *none* of the above wraps the `.map(...)` call, the audit emits an `ANAT-P001` finding pointing to the unguarded map.
+When _none_ of the above wraps the `.map(...)` call, the audit emits an `ANAT-P001` finding pointing to the unguarded map.
 
 This is the blue-ocean example pattern: no published lint rule produces this finding class (REFERENCES.md gap #4).
 
@@ -20,8 +20,8 @@ This is the blue-ocean example pattern: no published lint rule produces this fin
 code: ANAT-P001
 severityDefault: warn
 source:
-  ref: "design-component-anatomy/empty-states"
-  url: "https://harness.dev/knowledge/design/empty-states"  # internal knowledge skill
+  ref: 'design-component-anatomy/empty-states'
+  url: 'https://harness.dev/knowledge/design/empty-states' # internal knowledge skill
 
 treeSitterQuery: |
   (call_expression
@@ -83,7 +83,9 @@ fixHint: |
 function Inbox({ messages }: { messages: Message[] }) {
   return (
     <ul>
-      {messages.map(m => <li key={m.id}>{m.subject}</li>)}
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
     </ul>
   );
 }
@@ -93,9 +95,15 @@ function Inbox({ messages }: { messages: Message[] }) {
 
 ```tsx
 function Inbox({ messages }: { messages: Message[] }) {
-  return messages.length === 0
-    ? <EmptyState title="Inbox zero" />
-    : <ul>{messages.map(m => <li key={m.id}>{m.subject}</li>)}</ul>;
+  return messages.length === 0 ? (
+    <EmptyState title="Inbox zero" />
+  ) : (
+    <ul>
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
+    </ul>
+  );
 }
 ```
 
@@ -104,7 +112,13 @@ function Inbox({ messages }: { messages: Message[] }) {
 ```tsx
 function Inbox({ messages }: { messages: Message[] }) {
   if (!messages.length) return <EmptyState title="Inbox zero" />;
-  return <ul>{messages.map(m => <li key={m.id}>{m.subject}</li>)}</ul>;
+  return (
+    <ul>
+      {messages.map((m) => (
+        <li key={m.id}>{m.subject}</li>
+      ))}
+    </ul>
+  );
 }
 ```
 

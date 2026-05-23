@@ -104,12 +104,12 @@ These map 1-to-1 onto the spec's `## Success Criteria` (numbers in parens).
 
 Loaded from `docs/changes/design-pipeline/design-craft-elevator/SKILLS.md` (reference tier only; advisor recorded 0 keyword matches — these are stack-level, not feature-specific). Tasks below are annotated only where the match is meaningfully load-bearing (TypeScript type design, chain-of-responsibility for the phase orchestrator, LLM-mock testing).
 
-| Skill | Use |
-|-------|-----|
-| `ts-zod-integration` | Reference during schema tasks (5, 6, 16, 26) |
-| `gof-chain-of-responsibility` | Reference for the phase orchestrator (Task 8) |
-| `ts-template-literal-types` | Reference for `CRAFT-C###` code typing (Task 5) |
-| `ts-testing-types` | Reference for LLM-mock typing (Tasks 11, 65) |
+| Skill                         | Use                                             |
+| ----------------------------- | ----------------------------------------------- |
+| `ts-zod-integration`          | Reference during schema tasks (5, 6, 16, 26)    |
+| `gof-chain-of-responsibility` | Reference for the phase orchestrator (Task 8)   |
+| `ts-template-literal-types`   | Reference for `CRAFT-C###` code typing (Task 5) |
+| `ts-testing-types`            | Reference for LLM-mock typing (Tasks 11, 65)    |
 
 No `apply`-tier skills returned. (Reference-only annotations omitted from per-task headers to keep the plan readable.)
 
@@ -221,16 +221,16 @@ No `apply`-tier skills returned. (Reference-only annotations omitted from per-ta
 
 Standard rigor + 74 tasks → skeleton produced for direction check before full expansion. **Note:** Per harness-planning Phase 2 guidance, the skeleton was produced and is presented inline here; APPROVE_PLAN at the autopilot boundary doubles as the skeleton-approval checkpoint.
 
-| Phase | Group | Tasks | Time |
-|-------|-------|-------|------|
-| 0 | Schema spike (3-axis, 5-dim radar, catalog entry; specimen authoring; review) | 1–6 | ~1 day |
-| 1A | Engineering vertical slice (LLM provider, schemas in code, 1×1×1 wiring, CRITIQUE end-to-end, MCP entry, SKILL.md, visual spike) | 7–24 | ~5 days |
-| 1B | Curation half-seed (5 rubrics, 5 patterns, 25 exemplars, contribution validator, doc drafts) | 25–37 | ~2 days |
-| 2A | Visual productionization + remaining phase impls + B' resolver + DesignConstraintAdapter + autoCapture | 38–47 | ~4 days |
-| 2B | Full catalog completion + peer review | 48–55 | ~3 days |
-| 3 | Convergence: signal loop, measurement, dashboard, config schema, deferral wiring, matrix integration tests | 56–66 | ~5 days |
-| 4 | Polish: ADRs (4), knowledge entries (4), docs finalisation, perf baselines, LLM-mock CI infra, sign-off | 67–74 | ~5 days |
-| **Total** | | **74** | **~25 days wall-time** |
+| Phase     | Group                                                                                                                            | Tasks  | Time                   |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------- |
+| 0         | Schema spike (3-axis, 5-dim radar, catalog entry; specimen authoring; review)                                                    | 1–6    | ~1 day                 |
+| 1A        | Engineering vertical slice (LLM provider, schemas in code, 1×1×1 wiring, CRITIQUE end-to-end, MCP entry, SKILL.md, visual spike) | 7–24   | ~5 days                |
+| 1B        | Curation half-seed (5 rubrics, 5 patterns, 25 exemplars, contribution validator, doc drafts)                                     | 25–37  | ~2 days                |
+| 2A        | Visual productionization + remaining phase impls + B' resolver + DesignConstraintAdapter + autoCapture                           | 38–47  | ~4 days                |
+| 2B        | Full catalog completion + peer review                                                                                            | 48–55  | ~3 days                |
+| 3         | Convergence: signal loop, measurement, dashboard, config schema, deferral wiring, matrix integration tests                       | 56–66  | ~5 days                |
+| 4         | Polish: ADRs (4), knowledge entries (4), docs finalisation, perf baselines, LLM-mock CI infra, sign-off                          | 67–74  | ~5 days                |
+| **Total** |                                                                                                                                  | **74** | **~25 days wall-time** |
 
 **Streams A and B (Phases 1 and 2) are presented serially per DIRECTION #4** — autopilot expects serial phases. Stream-related tasks are grouped contiguously to preserve mental model.
 
@@ -710,7 +710,7 @@ Standard rigor + 74 tasks → skeleton produced for direction check before full 
 4. Run: `harness validate`.
 5. Commit: `feat(design-craft): wire B' precondition check into orchestrator output`.
 
-#### Task 45: DesignConstraintAdapter extension for CRAFT-* codes (TDD, covers success criterion #20)
+#### Task 45: DesignConstraintAdapter extension for CRAFT-\* codes (TDD, covers success criterion #20)
 
 **Depends on:** Task 44 | **Files:** `packages/cli/src/skills/harness-design-craft/src/integrations/design-constraint-adapter.ts`, `packages/cli/src/skills/harness-design-craft/tests/integrations/adapter.test.ts`, **MODIFY** existing DesignConstraintAdapter location (discover via `grep -rn "DesignConstraintAdapter" packages 2>/dev/null | head`)
 
@@ -1023,21 +1023,21 @@ Standard rigor + 74 tasks → skeleton produced for direction check before full 
 
 Per the spec's `Integration Points` section, integration items are derived inline within the appropriate phase rather than batched at the end (because most integration items are wiring necessary for tests to pass). Mapping:
 
-| Integration Point | Derived in Task(s) |
-|-------------------|--------------------|
-| Skill scaffolding | 13, 22 |
-| MCP tool registry | 19 |
-| Skill index regeneration | 22, 74 |
-| Config schema validation | 60 |
-| DesignConstraintAdapter | 45 |
-| Skill barrel | 22 |
-| Intelligence provider vision support | 7, 10 |
-| Playwright vendoring | 7 |
-| Dashboard route | 59 |
-| AGENTS.md / designer-quickstart / REFERENCES | 72 |
+| Integration Point                                         | Derived in Task(s) |
+| --------------------------------------------------------- | ------------------ |
+| Skill scaffolding                                         | 13, 22             |
+| MCP tool registry                                         | 19                 |
+| Skill index regeneration                                  | 22, 74             |
+| Config schema validation                                  | 60                 |
+| DesignConstraintAdapter                                   | 45                 |
+| Skill barrel                                              | 22                 |
+| Intelligence provider vision support                      | 7, 10              |
+| Playwright vendoring                                      | 7                  |
+| Dashboard route                                           | 59                 |
+| AGENTS.md / designer-quickstart / REFERENCES              | 72                 |
 | finding-codes.md / contribution.md / growth-trajectory.md | 21, 26, 36, 37, 54 |
-| ADRs 0018–0021 | 67–70 |
-| Knowledge entries | 71 |
+| ADRs 0018–0021                                            | 67–70              |
+| Knowledge entries                                         | 71                 |
 
 Task 74 acts as the integration sign-off.
 

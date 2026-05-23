@@ -33,8 +33,8 @@ error/warn/info vocabulary fails in three distinct ways:
 2. **The ladder of importance is two-dimensional, not one.** "Three
    buttons all the same weight" (hierarchy collapse) and "the loading
    spinner could use spring physics" are both legitimate findings, but
-   they sit at different *tiers* of craft (foundational vs polish vs
-   aspirational) AND have different *impact* (large vs small).
+   they sit at different _tiers_ of craft (foundational vs polish vs
+   aspirational) AND have different _impact_ (large vs small).
    Collapsing both axes into a single severity loses information that
    the reviewer needs to prioritize.
 3. **LLM confidence is real and must be visible.** A 95%-confident
@@ -118,7 +118,7 @@ sit?
 The blast radius of the finding. How much does fixing it move the
 needle?
 
-- **`large`** — addressing this finding changes how the design *reads*
+- **`large`** — addressing this finding changes how the design _reads_
   at a glance. The hierarchy problem that makes a page feel chaotic;
   the motion problem that makes interactions feel cheap; the typography
   problem that makes copy hard to scan. Reviewers should batch large-
@@ -178,18 +178,22 @@ that 3-axis per-finding outputs cannot.
 
 The five dimensions are:
 
-| Dimension | Captures |
-|-----------|----------|
-| `philosophicalCoherence` | Does the design hang together as a unified statement? Is there a discernible point of view? Does every element reinforce the same aesthetic intent? |
-| `hierarchy` | Visual hierarchy clarity. Primary vs secondary vs tertiary distinctions. No element competes for attention with another at the same level. |
-| `craftExecution` | Polish, refinement, attention to detail. Typography, spacing, motion, color — all executed at competent-to-stunning standard. |
-| `function` | Does it work for the user? Is the design serving the task or fighting it? Is the IA legible, the affordances discoverable, the interactions efficient? |
-| `innovation` | Does the design contribute something distinctive? Is there a signature move, a memorable detail, an unexpected delight? Or is it competently generic? |
+| Dimension                | Captures                                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `philosophicalCoherence` | Does the design hang together as a unified statement? Is there a discernible point of view? Does every element reinforce the same aesthetic intent?    |
+| `hierarchy`              | Visual hierarchy clarity. Primary vs secondary vs tertiary distinctions. No element competes for attention with another at the same level.             |
+| `craftExecution`         | Polish, refinement, attention to detail. Typography, spacing, motion, color — all executed at competent-to-stunning standard.                          |
+| `function`               | Does it work for the user? Is the design serving the task or fighting it? Is the IA legible, the affordances discoverable, the interactions efficient? |
+| `innovation`             | Does the design contribute something distinctive? Is there a signature move, a memorable detail, an unexpected delight? Or is it competently generic?  |
 
 Each dimension carries:
 
 ```ts
-{ score: number /* 0-100 */; confidence: Confidence; notes: string }
+{
+  score: number /* 0-100 */;
+  confidence: Confidence;
+  notes: string;
+}
 ```
 
 The skill emits an `overall: { score, confidence }` aggregated from
@@ -265,7 +269,7 @@ also expose the underlying 3-axis triple for human review.
 - Skills outside the craft domain that adopt the 3-axis vocabulary
   inherit the `tier: foundational | polish | aspirational` naming
   even when domain-natural terms (e.g. `required | recommended |
-  optional` for accessibility) might fit better. Skills MAY rename
+optional` for accessibility) might fit better. Skills MAY rename
   the tier values via a documented alias as long as the underlying
   three-level shape is preserved.
 
@@ -293,7 +297,7 @@ also expose the underlying 3-axis triple for human review.
 ## References
 
 - First instance: `docs/changes/design-pipeline/design-craft-elevator/
-  proposal.md` §"Data structures" — CraftFinding + BenchmarkScore
+proposal.md` §"Data structures" — CraftFinding + BenchmarkScore
   schemas.
 - Parent pattern: `0018-llm-judgment-skill-pattern.md` (confidence-as-
   first-class is required by §1).
@@ -312,5 +316,5 @@ also expose the underlying 3-axis triple for human review.
     eslint-plugin-design-system) — multi-field rule schema that
     validated "more than one axis" intuition.
 - Phase-0 schema spike: `docs/changes/design-pipeline/design-craft-
-  elevator/phase-0-schema-spike/` — fixture rubrics, patterns,
+elevator/phase-0-schema-spike/` — fixture rubrics, patterns,
   exemplars authored against this schema.

@@ -9,26 +9,26 @@
 > ambiguity? Is any field over-constrained for future entries? Is any
 > field under-constrained (allows incoherent data)?
 >
-> **Decision rule per Phase 0 exit criterion:** if any *blocking*
+> **Decision rule per Phase 0 exit criterion:** if any _blocking_
 > ambiguity surfaces, Phase 0 stops and the schemas are revised before
-> Phase 1A begins. *Non-blocking* observations are recorded as
+> Phase 1A begins. _Non-blocking_ observations are recorded as
 > Phase 1 follow-ups.
 
 ---
 
 ## Summary
 
-| Artifact | Schema | Accepted? | Blocking issue? |
-|---|---|---|---|
-| `rubrics/hierarchy-clarity.md` | rubric | Yes | No |
-| `rubrics/typography-craft.md` | rubric | Yes | No |
-| `rubrics/motion-quality.md` | rubric | Yes | No |
-| `patterns/spring-physics-microinteraction.md` | pattern | Yes | No |
-| `patterns/skeleton-content-matched.md` | pattern | Yes | No |
-| `patterns/stagger-timing.md` | pattern | Yes | No |
-| `exemplars/linear-empty-list.md` | exemplar | Yes (with caveat) | No (Observation O3) |
-| `exemplars/stripe-loading-state.md` | exemplar | Yes | No |
-| `exemplars/raycast-command-palette.md` | exemplar | Yes (with caveat) | No (Observation O4) |
+| Artifact                                       | Schema         | Accepted?          | Blocking issue?         |
+| ---------------------------------------------- | -------------- | ------------------ | ----------------------- |
+| `rubrics/hierarchy-clarity.md`                 | rubric         | Yes                | No                      |
+| `rubrics/typography-craft.md`                  | rubric         | Yes                | No                      |
+| `rubrics/motion-quality.md`                    | rubric         | Yes                | No                      |
+| `patterns/spring-physics-microinteraction.md`  | pattern        | Yes                | No                      |
+| `patterns/skeleton-content-matched.md`         | pattern        | Yes                | No                      |
+| `patterns/stagger-timing.md`                   | pattern        | Yes                | No                      |
+| `exemplars/linear-empty-list.md`               | exemplar       | Yes (with caveat)  | No (Observation O3)     |
+| `exemplars/stripe-loading-state.md`            | exemplar       | Yes                | No                      |
+| `exemplars/raycast-command-palette.md`         | exemplar       | Yes (with caveat)  | No (Observation O4)     |
 | `benchmark-specimens/empty-state-vs-linear.md` | BenchmarkScore | Yes (with caveats) | No (Observations O5–O8) |
 
 **Verdict:** All 10 artifacts are accepted by the proposed schemas

@@ -40,11 +40,11 @@ document is the operational plan for how growth actually happens.
 
 ### v1 (week 4) — The H seed
 
-| Type      | Count | Composition |
-|-----------|-------|-------------|
+| Type      | Count | Composition                                                                                                                                                      |
+| --------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Rubrics   | 10    | hierarchy clarity, typography craft, motion quality, color confidence, density rhythm, restraint, polish details, copy voice, interaction craft, brand coherence |
-| Patterns  | 15    | 3 motion, 3 skeleton, 3 typography, 3 interaction, 3 layout |
-| Exemplars | 50    | 5 component types × 10 exemplars (EmptyState, LoadingState, ErrorState, Modal, Button) |
+| Patterns  | 15    | 3 motion, 3 skeleton, 3 typography, 3 interaction, 3 layout                                                                                                      |
+| Exemplars | 50    | 5 component types × 10 exemplars (EmptyState, LoadingState, ErrorState, Modal, Button)                                                                           |
 
 These are the v1 ship targets per the [proposal Success
 Criteria][proposal-success]. Sized so that:
@@ -58,11 +58,11 @@ Criteria][proposal-success]. Sized so that:
 
 ### 6 months — Signal-driven expansion
 
-| Type      | Count | Growth pattern |
-|-----------|-------|----------------|
+| Type      | Count | Growth pattern                                                                                                                                                                                                                                              |
+| --------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Rubrics   | ~15   | +5 from operational gaps (e.g. "form layout craft" surfaces as a recurring gap in audits) and from cross-domain extension (e.g. brand-voice-leaning rubric added when audit-brand-compliance #3 ships and the surface area suggests sharing infrastructure) |
-| Patterns  | ~35   | +20 dominated by signal-driven additions: CRITIQUE finding-shapes recurring N≥5 times are exported as candidate patterns and triaged into PRs |
-| Exemplars | ~150  | +100 dominated by community PRs; coverage extends to new component types (Form, Table, Toast, Toolbar) as exemplars are contributed |
+| Patterns  | ~35   | +20 dominated by signal-driven additions: CRITIQUE finding-shapes recurring N≥5 times are exported as candidate patterns and triaged into PRs                                                                                                               |
+| Exemplars | ~150  | +100 dominated by community PRs; coverage extends to new component types (Form, Table, Toast, Toolbar) as exemplars are contributed                                                                                                                         |
 
 The 6-month profile is where the signal feedback loop and community
 contribution lane start to dominate over hand-authored seed
@@ -71,11 +71,11 @@ triage rather than first-draft authoring.
 
 ### 12–24 months — Mature corpus
 
-| Type      | Count | Growth pattern |
-|-----------|-------|----------------|
-| Rubrics   | ~20   | Plateau. The named craft dimensions stabilize; further additions require evidence of a distinct dimension not covered by existing rubrics. Net adds = ~5 over 12 months. |
+| Type      | Count | Growth pattern                                                                                                                                                                                          |
+| --------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rubrics   | ~20   | Plateau. The named craft dimensions stabilize; further additions require evidence of a distinct dimension not covered by existing rubrics. Net adds = ~5 over 12 months.                                |
 | Patterns  | ~75   | Continuing growth from signal + community. Net adds = ~40 over 12 months. Some early patterns deprecated in favor of refinements (e.g. spring-physics-v2 replacing spring-physics as research evolves). |
-| Exemplars | ~400  | Continuing growth from community contribution + per-component-type expansion. Net adds = ~250 over 12 months as exemplar coverage spans most common UI components. |
+| Exemplars | ~400  | Continuing growth from community contribution + per-component-type expansion. Net adds = ~250 over 12 months as exemplar coverage spans most common UI components.                                      |
 
 The 24-month projection (rubrics 20, patterns 75, exemplars 400)
 is the design target for the H pattern's success. Reaching it
@@ -155,11 +155,11 @@ The aggregator maintains a counter per signature:
 
 ```ts
 type SignatureCounter = {
-  signature: string;              // serialized (rubricId, targetPatternKey, tier)
+  signature: string; // serialized (rubricId, targetPatternKey, tier)
   count: number;
-  firstSeen: string;              // ISO date
-  lastSeen: string;               // ISO date
-  contributingRuns: string[];     // runIds, capped at 100 for storage
+  firstSeen: string; // ISO date
+  lastSeen: string; // ISO date
+  contributingRuns: string[]; // runIds, capped at 100 for storage
   contributingProjects: string[]; // anonymized project keys
 };
 ```
@@ -233,14 +233,14 @@ harness-design-craft/measurement/usage.ts` (Sprint 3 deliverable).
 
 ### Counters
 
-| Type      | Counter name           | Increment trigger |
-|-----------|------------------------|-------------------|
-| Rubric    | `triggerCount`         | Incremented each time a CRITIQUE phase invokes the rubric and the rubric produces ≥1 finding. |
-| Rubric    | `invocationCount`      | Incremented each time CRITIQUE invokes the rubric (regardless of whether findings result). |
-| Pattern   | `applyCount`           | Incremented each time a POLISH finding cites the pattern. |
-| Pattern   | `applicabilityCount`   | Incremented each time the pattern's deterministic match-shape fires (regardless of whether the LLM ultimately produces a suggestion). |
-| Exemplar  | `citeCount`            | Incremented each time a BENCHMARK score cites the exemplar (the existing `citationCount` field on the exemplar YAML). |
-| Exemplar  | `comparisonCount`      | Incremented each time the exemplar is loaded into a BENCHMARK comparison set (regardless of whether it's cited in the final output). |
+| Type     | Counter name         | Increment trigger                                                                                                                     |
+| -------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Rubric   | `triggerCount`       | Incremented each time a CRITIQUE phase invokes the rubric and the rubric produces ≥1 finding.                                         |
+| Rubric   | `invocationCount`    | Incremented each time CRITIQUE invokes the rubric (regardless of whether findings result).                                            |
+| Pattern  | `applyCount`         | Incremented each time a POLISH finding cites the pattern.                                                                             |
+| Pattern  | `applicabilityCount` | Incremented each time the pattern's deterministic match-shape fires (regardless of whether the LLM ultimately produces a suggestion). |
+| Exemplar | `citeCount`          | Incremented each time a BENCHMARK score cites the exemplar (the existing `citationCount` field on the exemplar YAML).                 |
+| Exemplar | `comparisonCount`    | Incremented each time the exemplar is loaded into a BENCHMARK comparison set (regardless of whether it's cited in the final output).  |
 
 Counters are per-entry, persisted in `.harness/design-craft/
 usage.json` per project. A `getCatalogStats()` export aggregates
@@ -293,14 +293,14 @@ is a future feature, NOT v1.
 This document operationalizes the six required components of the
 [H pattern in ADR-0020][adr-0020]:
 
-| ADR-0020 component | This document's section |
-|--------------------|--------------------------|
-| 1. Curated seed catalog | "v1 (week 4) — The H seed" |
-| 2. Contribution format (schema-validated) | (See [contribution.md](./contribution.md) §"Contribution format" + §"Schema validation requirements") |
-| 3. Review process (documented + enforced) | (See [contribution.md](./contribution.md) §"Review process") |
-| 4. Signal feedback loop (operational → catalog) | "Signal feedback loop mechanics" |
-| 5. Usage measurement | "Measurement schema" |
-| 6. Versioning and deprecation lane | (See [contribution.md](./contribution.md) §"Common header" `status` + `version` fields) |
+| ADR-0020 component                              | This document's section                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1. Curated seed catalog                         | "v1 (week 4) — The H seed"                                                                            |
+| 2. Contribution format (schema-validated)       | (See [contribution.md](./contribution.md) §"Contribution format" + §"Schema validation requirements") |
+| 3. Review process (documented + enforced)       | (See [contribution.md](./contribution.md) §"Review process")                                          |
+| 4. Signal feedback loop (operational → catalog) | "Signal feedback loop mechanics"                                                                      |
+| 5. Usage measurement                            | "Measurement schema"                                                                                  |
+| 6. Versioning and deprecation lane              | (See [contribution.md](./contribution.md) §"Common header" `status` + `version` fields)               |
 
 The two documents (this one and `contribution.md`) together form
 the complete H-pattern instantiation for `harness-design-craft`.
@@ -323,7 +323,7 @@ deliverables.
   sufficient seed data, an LLM could propose draft rubrics from
   recurring CRITIQUE prose. v1 keeps drafting human; v3+ may
   introduce assisted drafting with explicit `provenance: llm-
-  drafted` markers.
+drafted` markers.
 - **Versioned catalog releases.** Currently the catalog is a
   rolling head. Tagged releases (`catalog@2026-12`) would let
   projects pin against a known catalog version for reproducibility.

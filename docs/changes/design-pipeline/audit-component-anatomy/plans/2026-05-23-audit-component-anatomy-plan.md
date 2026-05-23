@@ -120,7 +120,7 @@ MCP tool:
 Config schema:
 
 - MODIFY `packages/cli/src/config/schema.ts` (add `design.audit.componentAnatomy` block)
-- MODIFY `packages/cli/tests/config/schema.test.ts` *(or create `schema.componentAnatomy.test.ts` if no general schema test exists — task verifies before deciding)*
+- MODIFY `packages/cli/tests/config/schema.test.ts` _(or create `schema.componentAnatomy.test.ts` if no general schema test exists — task verifies before deciding)_
 
 Validate integration:
 
@@ -170,12 +170,12 @@ Skill index regeneration:
 - CREATE `docs/knowledge/decisions/0019-anatomy-finding-code-namespace.md`
 - CREATE `docs/knowledge/decisions/0020-cross-skill-deferral-pattern.md`
 - CREATE `packages/cli/tests/skills/audit-component-anatomy/benchmark.test.ts`
-- CREATE `packages/cli/.harness/benchmark-baselines.json` *(or extend existing)*
+- CREATE `packages/cli/.harness/benchmark-baselines.json` _(or extend existing)_
 - CREATE `packages/cli/src/skills/audit-component-anatomy/tests/quality-corpus/` (50 fixtures: organized as `false-positive-bait/*.tsx` and `true-positive/*.tsx`)
 - CREATE `packages/cli/src/skills/audit-component-anatomy/tests/quality-corpus.test.ts` (computes false-positive rate)
 - MODIFY `AGENTS.md`
 - MODIFY `docs/guides/designer-quickstart.md`
-- MODIFY `agents/skills/templates/DESIGN.md` *(or the canonical template — task verifies)*
+- MODIFY `agents/skills/templates/DESIGN.md` _(or the canonical template — task verifies)_
 - MODIFY `docs/changes/design-pipeline/REFERENCES.md` (mark sub-project #2 in-progress → done)
 - MODIFY `docs/changes/design-pipeline/index.md` (update status if present)
 
@@ -324,7 +324,7 @@ Skeleton produced for transparency; total task count (71) is far beyond the stan
 
 1. Create `severity.test.ts` with one `describe` and a table-driven test covering the spec's strictness rules (mirror harness-accessibility behaviour): `strict` ⇒ all findings `error`; `standard` ⇒ default severity preserved (so a finding with `severityDefault: 'warn'` stays `warn`); `permissive` ⇒ `error` downgrades to `warn`, `warn` downgrades to `info`.
 2. Run vitest — observe failure.
-3. Create `severity.ts` exporting `function resolveSeverity(severityDefault: Severity, strictness: DesignStrictness): Severity` implementing the table. Import `DesignStrictness` from `packages/graph/src/constraints/DesignConstraintAdapter.ts` *(or redeclare locally if a cross-package import is forbidden; the source-of-truth is the graph package — verify and pick the lighter coupling)*.
+3. Create `severity.ts` exporting `function resolveSeverity(severityDefault: Severity, strictness: DesignStrictness): Severity` implementing the table. Import `DesignStrictness` from `packages/graph/src/constraints/DesignConstraintAdapter.ts` _(or redeclare locally if a cross-package import is forbidden; the source-of-truth is the graph package — verify and pick the lighter coupling)_.
 4. Run vitest — observe pass.
 5. Run: `harness validate`.
 6. Commit: `feat(audit-anatomy): add design-strictness → severity resolver`.
@@ -658,17 +658,17 @@ The nine pattern tasks all follow the same template; each task description spell
 
 Pattern roster (codes locked here; the Phase 3 finding-codes.md may renumber if desired):
 
-| Task | Code | Slug | Rough description |
-|------|------|------|-------------------|
-| 2.1.1 | ANAT-P002 | fetch-without-loading | Promise / async query rendered without a loading state |
-| 2.1.2 | ANAT-P003 | error-boundary-missing | Subtree containing data fetches without an ErrorBoundary ancestor |
-| 2.1.3 | ANAT-P004 | conditional-render-without-fallback | `{cond ? <X/> : null}` where `<X/>` is user-visible UI |
-| 2.1.4 | ANAT-P005 | form-without-error-summary | Form with validation but no aggregate error region |
-| 2.1.5 | ANAT-P006 | infinite-list-without-end-marker | Virtualized/infinite list without explicit end-of-data indicator |
-| 2.1.6 | ANAT-P007 | modal-without-focus-trap | `<Modal>` mount without focus-trap or `useFocusTrap` usage |
-| 2.1.7 | ANAT-P008 | toast-without-dismiss | `<Toast>` invocation lacking dismissible/autoDismiss configuration |
-| 2.1.8 | ANAT-P009 | navigation-without-current-marker | Nav links rendered without `aria-current` consideration |
-| 2.1.9 | ANAT-P010 | async-action-without-pending-state | `onClick` handler awaiting a promise without disabling/loading the trigger |
+| Task  | Code      | Slug                                | Rough description                                                          |
+| ----- | --------- | ----------------------------------- | -------------------------------------------------------------------------- |
+| 2.1.1 | ANAT-P002 | fetch-without-loading               | Promise / async query rendered without a loading state                     |
+| 2.1.2 | ANAT-P003 | error-boundary-missing              | Subtree containing data fetches without an ErrorBoundary ancestor          |
+| 2.1.3 | ANAT-P004 | conditional-render-without-fallback | `{cond ? <X/> : null}` where `<X/>` is user-visible UI                     |
+| 2.1.4 | ANAT-P005 | form-without-error-summary          | Form with validation but no aggregate error region                         |
+| 2.1.5 | ANAT-P006 | infinite-list-without-end-marker    | Virtualized/infinite list without explicit end-of-data indicator           |
+| 2.1.6 | ANAT-P007 | modal-without-focus-trap            | `<Modal>` mount without focus-trap or `useFocusTrap` usage                 |
+| 2.1.7 | ANAT-P008 | toast-without-dismiss               | `<Toast>` invocation lacking dismissible/autoDismiss configuration         |
+| 2.1.8 | ANAT-P009 | navigation-without-current-marker   | Nav links rendered without `aria-current` consideration                    |
+| 2.1.9 | ANAT-P010 | async-action-without-pending-state  | `onClick` handler awaiting a promise without disabling/loading the trigger |
 
 For each task:
 
@@ -828,7 +828,7 @@ Repeat the template substituting each component name and its anatomy.
 
 #### Task 3.2.4: Update DESIGN.md template (SC-22)
 
-**Depends on:** Task 3.2.3 | **Files:** `agents/skills/templates/DESIGN.md` *(or the canonical template — task discovers it via `find . -name DESIGN.md -path "*/templates/*"`)*
+**Depends on:** Task 3.2.3 | **Files:** `agents/skills/templates/DESIGN.md` _(or the canonical template — task discovers it via `find . -name DESIGN.md -path "_/templates/_"`)_
 
 1. Locate the template via `find`. If multiple candidates, pick the one referenced by `harness init` (`grep -r "DESIGN.md" packages/cli/src/commands/init.ts`).
 2. Add the two optional sections from spec §"DESIGN.md schema additions": `## Component Registry (optional)` and `## Component Anatomy Overrides (optional)` with the exact examples from the spec.
@@ -839,7 +839,7 @@ Repeat the template substituting each component name and its anatomy.
 
 #### Task 3.3.1: File three ADRs (SC-23)
 
-**Depends on:** Task 3.2.4 | **Files:** `docs/knowledge/decisions/0018-hybrid-parser-strategy.md`, `0019-anatomy-finding-code-namespace.md`, `0020-cross-skill-deferral-pattern.md` *(task verifies next free number via `ls docs/knowledge/decisions/ | sort | tail`)*
+**Depends on:** Task 3.2.4 | **Files:** `docs/knowledge/decisions/0018-hybrid-parser-strategy.md`, `0019-anatomy-finding-code-namespace.md`, `0020-cross-skill-deferral-pattern.md` _(task verifies next free number via `ls docs/knowledge/decisions/ | sort | tail`)_
 
 1. Compute the next-free ADR number by listing existing ADRs (currently 0017 is the latest). Reserve 0018/0019/0020 in that order.
 2. ADR-0018 "Hybrid parser strategy (tree-sitter + TS Compiler API)" — context: anatomy audit needs both type-aware definition checks and structural pattern checks; decision: each parser is used where it's strongest; consequences: tree-sitter joins the runtime dep set; alternatives considered: regex-only (rejected — can't express control-flow), AST-only (rejected — too slow for validate fast-mode).
@@ -927,13 +927,13 @@ Repeat the template substituting each component name and its anatomy.
 
 Total: **5 checkpoints**, all `[checkpoint:human-verify]`:
 
-| Task | Purpose |
-|------|---------|
-| 0.3 | Schema-fit review before Phase 1 commits |
-| 1.8.1 | Vertical-slice exit gate |
-| 2.2.6 | Mid-catalog rule-engine sanity check |
+| Task  | Purpose                                               |
+| ----- | ----------------------------------------------------- |
+| 0.3   | Schema-fit review before Phase 1 commits              |
+| 1.8.1 | Vertical-slice exit gate                              |
+| 2.2.6 | Mid-catalog rule-engine sanity check                  |
 | 2.3.1 | Catalog-expansion exit gate + baseline FP measurement |
-| 3.5.1 | Ship gate — full SC walk |
+| 3.5.1 | Ship gate — full SC walk                              |
 
 ## Harness Integration
 

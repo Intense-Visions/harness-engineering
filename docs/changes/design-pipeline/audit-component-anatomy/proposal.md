@@ -39,27 +39,27 @@
 
 Compiled from the brainstorming Q&A. Each row records the question, the chosen option, and a one-line rationale.
 
-| # | Decision | Choice | Rationale |
-|---|----------|--------|-----------|
-| 1 | Source of truth for anatomy rules | **Hybrid stack:** JSDoc `@anatomy` self-declaration → DESIGN.md per-component override → convention library default → silent skip | Day-1 value via conventions; escape hatch via DESIGN.md; per-component author ownership via JSDoc. Mirrors harness-accessibility. |
-| 2 | v1 finding classes | **Definition + pattern-presence** (`ANAT-D*` + `ANAT-P*`). Usage findings deferred to v2. | Pattern-presence is the blue-ocean differentiator (REFERENCES.md gap #4). Skipping usage in v1 avoids a11y overlap noise pre-v2. |
-| 3 | Component-type identification | **Hybrid stack** (mirrors #1): JSDoc `@component-type` tag → DESIGN.md `## Component Registry` → top-level export-name catalog match → silent skip | Consistent mental model with #1. Export-name covers 80%+ of well-organized React codebases; explicit overrides for the long tail. |
-| 4 | Invocation + output surface | **Skill + MCP tool + graph + validate integration** (mirrors harness-accessibility). MCP: `mcp__harness__audit_anatomy`. Graph: VIOLATES edges via `DesignConstraintAdapter`. | Zero new CLI surface; exact precedent already proven; three consumer types (human/CI/agent) all covered without bespoke plumbing. |
-| 5 | Catalog scope (v1) | **Comprehensive: 20 conventions + 10 patterns.** Conventions from APG, Open UI, Radix. Patterns include map-without-empty, fetch-without-loading, error-boundary-missing + 7 more. | "World-class toolset" goal requires comprehensive catalog. v1 ships as the reference (no published competitor at this breadth). |
-| 6 | a11y overlap policy | **i18n-style deferral pattern.** When `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers A11Y-010 and A11Y-050 for components in the anatomy catalog. | Pattern already proven in harness-accessibility's i18n integration (Phase 1 step 2.5). Zero new infrastructure; survives into v2. |
-| 7 | Pattern detection parser | **Hybrid: tree-sitter for pattern findings (structural, fast) + TypeScript Compiler API (AST) for definition findings (type-aware).** Each parser used where it's strongest. | tree-sitter speed needed for validate-time fast-mode; AST type info needed for "Input prop type missing label" definition checks. |
-| 8 | Spec location | **`docs/changes/design-pipeline/audit-component-anatomy/proposal.md`** — nested under the initiative directory alongside REFERENCES.md | Keeps the design-pipeline initiative bundle coherent across all 5 sub-projects. |
-| 9 | Build sequencing | **Vertical slice first (Sprint 1: 5-7d), catalog expansion second (Sprint 2: 10-12d), polish third (Sprint 3: 3-5d).** Sprint 1 implements end-to-end pipeline on Button + ANAT-P001. | Architecture risk validated week 1 before scaling catalog work. Catalog entries become ~30-min additions once schema is locked. |
+| #   | Decision                          | Choice                                                                                                                                                                                | Rationale                                                                                                                         |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Source of truth for anatomy rules | **Hybrid stack:** JSDoc `@anatomy` self-declaration → DESIGN.md per-component override → convention library default → silent skip                                                     | Day-1 value via conventions; escape hatch via DESIGN.md; per-component author ownership via JSDoc. Mirrors harness-accessibility. |
+| 2   | v1 finding classes                | **Definition + pattern-presence** (`ANAT-D*` + `ANAT-P*`). Usage findings deferred to v2.                                                                                             | Pattern-presence is the blue-ocean differentiator (REFERENCES.md gap #4). Skipping usage in v1 avoids a11y overlap noise pre-v2.  |
+| 3   | Component-type identification     | **Hybrid stack** (mirrors #1): JSDoc `@component-type` tag → DESIGN.md `## Component Registry` → top-level export-name catalog match → silent skip                                    | Consistent mental model with #1. Export-name covers 80%+ of well-organized React codebases; explicit overrides for the long tail. |
+| 4   | Invocation + output surface       | **Skill + MCP tool + graph + validate integration** (mirrors harness-accessibility). MCP: `mcp__harness__audit_anatomy`. Graph: VIOLATES edges via `DesignConstraintAdapter`.         | Zero new CLI surface; exact precedent already proven; three consumer types (human/CI/agent) all covered without bespoke plumbing. |
+| 5   | Catalog scope (v1)                | **Comprehensive: 20 conventions + 10 patterns.** Conventions from APG, Open UI, Radix. Patterns include map-without-empty, fetch-without-loading, error-boundary-missing + 7 more.    | "World-class toolset" goal requires comprehensive catalog. v1 ships as the reference (no published competitor at this breadth).   |
+| 6   | a11y overlap policy               | **i18n-style deferral pattern.** When `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers A11Y-010 and A11Y-050 for components in the anatomy catalog.       | Pattern already proven in harness-accessibility's i18n integration (Phase 1 step 2.5). Zero new infrastructure; survives into v2. |
+| 7   | Pattern detection parser          | **Hybrid: tree-sitter for pattern findings (structural, fast) + TypeScript Compiler API (AST) for definition findings (type-aware).** Each parser used where it's strongest.          | tree-sitter speed needed for validate-time fast-mode; AST type info needed for "Input prop type missing label" definition checks. |
+| 8   | Spec location                     | **`docs/changes/design-pipeline/audit-component-anatomy/proposal.md`** — nested under the initiative directory alongside REFERENCES.md                                                | Keeps the design-pipeline initiative bundle coherent across all 5 sub-projects.                                                   |
+| 9   | Build sequencing                  | **Vertical slice first (Sprint 1: 5-7d), catalog expansion second (Sprint 2: 10-12d), polish third (Sprint 3: 3-5d).** Sprint 1 implements end-to-end pipeline on Button + ANAT-P001. | Architecture risk validated week 1 before scaling catalog work. Catalog entries become ~30-min additions once schema is locked.   |
 
 ### Rationalizations rejected during brainstorming
 
-| Rationalization | Why rejected |
-|-----------------|--------------|
-| "Convention library is enough — skip JSDoc/DESIGN.md override layers" | Convention-only fails opinionated projects with renamed components; the hybrid stack costs nothing when unused. |
-| "Use regex like harness-accessibility does — simpler" | Regex cannot detect control-flow patterns like map-without-empty; would force dropping ~6 of Q5's 10 patterns. |
-| "Build the catalog first since the engine is mechanical" | Specs authored before engine reveal what tree-sitter can/can't express; risk of late rework. Vertical slice mitigates. |
-| "Ship usage findings in v1 — that's where the real value is" | Usage findings overlap heavily with a11y and require deferral design upfront. v1 proves the deferral pattern on a smaller surface first. |
-| "ESLint plugin is the standard CI tool — package it that way" | Definition + pattern-presence findings are file-level not line-level; ESLint fits poorly. The MCP+validate surface covers CI. |
+| Rationalization                                                       | Why rejected                                                                                                                             |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| "Convention library is enough — skip JSDoc/DESIGN.md override layers" | Convention-only fails opinionated projects with renamed components; the hybrid stack costs nothing when unused.                          |
+| "Use regex like harness-accessibility does — simpler"                 | Regex cannot detect control-flow patterns like map-without-empty; would force dropping ~6 of Q5's 10 patterns.                           |
+| "Build the catalog first since the engine is mechanical"              | Specs authored before engine reveal what tree-sitter can/can't express; risk of late rework. Vertical slice mitigates.                   |
+| "Ship usage findings in v1 — that's where the real value is"          | Usage findings overlap heavily with a11y and require deferral design upfront. v1 proves the deferral pattern on a smaller surface first. |
+| "ESLint plugin is the standard CI tool — package it that way"         | Definition + pattern-presence findings are file-level not line-level; ESLint fits poorly. The MCP+validate surface covers CI.            |
 
 ---
 
@@ -140,13 +140,13 @@ export type AnatomyFindingCode = `ANAT-D${string}` | `ANAT-P${string}`;
 export type Severity = 'error' | 'warn' | 'info';
 
 export interface AnatomyFinding {
-  code: AnatomyFindingCode;          // e.g. 'ANAT-D023', 'ANAT-P001'
+  code: AnatomyFindingCode; // e.g. 'ANAT-D023', 'ANAT-P001'
   severity: Severity;
-  file: string;                       // project-relative path
-  line: number | null;                // null for whole-file definition findings
+  file: string; // project-relative path
+  line: number | null; // null for whole-file definition findings
   column?: number;
-  componentType: string | null;       // 'Button' if identified, null otherwise
-  message: string;                    // human-readable summary
+  componentType: string | null; // 'Button' if identified, null otherwise
+  message: string; // human-readable summary
   evidence: { snippet: string; contextLines?: string };
   rule: { id: string; source: string }; // 'ANAT-D023', 'APG/button#anatomy'
   fix: { kind: 'manual' | 'codemod-todo'; description: string };
@@ -154,7 +154,7 @@ export interface AnatomyFinding {
 
 // rules/convention-rule.ts
 export interface ConventionRule {
-  componentType: string;              // 'Button'
+  componentType: string; // 'Button'
   slots: AnatomyPart[];
   states: AnatomyPart[];
   variants: AnatomyPart[];
@@ -162,16 +162,16 @@ export interface ConventionRule {
   source: { ref: string; url?: string }; // 'APG/button', 'Radix/Button'
 }
 export interface AnatomyPart {
-  name: string;                       // 'label', 'loading'
+  name: string; // 'label', 'loading'
   required: boolean;
-  exclusive?: boolean;                // states only — cannot combine
-  fixHint: string;                    // 'Add a `label` prop of type string'
+  exclusive?: boolean; // states only — cannot combine
+  fixHint: string; // 'Add a `label` prop of type string'
 }
 
 // rules/pattern-rule.ts
 export interface PatternRule {
-  code: AnatomyFindingCode;           // 'ANAT-P001'
-  treeSitterQuery: string;            // S-expr query for tree-sitter-tsx
+  code: AnatomyFindingCode; // 'ANAT-P001'
+  treeSitterQuery: string; // S-expr query for tree-sitter-tsx
   severityDefault: Severity;
   message: (capture: TreeSitterCapture) => string;
   fixHint: string;
@@ -184,11 +184,11 @@ export interface PatternRule {
 ```ts
 // mcp__harness__audit_anatomy
 interface AuditAnatomyInput {
-  path: string;                        // project root
+  path: string; // project root
   mode: 'fast' | 'full';
-  files?: string[];                    // optional scoping (paths or globs)
-  designStrictness?: Strictness;       // override harness.config.json
-  catalog?: string[];                  // optional subset of conventions/patterns
+  files?: string[]; // optional scoping (paths or globs)
+  designStrictness?: Strictness; // override harness.config.json
+  catalog?: string[]; // optional subset of conventions/patterns
 }
 interface AuditAnatomyOutput {
   findings: AnatomyFinding[];
@@ -239,10 +239,10 @@ Two new sections, both optional:
 
 Type-to-file mapping. Used by component-type resolver when JSDoc tag absent and export-name fallback ambiguous.
 
-| Type   | File                            | Notes        |
-|--------|---------------------------------|--------------|
-| Button | packages/ui/src/Button.tsx      |              |
-| Input  | packages/ui/src/Input/index.tsx | compound     |
+| Type   | File                            | Notes    |
+| ------ | ------------------------------- | -------- |
+| Button | packages/ui/src/Button.tsx      |          |
+| Input  | packages/ui/src/Input/index.tsx | compound |
 
 ## Component Anatomy Overrides (optional)
 
@@ -251,17 +251,18 @@ Per-component overrides of the convention library. Used when project intentional
 ### Button
 
 slots:
-  - content (required)
-  - icon-leading
-  - icon-trailing
-states:
-  - default
-  - hover
-  - focus
-  - disabled (exclusive)
-  - loading (exclusive)
-variants: primary, secondary, ghost
-sizes: sm, md, lg
+
+- content (required)
+- icon-leading
+- icon-trailing
+  states:
+- default
+- hover
+- focus
+- disabled (exclusive)
+- loading (exclusive)
+  variants: primary, secondary, ghost
+  sizes: sm, md, lg
 ```
 
 ### harness.config.json additions
@@ -360,15 +361,15 @@ The catalog set is exposed by audit-component-anatomy via a stable named export 
 
 ### Entry Points
 
-| Kind | Path / Identifier | New / Modified |
-|------|-------------------|----------------|
-| Skill | `packages/cli/src/skills/audit-component-anatomy/{SKILL.md,skill.yaml}` | NEW |
-| MCP tool | `mcp__harness__audit_anatomy` | NEW |
-| Skill module export | `getCatalogTypes(): string[]` from the skill's `index.ts` | NEW — consumed by harness-accessibility |
-| `harness validate` hook | New validation check registered under "design" group | NEW |
-| Skill (modified) | `harness-accessibility` — adds Phase 1 step 2.6 (a11y deferral) | MODIFIED |
-| Config schema | `harness.config.json` — adds `design.audit.componentAnatomy.*` block | MODIFIED |
-| DESIGN.md schema | Two optional sections: `## Component Registry`, `## Component Anatomy Overrides` | MODIFIED (schema extension) |
+| Kind                    | Path / Identifier                                                                | New / Modified                          |
+| ----------------------- | -------------------------------------------------------------------------------- | --------------------------------------- |
+| Skill                   | `packages/cli/src/skills/audit-component-anatomy/{SKILL.md,skill.yaml}`          | NEW                                     |
+| MCP tool                | `mcp__harness__audit_anatomy`                                                    | NEW                                     |
+| Skill module export     | `getCatalogTypes(): string[]` from the skill's `index.ts`                        | NEW — consumed by harness-accessibility |
+| `harness validate` hook | New validation check registered under "design" group                             | NEW                                     |
+| Skill (modified)        | `harness-accessibility` — adds Phase 1 step 2.6 (a11y deferral)                  | MODIFIED                                |
+| Config schema           | `harness.config.json` — adds `design.audit.componentAnatomy.*` block             | MODIFIED                                |
+| DESIGN.md schema        | Two optional sections: `## Component Registry`, `## Component Anatomy Overrides` | MODIFIED (schema extension)             |
 
 ### Registrations Required
 
@@ -382,25 +383,25 @@ The catalog set is exposed by audit-component-anatomy via a stable named export 
 
 ### Documentation Updates
 
-| Doc | Update |
-|-----|--------|
-| `AGENTS.md` | Add audit-component-anatomy under the design-skills section; cross-link from the audit list |
-| `docs/guides/designer-quickstart.md` | Add "Running the anatomy audit" subsection; show example finding + fix |
+| Doc                                                                           | Update                                                                                         |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                                                                   | Add audit-component-anatomy under the design-skills section; cross-link from the audit list    |
+| `docs/guides/designer-quickstart.md`                                          | Add "Running the anatomy audit" subsection; show example finding + fix                         |
 | `docs/changes/design-pipeline/audit-component-anatomy/finding-codes.md` (NEW) | Reference page listing every `ANAT-D*` and `ANAT-P*` code with rationale, source, and fix hint |
-| `docs/changes/design-pipeline/REFERENCES.md` | Mark sub-project #2 status as in-progress when implementation starts |
-| `harness-accessibility` SKILL.md (in cli package source) | Add Phase 1 step 2.6 documenting the new deferral |
-| DESIGN.md template / docs | Document the new `## Component Registry` and `## Component Anatomy Overrides` sections |
-| `harness.config.json` schema reference | Document `design.audit.componentAnatomy.*` keys and defaults |
+| `docs/changes/design-pipeline/REFERENCES.md`                                  | Mark sub-project #2 status as in-progress when implementation starts                           |
+| `harness-accessibility` SKILL.md (in cli package source)                      | Add Phase 1 step 2.6 documenting the new deferral                                              |
+| DESIGN.md template / docs                                                     | Document the new `## Component Registry` and `## Component Anatomy Overrides` sections         |
+| `harness.config.json` schema reference                                        | Document `design.audit.componentAnatomy.*` keys and defaults                                   |
 
 ### Architectural Decisions
 
 Three ADRs warranted (medium-large tier change with cross-cutting implications):
 
-| ADR | One-line rationale |
-|-----|---------------------|
-| **ADR-001: Hybrid parser strategy (tree-sitter + TS AST)** | First introduction of tree-sitter into the harness ecosystem; documents the per-workload parser choice and sets the precedent for future skills that need fast structural matching. |
-| **ADR-002: Anatomy finding code namespace (`ANAT-D*`/`ANAT-P*`/`ANAT-U*`)** | Reserves three namespaces (definition/pattern/usage), establishes the stable contract for DesignConstraintAdapter and downstream skills (#4 verifier, #5 orchestrator). |
-| **ADR-003: Cross-skill deferral pattern (i18n-style, generalized)** | Formalizes the harness-accessibility/i18n/anatomy three-way deferral as the standard mechanism for resolving overlapping audit findings between skills; reusable for future audits. |
+| ADR                                                                         | One-line rationale                                                                                                                                                                  |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ADR-001: Hybrid parser strategy (tree-sitter + TS AST)**                  | First introduction of tree-sitter into the harness ecosystem; documents the per-workload parser choice and sets the precedent for future skills that need fast structural matching. |
+| **ADR-002: Anatomy finding code namespace (`ANAT-D*`/`ANAT-P*`/`ANAT-U*`)** | Reserves three namespaces (definition/pattern/usage), establishes the stable contract for DesignConstraintAdapter and downstream skills (#4 verifier, #5 orchestrator).             |
+| **ADR-003: Cross-skill deferral pattern (i18n-style, generalized)**         | Formalizes the harness-accessibility/i18n/anatomy three-way deferral as the standard mechanism for resolving overlapping audit findings between skills; reusable for future audits. |
 
 ### Knowledge Impact
 
@@ -591,7 +592,7 @@ Three sprints over ~3 weeks, preceded by a 1-day schema spike to de-risk the rul
 
 - Phase 0 must complete before Phase 1.
 - Phase 1 must complete before Phase 2.
-- Phase 2 and the *documentation* deliverables of Phase 3 can run in parallel during the second half of Phase 2 (catalog entries are routine; docs author can ride alongside).
+- Phase 2 and the _documentation_ deliverables of Phase 3 can run in parallel during the second half of Phase 2 (catalog entries are routine; docs author can ride alongside).
 - harness-accessibility deferral patch lands in Phase 1 — coordinate with anyone touching that skill to avoid merge conflicts.
 - Sub-project #4 (check-design verifier) can begin its own brainstorm the moment Phase 1's MCP API stabilizes — does not need to wait for full catalog.
 

@@ -4,24 +4,25 @@
 
 ## Apply (invoke during execution)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-zod-integration` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.65 |
+| Skill                | Purpose                                                           | When                   | Relevance |
+| -------------------- | ----------------------------------------------------------------- | ---------------------- | --------- |
+| `ts-zod-integration` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.65      |
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-testing-types` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Testing | 0.58 |
-| `ts-performance-patterns` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation | 0.57 |
-| `ts-template-literal-types` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.54 |
-| `ts-type-guards` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation | 0.54 |
-| `gof-builder-pattern` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.5 |
-| `gof-memento-pattern` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Testing | 0.5 |
-| `ts-utility-types` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation | 0.5 |
-| `gof-chain-of-responsibility` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.49 |
-| `gof-flyweight-pattern` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.49 |
-| `react-hoc-pattern` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation | 0.49 |
+| Skill                         | Purpose                                                           | When                   | Relevance |
+| ----------------------------- | ----------------------------------------------------------------- | ---------------------- | --------- |
+| `ts-testing-types`            | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Testing                | 0.58      |
+| `ts-performance-patterns`     | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation  | 0.57      |
+| `ts-template-literal-types`   | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.54      |
+| `ts-type-guards`              | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation  | 0.54      |
+| `gof-builder-pattern`         | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.5       |
+| `gof-memento-pattern`         | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Testing                | 0.5       |
+| `ts-utility-types`            | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation  | 0.5       |
+| `gof-chain-of-responsibility` | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.49      |
+| `gof-flyweight-pattern`       | Stack: typescript; Domain: a11y, api, data, design, perf, testing | Architecture decisions | 0.49      |
+| `react-hoc-pattern`           | Stack: typescript; Domain: a11y, api, data, design, perf, testing | During implementation  | 0.49      |
 
 ---
-*Scanned 735 skills in 530ms. Signals: 0 keywords, 2 stack markers, 6 domains.*
+
+_Scanned 735 skills in 530ms. Signals: 0 keywords, 2 stack markers, 6 domains._

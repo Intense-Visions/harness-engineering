@@ -148,12 +148,12 @@ The 12 references most directly competitive with what we're building.
 
 When entering a brainstorming session, load these first:
 
-| Sub-project | Tier-1 references to read first |
-|---|---|
-| #0 brand-guidelines decision | #1, #5, #11, #12, #41 |
-| #1d detect-design-drift | #2, #5, #6, #7, #36 |
-| #1a align-design-system | #2, #6, #7, #14, #17 |
-| #2 audit-component-anatomy | #3, #8, #9, #10, #19, #25 |
-| #3 audit-brand-compliance | #2, #11, #12, #21, #23, #24 |
-| #4 harness check-design verifier | #6, #7, #14, #30, #31 |
-| #5 pipeline orchestrator | #2, #3, #4, #13, #32, #33 |
+| Sub-project                      | Tier-1 references to read first |
+| -------------------------------- | ------------------------------- |
+| #0 brand-guidelines decision     | #1, #5, #11, #12, #41           |
+| #1d detect-design-drift          | #2, #5, #6, #7, #36             |
+| #1a align-design-system          | #2, #6, #7, #14, #17            |
+| #2 audit-component-anatomy       | #3, #8, #9, #10, #19, #25       |
+| #3 audit-brand-compliance        | #2, #11, #12, #21, #23, #24     |
+| #4 harness check-design verifier | #6, #7, #14, #30, #31           |
+| #5 pipeline orchestrator         | #2, #3, #4, #13, #32, #33       |

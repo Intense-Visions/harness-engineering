@@ -4,18 +4,19 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-zod-integration` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.59 |
-| `ts-utility-types` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation | 0.55 |
-| `gof-chain-of-responsibility` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.54 |
-| `ts-performance-patterns` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation | 0.54 |
-| `ts-template-literal-types` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.54 |
-| `ts-testing-types` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Testing | 0.54 |
-| `react-hoc-pattern` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation | 0.53 |
-| `node-streams-pattern` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation | 0.5 |
-| `gof-flyweight-pattern` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.49 |
-| `gof-memento-pattern` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Testing | 0.48 |
+| Skill                         | Purpose                                                                           | When                   | Relevance |
+| ----------------------------- | --------------------------------------------------------------------------------- | ---------------------- | --------- |
+| `ts-zod-integration`          | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.59      |
+| `ts-utility-types`            | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation  | 0.55      |
+| `gof-chain-of-responsibility` | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.54      |
+| `ts-performance-patterns`     | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation  | 0.54      |
+| `ts-template-literal-types`   | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.54      |
+| `ts-testing-types`            | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Testing                | 0.54      |
+| `react-hoc-pattern`           | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation  | 0.53      |
+| `node-streams-pattern`        | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | During implementation  | 0.5       |
+| `gof-flyweight-pattern`       | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Architecture decisions | 0.49      |
+| `gof-memento-pattern`         | Stack: typescript; Domain: a11y, api, auth, data, design, perf, security, testing | Testing                | 0.48      |
 
 ---
-*Scanned 735 skills in 555ms. Signals: 0 keywords, 2 stack markers, 8 domains.*
+
+_Scanned 735 skills in 555ms. Signals: 0 keywords, 2 stack markers, 8 domains._

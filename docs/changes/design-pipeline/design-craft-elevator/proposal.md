@@ -46,25 +46,25 @@
 
 Compiled from the brainstorming Q&A.
 
-| # | Decision | Choice | Rationale |
-|---|----------|--------|-----------|
-| 1 | Skill shape | **A'** — single unified skill `harness-design-craft` with branchable phases CRITIQUE/POLISH/BENCHMARK | One discovery point + shared context across phases; same composability as three-skill option via phase selector; mirrors harness-design's 4-phase pattern. |
-| 2 | Catalog scope | **H** — seed (10 rubrics + 15 patterns + 50 exemplars) + growth infrastructure (contribution format, review process, signal feedback loop, usage measurement, versioning) | Long-term right: living catalogs are evergreen + signal-driven + distributed-curation. Fixed v1 catalog rots; H gives organic growth trajectory toward 20+75+400 over 12-24 months. |
-| 3 | LLM call architecture | **D** — hybrid: code-only default (fast) + visual opt-in (deep) using render + screenshot + vision-capable LLM | Fast default for routine use; deep mode for ceiling-raising; mirrors #2's fast/full validate-time pattern; evolves toward visual-default as LLM costs drop. |
-| 4 | Relationship to harness-design | **B'** — soft dependency with progressive upgrade path (detect-and-offer chain to harness-design via skill-transition machinery) | Works standalone day 1 with generic critique; works richer with declared intent; offers inline upgrade instead of degrading silently; uses existing transition handoff machinery. |
-| 5 | Output model | **E** — 3-axis (tier/impact/confidence) for CRITIQUE/POLISH; 5-dim radar for BENCHMARK | error/warn/info doesn't fit craft; tier captures the ladder; confidence essential for honest LLM judgment; radar matches huashu-design proven format for holistic scoring. |
-| 6 | Spec location | `docs/changes/design-pipeline/design-craft-elevator/proposal.md` (sibling to audit-component-anatomy) | Keeps design-pipeline initiative bundle coherent. |
-| 7 | Build sequencing | **Approach 3** — hybrid: vertical slice (engineering stream) + parallel catalog stream from day 1, converging at Sprint 3, polish at Sprint 4 | Maximizes wall-time efficiency: catalog curation parallelized with engineering; vertical slice gives architecture validation week 1; visual pipeline spike in Sprint 1 de-risks biggest novelty. |
+| #   | Decision                       | Choice                                                                                                                                                                    | Rationale                                                                                                                                                                                        |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Skill shape                    | **A'** — single unified skill `harness-design-craft` with branchable phases CRITIQUE/POLISH/BENCHMARK                                                                     | One discovery point + shared context across phases; same composability as three-skill option via phase selector; mirrors harness-design's 4-phase pattern.                                       |
+| 2   | Catalog scope                  | **H** — seed (10 rubrics + 15 patterns + 50 exemplars) + growth infrastructure (contribution format, review process, signal feedback loop, usage measurement, versioning) | Long-term right: living catalogs are evergreen + signal-driven + distributed-curation. Fixed v1 catalog rots; H gives organic growth trajectory toward 20+75+400 over 12-24 months.              |
+| 3   | LLM call architecture          | **D** — hybrid: code-only default (fast) + visual opt-in (deep) using render + screenshot + vision-capable LLM                                                            | Fast default for routine use; deep mode for ceiling-raising; mirrors #2's fast/full validate-time pattern; evolves toward visual-default as LLM costs drop.                                      |
+| 4   | Relationship to harness-design | **B'** — soft dependency with progressive upgrade path (detect-and-offer chain to harness-design via skill-transition machinery)                                          | Works standalone day 1 with generic critique; works richer with declared intent; offers inline upgrade instead of degrading silently; uses existing transition handoff machinery.                |
+| 5   | Output model                   | **E** — 3-axis (tier/impact/confidence) for CRITIQUE/POLISH; 5-dim radar for BENCHMARK                                                                                    | error/warn/info doesn't fit craft; tier captures the ladder; confidence essential for honest LLM judgment; radar matches huashu-design proven format for holistic scoring.                       |
+| 6   | Spec location                  | `docs/changes/design-pipeline/design-craft-elevator/proposal.md` (sibling to audit-component-anatomy)                                                                     | Keeps design-pipeline initiative bundle coherent.                                                                                                                                                |
+| 7   | Build sequencing               | **Approach 3** — hybrid: vertical slice (engineering stream) + parallel catalog stream from day 1, converging at Sprint 3, polish at Sprint 4                             | Maximizes wall-time efficiency: catalog curation parallelized with engineering; vertical slice gives architecture validation week 1; visual pipeline spike in Sprint 1 de-risks biggest novelty. |
 
 ### Rationalizations rejected during brainstorming
 
-| Rationalization | Why rejected |
-|-----------------|--------------|
-| "Just extend harness-design with more phases" | Mixes rule-based and LLM-based in one skill (different mental models); harness-design balloons in scope; new skill identity gets lost. |
-| "Visual-only from v1, skip code mode" | v1 needs cheap default for CI/routine use; hybrid allows projects to opt deep per their cost/value tradeoff. |
-| "Build infrastructure first, content later" | Nothing user-facing until week 3; layered builds risk over-engineering lower layers without usage signal. |
-| "One-time fixed catalog of 30 patterns is fine" | Living design corpora (APG, MDN, awesome-*) all share evergreen + signal-driven + distributed-curation properties; fixed catalogs rot within 18 months. |
-| "Use standard error/warn/info severity" | Craft isn't binary; collapses all findings to warn-noise; loses the foundational-vs-polish-vs-aspirational gradient. |
+| Rationalization                                 | Why rejected                                                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Just extend harness-design with more phases"   | Mixes rule-based and LLM-based in one skill (different mental models); harness-design balloons in scope; new skill identity gets lost.                   |
+| "Visual-only from v1, skip code mode"           | v1 needs cheap default for CI/routine use; hybrid allows projects to opt deep per their cost/value tradeoff.                                             |
+| "Build infrastructure first, content later"     | Nothing user-facing until week 3; layered builds risk over-engineering lower layers without usage signal.                                                |
+| "One-time fixed catalog of 30 patterns is fine" | Living design corpora (APG, MDN, awesome-\*) all share evergreen + signal-driven + distributed-curation properties; fixed catalogs rot within 18 months. |
+| "Use standard error/warn/info severity"         | Craft isn't binary; collapses all findings to warn-noise; loses the foundational-vs-polish-vs-aspirational gradient.                                     |
 
 ---
 
@@ -155,7 +155,7 @@ export type Impact = 'small' | 'medium' | 'large';
 export type Confidence = 'high' | 'medium' | 'low';
 
 export interface CraftFinding {
-  code: string;                              // e.g. 'CRAFT-C001' (critique), 'CRAFT-P001' (polish)
+  code: string; // e.g. 'CRAFT-C001' (critique), 'CRAFT-P001' (polish)
   phase: 'critique' | 'polish';
   tier: Tier;
   impact: Impact;
@@ -163,14 +163,14 @@ export interface CraftFinding {
   target: { file: string; line?: number; component?: string };
   message: string;
   cite: { rubricOrPatternId: string; source: string };
-  before?: string;                           // POLISH only
-  after?: string;                            // POLISH only
-  derived: { priority: number };             // computed from tier × impact × confidence
+  before?: string; // POLISH only
+  after?: string; // POLISH only
+  derived: { priority: number }; // computed from tier × impact × confidence
 }
 
 export interface BenchmarkScore {
   target: { file: string; component: string };
-  exemplars: string[];                       // ids cited
+  exemplars: string[]; // ids cited
   radar: {
     philosophicalCoherence: { score: number; confidence: Confidence; notes: string };
     hierarchy: { score: number; confidence: Confidence; notes: string };
@@ -179,7 +179,7 @@ export interface BenchmarkScore {
     innovation: { score: number; confidence: Confidence; notes: string };
   };
   overall: { score: number; confidence: Confidence }; // weighted aggregate
-  gaps: string[];                             // narrative gap analysis
+  gaps: string[]; // narrative gap analysis
 }
 
 export interface DesignCraftOutput {
@@ -191,11 +191,16 @@ export interface DesignCraftOutput {
     durationMs: number;
     llmCalls: { provider: string; model: string; count: number; costUsd: number };
     catalog: { rubricsApplied: string[]; patternsApplied: string[]; exemplarsCited: string[] };
-    preconditions: { aestheticIntentDeclared: boolean; designMdExists: boolean; tokensExist: boolean };
+    preconditions: {
+      aestheticIntentDeclared: boolean;
+      designMdExists: boolean;
+      tokensExist: boolean;
+    };
     deferralsToHarnessDesign: number;
     runId: string;
   };
-  upgradeOffer?: {                            // B' detect-and-offer
+  upgradeOffer?: {
+    // B' detect-and-offer
     message: string;
     options: Array<{ id: string; label: string; chainedSkill?: string; chainedPhases?: string[] }>;
   };
@@ -208,13 +213,13 @@ export interface DesignCraftOutput {
 // mcp__harness__design_craft
 
 interface DesignCraftInput {
-  path: string;                              // project root
-  mode?: 'fast' | 'deep';                    // default 'fast'
-  phases?: Array<'critique' | 'polish' | 'benchmark'>;  // default all three
-  files?: string[];                          // optional scoping
-  autoCapture?: 'prompt' | 'auto' | 'skip';  // B' upgrade behavior; default 'prompt'
+  path: string; // project root
+  mode?: 'fast' | 'deep'; // default 'fast'
+  phases?: Array<'critique' | 'polish' | 'benchmark'>; // default all three
+  files?: string[]; // optional scoping
+  autoCapture?: 'prompt' | 'auto' | 'skip'; // B' upgrade behavior; default 'prompt'
   designStrictness?: 'strict' | 'standard' | 'permissive';
-  catalog?: { rubrics?: string[]; patterns?: string[]; exemplars?: string[] };  // optional subsetting
+  catalog?: { rubrics?: string[]; patterns?: string[]; exemplars?: string[] }; // optional subsetting
 }
 
 // Returns DesignCraftOutput (above)
@@ -329,6 +334,7 @@ Cost tracking: every LLM call records `{ provider, model, tokens, costUsd }` agg
 Caching: per-content-hash directory under `.harness/design-craft/cache/<hash>/{viewport}.png`. Hash is computed from component source + props + relevant tokens to avoid re-rendering unchanged components.
 
 `render/target-discovery.ts` finds components or pages to render:
+
 - Storybook stories (via `.storybook/` config + story discovery)
 - Route manifests (Next.js `app/`, Remix `routes/`, etc.)
 - Explicit file lists from the `files` MCP input
@@ -346,6 +352,7 @@ Caching: per-content-hash directory under `.harness/design-craft/cache/<hash>/{v
 ### B' detect-and-offer logic
 
 `resolvers/preconditions.ts` checks four precondition states:
+
 - `designMdExists`: `design-system/DESIGN.md` present
 - `aestheticIntentDeclared`: DESIGN.md has the Aesthetic Direction section populated
 - `tokensExist`: `design-system/tokens.json` present
@@ -368,6 +375,7 @@ CRITIQUE/POLISH findings → `VIOLATES_CRAFT` edges in the graph (via extended D
 ### harness-design overlap deferral
 
 The skill respects an i18n-style deferral pattern (same shape as #2's a11y deferral):
+
 - When DESIGN.md declares an anti-pattern matching a CRITIQUE finding, the finding is suppressed and `meta.deferralsToHarnessDesign` is incremented.
 - harness-design owns the declared-anti-pattern finding; this skill owns the broader craft critique that goes beyond declared rules.
 
@@ -406,17 +414,17 @@ The skill respects an i18n-style deferral pattern (same shape as #2's a11y defer
 
 ### Entry Points
 
-| Kind | Path / Identifier | New / Modified |
-|------|-------------------|----------------|
-| Skill | `packages/cli/src/skills/harness-design-craft/{SKILL.md,skill.yaml}` | NEW |
-| MCP tool | `mcp__harness__design_craft` | NEW |
-| Skill module export | `getCatalogStats(): { rubrics: number; patterns: number; exemplars: number }` | NEW |
-| Render pipeline | `packages/cli/src/skills/harness-design-craft/render/` using playwright | NEW |
-| LLM provider integration | Wraps `packages/intelligence/` for vision-capable LLM calls | MODIFIED (intelligence may need vision support added) |
-| Skill (referenced via chain) | `harness-design` — INVOKED via skill transition machinery (B'); no code changes | UNCHANGED |
-| Config schema | `harness.config.json` — adds `design.craft.*` block | MODIFIED |
-| DesignConstraintAdapter | Extended to handle `CRAFT-*` code namespace + `CRAFT_SCORE` nodes | MODIFIED |
-| Dashboard | New design-craft stats page (rubric/pattern/exemplar usage) | NEW |
+| Kind                         | Path / Identifier                                                               | New / Modified                                        |
+| ---------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Skill                        | `packages/cli/src/skills/harness-design-craft/{SKILL.md,skill.yaml}`            | NEW                                                   |
+| MCP tool                     | `mcp__harness__design_craft`                                                    | NEW                                                   |
+| Skill module export          | `getCatalogStats(): { rubrics: number; patterns: number; exemplars: number }`   | NEW                                                   |
+| Render pipeline              | `packages/cli/src/skills/harness-design-craft/render/` using playwright         | NEW                                                   |
+| LLM provider integration     | Wraps `packages/intelligence/` for vision-capable LLM calls                     | MODIFIED (intelligence may need vision support added) |
+| Skill (referenced via chain) | `harness-design` — INVOKED via skill transition machinery (B'); no code changes | UNCHANGED                                             |
+| Config schema                | `harness.config.json` — adds `design.craft.*` block                             | MODIFIED                                              |
+| DesignConstraintAdapter      | Extended to handle `CRAFT-*` code namespace + `CRAFT_SCORE` nodes               | MODIFIED                                              |
+| Dashboard                    | New design-craft stats page (rubric/pattern/exemplar usage)                     | NEW                                                   |
 
 ### Registrations Required
 
@@ -431,26 +439,26 @@ The skill respects an i18n-style deferral pattern (same shape as #2's a11y defer
 
 ### Documentation Updates
 
-| Doc | Update |
-|-----|--------|
-| `AGENTS.md` | Add `harness-design-craft` under design-skills section; note its role as the ceiling-raising skill. |
-| `docs/guides/designer-quickstart.md` | Add "Running craft critique" subsection; show output format examples. |
-| `docs/changes/design-pipeline/design-craft-elevator/finding-codes.md` (NEW) | Reference page for `CRAFT-C001..C100`, `CRAFT-P001..P100`, `CRAFT-B001..B100`. |
-| `docs/changes/design-pipeline/REFERENCES.md` | Mark sub-project #6 status as in-progress when implementation starts. |
-| `docs/changes/design-pipeline/design-craft-elevator/contribution.md` (NEW) | Contribution format for rubrics/patterns/exemplars + review process. |
-| `docs/changes/design-pipeline/design-craft-elevator/growth-trajectory.md` (NEW) | Long-term catalog growth model: seed → 20+75+400 over 12-24 months; signal-loop mechanics. |
-| `harness.config.json` schema reference | Document `design.craft.*` keys. |
+| Doc                                                                             | Update                                                                                              |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                                                                     | Add `harness-design-craft` under design-skills section; note its role as the ceiling-raising skill. |
+| `docs/guides/designer-quickstart.md`                                            | Add "Running craft critique" subsection; show output format examples.                               |
+| `docs/changes/design-pipeline/design-craft-elevator/finding-codes.md` (NEW)     | Reference page for `CRAFT-C001..C100`, `CRAFT-P001..P100`, `CRAFT-B001..B100`.                      |
+| `docs/changes/design-pipeline/REFERENCES.md`                                    | Mark sub-project #6 status as in-progress when implementation starts.                               |
+| `docs/changes/design-pipeline/design-craft-elevator/contribution.md` (NEW)      | Contribution format for rubrics/patterns/exemplars + review process.                                |
+| `docs/changes/design-pipeline/design-craft-elevator/growth-trajectory.md` (NEW) | Long-term catalog growth model: seed → 20+75+400 over 12-24 months; signal-loop mechanics.          |
+| `harness.config.json` schema reference                                          | Document `design.craft.*` keys.                                                                     |
 
 ### Architectural Decisions
 
 Four ADRs warranted (cross-cutting decisions establishing new patterns for the harness ecosystem). Filed 2026-05-23 as numbers 0018-0021 (the spec-time placeholders 0004-0007 were already taken by pre-existing ADRs):
 
-| ADR | One-line rationale |
-|-----|---------------------|
-| **[ADR 0018: LLM-judgment-based skill pattern](../../knowledge/decisions/0018-llm-judgment-skill-pattern.md)** | First LLM-judgment skill in harness; sets the pattern for confidence-as-first-class output, autoCapture progressive upgrade, vision-model integration. Reusable for future LLM-judgment skills. |
-| **[ADR 0019: 3-axis craft output model (tier × impact × confidence)](../../knowledge/decisions/0019-3-axis-craft-output-model.md)** | Replaces error/warn/info for LLM-judgment outputs where the standard severity vocabulary fails. Codifies tier/impact/confidence as the standard for any future LLM-judgment skill. |
-| **[ADR 0020: Living catalog with growth infrastructure (the H pattern)](../../knowledge/decisions/0020-living-catalog-h-pattern.md)** | Documents seed-plus-growth (contribution + signal + measurement). Codifies the pattern for any future skill that depends on a catalog so growth infrastructure is built in not bolted on. |
-| **[ADR 0021: Detect-and-offer progressive upgrade pattern (the B' pattern)](../../knowledge/decisions/0021-detect-and-offer-b-prime-pattern.md)** | Documents soft-dependency-with-inline-upgrade as the standard for skills with prerequisite skills. Reusable for any future skill that has soft dependencies. |
+| ADR                                                                                                                                               | One-line rationale                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[ADR 0018: LLM-judgment-based skill pattern](../../knowledge/decisions/0018-llm-judgment-skill-pattern.md)**                                    | First LLM-judgment skill in harness; sets the pattern for confidence-as-first-class output, autoCapture progressive upgrade, vision-model integration. Reusable for future LLM-judgment skills. |
+| **[ADR 0019: 3-axis craft output model (tier × impact × confidence)](../../knowledge/decisions/0019-3-axis-craft-output-model.md)**               | Replaces error/warn/info for LLM-judgment outputs where the standard severity vocabulary fails. Codifies tier/impact/confidence as the standard for any future LLM-judgment skill.              |
+| **[ADR 0020: Living catalog with growth infrastructure (the H pattern)](../../knowledge/decisions/0020-living-catalog-h-pattern.md)**             | Documents seed-plus-growth (contribution + signal + measurement). Codifies the pattern for any future skill that depends on a catalog so growth infrastructure is built in not bolted on.       |
+| **[ADR 0021: Detect-and-offer progressive upgrade pattern (the B' pattern)](../../knowledge/decisions/0021-detect-and-offer-b-prime-pattern.md)** | Documents soft-dependency-with-inline-upgrade as the standard for skills with prerequisite skills. Reusable for any future skill that has soft dependencies.                                    |
 
 ### Knowledge Impact
 
@@ -561,6 +569,7 @@ Approach 3: parallel streams + convergence.
 **Goal:** lock the 3-axis finding schema, 5-dim radar schema, rubric/pattern/exemplar contribution schemas BEFORE streams diverge.
 
 **Deliverables:**
+
 - Three rubrics, three patterns, three exemplars authored on paper against the proposed schemas
 - BENCHMARK output specimen authored against radar schema
 - Schema-fit review pass
@@ -572,6 +581,7 @@ Approach 3: parallel streams + convergence.
 (~7 days; two parallel streams A engineering + B curation collapsed for autopilot; APPROVE_PLAN will pause)
 
 **Stream A (engineering, ~7 days):**
+
 - LLM provider integration (extending `packages/intelligence/` if needed for vision)
 - 3-axis finding schema in code; 5-dim radar schema in code
 - One rubric, one pattern, one exemplar wired end-to-end
@@ -582,6 +592,7 @@ Approach 3: parallel streams + convergence.
 - Visual pipeline SPIKE (playwright + vision LLM proof, not productionized)
 
 **Stream B (curation, ~7 days):**
+
 - 5 critique rubrics authored
 - 5 polish patterns authored
 - 25 exemplars curated (5 component types × 5 each)
@@ -589,6 +600,7 @@ Approach 3: parallel streams + convergence.
 - Documentation drafted (`contribution.md` draft, `growth-trajectory.md` draft)
 
 **Exit criteria:**
+
 - Vertical slice: end-to-end CRITIQUE run on fixture produces valid 3-axis finding
 - Sprint 1 catalog: 5+5+25 items pass contribution schema validation
 - Visual spike: playwright renders fixture component; vision LLM returns parsable response
@@ -600,6 +612,7 @@ Approach 3: parallel streams + convergence.
 (~7 days; visual pipeline + remaining catalog; APPROVE_PLAN will pause)
 
 **Stream A:**
+
 - Productionize visual pipeline (render cache, viewport variants, error handling, cost tracking)
 - POLISH phase end-to-end with first 3 patterns
 - BENCHMARK phase end-to-end with first 5 exemplars
@@ -608,11 +621,13 @@ Approach 3: parallel streams + convergence.
 - DesignConstraintAdapter extension for `CRAFT-*` codes + `CRAFT_SCORE` nodes
 
 **Stream B:**
+
 - Complete H seed catalog: remaining 5 rubrics, 10 patterns, 25 exemplars
 - Peer review pass on Sprint 1 content
 - Contribution review process spec finalization
 
 **Exit criteria:**
+
 - Full H seed catalog (10+15+50) ships
 - Visual pipeline production-quality
 - B' upgrade path works for all 4 precondition states
@@ -630,6 +645,7 @@ Approach 3: parallel streams + convergence.
 - i18n-style deferral wiring (defer declared-anti-pattern findings to harness-design)
 
 **Exit criteria:**
+
 - All 3 phases working end-to-end at full catalog scale
 - Growth infrastructure operational (signal loop, measurement, contribution validation)
 - Integration tests cover the matrix
