@@ -566,7 +566,7 @@ Agents can emit skill candidates — either a fully-formed new skill or a unifie
 
 **Surfaces.** MCP tool `emit_skill_proposal`. CLI `harness proposals list|show|approve|reject` and `harness backfill-skill-provenance`. Dashboard page `/s/proposals` (`packages/dashboard/src/client/pages/Proposals.tsx`). Seven gateway routes under `/api/v1/proposals/*` registered in `V1_BRIDGE_ROUTES`; reads use `read-status`, mutations require the new `manage-proposals` scope (ADR 0017). Events `proposal.created`, `proposal.approved`, `proposal.rejected` fan out via the Phase 0 webhook bus and Phase 3 notification sinks; envelope derivers in `notifications/envelope.ts` render them with appropriate severities.
 
-See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals.md) and [`docs/knowledge/cli/skill-provenance.md`](docs/knowledge/cli/skill-provenance.md). ADRs: [0016](docs/knowledge/decisions/0016-hermes-phase-4-skill-proposal-workflow.md), [0017](docs/knowledge/decisions/0017-manage-proposals-scope.md).
+See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals.md) and [`docs/knowledge/cli/skill-provenance.md`](docs/knowledge/cli/skill-provenance.md). ADRs: [0016](docs/knowledge/decisions/0016-skill-proposal-workflow.md), [0017](docs/knowledge/decisions/0017-manage-proposals-scope.md).
 
 ### Dashboard Package
 
