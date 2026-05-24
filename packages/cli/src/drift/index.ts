@@ -35,21 +35,15 @@ export interface DetectDriftInput {
   };
 }
 
-export interface DetectDriftOutput {
-  findings: DriftFinding[];
-  summary: {
-    totalFiles: number;
-    durationMs: number;
-    bySeverity: Record<DriftSeverity, number>;
-    byCode: Record<string, number>;
-  };
-  catalog: { rulesApplied: string[] };
-  meta: {
-    mode: DetectDriftMode;
-    tokensLoaded: boolean;
-    registryLoaded: boolean;
-  };
-}
+import type { Verifier } from '../shared/verifier.js';
+
+// Conforms to the shared Verifier<F, Cat, Meta> shape extracted at the
+// 4th-verifier threshold (audit-brand-compliance).
+export type DetectDriftOutput = Verifier<
+  DriftFinding,
+  { rulesApplied: string[] },
+  { mode: DetectDriftMode; tokensLoaded: boolean; registryLoaded: boolean }
+>;
 
 const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
 

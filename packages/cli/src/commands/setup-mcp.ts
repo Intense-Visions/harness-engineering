@@ -132,6 +132,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'detect_drift',
   // design-pipeline #1 (align half) — apply codemods + emit suggestions
   'align_design_system',
+  // design-pipeline #3 — brand-semantics audit (BRAND-T* + BRAND-V001)
+  'audit_brand',
 ];
 
 /**

@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-745 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+746 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (28 skills)
+## Tier 2 — Maintenance (29 skills)
 
 ### align-design-system
 
@@ -152,6 +152,16 @@ Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** detect-design-drift
+
+### audit-brand-compliance
+
+Rule-based brand-semantics audit. Detects token misuse (BRAND-T001 via $extensions.harness.brand.forbidden_contexts) and voice violations (BRAND-V001 via DESIGN.md voice.forbidden_phrases). 4th composed verifier in harness check-design. Triggers extraction of the formal verifier interface.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** detect-design-drift, harness-design
 
 ### audit-component-anatomy
 

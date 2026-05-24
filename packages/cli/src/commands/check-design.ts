@@ -29,9 +29,11 @@ import { runAudit as runAnatomyAudit } from '../mcp/tools/audit-anatomy';
 import type { AuditAnatomyOutput } from '../mcp/tools/audit-anatomy';
 import { runDesignCraft } from '../mcp/tools/design-craft';
 import { runDetectDrift } from '../mcp/tools/detect-drift';
+import { runAuditBrand } from '../mcp/tools/audit-brand';
 import type { AnatomyFinding } from '../audit/component-anatomy/findings/finding';
 import type { CraftFinding } from '../design-craft/findings/schema';
 import type { DriftFinding } from '../drift/findings/finding';
+import type { BrandFinding } from '../brand/findings/finding';
 
 type Mode = 'fast' | 'full';
 
@@ -51,6 +53,7 @@ interface CheckDesignResult {
     anatomy: AnatomyFinding[];
     craft: CraftFinding[];
     drift: DriftFinding[];
+    brand: BrandFinding[];
   };
   summary: {
     totalFindings: number;
@@ -89,6 +92,7 @@ export async function runCheckDesign(
   const anatomyFindings: AnatomyFinding[] = [];
   const craftFindings: CraftFinding[] = [];
   const driftFindings: DriftFinding[] = [];
+  const brandFindings: BrandFinding[] = [];
 
   // VERIFIER 1: audit-component-anatomy
   try {
@@ -144,6 +148,21 @@ export async function runCheckDesign(
     logger.warn(`detect-drift verifier failed: ${message}`);
   }
 
+  // VERIFIER 4: audit-brand-compliance
+  try {
+    const brandOut = await runAuditBrand({
+      path: cwd,
+      mode,
+      ...(options.files !== undefined && { files: options.files }),
+    });
+    brandFindings.push(...brandOut.findings);
+    verifiersRun.push('audit-brand');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    verifiersFailed.push({ name: 'audit-brand', error: message });
+    logger.warn(`audit-brand verifier failed: ${message}`);
+  }
+
   // Aggregate summary
   const bySeverity: Record<'error' | 'warn' | 'info', number> = {
     error: 0,
@@ -171,10 +190,21 @@ export async function runCheckDesign(
     byCode[f.code] = (byCode[f.code] ?? 0) + 1;
   }
 
-  const totalFindings = anatomyFindings.length + craftFindings.length + driftFindings.length;
+  for (const f of brandFindings) {
+    bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
+    byCode[f.code] = (byCode[f.code] ?? 0) + 1;
+  }
+
+  const totalFindings =
+    anatomyFindings.length + craftFindings.length + driftFindings.length + brandFindings.length;
 
   // Persist to graph
-  const graphPersisted = await persistFindings(anatomyFindings, craftFindings, driftFindings);
+  const graphPersisted = await persistFindings(
+    anatomyFindings,
+    craftFindings,
+    driftFindings,
+    brandFindings
+  );
 
   const durationMs = Date.now() - startedAt;
 
@@ -185,6 +215,7 @@ export async function runCheckDesign(
       anatomy: anatomyFindings,
       craft: craftFindings,
       drift: driftFindings,
+      brand: brandFindings,
     },
     summary: {
       totalFindings,
@@ -228,7 +259,8 @@ function craftTierToSeverity(
 async function persistFindings(
   anatomyFindings: readonly AnatomyFinding[],
   craftFindings: readonly CraftFinding[],
-  driftFindings: readonly DriftFinding[]
+  driftFindings: readonly DriftFinding[],
+  brandFindings: readonly BrandFinding[]
 ): Promise<CheckDesignResult['graphPersisted']> {
   const store = new GraphStore();
   const adapter = new DesignConstraintAdapter(store);
@@ -254,6 +286,16 @@ async function persistFindings(
       })
     ),
     ...driftFindings.map(
+      (f): CraftFindingRecord => ({
+        code: f.code,
+        file: f.file,
+        ...(f.line !== null && f.line !== undefined && { line: f.line }),
+        message: f.message,
+        severity: f.severity,
+        evidence: f.evidence?.snippet,
+      })
+    ),
+    ...brandFindings.map(
       (f): CraftFindingRecord => ({
         code: f.code,
         file: f.file,
@@ -292,6 +334,10 @@ function printCheckDesignResult(
 
   printVerifierSection('detect-drift', value.findingsByVerifier.drift.length, () =>
     printDriftFindings(value.findingsByVerifier.drift, mode === OutputMode.VERBOSE)
+  );
+
+  printVerifierSection('audit-brand', value.findingsByVerifier.brand.length, () =>
+    printBrandFindings(value.findingsByVerifier.brand, mode === OutputMode.VERBOSE)
   );
 
   if (value.summary.verifiersFailed.length > 0) {
@@ -346,6 +392,20 @@ function printCraftFindings(findings: readonly CraftFinding[], verbose: boolean)
 }
 
 function printDriftFindings(findings: readonly DriftFinding[], verbose: boolean): void {
+  const byFile = groupByFile(findings, (f) => f.file);
+  for (const [file, fs] of byFile) {
+    console.log(`  ${file}`);
+    for (const f of fs) {
+      const line = f.line !== null && f.line !== undefined ? `:${f.line}` : '';
+      console.log(`    ${f.code} [${f.severity}]    line${line}: ${f.message}`);
+      if (verbose) {
+        console.log(`                         fix: ${f.fix.description}`);
+      }
+    }
+  }
+}
+
+function printBrandFindings(findings: readonly BrandFinding[], verbose: boolean): void {
   const byFile = groupByFile(findings, (f) => f.file);
   for (const [file, fs] of byFile) {
     console.log(`  ${file}`);

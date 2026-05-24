@@ -1,0 +1,50 @@
+name: audit-brand-compliance
+version: "0.1.0"
+description: Rule-based brand-semantics audit. Detects token misuse (BRAND-T001 via $extensions.harness.brand.forbidden_contexts) and voice violations (BRAND-V001 via DESIGN.md voice.forbidden_phrases). 4th composed verifier in harness check-design. Triggers extraction of the formal verifier interface.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run audit-brand-compliance
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: "fast or full (equivalent in v1)"
+      required: false
+    - name: files
+      description: Optional list of files to scope the scan
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: audit-brand-compliance
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: load
+    description: Parse DESIGN.md ## Brand Rules and tokens.json $extensions.harness.brand
+    required: true
+  - name: scan
+    description: Walk JSX text/attributes for forbidden phrases; scan source for token-misuse-in-context
+    required: true
+  - name: report
+    description: Aggregate findings; emit BRAND-T* / BRAND-V001 with severity per design.strictness
+    required: true
+state:
+  persistent: false
+depends_on:
+  - detect-design-drift
+  - harness-design

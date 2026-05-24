@@ -16,6 +16,7 @@ import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy';
 import { runDetectDrift } from '../mcp/tools/detect-drift';
+import { runAuditBrand } from '../mcp/tools/audit-brand';
 
 interface ValidateOptions {
   cwd?: string;
@@ -40,6 +41,7 @@ interface ValidateResult {
     roadmapMode?: boolean;
     componentAnatomy?: boolean;
     driftDetection?: boolean;
+    brandCompliance?: boolean;
   };
   issues: Array<{
     check: string;
@@ -258,6 +260,50 @@ export async function runValidate(
         check: 'driftDetection',
         severity: 'warning',
         message: `Drift detection skipped: ${(err as Error).message}`,
+      });
+    }
+  }
+
+  // Audit-brand-compliance fast-mode (design-pipeline #3).
+  // Enabled by default; opts out via
+  // `design.audit.brandCompliance.enabled: false`. Detects token misuse
+  // (BRAND-T001 — token used in $extensions.harness.brand.forbidden_contexts)
+  // and voice violations (BRAND-V001 — UI copy containing voice.forbidden_phrases
+  // from DESIGN.md ## Brand Rules). Both rule families skip silently when
+  // their resolver input is absent.
+  const brandEnabled = config.design?.audit?.brandCompliance?.enabled !== false;
+  if (brandEnabled) {
+    try {
+      const strictness = (config.design?.strictness ?? 'standard') as
+        | 'strict'
+        | 'standard'
+        | 'permissive';
+      const brandOutput = await runAuditBrand({
+        path: cwd,
+        mode: 'fast',
+        designStrictness: strictness,
+      });
+      result.checks.brandCompliance = true;
+      for (const finding of brandOutput.findings) {
+        const severity: 'error' | 'warning' | 'info' =
+          finding.severity === 'warn' ? 'warning' : finding.severity;
+        if (severity === 'error') result.valid = false;
+        result.issues.push({
+          check: 'brandCompliance',
+          file: finding.file,
+          ...(finding.line !== null && finding.line !== undefined && { line: finding.line }),
+          ruleId: finding.code,
+          severity,
+          message: finding.message,
+          suggestion: finding.fix.description,
+        });
+      }
+    } catch (err) {
+      result.checks.brandCompliance = false;
+      result.issues.push({
+        check: 'brandCompliance',
+        severity: 'warning',
+        message: `Brand compliance audit skipped: ${(err as Error).message}`,
       });
     }
   }

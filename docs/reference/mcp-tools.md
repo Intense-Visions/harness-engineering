@@ -400,6 +400,18 @@ Audit components for anatomy completeness. Emits ANAT-D* findings for component 
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `catalog` (array, optional) — Optional subset of catalog entries to run.
 
+### `audit_brand`
+
+Audit brand-semantics violations: tokens used in forbidden contexts per their $extensions.harness.brand metadata (BRAND-T\*), and UI copy containing voice.forbidden_phrases from DESIGN.md ## Brand Rules (BRAND-V001). 4th verifier composed by harness check-design.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `mode` (string, optional) — Both modes equivalent in v1 (no slow patterns yet).
+- `files` (array, optional) — Optional explicit file list to scope the scan.
+- `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
+- `rules` (object, optional) — Per-rule enable flags.
+
 ### `compact`
 
 Compact content, resolve intents into aggregated packed responses, or re-compress prior tool output. Returns a packed envelope with source attribution and reduction metadata.

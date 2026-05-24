@@ -167,6 +167,30 @@ export const DriftDetectionConfigSchema = z.object({
 });
 
 /**
+ * Schema for brand-compliance audit (design-pipeline #3).
+ * All fields optional; omit the block entirely to use built-in defaults.
+ */
+export const BrandComplianceConfigSchema = z.object({
+  /** Gate for the entire brand verifier */
+  enabled: z.boolean().default(true),
+  /** Rule toggles — defaults align with v1 scope (BRAND-T* + BRAND-V001) */
+  rules: z
+    .object({
+      /** Token-misuse rules (BRAND-T001 via $extensions.harness.brand.forbidden_contexts). Default: true. */
+      tokenMisuse: z.boolean().default(true),
+      /** Voice rule (BRAND-V001 forbidden phrases in JSX text + string attributes). Default: true. */
+      voice: z.boolean().default(true),
+    })
+    .default({}),
+  /** Fast-mode controls (validate-time scope cap) */
+  fastMode: z
+    .object({
+      maxFiles: z.number().int().positive().default(500),
+    })
+    .default({}),
+});
+
+/**
  * Schema for design audit configuration (design-pipeline floor-layer audits).
  */
 export const DesignAuditConfigSchema = z.object({
@@ -174,6 +198,8 @@ export const DesignAuditConfigSchema = z.object({
   componentAnatomy: ComponentAnatomyAuditConfigSchema.optional(),
   /** Design-system drift detection (design-pipeline #1, detect half) */
   driftDetection: DriftDetectionConfigSchema.optional(),
+  /** Brand-compliance audit (design-pipeline #3) */
+  brandCompliance: BrandComplianceConfigSchema.optional(),
 });
 
 /**

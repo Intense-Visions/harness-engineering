@@ -53,6 +53,20 @@ vi.mock('../../src/mcp/tools/detect-drift', () => ({
   }),
 }));
 
+vi.mock('../../src/mcp/tools/audit-brand', () => ({
+  runAuditBrand: vi.fn().mockResolvedValue({
+    findings: [],
+    summary: {
+      totalFiles: 0,
+      durationMs: 0,
+      bySeverity: { error: 0, warn: 0, info: 0 },
+      byCode: {},
+    },
+    catalog: { rulesApplied: [] },
+    meta: { mode: 'fast', designMdLoaded: false, brandTokensLoaded: false },
+  }),
+}));
+
 vi.mock('../../src/config/loader', () => ({
   resolveConfig: vi.fn().mockReturnValue({
     ok: true,
@@ -69,6 +83,7 @@ import { runCheckDesign, createCheckDesignCommand } from '../../src/commands/che
 import { runAudit as runAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';
 import { runDesignCraft } from '../../src/mcp/tools/design-craft';
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift';
+import { runAuditBrand } from '../../src/mcp/tools/audit-brand';
 
 describe('check-design command', () => {
   beforeEach(() => {
@@ -85,11 +100,13 @@ describe('check-design command', () => {
       expect(result.value.findingsByVerifier.anatomy).toHaveLength(0);
       expect(result.value.findingsByVerifier.craft).toHaveLength(0);
       expect(result.value.findingsByVerifier.drift).toHaveLength(0);
+      expect(result.value.findingsByVerifier.brand).toHaveLength(0);
       expect(result.value.summary.totalFindings).toBe(0);
       expect(result.value.summary.verifiersRun).toEqual([
         'audit-anatomy',
         'design-craft-critique',
         'detect-drift',
+        'audit-brand',
       ]);
       expect(result.value.summary.verifiersFailed).toEqual([]);
       expect(result.value.graphPersisted.constraintsAdded).toBe(0);
@@ -251,7 +268,11 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['design-craft-critique', 'detect-drift']);
+      expect(result.value.summary.verifiersRun).toEqual([
+        'design-craft-critique',
+        'detect-drift',
+        'audit-brand',
+      ]);
       expect(result.value.summary.verifiersFailed).toEqual([
         { name: 'audit-anatomy', error: 'parser crashed' },
       ]);
@@ -269,7 +290,11 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'detect-drift']);
+      expect(result.value.summary.verifiersRun).toEqual([
+        'audit-anatomy',
+        'detect-drift',
+        'audit-brand',
+      ]);
       expect(result.value.summary.verifiersFailed[0]).toMatchObject({
         name: 'design-craft-critique',
         error: 'LLM provider not configured',
@@ -283,7 +308,11 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'detect-drift']);
+      expect(result.value.summary.verifiersRun).toEqual([
+        'audit-anatomy',
+        'detect-drift',
+        'audit-brand',
+      ]);
       expect(result.value.summary.verifiersFailed[0]).toMatchObject({
         name: 'design-craft-critique',
         error: 'boom',
@@ -297,7 +326,11 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'design-craft-critique']);
+      expect(result.value.summary.verifiersRun).toEqual([
+        'audit-anatomy',
+        'design-craft-critique',
+        'audit-brand',
+      ]);
       expect(result.value.summary.verifiersFailed[0]).toMatchObject({
         name: 'detect-drift',
         error: 'drift parse failed',
@@ -413,6 +446,89 @@ describe('check-design command', () => {
       expect(runDetectDrift).toHaveBeenCalledWith(
         expect.objectContaining({ files: ['src/Foo.tsx', 'src/Bar.tsx'] })
       );
+      expect(runAuditBrand).toHaveBeenCalledWith(
+        expect.objectContaining({ files: ['src/Foo.tsx', 'src/Bar.tsx'] })
+      );
+    });
+
+    it('degrades gracefully when audit-brand throws', async () => {
+      vi.mocked(runAuditBrand).mockRejectedValueOnce(new Error('brand parser crashed'));
+
+      const result = await runCheckDesign({ cwd: '/tmp/test' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.summary.verifiersRun).toEqual([
+        'audit-anatomy',
+        'design-craft-critique',
+        'detect-drift',
+      ]);
+      expect(result.value.summary.verifiersFailed[0]).toMatchObject({
+        name: 'audit-brand',
+        error: 'brand parser crashed',
+      });
+      expect(result.value.valid).toBe(false);
+    });
+
+    it('aggregates brand findings into bySeverity and byCode', async () => {
+      // Reset any sticky mocks from earlier tests (the idempotency test sets
+      // a sticky mockResolvedValue on runAnatomyAudit that would leak here).
+      vi.mocked(runAnatomyAudit).mockReset();
+      vi.mocked(runAnatomyAudit).mockResolvedValue({
+        findings: [],
+        summary: {
+          totalFiles: 0,
+          durationMs: 0,
+          bySeverity: { error: 0, warn: 0, info: 0 },
+          byCode: {},
+        },
+        catalog: { conventionsApplied: [], patternsApplied: [] },
+        meta: { mode: 'fast', deferredToA11y: 0 },
+      });
+
+      vi.mocked(runAuditBrand).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'BRAND-T001',
+            severity: 'error',
+            file: 'src/Hero.tsx',
+            line: 5,
+            message: 'Token "color.brand.500" is used in forbidden context "data-visualization"',
+            evidence: { snippet: '' },
+            rule: { id: 'BRAND-T001', category: 'token-misuse' },
+            fix: { kind: 'manual', description: 'Pick an approved alternative token' },
+          },
+          {
+            code: 'BRAND-V001',
+            severity: 'warn',
+            file: 'src/Hero.tsx',
+            line: 12,
+            message: 'UI copy contains forbidden phrase "click here"',
+            evidence: { snippet: 'Click here' },
+            rule: { id: 'BRAND-V001', category: 'voice' },
+            fix: { kind: 'manual', description: 'Rewrite to avoid "click here"' },
+          },
+        ],
+        summary: {
+          totalFiles: 1,
+          durationMs: 3,
+          bySeverity: { error: 1, warn: 1, info: 0 },
+          byCode: { 'BRAND-T001': 1, 'BRAND-V001': 1 },
+        },
+        catalog: { rulesApplied: ['token-misuse', 'forbidden-phrases'] },
+        meta: { mode: 'fast', designMdLoaded: true, brandTokensLoaded: true },
+      });
+
+      const result = await runCheckDesign({ cwd: '/tmp/test' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.findingsByVerifier.brand).toHaveLength(2);
+      expect(result.value.summary.bySeverity.error).toBe(1);
+      expect(result.value.summary.bySeverity.warn).toBe(1);
+      expect(result.value.summary.byCode['BRAND-T001']).toBe(1);
+      expect(result.value.summary.byCode['BRAND-V001']).toBe(1);
+      expect(result.value.valid).toBe(false);
     });
   });
 

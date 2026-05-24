@@ -39,17 +39,16 @@ export interface AuditAnatomyInput {
   catalog?: string[];
 }
 
-export interface AuditAnatomyOutput {
-  findings: AnatomyFinding[];
-  summary: {
-    totalFiles: number;
-    durationMs: number;
-    bySeverity: Record<Severity, number>;
-    byCode: Record<string, number>;
-  };
-  catalog: { conventionsApplied: string[]; patternsApplied: string[] };
-  meta: { mode: AuditMode; deferredToA11y: number };
-}
+import type { Verifier } from '../../shared/verifier.js';
+
+// Conforms to the shared Verifier<F, Cat, Meta> shape extracted at the
+// 4th-verifier threshold (audit-brand-compliance). Structural typing
+// means the existing fields satisfy the interface without refactor.
+export type AuditAnatomyOutput = Verifier<
+  AnatomyFinding,
+  { conventionsApplied: string[]; patternsApplied: string[] },
+  { mode: AuditMode; deferredToA11y: number }
+>;
 
 export const auditAnatomyDefinition = {
   name: 'audit_anatomy',

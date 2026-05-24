@@ -174,6 +174,8 @@ import {
   alignDesignSystemDefinition,
   handleAlignDesignSystem,
 } from './tools/align-design-system.js';
+// design-pipeline #3: brand-semantics audit (BRAND-T* token misuse + BRAND-V001 forbidden phrases).
+import { auditBrandDefinition, handleAuditBrand } from './tools/audit-brand.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -259,6 +261,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   designCraftToolDefinition,
   detectDriftDefinition,
   alignDesignSystemDefinition,
+  auditBrandDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -333,6 +336,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   design_craft: handleDesignCraft as unknown as ToolHandler,
   detect_drift: handleDetectDrift as unknown as ToolHandler,
   align_design_system: handleAlignDesignSystem as unknown as ToolHandler,
+  audit_brand: handleAuditBrand as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
