@@ -1,0 +1,51 @@
+name: audit-component-anatomy
+version: "0.1.0"
+description: Audit component definitions for missing required anatomy parts (slots, states, sizes) and detect missing-anatomy-component patterns (data without empty states, async without loading boundaries). First programmatic enforcer of component-anatomy rules.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run audit-component-anatomy
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: "fast (definition findings only) or full (definitions + patterns)"
+      required: false
+    - name: files
+      description: Optional glob/path scoping
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: audit-component-anatomy
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: scan
+    description: Identify component types and run convention/pattern audits
+    required: true
+  - name: evaluate
+    description: Apply severity model based on design.strictness
+    required: true
+  - name: report
+    description: Format findings as report + graph edges
+    required: true
+state:
+  persistent: false
+depends_on:
+  - design-component-anatomy
+  - harness-accessibility

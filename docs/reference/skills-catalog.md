@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-741 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+743 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,17 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (24 skills)
+## Tier 2 — Maintenance (26 skills)
+
+### audit-component-anatomy
+
+Audit component definitions for missing required anatomy parts (slots, states, sizes) and detect missing-anatomy-component patterns (data without empty states, async without loading boundaries). First programmatic enforcer of component-anatomy rules.
+
+- **Triggers:** manual, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** design-component-anatomy, harness-accessibility
 
 ### cleanup-dead-code
 
@@ -215,6 +225,16 @@ Analyze structural health of the codebase using graph metrics
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** analytical-reporter
+
+### harness-design-craft
+
+LLM-judgment-based design ceiling-raiser. CRITIQUE finds what's mediocre, POLISH applies high-craft moves, BENCHMARK scores against curated exemplars. The ceiling counterpart to rule-based audit skills.
+
+- **Triggers:** manual, on_new_feature
+- **Platforms:** claude-code
+- **Type:** flexible
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-design, harness-design-system
 
 ### harness-docs-pipeline
 

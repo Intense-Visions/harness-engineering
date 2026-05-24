@@ -1,5 +1,5 @@
 ---
-number: 0006
+number: 0026
 title: Compound auto-invocation deferred
 date: 2026-05-05
 status: accepted

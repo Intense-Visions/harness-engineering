@@ -1,3 +1,13 @@
+## 2026-05-23: Architecture constraints discovered while spec'ing + scaffolding design-pipeline sub-projects #2 + #6
+
+Three load-bearing facts about this codebase that the design-pipeline specs assumed wrong:
+
+1. **`harness:autopilot` cannot run from inside a subagent.** Autopilot's whole architecture is `subagent_type` dispatch to harness-planner / harness-task-executor / harness-verifier / harness-code-reviewer. Spawned background agents do not have the Task tool — they hit autopilot's "Iron Law: delegates, never reimplements" gate at INIT and stop. Autopilot must run from the _primary_ Claude Code session (the one with Agent/Task access). Two parallel autopilots = me alternating dispatches from the primary session, not two background agents running autopilots.
+
+2. **Skills are markdown-only and live at `agents/skills/<platform>/<name>/`, NOT `packages/cli/src/skills/<name>/src/`.** The `packages/cli/src/skill/` (singular) directory holds the skill SUBSYSTEM (dispatcher, schema, recommender). Individual skills are `SKILL.md` + `skill.yaml` only. Code that a skill INVOKES lives in conventional homes: MCP tools at `packages/cli/src/mcp/tools/`, graph adapters at `packages/graph/src/constraints/`, shared catalog data at `agents/skills/shared/design-knowledge/`. New specs should reflect this; existing design-pipeline specs got the layout wrong and need a path-correction amendment (see `docs/changes/design-pipeline/AMENDMENTS.md`).
+
+3. **`packages/cli/src/skills/` does not exist.** When a plan or spec references that path, treat it as a red flag for the architecture mismatch in #2 above. Both planner agents that authored plans for design-pipeline #2 and #6 flagged this as concern #1 and built in escalation tasks.
+
 ## 2026-05-06: Graph ingest robustness — issues #274 + #276
 
 Two independent crash modes on real-world monorepos, both fixed in this pass:

@@ -1,5 +1,5 @@
 ---
-number: 0003
+number: 0023
 title: Compound vs knowledge-pipeline scope boundary
 date: 2026-05-05
 status: accepted

@@ -1,5 +1,5 @@
 ---
-number: 0007
+number: 0027
 title: .harness/learnings.md deprecation scope
 date: 2026-05-05
 status: accepted
