@@ -77,4 +77,47 @@ describe('RoutingConfigSchema — Spec B Phase 0 widening', () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  // --- I3 (Phase 0 review) — coverage gaps -----------------------------------
+  // The original suite covered the headline cases (scalar + array on a few
+  // representative fields). The cases below pin behavior for shapes that
+  // the typecheck fixture already covers but that the Zod schema did not.
+
+  it('accepts a single-element chain on routing.default (parity with scalar form)', () => {
+    const parsed = RoutingConfigSchema.safeParse({
+      default: ['claude-opus'],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts a duplicate-entry chain (pins current behavior — no diagnostic)', () => {
+    // I3: duplicates within a chain may be intentional (operator hedging) or
+    // accidental. Phase 0 accepts both — this test pins the behavior so a
+    // future tightening (e.g., warn-on-duplicate) is an explicit change.
+    const parsed = RoutingConfigSchema.safeParse({
+      default: 'claude-opus',
+      skills: {
+        foo: ['claude-opus', 'claude-opus'],
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  // I3: parametric coverage of array form across the remaining widened
+  // scalar fields. `default`, `quick-fix`, `intelligence.sel`, `skills.*`,
+  // and `modes.*` are exercised by earlier tests; the four below close
+  // the gap. (`isolation.*` is intentionally skipped — not in the Zod
+  // schema yet per `schema.ts:105-106` TODO; Phase 2 follow-up.)
+  it.each([
+    ['guided-change', { 'guided-change': ['claude-opus', 'claude-sonnet'] }],
+    ['full-exploration', { 'full-exploration': ['claude-opus', 'claude-sonnet'] }],
+    ['diagnostic', { diagnostic: ['claude-opus', 'claude-sonnet'] }],
+    ['intelligence.pesl', { intelligence: { pesl: ['claude-opus', 'claude-sonnet'] } }],
+  ])('accepts array form for routing.%s', (_label, extraFields) => {
+    const parsed = RoutingConfigSchema.safeParse({
+      default: 'claude-opus',
+      ...extraFields,
+    });
+    expect(parsed.success).toBe(true);
+  });
 });

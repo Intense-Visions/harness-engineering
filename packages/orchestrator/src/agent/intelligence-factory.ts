@@ -9,6 +9,7 @@ import { GraphStore } from '@harness-engineering/graph';
 import type { WorkflowConfig, BackendDef } from '@harness-engineering/types';
 import type { LocalModelResolver } from './local-model-resolver';
 import { buildAnalysisProvider } from './analysis-provider-factory';
+import { toScalar } from './backend-router';
 import type { StructuredLogger } from '../logging/logger';
 
 export interface IntelligenceFactoryDeps {
@@ -44,9 +45,22 @@ export function buildIntelligencePipeline(
   // build a distinct provider for the PESL layer. When they route to
   // the same backend (or pesl is unset), pass undefined so the
   // pipeline falls back to the sel provider (current behavior).
+  //
+  // Spec B Phase 0 (C1 fix): compare the *resolved* backend names rather
+  // than the raw RoutingValue (which can be a fresh array literal —
+  // reference equality would be false for any chain form, building a
+  // redundant duplicate provider). `toScalar` collapses scalar | chain
+  // to the first backend name; this is byte-identical to the
+  // pre-widening behavior for scalar inputs and also makes
+  // scalar-vs-single-element-chain compare equal. Phase 1 will replace
+  // this with a `router.resolve({ kind: 'intelligence', layer: ... })`
+  // call so two distinct chains that resolve to the same backend (via
+  // chain walk + availability filtering) also compare equal.
   const routing = config.agent.routing;
-  const peslName = routing?.intelligence?.pesl;
-  const selName = routing?.intelligence?.sel ?? routing?.default;
+  const peslValue = routing?.intelligence?.pesl;
+  const selValue = routing?.intelligence?.sel ?? routing?.default;
+  const peslName = peslValue !== undefined ? toScalar(peslValue) : undefined;
+  const selName = selValue !== undefined ? toScalar(selValue) : undefined;
   const peslProvider =
     peslName !== undefined && peslName !== selName
       ? buildAnalysisProviderForLayer('pesl', deps)

@@ -19,8 +19,12 @@ const BackendsMapSchema = z.record(z.string(), BackendDefSchema);
  * `backends`. Mirrors the Phase 1 standalone helper but returns a flat
  * array of issues for synchronous consumption inside
  * `validateWorkflowConfig` (which is hand-rolled, not a Zod parse).
+ *
+ * Exported for unit testing. Production callers should prefer
+ * `validateWorkflowConfig` (which wraps this helper with the surrounding
+ * legacy-vs-modern branching).
  */
-function crossFieldRoutingIssues(
+export function crossFieldRoutingIssues(
   backends: Record<string, BackendDef>,
   routing: RoutingConfig
 ): Array<{ path: string[]; message: string }> {

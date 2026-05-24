@@ -12,6 +12,23 @@ export interface BackendRouterOptions {
 }
 
 /**
+ * Spec B Phase 0 normalization: collapse a {@link RoutingValue} to the
+ * first backend name. Scalar inputs are returned unchanged
+ * (byte-identical to pre-Spec-B behavior). Array-form inputs return the
+ * first element.
+ *
+ * Exported as a module-level helper so the small number of "surprise
+ * consumers" of widened {@link RoutingValue} fields (e.g.
+ * `intelligence-factory.ts`) can normalize through a single canonical
+ * implementation. Phase 1 of Spec B replaces the body of this function
+ * with the proper chain-walk resolver; every caller upgrades in
+ * lockstep at that point.
+ */
+export function toScalar(value: RoutingValue): string {
+  return Array.isArray(value) ? value[0] : (value as string);
+}
+
+/**
  * BackendRouter
  *
  * Owns the lookup from a `RoutingUseCase` (a discriminated query — tier,
@@ -110,12 +127,14 @@ export class BackendRouter {
 
   /**
    * Spec B Phase 0 normalization: collapse a {@link RoutingValue} to the
-   * first backend name. Scalar inputs are returned unchanged (byte-identical
-   * to pre-Spec-B behavior). Array-form inputs return the first element;
-   * Phase 1 replaces this with the proper chain walk.
+   * first backend name. Delegates to the module-level {@link toScalar}
+   * helper so external "surprise consumers" of widened RoutingValue
+   * fields (e.g. `intelligence-factory.ts`) and the router itself share
+   * one canonical implementation. Phase 1 replaces the helper body with
+   * the proper chain walk.
    */
   private toScalar(value: RoutingValue): string {
-    return Array.isArray(value) ? value[0] : (value as string);
+    return toScalar(value);
   }
 
   private validateReferences(): void {
