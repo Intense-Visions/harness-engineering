@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-05-17
 last_synced: 2026-05-23T20:39:30.138Z
-last_manual_edit: 2026-05-24T12:39:13.039Z
+last_manual_edit: 2026-05-24T14:34:27.138Z
 ---
 
 # Roadmap
@@ -1137,6 +1137,17 @@ last_manual_edit: 2026-05-24T12:39:13.039Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#386
+
+### Granular Task→Backend Routing
+
+- **Status:** planned
+- **Spec:** docs/changes/granular-task-routing/proposal.md
+- **Summary:** Per-skill + per-cognitive-mode backend routing with fallback chains and decision telemetry (events, ring buffer, dashboard panel, trace CLI). ~3.5-week scope. Complements LMLM. Approved by Chad 2026-05-24.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#391
 
 ## Hermes Adoption
 
