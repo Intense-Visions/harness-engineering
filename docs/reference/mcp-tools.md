@@ -755,6 +755,21 @@ Run the unified 7-phase code review pipeline: gate, mechanical checks, context s
 - `offset` (number, optional) — Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (critical > important > suggestion).
 - `limit` (number, optional) — Max findings to return (pagination). Default: 20.
 
+### `run_design_pipeline`
+
+Run the design-pipeline orchestrator: FRESHEN -> DETECT -> FIX -> AUDIT -> FILL -> REPORT. Composes detect-design-drift, align-design-system, audit-component-anatomy, audit-brand-compliance, and design-craft-elevator into a phased pipeline with convergence-based remediation.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `fix` (boolean, optional) — Enable convergence-based remediation
+- `noFreshen` (boolean, optional) — Skip FRESHEN phase
+- `noFill` (boolean, optional) — Skip FILL phase
+- `ci` (boolean, optional) — Non-interactive: safe fixes only, no prompts
+- `mode` (string, optional) — Verifier mode passed to each composed verifier
+- `files` (array, optional) — Optional file/glob scope
+- `designStrictness` (string, optional) — Override design.strictness
+
 ### `run_persona`
 
 Execute all steps defined in a persona and return aggregated results

@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-746 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+747 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (29 skills)
+## Tier 2 — Maintenance (30 skills)
 
 ### align-design-system
 
@@ -265,6 +265,16 @@ LLM-judgment-based design ceiling-raiser. CRITIQUE finds what's mediocre, POLISH
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-design, harness-design-system
+
+### harness-design-pipeline
+
+Orchestrator composing detect-design-drift, align-design-system, audit-component-anatomy, audit-brand-compliance, and design-craft-elevator into a sequential pipeline with convergence-based remediation. Mirrors harness-docs-pipeline. Consumes the formal verifier interface generically.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** detect-design-drift, align-design-system, audit-component-anatomy, audit-brand-compliance, harness-design-craft
 
 ### harness-docs-pipeline
 

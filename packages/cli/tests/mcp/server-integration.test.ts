@@ -67,7 +67,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('align_design_system');
     // design-pipeline #3 — audit-brand-compliance
     expect(names).toContain('audit_brand');
-    expect(tools).toHaveLength(73);
+    // design-pipeline #5 — orchestrator
+    expect(names).toContain('run_design_pipeline');
+    expect(tools).toHaveLength(74);
   });
 
   it('all tool definitions have inputSchema', () => {

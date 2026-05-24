@@ -134,6 +134,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'align_design_system',
   // design-pipeline #3 — brand-semantics audit (BRAND-T* + BRAND-V001)
   'audit_brand',
+  // design-pipeline #5 — orchestrator composing all design verifiers
+  'run_design_pipeline',
 ];
 
 /**
