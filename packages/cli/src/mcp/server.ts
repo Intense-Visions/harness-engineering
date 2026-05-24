@@ -163,6 +163,10 @@ import {
 import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 // Phase 4: emit a skill proposal into `.harness/proposals/`.
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/skill-proposal.js';
+// design-pipeline #2: component-anatomy audit (definition findings; ANAT-D*).
+import { auditAnatomyDefinition, handleAuditAnatomy } from './tools/audit-anatomy.js';
+// design-pipeline #6: design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK).
+import { designCraftToolDefinition, handleDesignCraft } from './tools/design-craft.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -244,6 +248,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   summarizeSessionDefinition,
   insightsSummaryDefinition,
   emitSkillProposalDefinition,
+  auditAnatomyDefinition,
+  designCraftToolDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -314,6 +320,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   summarize_session: handleSummarizeSession as unknown as ToolHandler,
   insights_summary: handleInsightsSummary as unknown as ToolHandler,
   emit_skill_proposal: handleEmitSkillProposal as unknown as ToolHandler,
+  audit_anatomy: handleAuditAnatomy as unknown as ToolHandler,
+  design_craft: handleDesignCraft as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
