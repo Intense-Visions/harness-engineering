@@ -12,10 +12,10 @@
     "statements": 94.63
   },
   "packages/cli": {
-    "lines": 78.26,
-    "branches": 64.37,
-    "functions": 82.07,
-    "statements": 77.21
+    "lines": 78.01,
+    "branches": 64.15,
+    "functions": 81.85,
+    "statements": 76.96
   },
   "packages/orchestrator": {
     "lines": 82.5,
