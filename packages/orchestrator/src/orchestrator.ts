@@ -762,10 +762,20 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createIntelligencePipeline(): IntelligencePipeline | null {
+    // Spec B Phase 1: the intelligence pipeline now consumes the
+    // canonical BackendRouter via deps.router (required field, per
+    // operator decision U2/U6 — no more toScalar fallback). If the
+    // backend factory failed to construct (legacy config migration
+    // threw), there is no router to thread and no intelligence
+    // pipeline to build; return null and let the caller proceed
+    // without intelligence (matches the prior behavior where
+    // buildIntelligencePipeline returned null on unresolvable routes).
+    if (!this.backendFactory) return null;
     const bundle = buildIntelligencePipeline({
       config: this.config,
       localResolvers: this.localResolvers,
       logger: this.logger,
+      router: this.backendFactory.getRouter(),
     });
     if (!bundle) return null;
     this.graphStore = bundle.graphStore;

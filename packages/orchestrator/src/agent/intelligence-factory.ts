@@ -9,13 +9,23 @@ import { GraphStore } from '@harness-engineering/graph';
 import type { WorkflowConfig, BackendDef } from '@harness-engineering/types';
 import type { LocalModelResolver } from './local-model-resolver';
 import { buildAnalysisProvider } from './analysis-provider-factory';
-import { toScalar } from './backend-router';
+import type { BackendRouter } from './backend-router';
 import type { StructuredLogger } from '../logging/logger';
 
 export interface IntelligenceFactoryDeps {
   config: WorkflowConfig;
   localResolvers: Map<string, LocalModelResolver>;
   logger: StructuredLogger;
+  /**
+   * Spec B Phase 1 (closes Phase 0 review finding I1 part 1): the
+   * canonical {@link BackendRouter} the orchestrator owns. Required so
+   * the SEL/PESL backend-name comparison consults the full chain walk
+   * (with availability filtering) rather than the Phase 0 toScalar
+   * first-element shim. Two distinct chains that resolve to the same
+   * backend compare equal — the original intent of the SC34/SC35
+   * dedupe optimization.
+   */
+  router: BackendRouter;
 }
 
 export interface IntelligencePipelineBundle {
@@ -34,7 +44,7 @@ export interface IntelligencePipelineBundle {
 export function buildIntelligencePipeline(
   deps: IntelligenceFactoryDeps
 ): IntelligencePipelineBundle | null {
-  const { config } = deps;
+  const { config, router } = deps;
   const intel = config.intelligence;
   if (!intel?.enabled) return null;
 
@@ -46,25 +56,16 @@ export function buildIntelligencePipeline(
   // the same backend (or pesl is unset), pass undefined so the
   // pipeline falls back to the sel provider (current behavior).
   //
-  // Spec B Phase 0 (C1 fix): compare the *resolved* backend names rather
-  // than the raw RoutingValue (which can be a fresh array literal —
-  // reference equality would be false for any chain form, building a
-  // redundant duplicate provider). `toScalar` collapses scalar | chain
-  // to the first backend name; this is byte-identical to the
-  // pre-widening behavior for scalar inputs and also makes
-  // scalar-vs-single-element-chain compare equal. Phase 1 will replace
-  // this with a `router.resolve({ kind: 'intelligence', layer: ... })`
-  // call so two distinct chains that resolve to the same backend (via
-  // chain walk + availability filtering) also compare equal.
-  const routing = config.agent.routing;
-  const peslValue = routing?.intelligence?.pesl;
-  const selValue = routing?.intelligence?.sel ?? routing?.default;
-  const peslName = peslValue !== undefined ? toScalar(peslValue) : undefined;
-  const selName = selValue !== undefined ? toScalar(selValue) : undefined;
-  const peslProvider =
-    peslName !== undefined && peslName !== selName
-      ? buildAnalysisProviderForLayer('pesl', deps)
-      : null;
+  // Spec B Phase 1 (closes Phase 0 review finding I1 part 1): ask the
+  // canonical router to resolve the actual chosen backend name for sel
+  // vs pesl. This compares post-chain-walk names, so two distinct
+  // chains that resolve to the same backend (via availability
+  // filtering) compare equal — the original intent of the SC34/SC35
+  // dedupe optimization. The Phase 0 toScalar shim and its no-router
+  // fallback are gone (per operator decision U2).
+  const peslName = router.resolve({ kind: 'intelligence', layer: 'pesl' }).backendName;
+  const selName = router.resolve({ kind: 'intelligence', layer: 'sel' }).backendName;
+  const peslProvider = peslName !== selName ? buildAnalysisProviderForLayer('pesl', deps) : null;
 
   const peslModel = intel.models?.pesl ?? config.agent.model;
   const graphStore = new GraphStore();

@@ -91,6 +91,16 @@ export class OrchestratorBackendFactory {
     return this.router.resolve(useCase).backendName;
   }
 
+  /**
+   * Spec B Phase 1: expose the underlying router for callers that need
+   * it directly (e.g., {@link buildIntelligencePipeline} for the
+   * I1 SEL/PESL comparison fix). Read-only access; consumers must not
+   * mutate router state.
+   */
+  getRouter(): BackendRouter {
+    return this.router;
+  }
+
   forUseCase(useCase: RoutingUseCase): AgentBackend {
     // Spec B Phase 1: two resolve() calls (one inside resolveDefinition,
     // one explicit) yield identical RoutingDecisions because the router
