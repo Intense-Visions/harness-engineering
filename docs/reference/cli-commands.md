@@ -26,6 +26,17 @@ Content-based skill recommendations for a spec
 - `--top` — Max skills per tier (default 5)
 - `--json` — Output as JSON
 
+### `harness align-design-system`
+
+Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for DRIFT-T004 + all DRIFT-P\*. Runs standalone (invokes detect-design-drift internally) or pipeline (reads pipeline.driftFindings from .harness/handoff.json).
+
+**Options:**
+
+- `--dry-run` — Compute diffs without writing files. Default: write.
+- `-f, --files` — Optional file/glob scope (standalone mode only — passed to detect-design-drift).
+- `--mode` — standalone (default) or pipeline (read findings from handoff.json) (default: "standalone")
+- `--design-strictness` — Override design.strictness: strict | standard | permissive
+
 ### `harness audit-protected`
 
 Report all harness-ignore protected code regions

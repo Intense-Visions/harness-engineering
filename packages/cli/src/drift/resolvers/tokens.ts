@@ -31,6 +31,21 @@ export interface TokenSet {
 }
 
 /**
+ * Path-keyed index of token values — consumed by align-design-system's
+ * pre-flight classifier and codemods. Built by the same walk as TokenSet
+ * but indexed by value → path[] so callers can resolve a hex / family /
+ * px value back to the dotted token path needed to write a token reference.
+ */
+export interface TokenPathIndex {
+  /** Lowercased hex → token paths */
+  colorPath: Map<string, string[]>;
+  /** Lowercased font-family → token paths */
+  fontFamilyPath: Map<string, string[]>;
+  /** Px value → token paths */
+  spacingPath: Map<number, string[]>;
+}
+
+/**
  * Attempt to load tokens.json from a project. Returns null when the
  * file doesn't exist.
  */
@@ -62,6 +77,79 @@ function extractTokens(root: Record<string, unknown>): TokenSet {
   };
   walk(root, [], set);
   return set;
+}
+
+/**
+ * Load a path-keyed index from tokens.json — sibling to loadTokenSet.
+ * Returns null when the file is absent (callers then degrade like
+ * tokens absence in the drift rules).
+ */
+export function loadTokenPathIndex(projectRoot: string): TokenPathIndex | null {
+  const tokenPath = path.join(projectRoot, 'design-system', 'tokens.json');
+  if (!fs.existsSync(tokenPath)) return null;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(tokenPath, 'utf-8');
+  } catch {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  return extractPathIndex(parsed as Record<string, unknown>);
+}
+
+function extractPathIndex(root: Record<string, unknown>): TokenPathIndex {
+  const idx: TokenPathIndex = {
+    colorPath: new Map(),
+    fontFamilyPath: new Map(),
+    spacingPath: new Map(),
+  };
+  walkForPaths(root, [], idx);
+  return idx;
+}
+
+function walkForPaths(
+  node: Record<string, unknown>,
+  breadcrumb: string[],
+  idx: TokenPathIndex
+): void {
+  if ('$value' in node) {
+    const tokenPath = breadcrumb.join('.');
+    const $type = typeof node.$type === 'string' ? (node.$type as string) : undefined;
+    const $value = node.$value;
+    if ($type === 'color' && typeof $value === 'string') {
+      pushPath(idx.colorPath, $value.toLowerCase(), tokenPath);
+    } else if ($type === 'fontFamily' && typeof $value === 'string') {
+      pushPath(idx.fontFamilyPath, $value.toLowerCase(), tokenPath);
+    } else if ($type === 'fontFamily' && Array.isArray($value)) {
+      for (const f of $value) {
+        if (typeof f === 'string') pushPath(idx.fontFamilyPath, f.toLowerCase(), tokenPath);
+      }
+    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'string') {
+      const px = parsePxValue($value);
+      if (px !== null) pushPath(idx.spacingPath, px, tokenPath);
+    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'number') {
+      pushPath(idx.spacingPath, $value, tokenPath);
+    }
+    return;
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('$')) continue;
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      walkForPaths(value as Record<string, unknown>, [...breadcrumb, key], idx);
+    }
+  }
+}
+
+function pushPath<K>(map: Map<K, string[]>, key: K, path: string): void {
+  const list = map.get(key) ?? [];
+  list.push(path);
+  map.set(key, list);
 }
 
 function walk(node: Record<string, unknown>, breadcrumb: string[], set: TokenSet): void {

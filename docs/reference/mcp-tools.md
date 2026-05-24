@@ -363,6 +363,19 @@ Content-based skill recommendations for a spec or feature description. Returns t
 - `thorough` (boolean, optional) — Include Consider tier in output
 - `top` (number, optional) — Max skills per tier (default 5 apply, 10 reference)
 
+### `align_design_system`
+
+Apply codemods for DRIFT-T001/T002/T003 (hex/font/spacing tokens) where pre-flight classifier deems the change safe; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). Runs standalone (invokes detect-design-drift internally) or as the FIX step in a pipeline (reads pipeline.driftFindings from handoff.json).
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `dryRun` (boolean, optional) — Compute diffs without writing to disk. Default: false (write is the default).
+- `files` (array, optional) — Optional file scope (standalone mode passes through to detect-design-drift).
+- `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
+- `mode` (string, optional) — standalone (default): runs detect internally. pipeline: reads pipeline.driftFindings from .harness/handoff.json and writes pipeline.fixesApplied back.
+- `fixBatch` (array, optional) — Optional list of finding keys (CODE@file:line) to limit application to a subset. Honored in pipeline mode.
+
 ### `analyze_diff`
 
 Parse a git diff and check for forbidden patterns, oversized files, and missing test coverage

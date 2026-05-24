@@ -63,22 +63,30 @@ function detectHexBypass(
   while ((match = HEX_PATTERN.exec(source)) !== null) {
     const hex = match[0]!;
     const lc = hex.toLowerCase();
-    if (tokens.colors.has(lc)) continue;
     const line = lineOf(source, match.index);
     const key = `${line}:${lc}`;
-    if (seenAtLine.has(key)) continue; // dedupe per line+value
+    if (seenAtLine.has(key)) continue;
     seenAtLine.add(key);
+    const inPalette = tokens.colors.has(lc);
+    // Flag in BOTH cases:
+    //   1. hex IS in palette but used as raw literal — align's T001 codemod
+    //      converts these to token references (common drift case).
+    //   2. hex is NOT in palette — out-of-system color (suggestion only).
     findings.push({
       code: 'DRIFT-T001',
       severity: severityFor('DRIFT-T001', strictness),
       file,
       line,
-      message: `Hardcoded color "${hex}" is not in the design token palette`,
+      message: inPalette
+        ? `Hex color "${hex}" should use a token reference instead of a raw literal`
+        : `Hardcoded color "${hex}" is not in the design token palette`,
       evidence: { snippet: extractLine(source, match.index) },
       rule: { id: 'DRIFT-T001', category: 'token-bypass' },
       fix: {
         kind: 'codemod-todo',
-        description: `Replace "${hex}" with a token reference (e.g. var(--color-...) or a token-system lookup). If the color is intentionally one-off, add it to tokens.json first.`,
+        description: inPalette
+          ? `Replace "${hex}" with the matching token reference (align-design-system can codemod this).`
+          : `Replace "${hex}" with a token reference. If the color is intentionally one-off, add it to tokens.json first.`,
       },
     });
   }
@@ -100,21 +108,28 @@ function detectFontFamilyBypass(
     const lc = family.toLowerCase();
     // Common system fallbacks are always allowed
     if (['inherit', 'sans-serif', 'serif', 'monospace', 'system-ui'].includes(lc)) continue;
-    if (tokens.fontFamilies.has(lc)) continue;
     if (seen.has(lc)) continue;
     seen.add(lc);
     const line = lineOf(source, match.index);
+    const inPalette = tokens.fontFamilies.has(lc);
+    // Flag in BOTH cases (mirrors T001):
+    //   1. family IS in palette but used as raw literal — align can codemod
+    //   2. family NOT in palette — out-of-system typography (suggestion)
     findings.push({
       code: 'DRIFT-T002',
       severity: severityFor('DRIFT-T002', strictness),
       file,
       line,
-      message: `Font-family "${family}" is not in the typography token palette`,
+      message: inPalette
+        ? `Font-family "${family}" should use a typography token reference instead of a raw literal`
+        : `Font-family "${family}" is not in the typography token palette`,
       evidence: { snippet: extractLine(source, match.index) },
       rule: { id: 'DRIFT-T002', category: 'token-bypass' },
       fix: {
         kind: 'codemod-todo',
-        description: `Replace "${family}" with a typography token (e.g. token typography.body.fontFamily) or add it to tokens.json if it's an intentional addition.`,
+        description: inPalette
+          ? `Replace "${family}" with the matching typography token (align-design-system can codemod this).`
+          : `Replace "${family}" with a typography token or add it to tokens.json if it's an intentional addition.`,
       },
     });
   }
@@ -135,22 +150,29 @@ function detectPxSpacingBypass(
   PX_VALUE_PATTERN.lastIndex = 0;
   while ((match = PX_VALUE_PATTERN.exec(source)) !== null) {
     const value = parseFloat(match[1]!);
-    if (tokens.spacingPx.has(value)) continue;
     const line = lineOf(source, match.index);
     const key = `${line}:${value}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const inPalette = tokens.spacingPx.has(value);
+    // Flag in BOTH cases (mirrors T001):
+    //   1. value IS in spacing scale but used as raw literal — align can codemod
+    //   2. value NOT in scale — off-scale spacing (suggestion)
     findings.push({
       code: 'DRIFT-T003',
       severity: severityFor('DRIFT-T003', strictness),
       file,
       line,
-      message: `Spacing value ${value}px is not in the spacing scale (${[...tokens.spacingPx].sort((a, b) => a - b).join('px, ')}px)`,
+      message: inPalette
+        ? `Spacing value ${value}px should use a spacing token reference instead of a raw literal`
+        : `Spacing value ${value}px is not in the spacing scale (${[...tokens.spacingPx].sort((a, b) => a - b).join('px, ')}px)`,
       evidence: { snippet: extractLine(source, match.index) },
       rule: { id: 'DRIFT-T003', category: 'token-bypass' },
       fix: {
         kind: 'codemod-todo',
-        description: `Round ${value}px to the nearest spacing-scale value, or add it to tokens.json if intentional.`,
+        description: inPalette
+          ? `Replace ${value}px with the matching spacing token (align-design-system can codemod this).`
+          : `Round ${value}px to the nearest spacing-scale value, or add it to tokens.json if intentional.`,
       },
     });
   }
