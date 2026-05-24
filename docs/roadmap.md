@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-05-17
 last_synced: 2026-05-23T20:39:30.138Z
-last_manual_edit: 2026-05-24T14:34:27.138Z
+last_manual_edit: 2026-05-24T14:52:41.671Z
 ---
 
 # Roadmap
@@ -1996,8 +1996,8 @@ last_manual_edit: 2026-05-24T14:34:27.138Z
 
 ### design-pipeline sub-project #4: harness check-design verifier
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/design-pipeline/check-design-verifier/proposal.md
 - **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1.
 - **Blockers:** —
 - **Plan:** —
