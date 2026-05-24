@@ -58,7 +58,10 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('insights_summary');
     // Hermes Phase 4
     expect(names).toContain('emit_skill_proposal');
-    expect(tools).toHaveLength(68);
+    // design-pipeline #2 + #6 coordination commits
+    expect(names).toContain('audit_anatomy');
+    expect(names).toContain('design_craft');
+    expect(tools).toHaveLength(70);
   });
 
   it('all tool definitions have inputSchema', () => {
