@@ -18,13 +18,12 @@ export interface BackendRouterOptions {
  * Spec B Phase 1: normalize a {@link RoutingValue} to a non-empty
  * readonly tuple of backend names. Scalar `'X'` becomes `['X']`; chain
  * `['X', 'Y']` is returned unchanged. This is the canonical
- * normalization the chain-walk resolver consumes; {@link toScalar}
- * delegates to `toArray(value)[0]`.
+ * normalization the chain-walk resolver consumes.
  *
  * The non-empty return type (`readonly [string, ...string[]]`) flows
- * directly from `RoutingValue`'s tuple guarantee and lets `toScalar`
- * (and other callers) index `[0]` without `noUncheckedIndexedAccess`
- * raising `T | undefined`.
+ * directly from `RoutingValue`'s tuple guarantee and lets callers
+ * index `[0]` without `noUncheckedIndexedAccess` raising
+ * `T | undefined`.
  *
  * Internal helper — not re-exported from the package barrel.
  */
@@ -37,18 +36,6 @@ export function toArray(value: RoutingValue): readonly [string, ...string[]] {
   return Array.isArray(value)
     ? (value as unknown as readonly [string, ...string[]])
     : [value as string];
-}
-
-/**
- * @deprecated Spec B Phase 1: prefer {@link BackendRouter.resolve}'s
- * `RoutingDecision.backendName` for chain-walk-aware backend selection.
- * `toScalar` returns only the first chain entry and does not consult
- * `agent.backends` for availability. Retained as a transitional
- * export for any consumer that picked up the Phase 0 module-level
- * export; remove in a future sweep once all known callers migrate.
- */
-export function toScalar(value: RoutingValue): string {
-  return toArray(value)[0];
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BackendDef, RoutingConfig, RoutingUseCase } from '@harness-engineering/types';
-import { BackendRouter, toArray, toScalar } from '../../src/agent/backend-router.js';
+import { BackendRouter, toArray } from '../../src/agent/backend-router.js';
 
 const cloud: BackendDef = { type: 'claude', command: 'claude' };
 const local: BackendDef = {
@@ -21,11 +21,6 @@ describe('toArray normalizer (Phase 1)', () => {
 
   it('returns a chain unchanged', () => {
     expect(toArray(['local', 'cloud'])).toEqual(['local', 'cloud']);
-  });
-
-  it('toScalar delegates to toArray(v)[0] (byte-identical to Phase 0)', () => {
-    expect(toScalar('cloud')).toBe('cloud');
-    expect(toScalar(['local', 'cloud'])).toBe('local');
   });
 });
 
