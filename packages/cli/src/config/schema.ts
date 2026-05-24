@@ -142,11 +142,38 @@ export const ComponentAnatomyAuditConfigSchema = z.object({
 });
 
 /**
+ * Schema for drift-detection config (design-pipeline #1 — detect half).
+ * All fields optional; omit the block entirely to use built-in defaults.
+ */
+export const DriftDetectionConfigSchema = z.object({
+  /** Gate for the entire drift verifier */
+  enabled: z.boolean().default(true),
+  /** Rule toggles — defaults align with v1 scope (T* + P*) */
+  rules: z
+    .object({
+      /** Token bypass rules (DRIFT-T001-T004). Default: true. */
+      tokenBypass: z.boolean().default(true),
+      /** Primitive adoption rules (DRIFT-P001-P004). Default: true. */
+      primitiveAdoption: z.boolean().default(true),
+    })
+    .default({}),
+  /** Fast-mode controls (validate-time scope cap) */
+  fastMode: z
+    .object({
+      /** Cap to keep validate fast on large repos */
+      maxFiles: z.number().int().positive().default(500),
+    })
+    .default({}),
+});
+
+/**
  * Schema for design audit configuration (design-pipeline floor-layer audits).
  */
 export const DesignAuditConfigSchema = z.object({
   /** Component-anatomy audit (design-pipeline #2) */
   componentAnatomy: ComponentAnatomyAuditConfigSchema.optional(),
+  /** Design-system drift detection (design-pipeline #1, detect half) */
+  driftDetection: DriftDetectionConfigSchema.optional(),
 });
 
 /**

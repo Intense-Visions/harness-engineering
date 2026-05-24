@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-743 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+744 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (26 skills)
+## Tier 2 — Maintenance (27 skills)
 
 ### audit-component-anatomy
 
@@ -161,6 +161,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### detect-design-drift
+
+Detect design-system drift — hardcoded values where tokens exist and raw HTML primitives where registered components exist. Reports only; never modifies source. Floor-layer rule-based verifier composed by harness check-design.
+
+- **Triggers:** manual, on_pr_open, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** audit-component-anatomy, harness-design-craft
 
 ### detect-doc-drift
 

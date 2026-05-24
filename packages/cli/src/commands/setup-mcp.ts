@@ -128,6 +128,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'audit_anatomy',
   // design-pipeline #6 — design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK)
   'design_craft',
+  // design-pipeline #1 (detect half) — design-system drift detection
+  'detect_drift',
 ];
 
 /**

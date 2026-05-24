@@ -61,7 +61,9 @@ describe('MCP Server Integration', () => {
     // design-pipeline #2 + #6 coordination commits
     expect(names).toContain('audit_anatomy');
     expect(names).toContain('design_craft');
-    expect(tools).toHaveLength(70);
+    // design-pipeline #1 (detect half)
+    expect(names).toContain('detect_drift');
+    expect(tools).toHaveLength(71);
   });
 
   it('all tool definitions have inputSchema', () => {

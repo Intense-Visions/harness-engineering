@@ -15,6 +15,7 @@ import { OutputFormatter, OutputMode, type OutputModeType } from '../output/form
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy';
+import { runDetectDrift } from '../mcp/tools/detect-drift';
 
 interface ValidateOptions {
   cwd?: string;
@@ -38,6 +39,7 @@ interface ValidateResult {
     solutionsDir?: boolean;
     roadmapMode?: boolean;
     componentAnatomy?: boolean;
+    driftDetection?: boolean;
   };
   issues: Array<{
     check: string;
@@ -213,6 +215,49 @@ export async function runValidate(
         check: 'componentAnatomy',
         severity: 'warning',
         message: `Component-anatomy audit skipped: ${(err as Error).message}`,
+      });
+    }
+  }
+
+  // Detect-design-drift fast-mode (design-pipeline #1, detect half).
+  // Enabled by default; opts out via
+  // `design.audit.driftDetection.enabled: false`. Walks the project for
+  // hardcoded values (DRIFT-T*) and primitive-adoption violations
+  // (DRIFT-P*). Both rule families skip silently when their resolver
+  // input is absent (tokens.json / DESIGN.md ## Component Registry).
+  const driftEnabled = config.design?.audit?.driftDetection?.enabled !== false;
+  if (driftEnabled) {
+    try {
+      const strictness = (config.design?.strictness ?? 'standard') as
+        | 'strict'
+        | 'standard'
+        | 'permissive';
+      const driftOutput = await runDetectDrift({
+        path: cwd,
+        mode: 'fast',
+        designStrictness: strictness,
+      });
+      result.checks.driftDetection = true;
+      for (const finding of driftOutput.findings) {
+        const severity: 'error' | 'warning' | 'info' =
+          finding.severity === 'warn' ? 'warning' : finding.severity;
+        if (severity === 'error') result.valid = false;
+        result.issues.push({
+          check: 'driftDetection',
+          file: finding.file,
+          ...(finding.line !== null && finding.line !== undefined && { line: finding.line }),
+          ruleId: finding.code,
+          severity,
+          message: finding.message,
+          suggestion: finding.fix.description,
+        });
+      }
+    } catch (err) {
+      result.checks.driftDetection = false;
+      result.issues.push({
+        check: 'driftDetection',
+        severity: 'warning',
+        message: `Drift detection skipped: ${(err as Error).message}`,
       });
     }
   }

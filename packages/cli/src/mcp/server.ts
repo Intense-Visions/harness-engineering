@@ -167,6 +167,8 @@ import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/sk
 import { auditAnatomyDefinition, handleAuditAnatomy } from './tools/audit-anatomy.js';
 // design-pipeline #6: design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK).
 import { designCraftToolDefinition, handleDesignCraft } from './tools/design-craft.js';
+// design-pipeline #1 (detect half): design-system drift detection.
+import { detectDriftDefinition, handleDetectDrift } from './tools/detect-drift.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -250,6 +252,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   emitSkillProposalDefinition,
   auditAnatomyDefinition,
   designCraftToolDefinition,
+  detectDriftDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -322,6 +325,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   emit_skill_proposal: handleEmitSkillProposal as unknown as ToolHandler,
   audit_anatomy: handleAuditAnatomy as unknown as ToolHandler,
   design_craft: handleDesignCraft as unknown as ToolHandler,
+  detect_drift: handleDetectDrift as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

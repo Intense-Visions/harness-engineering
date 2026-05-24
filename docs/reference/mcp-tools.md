@@ -206,6 +206,18 @@ Cluster recurring violations by pattern and suggest new constraint rules. When N
 - `minOccurrences` (number, optional) — Minimum number of similar violations to trigger a suggestion (default: 3)
 - `category` (string, optional) — Optional filter by constraint category
 
+### `detect_drift`
+
+Detect design-system drift in source: hardcoded values where tokens exist (token bypass) and raw HTML primitives where a registered design-system component exists (primitive adoption). Composes with harness check-design as the 3rd verifier alongside audit-anatomy and design-craft.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `mode` (string, optional) — Both modes equivalent in v1 (no slow patterns yet).
+- `files` (array, optional) — Optional explicit file list to scope the scan.
+- `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
+- `rules` (object, optional) — Per-rule enable flags.
+
 ### `detect_entropy`
 
 Detect documentation drift, dead code, and pattern violations. Optionally auto-fix detected issues.

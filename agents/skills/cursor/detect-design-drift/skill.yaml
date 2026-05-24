@@ -1,0 +1,50 @@
+name: detect-design-drift
+version: "0.1.0"
+description: Detect design-system drift — hardcoded values where tokens exist and raw HTML primitives where registered components exist. Reports only; never modifies source. Floor-layer rule-based verifier composed by harness check-design.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run detect-design-drift
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: "fast or full (equivalent in v1 — reserved for future scope expansion)"
+      required: false
+    - name: files
+      description: Optional list of files to scope the run
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: detect-design-drift
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: scan
+    description: Load tokens.json and DESIGN.md registry; walk candidate files
+    required: true
+  - name: apply_rules
+    description: Run DRIFT-T* and DRIFT-P* rules per file
+    required: true
+  - name: report
+    description: Aggregate severity, format findings, persist to graph
+    required: true
+state:
+  persistent: false
+depends_on:
+  - audit-component-anatomy
+  - harness-design-craft

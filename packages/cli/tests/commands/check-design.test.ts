@@ -39,6 +39,20 @@ vi.mock('../../src/mcp/tools/design-craft', () => ({
   }),
 }));
 
+vi.mock('../../src/mcp/tools/detect-drift', () => ({
+  runDetectDrift: vi.fn().mockResolvedValue({
+    findings: [],
+    summary: {
+      totalFiles: 0,
+      durationMs: 0,
+      bySeverity: { error: 0, warn: 0, info: 0 },
+      byCode: {},
+    },
+    catalog: { rulesApplied: [] },
+    meta: { mode: 'fast', tokensLoaded: false, registryLoaded: false },
+  }),
+}));
+
 vi.mock('../../src/config/loader', () => ({
   resolveConfig: vi.fn().mockReturnValue({
     ok: true,
@@ -54,6 +68,7 @@ vi.mock('../../src/config/loader', () => ({
 import { runCheckDesign, createCheckDesignCommand } from '../../src/commands/check-design';
 import { runAudit as runAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';
 import { runDesignCraft } from '../../src/mcp/tools/design-craft';
+import { runDetectDrift } from '../../src/mcp/tools/detect-drift';
 
 describe('check-design command', () => {
   beforeEach(() => {
@@ -69,8 +84,13 @@ describe('check-design command', () => {
       expect(result.value.valid).toBe(true);
       expect(result.value.findingsByVerifier.anatomy).toHaveLength(0);
       expect(result.value.findingsByVerifier.craft).toHaveLength(0);
+      expect(result.value.findingsByVerifier.drift).toHaveLength(0);
       expect(result.value.summary.totalFindings).toBe(0);
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'design-craft-critique']);
+      expect(result.value.summary.verifiersRun).toEqual([
+        'audit-anatomy',
+        'design-craft-critique',
+        'detect-drift',
+      ]);
       expect(result.value.summary.verifiersFailed).toEqual([]);
       expect(result.value.graphPersisted.constraintsAdded).toBe(0);
       expect(result.value.graphPersisted.edgesAdded).toBe(0);
@@ -231,7 +251,7 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['design-craft-critique']);
+      expect(result.value.summary.verifiersRun).toEqual(['design-craft-critique', 'detect-drift']);
       expect(result.value.summary.verifiersFailed).toEqual([
         { name: 'audit-anatomy', error: 'parser crashed' },
       ]);
@@ -249,7 +269,7 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy']);
+      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'detect-drift']);
       expect(result.value.summary.verifiersFailed[0]).toMatchObject({
         name: 'design-craft-critique',
         error: 'LLM provider not configured',
@@ -263,11 +283,72 @@ describe('check-design command', () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy']);
+      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'detect-drift']);
       expect(result.value.summary.verifiersFailed[0]).toMatchObject({
         name: 'design-craft-critique',
         error: 'boom',
       });
+    });
+
+    it('degrades gracefully when detect-drift throws', async () => {
+      vi.mocked(runDetectDrift).mockRejectedValueOnce(new Error('drift parse failed'));
+
+      const result = await runCheckDesign({ cwd: '/tmp/test' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.summary.verifiersRun).toEqual(['audit-anatomy', 'design-craft-critique']);
+      expect(result.value.summary.verifiersFailed[0]).toMatchObject({
+        name: 'detect-drift',
+        error: 'drift parse failed',
+      });
+      expect(result.value.valid).toBe(false);
+    });
+
+    it('aggregates drift findings into bySeverity and byCode', async () => {
+      vi.mocked(runDetectDrift).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'DRIFT-T001',
+            severity: 'error',
+            file: 'src/Card.tsx',
+            line: 12,
+            message: 'Hex color "#ff0000" outside token system',
+            evidence: { snippet: 'color: "#ff0000"' },
+            rule: { id: 'DRIFT-T001', category: 'token-bypass' },
+            fix: { kind: 'manual', description: 'Replace with token reference' },
+          },
+          {
+            code: 'DRIFT-P001',
+            severity: 'warn',
+            file: 'src/Form.tsx',
+            line: 5,
+            message: 'Native <button> used instead of <Button> primitive',
+            evidence: { snippet: '<button>' },
+            rule: { id: 'DRIFT-P001', category: 'primitive-adoption' },
+            fix: { kind: 'manual', description: 'Use registered Button primitive' },
+          },
+        ],
+        summary: {
+          totalFiles: 2,
+          durationMs: 4,
+          bySeverity: { error: 1, warn: 1, info: 0 },
+          byCode: { 'DRIFT-T001': 1, 'DRIFT-P001': 1 },
+        },
+        catalog: { rulesApplied: ['token-bypass', 'primitive-adoption'] },
+        meta: { mode: 'fast', tokensLoaded: true, registryLoaded: true },
+      });
+
+      const result = await runCheckDesign({ cwd: '/tmp/test' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.findingsByVerifier.drift).toHaveLength(2);
+      expect(result.value.summary.bySeverity.error).toBe(1);
+      expect(result.value.summary.bySeverity.warn).toBe(1);
+      expect(result.value.summary.byCode['DRIFT-T001']).toBe(1);
+      expect(result.value.summary.byCode['DRIFT-P001']).toBe(1);
+      expect(result.value.valid).toBe(false); // error-severity drift → invalid
     });
 
     it('idempotently persists findings to the graph (no duplicate edges on re-run)', async () => {
@@ -327,6 +408,9 @@ describe('check-design command', () => {
         expect.objectContaining({ files: ['src/Foo.tsx', 'src/Bar.tsx'] })
       );
       expect(runDesignCraft).toHaveBeenCalledWith(
+        expect.objectContaining({ files: ['src/Foo.tsx', 'src/Bar.tsx'] })
+      );
+      expect(runDetectDrift).toHaveBeenCalledWith(
         expect.objectContaining({ files: ['src/Foo.tsx', 'src/Bar.tsx'] })
       );
     });
