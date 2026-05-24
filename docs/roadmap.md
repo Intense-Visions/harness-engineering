@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-05-17
 last_synced: 2026-05-23T20:39:30.138Z
-last_manual_edit: 2026-05-24T14:52:41.671Z
+last_manual_edit: 2026-05-24T15:27:04.258Z
 ---
 
 # Roadmap
@@ -1963,8 +1963,8 @@ last_manual_edit: 2026-05-24T14:52:41.671Z
 
 ### design-pipeline sub-project #1: detect-design-drift + align-design-system
 
-- **Status:** blocked
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/design-pipeline/detect-design-drift/proposal.md
 - **Summary:** Detection skill (detect-design-drift) and remediation skill (align-design-system) for token bypass, variant proliferation, and components not adopting design-system primitives. Pattern-mirrors detect-doc-drift + align-documentation. Detect skill can land independently; align skill blocks on #4 verifier for its convergence loop.
 - **Blockers:** design-pipeline sub-project #4 (#357) for align skill only
 - **Plan:** —
