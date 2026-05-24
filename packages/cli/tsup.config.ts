@@ -10,7 +10,16 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     outDir: 'dist',
-    external: ['@modelcontextprotocol/sdk', 'web-tree-sitter'],
+    external: [
+      '@modelcontextprotocol/sdk',
+      'web-tree-sitter',
+      // typescript uses CommonJS-style dynamic require('fs') for its host
+      // implementation; bundling breaks runtime ("Dynamic require of 'fs'
+      // is not supported"). Keep external — available transitively via
+      // @typescript-eslint/typescript-estree (a direct dep of CLI).
+      // Imported by packages/cli/src/audit/component-anatomy/parsers/ast.ts.
+      'typescript',
+    ],
     // Bundle workspace packages into the CLI dist so the CLI works
     // when installed globally without needing sibling packages.
     noExternal: [
