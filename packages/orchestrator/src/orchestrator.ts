@@ -35,6 +35,7 @@ import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
+import { toArray } from './agent/backend-router';
 import { detectScopeTier, artifactPresenceFromIssue } from './core/model-router';
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
@@ -1376,21 +1377,18 @@ export class Orchestrator extends EventEmitter {
         routedBackendName = this.backendFactory.resolveName(useCase);
       } else {
         // Legacy-fallback path: factory absent because migration threw.
-        // Prefer `routing.default` if migration partially succeeded;
-        // otherwise fall back to legacy `agent.backend` (still a string
-        // when this branch is reachable: migration only throws on
-        // legacy configs that have `agent.backend` set).
+        // Pre-Spec-B configs that have `agent.backend` set without
+        // `agent.backends` reach here. routing.default may be
+        // RoutingValue (scalar OR chain); we take the first chain
+        // entry without availability filtering (validateReferences
+        // would have caught typos at construction time).
         //
-        // Spec B Phase 0: routing.default is RoutingValue (scalar OR chain).
-        // Normalize to first element for byte-identical scalar behavior;
-        // Phase 1 replaces this with the proper chain walk.
+        // Spec B Phase 1 (closes Phase 0 review finding I1 part 2):
+        // the inline Array.isArray normalization is replaced with the
+        // canonical toArray helper from backend-router.ts.
         const routingDefault = this.config.agent.routing?.default;
         const routingDefaultScalar =
-          routingDefault === undefined
-            ? undefined
-            : Array.isArray(routingDefault)
-              ? routingDefault[0]
-              : routingDefault;
+          routingDefault !== undefined ? toArray(routingDefault)[0] : undefined;
         routedBackendName = routingDefaultScalar ?? this.config.agent.backend ?? 'unknown';
       }
 
