@@ -124,6 +124,10 @@ export const ALL_MCP_TOOLS: string[] = [
   'insights_summary',
   // Hermes Phase 4 — agent-emitted skill proposals
   'emit_skill_proposal',
+  // design-pipeline #2 — component-anatomy audit (ANAT-D* findings)
+  'audit_anatomy',
+  // design-pipeline #6 — design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK)
+  'design_craft',
 ];
 
 /**

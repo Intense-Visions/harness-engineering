@@ -31,6 +31,15 @@
 - If `i18n.enabled` is false or absent, scan for `lang`/`dir` as normal (these remain part of the accessibility audit).
 - This deduplication prevents the same finding from appearing in both the accessibility report and the i18n report.
 
+  2.6. **Check for component-anatomy audit overlap.** Read `harness.config.json` for `design.audit.componentAnatomy.enabled` (default `true` when absent):
+
+- If `enabled: true`, **defer** `A11Y-010` (interactive elements without accessible labels) and `A11Y-050` (`<input>`/`<select>`/`<textarea>` without associated `<label>`) findings for components whose identified type is in the anatomy catalog. Load the catalog component-type set via `getCatalogTypes()` from `audit-component-anatomy`'s public export so this skill has zero rule-content duplication.
+- Identify each scanned JSX element's component type using the same 3-layer resolver `audit-component-anatomy` uses: (1) JSDoc `@component-type X` tag, (2) `design-system/DESIGN.md` `## Component Registry` mapping, (3) top-level export-name catalog match.
+- For components in the catalog: `audit-component-anatomy` owns the label-slot finding as `ANAT-D*` (definition-side in v1, `ANAT-U*` in v2). Do not emit `A11Y-010` / `A11Y-050` for them.
+- For raw HTML elements (`<button>`, `<input>`, `<select>`, `<textarea>`) and unidentified components: scan for `A11Y-010` / `A11Y-050` as normal.
+- If `enabled: false` or absent: scan for `A11Y-010` / `A11Y-050` as normal (no deferral).
+- Same i18n-style deduplication pattern as step 2.5 — prevents one root cause from appearing in both the accessibility report and the anatomy report.
+
 3. **Scan component files.** Search all files matching `.tsx`, `.jsx`, `.vue`, `.svelte`, `.html` for the following violations:
 
    **Images and media:**
@@ -183,6 +192,7 @@ This phase is optional. It applies fixes only for **mechanical issues** -- viola
 - **`harness-impact-analysis`** -- When tokens change (palette update, new colors), impact analysis traces affected components. The accessibility skill uses this to determine which components need re-scanning.
 - **`harness-design-system`** -- Dependency. When contrast failures originate from token definitions (not component code), escalate to harness-design-system to fix at the source.
 - **`harness-i18n` deduplication** -- When `i18n.enabled: true` in config, `lang` and `dir` attribute checks are deferred to the i18n skill. This prevents duplicate findings across the accessibility and i18n reports. When i18n is not enabled, these checks remain part of the accessibility scan.
+- **`audit-component-anatomy` deduplication** -- When `design.audit.componentAnatomy.enabled: true` in config (default), `A11Y-010` and `A11Y-050` are deferred to `audit-component-anatomy` for components in its catalog (Button, Input, Select, Modal, Card, Tabs, etc.). The anatomy audit owns the label-slot finding for those components; this skill still scans raw HTML and unidentified components. Same i18n-style deduplication pattern.
 
 ## Success Criteria
 

@@ -363,6 +363,18 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 - `maxFileSize` (number, optional) — Maximum number of lines changed per file before flagging
 - `maxFileCount` (number, optional) — Maximum number of changed files before flagging
 
+### `audit_anatomy`
+
+Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the Button convention only; pattern-presence checks (ANAT-P*) return empty pending follow-up.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `mode` (string, optional) — fast = conventions only (cheap AST scan). full = conventions + patterns. In v1 both modes run conventions only because pattern engine is not yet wired.
+- `files` (array, optional) — Optional explicit file list (paths or globs) to scope the audit.
+- `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
+- `catalog` (array, optional) — Optional subset of catalog entries to run.
+
 ### `compact`
 
 Compact content, resolve intents into aggregated packed responses, or re-compress prior tool output. Returns a packed envelope with source attribution and reduction metadata.
@@ -388,6 +400,19 @@ Simulate cascading failure propagation from a source node using probability-weig
 - `probabilityFloor` (number, optional) — Minimum cumulative probability to continue traversal (default 0.05)
 - `maxDepth` (number, optional) — Maximum BFS depth (default 10)
 - `mode` (string, optional) — Response density: compact returns summary + top 10 highest-risk nodes, detailed returns full layered cascade chain. Default: compact
+
+### `design_craft`
+
+Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a project's components. Phase 1 MVP: fast-mode CRITIQUE with the seeded hierarchy-clarity rubric; POLISH and BENCHMARK are stubs.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `mode` (string, optional) — fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.
+- `phases` (array, optional) — Subset of phases to run. Defaults to all three.
+- `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
+- `autoCapture` (string, optional) — B' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.
+- `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 
 ### `dispatch_skills`
 

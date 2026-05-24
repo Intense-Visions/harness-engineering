@@ -119,6 +119,75 @@ export const PerformanceConfigSchema = z
   .passthrough();
 
 /**
+ * Schema for component-anatomy audit config (design-pipeline #2).
+ * All fields optional; omit the block entirely to use the audit's
+ * built-in defaults.
+ */
+export const ComponentAnatomyAuditConfigSchema = z.object({
+  /** Gate for the entire audit AND the harness-accessibility deferral */
+  enabled: z.boolean().default(true),
+  /** "default" or a path to a project-supplied override catalog */
+  catalog: z.string().default('default'),
+  /** "all", "none", or an explicit list of pattern codes (e.g. ["ANAT-P001"]) */
+  patterns: z.union([z.literal('all'), z.literal('none'), z.array(z.string())]).default('all'),
+  /** Fast-mode controls (validate-time scope cap + pattern opt-in) */
+  fastMode: z
+    .object({
+      /** Whether validate-time runs pattern queries (default false — patterns are full-mode only) */
+      patterns: z.boolean().default(false),
+      /** Cap to keep validate fast on large repos */
+      maxFiles: z.number().int().positive().default(500),
+    })
+    .default({}),
+});
+
+/**
+ * Schema for design audit configuration (design-pipeline floor-layer audits).
+ */
+export const DesignAuditConfigSchema = z.object({
+  /** Component-anatomy audit (design-pipeline #2) */
+  componentAnatomy: ComponentAnatomyAuditConfigSchema.optional(),
+});
+
+/**
+ * Schema for design-craft (LLM-judgment ceiling skill) configuration
+ * (design-pipeline #6). All fields optional; omit the block entirely to
+ * use the skill's built-in defaults.
+ */
+export const DesignCraftConfigSchema = z.object({
+  /** Gate for the entire skill AND the harness-design overlap deferral */
+  enabled: z.boolean().default(true),
+  /** Default invocation mode — "fast" (code-only LLM) or "deep" (rendered + vision-LLM) */
+  mode: z.enum(['fast', 'deep']).default('fast'),
+  /** B' detect-and-offer behavior when preconditions missing */
+  autoCapture: z.enum(['prompt', 'auto', 'skip']).default('prompt'),
+  /** LLM provider configuration */
+  llm: z
+    .object({
+      provider: z.string().default('anthropic'),
+      model: z.string().default('claude-sonnet-4-6'),
+      visionModel: z.string().optional(),
+    })
+    .optional(),
+  /** Catalog scoping */
+  catalog: z
+    .object({
+      path: z.string().default('default'),
+      rubrics: z.union([z.literal('all'), z.literal('none'), z.array(z.string())]).default('all'),
+      patterns: z.union([z.literal('all'), z.literal('none'), z.array(z.string())]).default('all'),
+      exemplars: z.union([z.literal('all'), z.literal('none'), z.array(z.string())]).default('all'),
+    })
+    .optional(),
+  /** Signal feedback loop (CRITIQUE recurrence → pattern proposal) */
+  signal: z
+    .object({
+      /** N=5 by default — emit candidate pattern proposal after this many recurrences */
+      proposalThreshold: z.number().int().positive().default(5),
+    })
+    .optional(),
+});
+
+/**
  * Schema for design system and aesthetic consistency configuration.
  *
  * `enabled` is tri-state at runtime: `true`, `false`, or absent.
@@ -144,6 +213,16 @@ export const DesignConfigSchema = z
     tokenPath: z.string().optional(),
     /** Brief description of the intended aesthetic direction */
     aestheticIntent: z.string().optional(),
+    /**
+     * Design-pipeline audit configuration (rule-based floor layer).
+     * Omit to use built-in defaults.
+     */
+    audit: DesignAuditConfigSchema.optional(),
+    /**
+     * Design-craft configuration (LLM-judgment ceiling layer, design-pipeline #6).
+     * Omit to use built-in defaults.
+     */
+    craft: DesignCraftConfigSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (value.enabled === true && (!value.platforms || value.platforms.length === 0)) {

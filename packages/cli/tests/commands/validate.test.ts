@@ -33,6 +33,22 @@ vi.mock('../../src/config/loader', () => ({
   }),
 }));
 
+// Mock the audit-anatomy entry point. Default: returns no findings so existing
+// tests stay unaffected. Per-test overrides via the imported handle below.
+vi.mock('../../src/mcp/tools/audit-anatomy', () => ({
+  runAudit: vi.fn().mockResolvedValue({
+    findings: [],
+    summary: {
+      totalFiles: 0,
+      durationMs: 0,
+      bySeverity: { error: 0, warn: 0, info: 0 },
+      byCode: {},
+    },
+    catalog: { conventionsApplied: [], patternsApplied: [] },
+    meta: { mode: 'fast', deferredToA11y: 0 },
+  }),
+}));
+
 import { createValidateCommand, runValidate } from '../../src/commands/validate';
 import {
   validateAgentsMap,
@@ -40,6 +56,7 @@ import {
   validateAgentConfigs,
 } from '@harness-engineering/core';
 import { resolveConfig } from '../../src/config/loader';
+import { runAudit as runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';
 
 describe('validate command', () => {
   beforeEach(() => {
@@ -345,6 +362,134 @@ describe('validate command', () => {
       await safeParseAsync(program, ['node', 'test', 'validate']);
 
       expect(mockExit).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('component-anatomy audit (design-pipeline #2)', () => {
+    it('invokes the audit in fast mode by default and reports checks.componentAnatomy=true', async () => {
+      const result = await runValidate({});
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.checks.componentAnatomy).toBe(true);
+      expect(runComponentAnatomyAudit).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: 'fast' })
+      );
+    });
+
+    it('surfaces error findings as validation issues and flips result.valid to false', async () => {
+      vi.mocked(runComponentAnatomyAudit).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'ANAT-D001',
+            severity: 'error',
+            file: 'src/Button.tsx',
+            line: 14,
+            componentType: 'Button',
+            message: 'Button is missing required slot: content',
+            evidence: { snippet: 'export const Button = ...' },
+            rule: { id: 'ANAT-D001', source: 'APG/button' },
+            fix: {
+              kind: 'manual',
+              description: 'Add a children/content prop',
+            },
+          },
+        ],
+        summary: {
+          totalFiles: 1,
+          durationMs: 5,
+          bySeverity: { error: 1, warn: 0, info: 0 },
+          byCode: { 'ANAT-D001': 1 },
+        },
+        catalog: { conventionsApplied: ['Button'], patternsApplied: [] },
+        meta: { mode: 'fast', deferredToA11y: 0 },
+      });
+
+      const result = await runValidate({});
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      const anatomyIssues = result.value.issues.filter((i) => i.check === 'componentAnatomy');
+      expect(anatomyIssues).toHaveLength(1);
+      expect(anatomyIssues[0]).toMatchObject({
+        check: 'componentAnatomy',
+        file: 'src/Button.tsx',
+        line: 14,
+        ruleId: 'ANAT-D001',
+        severity: 'error',
+        suggestion: 'Add a children/content prop',
+      });
+    });
+
+    it('surfaces warn findings without flipping result.valid (other checks still pass)', async () => {
+      vi.mocked(runComponentAnatomyAudit).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'ANAT-D000',
+            severity: 'warn',
+            file: 'src/Tabs.tsx',
+            line: null,
+            componentType: 'Tabs',
+            message: 'JSDoc anatomy declaration diverges from convention',
+            evidence: { snippet: '' },
+            rule: { id: 'ANAT-D000', source: 'convention/divergence' },
+            fix: { kind: 'manual', description: 'Update JSDoc or convention' },
+          },
+        ],
+        summary: {
+          totalFiles: 1,
+          durationMs: 5,
+          bySeverity: { error: 0, warn: 1, info: 0 },
+          byCode: { 'ANAT-D000': 1 },
+        },
+        catalog: { conventionsApplied: ['Tabs'], patternsApplied: [] },
+        meta: { mode: 'fast', deferredToA11y: 0 },
+      });
+
+      const result = await runValidate({});
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(true);
+      const anatomyIssue = result.value.issues.find((i) => i.check === 'componentAnatomy');
+      expect(anatomyIssue?.severity).toBe('warning');
+    });
+
+    it('skips the audit when design.audit.componentAnatomy.enabled is false', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          agentsMapPath: './AGENTS.md',
+          docsDir: './docs',
+          design: {
+            strictness: 'standard',
+            platforms: [],
+            audit: { componentAnatomy: { enabled: false } },
+          },
+        },
+      } as never);
+
+      const beforeCallCount = vi.mocked(runComponentAnatomyAudit).mock.calls.length;
+      const result = await runValidate({});
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.checks.componentAnatomy).toBeUndefined();
+      expect(vi.mocked(runComponentAnatomyAudit).mock.calls.length).toBe(beforeCallCount);
+    });
+
+    it('degrades gracefully when the audit throws (does not sink the whole validate)', async () => {
+      vi.mocked(runComponentAnatomyAudit).mockRejectedValueOnce(new Error('boom: parser crashed'));
+
+      const result = await runValidate({});
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.checks.componentAnatomy).toBe(false);
+      const anatomyIssue = result.value.issues.find((i) => i.check === 'componentAnatomy');
+      expect(anatomyIssue?.severity).toBe('warning');
+      expect(anatomyIssue?.message).toContain('boom: parser crashed');
     });
   });
 });

@@ -14,6 +14,7 @@ import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
+import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy';
 
 interface ValidateOptions {
   cwd?: string;
@@ -36,6 +37,7 @@ interface ValidateResult {
     pulseConfig?: boolean;
     solutionsDir?: boolean;
     roadmapMode?: boolean;
+    componentAnatomy?: boolean;
   };
   issues: Array<{
     check: string;
@@ -166,6 +168,53 @@ export async function runValidate(
         suggestion: roadmapModeResult.error.suggestions[0],
       }),
     });
+  }
+
+  // Component-anatomy fast-mode audit (design-pipeline #2).
+  // Enabled by default per the schema; opts out via
+  // `design.audit.componentAnatomy.enabled: false`. Runs the
+  // convention-only path (cheap AST scan); pattern queries are opt-in
+  // via `design.audit.componentAnatomy.fastMode.patterns: true` (not
+  // honored in MVP — patterns return empty regardless).
+  const anatomyEnabled = config.design?.audit?.componentAnatomy?.enabled !== false;
+  if (anatomyEnabled) {
+    try {
+      const strictness = (config.design?.strictness ?? 'standard') as
+        | 'strict'
+        | 'standard'
+        | 'permissive';
+      const auditOutput = await runComponentAnatomyAudit({
+        path: cwd,
+        mode: 'fast',
+        designStrictness: strictness,
+      });
+      result.checks.componentAnatomy = true;
+      // Error-severity findings fail validation. warn/info are surfaced
+      // as issues but don't flip result.valid.
+      for (const finding of auditOutput.findings) {
+        const severity: 'error' | 'warning' | 'info' =
+          finding.severity === 'warn' ? 'warning' : finding.severity;
+        if (severity === 'error') result.valid = false;
+        result.issues.push({
+          check: 'componentAnatomy',
+          file: finding.file,
+          ...(finding.line !== null && finding.line !== undefined && { line: finding.line }),
+          ruleId: finding.code,
+          severity,
+          message: finding.message,
+          suggestion: finding.fix.description,
+        });
+      }
+    } catch (err) {
+      // Audit failures don't sink the whole validate — degrade gracefully
+      // with a single warning so the rest of the checks still report.
+      result.checks.componentAnatomy = false;
+      result.issues.push({
+        check: 'componentAnatomy',
+        severity: 'warning',
+        message: `Component-anatomy audit skipped: ${(err as Error).message}`,
+      });
+    }
   }
 
   // Opt-in agent config validation (agnix binary preferred, TS fallback otherwise)
