@@ -63,6 +63,15 @@ Check architecture assertions against baseline and thresholds
 
 Validate dependency layers and detect circular dependencies
 
+### `harness check-design`
+
+Run the design verifier suite (component-anatomy + design-craft critique). Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives in the design-pipeline orchestrator (sub-project #5).
+
+**Options:**
+
+- `-m, --mode` — Audit mode: fast | full (default: "full")
+- `-f, --files` — Optional file/glob scoping. Defaults to all project source files.
+
 ### `harness check-docs`
 
 Check documentation coverage

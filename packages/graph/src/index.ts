@@ -213,7 +213,11 @@ export { DesignIngestor } from './ingest/DesignIngestor.js';
 
 // Design Constraints
 export { DesignConstraintAdapter } from './constraints/DesignConstraintAdapter.js';
-export type { DesignViolation, DesignStrictness } from './constraints/DesignConstraintAdapter.js';
+export type {
+  DesignViolation,
+  DesignStrictness,
+  CraftFindingRecord,
+} from './constraints/DesignConstraintAdapter.js';
 
 // Feedback
 export { GraphFeedbackAdapter } from './feedback/GraphFeedbackAdapter.js';

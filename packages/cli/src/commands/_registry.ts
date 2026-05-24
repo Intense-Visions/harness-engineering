@@ -11,6 +11,7 @@ import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenanc
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
+import { createCheckDesignCommand } from './check-design';
 import { createCheckDocsCommand } from './check-docs';
 import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
@@ -89,6 +90,7 @@ export const commandCreators: Array<() => Command> = [
   createBlueprintCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
+  createCheckDesignCommand,
   createCheckDocsCommand,
   createCheckPerfCommand,
   createCheckPhaseGateCommand,

@@ -141,6 +141,18 @@ function summarizeLlmCalls(provider: LlmProvider): DesignCraftOutput['summary'][
   };
 }
 
+/**
+ * Programmatic entry point for the design-craft skill — exported so the
+ * check-design CLI command (design-pipeline #4) can compose this without
+ * routing through MCP wrapping. Same contract as handleDesignCraft but
+ * returns the Result directly instead of an MCP-wrapped response.
+ */
+export async function runDesignCraft(
+  input: DesignCraftInput
+): Promise<Result<DesignCraftOutput, { message: string }>> {
+  return runPipeline(input);
+}
+
 async function runPipeline(
   input: DesignCraftInput
 ): Promise<Result<DesignCraftOutput, { message: string }>> {
