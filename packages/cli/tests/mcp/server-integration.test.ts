@@ -63,7 +63,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('design_craft');
     // design-pipeline #1 (detect half)
     expect(names).toContain('detect_drift');
-    expect(tools).toHaveLength(71);
+    // design-pipeline #1 (align half)
+    expect(names).toContain('align_design_system');
+    expect(tools).toHaveLength(72);
   });
 
   it('all tool definitions have inputSchema', () => {

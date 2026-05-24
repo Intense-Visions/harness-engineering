@@ -1,0 +1,57 @@
+name: align-design-system
+version: "0.1.0"
+description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project #1; pairs with detect-design-drift.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness align-design-system
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: dry-run
+      description: Compute diffs without writing files
+      required: false
+    - name: files
+      description: Optional file/glob scope (standalone mode only)
+      required: false
+    - name: mode
+      description: standalone (default) or pipeline (read findings from handoff.json)
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: align-design-system
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: gather
+    description: Load drift findings (run detect-design-drift in standalone mode; read pipeline.driftFindings in pipeline mode)
+    required: true
+  - name: classify
+    description: Per-finding pre-flight check decides safe-codemod vs suggestion
+    required: true
+  - name: apply
+    description: Write codemods for safe T001/T002/T003; emit suggestions for everything else
+    required: true
+  - name: report
+    description: Emit FixOutcome[] + aggregate summary; write pipeline.fixesApplied in pipeline mode
+    required: true
+state:
+  persistent: false
+depends_on:
+  - detect-design-drift

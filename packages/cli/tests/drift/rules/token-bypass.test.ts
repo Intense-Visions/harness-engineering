@@ -13,22 +13,23 @@ function emptyTokens(): TokenSet {
 
 describe('runTokenBypassRule', () => {
   describe('DRIFT-T001 — hex color outside palette', () => {
-    it('flags a hardcoded hex that is not in the palette', () => {
+    it('flags both off-palette AND in-palette hex (different messages)', () => {
       const tokens = emptyTokens();
-      tokens.colors.add('#0066cc'); // palette has brand color
+      tokens.colors.add('#0066cc');
       const findings = runTokenBypassRule({
         source: `const styles = { color: "#ff0000", border: "1px solid #0066cc" };`,
         file: 'src/Card.tsx',
         tokens,
         strictness: 'standard',
       });
-      expect(findings).toHaveLength(1);
-      expect(findings[0].code).toBe('DRIFT-T001');
-      expect(findings[0].severity).toBe('error');
-      expect(findings[0].message).toContain('#ff0000');
+      expect(findings).toHaveLength(2);
+      const offPalette = findings.find((f) => f.message.includes('#ff0000'));
+      const inPalette = findings.find((f) => f.message.includes('#0066cc'));
+      expect(offPalette?.message).toMatch(/not in the design token palette/);
+      expect(inPalette?.message).toMatch(/should use a token reference/);
     });
 
-    it('does not flag hex values that ARE in the palette (case-insensitive)', () => {
+    it('flags hex values that ARE in the palette as "should use token reference" (align can codemod)', () => {
       const tokens = emptyTokens();
       tokens.colors.add('#ff0000');
       const findings = runTokenBypassRule({
@@ -37,7 +38,9 @@ describe('runTokenBypassRule', () => {
         tokens,
         strictness: 'standard',
       });
-      expect(findings).toHaveLength(0);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].code).toBe('DRIFT-T001');
+      expect(findings[0].message).toMatch(/should use a token reference/);
     });
 
     it('deduplicates repeated hex bypasses on the same line', () => {

@@ -130,6 +130,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'design_craft',
   // design-pipeline #1 (detect half) — design-system drift detection
   'detect_drift',
+  // design-pipeline #1 (align half) — apply codemods + emit suggestions
+  'align_design_system',
 ];
 
 /**

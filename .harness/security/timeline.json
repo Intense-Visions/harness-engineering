@@ -17936,6 +17936,330 @@
         "e66ff96d15a5d527",
         "53b3cf3e586f168a"
       ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:31:24.251Z",
+      "commitHash": "0449a3b4515a46677710248b355f5f30c1ac4e11",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:33:48.658Z",
+      "commitHash": "a81ba8bce70ebb2db153466234e68ddd6bbfae1b",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:34:03.254Z",
+      "commitHash": "6effee3c627d807d28a75168ae8d09b11f706524",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:35:52.111Z",
+      "commitHash": "a81ba8bce70ebb2db153466234e68ddd6bbfae1b",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:37:29.502Z",
+      "commitHash": "0449a3b4515a46677710248b355f5f30c1ac4e11",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-24T16:45:28.307Z",
+      "commitHash": "8e80ab13d4feabec16ec54e1132eac83ac01887a",
+      "securityScore": 82,
+      "totalFindings": 18,
+      "bySeverity": {
+        "error": 0,
+        "warning": 18,
+        "info": 0
+      },
+      "byCategory": {
+        "deserialization": {
+          "findingCount": 16,
+          "errorCount": 0,
+          "warningCount": 16,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "c215c611cd48392c",
+        "7dc050e1898aac85",
+        "d105b04f640dfeab",
+        "dff00c8326714ff9",
+        "70c53ff454c3c7d9",
+        "62f5bd670137601a",
+        "a28f3936f561ebeb",
+        "6dde4d866b3a3edc",
+        "f48ff7c4fd33d504",
+        "86c26e8d696e5beb",
+        "9d5f6135305e92de",
+        "38fe6be103e0c955",
+        "d30bed7ccdc1fe6f",
+        "c4212a5500286c51",
+        "b7c71c01a2847efb",
+        "db73539d16d377f8",
+        "e66ff96d15a5d527",
+        "53b3cf3e586f168a"
+      ]
     }
   ],
   "findingLifecycles": [
