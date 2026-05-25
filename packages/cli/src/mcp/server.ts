@@ -178,6 +178,8 @@ import {
 import { auditBrandDefinition, handleAuditBrand } from './tools/audit-brand.js';
 // design-pipeline #5: orchestrator composing all design verifiers (FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT).
 import { designPipelineDefinition, handleDesignPipeline } from './tools/design-pipeline.js';
+// craft-pipeline #1: naming-craft LLM-judgment skill (variables / functions / types / files).
+import { namingCraftDefinition, handleNamingCraft } from './tools/naming-craft.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -265,6 +267,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   alignDesignSystemDefinition,
   auditBrandDefinition,
   designPipelineDefinition,
+  namingCraftDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -341,6 +344,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   align_design_system: handleAlignDesignSystem as unknown as ToolHandler,
   audit_brand: handleAuditBrand as unknown as ToolHandler,
   run_design_pipeline: handleDesignPipeline as unknown as ToolHandler,
+  naming_craft: handleNamingCraft as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

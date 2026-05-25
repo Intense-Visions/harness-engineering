@@ -1,0 +1,51 @@
+name: naming-craft
+version: "0.1.0"
+description: LLM-judgment skill that critiques identifier names (variables, functions, types, files) against a curated rubric catalog seeded from Martin / Beck / Karlton. First craft-pipeline ceiling skill; cross-cutting (other craft skills call into it for domain-specific naming).
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness naming-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional file/glob scope
+      required: false
+    - name: kinds
+      description: Restrict to variable / function / type / file
+      required: false
+mcp:
+  tool: naming_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: extract
+    description: TS Compiler API walk; gather identifiers + scope metadata + context lines
+    required: true
+  - name: sample
+    description: Derive project naming convention via majority-rule sampling
+    required: true
+  - name: critique
+    description: LLM-rubric loop per (identifier, rubric) pair; emit 3-axis findings
+    required: true
+  - name: report
+    description: Aggregate findings + LLM cost + convention summary
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-design-craft

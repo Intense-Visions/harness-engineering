@@ -507,6 +507,18 @@ Composite report combining health, entropy, decay, attention, and impact (Hermes
 - `path` (string, required) — Path to project root
 - `skip` (array, optional) — Top-level keys to skip.
 
+### `naming_craft`
+
+LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses a curated rubric catalog seeded from Martin / Beck / Karlton. Emits 3-axis findings (tier x impact x confidence per ADR 0019).
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file/glob scope
+- `kinds` (array, optional) — Restrict to specific identifier kinds (default: all)
+- `maxFiles` (number, optional) — Cap file count (default: 100)
+- `maxIdentifiersPerFile` (number, optional) — Cap per-file identifier sampling (default: 15)
+
 ### `recommend_skills`
 
 Recommend skills based on codebase health. Returns sequenced workflow with urgency markers.

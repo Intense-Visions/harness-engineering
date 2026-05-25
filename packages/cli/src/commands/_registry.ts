@@ -11,6 +11,7 @@ import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenanc
 import { createBlueprintCommand } from './blueprint';
 import { createAlignDesignSystemCommand } from './align-design-system';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createNamingCraftCommand } from './naming-craft';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
@@ -92,6 +93,7 @@ export const commandCreators: Array<() => Command> = [
   createBlueprintCommand,
   createAlignDesignSystemCommand,
   createDesignPipelineCommand,
+  createNamingCraftCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,

@@ -136,6 +136,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'audit_brand',
   // design-pipeline #5 — orchestrator composing all design verifiers
   'run_design_pipeline',
+  // craft-pipeline #1 — naming-craft LLM-judgment ceiling skill
+  'naming_craft',
 ];
 
 /**

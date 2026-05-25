@@ -336,6 +336,17 @@ Migrate legacy harness artifact locations to current layout
 - `--orphan-strategy` — How to handle orphan plans (ask|skip|bucket) (default: "ask")
 - `--orphan-topic` — Stub topic name when --orphan-strategy=bucket
 
+### `harness naming-craft`
+
+LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses curated rubric catalog from Martin/Beck/Karlton.
+
+**Options:**
+
+- `-f, --files` — Optional file/glob scope
+- `-k, --kinds` — Restrict to variable / function / type / file (default: all)
+- `--max-files` — Cap file count (default: 100)
+- `--max-identifiers-per-file` — Cap per-file identifier sampling (default: 15)
+
 ### `harness predict`
 
 Predict which architectural constraints will break and when
