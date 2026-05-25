@@ -56,4 +56,92 @@ describe('validateWorkflowConfig — backend requirement (Spec 2 SC15)', () => {
       expect(result.error.message).toMatch(/ghost|unknown backend/i);
     }
   });
+
+  describe('Spec B Phase 2 — warnings on the validation result', () => {
+    const baseConfig = {
+      tracker: {
+        kind: 'roadmap',
+        filePath: 'docs/roadmap.md',
+        activeStates: [],
+        terminalStates: [],
+      },
+      polling: { intervalMs: 1000, jitterMs: 0 },
+      workspace: { root: '.harness/workspaces' },
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1000,
+      },
+      server: { port: 8080 },
+    };
+
+    it('returns warnings:[] when no skills/modes are configured', () => {
+      const result = validateWorkflowConfig({
+        ...baseConfig,
+        agent: {
+          backends: { 'claude-opus': { type: 'claude' } },
+          routing: { default: 'claude-opus' },
+        },
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.warnings).toEqual([]);
+    });
+
+    it('carries a skill-name warning when knownSkillNames is supplied via options', () => {
+      const result = validateWorkflowConfig(
+        {
+          ...baseConfig,
+          agent: {
+            backends: { 'claude-opus': { type: 'claude' } },
+            routing: {
+              default: 'claude-opus',
+              skills: { 'typo-skill': 'claude-opus' },
+            },
+          },
+        },
+        { knownSkillNames: ['harness-debugging'] }
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.warnings).toHaveLength(1);
+      expect(result.value.warnings[0]).toContain('routing.skills.typo-skill');
+    });
+
+    it('carries a mode warning even without a skill catalog', () => {
+      const result = validateWorkflowConfig({
+        ...baseConfig,
+        agent: {
+          backends: { 'claude-opus': { type: 'claude' } },
+          routing: {
+            default: 'claude-opus',
+            modes: { 'gut-reactor': 'claude-opus' },
+          },
+        },
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.warnings).toHaveLength(1);
+      expect(result.value.warnings[0]).toContain('routing.modes.gut-reactor');
+    });
+
+    it('preserves Err(...) semantics for hard errors (unknown backend in skills chain)', () => {
+      const result = validateWorkflowConfig({
+        ...baseConfig,
+        agent: {
+          backends: { 'claude-opus': { type: 'claude' } },
+          routing: {
+            default: 'claude-opus',
+            skills: { 'harness-debugging': ['claude-opus', 'typo-backend'] },
+          },
+        },
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toContain('routing.skills.harness-debugging.1');
+      expect(result.error.message).toContain('typo-backend');
+    });
+  });
 });

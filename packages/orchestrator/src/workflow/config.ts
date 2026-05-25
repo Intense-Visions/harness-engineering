@@ -127,7 +127,32 @@ export function routingWarnings(
   return warnings;
 }
 
-export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, Error> {
+export interface ValidateWorkflowConfigOptions {
+  /**
+   * Known skill names from the local catalog. When non-empty, used to
+   * warn (S3) on `routing.skills.<name>` references that are not in
+   * the catalog. When empty, skill-name warnings are suppressed — the
+   * caller is presumed to be running without a discoverable catalog
+   * (e.g., tests, or orchestrator outside a harness project root).
+   */
+  knownSkillNames?: readonly string[];
+}
+
+export interface ValidatedWorkflowConfig {
+  config: WorkflowConfig;
+  /**
+   * Non-blocking warnings produced during validation. Currently
+   * includes (Spec B Phase 2 / S3):
+   *   - `routing.skills.<name>` not in the local catalog
+   *   - `routing.modes.<mode>` not in `STANDARD_COGNITIVE_MODES`
+   */
+  warnings: readonly string[];
+}
+
+export function validateWorkflowConfig(
+  config: unknown,
+  options: ValidateWorkflowConfigOptions = {}
+): Result<ValidatedWorkflowConfig, Error> {
   if (!config || typeof config !== 'object')
     return Err(new Error('Config is missing or not an object'));
 
@@ -158,6 +183,7 @@ export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, 
   // Modern path: validate the new shape via Phase 0's Zod schemas + the
   // cross-field validator. The legacy path remains hand-rolled until
   // autopilot Phase 4+ retires the legacy schema entirely.
+  const warnings: string[] = [];
   if (hasModernBackends) {
     const backendsParsed = BackendsMapSchema.safeParse(agent.backends);
     if (!backendsParsed.success) {
@@ -172,9 +198,10 @@ export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, 
       // whereas our `BackendDef` (with `exactOptionalPropertyTypes`) does not.
       // Cast through `unknown` — the runtime shape is identical, only the
       // type-level optionality model differs.
+      const routingData = routingParsed.data as unknown as RoutingConfig;
       const cross = crossFieldRoutingIssues(
         backendsParsed.data as unknown as Record<string, BackendDef>,
-        routingParsed.data as unknown as RoutingConfig
+        routingData
       );
       if (cross.length > 0) {
         return Err(
@@ -183,10 +210,12 @@ export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, 
           )
         );
       }
+      // Spec B Phase 2 / S3: non-blocking warnings.
+      warnings.push(...routingWarnings(routingData, options.knownSkillNames ?? []));
     }
   }
 
-  return Ok(config as WorkflowConfig);
+  return Ok({ config: config as WorkflowConfig, warnings });
 }
 
 export function getDefaultConfig(): WorkflowConfig {
