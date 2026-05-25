@@ -160,6 +160,20 @@ Start the Harness local web dashboard
 - `--no-open` — Do not automatically open browser
 - `--cwd` — Project directory (defaults to cwd)
 
+### `harness design-pipeline`
+
+Run the design-pipeline orchestrator: FRESHEN → DETECT → FIX → AUDIT → FILL → REPORT. Composes detect-design-drift, align-design-system, audit-component-anatomy, audit-brand-compliance, and design-craft-elevator into a single sequential pipeline with convergence-based remediation.
+
+**Options:**
+
+- `--fix` — Enable convergence-based remediation (default: detect + report only)
+- `--no-freshen` — Skip the FRESHEN phase
+- `--no-fill` — Skip the FILL phase (input bootstrap + craft polish)
+- `--ci` — Non-interactive: safe fixes only, no prompts
+- `-f, --files` — Optional file/glob scope passed to each verifier
+- `-m, --mode` — Verifier mode: fast | full (default: "fast")
+- `--design-strictness` — Override design.strictness: strict | standard | permissive
+
 ### `harness doctor`
 
 Check environment health: Node, slash commands, MCP, integrations, integration credentials, hooks, baselines, sessions

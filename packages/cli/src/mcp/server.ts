@@ -176,6 +176,8 @@ import {
 } from './tools/align-design-system.js';
 // design-pipeline #3: brand-semantics audit (BRAND-T* token misuse + BRAND-V001 forbidden phrases).
 import { auditBrandDefinition, handleAuditBrand } from './tools/audit-brand.js';
+// design-pipeline #5: orchestrator composing all design verifiers (FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT).
+import { designPipelineDefinition, handleDesignPipeline } from './tools/design-pipeline.js';
 // craft-pipeline #1: naming-craft LLM-judgment skill (variables / functions / types / files).
 import { namingCraftDefinition, handleNamingCraft } from './tools/naming-craft.js';
 
@@ -264,6 +266,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   detectDriftDefinition,
   alignDesignSystemDefinition,
   auditBrandDefinition,
+  designPipelineDefinition,
   namingCraftDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
@@ -340,6 +343,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   detect_drift: handleDetectDrift as unknown as ToolHandler,
   align_design_system: handleAlignDesignSystem as unknown as ToolHandler,
   audit_brand: handleAuditBrand as unknown as ToolHandler,
+  run_design_pipeline: handleDesignPipeline as unknown as ToolHandler,
   naming_craft: handleNamingCraft as unknown as ToolHandler,
 };
 
