@@ -98,12 +98,14 @@ export const RoutingValueSchema = z.union([
  *
  * Spec B Phase 0: all scalar routing fields accept `RoutingValueSchema`
  * (scalar or non-empty chain). New optional `skills` and `modes` maps
- * accept the same. The `isolation` block is not in this Zod schema yet
- * (only in the TS interface); widening it is Phase 2 (config-validator
- * updates) per Spec B.
+ * accept the same.
  *
- * TODO(spec-b-phase-2): widen the isolation block here once it lands in
- * RoutingConfigSchema (currently absent from this declaration).
+ * Spec B Phase 2: the `isolation` block (added to the TS interface in
+ * Hermes Phase 5 but not previously in this Zod schema) is now included
+ * here with each tier widened to `RoutingValueSchema`. This closes the
+ * Phase 0 I2 review finding (TS-vs-Zod drift) and ensures isolation
+ * chain entries are validated by the same cross-field check that
+ * covers `skills` / `modes`.
  */
 export const RoutingConfigSchema = z
   .object({
@@ -116,6 +118,15 @@ export const RoutingConfigSchema = z
       .object({
         sel: RoutingValueSchema.optional(),
         pesl: RoutingValueSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    // --- Spec B Phase 2: isolation block widened to RoutingValueSchema ---
+    isolation: z
+      .object({
+        none: RoutingValueSchema.optional(),
+        container: RoutingValueSchema.optional(),
+        'remote-sandbox': RoutingValueSchema.optional(),
       })
       .strict()
       .optional(),
