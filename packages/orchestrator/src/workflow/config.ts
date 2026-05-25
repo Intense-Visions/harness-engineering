@@ -6,6 +6,7 @@ import {
   Err,
   BackendDef,
   RoutingConfig,
+  STANDARD_COGNITIVE_MODES,
   type RoutingValue,
 } from '@harness-engineering/types';
 import { BackendDefSchema, RoutingConfigSchema } from './schema.js';
@@ -68,6 +69,62 @@ export function crossFieldRoutingIssues(
     }
   }
   return issues;
+}
+
+/**
+ * Spec B Phase 2 / S3: produce non-blocking warnings for misconfigured
+ * routing entries that are SYNTACTICALLY valid (the cross-field check
+ * has passed) but SEMANTICALLY suspicious:
+ *
+ *  - `routing.skills.<name>` where `<name>` is not in the local skill
+ *    catalog. Likely a typo or a skill that was renamed / removed.
+ *
+ *  - `routing.modes.<mode>` where `<mode>` is not in the
+ *    STANDARD_COGNITIVE_MODES tuple. Since `CognitiveMode` allows the
+ *    `(string & {})` escape hatch, the type system accepts custom modes
+ *    — but operators are far more likely to typo a standard mode than
+ *    introduce a custom one, so we warn.
+ *
+ * Returns an empty array when `knownSkillNames` is empty (i.e., the
+ * catalog could not be discovered — most likely because `agents/skills/`
+ * is absent). Skipping is preferable to flooding the operator with
+ * false positives when the catalog itself is missing.
+ *
+ * Warnings are advisory; the loader continues to return `Ok` and the
+ * orchestrator starts normally.
+ */
+export function routingWarnings(
+  routing: RoutingConfig,
+  knownSkillNames: readonly string[]
+): string[] {
+  const warnings: string[] = [];
+
+  // Skill-name warnings (only when a catalog was discovered).
+  if (knownSkillNames.length > 0 && routing.skills) {
+    const known = new Set(knownSkillNames);
+    for (const name of Object.keys(routing.skills)) {
+      if (known.has(name)) continue;
+      warnings.push(
+        `routing.skills.${name} references a skill that is not present in the local skill catalog. ` +
+          `If this is intentional (e.g., a skill installed by a downstream consumer), this warning can be ignored.`
+      );
+    }
+  }
+
+  // Cognitive-mode warnings (no catalog needed — STANDARD_COGNITIVE_MODES is static).
+  if (routing.modes) {
+    const standardModes = new Set<string>(STANDARD_COGNITIVE_MODES);
+    for (const mode of Object.keys(routing.modes)) {
+      if (standardModes.has(mode)) continue;
+      warnings.push(
+        `routing.modes.${mode} is not in STANDARD_COGNITIVE_MODES (` +
+          `${[...STANDARD_COGNITIVE_MODES].join(', ')}). ` +
+          `Custom cognitive modes are allowed but uncommon; verify this is not a typo.`
+      );
+    }
+  }
+
+  return warnings;
 }
 
 export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, Error> {
