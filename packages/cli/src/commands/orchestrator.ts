@@ -23,7 +23,10 @@ export function createOrchestratorCommand(): Command {
         process.exit(ExitCode.ERROR);
       }
 
-      const { config, promptTemplate } = result.value;
+      const { config, promptTemplate, warnings } = result.value;
+      // Spec B Phase 2 / S3: surface non-blocking routing warnings at startup.
+      for (const w of warnings) logger.warn(w);
+
       const daemon = new Orchestrator(config, promptTemplate);
 
       const shutdown = () => {

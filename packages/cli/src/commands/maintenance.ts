@@ -24,6 +24,7 @@ import {
 import type { CustomTaskDefinition, MaintenanceConfig } from '@harness-engineering/types';
 import type { PersistedOutputEntry } from '@harness-engineering/orchestrator';
 import { ExitCode } from '../utils/errors';
+import { logger } from '../output/logger';
 
 async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | null> {
   const workflowPath = path.join(cwd, 'harness.orchestrator.md');
@@ -31,6 +32,8 @@ async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | n
   const loader = new WorkflowLoader();
   const result = await loader.loadWorkflow(workflowPath);
   if (!result.ok) return null;
+  // Spec B Phase 2 / S3: surface non-blocking routing warnings at startup.
+  for (const w of result.value.warnings) logger.warn(w);
   return (result.value.config as { maintenance?: MaintenanceConfig }).maintenance ?? null;
 }
 
