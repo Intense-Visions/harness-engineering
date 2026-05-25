@@ -87,8 +87,8 @@ export class OrchestratorBackendFactory {
    * is `undefined` for pure-modern configs. Threading the routed name
    * through dispatch eliminates that gap.
    */
-  resolveName(useCase: RoutingUseCase): string {
-    return this.router.resolve(useCase).backendName;
+  resolveName(useCase: RoutingUseCase, opts?: { invocationOverride?: string }): string {
+    return this.router.resolve(useCase, opts).backendName;
   }
 
   /**
@@ -101,13 +101,16 @@ export class OrchestratorBackendFactory {
     return this.router;
   }
 
-  forUseCase(useCase: RoutingUseCase): AgentBackend {
+  forUseCase(useCase: RoutingUseCase, opts?: { invocationOverride?: string }): AgentBackend {
     // Spec B Phase 1: two resolve() calls (one inside resolveDefinition,
     // one explicit) yield identical RoutingDecisions because the router
     // is deterministic and stateless. Phase 4 (decision-bus emission)
     // will refactor to a single resolve() + threaded decision.
-    const def = this.router.resolveDefinition(useCase);
-    const name = this.router.resolve(useCase).backendName;
+    //
+    // Spec B Phase 3: both resolve()-flavored calls receive the
+    // same `opts` so an invocationOverride is honored end-to-end.
+    const def = this.router.resolveDefinition(useCase, opts);
+    const name = this.router.resolve(useCase, opts).backendName;
     let backend: AgentBackend;
     const createOpts = this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {};
 

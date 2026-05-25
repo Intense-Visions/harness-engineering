@@ -91,4 +91,43 @@ describe('OrchestratorBackendFactory', () => {
       ContainerBackend
     );
   });
+
+  describe('invocationOverride (Spec B Phase 3)', () => {
+    // Two-backend fixture: routing.default → cloud; quick-fix → local.
+    // With invocationOverride='local', resolveName/forUseCase should
+    // return the local backend regardless of the routed default.
+    const phase3Backends: Record<string, BackendDef> = {
+      cloud: { type: 'claude', command: 'claude' },
+      local: { type: 'pi', endpoint: 'http://x:1234/v1', model: 'm' },
+    };
+    const phase3Routing: RoutingConfig = { default: 'cloud' };
+
+    it('resolveName forwards invocationOverride to the router and returns the override', () => {
+      const factory = new OrchestratorBackendFactory({
+        backends: phase3Backends,
+        routing: phase3Routing,
+        sandboxPolicy: 'none',
+      });
+      // Without override → default 'cloud'.
+      expect(factory.resolveName({ kind: 'tier', tier: 'quick-fix' })).toBe('cloud');
+      // With override → 'local' wins.
+      expect(
+        factory.resolveName({ kind: 'tier', tier: 'quick-fix' }, { invocationOverride: 'local' })
+      ).toBe('local');
+    });
+
+    it('forUseCase forwards invocationOverride to the router and materializes the named backend', () => {
+      const factory = new OrchestratorBackendFactory({
+        backends: phase3Backends,
+        routing: phase3Routing,
+        sandboxPolicy: 'none',
+      });
+      // Without override → ClaudeBackend (cloud).
+      expect(factory.forUseCase({ kind: 'tier', tier: 'quick-fix' })).toBeInstanceOf(ClaudeBackend);
+      // With override → PiBackend (local).
+      expect(
+        factory.forUseCase({ kind: 'tier', tier: 'quick-fix' }, { invocationOverride: 'local' })
+      ).toBeInstanceOf(PiBackend);
+    });
+  });
 });
