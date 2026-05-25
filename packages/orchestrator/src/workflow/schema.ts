@@ -177,6 +177,10 @@ export function validateBackendsAndRouting(
   checkRef(['diagnostic'], routing.diagnostic);
   checkRef(['intelligence', 'sel'], routing.intelligence?.sel);
   checkRef(['intelligence', 'pesl'], routing.intelligence?.pesl);
+  // --- Spec B Phase 2: validate isolation tier chain entries (closes I2) ---
+  checkRef(['isolation', 'none'], routing.isolation?.none);
+  checkRef(['isolation', 'container'], routing.isolation?.container);
+  checkRef(['isolation', 'remote-sandbox'], routing.isolation?.['remote-sandbox']);
   // --- Spec B Phase 0: validate skills + modes chain entries ---
   if (routing.skills) {
     for (const [skill, value] of Object.entries(routing.skills)) {

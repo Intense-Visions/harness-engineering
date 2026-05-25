@@ -103,6 +103,33 @@ describe('crossFieldRoutingIssues (config.ts) — chain entry issue paths', () =
 
     expect(issues).toEqual([]);
   });
+
+  it('reports the offending index for an isolation chain entry (Phase 2 — closes I2)', () => {
+    const routing: RoutingConfig = {
+      default: 'claude-opus',
+      isolation: {
+        container: ['claude-opus', 'unknown-backend'],
+      },
+    };
+    const issues = crossFieldRoutingIssues(KNOWN_BACKENDS, routing);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toEqual(['isolation', 'container', '1']);
+    expect(issues[0]?.message).toContain('unknown-backend');
+    expect(issues[0]?.message).toContain('routing.isolation.container.1');
+  });
+
+  it('reports a scalar isolation reference without an index segment', () => {
+    const routing: RoutingConfig = {
+      default: 'claude-opus',
+      isolation: {
+        'remote-sandbox': 'unknown-backend',
+      },
+    };
+    const issues = crossFieldRoutingIssues(KNOWN_BACKENDS, routing);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toEqual(['isolation', 'remote-sandbox']);
+    expect(issues[0]?.message).toContain('routing.isolation.remote-sandbox');
+  });
 });
 
 /**
@@ -188,5 +215,20 @@ describe('validateBackendsAndRouting (schema.ts) — chain entry issue paths', (
     if (result.success) return;
     expect(result.error.issues).toHaveLength(1);
     expect(result.error.issues[0]?.path).toEqual(['routing', 'skills', 'foo']);
+  });
+
+  it('reports the offending index for an isolation chain entry (Phase 2 — closes I2)', () => {
+    const result = TestSchema.safeParse({
+      backends: KNOWN_BACKENDS,
+      routing: {
+        default: 'claude-opus',
+        isolation: { container: ['claude-opus', 'unknown-backend'] },
+      },
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toHaveLength(1);
+    expect(result.error.issues[0]?.path).toEqual(['routing', 'isolation', 'container', 1]);
+    expect(result.error.issues[0]?.message).toContain('routing.isolation.container.1');
   });
 });
