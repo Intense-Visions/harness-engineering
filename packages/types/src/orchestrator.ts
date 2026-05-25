@@ -782,6 +782,15 @@ export interface WorkflowDefinition {
   config: WorkflowConfig;
   /** Template used to generate agent prompts */
   promptTemplate: string;
+  /**
+   * Non-blocking warnings produced during config validation. Loaded by
+   * `WorkflowLoader.loadWorkflow`. Spec B Phase 2 / S3: contains
+   * warnings about `routing.skills` / `routing.modes` entries that are
+   * SYNTACTICALLY valid but reference unknown skill names / cognitive
+   * modes. CLI loaders surface these via `logger.warn` after a
+   * successful load.
+   */
+  warnings: readonly string[];
 }
 
 // --- Model Routing ---

@@ -70,3 +70,121 @@ Hello {{ issue.title }}
     }
   });
 });
+
+describe('WorkflowLoader — Spec B Phase 2 warnings surfacing', () => {
+  let tmpRoot: string;
+  let workflowPath: string;
+
+  beforeEach(async () => {
+    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'loader-warnings-test-'));
+    workflowPath = path.join(tmpRoot, 'harness.orchestrator.md');
+
+    // Plant a skill catalog so the warning fires on the unknown skill name.
+    const skillDir = path.join(tmpRoot, 'agents', 'skills', 'claude-code', 'harness-debugging');
+    await fs.mkdir(skillDir, { recursive: true });
+    await fs.writeFile(
+      path.join(skillDir, 'skill.yaml'),
+      'name: harness-debugging\nversion: 1.0.0\n'
+    );
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  });
+
+  it('returns warnings:[] on a clean modern config', async () => {
+    await fs.writeFile(
+      workflowPath,
+      [
+        '---',
+        'tracker:',
+        '  kind: roadmap',
+        '  filePath: docs/roadmap.md',
+        '  activeStates: []',
+        '  terminalStates: []',
+        'polling: { intervalMs: 1000, jitterMs: 0 }',
+        'workspace: { root: .harness/workspaces }',
+        'hooks: { afterCreate: null, beforeRun: null, afterRun: null, beforeRemove: null, timeoutMs: 1000 }',
+        'agent:',
+        '  backends:',
+        '    claude-opus: { type: claude }',
+        '  routing:',
+        '    default: claude-opus',
+        '    skills:',
+        '      harness-debugging: claude-opus',
+        'server: { port: 8080 }',
+        '---',
+        'PROMPT TEMPLATE',
+      ].join('\n')
+    );
+
+    const loader = new WorkflowLoader();
+    const result = await loader.loadWorkflow(workflowPath);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.warnings).toEqual([]);
+    expect(result.value.config).toBeDefined();
+    expect(result.value.promptTemplate).toContain('PROMPT TEMPLATE');
+  });
+
+  it('surfaces a warning when routing.skills.<name> is not in the discovered catalog', async () => {
+    await fs.writeFile(
+      workflowPath,
+      [
+        '---',
+        'tracker: { kind: roadmap, filePath: docs/roadmap.md, activeStates: [], terminalStates: [] }',
+        'polling: { intervalMs: 1000, jitterMs: 0 }',
+        'workspace: { root: .harness/workspaces }',
+        'hooks: { afterCreate: null, beforeRun: null, afterRun: null, beforeRemove: null, timeoutMs: 1000 }',
+        'agent:',
+        '  backends:',
+        '    claude-opus: { type: claude }',
+        '  routing:',
+        '    default: claude-opus',
+        '    skills:',
+        '      harness-debuggin: claude-opus',
+        'server: { port: 8080 }',
+        '---',
+        'PROMPT TEMPLATE',
+      ].join('\n')
+    );
+
+    const loader = new WorkflowLoader();
+    const result = await loader.loadWorkflow(workflowPath);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.warnings.length).toBeGreaterThan(0);
+    expect(result.value.warnings.some((w) => w.includes('routing.skills.harness-debuggin'))).toBe(
+      true
+    );
+  });
+
+  it('returns Err when routing.skills references an unknown backend (hard error preserved)', async () => {
+    await fs.writeFile(
+      workflowPath,
+      [
+        '---',
+        'tracker: { kind: roadmap, filePath: docs/roadmap.md, activeStates: [], terminalStates: [] }',
+        'polling: { intervalMs: 1000, jitterMs: 0 }',
+        'workspace: { root: .harness/workspaces }',
+        'hooks: { afterCreate: null, beforeRun: null, afterRun: null, beforeRemove: null, timeoutMs: 1000 }',
+        'agent:',
+        '  backends:',
+        '    claude-opus: { type: claude }',
+        '  routing:',
+        '    default: claude-opus',
+        '    skills:',
+        '      harness-debugging: typo-backend',
+        'server: { port: 8080 }',
+        '---',
+        'PROMPT TEMPLATE',
+      ].join('\n')
+    );
+
+    const loader = new WorkflowLoader();
+    const result = await loader.loadWorkflow(workflowPath);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('typo-backend');
+  });
+});
