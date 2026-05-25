@@ -378,6 +378,44 @@ phases:
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 
+    it('declares --backend option (Spec B Phase 3)', () => {
+      const cmd = createRunCommand();
+      const opt = cmd.options.find((o) => o.long === '--backend');
+      expect(opt).toBeDefined();
+    });
+
+    it('emits a backend-override hint line for the orchestrator to pick up (Spec B Phase 3 / F4)', async () => {
+      const skillDir = path.join(tempDir, 'harness-debugging');
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, 'skill.yaml'),
+        `name: harness-debugging
+version: "1.0.0"
+description: x
+triggers: [manual]
+platforms: [claude-code]
+tools: [Read]
+type: flexible
+`
+      );
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Harness Debugging\nbody\n');
+
+      const program = makeProgram();
+      await program.parseAsync([
+        'node',
+        'test',
+        'run',
+        'harness-debugging',
+        '--backend',
+        'local-fast',
+      ]);
+
+      expect(mockStdoutWrite).toHaveBeenCalled();
+      const output = mockStdoutWrite.mock.calls.map((c) => c[0]).join('');
+      expect(output).toMatch(/HARNESS_BACKEND_OVERRIDE=local-fast/);
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
     it('handles --complexity thorough', async () => {
       const skillDir = path.join(tempDir, 'thorough-skill');
       fs.mkdirSync(skillDir, { recursive: true });

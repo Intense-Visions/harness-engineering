@@ -98,7 +98,7 @@ function appendProjectState(
 
 async function runSkill(
   name: string,
-  opts: { path?: string; complexity?: string; phase?: string; party?: boolean }
+  opts: { path?: string; complexity?: string; phase?: string; party?: boolean; backend?: string }
 ): Promise<void> {
   const skillsDir = resolveSkillsDir();
   const skillDir = path.join(skillsDir, name);
@@ -153,7 +153,15 @@ async function runSkill(
     projectPath,
     !!opts.path
   );
-  process.stdout.write(preamble + content);
+
+  // Spec B Phase 3 (D7 / F4): emit a recognizable hint line ahead of
+  // the preamble so an operator running `harness skill run X --backend Y`
+  // can pipe the output to an evaluator that exports
+  // HARNESS_BACKEND_OVERRIDE=Y before the orchestrator picks up the
+  // next dispatch. The hint is a comment-shaped line so it does not
+  // perturb agent prompt rendering.
+  const overrideHint = opts.backend ? `<!-- HARNESS_BACKEND_OVERRIDE=${opts.backend} -->\n` : '';
+  process.stdout.write(overrideHint + preamble + content);
   process.exit(ExitCode.SUCCESS);
 }
 
@@ -165,5 +173,9 @@ export function createRunCommand(): Command {
     .option('--complexity <level>', 'Rigor level: fast, standard, thorough', 'standard')
     .option('--phase <name>', 'Start at a specific phase (for re-entry)')
     .option('--party', 'Enable multi-perspective evaluation')
+    .option(
+      '--backend <name>',
+      'Spec B: one-shot routing override forwarded to the orchestrator as HARNESS_BACKEND_OVERRIDE'
+    )
     .action(async (name, opts) => runSkill(name, opts));
 }
