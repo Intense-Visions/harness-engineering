@@ -41,15 +41,24 @@ export const PII_LINE_RE = new RegExp(`\\b(?:${PII_TOKENS.join('|')})\\b`, 'i');
 
 const ALLOWED_SET: ReadonlySet<string> = new Set(ALLOWED_FIELD_KEYS);
 
-export function isSanitizedResult(value: unknown): value is SanitizedResult {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as { fields?: unknown; distributions?: unknown };
-  if (!v.fields || typeof v.fields !== 'object') return false;
-  for (const k of Object.keys(v.fields)) {
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function hasAllowedFieldKeys(fields: Record<string, unknown>): boolean {
+  for (const k of Object.keys(fields)) {
     if (!ALLOWED_SET.has(k)) return false;
     if (PII_FIELD_DENYLIST.test(k)) return false;
   }
-  if (!v.distributions || typeof v.distributions !== 'object') return false;
+  return true;
+}
+
+export function isSanitizedResult(value: unknown): value is SanitizedResult {
+  if (!isObject(value)) return false;
+  const { fields, distributions } = value as { fields?: unknown; distributions?: unknown };
+  if (!isObject(fields)) return false;
+  if (!hasAllowedFieldKeys(fields)) return false;
+  if (!isObject(distributions)) return false;
   return true;
 }
 
