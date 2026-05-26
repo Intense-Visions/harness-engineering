@@ -75,6 +75,43 @@ function encodeAttributeValue(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
+interface ResolvedOTLPOptions {
+  endpoint: string;
+  enabled: boolean;
+  headers: Record<string, string>;
+  flushIntervalMs: number;
+  batchSize: number;
+  fetchImpl: typeof fetch;
+  warn: (...args: unknown[]) => void;
+}
+
+const DEFAULT_FLUSH_INTERVAL_MS = 2000;
+const DEFAULT_BATCH_SIZE = 64;
+
+const defaultFetch: typeof fetch = (...args) => globalThis.fetch(...args);
+const defaultWarn = (...args: unknown[]): void => console.warn(...args);
+
+function resolveOTLPOptions(opts: OTLPExporterOptions): ResolvedOTLPOptions {
+  const {
+    endpoint,
+    enabled = true,
+    headers = {},
+    flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS,
+    batchSize = DEFAULT_BATCH_SIZE,
+    fetchImpl = defaultFetch,
+    warn = defaultWarn,
+  } = opts;
+  return {
+    endpoint,
+    enabled,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    flushIntervalMs,
+    batchSize,
+    fetchImpl,
+    warn,
+  };
+}
+
 function attributesToOTLP(attrs: TraceSpan['attributes']): unknown[] {
   const out: unknown[] = [];
   for (const [key, value] of Object.entries(attrs)) {
@@ -98,13 +135,14 @@ export class OTLPExporter {
   private readonly inFlightFlushes = new Set<Promise<void>>();
 
   constructor(opts: OTLPExporterOptions) {
-    this.endpoint = opts.endpoint;
-    this.enabled = opts.enabled !== false;
-    this.headers = { 'Content-Type': 'application/json', ...(opts.headers ?? {}) };
-    this.flushIntervalMs = opts.flushIntervalMs ?? 2000;
-    this.batchSize = opts.batchSize ?? 64;
-    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
-    this.warn = opts.warn ?? ((...a: unknown[]) => console.warn(...a));
+    const resolved = resolveOTLPOptions(opts);
+    this.endpoint = resolved.endpoint;
+    this.enabled = resolved.enabled;
+    this.headers = resolved.headers;
+    this.flushIntervalMs = resolved.flushIntervalMs;
+    this.batchSize = resolved.batchSize;
+    this.fetchImpl = resolved.fetchImpl;
+    this.warn = resolved.warn;
   }
 
   /**
