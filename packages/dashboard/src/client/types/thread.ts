@@ -69,6 +69,8 @@ export const SYSTEM_PAGES = [
   { page: 'insights-cache', label: 'Prompt Cache', route: '/s/insights-cache' },
   // Hermes Phase 4 — skill proposal review queue.
   { page: 'proposals', label: 'Proposals', route: '/s/proposals' },
+  // Spec B Phase 7 — granular task routing observability panel.
+  { page: 'routing', label: 'Routing', route: '/s/routing' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];

@@ -24,6 +24,7 @@ import { Tokens } from '../../pages/Tokens';
 import { Webhooks } from '../../pages/Webhooks';
 import { Cache as InsightsCache } from '../../pages/insights/Cache';
 import { Proposals } from '../../pages/Proposals';
+import { Routing } from '../../pages/Routing';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
@@ -44,6 +45,8 @@ const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
   'insights-cache': InsightsCache,
   // Hermes Phase 4 — skill proposal review queue.
   proposals: Proposals,
+  // Spec B Phase 7 — granular task routing observability panel.
+  routing: Routing,
   // Legacy: these are now thread types but kept for /s/ URL compat
   attention: Attention,
   analyze: Analyze,

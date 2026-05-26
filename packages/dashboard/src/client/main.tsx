@@ -41,6 +41,8 @@ const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
   { from: '/insights/cache', to: '/s/insights-cache' },
   // Hermes Phase 4 — skill proposal review queue.
   { from: '/proposals', to: '/s/proposals' },
+  // Spec B Phase 7 — top-level /routing is dashboard-native /s/routing.
+  { from: '/routing', to: '/s/routing' },
 ];
 
 const root = document.getElementById('root');
