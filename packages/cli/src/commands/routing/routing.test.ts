@@ -105,10 +105,10 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
       useCase: { kind: 'skill', skillName: 'harness-debugging' },
     });
     // Did not call process.exit with non-zero
-    const nonZeroExits = exitSpy.mock.calls.filter((c) => c[0] !== 0);
+    const nonZeroExits = exitSpy.mock.calls.filter((c: unknown[]) => c[0] !== 0);
     expect(nonZeroExits).toHaveLength(0);
 
-    const allLog = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
     expect(allLog).toMatch(/local-fast/);
     expect(allLog.toLowerCase()).toMatch(/resolution/);
   });
@@ -133,7 +133,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     const cmd = createTraceCommand();
     await cmd.parseAsync(['--skill', 'harness-debugging', '--json'], { from: 'user' });
 
-    const allLog = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
     expect(allLog).toMatch(/"backendName": "local-fast"/);
     // jq-pipable: single top-level object
     expect(allLog.trim().startsWith('{')).toBe(true);
@@ -149,7 +149,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     await cmd.parseAsync(['--skill', 'harness-debugging'], { from: 'user' });
 
     expect(exitSpy).toHaveBeenCalledWith(2);
-    const allErr = errSpy.mock.calls.map((c) => String(c[1] ?? c[0])).join('\n');
+    const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
     expect(allErr).toMatch(/routing\.default produced no available backend/);
   });
 
@@ -193,7 +193,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     expect(calls[0]!.url).toContain('skill=X');
     expect(calls[0]!.url).toContain('limit=3');
 
-    const allLog = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
     expect(allLog).toMatch(/cloud/);
     expect(allLog).toMatch(/local-fast/);
   });
@@ -217,7 +217,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     const cmd = createDecisionsCommand();
     await cmd.parseAsync(['--json'], { from: 'user' });
 
-    const allLog = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
     expect(allLog).toMatch(/"decisions"/);
   });
 
@@ -231,7 +231,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     await cmd.parseAsync([], { from: 'user' });
 
     expect(exitSpy).toHaveBeenCalledWith(2);
-    const allErr = errSpy.mock.calls.map((c) => String(c[1] ?? c[0])).join('\n');
+    const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
     expect(allErr).toMatch(/Failed to reach orchestrator/);
     expect(allErr).toMatch(/ECONNREFUSED/);
   });
@@ -251,7 +251,7 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     await cmd.parseAsync([], { from: 'user' });
 
     expect(exitSpy).toHaveBeenCalledWith(2);
-    const allErr = errSpy.mock.calls.map((c) => String(c[1] ?? c[0])).join('\n');
+    const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
     expect(allErr).toMatch(/Routing observability not available/);
   });
 });
