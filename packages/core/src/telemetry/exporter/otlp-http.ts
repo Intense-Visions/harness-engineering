@@ -66,20 +66,57 @@ function toUnixNanoString(ns: bigint): string {
  * String values → stringValue. Booleans → boolValue. Integers (safe
  * range) → intValue (stringified). Non-integer numbers → doubleValue.
  */
+function encodeAttributeValue(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'string') return { stringValue: value };
+  if (typeof value === 'boolean') return { boolValue: value };
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? { intValue: String(value) } : { doubleValue: value };
+  }
+  return null;
+}
+
+interface ResolvedOTLPOptions {
+  endpoint: string;
+  enabled: boolean;
+  headers: Record<string, string>;
+  flushIntervalMs: number;
+  batchSize: number;
+  fetchImpl: typeof fetch;
+  warn: (...args: unknown[]) => void;
+}
+
+const DEFAULT_FLUSH_INTERVAL_MS = 2000;
+const DEFAULT_BATCH_SIZE = 64;
+
+const defaultFetch: typeof fetch = (...args) => globalThis.fetch(...args);
+const defaultWarn = (...args: unknown[]): void => console.warn(...args);
+
+function resolveOTLPOptions(opts: OTLPExporterOptions): ResolvedOTLPOptions {
+  const {
+    endpoint,
+    enabled = true,
+    headers = {},
+    flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS,
+    batchSize = DEFAULT_BATCH_SIZE,
+    fetchImpl = defaultFetch,
+    warn = defaultWarn,
+  } = opts;
+  return {
+    endpoint,
+    enabled,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    flushIntervalMs,
+    batchSize,
+    fetchImpl,
+    warn,
+  };
+}
+
 function attributesToOTLP(attrs: TraceSpan['attributes']): unknown[] {
   const out: unknown[] = [];
   for (const [key, value] of Object.entries(attrs)) {
-    if (typeof value === 'string') {
-      out.push({ key, value: { stringValue: value } });
-    } else if (typeof value === 'boolean') {
-      out.push({ key, value: { boolValue: value } });
-    } else if (typeof value === 'number') {
-      if (Number.isInteger(value)) {
-        out.push({ key, value: { intValue: String(value) } });
-      } else {
-        out.push({ key, value: { doubleValue: value } });
-      }
-    }
+    const encoded = encodeAttributeValue(value);
+    if (encoded) out.push({ key, value: encoded });
   }
   return out;
 }
@@ -98,13 +135,14 @@ export class OTLPExporter {
   private readonly inFlightFlushes = new Set<Promise<void>>();
 
   constructor(opts: OTLPExporterOptions) {
-    this.endpoint = opts.endpoint;
-    this.enabled = opts.enabled !== false;
-    this.headers = { 'Content-Type': 'application/json', ...(opts.headers ?? {}) };
-    this.flushIntervalMs = opts.flushIntervalMs ?? 2000;
-    this.batchSize = opts.batchSize ?? 64;
-    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
-    this.warn = opts.warn ?? ((...a: unknown[]) => console.warn(...a));
+    const resolved = resolveOTLPOptions(opts);
+    this.endpoint = resolved.endpoint;
+    this.enabled = resolved.enabled;
+    this.headers = resolved.headers;
+    this.flushIntervalMs = resolved.flushIntervalMs;
+    this.batchSize = resolved.batchSize;
+    this.fetchImpl = resolved.fetchImpl;
+    this.warn = resolved.warn;
   }
 
   /**
@@ -197,33 +235,31 @@ export class OTLPExporter {
    * tests; not part of the supported API surface.
    */
   spansToOTLPJSON(spans: TraceSpan[]): unknown {
-    return {
-      resourceSpans: [
-        {
-          resource: {
-            attributes: [{ key: 'service.name', value: { stringValue: 'harness' } }],
-          },
-          scopeSpans: [
-            {
-              scope: { name: 'harness' },
-              spans: spans.map((s) => {
-                const span: Record<string, unknown> = {
-                  traceId: s.traceId,
-                  spanId: s.spanId,
-                  name: s.name,
-                  kind: s.kind,
-                  startTimeUnixNano: toUnixNanoString(s.startTimeNs),
-                  endTimeUnixNano: toUnixNanoString(s.endTimeNs),
-                  attributes: attributesToOTLP(s.attributes),
-                };
-                if (s.parentSpanId !== undefined) span['parentSpanId'] = s.parentSpanId;
-                if (s.statusCode !== undefined) span['status'] = { code: s.statusCode };
-                return span;
-              }),
-            },
-          ],
-        },
-      ],
+    const scopeSpan = {
+      scope: { name: 'harness' },
+      spans: spans.map(spanToOTLP),
     };
+    const resourceSpan = {
+      resource: { attributes: SERVICE_NAME_ATTR },
+      scopeSpans: [scopeSpan],
+    };
+    return { resourceSpans: [resourceSpan] };
   }
+}
+
+const SERVICE_NAME_ATTR = [{ key: 'service.name', value: { stringValue: 'harness' } }];
+
+function spanToOTLP(s: TraceSpan): Record<string, unknown> {
+  const span: Record<string, unknown> = {
+    traceId: s.traceId,
+    spanId: s.spanId,
+    name: s.name,
+    kind: s.kind,
+    startTimeUnixNano: toUnixNanoString(s.startTimeNs),
+    endTimeUnixNano: toUnixNanoString(s.endTimeNs),
+    attributes: attributesToOTLP(s.attributes),
+  };
+  if (s.parentSpanId !== undefined) span['parentSpanId'] = s.parentSpanId;
+  if (s.statusCode !== undefined) span['status'] = { code: s.statusCode };
+  return span;
 }

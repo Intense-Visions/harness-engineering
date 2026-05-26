@@ -148,33 +148,50 @@ function featureToNewInput(feature: RoadmapFeature, milestone: RoadmapMilestone)
 }
 
 function metaToPatch(feature: RoadmapFeature, expected: BodyMeta): FeaturePatch {
-  const patch: FeaturePatch = {};
-  patch.summary = feature.summary;
-  if (expected.spec !== undefined) patch.spec = expected.spec ?? null;
-  if (expected.plan !== undefined && expected.plan != null) patch.plans = [expected.plan];
-  if (expected.blocked_by !== undefined) patch.blockedBy = expected.blocked_by ?? [];
-  if (expected.priority !== undefined) patch.priority = expected.priority ?? null;
-  if (expected.milestone !== undefined) patch.milestone = expected.milestone ?? null;
+  const patch: FeaturePatch = { summary: feature.summary };
+  assignIfPresent(patch, 'spec', expected.spec, null);
+  if (expected.plan != null) patch.plans = [expected.plan];
+  assignIfPresent(patch, 'blockedBy', expected.blocked_by, []);
+  assignIfPresent(patch, 'priority', expected.priority, null);
+  assignIfPresent(patch, 'milestone', expected.milestone, null);
   return patch;
 }
 
+function assignIfPresent<K extends keyof FeaturePatch>(
+  patch: FeaturePatch,
+  key: K,
+  value: FeaturePatch[K] | null | undefined,
+  fallback: FeaturePatch[K]
+): void {
+  if (value === undefined) return;
+  patch[key] = value ?? fallback;
+}
+
 function formatDiff(actual: BodyMeta, expected: BodyMeta): string {
-  const keys = new Set<string>();
-  const collect = (m: BodyMeta) => {
-    for (const k of Object.keys(m)) {
-      const v = (m as Record<string, unknown>)[k];
-      if (v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0)) keys.add(k);
-    }
-  };
-  collect(actual);
-  collect(expected);
+  const keys = collectPresentKeys(actual, expected);
   const changed: string[] = [];
-  for (const key of [...keys].sort()) {
+  for (const key of keys) {
     const a = (actual as Record<string, unknown>)[key];
     const e = (expected as Record<string, unknown>)[key];
     if (JSON.stringify(a ?? null) !== JSON.stringify(e ?? null)) changed.push(key);
   }
   return changed.join(',');
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
+function collectPresentKeys(...metas: BodyMeta[]): string[] {
+  const keys = new Set<string>();
+  for (const m of metas) {
+    for (const [k, v] of Object.entries(m)) {
+      if (hasMeaningfulValue(v)) keys.add(k);
+    }
+  }
+  return [...keys].sort();
 }
 
 function mapAction(action: 'assigned' | 'completed' | 'unassigned'): HistoryEventType {

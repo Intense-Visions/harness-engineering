@@ -81,15 +81,25 @@ async function gatherDecayBlock(projectPath: string): Promise<InsightsDecayBlock
     recentSnapshots?: unknown[];
     topAffected?: Array<{ id?: string; name?: string }>;
   };
-  const recentBumps = arrayLen(trends.recentSnapshots);
-  const affected = Array.isArray(trends.topAffected) ? trends.topAffected : [];
-  const topAffected: string[] = [];
+  return {
+    recentBumps: arrayLen(trends.recentSnapshots),
+    topAffected: collectTopAffectedLabels(trends.topAffected),
+  };
+}
+
+const MAX_TOP_AFFECTED = 5;
+
+function collectTopAffectedLabels(
+  affected: Array<{ id?: string; name?: string }> | undefined
+): string[] {
+  if (!Array.isArray(affected)) return [];
+  const out: string[] = [];
   for (const node of affected) {
     const label = node.id ?? node.name;
-    if (typeof label === 'string' && label.length > 0) topAffected.push(label);
-    if (topAffected.length >= 5) break;
+    if (typeof label === 'string' && label.length > 0) out.push(label);
+    if (out.length >= MAX_TOP_AFFECTED) break;
   }
-  return { recentBumps, topAffected };
+  return out;
 }
 
 /** Gather the attention block — count active vs stale session directories. */

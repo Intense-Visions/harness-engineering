@@ -55,12 +55,25 @@ interface MetaSource {
 /** Extracts a populated BodyMeta from a feature-like source, dropping null/empty fields. */
 function metaFromFeatureFields(src: MetaSource): BodyMeta {
   const meta: BodyMeta = {};
-  if (src.spec !== undefined && src.spec !== null) meta.spec = src.spec;
-  if (src.plans && src.plans.length > 0) meta.plan = src.plans[0]!;
-  if (src.blockedBy && src.blockedBy.length > 0) meta.blocked_by = src.blockedBy;
-  if (src.priority !== undefined && src.priority !== null) meta.priority = src.priority;
-  if (src.milestone !== undefined && src.milestone !== null) meta.milestone = src.milestone;
+  assignNonNullish(meta, 'spec', src.spec);
+  if (hasItems(src.plans)) meta.plan = src.plans[0]!;
+  if (hasItems(src.blockedBy)) meta.blocked_by = src.blockedBy;
+  assignNonNullish(meta, 'priority', src.priority);
+  assignNonNullish(meta, 'milestone', src.milestone);
   return meta;
+}
+
+function assignNonNullish<K extends keyof BodyMeta>(
+  meta: BodyMeta,
+  key: K,
+  value: BodyMeta[K] | null | undefined
+): void {
+  if (value === undefined || value === null) return;
+  meta[key] = value;
+}
+
+function hasItems<T>(arr: T[] | undefined): arr is T[] {
+  return Array.isArray(arr) && arr.length > 0;
 }
 
 /** Convenience wrapper for create's NewFeatureInput shape. */
