@@ -168,22 +168,30 @@ function assignIfPresent<K extends keyof FeaturePatch>(
 }
 
 function formatDiff(actual: BodyMeta, expected: BodyMeta): string {
-  const keys = new Set<string>();
-  const collect = (m: BodyMeta) => {
-    for (const k of Object.keys(m)) {
-      const v = (m as Record<string, unknown>)[k];
-      if (v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0)) keys.add(k);
-    }
-  };
-  collect(actual);
-  collect(expected);
+  const keys = collectPresentKeys(actual, expected);
   const changed: string[] = [];
-  for (const key of [...keys].sort()) {
+  for (const key of keys) {
     const a = (actual as Record<string, unknown>)[key];
     const e = (expected as Record<string, unknown>)[key];
     if (JSON.stringify(a ?? null) !== JSON.stringify(e ?? null)) changed.push(key);
   }
   return changed.join(',');
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
+function collectPresentKeys(...metas: BodyMeta[]): string[] {
+  const keys = new Set<string>();
+  for (const m of metas) {
+    for (const [k, v] of Object.entries(m)) {
+      if (hasMeaningfulValue(v)) keys.add(k);
+    }
+  }
+  return [...keys].sort();
 }
 
 function mapAction(action: 'assigned' | 'completed' | 'unassigned'): HistoryEventType {
