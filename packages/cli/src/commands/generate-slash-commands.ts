@@ -11,7 +11,7 @@ import { renderGemini } from '../slash-commands/render-gemini';
 import { renderCursor } from '../slash-commands/render-cursor';
 import { renderCodexAgentsMd } from '../slash-commands/render-codex';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
-import { computeCodexSync } from '../slash-commands/sync-codex';
+import { computeCodexSync, detectLegacyCodexOrphans } from '../slash-commands/sync-codex';
 import {
   resolveProjectSkillsDir,
   resolveGlobalSkillsDir,
@@ -40,12 +40,12 @@ function resolveOutputDir(platform: Platform, opts: { global: boolean; output?: 
     if (platform === 'claude-code') return path.join(home, '.claude', 'commands', 'harness');
     if (platform === 'gemini-cli') return path.join(home, '.gemini', 'commands', 'harness');
     if (platform === 'cursor') return path.join(home, '.cursor', 'rules', 'harness');
-    return path.join(home, '.codex', 'harness');
+    return path.join(home, '.codex', 'skills');
   }
   if (platform === 'claude-code') return path.join('agents', 'commands', 'claude-code', 'harness');
   if (platform === 'gemini-cli') return path.join('agents', 'commands', 'gemini-cli', 'harness');
   if (platform === 'cursor') return path.join('agents', 'commands', 'cursor', 'harness');
-  return path.join('agents', 'commands', 'codex', 'harness');
+  return path.join('agents', 'commands', 'codex', 'skills');
 }
 
 async function confirmDeletion(files: string[]): Promise<boolean> {
@@ -140,14 +140,36 @@ function generateForCodex(
   outputDir: string,
   specs: SlashCommandSpec[],
   dryRun: boolean
-): GenerateResult {
+): GenerateResult[] {
   const codexSync = computeCodexSync(outputDir, specs, dryRun);
   const codexRoot = path.dirname(outputDir);
   if (!dryRun) {
     fs.mkdirSync(codexRoot, { recursive: true });
     fs.writeFileSync(path.join(codexRoot, 'AGENTS.md'), renderCodexAgentsMd(specs), 'utf-8');
   }
-  return { platform, ...codexSync, outputDir };
+
+  const results: GenerateResult[] = [{ platform, ...codexSync, outputDir }];
+
+  // Older harness versions wrote skills to ~/.codex/harness/. Codex auto-discovery
+  // ignores that path, so surface those as orphans on a phantom result whose
+  // outputDir points at the legacy location. The existing handleOrphanDeletion
+  // confirmation flow then deletes them with the same (y/N) prompt.
+  const legacyDir = path.join(codexRoot, 'harness');
+  if (legacyDir !== outputDir) {
+    const legacyOrphans = detectLegacyCodexOrphans(legacyDir);
+    if (legacyOrphans.length > 0) {
+      results.push({
+        platform: `${platform} (legacy ~/.codex/harness/)`,
+        added: [],
+        updated: [],
+        removed: legacyOrphans,
+        unchanged: [],
+        outputDir: legacyDir,
+      });
+    }
+  }
+
+  return results;
 }
 
 function generateForPlatform(
@@ -235,7 +257,7 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
   for (const platform of opts.platforms) {
     const outputDir = resolveOutputDir(platform, opts);
     if (platform === 'codex') {
-      results.push(generateForCodex(platform, outputDir, specs, opts.dryRun));
+      results.push(...generateForCodex(platform, outputDir, specs, opts.dryRun));
     } else {
       results.push(generateForPlatform(platform, outputDir, specs, opts));
     }

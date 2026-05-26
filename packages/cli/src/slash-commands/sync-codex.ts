@@ -27,7 +27,7 @@ export function computeCodexSync(
     const skillDir = path.join(outputDir, spec.skillYamlName);
     specSkillNames.add(spec.skillYamlName);
 
-    const renderedSkillMd = renderCodexSkill(skillMd);
+    const renderedSkillMd = renderCodexSkill(skillMd, spec);
     const renderedOpenaiYaml = renderCodexOpenaiYaml(spec);
     const existingSkillMdPath = path.join(skillDir, 'SKILL.md');
     const existingOpenaiYamlPath = path.join(skillDir, 'agents', 'openai.yaml');
@@ -80,4 +80,27 @@ function detectCodexOrphans(outputDir: string, specSkillNames: Set<string>): str
     }
   }
   return removed;
+}
+
+/**
+ * Detects harness-generated skill directories left in the legacy Codex location
+ * (`~/.codex/harness/`) from older harness versions, before Codex's skill
+ * discovery directory (`~/.codex/skills/`) was the output target. Returns
+ * directory names whose SKILL.md carries the harness generated-header; only
+ * those are safe to remove.
+ */
+export function detectLegacyCodexOrphans(legacyDir: string): string[] {
+  const orphans: string[] = [];
+  if (!fs.existsSync(legacyDir)) return orphans;
+
+  const entries = fs.readdirSync(legacyDir, { withFileTypes: true }).filter((d) => d.isDirectory());
+  for (const entry of entries) {
+    const skillMdPath = path.join(legacyDir, entry.name, 'SKILL.md');
+    if (!fs.existsSync(skillMdPath)) continue;
+    const content = fs.readFileSync(skillMdPath, 'utf-8');
+    if (content.includes(GENERATED_HEADER_CODEX)) {
+      orphans.push(entry.name);
+    }
+  }
+  return orphans;
 }
