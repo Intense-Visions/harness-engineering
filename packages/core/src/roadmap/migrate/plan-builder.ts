@@ -161,10 +161,10 @@ function assignIfPresent<K extends keyof FeaturePatch>(
   patch: FeaturePatch,
   key: K,
   value: FeaturePatch[K] | null | undefined,
-  fallback: NonNullable<FeaturePatch[K]>
+  fallback: FeaturePatch[K]
 ): void {
   if (value === undefined) return;
-  patch[key] = (value ?? fallback) as FeaturePatch[K];
+  patch[key] = value ?? fallback;
 }
 
 function formatDiff(actual: BodyMeta, expected: BodyMeta): string {
