@@ -1140,7 +1140,7 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### Granular Task→Backend Routing
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/granular-task-routing/proposal.md
 - **Summary:** Per-skill + per-cognitive-mode backend routing with fallback chains and decision telemetry (events, ring buffer, dashboard panel, trace CLI). ~3.5-week scope. Complements LMLM. Approved by Chad 2026-05-24.
 - **Blockers:** —
