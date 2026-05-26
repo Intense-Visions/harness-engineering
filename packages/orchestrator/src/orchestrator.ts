@@ -538,6 +538,15 @@ export class Orchestrator extends EventEmitter {
           queue: this.webhookQueue,
         },
         cacheMetrics: this.cacheMetrics,
+        // Spec B Phase 5: routing observability accessors. Closures so the
+        // server re-reads on every request — stop() / start() do not
+        // require server reconstruction. Returns null if no backendFactory
+        // (legacy single-backend configs), and the route handler renders
+        // 503 in that case.
+        getBackendRouter: () => this.getBackendRouter(),
+        getRoutingDecisionBus: () => this.getRoutingDecisionBus(),
+        getRoutingConfig: () => this.getRoutingConfig(),
+        getBackends: () => this.getBackends(),
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -1882,9 +1891,14 @@ export class Orchestrator extends EventEmitter {
       unsub();
     }
     this.localModelStatusUnsubscribes = [];
-    // Spec B Phase 4: null out the bus reference; ring buffer + listener
-    // set are eligible for GC once no external references remain. (HTTP
-    // routes / WS subscribers from Phase 5+ unsubscribe themselves.)
+    // Spec B Phase 5 (Phase 4 review-S2 fix): release any subscribers
+    // (the WS broadcaster registers in OrchestratorServer.wireEvents and
+    // unsubscribes itself in server.stop, but clearListeners() is the
+    // belt-and-suspenders second line in case a future subscriber forgets).
+    // Run BEFORE nulling so the bus reference is still valid.
+    this.routingDecisionBus?.clearListeners();
+    // Null out the bus reference; ring buffer + listener set are
+    // eligible for GC once no external references remain.
     this.routingDecisionBus = null;
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
@@ -1982,6 +1996,37 @@ export class Orchestrator extends EventEmitter {
    */
   public getRoutingDecisionBus(): RoutingDecisionBus | null {
     return this.routingDecisionBus;
+  }
+
+  /**
+   * Spec B Phase 5: live BackendRouter for HTTP routes. The orchestrator
+   * dispatch path uses the factory-owned router directly; observability
+   * routes (config / decisions) reach it through this accessor. Returns
+   * null when the legacy single-backend config bypassed agent.backends
+   * synthesis (no backendFactory built).
+   */
+  public getBackendRouter(): import('./agent/backend-router').BackendRouter | null {
+    return this.backendFactory?.getRouter() ?? null;
+  }
+
+  /**
+   * Spec B Phase 5: snapshot of the active RoutingConfig for the config
+   * route and the trace route's bus-less router construction. Returns
+   * null when the operator's harness.config.json carries no
+   * `agent.routing` block.
+   */
+  public getRoutingConfig(): import('@harness-engineering/types').RoutingConfig | null {
+    return this.config.agent.routing ?? null;
+  }
+
+  /**
+   * Spec B Phase 5: snapshot of `agent.backends` for the config route
+   * (existence annotations) and the trace route (bus-less router
+   * construction). Returns null when no synthesized backends map exists
+   * (legacy single-backend configs).
+   */
+  public getBackends(): Record<string, import('@harness-engineering/types').BackendDef> | null {
+    return this.config.agent.backends ?? null;
   }
 
   /** Returns the maintenance scheduler status, or null if maintenance is not enabled. */
