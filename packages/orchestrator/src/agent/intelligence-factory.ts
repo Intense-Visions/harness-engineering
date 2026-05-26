@@ -12,21 +12,35 @@ import { buildAnalysisProvider } from './analysis-provider-factory';
 import type { BackendRouter } from './backend-router';
 import type { StructuredLogger } from '../logging/logger';
 
-export interface IntelligenceFactoryDeps {
+/**
+ * Spec B Phase 4 (closes Phase 1 deferred finding P1-IMP-1): the
+ * pipeline-build path needs the router for the SC34/SC35 sel-vs-pesl
+ * dedupe; the per-layer path does not (it only consults the router on
+ * the routing-driven branch, which is opt-in via router presence).
+ */
+export interface BuildPipelineDeps {
+  config: WorkflowConfig;
+  localResolvers: Map<string, LocalModelResolver>;
+  logger: StructuredLogger;
+  router: BackendRouter;
+}
+
+export interface BuildLayerDeps {
   config: WorkflowConfig;
   localResolvers: Map<string, LocalModelResolver>;
   logger: StructuredLogger;
   /**
-   * Spec B Phase 1 (closes Phase 0 review finding I1 part 1): the
-   * canonical {@link BackendRouter} the orchestrator owns. Required so
-   * the SEL/PESL backend-name comparison consults the full chain walk
-   * (with availability filtering) rather than the Phase 0 toScalar
-   * first-element shim. Two distinct chains that resolve to the same
-   * backend compare equal — the original intent of the SC34/SC35
-   * dedupe optimization.
+   * Optional: routing-driven branch consults the router when present;
+   * the intelligence.provider-explicit branch ignores it (test fixtures
+   * using only intel.provider may omit). When the routing-driven branch
+   * is reached and `router` is undefined, `buildAnalysisProviderForLayer`
+   * returns null.
    */
-  router: BackendRouter;
+  router?: BackendRouter;
 }
+
+/** @deprecated kept as a compat re-export for one release; new code should use BuildPipelineDeps. */
+export type IntelligenceFactoryDeps = BuildPipelineDeps;
 
 export interface IntelligencePipelineBundle {
   pipeline: IntelligencePipeline;
@@ -42,7 +56,7 @@ export interface IntelligencePipelineBundle {
  * any field that needs it; this module owns no orchestrator state.
  */
 export function buildIntelligencePipeline(
-  deps: IntelligenceFactoryDeps
+  deps: BuildPipelineDeps
 ): IntelligencePipelineBundle | null {
   const { config, router } = deps;
   const intel = config.intelligence;
@@ -88,7 +102,7 @@ export function buildIntelligencePipeline(
  */
 export function buildAnalysisProviderForLayer(
   layer: 'sel' | 'pesl',
-  deps: IntelligenceFactoryDeps
+  deps: BuildLayerDeps
 ): AnalysisProvider | null {
   const { config, localResolvers, logger } = deps;
   const intel = config.intelligence;
