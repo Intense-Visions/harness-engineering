@@ -167,7 +167,7 @@ function visit(node: ts.Node, sf: ts.SourceFile, out: SecuritySignal[], seen: Se
     detectCallSignals(node, sf, out, seen);
   }
 
-  // new Function(...)
+  // Function constructor expression — detected via NewExpression on identifier 'Function'
   if (
     ts.isNewExpression(node) &&
     ts.isIdentifier(node.expression) &&
@@ -244,7 +244,7 @@ function detectCallSignals(
   const callee = node.expression;
   const line = lineOf(node, sf);
 
-  // Bare identifier calls: eval(...), fetch(...)
+  // Bare identifier call expressions — match against BARE_PRIVILEGED_IDENTIFIERS / BARE_EGRESS_IDENTIFIERS
   if (ts.isIdentifier(callee)) {
     if (BARE_PRIVILEGED_IDENTIFIERS.has(callee.text)) {
       emit(out, seen, 'privileged-op', callee.text, line);
@@ -313,7 +313,7 @@ function detectCallSignals(
       }
     }
 
-    // Raw query: db.query(`...${x}...`) or db.raw(...)
+    // Raw-query method call (query / raw / queryRaw / executeRaw) with a SQL-shaped template-literal argument
     if (
       (method === 'query' ||
         method === 'raw' ||
