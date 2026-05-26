@@ -1,4 +1,25 @@
+[mcp_servers.context7]
+args = [
+    "-y",
+    "@upstash/context7-mcp",
+]
+command = "npx"
+
 [mcp_servers.harness]
-command = "harness"
 args = ["mcp"]
+command = "harness"
 enabled = true
+
+[mcp_servers.playwright]
+args = [
+    "-y",
+    "@playwright/mcp",
+]
+command = "npx"
+
+[mcp_servers.sequential-thinking]
+args = [
+    "-y",
+    "@modelcontextprotocol/server-sequential-thinking",
+]
+command = "npx"
