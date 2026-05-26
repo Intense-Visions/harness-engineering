@@ -115,7 +115,7 @@ export function buildAnalysisProviderForLayer(
   }
 
   // 2. Routing-driven selection (SC31, SC32, SC36).
-  const routed = resolveRoutedBackend(layer, config, logger);
+  const routed = resolveRoutedBackend(layer, deps);
   if (!routed) return null;
 
   const { name, def } = routed;
@@ -143,33 +143,41 @@ export function buildAnalysisProviderForLayer(
 }
 
 /**
- * Look up the routed BackendDef for an intelligence layer, falling
- * back through `routing.intelligence.<layer>` → `routing.default` → null.
+ * Look up the routed BackendDef for an intelligence layer via the
+ * canonical BackendRouter. Returns null if the router is absent
+ * (intel.provider-explicit branch never hits this code path) OR if
+ * the routed backend is missing from agent.backends.
+ *
+ * Spec B Phase 4 (closes Phase 0 review finding I1 third instance):
+ * the Phase-0 inline Array.isArray normalization is gone — the router
+ * owns chain walking + availability filtering. Two distinct chains
+ * that funnel to the same backend now produce identical names here
+ * (the SC34/SC35 dedupe optimization stays correct).
  */
 function resolveRoutedBackend(
   layer: 'sel' | 'pesl',
-  config: WorkflowConfig,
-  logger: StructuredLogger
+  deps: BuildLayerDeps
 ): { name: string; def: BackendDef } | null {
-  const routing = config.agent.routing;
+  const { config, router, logger } = deps;
   const backends = config.agent.backends;
-  if (!routing || !backends) return null;
-  // Spec B Phase 0: routing fields are now RoutingValue (scalar OR chain).
-  // Phase 1 will walk the chain; Phase 0 normalizes to the first element to
-  // preserve byte-identical behavior for scalar inputs.
-  const layerValue = routing.intelligence?.[layer];
-  const layerName =
-    layerValue !== undefined ? (Array.isArray(layerValue) ? layerValue[0] : layerValue) : undefined;
-  const defaultName = Array.isArray(routing.default) ? routing.default[0] : routing.default;
-  const name = layerName ?? defaultName;
-  const def = backends[name];
-  if (!def) {
+  if (!backends || !router) return null;
+  try {
+    const decision = router.resolve({ kind: 'intelligence', layer });
+    const def = backends[decision.backendName];
+    if (!def) {
+      logger.warn(
+        `Intelligence pipeline: routed backend '${decision.backendName}' for layer '${layer}' is not in agent.backends.`
+      );
+      return null;
+    }
+    return { name: decision.backendName, def };
+  } catch (err) {
+    // routing.default produced no available backend (S4) — log + fall through.
     logger.warn(
-      `Intelligence pipeline: routed backend '${name}' for layer '${layer}' is not in agent.backends.`
+      `Intelligence pipeline: router could not resolve intelligence.${layer}; intelligence disabled. error=${String(err)}`
     );
     return null;
   }
-  return { name, def };
 }
 
 function buildExplicitProvider(

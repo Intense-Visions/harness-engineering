@@ -69,15 +69,27 @@ function callCreateAnalysisProvider(orch: Orchestrator, layer: 'sel' | 'pesl' = 
   // intelligence-factory.ts as buildAnalysisProviderForLayer. The orch
   // still owns config/localResolvers/logger; we forward them into the
   // module function so this helper preserves test ergonomics.
+  //
+  // Spec B Phase 4 (closes I1 third instance): the routing-driven branch
+  // of buildAnalysisProviderForLayer now consults the canonical router
+  // for chain-walked backend selection (no more inline Array.isArray).
+  // Thread the router from the orchestrator's backendFactory; if absent
+  // (intel.provider-explicit-only fixtures), pass undefined and the
+  // routing-driven branch will short-circuit to null.
   const internals = orch as unknown as {
     config: Parameters<typeof buildAnalysisProviderForLayer>[1]['config'];
     localResolvers: Parameters<typeof buildAnalysisProviderForLayer>[1]['localResolvers'];
     logger: Parameters<typeof buildAnalysisProviderForLayer>[1]['logger'];
+    backendFactory: {
+      getRouter: () => NonNullable<Parameters<typeof buildAnalysisProviderForLayer>[1]['router']>;
+    } | null;
   };
+  const router = internals.backendFactory?.getRouter();
   return buildAnalysisProviderForLayer(layer, {
     config: internals.config,
     localResolvers: internals.localResolvers,
     logger: internals.logger,
+    ...(router !== undefined ? { router } : {}),
   });
 }
 
