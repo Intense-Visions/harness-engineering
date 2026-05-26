@@ -12,9 +12,15 @@ function tomlBasicString(value: string): string {
 }
 
 function tomlMultilineString(value: string): string {
-  // Triple-quoted strings cannot contain three consecutive double quotes; escape
-  // each quote in any such run so the literal text round-trips through TOML.
-  const escaped = value.replace(/"{3,}/g, (run) =>
+  // Prefer multi-line literal strings ('''…'''): contents are taken verbatim, so
+  // shell snippets and regex backslashes like `\.md$` round-trip without
+  // escaping. The only forbidden sequence is the triple-single-quote delimiter
+  // itself. If the body contains '''  (rare), fall back to a multi-line basic
+  // string and escape backslashes, double quotes, and triple-double runs.
+  if (!value.includes("'''")) {
+    return `'''\n${value}\n'''`;
+  }
+  const escaped = value.replace(/\\/g, '\\\\').replace(/"{3,}/g, (run) =>
     run
       .split('')
       .map((ch) => `\\${ch}`)
