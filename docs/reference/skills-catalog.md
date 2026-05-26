@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-752 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+753 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (35 skills)
+## Tier 2 — Maintenance (36 skills)
 
 ### align-design-system
 
@@ -455,6 +455,16 @@ LLM-judgment skill that critiques identifier names (variables, functions, types,
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-design-craft
+
+### security-craft
+
+LLM-judgment critique of security posture (TS/JS source). Threat-modeling-as-skill — critiques whether trust boundaries are respected, where implicit privilege escalation lurks, whether the code defends in depth, whether least authority is honored. AST-driven signal detection fires only on files with security-relevant constructs; conservative confidence defaults manage the FP risk inherent in judgment-based security. Sixth non-design craft-pipeline ceiling skill (the final sub-project,
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-security-scan, harness-security-review
 
 ### spec-craft
 

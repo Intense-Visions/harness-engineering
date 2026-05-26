@@ -146,6 +146,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'test_craft',
   // craft-pipeline #9 — knowledge-craft LLM-judgment ceiling skill (docs/knowledge/ entries)
   'knowledge_craft',
+  // craft-pipeline #10 — security-craft LLM-judgment ceiling skill (AST-driven, conservative-confidence)
+  'security_craft',
 ];
 
 /**

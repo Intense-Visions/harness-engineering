@@ -566,6 +566,18 @@ Spawn an agent subprocess to perform code review. Returns structured feedback wi
 - `diff` (string, required) — Git diff string to review
 - `context` (string, optional) — Optional additional context for the reviewer
 
+### `security_craft`
+
+LLM-judgment critique of security posture (TS/JS source). Sixth non-design craft-pipeline ceiling skill; the final sub-project (#10 of 10). 8 seed rubrics: trust-boundary-respected, least-authority-honored, defense-in-depth, assumed-adversary-realistic, data-flow-annotated, fail-closed-not-open, secret-handling-shape, authz-before-action. AST-driven signal detection (only files with security-relevant constructs are critiqued — http handlers, middleware, auth APIs, child_process/eval, fs writes, raw queries, network egress, secret handling). Conservative confidence defaults manage the FP risk inherent in judgment-based security. Emits 3-axis findings (tier x impact x confidence per ADR 0019).
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides discovery)
+- `packages` (array, optional) — Restrict to specific packages under packages/
+- `maxFiles` (number, optional) — Cap source-file count (default: 100)
+- `maxSignalsPerFile` (number, optional) — Cap per-file signal critique (default: 10)
+
 ### `spec_craft`
 
 LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline ceiling skill; 7 seed rubrics from the spec-quality canon. Per-section critique with rubric-to-section mapping. Emits 3-axis findings (tier x impact x confidence per ADR 0019).

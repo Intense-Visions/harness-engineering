@@ -63,6 +63,7 @@ import { createRoadmapCommand } from './roadmap';
 import { createScanCommand } from './graph/scan';
 import { createScanConfigCommand } from './scan-config';
 import { createSearchCommand } from './search';
+import { createSecurityCraftCommand } from './security-craft';
 import { createSetupCommand } from './setup';
 import { createSetupMcpCommand } from './setup-mcp';
 import { createShareCommand } from './share';
@@ -149,6 +150,7 @@ export const commandCreators: Array<() => Command> = [
   createScanCommand,
   createScanConfigCommand,
   createSearchCommand,
+  createSecurityCraftCommand,
   createSetupCommand,
   createSetupMcpCommand,
   createShareCommand,

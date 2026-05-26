@@ -445,6 +445,17 @@ Full-text search over archived + live session content (Hermes Phase 1).
 - `--reindex` — Drop and rebuild the index from .harness/archive/sessions before searching
 - `--file-kinds` — Comma-separated subset of {summary,learnings,failures,sections,llm_summary}
 
+### `harness security-craft`
+
+LLM-judgment critique of security posture (TS/JS source). Sixth non-design craft-pipeline ceiling skill (the final sub-project). AST-driven signal detection fires only on files with security-relevant constructs; conservative confidence defaults manage the FP risk inherent in judgment-based security.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides discovery)
+- `-p, --packages` — Restrict to specific packages under packages/
+- `--max-files` — Cap source-file count (default: 100)
+- `--max-signals-per-file` — Cap per-file signal critique (default: 10)
+
 ### `harness setup`
 
 Configure harness environment: slash commands, MCP, and more

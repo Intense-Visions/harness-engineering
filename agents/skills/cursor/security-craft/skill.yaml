@@ -1,0 +1,58 @@
+name: security-craft
+version: "0.1.0"
+description: LLM-judgment critique of security posture (TS/JS source). Threat-modeling-as-skill — critiques whether trust boundaries are respected, where implicit privilege escalation lurks, whether the code defends in depth, whether least authority is honored. AST-driven signal detection fires only on files with security-relevant constructs; conservative confidence defaults manage the FP risk inherent in judgment-based security. Sixth non-design craft-pipeline ceiling skill (the final sub-project, #10 of 10).
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness security-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional file scope (overrides discovery)
+      required: false
+    - name: packages
+      description: Restrict to specific packages under packages/
+      required: false
+    - name: max-files
+      description: Cap source-file count (default 100)
+      required: false
+    - name: max-signals-per-file
+      description: Cap per-file signal critique (default 10)
+      required: false
+mcp:
+  tool: security_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: discover
+    description: Walk packages/STAR/src/ recursively; exclude tests + build dirs
+    required: true
+  - name: signal
+    description: AST-driven security construct detection (http handlers, middleware, auth APIs, child_process/eval, fs writes, raw queries, network egress, secret handling)
+    required: true
+  - name: critique
+    description: LLM-rubric loop per (file, signal, rubric) with conservative-confidence bias
+    required: true
+  - name: report
+    description: Aggregate findings + cost telemetry + file/signal counts
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-security-scan
+  - harness-security-review

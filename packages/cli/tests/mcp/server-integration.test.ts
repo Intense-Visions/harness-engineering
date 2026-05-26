@@ -79,7 +79,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('test_craft');
     // craft-pipeline #9 — knowledge-craft
     expect(names).toContain('knowledge_craft');
-    expect(tools).toHaveLength(79);
+    // craft-pipeline #10 — security-craft
+    expect(names).toContain('security_craft');
+    expect(tools).toHaveLength(80);
   });
 
   it('all tool definitions have inputSchema', () => {
