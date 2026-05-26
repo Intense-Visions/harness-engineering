@@ -490,6 +490,18 @@ Fast-forward the local default branch from origin (no-op on conflict)
 - `--json` — Emit a SyncMainResult JSON object
 - `--path` — Project root path (default: ".")
 
+### `harness test-craft`
+
+LLM-judgment critique of test quality across vitest/jest/mocha/playwright. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing.
+
+**Options:**
+
+- `-f, --files` — Optional test file/glob scope
+- `--frameworks` — Restrict to: vitest / jest / mocha / playwright
+- `--max-files` — Cap test file count (default: 100)
+- `--max-tests-per-file` — Cap per-file test critique (default: 20)
+- `--no-source-pair` — Skip source-pairing resolution
+
 ### `harness traceability`
 
 Show spec-to-implementation traceability from the knowledge graph

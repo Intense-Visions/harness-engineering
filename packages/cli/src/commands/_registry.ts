@@ -14,6 +14,7 @@ import { createDesignPipelineCommand } from './design-pipeline';
 import { createNamingCraftCommand } from './naming-craft';
 import { createSpecCraftCommand } from './spec-craft';
 import { createCopyCraftCommand } from './copy-craft';
+import { createTestCraftCommand } from './test-craft';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
@@ -98,6 +99,7 @@ export const commandCreators: Array<() => Command> = [
   createNamingCraftCommand,
   createSpecCraftCommand,
   createCopyCraftCommand,
+  createTestCraftCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,

@@ -587,6 +587,19 @@ Generate or regenerate the LLM `llm-summary.md` for an archived session (Hermes 
 - `sessionId` (string, required) — Archived session id (basename of the directory inside .harness/archive/sessions/)
 - `force` (boolean, optional) — If true, overwrite an existing llm-summary.md. Default: false (no-op when present).
 
+### `test_craft`
+
+LLM-judgment critique of test quality across vitest/jest/mocha/playwright. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional test file/glob scope
+- `frameworks` (array, optional) — Restrict to specific frameworks (default: all four)
+- `maxFiles` (number, optional) — Cap test file count (default: 100)
+- `maxTestsPerFile` (number, optional) — Cap per-file test critique (default: 20)
+- `sourcePair` (boolean, optional) — Resolve source file under test for richer prompt context (default: true)
+
 ### `trigger_maintenance_job`
 
 Trigger a maintenance task ad-hoc via POST /api/v1/jobs/maintenance. Requires trigger-job scope.

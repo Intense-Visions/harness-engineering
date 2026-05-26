@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-750 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+751 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (33 skills)
+## Tier 2 — Maintenance (34 skills)
 
 ### align-design-system
 
@@ -455,6 +455,16 @@ LLM-judgment critique of spec quality (proposals + ADRs) against a curated rubri
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-soundness-review, harness-design-craft
+
+### test-craft
+
+LLM-judgment critique of test quality across vitest / jest / mocha / playwright. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-tdd, harness-design-craft
 
 ## Tier 3 — Domain (703 skills)
 

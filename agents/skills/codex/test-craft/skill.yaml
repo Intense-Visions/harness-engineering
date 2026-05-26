@@ -1,0 +1,58 @@
+name: test-craft
+version: "0.1.0"
+description: LLM-judgment critique of test quality across vitest / jest / mocha / playwright. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness test-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional test file/glob scope
+      required: false
+    - name: frameworks
+      description: Restrict to vitest/jest/mocha/playwright
+      required: false
+    - name: no-source-pair
+      description: Skip source-pairing resolution
+      required: false
+mcp:
+  tool: test_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: discover
+    description: Glob test files; detect framework per-file via import signatures
+    required: true
+  - name: extract
+    description: Walk TS AST for per-it/test block with nesting, skip/todo/only flags
+    required: true
+  - name: pair
+    description: Best-effort resolve source file under test (sibling / ../src / monorepo)
+    required: false
+  - name: critique
+    description: LLM-rubric loop per (test, rubric); 8 seed rubrics
+    required: true
+  - name: report
+    description: Aggregate findings + frameworks-detected counts + cost telemetry
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-tdd
+  - harness-design-craft
