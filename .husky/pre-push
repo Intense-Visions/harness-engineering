@@ -1,4 +1,4 @@
-export PATH="/opt/homebrew/bin:$PATH"
+export PATH="$PATH:/opt/homebrew/bin"
 
 # Format check catches files missed by lint-staged (e.g., from merges).
 pnpm run format:check
