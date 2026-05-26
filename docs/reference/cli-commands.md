@@ -904,6 +904,40 @@ Migrate the project roadmap to a different storage mode
 - `--dry-run` — Print the migration plan without making any changes
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
+## Routing Commands
+
+Inspect routing config, trace decisions, and read recent dispatches
+
+### `harness routing config`
+
+Print active routing config and resolved fallback chains
+
+**Options:**
+
+- `--json` — Emit JSON to stdout instead of human-readable text
+
+### `harness routing decisions`
+
+List recent routing decisions from the orchestrator ring buffer (Spec B F8)
+
+**Options:**
+
+- `--skill` — Filter by useCase.skillName
+- `--mode` — Filter by useCase.cognitiveMode
+- `--backend` — Filter by chosen backendName
+- `--last` — Limit to the N most recent decisions
+- `--json` — Emit JSON to stdout instead of human-readable text
+
+### `harness routing trace`
+
+Dry-run a routing decision without dispatching (Spec B F7)
+
+**Options:**
+
+- `--skill` — Skill name to trace
+- `--mode` — Cognitive mode to trace (or attach to --skill per spec D12)
+- `--json` — Emit JSON to stdout instead of human-readable text
+
 ## Skill Commands
 
 Skill management commands
