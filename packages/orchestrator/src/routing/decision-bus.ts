@@ -90,8 +90,15 @@ export class RoutingDecisionBus {
     if (filter?.backendName !== undefined) {
       out = out.filter((d) => d.backendName === filter.backendName);
     }
+    // Spec B Phase 5 (review-S1 fix): "recent" returns newest-first. The
+    // ring buffer is insertion-order (oldest at [0]); take the last N then
+    // reverse so callers (dashboard rows, CLI top-to-bottom) get the most
+    // recent decision first. Filters run BEFORE the slice so `limit` bounds
+    // the filtered set rather than the raw buffer.
     if (filter?.limit !== undefined) {
-      out = out.slice(0, filter.limit);
+      out = out.slice(-filter.limit).reverse();
+    } else {
+      out = out.reverse();
     }
     return out;
   }
@@ -101,5 +108,15 @@ export class RoutingDecisionBus {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /**
+   * Spec B Phase 5 (review-S2 fix): release all subscriber references so
+   * teardown can complete without anchoring closures. Called from
+   * `Orchestrator.stop()` before nulling the bus reference. The bus
+   * remains usable after clear — `subscribe()` works as normal.
+   */
+  clearListeners(): void {
+    this.listeners.clear();
   }
 }

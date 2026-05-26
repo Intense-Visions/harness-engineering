@@ -95,9 +95,11 @@ describe('Spec B Phase 4: RoutingDecisionBus + event emission', () => {
     factory.forUseCase({ kind: 'tier', tier: 'guided-change' });
     factory.forUseCase({ kind: 'skill', skillName: 'harness-debugging' });
     expect(bus.recent()).toHaveLength(3);
-    // Pin that the third decision routed via 'skills' source — proves per-skill
-    // routing still flows correctly through the single-resolve seam.
-    const last = bus.recent()[2];
+    // Pin that the most-recently emitted decision routed via 'skills' source
+    // — proves per-skill routing still flows correctly through the
+    // single-resolve seam. Phase 5 S1 fix: recent() is newest-first, so the
+    // most recent emission lives at index [0] (was [2] under chronological).
+    const last = bus.recent()[0];
     expect(last?.backendName).toBe('local');
     expect(last?.useCase).toMatchObject({ kind: 'skill', skillName: 'harness-debugging' });
   });
