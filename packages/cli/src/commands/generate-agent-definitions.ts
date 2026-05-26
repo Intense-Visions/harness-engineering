@@ -7,6 +7,7 @@ import { generateAgentDefinition, type AgentDefinition } from '../agent-definiti
 import { renderClaudeCodeAgent } from '../agent-definitions/render-claude-code';
 import { renderGeminiAgent } from '../agent-definitions/render-gemini-cli';
 import { renderCursorAgent } from '../agent-definitions/render-cursor';
+import { renderCodexAgent } from '../agent-definitions/render-codex';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
 import { resolvePersonasDir, resolveSkillsDir } from '../utils/paths';
 import { CLIError, ExitCode, handleError } from '../utils/errors';
@@ -53,9 +54,13 @@ function loadSkillContent(skillName: string): string | null {
 function getRenderer(platform: Platform): (def: AgentDefinition) => string {
   if (platform === 'claude-code') return renderClaudeCodeAgent;
   if (platform === 'cursor') return renderCursorAgent;
-  // gemini-cli and codex (Codex has no plugin agents field; this branch is
-  // reachable only via gemini-cli today).
+  if (platform === 'codex') return renderCodexAgent;
   return renderGeminiAgent;
+}
+
+function agentFilename(platform: Platform, name: string): string {
+  if (platform === 'codex') return `${name}.toml`;
+  return `${name}.md`;
 }
 
 export function generateAgentDefinitions(
@@ -92,7 +97,7 @@ export function generateAgentDefinitions(
 
     const rendered = new Map<string, string>();
     for (const def of definitions) {
-      const filename = `${def.name}.md`;
+      const filename = agentFilename(platform, def.name);
       rendered.set(filename, renderer(def));
     }
 
