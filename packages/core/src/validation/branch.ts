@@ -83,25 +83,8 @@ export function validateBranchName(
 
   if (config.enforceKebabCase) {
     for (const part of slug.split('/')) {
-      const ticketMatch = part.match(TICKET_ID);
-      if (ticketMatch) {
-        const rest = ticketMatch[2];
-        if (rest && !KEBAB_CASE.test(rest)) {
-          return {
-            valid: false,
-            branchName,
-            message: `Branch slug part "${part}" does not follow kebab-case after the ticket ID.`,
-            suggestion: `Ensure the description after "${ticketMatch[1]}" uses kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
-          };
-        }
-      } else if (!KEBAB_CASE.test(part)) {
-        return {
-          valid: false,
-          branchName,
-          message: `Branch slug part "${part}" must be in kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
-          suggestion: `Change "${part}" to match the convention.`,
-        };
-      }
+      const kebabFailure = validateKebabSlugPart(part, branchName);
+      if (kebabFailure) return kebabFailure;
     }
   }
 
@@ -119,4 +102,25 @@ export function validateBranchName(
   }
 
   return { valid: true, branchName };
+}
+
+function validateKebabSlugPart(part: string, branchName: string): BranchValidationResult | null {
+  const ticketMatch = part.match(TICKET_ID);
+  if (ticketMatch) {
+    const rest = ticketMatch[2];
+    if (!rest || KEBAB_CASE.test(rest)) return null;
+    return {
+      valid: false,
+      branchName,
+      message: `Branch slug part "${part}" does not follow kebab-case after the ticket ID.`,
+      suggestion: `Ensure the description after "${ticketMatch[1]}" uses kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
+    };
+  }
+  if (KEBAB_CASE.test(part)) return null;
+  return {
+    valid: false,
+    branchName,
+    message: `Branch slug part "${part}" must be in kebab-case (lowercase, single hyphens, no leading/trailing hyphen).`,
+    suggestion: `Change "${part}" to match the convention.`,
+  };
 }
