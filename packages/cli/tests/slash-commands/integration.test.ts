@@ -206,7 +206,7 @@ describe('codex sync', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('first codex run reports all skills as added', () => {
+  it('first codex run reports skills and prompts as added', () => {
     const results = generateSlashCommands({
       platforms: ['codex'],
       global: false,
@@ -217,14 +217,19 @@ describe('codex sync', () => {
       yes: true,
     });
 
-    expect(results).toHaveLength(1);
+    // codex returns one result per output target: skills + prompts.
+    expect(results).toHaveLength(2);
     expect(results[0].platform).toBe('codex');
     expect(results[0].added.length).toBeGreaterThan(0);
     expect(results[0].updated).toEqual([]);
     expect(results[0].unchanged).toEqual([]);
+
+    expect(results[1].platform).toBe('codex prompts');
+    expect(results[1].added.length).toBeGreaterThan(0);
+    expect(results[1].added.every((f) => f.endsWith('.md'))).toBe(true);
   });
 
-  it('second codex run detects unchanged skill directories', () => {
+  it('second codex run detects unchanged skill directories and prompts', () => {
     const opts = {
       platforms: ['codex'] as const,
       global: false,
@@ -241,6 +246,7 @@ describe('codex sync', () => {
     expect(results[0].added).toEqual([]);
     expect(results[0].updated).toEqual([]);
     expect(results[0].unchanged.length).toBeGreaterThan(0);
+    expect(results[1].unchanged.length).toBeGreaterThan(0);
   });
 
   it('detects orphaned codex skill directories for removal', { timeout: 15000 }, () => {
@@ -292,5 +298,6 @@ describe('codex sync', () => {
 
     expect(results[0].added.length).toBeGreaterThan(0);
     expect(fs.existsSync(path.join(tmpDir, 'harness'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'prompts'))).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderCodexSkill, renderCodexOpenaiYaml } from './render-codex';
+import { renderCodexPrompt } from './render-codex-prompt';
 import { GENERATED_HEADER_CODEX } from './types';
 import type { SlashCommandSpec } from './types';
 
@@ -80,6 +81,74 @@ function detectCodexOrphans(outputDir: string, specSkillNames: Set<string>): str
     }
   }
   return removed;
+}
+
+export interface CodexPromptSyncResult {
+  added: string[];
+  updated: string[];
+  removed: string[];
+  unchanged: string[];
+}
+
+/**
+ * Writes one prompt file per skill at `<promptsDir>/<skillYamlName>.md`. Codex
+ * surfaces these as `/prompts:<skillYamlName>` in its slash menu — the only
+ * mechanism for slash-menu discovery, since skills proper are invoked via `$`,
+ * `/skills`, or auto-detection (not as individual slash commands).
+ *
+ * Removes harness-generated prompt files whose corresponding skill no longer
+ * exists, identified by the GENERATED_HEADER_CODEX substring.
+ */
+export function computeCodexPromptsSync(
+  promptsDir: string,
+  specs: SlashCommandSpec[],
+  dryRun: boolean
+): CodexPromptSyncResult {
+  const added: string[] = [];
+  const updated: string[] = [];
+  const unchanged: string[] = [];
+  const renderedNames = new Set<string>();
+
+  if (!dryRun) {
+    fs.mkdirSync(promptsDir, { recursive: true });
+  }
+
+  for (const spec of specs) {
+    const filename = `${spec.skillYamlName}.md`;
+    renderedNames.add(filename);
+    const filePath = path.join(promptsDir, filename);
+    const rendered = renderCodexPrompt(spec);
+
+    if (!fs.existsSync(filePath)) {
+      added.push(filename);
+    } else {
+      const existing = fs.readFileSync(filePath, 'utf-8');
+      if (existing === rendered) {
+        unchanged.push(filename);
+      } else {
+        updated.push(filename);
+      }
+    }
+
+    if (!dryRun && !unchanged.includes(filename)) {
+      fs.writeFileSync(filePath, rendered, 'utf-8');
+    }
+  }
+
+  const removed: string[] = [];
+  if (fs.existsSync(promptsDir)) {
+    const entries = fs.readdirSync(promptsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      if (renderedNames.has(entry.name)) continue;
+      const content = fs.readFileSync(path.join(promptsDir, entry.name), 'utf-8');
+      if (content.includes(GENERATED_HEADER_CODEX)) {
+        removed.push(entry.name);
+      }
+    }
+  }
+
+  return { added, updated, removed, unchanged };
 }
 
 /**

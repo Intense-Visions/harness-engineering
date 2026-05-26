@@ -11,7 +11,11 @@ import { renderGemini } from '../slash-commands/render-gemini';
 import { renderCursor } from '../slash-commands/render-cursor';
 import { renderCodexAgentsMd } from '../slash-commands/render-codex';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
-import { computeCodexSync, detectLegacyCodexOrphans } from '../slash-commands/sync-codex';
+import {
+  computeCodexSync,
+  computeCodexPromptsSync,
+  detectLegacyCodexOrphans,
+} from '../slash-commands/sync-codex';
 import {
   resolveProjectSkillsDir,
   resolveGlobalSkillsDir,
@@ -149,6 +153,18 @@ function generateForCodex(
   }
 
   const results: GenerateResult[] = [{ platform, ...codexSync, outputDir }];
+
+  // Codex's slash menu shows entries from ~/.codex/prompts/<name>.md as
+  // /prompts:<name>. Skills themselves are not in the slash menu (Codex uses
+  // $-mention / /skills / auto-detection for those), so the prompt files are
+  // what makes harness discoverable from the menu.
+  const promptsDir = path.join(codexRoot, 'prompts');
+  const promptsSync = computeCodexPromptsSync(promptsDir, specs, dryRun);
+  results.push({
+    platform: `${platform} prompts`,
+    ...promptsSync,
+    outputDir: promptsDir,
+  });
 
   // Older harness versions wrote skills to ~/.codex/harness/. Codex auto-discovery
   // ignores that path, so surface those as orphans on a phantom result whose
