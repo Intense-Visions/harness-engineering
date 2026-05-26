@@ -411,7 +411,20 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
       await orch.start();
       try {
         const warnCalls = warnSpy.mock.calls.map((c) => c[0] as string);
-        expect(warnCalls.find((m) => /Intelligence pipeline disabled/i.test(m))).toBeUndefined();
+        // Spec B Phase 4 (closes P1-IMP-3): when intelligence.enabled but
+        // backendFactory is null (legacy 'anthropic' migration without
+        // model rejects → backends synthesis bypassed), the orchestrator
+        // now emits a single warn so the silent drop is visible. Confirm
+        // we still emit NO local-resolver warnings (that's the OT6 intent),
+        // but DO emit the intelligence-pipeline disabled diagnostic.
+        expect(
+          warnCalls.find((m) => /local model|resolver/i.test(m)),
+          `expected no local-resolver warnings; got: ${JSON.stringify(warnCalls)}`
+        ).toBeUndefined();
+        expect(
+          warnCalls.find((m) => /intelligence pipeline disabled/i.test(m)),
+          `expected the P1-IMP-3 warn line; got: ${JSON.stringify(warnCalls)}`
+        ).toBeDefined();
       } finally {
         await orch.stop();
       }

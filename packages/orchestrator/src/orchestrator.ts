@@ -802,7 +802,18 @@ export class Orchestrator extends EventEmitter {
     // pipeline to build; return null and let the caller proceed
     // without intelligence (matches the prior behavior where
     // buildIntelligencePipeline returned null on unresolvable routes).
-    if (!this.backendFactory) return null;
+    if (!this.backendFactory) {
+      // Spec B Phase 4 (closes P1-IMP-3): make the silent drop visible.
+      // The only path here is a legacy config where agent.backends is
+      // absent/empty (migration would normally synthesize), AND
+      // intelligence.enabled was set. Dispatch would have already
+      // failed; intelligence-only deployments are exceedingly rare but
+      // should not get a null pipeline with zero diagnostic output.
+      this.logger.warn(
+        'intelligence pipeline disabled: no backendFactory available (legacy config without agent.backends)'
+      );
+      return null;
+    }
     const bundle = buildIntelligencePipeline({
       config: this.config,
       localResolvers: this.localResolvers,
