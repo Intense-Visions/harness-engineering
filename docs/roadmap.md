@@ -2032,7 +2032,7 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 - **Status:** blocked
 - **Spec:** —
 - **Summary:** Initiative parent. Cross-domain LLM-judgment ceiling pipeline that composes domain-specific craft skills the same way harness:docs-pipeline composes documentation skills and harness:design-pipeline composes design skills. Each sub-project is a domain-specific ceiling-raiser to a rule-based floor counterpart. Pattern established by design-craft-elevator (design-pipeline sub-project #6, the prototype) and codified in ADRs 0018 (LLM-judgment skill pattern), 0019 (3-axis output model), 0020 (living-catalog H pattern), 0021 (detect-and-offer B' pattern). Sub-projects: #1 naming-craft (cross-cutting), #2 docs-craft, #3 test-craft, #4 code-craft, #5 copy-craft (errors + log lines + commit messages), #6 spec-craft, #7 api-craft, #8 cli-ergonomics, #9 knowledge-craft, #10 security-craft (judgment-based threat modeling). design-craft-elevator (design-pipeline #6) is a peer member by composition (kept in design-pipeline initiative for cohesion with the rest of the design family). Each sub-project ships its own catalog (rubrics + patterns + exemplars) and shares the LLM provider, finding schema, and growth infrastructure from ADRs 0018-0021. Orchestrator phases mirror docs-pipeline / design-pipeline: FRESHEN catalog freshness → JUDGE (run each craft skill) → SUGGEST (POLISH-equivalent across all skills) → BENCHMARK (against per-domain exemplars) → REPORT.
-- **Blockers:** craft-pipeline sub-project #1: naming-craft, craft-pipeline sub-project #2: docs-craft, craft-pipeline sub-project #3: test-craft, craft-pipeline sub-project #4: code-craft, craft-pipeline sub-project #5: copy-craft, craft-pipeline sub-project #6: spec-craft, craft-pipeline sub-project #7: api-craft, craft-pipeline sub-project #8: cli-ergonomics, craft-pipeline sub-project #9: knowledge-craft, craft-pipeline sub-project #10: security-craft
+- **Blockers:** craft-pipeline sub-project #2: docs-craft, craft-pipeline sub-project #4: code-craft, craft-pipeline sub-project #7: api-craft, craft-pipeline sub-project #8: cli-ergonomics
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -2040,9 +2040,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #1: naming-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill that critiques identifier names across the codebase (variables, functions, types, modules, files, branches, commit subjects). NO rule-based floor counterpart exists — naming is universally judgment-bound; no published tool tries this. Ceiling questions: does this name carry weight? is it concrete or vague? does it match the codebase's naming gravity? are there better candidates? does this name predict the thing's behavior? Cross-cutting skill that embeds via PR-review-time invocation; the other craft skills (docs-craft, test-craft, code-craft) can call into it for their domain-specific naming dimensions. Follows ADRs 0018-0021. Likely smallest scope of the craft family (~1 week build); naming heuristics are well-codified (Robert C. Martin, Phil Karlton, Beck) so the catalog of rubrics is bounded.
+- **Status:** done
+- **Spec:** docs/changes/craft-pipeline/naming-craft/proposal.md
+- **Summary:** LLM-judgment skill that critiques identifier names across the codebase (variables, functions, types, modules, files, branches, commit subjects). NO rule-based floor counterpart exists — naming is universally judgment-bound; no published tool tries this. Ceiling questions: does this name carry weight? is it concrete or vague? does it match the codebase's naming gravity? are there better candidates? does this name predict the thing's behavior? Cross-cutting skill that embeds via PR-review-time invocation; the other craft skills (docs-craft, test-craft, code-craft) can call into it for their domain-specific naming dimensions. Follows ADRs 0018-0021. Likely smallest scope of the craft family (~1 week build); naming heuristics are well-codified (Robert C. Martin, Phil Karlton, Beck) so the catalog of rubrics is bounded. Shipped in PR #402.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2062,9 +2062,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #3: test-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill for test quality — the ceiling counterpart to harness-tdd (procedural), coverage thresholds, and test-pattern scaffolding skills (which enforce structure). Ceiling questions: does this test add signal? does the test name describe the contract or just narrate the code? is the assertion meaningful or just present? what would deleting this test lose? does the test ARRANGE-ACT-ASSERT cleanly or interleave? are fixtures earning their setup cost? Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear. Follows ADRs 0018-0021. Exemplars from well-tested OSS: React Testing Library docs, vitest's own tests, well-cited "good test" examples from Kent Beck / Martin Fowler.
+- **Status:** done
+- **Spec:** docs/changes/craft-pipeline/test-craft/proposal.md
+- **Summary:** LLM-judgment skill for test quality — the ceiling counterpart to harness-tdd (procedural), coverage thresholds, and test-pattern scaffolding skills (which enforce structure). Ceiling questions: does this test add signal? does the test name describe the contract or just narrate the code? is the assertion meaningful or just present? what would deleting this test lose? does the test ARRANGE-ACT-ASSERT cleanly or interleave? are fixtures earning their setup cost? Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear. Follows ADRs 0018-0021. Exemplars from well-tested OSS: React Testing Library docs, vitest's own tests, well-cited "good test" examples from Kent Beck / Martin Fowler. Shipped in PR #407 (vitest/jest/mocha/playwright).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2084,9 +2084,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #5: copy-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill for ALL prose-in-code: error messages, log lines, CLI output strings, commit message subjects, PR descriptions, code comments. Primary domain is error messages (universally bad in most codebases). NO rule-based floor exists (closest adjacency is harness-accessibility checking aria-label presence, but that's structural not quality). Ceiling questions for errors: does this tell WHAT/WHY/HOW-TO-FIX? would the user know what to do next? is the wording calm and specific or panicky/vague? For log lines: does this carry signal or noise? does it survive grep? Commit messages: would a stranger understand this in 6 months? does the subject describe the change or the work? Follows ADRs 0018-0021. Composes with design-craft-elevator (which owns UI copy in components) and #2 docs-craft (which owns prose docs).
+- **Status:** done
+- **Spec:** docs/changes/craft-pipeline/copy-craft/proposal.md
+- **Summary:** LLM-judgment skill for ALL prose-in-code: error messages, log lines, CLI output strings, commit message subjects, PR descriptions, code comments. Primary domain is error messages (universally bad in most codebases). NO rule-based floor exists (closest adjacency is harness-accessibility checking aria-label presence, but that's structural not quality). Ceiling questions for errors: does this tell WHAT/WHY/HOW-TO-FIX? would the user know what to do next? is the wording calm and specific or panicky/vague? For log lines: does this carry signal or noise? does it survive grep? Commit messages: would a stranger understand this in 6 months? does the subject describe the change or the work? Follows ADRs 0018-0021. Composes with design-craft-elevator (which owns UI copy in components) and #2 docs-craft (which owns prose docs). Shipped in PR #405 (all 6 surfaces).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2095,9 +2095,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #6: spec-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill for spec quality — the ceiling counterpart to harness-soundness-review (which checks structural completeness: required sections present, success criteria observable, integration points populated). Ceiling questions: is this spec sharp or vague? does it cut at the joints? would two readers walk away with the same understanding? what's the load-bearing decision vs. ambient context? are the rationalizations honest? is each non-goal actually a non-goal or smuggled assumption? would a stranger picking up this spec in 6 months still be able to act? Highest-leverage craft skill because spec quality compounds across the entire planning → implementation → review lifecycle below it. Follows ADRs 0018-0021. Composes with harness-brainstorming (where specs are authored) and harness-soundness-review (rule-based floor).
+- **Status:** done
+- **Spec:** docs/changes/craft-pipeline/spec-craft/proposal.md
+- **Summary:** LLM-judgment skill for spec quality — the ceiling counterpart to harness-soundness-review (which checks structural completeness: required sections present, success criteria observable, integration points populated). Ceiling questions: is this spec sharp or vague? does it cut at the joints? would two readers walk away with the same understanding? what's the load-bearing decision vs. ambient context? are the rationalizations honest? is each non-goal actually a non-goal or smuggled assumption? would a stranger picking up this spec in 6 months still be able to act? Highest-leverage craft skill because spec quality compounds across the entire planning → implementation → review lifecycle below it. Follows ADRs 0018-0021. Composes with harness-brainstorming (where specs are authored) and harness-soundness-review (rule-based floor). Shipped in PR #403 (also triggered the shared/craft extraction).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2128,9 +2128,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #9: knowledge-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill for knowledge-entry quality — the ceiling counterpart to harness-knowledge-pipeline (procedural ingestion + reconciliation) and harness-detect-doc-drift (structural). Ceiling questions: does this docs/knowledge/ entry state a load-bearing fact or paraphrase the code? would deleting it lose anything specific or just redundant? does it earn its place in the graph as a business_fact / business_rule / business_concept? is the entry stating a TRUTH about the domain that a code reader couldn't derive from reading the code itself? Does it carry forward decisions that would otherwise erode? Follows ADRs 0018-0021. Composes with harness-knowledge-pipeline.
+- **Status:** done
+- **Spec:** docs/changes/craft-pipeline/knowledge-craft/proposal.md
+- **Summary:** LLM-judgment skill for knowledge-entry quality — the ceiling counterpart to harness-knowledge-pipeline (procedural ingestion + reconciliation) and harness-detect-doc-drift (structural). Ceiling questions: does this docs/knowledge/ entry state a load-bearing fact or paraphrase the code? would deleting it lose anything specific or just redundant? does it earn its place in the graph as a business_fact / business_rule / business_concept? is the entry stating a TRUTH about the domain that a code reader couldn't derive from reading the code itself? Does it carry forward decisions that would otherwise erode? Follows ADRs 0018-0021. Composes with harness-knowledge-pipeline. Shipped in PR #409 (`docs/knowledge/` per-file critique, excluding `decisions/` which is spec-craft territory; KNOW-R003 names graph taxonomy without runtime graph reads).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2139,9 +2139,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #10: security-craft
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** LLM-judgment skill for security posture — the ceiling counterpart to harness-security-scan (CVE / OWASP rule-based) and harness-security-reviewer (procedural review). Threat-modeling-as-skill rather than pattern-checking. Ceiling questions: is this trust boundary respected or accidentally bridged? where's the implicit privilege escalation? does this code defend in depth or just at the gate? is principle of least authority honored in shape? what's the assumed adversary and does the code respect it? where does data flow cross a trust boundary unannounced? Hardest-to-land-well of the craft family — judgment-based security risks both false positives (overcaution paralyzes shipping) and false negatives (missed real issues). Defer until the craft pattern has 2-3 proven instances first. Follows ADRs 0018-0021.
+- **Status:** in-progress
+- **Spec:** docs/changes/craft-pipeline/security-craft/proposal.md
+- **Summary:** LLM-judgment skill for security posture — the ceiling counterpart to harness-security-scan (CVE / OWASP rule-based) and harness-security-reviewer (procedural review). Threat-modeling-as-skill rather than pattern-checking. Ceiling questions: is this trust boundary respected or accidentally bridged? where's the implicit privilege escalation? does this code defend in depth or just at the gate? is principle of least authority honored in shape? what's the assumed adversary and does the code respect it? where does data flow cross a trust boundary unannounced? Hardest-to-land-well of the craft family — judgment-based security risks both false positives (overcaution paralyzes shipping) and false negatives (missed real issues). v1 mitigates the FP risk with three layers: AST-driven signal detection (files with zero signals are skipped), per-rubric appliesToSignals pre-filter, conservative-confidence system prompt biasing the LLM toward `medium` confidence. In review as PR #410.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
