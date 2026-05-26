@@ -166,18 +166,32 @@ export class SecurityScanner {
     return null;
   }
 
-  /** Scan a single line against a resolved rule; push any findings into the array. */
+  /**
+   * Scan a single line against a resolved rule; push any findings into the array.
+   *
+   * Suppression check is two-pass: same line first (trailing-comment style), then the previous
+   * line (the dominant convention: `// harness-ignore` on the line above the flagged code).
+   * Without the prior-line check, every multi-line statement annotated using the over-the-top
+   * convention would slip through and re-trigger the finding.
+   */
   private scanLineForRule(
     rule: SecurityRule,
     resolved: string,
     line: string,
     lineNumber: number,
     filePath: string,
-    findings: SecurityFinding[]
+    findings: SecurityFinding[],
+    priorLine?: string
   ): void {
-    const suppressionMatch = parseHarnessIgnore(line, rule.id);
+    const sameLineMatch = parseHarnessIgnore(line, rule.id);
+    const priorLineMatch =
+      !sameLineMatch && priorLine !== undefined ? parseHarnessIgnore(priorLine, rule.id) : null;
+    const suppressionMatch = sameLineMatch ?? priorLineMatch;
     if (suppressionMatch) {
-      if (!suppressionMatch.justification) {
+      // Emit the "needs justification" finding only when the annotation is on
+      // the current line. If it's on the prior line, that line's own same-line
+      // pass already produced one — don't double-count.
+      if (!suppressionMatch.justification && sameLineMatch !== null) {
         findings.push(this.buildSuppressionFinding(rule, filePath, lineNumber, line));
       }
       return;
@@ -209,7 +223,15 @@ export class SecurityScanner {
       if (resolved === 'off') continue;
 
       for (let i = 0; i < lines.length; i++) {
-        this.scanLineForRule(rule, resolved, lines[i] ?? '', startLine + i, filePath, findings);
+        this.scanLineForRule(
+          rule,
+          resolved,
+          lines[i] ?? '',
+          startLine + i,
+          filePath,
+          findings,
+          i > 0 ? lines[i - 1] : undefined
+        );
       }
     }
 

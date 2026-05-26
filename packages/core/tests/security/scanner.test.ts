@@ -191,6 +191,66 @@ describe('SecurityScanner', () => {
       expect(warning!.remediation).toContain('Add justification after colon');
       expect(warning!.confidence).toBe('high');
     });
+
+    it('prior-line suppression with justification suppresses the rule', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = [
+        '// harness-ignore SEC-INJ-001: dynamic eval in test fixture only',
+        'eval(userInput);',
+      ].join('\n');
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const injFindings = findings.filter((f) => f.ruleId === 'SEC-INJ-001');
+      expect(injFindings).toHaveLength(0);
+    });
+
+    it('prior-line suppression without justification still flags missing-justification', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = ['// harness-ignore SEC-INJ-001', 'eval(userInput);'].join('\n');
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const evalFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && !f.message.includes('requires justification')
+      );
+      expect(evalFindings).toHaveLength(0);
+
+      const suppressionWarnings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && f.message.includes('requires justification')
+      );
+      expect(suppressionWarnings).toHaveLength(1);
+    });
+
+    it('prior-line suppression for a different rule does not suppress the flagged rule', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = [
+        '// harness-ignore SEC-OTHER-001: unrelated annotation',
+        'eval(userInput);',
+      ].join('\n');
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const evalFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && !f.message.includes('requires justification')
+      );
+      expect(evalFindings.length).toBeGreaterThan(0);
+    });
+
+    it('prior-line annotation only suppresses the immediately following line', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = [
+        '// harness-ignore SEC-INJ-001: applies only to next line',
+        'eval(safeInput);',
+        'eval(userInput);',
+      ].join('\n');
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      // First eval suppressed; second eval (line 3) still flagged because prior line
+      // is the suppressed eval, not a harness-ignore comment.
+      const evalFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && !f.message.includes('requires justification')
+      );
+      expect(evalFindings).toHaveLength(1);
+      expect(evalFindings[0].line).toBe(3);
+    });
   });
 
   describe('SEC-DEF-* insecure defaults rules', () => {
