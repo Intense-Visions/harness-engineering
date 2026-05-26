@@ -23,9 +23,10 @@ describe('RoutingDecisionBus', () => {
     }
     const recent = bus.recent({ limit: 99_999 });
     expect(recent.length).toBeLessThanOrEqual(500);
-    // ring drops oldest: first surviving record is index 9500
-    expect(recent[0]?.backendName).toBe('backend-9500');
-    expect(recent[recent.length - 1]?.backendName).toBe('backend-9999');
+    // Phase 5 S1 fix: recent() is newest-first. Ring drops oldest, so the
+    // surviving range is [9500, 9999]; newest-first reverses to [9999, 9500].
+    expect(recent[0]?.backendName).toBe('backend-9999');
+    expect(recent[recent.length - 1]?.backendName).toBe('backend-9500');
   });
 
   it('S6: subscriber errors are isolated — other subscribers still receive', () => {
@@ -86,6 +87,30 @@ describe('RoutingDecisionBus', () => {
     expect(bus.recent({ mode: 'adversarial-reviewer' })).toHaveLength(1);
     expect(bus.recent({ backendName: 'cloud' })).toHaveLength(2);
     expect(bus.recent({ limit: 2 })).toHaveLength(2);
+  });
+
+  it('recent({ limit }) returns the latest N decisions in newest-first order (Phase 5 S1 fix)', () => {
+    const bus = new RoutingDecisionBus({ capacity: 100 });
+    for (let i = 0; i < 50; i++) {
+      bus.emit(
+        makeDecision({
+          timestamp: new Date(2026, 0, 1, 0, 0, i).toISOString(),
+          backendName: `b${i}`,
+        })
+      );
+    }
+    const out = bus.recent({ limit: 5 });
+    expect(out.length).toBe(5);
+    expect(out.map((d) => d.backendName)).toEqual(['b49', 'b48', 'b47', 'b46', 'b45']);
+  });
+
+  it('clearListeners() removes all subscribers so post-clear emits reach nobody (Phase 5 S2 fix)', () => {
+    const bus = new RoutingDecisionBus();
+    const received: string[] = [];
+    bus.subscribe((d) => received.push(d.backendName));
+    bus.clearListeners();
+    bus.emit(makeDecision({ backendName: 'x' }));
+    expect(received).toEqual([]);
   });
 
   it('subscribe() returns an unsubscribe function', () => {
