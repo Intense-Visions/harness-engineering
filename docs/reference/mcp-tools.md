@@ -438,6 +438,20 @@ Simulate cascading failure propagation from a source node using probability-weig
 - `maxDepth` (number, optional) — Maximum BFS depth (default 10)
 - `mode` (string, optional) — Response density: compact returns summary + top 10 highest-risk nodes, detailed returns full layered cascade chain. Default: compact
 
+### `copy_craft`
+
+LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output strings, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill; 8 seed rubrics. Graceful degradation when git/gh prereqs absent.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional source file/glob scope
+- `surfaces` (array, optional) — Restrict to specific surfaces (default: all 6)
+- `maxFiles` (number, optional) — Cap source file count (default: 100)
+- `maxItemsPerFile` (number, optional) — Cap per-file items (default: 20)
+- `commitsSince` (string, optional) — Commit window for git log (default: '1 month ago')
+- `prLimit` (number, optional) — PR count cap (default: 20)
+
 ### `design_craft`
 
 Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a project's components. Phase 1 MVP: fast-mode CRITIQUE with the seeded hierarchy-clarity rubric; POLISH and BENCHMARK are stubs.

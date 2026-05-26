@@ -134,6 +134,19 @@ Remove stale entries from .harness/. Default: only .harness/sessions/ (no write 
 - `--include` — Hermes Phase 2: comma-separated target names (mutually-exclusive with --exclude/--all)
 - `--exclude` — Hermes Phase 2: comma-separated target names to skip
 
+### `harness copy-craft`
+
+LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill. Graceful degradation when git/gh prereqs absent.
+
+**Options:**
+
+- `-f, --files` — Optional source file/glob scope
+- `-s, --surfaces` — Restrict to: error / log / cli-output / commit / pr-description / comment
+- `--max-files` — Cap source file count (default: 100)
+- `--max-items-per-file` — Cap per-file item sampling (default: 20)
+- `--commits-since` — Commit window (default: '1 month ago')
+- `--pr-limit` — PR count cap (default: 20)
+
 ### `harness create-skill`
 
 Scaffold a new skill with skill.yaml and SKILL.md

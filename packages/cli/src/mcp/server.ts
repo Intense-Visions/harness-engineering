@@ -182,6 +182,8 @@ import { designPipelineDefinition, handleDesignPipeline } from './tools/design-p
 import { namingCraftDefinition, handleNamingCraft } from './tools/naming-craft.js';
 // craft-pipeline #6: spec-craft LLM-judgment skill (proposals + ADRs, per-section critique).
 import { specCraftDefinition, handleSpecCraft } from './tools/spec-craft.js';
+// craft-pipeline #5: copy-craft LLM-judgment skill (errors, logs, CLI output, commits, PRs, comments).
+import { copyCraftDefinition, handleCopyCraft } from './tools/copy-craft.js';
 
 // Re-exported from ./tool-types so tool files can import the type without
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
@@ -271,6 +273,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   designPipelineDefinition,
   namingCraftDefinition,
   specCraftDefinition,
+  copyCraftDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -349,6 +352,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   run_design_pipeline: handleDesignPipeline as unknown as ToolHandler,
   naming_craft: handleNamingCraft as unknown as ToolHandler,
   spec_craft: handleSpecCraft as unknown as ToolHandler,
+  copy_craft: handleCopyCraft as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

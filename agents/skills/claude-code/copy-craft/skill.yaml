@@ -1,0 +1,52 @@
+name: copy-craft
+version: "0.1.0"
+description: LLM-judgment critique of prose-in-code across six surfaces (error messages, log lines, CLI output, commit subjects, PR descriptions, code comments). Third craft-pipeline ceiling skill; primary domain is error messages (universally bad). Graceful degradation when git/gh prerequisites are absent.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness copy-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional source file/glob scope
+      required: false
+    - name: surfaces
+      description: Restrict to error/log/cli-output/commit/pr-description/comment
+      required: false
+    - name: commits-since
+      description: Commit window (default 1 month ago)
+      required: false
+mcp:
+  tool: copy_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: extract
+    description: TS Compiler API for source surfaces; git/gh shell-out for commits + PRs
+    required: true
+  - name: critique
+    description: LLM-rubric loop per (item, rubric) where rubric applies to that surface
+    required: true
+  - name: report
+    description: Aggregate findings + per-surface counts + cost telemetry + skipped surfaces
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-design-craft
+  - naming-craft

@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-749 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+750 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (32 skills)
+## Tier 2 — Maintenance (33 skills)
 
 ### align-design-system
 
@@ -181,6 +181,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### copy-craft
+
+LLM-judgment critique of prose-in-code across six surfaces (error messages, log lines, CLI output, commit subjects, PR descriptions, code comments). Third craft-pipeline ceiling skill; primary domain is error messages (universally bad). Graceful degradation when git/gh prerequisites are absent.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-design-craft, naming-craft
 
 ### detect-design-drift
 

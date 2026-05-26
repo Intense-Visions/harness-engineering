@@ -140,6 +140,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'naming_craft',
   // craft-pipeline #6 — spec-craft LLM-judgment ceiling skill
   'spec_craft',
+  // craft-pipeline #5 — copy-craft LLM-judgment ceiling skill (6 surfaces)
+  'copy_craft',
 ];
 
 /**
