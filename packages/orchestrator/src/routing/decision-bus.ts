@@ -44,20 +44,62 @@ export class RoutingDecisionBus {
     this.logger = opts?.logger;
   }
 
-  emit(_decision: RoutingDecision): void {
-    // Stub: implementation lands in Task 3. References fields for noUnusedLocals.
-    void this.ringBuffer;
-    void this.listeners;
-    void this.capacity;
-    void this.logger;
-    throw new Error('RoutingDecisionBus.emit not yet implemented (Task 3)');
+  emit(decision: RoutingDecision): void {
+    this.ringBuffer.push(decision);
+    if (this.ringBuffer.length > this.capacity) {
+      this.ringBuffer.shift();
+    }
+    // O1: one structured line per emit.
+    if (this.logger) {
+      this.logger.info('routing-decision', {
+        useCase: decision.useCase,
+        backendName: decision.backendName,
+        resolutionPathLength: decision.resolutionPath.length,
+        durationMs: decision.durationMs,
+      });
+    }
+    // S6: subscriber errors are caught + logged, never propagated.
+    for (const listener of this.listeners) {
+      try {
+        listener(decision);
+      } catch (err) {
+        if (this.logger) {
+          this.logger.warn('RoutingDecisionBus subscriber threw', {
+            error: String(err),
+          });
+        }
+      }
+    }
   }
 
-  recent(_filter?: RoutingDecisionBusFilter): RoutingDecision[] {
-    throw new Error('RoutingDecisionBus.recent not yet implemented (Task 3)');
+  recent(filter?: RoutingDecisionBusFilter): RoutingDecision[] {
+    let out = this.ringBuffer.slice();
+    if (filter?.skillName !== undefined) {
+      out = out.filter(
+        (d) => d.useCase.kind === 'skill' && d.useCase.skillName === filter.skillName
+      );
+    }
+    if (filter?.mode !== undefined) {
+      const m = filter.mode;
+      out = out.filter(
+        (d) =>
+          (d.useCase.kind === 'mode' && d.useCase.cognitiveMode === m) ||
+          (d.useCase.kind === 'skill' && d.useCase.cognitiveMode === m)
+      );
+    }
+    if (filter?.backendName !== undefined) {
+      out = out.filter((d) => d.backendName === filter.backendName);
+    }
+    if (filter?.limit !== undefined) {
+      out = out.slice(0, filter.limit);
+    }
+    return out;
   }
 
-  subscribe(_listener: (d: RoutingDecision) => void): () => void {
-    throw new Error('RoutingDecisionBus.subscribe not yet implemented (Task 3)');
+  subscribe(listener: (d: RoutingDecision) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 }
