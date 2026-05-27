@@ -28,6 +28,11 @@ describe('catalog registry', () => {
     expect(types).toContain('Button');
   });
 
+  it('exposes Input as a catalogued type (Phase 2 expansion #2)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('Input');
+  });
+
   it('returns the same set of types from the public `exports.ts` surface', () => {
     // harness-accessibility step 2.6 imports getCatalogTypes from the
     // public exports surface. The contract is that both paths return
@@ -55,6 +60,18 @@ describe('catalog registry', () => {
     expect(rule!.source.ref).toBe('APG/button');
     // Button's content slot is the Tier-1 required slot per the spec.
     expect(rule!.slots.find((s) => s.name === 'content')?.required).toBe(true);
+  });
+
+  it('looks up Input to its full ConventionRule with label as the required Tier-1 slot', () => {
+    const rule = lookupConvention('Input');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('Input');
+    expect(rule!.source.ref).toBe('APG/textbox');
+    // Input.label is the only Tier-1 required slot in v1 — the helper-text
+    // and error-text slots are recommended (Tier-2) and not yet flagged.
+    expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
+    expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
   });
 
   it('returns null for an unknown component type (silent skip per Decision #1)', () => {

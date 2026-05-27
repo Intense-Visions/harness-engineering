@@ -22,6 +22,7 @@
     - [ANAT-D001 — Button: missing required `content` slot](#anat-d001--button-missing-required-content-slot)
     - [ANAT-D002 — Button: missing required `focus` state](#anat-d002--button-missing-required-focus-state)
     - [ANAT-D003 — Button: missing required `default` state](#anat-d003--button-missing-required-default-state)
+    - [ANAT-D004 — Input: missing required `label` slot](#anat-d004--input-missing-required-label-slot)
     - [ANAT-D010 — Tabs: missing required `root` slot](#anat-d010--tabs-missing-required-root-slot)
     - [ANAT-D011 — Tabs: missing required `tablist` slot](#anat-d011--tabs-missing-required-tablist-slot)
     - [ANAT-D012 — Tabs: missing required `trigger` slot](#anat-d012--tabs-missing-required-trigger-slot)
@@ -30,6 +31,7 @@
     - [ANAT-D015 — Tabs: missing required `focused` state (roving tabindex)](#anat-d015--tabs-missing-required-focused-state-roving-tabindex)
     - [ANAT-D020 — EmptyState: missing required `headline` slot](#anat-d020--emptystate-missing-required-headline-slot)
     - [ANAT-D021 — EmptyState: missing required `default` state](#anat-d021--emptystate-missing-required-default-state)
+    - [ANAT-D005–D009 — RESERVED (critical required-slot, Input/Select/Modal overflow)](#anat-d005d009--reserved-critical-required-slot-inputselectmodal-overflow)
     - [ANAT-D022–D029 — RESERVED (critical required-slot)](#anat-d022d029--reserved-critical-required-slot)
   - [Tier-2 recommended: recommended-state missing (D030–D099)](#tier-2-recommended-recommended-state-missing-d030d099)
   - [Tier-3 optional: variant / size / cosmetic missing (D100–D199)](#tier-3-optional-variant--size--cosmetic-missing-d100d199)
@@ -185,7 +187,7 @@ JSDoc matches convention; no divergence; no finding.
 
 The Tier-1 band is reserved for definition findings where a component **omits a part the convention marks `required: true`**. These are baseline-failure findings — the component is structurally incomplete relative to its catalog convention. Default severity `error` at `standard` strictness.
 
-Codes D001–D003 belong to the Button convention (Phase 0 spike: `conventions/button.md`). Codes D010–D015 belong to the Tabs convention (Phase 0 spike: `conventions/tabs.md`). Codes D020–D021 belong to the EmptyState convention (Phase 0 spike: `conventions/empty-state.md`). Codes D004–D009 and D016–D019 and D022–D029 are RESERVED for Phase 2 — assignment proceeds in the order the catalog authors land conventions per Decision #5's 20-component scope.
+Codes D001–D003 belong to the Button convention (Phase 0 spike: `conventions/button.md`). Code D004 belongs to the Input convention (Phase 2 catalog expansion). Codes D010–D015 belong to the Tabs convention (Phase 0 spike: `conventions/tabs.md`). Codes D020–D021 belong to the EmptyState convention (Phase 0 spike: `conventions/empty-state.md`). Codes D005–D009 and D016–D019 and D022–D029 are RESERVED for Phase 2 — assignment proceeds in the order the catalog authors land conventions per Decision #5's 20-component scope.
 
 #### ANAT-D001 — Button: missing required `content` slot
 
@@ -332,6 +334,79 @@ Default render path present; no finding.
 **Schema notes:**
 
 - Detected by the AST runner walking control flow within the component function body. If every `return` is reached only through a conditional whose tests are stateful (`if (loading)`, `if (disabled)`, ternary-of-state), the default state is considered missing.
+
+#### ANAT-D004 — Input: missing required `label` slot
+
+**Severity default:** `error`
+
+**Component type:** Input
+
+**Source citation:** `APG/textbox` — <https://www.w3.org/WAI/ARIA/apg/patterns/>
+
+**Message template:**
+
+> `Input definition is missing the required \`label\` slot. An Input that accepts no labelling affordance (no \`label\`, \`aria-label\`, or \`aria-labelledby\` prop) is the canonical APG violation — assistive technology cannot announce the field's purpose.`
+
+**Fix hint** (verbatim from the convention rule):
+
+> Add a labelling affordance. Accept a `label` prop (string), an `aria-label` prop (string), or an `aria-labelledby` prop (id reference). An Input without any labelling affordance is the canonical APG violation — assistive technology cannot announce the field's purpose.
+
+**Positive example (finding emitted):**
+
+```tsx
+interface InputProps {
+  value?: string;
+  onChange?: (next: string) => void;
+  placeholder?: string;
+  // No label, aria-label, or aria-labelledby — label slot missing.
+}
+
+export const Input = ({ value, onChange, placeholder }: InputProps) => (
+  <input value={value} onChange={(e) => onChange?.(e.target.value)} placeholder={placeholder} />
+);
+```
+
+Emits one `ANAT-D004` error finding at the Input definition.
+
+**Negative example (no finding — `label` prop):**
+
+```tsx
+interface InputProps {
+  label: string;
+  value?: string;
+}
+
+export const Input = ({ label, value }: InputProps) => (
+  <label>
+    {label}
+    <input value={value} />
+  </label>
+);
+```
+
+The `label: string` prop satisfies the `label` slot. No finding.
+
+**Negative example (no finding — `aria-labelledby` prop):**
+
+```tsx
+interface InputProps {
+  'aria-labelledby': string;
+  value?: string;
+}
+
+export const Input = (props: InputProps) => (
+  <input aria-labelledby={props['aria-labelledby']} value={props.value} />
+);
+```
+
+`aria-labelledby` is one of the three accepted labelling affordances. No finding.
+
+**Schema notes:**
+
+- The AST runner satisfies the `label` slot by detecting any of: a `label` prop, an `aria-label` prop, or an `aria-labelledby` prop on the parsed prop type. Names only — type compatibility (string vs. ReactNode) is not yet checked, matching the Phase 1 ANAT-D001 satisfiability stance.
+- Authors who route labelling through an external `<label htmlFor>` element should wire it via `aria-labelledby` to remain audit-visible. The audit deliberately does NOT inspect call sites for v1 — usage-side checks belong to the reserved `ANAT-U*` namespace (v2).
+- Coordinates with harness-accessibility deferral (Phase 1 step 2.6): when `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers `A11Y-050` (`<input>` without an associated `<label>`) for Input call sites in favor of this definition-side finding. This is the primary overlap point with the a11y skill — the deferral pattern ensures the same root cause is reported exactly once.
+- Tier-2 Input slots (`helper-text`, `error-text`) are catalogued on the convention rule but not yet wired to a finding code. The D040-D049 sub-band is reserved for those when the runner ships recommended-slot findings.
 
 #### ANAT-D010 — Tabs: missing required `root` slot
 
@@ -703,9 +778,15 @@ export const EmptyState = ({ title }: EmptyStateProps) => (
 
 No internal null gate; no finding.
 
+#### ANAT-D005–D009 — RESERVED (critical required-slot, Input/Select/Modal overflow)
+
+These codes are RESERVED for Phase 2 catalog expansion. Input claimed `D004` for its `label` slot; remaining critical Input slots (if any prove warranted) and the first critical slots of the next-to-land conventions (Select, Modal/Dialog, Card) consume `D005`–`D009` in landing order.
+
+> **To be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+
 #### ANAT-D022–D029 — RESERVED (critical required-slot)
 
-These codes are RESERVED for Phase 2 catalog expansion. Convention authors assign them in landing order for the remaining 17 catalog components (Input, Select, Modal/Dialog, Card, Menu, Toast, Form, Accordion, Tooltip, Popover, Drawer, Slider, Switch, Checkbox, Radio, Avatar, Badge). Each landed component's critical findings claim the next contiguous codes in the D001–D029 band. If a single component requires more than 8 critical codes, overflow allocates into D004–D009 and D016–D019 before considering band-resize.
+These codes are RESERVED for Phase 2 catalog expansion. Convention authors assign them in landing order for the remaining catalog components (Select, Modal/Dialog, Card, Menu, Toast, Form, Accordion, Tooltip, Popover, Drawer, Slider, Switch, Checkbox, Radio, Avatar, Badge). Each landed component's critical findings claim the next contiguous codes in the D001–D029 band. If a single component requires more than 8 critical codes, overflow allocates into D005–D009 and D016–D019 before considering band-resize.
 
 > **To be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
