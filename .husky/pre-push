@@ -1,5 +1,9 @@
 export PATH="$PATH:/opt/homebrew/bin"
 
+# Mirror CI's changeset-check job so missing changesets fail locally
+# (cheap diff-only script — runs in ~1s before the heavier steps).
+pnpm run check:changesets
+
 # Format check catches files missed by lint-staged (e.g., from merges).
 pnpm run format:check
 pnpm run typecheck

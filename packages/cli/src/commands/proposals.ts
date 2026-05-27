@@ -115,7 +115,7 @@ async function actApproveCommand(id: string): Promise<void> {
 }
 
 export function createProposalsCommand(): Command {
-  const cmd = new Command('proposals').description('Skill-proposal review queue (Hermes Phase 4)');
+  const cmd = new Command('proposals').description('Skill-proposal review queue');
 
   cmd
     .command('list')

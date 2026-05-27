@@ -514,7 +514,7 @@ Scaffold a new harness engineering project from a template
 
 ### `insights_summary`
 
-Composite report combining health, entropy, decay, attention, and impact (Hermes Phase 1).
+Composite report combining health, entropy, decay, attention, and impact.
 
 **Parameters:**
 
@@ -534,7 +534,7 @@ LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding dec
 
 ### `naming_craft`
 
-LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses a curated rubric catalog seeded from Martin / Beck / Karlton. Emits 3-axis findings (tier x impact x confidence per ADR 0019).
+LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses a curated rubric catalog seeded from Martin / Beck / Karlton. Emits 3-axis findings (tier x impact x confidence per ADR 0019). In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call naming_craft_finalize with the responses to get findings.
 
 **Parameters:**
 
@@ -543,6 +543,18 @@ LLM-judgment critique of identifier names (variables, functions, types, files). 
 - `kinds` (array, optional) — Restrict to specific identifier kinds (default: all)
 - `maxFiles` (number, optional) — Cap file count (default: 100)
 - `maxIdentifiersPerFile` (number, optional) — Cap per-file identifier sampling (default: 15)
+- `mode` (string, optional) — 'in-session' (default): return prompts for the calling agent to answer, then call naming_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).
+- `promptBudget` (number, optional) — Cap prompt count in in-session mode (default: 100)
+
+### `naming_craft_finalize`
+
+Finalize a naming_craft in-session run by submitting the calling agent's responses to the prompts collected by naming_craft. Returns the standard NamingCraftOutput with findings.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path used in the collect call (must match)
+- `runId` (string, required) — runId returned by the naming_craft collect call
+- `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
 ### `recommend_skills`
 
@@ -602,7 +614,7 @@ Subscribe to outbound webhook fan-out via POST /api/v1/webhooks. Returns the sec
 
 ### `summarize_session`
 
-Generate or regenerate the LLM `llm-summary.md` for an archived session (Hermes Phase 1).
+Generate or regenerate the LLM `llm-summary.md` for an archived session.
 
 **Parameters:**
 
@@ -743,7 +755,7 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 
 ### `search_sessions`
 
-Full-text search over archived + live session content (Hermes Phase 1, FTS5/BM25).
+Full-text search over archived + live session content (FTS5/BM25).
 
 **Parameters:**
 

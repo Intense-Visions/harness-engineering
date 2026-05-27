@@ -26,15 +26,26 @@ export interface CritiqueInput {
   provider: LlmProvider;
 }
 
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior engineer critiquing identifier names against a single naming rubric. ' +
+  'Respond ONLY with a fenced JSON block. If the rubric does not apply or the name is fine, ' +
+  'return `null` (literally the word null inside the JSON block).';
+
 export async function critiqueOne(input: CritiqueInput): Promise<NamingFinding | null> {
   const { identifier, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior engineer critiquing identifier names against a single naming rubric. ' +
-      'Respond ONLY with a fenced JSON block. If the rubric does not apply or the name is fine, ' +
-      'return `null` (literally the word null inside the JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { identifier, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a NamingFinding. Returns
+ * null if the response says null / fails validation. Pure — no LLM call.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { identifier: ExtractedIdentifier; rubric: NamingRubric }
+): NamingFinding | null {
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -45,26 +56,31 @@ export async function critiqueOne(input: CritiqueInput): Promise<NamingFinding |
   if (!isTier(tier) || !isImpact(impact) || !isConfidence(confidence)) return null;
   if (typeof parsed.message !== 'string' || parsed.message.length === 0) return null;
 
-  const finding: NamingFinding = {
-    code: rubric.id,
+  return {
+    code: ctx.rubric.id,
     phase: 'critique',
     tier,
     impact,
     confidence,
     target: {
-      file: identifier.file,
-      line: identifier.line,
-      identifier: identifier.name,
-      kind: identifier.kind,
+      file: ctx.identifier.file,
+      line: ctx.identifier.line,
+      identifier: ctx.identifier.name,
+      kind: ctx.identifier.kind,
     },
     message: parsed.message,
-    cite: { rubricId: rubric.id, source: rubric.source },
+    cite: { rubricId: ctx.rubric.id, source: ctx.rubric.source },
     derived: { priority: derivePriority(tier, impact, confidence) },
   };
-  return finding;
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export interface BuildPromptInput {
+  identifier: ExtractedIdentifier;
+  rubric: NamingRubric;
+  convention: ProjectConvention;
+}
+
+export function buildPrompt(input: BuildPromptInput): string {
   const { identifier, rubric, convention } = input;
   const conventionLine = describeConvention(identifier.kind, convention);
   return [

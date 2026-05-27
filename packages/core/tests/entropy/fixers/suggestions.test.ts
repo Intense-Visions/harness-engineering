@@ -285,4 +285,34 @@ describe('generateSuggestions', () => {
     };
     expect(generateSuggestions(largeReport).estimatedEffort).toBe('large');
   });
+
+  it('handles very large drift reports without RangeError', () => {
+    // Regression: a large monorepo can produce >100k drift entries from graph-based
+    // stale-edge detection. `suggestions.push(...subList)` spreads as call args, hitting
+    // V8's argument-count limit (~65k) and throwing "Maximum call stack size exceeded".
+    const driftCount = 200_000;
+    const driftReport: DriftReport = {
+      drifts: Array.from({ length: driftCount }, (_, i) => ({
+        type: 'api-signature' as const,
+        docFile: `/project/docs/api-${i}.md`,
+        line: i,
+        reference: `ref${i}`,
+        context: 'code-block' as const,
+        issue: 'SIGNATURE_CHANGED' as const,
+        details: 'd',
+        confidence: 'medium' as const,
+      })),
+      stats: {
+        docsScanned: 1,
+        referencesChecked: driftCount,
+        driftsFound: driftCount,
+        byType: { api: driftCount, example: 0, structure: 0 },
+      },
+      severity: 'high',
+    };
+
+    const result = generateSuggestions(undefined, driftReport);
+    expect(result.suggestions.length).toBe(driftCount);
+    expect(result.byPriority.medium.length).toBe(driftCount);
+  });
 });

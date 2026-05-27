@@ -39,6 +39,7 @@
     "generate:plugin:all": "pnpm generate:plugin:claude && pnpm generate:plugin:cursor && pnpm generate:plugin:gemini && pnpm generate:plugin:codex",
     "generate:plugin:check": "node scripts/generate-plugin.mjs --target claude --check && node scripts/generate-plugin.mjs --target cursor --check && node scripts/generate-plugin.mjs --target gemini --check && node scripts/generate-plugin.mjs --target codex --check",
     "changeset": "changeset",
+    "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",
     "prepare": "husky"

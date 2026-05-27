@@ -140,7 +140,7 @@ function printListTable(rows: ListRow[]): void {
 
 export function createMaintenanceCommand(): Command {
   const command = new Command('maintenance').description(
-    'Hermes Phase 2 — inspect built-in + custom maintenance tasks and their persisted outputs'
+    'Inspect built-in + custom maintenance tasks and their persisted outputs'
   );
 
   command

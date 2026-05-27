@@ -56,9 +56,7 @@ function renderPretty(report: InsightsReport): void {
 
 export function createInsightsCommand(): Command {
   return new Command('insights')
-    .description(
-      'Composite project report — health, entropy, decay, attention, impact (Hermes Phase 1).'
-    )
+    .description('Composite project report — health, entropy, decay, attention, impact.')
     .option('--json', 'Emit JSON to stdout instead of pretty text')
     .option('--skip <list>', `Comma-separated keys to skip (${INSIGHTS_KEYS.join(',')})`)
     .action(async (opts: InsightsOptions) => {

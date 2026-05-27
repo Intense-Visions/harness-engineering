@@ -23,7 +23,7 @@ describe('runNamingCraft (integration)', () => {
   }
 
   it('walks empty project and emits zero findings', async () => {
-    const out = await runNamingCraft({ path: tmpDir });
+    const out = await runNamingCraft({ path: tmpDir, __testProvider: new MockLlmProvider() });
     expect(out.findings).toEqual([]);
     expect(out.summary.catalog.rubricsApplied).toHaveLength(6);
   });
@@ -48,7 +48,11 @@ describe('runNamingCraft (integration)', () => {
     for (let i = 0; i < 5; i++) {
       writeFile(`src/file${i}.ts`, `const x${i} = ${i};\n`);
     }
-    const out = await runNamingCraft({ path: tmpDir, maxFiles: 2 });
+    const out = await runNamingCraft({
+      path: tmpDir,
+      maxFiles: 2,
+      __testProvider: new MockLlmProvider(),
+    });
     // 5 files written, cap to 2: convention sampling still works but only
     // 2 files are scanned for findings. Verify by summary metadata path.
     expect(out.summary.llmCalls.count).toBeLessThanOrEqual(2 * 6 * 15);
@@ -56,7 +60,7 @@ describe('runNamingCraft (integration)', () => {
 
   it('derives camelCase convention from a uniformly camelCase project', async () => {
     writeFile('src/a.ts', `const userName = 1;\nconst retryCount = 2;\nconst maxBuffer = 3;\n`);
-    const out = await runNamingCraft({ path: tmpDir });
+    const out = await runNamingCraft({ path: tmpDir, __testProvider: new MockLlmProvider() });
     expect(out.summary.convention.variables).toBe('camelCase');
   });
 

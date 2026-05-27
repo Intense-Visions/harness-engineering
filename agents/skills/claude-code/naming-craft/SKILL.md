@@ -84,9 +84,81 @@ Emit `NamingCraftOutput`:
 ## Harness Integration
 
 - **`harness naming-craft`** — CLI entry. `--files <glob>` / `--kinds <variable|function|type|file>` / `--max-files <n>` / `--max-identifiers-per-file <n>` / `--json` / `--verbose`.
-- **`mcp__harness__naming_craft`** — MCP tool. Same input/output. Consumed by agents.
+- **`mcp__harness__naming_craft`** — MCP tool. Two modes (see "In-session flow" below).
+- **`mcp__harness__naming_craft_finalize`** — MCP tool that completes the in-session flow.
 - **Cross-cutting API:** `critiqueNamesInFile(file, opts)` exported from `packages/cli/src/naming-craft/index.ts`. Future craft skills (docs-craft, test-craft, code-craft) import and invoke this when they want naming critique on a file they're already processing — no project re-walk needed.
-- **LLM provider reuse:** imports design-craft's `LlmProvider` + `MockLlmProvider` directly. v2 extracts to `packages/cli/src/shared/llm/` when a second non-design craft skill needs differences.
+- **LLM provider:** configured in `harness.config.json`. The shared selector in `packages/cli/src/shared/craft/llm/provider.ts` reads two blocks:
+  - **`agent.backends`** — named backend definitions, shared with the orchestrator. Supported types: `claude`, `anthropic`, `openai`, `local`, `pi`, `mock`. (`local` and `pi` are OpenAI-compatible — point them at Ollama / LM Studio / vLLM / LiteLLM / any compliant server.)
+  - **`craft.llm`** — either `{ "backend": "<name>" }` to route through one of the entries above, or `{ "mode": "in-session" | "mock" }` for the non-backend modes. Default when nothing is set: `in-session` (host chat answers prompts via the two-step MCP flow).
+  - **`HARNESS_CRAFT_LLM`** env var overrides the file. Accepts `in-session`, `mock`, or the name of any entry in `agent.backends`.
+
+### Migration from `harness.orchestrator.md`
+
+If you already declared `agent.backends` in `harness.orchestrator.md`, the craft selector reads from it as a fallback and emits a one-time warning on first run. Run `harness migrate backends` (preview with `--dry-run`) to copy the entries into `harness.config.json` so both files share a single source of truth.
+
+### Example
+
+Example config snippet for routing craft skills to a local Ollama:
+
+```jsonc
+{
+  "agent": {
+    "backends": {
+      "ollama": {
+        "type": "local",
+        "endpoint": "http://localhost:11434/v1",
+        "model": ["deepseek-coder-v2", "qwen3:8b"],
+      },
+    },
+  },
+  "craft": { "llm": { "backend": "ollama" } },
+}
+```
+
+## In-session flow (default)
+
+When `HARNESS_CRAFT_LLM` is unset (or set to `in-session`), the MCP tool does **not** call any LLM. Instead it returns a list of prompts for the calling agent to answer with its own model. This is a two-step protocol:
+
+**Step 1 — `mcp__harness__naming_craft({ path, ... })`** returns:
+
+```json
+{
+  "status": "collected",
+  "runId": "<uuid>",
+  "pendingPrompts": [
+    { "promptId": "p1", "systemPrompt": "...", "userPrompt": "..." },
+    ...
+  ],
+  "projection": { "promptCount": N, "budget": 100 }
+}
+```
+
+If `projection.promptCount > budget`, `status` is `"budget-exceeded"` and `pendingPrompts` is empty — re-invoke with smaller `maxFiles` / `maxIdentifiersPerFile`, or pass `promptBudget` to raise the ceiling.
+
+**Step 2** — for each pending prompt, generate the fenced-JSON response as if you were a senior engineer applying the rubric to the identifier. The required response shape (per prompt) is:
+
+````
+```json
+null
+```
+````
+
+if the rubric does not apply or the name is fine, OR:
+
+````
+```json
+{
+  "tier": "foundational|polish|aspirational",
+  "impact": "small|medium|large",
+  "confidence": "high|medium|low",
+  "message": "<critique with suggested rename when possible>"
+}
+```
+````
+
+**Step 3 — `mcp__harness__naming_craft_finalize({ path, runId, responses: [{ promptId, raw }, ...] })`** parses the responses, applies the same validation the inline path uses, and returns the standard `NamingCraftOutput`.
+
+If you want the inline behavior (skill calls an LLM directly), pass `mode: 'inline'` to step 1 and set `HARNESS_CRAFT_LLM` to a non-`in-session` provider.
 
 ## Success Criteria
 

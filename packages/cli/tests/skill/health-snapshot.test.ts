@@ -412,6 +412,43 @@ describe('runHealthChecks', () => {
     expect(checks.docs.undocumentedCount).toBe(5);
     expect(checks.lint.passed).toBe(true);
   });
+
+  it('does not crash when a tool returns isError with non-JSON text', async () => {
+    // Regression: previously parseToolResult called JSON.parse on the error text and
+    // crashed with `Unexpected token 'E', "Error: Max"... is not valid JSON`, breaking
+    // `harness recommend` whenever any sub-check failed.
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ healthy: true, checks: [] }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ valid: true, violations: [] }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'Error: Maximum call stack size exceeded' }],
+        isError: true,
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/security', () => ({
+      handleRunSecurityScan: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ findings: [] }) }],
+      }),
+    }));
+
+    const { runHealthChecks } = await import('../../src/skill/health-snapshot');
+    const checks = await runHealthChecks('/tmp/test-project');
+
+    // Failed tool degrades to default zero counts; other tools continue.
+    expect(checks.entropy.deadExports).toBe(0);
+    expect(checks.entropy.deadFiles).toBe(0);
+    expect(checks.entropy.driftCount).toBe(0);
+    expect(checks.deps.circularDeps).toBe(0);
+    expect(checks.security.criticalCount).toBe(0);
+  });
 });
 
 describe('runGraphMetrics', () => {

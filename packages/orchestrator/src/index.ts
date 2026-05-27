@@ -35,6 +35,21 @@ export { migrateAgentConfig } from './agent/config-migration';
 export type { MigrationResult } from './agent/config-migration';
 export { createBackend } from './agent/backend-factory';
 
+// Re-export the workflow Zod schemas so other packages (cli config, tests)
+// can validate `agent.backends` / `agent.routing` against the same source
+// of truth used by the orchestrator at runtime.
+export { BackendDefSchema, RoutingConfigSchema, RoutingValueSchema } from './workflow/schema';
+
+// Re-export the local-model probe primitives so the craft skill family
+// (and any other downstream consumer) can resolve `/v1/models` against
+// the same fetch/normalize implementation the orchestrator runtime uses.
+export {
+  defaultFetchModels,
+  normalizeLocalModel,
+  LocalModelResolver,
+} from './agent/local-model-resolver';
+export type { LocalModelResolverOptions, ResolverLogger } from './agent/local-model-resolver';
+
 // Phase 1 sync-main helper public surface. Wired into the maintenance
 // scheduler in Phase 2; exported here so the CLI can wrap it directly.
 export { syncMain } from './maintenance/sync-main';

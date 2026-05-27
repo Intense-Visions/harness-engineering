@@ -10,7 +10,7 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const searchSessionsDefinition = {
   name: 'search_sessions',
-  description: 'Full-text search over archived + live session content (Hermes Phase 1, FTS5/BM25).',
+  description: 'Full-text search over archived + live session content (FTS5/BM25).',
   inputSchema: {
     type: 'object' as const,
     properties: {

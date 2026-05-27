@@ -9,8 +9,7 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const insightsSummaryDefinition = {
   name: 'insights_summary',
-  description:
-    'Composite report combining health, entropy, decay, attention, and impact (Hermes Phase 1).',
+  description: 'Composite report combining health, entropy, decay, attention, and impact.',
   inputSchema: {
     type: 'object' as const,
     properties: {

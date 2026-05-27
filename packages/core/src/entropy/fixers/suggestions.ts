@@ -124,18 +124,17 @@ export function generateSuggestions(
   drift?: DriftReport,
   patterns?: PatternReport
 ): SuggestionReport {
-  const suggestions: Suggestion[] = [];
+  let suggestions: Suggestion[] = [];
 
+  // Avoid spread-into-push; large reports can exceed V8's argument-count limit.
   if (deadCode) {
-    suggestions.push(...generateDeadCodeSuggestions(deadCode));
+    suggestions = suggestions.concat(generateDeadCodeSuggestions(deadCode));
   }
-
   if (drift) {
-    suggestions.push(...generateDriftSuggestions(drift));
+    suggestions = suggestions.concat(generateDriftSuggestions(drift));
   }
-
   if (patterns) {
-    suggestions.push(...generatePatternSuggestions(patterns));
+    suggestions = suggestions.concat(generatePatternSuggestions(patterns));
   }
 
   // Sort by priority

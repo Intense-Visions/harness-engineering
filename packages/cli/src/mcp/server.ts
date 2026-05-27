@@ -179,7 +179,12 @@ import { auditBrandDefinition, handleAuditBrand } from './tools/audit-brand.js';
 // design-pipeline #5: orchestrator composing all design verifiers (FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT).
 import { designPipelineDefinition, handleDesignPipeline } from './tools/design-pipeline.js';
 // craft-pipeline #1: naming-craft LLM-judgment skill (variables / functions / types / files).
-import { namingCraftDefinition, handleNamingCraft } from './tools/naming-craft.js';
+import {
+  namingCraftDefinition,
+  namingCraftFinalizeDefinition,
+  handleNamingCraft,
+  handleNamingCraftFinalize,
+} from './tools/naming-craft.js';
 // craft-pipeline #6: spec-craft LLM-judgment skill (proposals + ADRs, per-section critique).
 import { specCraftDefinition, handleSpecCraft } from './tools/spec-craft.js';
 // craft-pipeline #5: copy-craft LLM-judgment skill (errors, logs, CLI output, commits, PRs, comments).
@@ -278,6 +283,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   auditBrandDefinition,
   designPipelineDefinition,
   namingCraftDefinition,
+  namingCraftFinalizeDefinition,
   specCraftDefinition,
   copyCraftDefinition,
   testCraftDefinition,
@@ -360,6 +366,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   audit_brand: handleAuditBrand as unknown as ToolHandler,
   run_design_pipeline: handleDesignPipeline as unknown as ToolHandler,
   naming_craft: handleNamingCraft as unknown as ToolHandler,
+  naming_craft_finalize: handleNamingCraftFinalize as unknown as ToolHandler,
   spec_craft: handleSpecCraft as unknown as ToolHandler,
   copy_craft: handleCopyCraft as unknown as ToolHandler,
   test_craft: handleTestCraft as unknown as ToolHandler,

@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '../output/logger';
 
 /** Granular check results from assess_project and related tools. */
 export interface HealthChecks {
@@ -133,13 +134,28 @@ export function deriveSignals(checks: HealthChecks, metrics: HealthMetrics): str
 
 interface ToolResult {
   content: Array<{ type: string; text: string }>;
+  isError?: boolean;
 }
 
 const DEFAULT_CHECK = { passed: true, issueCount: 0 };
 
-/** Extract the first text content from a tool result and parse as JSON. */
-function parseToolResult(result: ToolResult): Record<string, unknown> {
-  return JSON.parse(result.content[0]?.text ?? '{}');
+/**
+ * Extract the first text content from a tool result and parse as JSON.
+ * On `isError` or invalid JSON, warn and return `{}` so callers fall back to defaults
+ * instead of crashing the surrounding pipeline.
+ */
+function parseToolResult(result: ToolResult, toolName: string): Record<string, unknown> {
+  const text = result.content[0]?.text ?? '{}';
+  if (result.isError) {
+    logger.warn(`${toolName} reported an error: ${text}`);
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    logger.warn(`${toolName} returned non-JSON output: ${text.slice(0, 120)}`);
+    return {};
+  }
 }
 
 /** Build a map of check name to pass/issue from assess_project output. */
@@ -217,11 +233,13 @@ export async function runHealthChecks(projectPath: string): Promise<HealthChecks
     handleRunSecurityScan({ path: projectPath }),
   ]);
 
-  const assessData = parseToolResult(assessResult);
+  const assessData = parseToolResult(assessResult, 'assess_project');
   const checkMap = buildCheckMap(assessData);
-  const { circularDeps, layerViolations } = countViolations(parseToolResult(depsResult));
-  const entropyGranular = parseEntropyGranular(parseToolResult(entropyResult));
-  const criticalCount = countCriticalFindings(parseToolResult(securityResult));
+  const { circularDeps, layerViolations } = countViolations(
+    parseToolResult(depsResult, 'check_dependencies')
+  );
+  const entropyGranular = parseEntropyGranular(parseToolResult(entropyResult, 'detect_entropy'));
+  const criticalCount = countCriticalFindings(parseToolResult(securityResult, 'run_security_scan'));
 
   return assembleHealthChecks(
     checkMap,

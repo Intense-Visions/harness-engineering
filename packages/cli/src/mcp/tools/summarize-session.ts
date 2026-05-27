@@ -11,8 +11,7 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const summarizeSessionDefinition = {
   name: 'summarize_session',
-  description:
-    'Generate or regenerate the LLM `llm-summary.md` for an archived session (Hermes Phase 1).',
+  description: 'Generate or regenerate the LLM `llm-summary.md` for an archived session.',
   inputSchema: {
     type: 'object' as const,
     properties: {
