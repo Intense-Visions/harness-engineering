@@ -49,9 +49,11 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/local-models#readme",
   "dependencies": {
+    "@harness-engineering/types": "workspace:*",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/node": "^22.19.15",
     "@vitest/coverage-v8": "^4.1.5",
     "tsup": "^8.5.1",
     "vitest": "^4.1.5"

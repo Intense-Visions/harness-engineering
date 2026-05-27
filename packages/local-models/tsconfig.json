@@ -6,6 +6,7 @@
     "composite": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
+  "references": [{ "path": "../types" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

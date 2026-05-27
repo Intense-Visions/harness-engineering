@@ -1,0 +1,20 @@
+{
+  "SPDisplaysDataType": [
+    {
+      "_name": "Apple M3 Max",
+      "spdisplays_mtlgpufamilysupport": "spdisplays_metal3",
+      "spdisplays_ndrvs": [
+        {
+          "_name": "Color LCD",
+          "_spdisplays_pixels": "3456 x 2234",
+          "spdisplays_main": "spdisplays_yes"
+        }
+      ],
+      "spdisplays_vendor": "sppci_vendor_Apple",
+      "sppci_bus": "spdisplays_builtin",
+      "sppci_cores": "30",
+      "sppci_device_type": "spdisplays_gpu",
+      "sppci_model": "Apple M3 Max"
+    }
+  ]
+}
