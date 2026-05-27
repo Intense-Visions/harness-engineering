@@ -6,11 +6,6 @@ packages:
 autoInstallPeers: true
 strictPeerDependencies: false
 
-overrides:
-  hono: '>=4.12.18'
-  '@hono/node-server': '>=1.19.13'
-  postcss: '>=8.5.10'
-  basic-ftp: '>=5.3.1'
-  fast-xml-parser: '>=5.7.0'
-  ip-address: '>=10.1.1'
-  fast-uri: '>=3.1.2'
+# Overrides moved to package.json `pnpm.overrides` — pnpm 8.x reads that field
+# but not the `overrides` key in this workspace file. Removing the stale block
+# also clears confusion about which list is authoritative.
