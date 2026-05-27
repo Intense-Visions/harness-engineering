@@ -1,5 +1,16 @@
 # @harness-engineering/orchestrator
 
+## 0.8.0
+
+### Minor Changes
+
+- 1fd39a6: Re-export workflow Zod schemas (`BackendDefSchema`, `RoutingConfigSchema`, `RoutingValueSchema`) and local-model probe primitives (`defaultFetchModels`, `normalizeLocalModel`, `LocalModelResolver`, `LocalModelResolverOptions`, `ResolverLogger`) so the cli's unified craft LLM provider config and the craft skill family can validate `agent.backends` / `agent.routing` and resolve `/v1/models` against the same source of truth the orchestrator runtime uses. Additive API surface only.
+
+### Patch Changes
+
+- Updated dependencies [39bfd73]
+  - @harness-engineering/core@0.28.2
+
 ## 0.7.0
 
 ### Minor Changes

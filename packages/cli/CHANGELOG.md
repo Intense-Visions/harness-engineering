@@ -1,5 +1,21 @@
 # @harness-engineering/cli
 
+## 2.7.1
+
+### Patch Changes
+
+- 39bfd73: Fix `harness recommend` crashing with `Unexpected token 'E', "Error: Max"... is not valid JSON` on repos with very large drift reports.
+
+  Root cause: `generateSuggestions` in `@harness-engineering/core` spread sub-arrays into `Array.push` (`suggestions.push(...subList)`), exceeding V8's argument-count limit (~65k) on a 322k-entry drift report and throwing `RangeError: Maximum call stack size exceeded`. The cli's `parseToolResult` then JSON-parsed the resulting error text and crashed the recommend pipeline.
+
+  Core: switched spread-push to `concat` so the suggestion accumulator scales with report size. Cli: made `parseToolResult` honor `isError`, catch parse failures, warn via logger, and fall back to `{}` so a single failing sub-check degrades gracefully instead of taking the whole pipeline down. Both layers gained regression tests with revert-and-fail verified.
+
+- Updated dependencies [39bfd73]
+- Updated dependencies [1fd39a6]
+  - @harness-engineering/core@0.28.2
+  - @harness-engineering/orchestrator@0.8.0
+  - @harness-engineering/dashboard@0.8.1
+
 ## 2.7.0
 
 ### Minor Changes
