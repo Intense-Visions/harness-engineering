@@ -1,5 +1,44 @@
 # @harness-engineering/dashboard
 
+## 0.8.0
+
+### Minor Changes
+
+- dcca2ce: Spec B (Granular Task→Backend Routing): per-skill + per-cognitive-mode routing axes with fallback chains, BackendRouter chain-walk emitting RoutingDecision records, config validator (hard error + warn semantics), dispatch-site wiring with `HARNESS_BACKEND_OVERRIDE` env hint, RoutingDecisionBus with bounded ring buffer, 3 HTTP routes + WS topic `routing:decision`, `harness routing {config,trace,decisions}` CLI + `harness skill run --backend`, dashboard `/routing` panel (4 cards + WS + polling fallback), 5 ADRs (0029-0033). RoutingValue schema widening is additive/non-breaking (scalar form preserves byte-identical pre-Spec-B behavior).
+
+### Patch Changes
+
+- bbc164f: Make harness skills and personas discoverable in Codex CLI, and fix a long-standing scanner false-positive flood.
+
+  **@harness-engineering/cli** (minor): the Codex slash-command adapter now writes to `~/.codex/skills/<name>/SKILL.md` with the YAML frontmatter Codex's skill discovery requires; all 50 harness skills are reachable via `$harness-debugging`, `/skills`, and auto-trigger. The agent-definitions adapter emits real Codex subagent TOMLs at `~/.codex/agents/<name>.toml` (12 personas) so they appear in `/agent`. Both surfaces previously wrote dead files Codex ignored.
+
+  **@harness-engineering/core** (patch): `SecurityScanner` now honors `// harness-ignore SEC-XXX: justification` on the line above the flagged code, matching the convention already in use across the repo. Previously only same-line annotations were recognized, so every prior-line annotation silently re-fired the suppressed rule.
+
+  **@harness-engineering/orchestrator** / **@harness-engineering/dashboard** (patch): annotate the previously-flagged `JSON.parse` and `writeFile` sites with the explanatory `// harness-ignore` comments the scanner now reads correctly. No runtime behavior change.
+
+  Also includes an infra fix to `.husky/pre-push` so nvm's Node takes precedence over Homebrew's on PATH (otherwise `better-sqlite3` fails to load under a newer Homebrew Node and blocks every push).
+
+- 16048ad: Bump protobufjs to ^7.6.1, fast-xml-parser to >=5.7.0, ip-address to >=10.1.1 (and other transitive CVE fixes) via `pnpm.overrides` in root package.json.
+
+  Clears 4 high CVEs (all protobufjs code-injection/prototype-pollution/DoS — vulnerable <=7.5.5) and several moderate CVEs that the existing `pnpm-workspace.yaml` `overrides:` block was failing to enforce — pnpm 8.x reads `pnpm.overrides` in `package.json` but ignores the same key in workspace.yaml.
+
+  Direct dependency bumps surfaced by the pin: `vite ^6.3.0 -> ^6.4.2` in dashboard, `ws ^8.20.0 -> ^8.21.0` in orchestrator. Both are patch-level upstream fixes (path traversal, uninitialized memory disclosure).
+
+  Updates `auditExceptions` to remove the 8 protobufjs entries that were documented as "blocked by @google/genai → protobufjs ^7.5.4 pin" — the actual constraint is `^7.5.4` (i.e., `>=7.5.4 <8.0.0`), which permits 7.6.1. The rationale was stale. Orchestrator and intelligence test suites pass under protobufjs 7.6.1; @google/genai@1.50.1 has no observable break.
+
+  Audit summary: 19 advisories (4 high, 14 moderate, 1 low) -> 7 advisories (0 high, 6 moderate, 1 low). Remaining moderates are all transitive via vitepress (vite ^5 pin), turbo 2.9.6, or deep transitives (brace-expansion, uuid, qs) — separate effort if pursued.
+
+- Updated dependencies [d1c9bda]
+- Updated dependencies [bbc164f]
+- Updated dependencies [573c23b]
+- Updated dependencies [16048ad]
+- Updated dependencies [0eac8eb]
+- Updated dependencies [dcca2ce]
+  - @harness-engineering/graph@0.10.0
+  - @harness-engineering/core@0.28.1
+  - @harness-engineering/orchestrator@0.7.0
+  - @harness-engineering/types@0.15.0
+
 ## 0.7.1
 
 ### Patch Changes

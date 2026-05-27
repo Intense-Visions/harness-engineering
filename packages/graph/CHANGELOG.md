@@ -1,5 +1,46 @@
 # @harness-engineering/graph
 
+## 0.10.0
+
+### Minor Changes
+
+- d1c9bda: Add `harness check-design` — single-pass design verifier (design-pipeline sub-project #4).
+
+  Mirrors `harness check-docs` exactly. Composes the two design audits shipped in PRs #372 + #390 (audit-component-anatomy + design-craft critique) into one command. Designed to be invoked by the (future) #5 design-pipeline orchestrator inside its convergence fix loop — same pattern harness-docs-pipeline uses to compose check-docs.
+
+  **CLI:**
+  - `harness check-design` — runs both verifiers, aggregates findings, persists to graph
+  - `--mode fast|full` (default `full`)
+  - `--files <glob>...` for scoping
+  - Standard `--json`/`--verbose`/`--quiet`
+  - Exit codes: 0 = no error-severity findings; 1 = error-severity findings present; 2 = at least one verifier failed (degraded)
+
+  **New exports:**
+  - `runDesignCraft` from `packages/cli/src/mcp/tools/design-craft.ts` — programmatic entry point that returns `Result<DesignCraftOutput, ...>` (unwrapped from the MCP response wrapper). Same contract as `handleDesignCraft`.
+  - `CraftFindingRecord` type from `@harness-engineering/graph` (was internal to `DesignConstraintAdapter.ts`; needed by check-design to format findings for `recordFindings()`).
+
+  **Verifier-shape convention** (NOT extracted as a formal interface in this PR per the spec's "data points reveal shape" principle):
+
+  Both invoked audits return `{ findings: F[], summary: { bySeverity, byCode, durationMs, ... }, ... }`. `check-design.ts` notes this convention in a top-of-file comment so the next check-\* author follows the pattern. The `Verifier<F>` interface gets extracted when the **third** check-\* command lands.
+
+  **Graceful degradation:** if either verifier throws, the other still runs; failed verifiers surface in `summary.verifiersFailed`; exit code 2 (degraded) instead of crashing.
+
+  **Long-term trajectory** (documented in proposal — not in this PR):
+  - v2 = `harness validate` wraps `check-design --fast` internally (one impl, two surfaces)
+  - v3 = check-\* commands become facades over graph queries (`harness findings`)
+
+- 0eac8eb: Design-pipeline coordination commits — wire up the Phase 1 vertical-slice MCP tools end-to-end.
+
+  **MCP server registration** — `mcp__harness__audit_anatomy` and `mcp__harness__design_craft` are now registered in `TOOL_DEFINITIONS` / `TOOL_HANDLERS` and discoverable to MCP clients (previously exported but unregistered).
+
+  **`harness.config.json` schema extensions** — adds optional `design.audit.componentAnatomy.*` (gates audit-component-anatomy + the harness-accessibility deferral; controls catalog scoping, fast-mode behavior) and `design.craft.*` (gates harness-design-craft; controls fast/deep mode, autoCapture B' behavior, LLM provider, catalog scoping, signal feedback threshold). All fields optional with sensible defaults; omitting either block uses built-in defaults. Zero impact on existing configs.
+
+  **`DesignConstraintAdapter.recordFindings()`** — generic finding-ingestion entry point that both audit-component-anatomy (ANAT-\*) and harness-design-craft (CRAFT-\*) call to persist findings as graph state. Idempotent (re-running produces no duplicate edges). Per finding: lazy `design_constraint` node creation + `violates_design` edge from file to constraint with per-finding metadata (line, severity, message, evidence, runId). Uses existing graph taxonomy — no NodeType/EdgeType additions.
+
+  **`harness-accessibility` deferral patch** — Phase 1 step 2.6 added: when `design.audit.componentAnatomy.enabled = true` (default), A11Y-010 (interactive without accessible label) and A11Y-050 (input/select/textarea without label) are deferred to audit-component-anatomy for components in its catalog. Same i18n-style deduplication pattern proven in step 2.5. Catalog set loaded via `getCatalogTypes()` from audit-component-anatomy's public export — zero rule-content duplication.
+
+  **Deferred to a follow-up commit:** `harness validate` fast-mode hook for audit-anatomy (the largest individual coordination item; requires touching the validate command path). The other coordination items are surgical extensions that close the loop on Phase 1 without requiring validate changes.
+
 ## 0.9.0
 
 ### Minor Changes

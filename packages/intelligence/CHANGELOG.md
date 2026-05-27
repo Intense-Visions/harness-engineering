@@ -1,5 +1,15 @@
 # @harness-engineering/intelligence
 
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [d1c9bda]
+- Updated dependencies [0eac8eb]
+- Updated dependencies [dcca2ce]
+  - @harness-engineering/graph@0.10.0
+  - @harness-engineering/types@0.15.0
+
 ## 0.2.5
 
 ### Patch Changes
