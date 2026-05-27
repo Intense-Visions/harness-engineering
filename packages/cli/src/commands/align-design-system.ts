@@ -26,6 +26,7 @@ interface AlignCliOptions {
   files?: string[];
   mode?: 'standalone' | 'pipeline';
   designStrictness?: DriftStrictness;
+  revert?: boolean;
 }
 
 export function createAlignDesignSystemCommand(): Command {
@@ -49,6 +50,11 @@ export function createAlignDesignSystemCommand(): Command {
       '--design-strictness <level>',
       'Override design.strictness: strict | standard | permissive'
     )
+    .option(
+      '--revert',
+      'Inverse-apply the most-recent batch recorded at .harness/align/last-batch.json. ' +
+        'Skips files edited externally since the apply.'
+    )
     .action(async (opts: AlignCliOptions, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const outputMode = resolveOutputMode(globalOpts);
@@ -60,6 +66,7 @@ export function createAlignDesignSystemCommand(): Command {
       if (opts.files !== undefined) input.files = opts.files;
       if (opts.mode !== undefined) input.mode = opts.mode;
       if (opts.designStrictness !== undefined) input.designStrictness = opts.designStrictness;
+      if (opts.revert === true) input.revert = true;
 
       let result: AlignDesignSystemOutput;
       try {
@@ -95,7 +102,11 @@ function printAlignResult(
   const { summary, outcomes, meta } = result;
 
   if (outcomes.length === 0) {
-    console.log('No drift findings to align.');
+    if (meta.revert === true) {
+      console.log('No batch to revert (.harness/align/last-batch.json missing or empty).');
+    } else {
+      console.log('No drift findings to align.');
+    }
     return;
   }
 
@@ -129,8 +140,9 @@ function printAlignResult(
   }
 
   console.log('');
+  const action = meta.revert === true ? 'reverted' : 'applied';
   console.log(
-    `Summary: ${summary.applied} applied, ${summary.suggestions} suggestions, ` +
+    `Summary: ${summary.applied} ${action}, ${summary.suggestions} suggestions, ` +
       `${summary.skipped} skipped, ${summary.failed} failed ` +
       `(${summary.filesModified} files modified, ${summary.durationMs}ms)`
   );

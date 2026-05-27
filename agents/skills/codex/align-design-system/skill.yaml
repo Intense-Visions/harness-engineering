@@ -31,6 +31,9 @@ cli:
     - name: mode
       description: standalone (default) or pipeline (read findings from handoff.json)
       required: false
+    - name: revert
+      description: Inverse-apply the most-recent batch persisted at .harness/align/last-batch.json
+      required: false
 mcp:
   tool: run_skill
   input:

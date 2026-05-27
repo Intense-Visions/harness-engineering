@@ -49,6 +49,7 @@ temp/
 **/.harness/sessions/
 **/.harness/session-taint-*.json
 **/.harness/handoff.json
+**/.harness/align/
 **/.harness/state.json
 **/.harness/state/
 **/.harness/dispatch-last-head.txt

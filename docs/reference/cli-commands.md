@@ -36,6 +36,7 @@ Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for D
 - `-f, --files` — Optional file/glob scope (standalone mode only — passed to detect-design-drift).
 - `--mode` — standalone (default) or pipeline (read findings from handoff.json) (default: "standalone")
 - `--design-strictness` — Override design.strictness: strict | standard | permissive
+- `--revert` — Inverse-apply the most-recent batch recorded at .harness/align/last-batch.json. Skips files edited externally since the apply.
 
 ### `harness audit-protected`
 

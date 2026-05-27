@@ -375,6 +375,7 @@ Apply codemods for DRIFT-T001/T002/T003 (hex/font/spacing tokens) where pre-flig
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `mode` (string, optional) — standalone (default): runs detect internally. pipeline: reads pipeline.driftFindings from .harness/handoff.json and writes pipeline.fixesApplied back.
 - `fixBatch` (array, optional) — Optional list of finding keys (CODE@file:line) to limit application to a subset. Honored in pipeline mode.
+- `revert` (boolean, optional) — When true, inverse-applies the most-recent batch recorded at .harness/align/last-batch.json instead of detecting + classifying + applying. Skips files edited externally since the apply.
 
 ### `analyze_diff`
 

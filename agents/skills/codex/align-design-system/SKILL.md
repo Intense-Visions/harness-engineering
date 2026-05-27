@@ -65,6 +65,7 @@ For each finding classified as `suggestion`: emit a human-readable description p
 
 - **`harness align-design-system`** — the CLI entry point. `--dry-run` for preview; `--write` is the default. Standard `--json` / `--verbose` / `--quiet` flags.
 - **`harness align-design-system --mode pipeline`** — orchestrator-driven mode. Reads pre-classified findings from handoff.json; writes outcomes back.
+- **`harness align-design-system --revert`** — inverse-applies the most-recent batch recorded at `.harness/align/last-batch.json`. Skips files edited externally since the apply (content-hash check). Idempotent: a second revert on the same batch is a no-op because the file no longer matches the recorded post-apply text.
 - **`mcp__harness__align_design_system`** — MCP tool for agent consumption. Same input/output shape as the function call.
 - **`detect-design-drift`** — soft dependency. Standalone mode invokes detect internally; pipeline mode trusts the orchestrator to have done it.
 - **`harness check-design`** — composes detect (as 3rd verifier) into a single-pass design check. align is the matching FIX step; together they form the DETECT → FIX cycle that the (future) #5 orchestrator will loop.
@@ -82,6 +83,7 @@ See `docs/changes/design-pipeline/align-design-system/proposal.md` for the full 
 - Pipeline mode writes `pipeline.fixesApplied` back to handoff.json
 - `--dry-run` produces identical `FixOutcome` shapes but never writes files
 - Re-running detect after align produces strictly fewer T001/T002/T003 findings
+- `--revert` re-applies the inverse of the most-recent `fixesApplied` batch; no-op when the file has been edited externally since the apply
 
 ## Examples
 
@@ -147,6 +149,21 @@ src/SaveButton.tsx
 
 v1 never auto-applies primitive adoption — prop translation across `<button>` ⇄ `<Button>` is the kind of judgment-call that benefits from a human or LLM review.
 
+### Example: Revert the last batch
+
+After a write run, the applied diffs (plus a SHA-256 of each post-apply file) are persisted to `.harness/align/last-batch.json`. Running `harness align-design-system --revert` reads that batch and inverse-applies each diff:
+
+```
+src/Card.tsx
+  ✓ DRIFT-T001:2 — Hex color "#0066cc" should use a token reference instead of a raw literal
+     before: const styles = { color: tokens.color.brand.primary };
+     after:  const styles = { color: "#0066cc" };
+
+Summary: 1 reverted, 0 suggestions, 0 skipped, 0 failed (1 files modified, 4ms)
+```
+
+If the file has been edited externally between apply and revert (the SHA-256 doesn't match), every entry for that file is skipped with `skipped-unsafe / reason: file changed externally since apply`. A second revert on the same batch is a no-op for the same reason — the file's post-revert content no longer matches the recorded post-apply text.
+
 ## Gates
 
 - **No autofix without classifier approval.** Every codemod application goes through `classifyFinding`. If the classifier returns `suggestion`, NO file write occurs — even for the same finding code in the same file.
@@ -162,6 +179,7 @@ v1 never auto-applies primitive adoption — prop translation across `<button>` 
 - **When the codemod corrupts a file (rare):** every application includes a structured diff. Recover via `git checkout <file>`. If the same input repeatedly corrupts, report the case — pre-flight classifier rules are conservative by design.
 - **When pipeline-mode run finds no `pipeline.driftFindings` field:** align exits cleanly with empty outcomes. The orchestrator's contract is to write the field BEFORE invoking align.
 - **When `--dry-run` shows fixes you don't want applied:** scope with `--files <glob>` to apply only specific files, or invoke align in pipeline mode with a curated `pipeline.fixBatch` list.
+- **When you want to undo an apply:** run `harness align-design-system --revert`. It reads `.harness/align/last-batch.json`, content-hash-checks each file, and inverse-applies. Files edited since the apply are skipped (no silent corruption); recover via `git checkout <file>` if the content-hash check blocks revert and the prior commit is still in history.
 - **When you want primitive-adoption fixes today:** apply the suggestion manually. The v1.x sub-project will add prop-translation tables + import resolution + revert-on-test-fail.
 - **When align is invoked without detect having run first (standalone mode):** standalone mode runs detect internally — no manual ordering needed. Pipeline mode trusts the orchestrator to populate findings.
 

@@ -26,6 +26,8 @@ import { applyT003Codemod } from './codemods/t003-px-spacing.js';
 import { emitT004Suggestion } from './suggestions/t004-deprecated.js';
 import { emitPrimitiveSuggestion } from './suggestions/p-primitives.js';
 import type { AlignDesignSystemOutput, AlignMode, FixOutcome } from './findings/outcome.js';
+import { saveLastBatch, loadLastBatch, hashContent } from './revert/state.js';
+import { applyInverse } from './revert/inverse.js';
 
 export interface AlignInput {
   path: string;
@@ -40,6 +42,13 @@ export interface AlignInput {
   mode?: AlignMode;
   /** Pipeline-mode: limit to specific finding code-line keys */
   fixBatch?: string[];
+  /**
+   * When true, inverse-applies the last batch persisted at
+   * `.harness/align/last-batch.json` and exits — no detect / classify /
+   * codemod work runs. Skips silently if no batch is recorded or files
+   * have been edited externally since the apply (SC #27).
+   */
+  revert?: boolean;
 }
 
 const HANDOFF_PATH = '.harness/handoff.json';
@@ -59,34 +68,22 @@ export async function runAlignDesignSystem(input: AlignInput): Promise<AlignDesi
   const mode: AlignMode = input.mode ?? 'standalone';
   const dryRun = input.dryRun === true;
 
+  if (input.revert === true) {
+    return runRevert(projectRoot, mode, dryRun, startedAt);
+  }
+
   const findings = await loadFindings(projectRoot, input, mode);
   const tokenPaths = loadTokenPathIndex(projectRoot);
-  const outcomes: FixOutcome[] = [];
-  const filesModified = new Set<string>();
-
-  // Cache file source between fixes on the same file
   const sourceCache = new Map<string, string>();
+  const { outcomes, filesModified } = await applyAll({
+    findings,
+    fixBatch: input.fixBatch,
+    tokenPaths,
+    sourceCache,
+    dryRun,
+  });
 
-  for (const finding of findings) {
-    if (input.fixBatch !== undefined && !input.fixBatch.includes(findingKey(finding))) {
-      continue;
-    }
-    try {
-      const outcome = await processFinding(finding, tokenPaths, sourceCache, dryRun);
-      if (outcome.kind === 'applied') filesModified.add(outcome.diff.file);
-      outcomes.push(outcome);
-    } catch (err) {
-      outcomes.push({
-        kind: 'failed',
-        finding,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  if (mode === 'pipeline') {
-    writePipelineFixesApplied(projectRoot, outcomes);
-  }
+  persistRunArtifacts({ projectRoot, mode, dryRun, outcomes, sourceCache });
 
   return aggregateOutput(outcomes, {
     mode,
@@ -95,6 +92,178 @@ export async function runAlignDesignSystem(input: AlignInput): Promise<AlignDesi
     durationMs: Date.now() - startedAt,
     filesModified: filesModified.size,
   });
+}
+
+interface ApplyAllInput {
+  findings: DriftFinding[];
+  fixBatch: string[] | undefined;
+  tokenPaths: TokenPathIndex | null;
+  sourceCache: Map<string, string>;
+  dryRun: boolean;
+}
+
+async function applyAll(input: ApplyAllInput): Promise<{
+  outcomes: FixOutcome[];
+  filesModified: Set<string>;
+}> {
+  const outcomes: FixOutcome[] = [];
+  const filesModified = new Set<string>();
+  for (const finding of input.findings) {
+    if (input.fixBatch !== undefined && !input.fixBatch.includes(findingKey(finding))) {
+      continue;
+    }
+    const outcome = await processFindingSafely(
+      finding,
+      input.tokenPaths,
+      input.sourceCache,
+      input.dryRun
+    );
+    if (outcome.kind === 'applied') filesModified.add(outcome.diff.file);
+    outcomes.push(outcome);
+  }
+  return { outcomes, filesModified };
+}
+
+async function processFindingSafely(
+  finding: DriftFinding,
+  tokenPaths: TokenPathIndex | null,
+  sourceCache: Map<string, string>,
+  dryRun: boolean
+): Promise<FixOutcome> {
+  try {
+    return await processFinding(finding, tokenPaths, sourceCache, dryRun);
+  } catch (err) {
+    return {
+      kind: 'failed',
+      finding,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+function persistRunArtifacts(args: {
+  projectRoot: string;
+  mode: AlignMode;
+  dryRun: boolean;
+  outcomes: FixOutcome[];
+  sourceCache: Map<string, string>;
+}): void {
+  if (args.mode === 'pipeline') {
+    writePipelineFixesApplied(args.projectRoot, args.outcomes);
+  }
+  if (args.dryRun) return;
+  saveLastBatch(args.projectRoot, args.outcomes, args.mode, (file) => {
+    const cached = args.sourceCache.get(file);
+    if (cached !== undefined) return cached;
+    return fs.readFileSync(file, 'utf-8');
+  });
+}
+
+async function runRevert(
+  projectRoot: string,
+  mode: AlignMode,
+  dryRun: boolean,
+  startedAt: number
+): Promise<AlignDesignSystemOutput> {
+  const batch = loadLastBatch(projectRoot);
+  if (batch === null) {
+    return aggregateOutput([], {
+      mode,
+      dryRun,
+      tokensLoaded: false,
+      durationMs: Date.now() - startedAt,
+      filesModified: 0,
+      revert: true,
+    });
+  }
+
+  const outcomes: FixOutcome[] = [];
+  const filesModified = new Set<string>();
+  // Sort entries by file then by descending line so multi-edit files
+  // revert cleanly (later lines first means earlier line numbers stay
+  // valid after each replacement).
+  const ordered = [...batch.entries].sort((a, b) => {
+    if (a.diff.file !== b.diff.file) return a.diff.file.localeCompare(b.diff.file);
+    return b.diff.line - a.diff.line;
+  });
+
+  const sourceCache = new Map<string, string>();
+  for (const entry of ordered) {
+    const outcome = revertEntry(entry, sourceCache, dryRun);
+    if (outcome.kind === 'applied') filesModified.add(outcome.diff.file);
+    outcomes.push(outcome);
+  }
+
+  return aggregateOutput(outcomes, {
+    mode,
+    dryRun,
+    tokensLoaded: false,
+    durationMs: Date.now() - startedAt,
+    filesModified: filesModified.size,
+    revert: true,
+  });
+}
+
+function revertEntry(
+  entry: import('./revert/state.js').LastBatchEntry,
+  sourceCache: Map<string, string>,
+  dryRun: boolean
+): FixOutcome {
+  const source = readForRevert(entry.diff.file, sourceCache);
+  if (source.kind === 'failed')
+    return { kind: 'failed', finding: entry.finding, error: source.error };
+
+  if (!sourceCache.has(entry.diff.file)) {
+    // Content-hash check happens only the first time we touch the file.
+    // Subsequent entries for the same file read the mutated cache, so
+    // re-hashing would always mismatch. The first check is the gate.
+    if (hashContent(source.text) !== entry.postApplySha256) {
+      sourceCache.set(entry.diff.file, source.text);
+      return {
+        kind: 'skipped-unsafe',
+        finding: entry.finding,
+        reason: 'file changed externally since apply (content hash mismatch)',
+      };
+    }
+    sourceCache.set(entry.diff.file, source.text);
+  }
+
+  const result = applyInverse(source.text, entry.diff);
+  if (!result.ok) {
+    return { kind: 'skipped-unsafe', finding: entry.finding, reason: result.reason };
+  }
+
+  if (!dryRun) {
+    const writeErr = tryWrite(entry.diff.file, result.newSource);
+    if (writeErr !== null) return { kind: 'failed', finding: entry.finding, error: writeErr };
+  }
+  sourceCache.set(entry.diff.file, result.newSource);
+  return { kind: 'applied', finding: entry.finding, diff: result.invertedDiff };
+}
+
+function readForRevert(
+  file: string,
+  sourceCache: Map<string, string>
+): { kind: 'ok'; text: string } | { kind: 'failed'; error: string } {
+  const cached = sourceCache.get(file);
+  if (cached !== undefined) return { kind: 'ok', text: cached };
+  try {
+    return { kind: 'ok', text: fs.readFileSync(file, 'utf-8') };
+  } catch (err) {
+    return {
+      kind: 'failed',
+      error: `cannot read source file: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+function tryWrite(file: string, content: string): string | null {
+  try {
+    fs.writeFileSync(file, content, 'utf-8');
+    return null;
+  } catch (err) {
+    return `cannot write source file: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 async function loadFindings(
@@ -209,6 +378,7 @@ function aggregateOutput(
     tokensLoaded: boolean;
     durationMs: number;
     filesModified: number;
+    revert?: boolean;
   }
 ): AlignDesignSystemOutput {
   const codesApplied = new Set<string>();
@@ -249,6 +419,7 @@ function aggregateOutput(
       mode: meta.mode,
       dryRun: meta.dryRun,
       tokensLoaded: meta.tokensLoaded,
+      ...(meta.revert === true ? { revert: true as const } : {}),
     },
   };
 }

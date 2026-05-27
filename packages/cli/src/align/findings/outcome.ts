@@ -53,6 +53,13 @@ export interface AlignMeta {
   mode: AlignMode;
   dryRun: boolean;
   tokensLoaded: boolean;
+  /**
+   * True when the run was a --revert pass (inverse-applies the last batch
+   * instead of detecting + classifying + applying). FixOutcome shapes are
+   * the same: `applied` means an inverse diff was written, `skipped-unsafe`
+   * means the file was edited externally since the recorded apply.
+   */
+  revert?: boolean;
 }
 
 export interface AlignDesignSystemOutput {

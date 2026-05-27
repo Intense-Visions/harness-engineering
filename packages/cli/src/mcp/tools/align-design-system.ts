@@ -59,6 +59,11 @@ export const alignDesignSystemDefinition = {
         description:
           'Optional list of finding keys (CODE@file:line) to limit application to a subset. Honored in pipeline mode.',
       },
+      revert: {
+        type: 'boolean',
+        description:
+          'When true, inverse-applies the most-recent batch recorded at .harness/align/last-batch.json instead of detecting + classifying + applying. Skips files edited externally since the apply.',
+      },
     },
     required: ['path'],
   },

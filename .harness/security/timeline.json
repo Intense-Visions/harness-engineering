@@ -22982,6 +22982,28 @@
         "7807b7887a723f88",
         "3b77a6c5abd245a8"
       ]
+    },
+    {
+      "capturedAt": "2026-05-27T11:25:34.718Z",
+      "commitHash": "7537425d7dd0ab1c2627062b7cebc9342b33e433",
+      "securityScore": 100,
+      "totalFindings": 0,
+      "bySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      },
+      "byCategory": {},
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": []
     }
   ],
   "findingLifecycles": [
@@ -23565,8 +23587,8 @@
       "file": "packages/orchestrator/src/server/routes/analyze.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "7dc050e1898aac85",
@@ -23576,8 +23598,8 @@
       "file": "packages/orchestrator/src/server/routes/chat-proxy.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "d105b04f640dfeab",
@@ -23587,8 +23609,8 @@
       "file": "packages/orchestrator/src/server/routes/dispatch-actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "dff00c8326714ff9",
@@ -23598,8 +23620,8 @@
       "file": "packages/orchestrator/src/server/routes/interactions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "70c53ff454c3c7d9",
@@ -23609,8 +23631,8 @@
       "file": "packages/orchestrator/src/server/routes/maintenance.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "62f5bd670137601a",
@@ -23620,8 +23642,8 @@
       "file": "packages/orchestrator/src/server/routes/plans.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "6dde4d866b3a3edc",
@@ -23631,8 +23653,8 @@
       "file": "packages/orchestrator/src/server/routes/roadmap-actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "f48ff7c4fd33d504",
@@ -23642,8 +23664,8 @@
       "file": "packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "86c26e8d696e5beb",
@@ -23653,8 +23675,8 @@
       "file": "packages/orchestrator/src/server/routes/sessions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "9d5f6135305e92de",
@@ -23664,8 +23686,8 @@
       "file": "packages/orchestrator/src/maintenance/reporter.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "38fe6be103e0c955",
@@ -23675,8 +23697,8 @@
       "file": "packages/dashboard/src/server/routes/actions.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "d30bed7ccdc1fe6f",
@@ -23686,8 +23708,8 @@
       "file": "packages/dashboard/src/client/utils/chat-stream.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "c4212a5500286c51",
@@ -23697,8 +23719,8 @@
       "file": "packages/dashboard/src/client/pages/Analyze.tsx",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "b7c71c01a2847efb",
@@ -23708,8 +23730,8 @@
       "file": "packages/dashboard/src/client/hooks/useLocalModelStatuses.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "db73539d16d377f8",
@@ -23719,8 +23741,8 @@
       "file": "packages/dashboard/src/client/hooks/useOrchestratorSocket.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "e66ff96d15a5d527",
@@ -23730,8 +23752,8 @@
       "file": "packages/dashboard/src/client/components/threads/AnalysisThreadView.tsx",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "53b3cf3e586f168a",
@@ -23741,8 +23763,8 @@
       "file": "packages/cli/src/skill/dispatch-session.ts",
       "firstSeenAt": "2026-05-07T16:25:06.344Z",
       "firstSeenCommit": "0367e5e19c8b5825727f7c876695849201800821",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "7733281132d1bd91",
@@ -23950,8 +23972,8 @@
       "file": "packages/orchestrator/src/server/routes/roadmap-actions.ts",
       "firstSeenAt": "2026-05-10T19:25:32.305Z",
       "firstSeenCommit": "f5c4cfe1a98c4e625d1ea3072fb85effa6303ae4",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "c5abc4f495ece7e5",
@@ -23961,8 +23983,8 @@
       "file": "packages/dashboard/src/client/hooks/useRoutingDecisions.ts",
       "firstSeenAt": "2026-05-26T18:19:51.887Z",
       "firstSeenCommit": "fc9a98cf5a0ce8810d3dbcbb87e9aa1aadf2c1b0",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "91487f7b9b4f538d",
@@ -23972,8 +23994,8 @@
       "file": "packages/cli/src/test-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "63f2384fbc4ea391",
@@ -23983,8 +24005,8 @@
       "file": "packages/cli/src/spec-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "5122c3f1c62c942b",
@@ -23994,8 +24016,8 @@
       "file": "packages/cli/src/security-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "25c84682194c9569",
@@ -24005,8 +24027,8 @@
       "file": "packages/cli/src/naming-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "5b67f6312b27966d",
@@ -24016,8 +24038,8 @@
       "file": "packages/cli/src/knowledge-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "7807b7887a723f88",
@@ -24027,8 +24049,8 @@
       "file": "packages/cli/src/design-pipeline/phases/fill.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "3b77a6c5abd245a8",
@@ -24038,8 +24060,8 @@
       "file": "packages/cli/src/copy-craft/phases/critique.ts",
       "firstSeenAt": "2026-05-26T19:30:47.694Z",
       "firstSeenCommit": "dcca2ceab2443ab232d9a9d9f6f0b9e1a9847b9f",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     },
     {
       "findingId": "041c9134b3985fc8",
@@ -24049,8 +24071,19 @@
       "file": "packages/core/src/security/scanner.ts",
       "firstSeenAt": "2026-05-26T21:33:11.577Z",
       "firstSeenCommit": "faa93135095f967a47dc55090fef2d16041ca0c1",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-05-27T11:21:50.691Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
+    },
+    {
+      "findingId": "7a9a1c1f7133a2f4",
+      "ruleId": "SEC-CRY-001",
+      "category": "crypto",
+      "severity": "warning",
+      "file": "packages/cli/src/align/revert/state.ts",
+      "firstSeenAt": "2026-05-27T11:21:50.691Z",
+      "firstSeenCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433",
+      "resolvedAt": "2026-05-27T11:25:34.726Z",
+      "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
     }
   ]
 }
