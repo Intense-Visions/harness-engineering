@@ -1,0 +1,43 @@
+[
+  {
+    "id": "Qwen/Qwen3-32B-GGUF",
+    "downloads": 145823,
+    "likes": 312,
+    "tags": ["gguf", "text-generation", "conversational", "license:apache-2.0"],
+    "library_name": "gguf",
+    "pipeline_tag": "text-generation",
+    "lastModified": "2026-04-12T08:15:33.000Z"
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "downloads": 482109,
+    "likes": 1204,
+    "tags": ["transformers", "safetensors", "qwen2", "text-generation"],
+    "library_name": "transformers",
+    "pipeline_tag": "text-generation",
+    "lastModified": "2026-02-28T19:02:11.000Z"
+  },
+  {
+    "id": "meta-llama/Llama-3.3-70B-Instruct",
+    "downloads": 1287443,
+    "likes": 3814,
+    "tags": ["transformers", "safetensors", "llama", "text-generation"],
+    "library_name": "transformers",
+    "pipeline_tag": "text-generation",
+    "lastModified": "2026-05-01T12:45:09.000Z"
+  },
+  {
+    "id": "mistralai/Mistral-Small-3-24B-Instruct",
+    "downloads": 92341,
+    "likes": 287,
+    "tags": ["transformers", "safetensors", "mistral", "text-generation"]
+  },
+  {
+    "id": "Qwen/Qwen3-14B-GGUF",
+    "downloads": 73210,
+    "likes": 198,
+    "tags": ["gguf", "text-generation"],
+    "library_name": "gguf",
+    "pipeline_tag": "text-generation"
+  }
+]
