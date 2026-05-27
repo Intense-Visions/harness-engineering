@@ -11,7 +11,13 @@
 targets, not commitments. The mechanisms described (signal feedback
 loop, measurement schema) are deliverables of Sprint 3 (Convergence +
 Growth Infrastructure) per the [design-craft-elevator
-proposal][proposal] Implementation Order.
+proposal][proposal] Implementation Order. The minimum viable form
+of both mechanisms now ships:
+[measurement/usage.ts](../../../../packages/cli/src/design-craft/measurement/usage.ts)
+and
+[measurement/signal.ts](../../../../packages/cli/src/design-craft/measurement/signal.ts)
+are wired into `runPipeline` in
+[mcp/tools/design-craft.ts](../../../../packages/cli/src/mcp/tools/design-craft.ts).
 
 ---
 
@@ -103,8 +109,10 @@ infrastructure actually works.
 The signal feedback loop is the mechanism that breaks the
 curator bottleneck. It turns CRITIQUE operational signal into
 candidate catalog additions automatically. Implementation lives in
-`packages/cli/src/skills/harness-design-craft/contribution/
-signal.ts` (Sprint 3 deliverable).
+[`packages/cli/src/design-craft/measurement/signal.ts`](../../../../packages/cli/src/design-craft/measurement/signal.ts)
+(shipped). The CLI-co-located path (not the `skills/`-nested path
+sketched earlier) reflects the co-location decision recorded in the
+proposal § "Technical Design → File layout".
 
 ### Pipeline
 
@@ -126,65 +134,91 @@ CRITIQUE finding  →  finding-shape signature  →  aggregator
 
 ### Finding-shape signature
 
-Each CRITIQUE finding is reduced to a **signature** for recurrence
-detection. The signature is a tuple:
+Each CRITIQUE finding is reduced to a **fingerprint** for recurrence
+detection. The fingerprint is a SHA-1 hash (truncated to 16 hex chars)
+of the tuple:
 
 ```
-(rubricId, targetPatternKey, tier)
+(code, tier, cite.rubricOrPatternId)
 ```
 
 where:
 
-- `rubricId` — the rubric that produced the finding.
-- `targetPatternKey` — a normalized form of the target (e.g. the
-  AST shape of the offending JSX/CSS, OR the component-type
-  identifier, OR the file-pattern bucket). Computed by
-  `signal.normalizeTarget(finding.target)`. The normalization is
-  deliberately coarse — we want different files exhibiting the
-  same shape to collide, not be distinct.
+- `code` — the stable `CRAFT-(C|P)\d{3}` namespace code that the
+  rubric or pattern emits.
 - `tier` — the finding's tier (foundational | polish | aspirational
-  per [ADR-0019][adr-0019]).
+  per [ADR-0019][adr-0019]). Tier participates because the same
+  `code` can fire at different tiers across components, and merging
+  them would mask a real pattern that is consistently foundational.
+- `cite.rubricOrPatternId` — the rubric or pattern id that produced
+  the finding (e.g. `rubric-hierarchy-clarity`).
 
-Two findings with the same signature are counted as the same
+This tuple intentionally omits the target file/component identity:
+two findings of the same shape from different files collide on the
+same fingerprint, which is exactly what we want for recurrence
+detection. v1 does NOT collapse on AST-normalized target shape —
+that's a future refinement.
+
+Two findings with the same fingerprint are counted as the same
 recurrence even if they came from different audits, projects, or
 runIds.
 
-### Recurrence counter
+### Event log
 
-The aggregator maintains a counter per signature:
+v1 ships an append-only JSONL event log rather than an aggregated
+counter store. Each CRITIQUE / POLISH finding emits one event:
 
 ```ts
-type SignatureCounter = {
-  signature: string; // serialized (rubricId, targetPatternKey, tier)
-  count: number;
-  firstSeen: string; // ISO date
-  lastSeen: string; // ISO date
-  contributingRuns: string[]; // runIds, capped at 100 for storage
-  contributingProjects: string[]; // anonymized project keys
-};
+interface SignalEvent {
+  fingerprint: string; // 16-char hash of (code, tier, cite id)
+  projectRoot: string;
+  recordedAt: string; // ISO timestamp
+  finding: {
+    code: string;
+    tier: 'foundational' | 'polish' | 'aspirational';
+    impact: 'small' | 'medium' | 'large';
+    rubricOrPatternId: string;
+    messageSample: string; // first 240 chars
+  };
+}
 ```
 
-The counter is persisted to `.harness/design-craft/signals.json`
-(per-project, gitignored by default; opt-in pseudonymized telemetry
-aggregates across projects is a future feature, NOT v1).
+Events are appended to `.harness/design-craft/signal-events.jsonl`
+(per-project, gitignored by default). The JSONL append model means
+every CRITIQUE run pays O(1) write cost per finding regardless of
+prior log depth, and the aggregation pass below stays out of the
+hot critique path.
+
+Opt-in pseudonymized telemetry aggregates across projects is a
+future feature, NOT v1.
 
 ### Threshold + export
 
-When `count` crosses the threshold (default N=5, configurable via
-`harness.config.json.design.craft.signal.proposalThreshold`), the
-aggregator exports a candidate proposal to
-`.harness/design-craft/proposals/<signature-hash>.yaml`. The
-proposal carries:
+`proposeFromRecurringFindings(threshold, storeRoot?)` is the entry
+point that scans the event log and materialises proposals. When a
+fingerprint:
 
-- The signature (rubricId, targetPatternKey, tier).
-- The recurrence count + window (first-seen / last-seen).
-- The contributing runIds and anonymized project keys (capped).
-- A **suggested catalog entry skeleton** — typically a pattern
-  skeleton if the signature is polish/aspirational, or a rubric-
-  refinement skeleton if the signature suggests an existing rubric
-  is firing on adjacent but distinct phenomena.
-- Provenance metadata: `originatedFromSignal: true`,
-  `signatureHash: <hash>`.
+- has been recorded ≥ threshold times (default N=5, configurable via
+  `harness.config.json.design.craft.signal.proposalThreshold`), AND
+- was recorded from ≥ 2 distinct projects (the multi-project guard
+  rail — single-project pathologies must not generate proposals)
+
+the function writes a candidate proposal YAML to
+`.harness/design-craft/proposals/<fingerprint>.yaml`. The proposal
+carries:
+
+- `fingerprint` (the 16-char hash from the signature above).
+- `occurrenceCount` and `distinctProjectCount`.
+- `distinctProjects` (sorted list of project roots).
+- `representative` — the most recent finding snapshot (code, tier,
+  impact, cite id, message sample) for narrative context.
+- `kind: proposal` + `status: proposed` (consumed by maintainer
+  review per [contribution.md](./contribution.md)).
+- `proposedAt` ISO timestamp.
+
+Re-running the function rewrites the proposal in place with refreshed
+counts, so the proposal file is always a live snapshot of the
+current event log.
 
 ### Triage to PR
 
@@ -228,28 +262,35 @@ not require project-identifying data in the signature).
 
 Per-entry usage counters are the data layer that drives growth
 decisions: which entries are working, which are dead weight, which
-gaps need filling. Implementation lives in `packages/cli/src/skills/
-harness-design-craft/measurement/usage.ts` (Sprint 3 deliverable).
+gaps need filling. Implementation lives in
+[`packages/cli/src/design-craft/measurement/usage.ts`](../../../../packages/cli/src/design-craft/measurement/usage.ts)
+(shipped). The barrel
+[`packages/cli/src/design-craft/measurement/index.ts`](../../../../packages/cli/src/design-craft/measurement/index.ts)
+is the stable public surface — dashboards and the design-pipeline
+orchestrator import from there.
 
 ### Counters
 
-| Type     | Counter name         | Increment trigger                                                                                                                     |
-| -------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Rubric   | `triggerCount`       | Incremented each time a CRITIQUE phase invokes the rubric and the rubric produces ≥1 finding.                                         |
-| Rubric   | `invocationCount`    | Incremented each time CRITIQUE invokes the rubric (regardless of whether findings result).                                            |
-| Pattern  | `applyCount`         | Incremented each time a POLISH finding cites the pattern.                                                                             |
-| Pattern  | `applicabilityCount` | Incremented each time the pattern's deterministic match-shape fires (regardless of whether the LLM ultimately produces a suggestion). |
-| Exemplar | `citeCount`          | Incremented each time a BENCHMARK score cites the exemplar (the existing `citationCount` field on the exemplar YAML).                 |
-| Exemplar | `comparisonCount`    | Incremented each time the exemplar is loaded into a BENCHMARK comparison set (regardless of whether it's cited in the final output).  |
+v1 ships a single counter per (type, id) tuple. Refined counters
+(invocation-vs-trigger, applicability-vs-apply, comparison-vs-cite)
+are a follow-up — the per-run wiring sites already exist, so
+extending the schema additively does not break readers.
 
-Counters are per-entry, persisted in `.harness/design-craft/
-usage.json` per project. A `getCatalogStats()` export aggregates
-them and is the stable API for dashboards.
+| Type     | Counter           | Increment trigger                                                                                    |
+| -------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Rubric   | `rubrics[<id>]`   | Incremented once per CRITIQUE invocation of the rubric (`recordTrigger`).                            |
+| Pattern  | `patterns[<id>]`  | Incremented once per POLISH finding that the LLM marked `applies: true` (`recordApply`).             |
+| Exemplar | `exemplars[<id>]` | Incremented once per exemplar id referenced in a BENCHMARK score's `exemplars` array (`recordCite`). |
 
-### Derived metrics
+Counters are per-entry, persisted in `.harness/design-craft/usage.json`
+per project. A `getCatalogStats()` export aggregates them and is the
+stable API for dashboards.
 
-The dashboard surfaces (and the maintainer reviews) several derived
-metrics:
+### Derived metrics (future, NOT v1)
+
+Once the dual-counter schema lands (invocation-vs-trigger,
+applicability-vs-apply, comparison-vs-cite), the dashboard can
+surface several derived metrics:
 
 - **Hit rate** (rubrics): `triggerCount / invocationCount`. Rubrics
   with very low hit rate (<5% over 100+ invocations) are flagged
@@ -264,6 +305,10 @@ metrics:
   craft dimensions are covered by ≥1 actively-firing rubric in
   the project's audit history. Gaps suggest rubric authorship
   opportunities.
+
+v1 ships the single counter per (type, id); derived metrics land
+when the second counter family is wired in (proposal-and-PR work,
+not blocking this slice).
 
 ### Dashboard surfacing
 
