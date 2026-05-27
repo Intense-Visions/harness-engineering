@@ -51,6 +51,12 @@ import type {
   BenchmarkScore,
   DesignCraftOutput,
 } from '../../design-craft/findings/schema.js';
+import {
+  recordTrigger,
+  recordApply,
+  recordCite,
+  recordSignalEvent,
+} from '../../design-craft/measurement/index.js';
 
 type Phase = 'critique' | 'polish' | 'benchmark';
 type Mode = 'fast' | 'deep';
@@ -86,6 +92,13 @@ export interface DesignCraftInput {
    * deterministic CI works without touching the live provider factory.
    */
   __testProvider?: LlmProvider;
+  /**
+   * Test seam — disables file-backed measurement writes. Production
+   * callers leave this `undefined` so the catalog usage counters + signal
+   * feedback loop accumulate per ADR 0020. Set to `false` in tests that
+   * don't want stray `.harness/design-craft/` artifacts in the workspace.
+   */
+  __recordMeasurement?: boolean;
 }
 
 const DEFAULT_PHASES: readonly Phase[] = ['critique', 'polish', 'benchmark'];
@@ -224,6 +237,8 @@ async function runPipeline(
   const critiqueTargets = buildTargetsFromFiles(input.files);
   const polishTargets = buildPolishTargets(input.files);
   const benchmarkTargets = buildBenchmarkTargets(input.benchmarkTargets);
+  const recordMeasurement = input.__recordMeasurement ?? true;
+  const measurementRoot = input.path;
 
   const startedAt = Date.now();
   const findings: CraftFinding[] = [];
@@ -235,6 +250,10 @@ async function runPipeline(
     rubricsApplied = rubrics.map((r) => r.id);
     const critiqueFindings = await runCritique({ targets: critiqueTargets, rubrics, provider });
     findings.push(...critiqueFindings);
+    if (recordMeasurement) {
+      for (const rubric of rubrics) recordTrigger(rubric.id, measurementRoot);
+      for (const f of critiqueFindings) recordSignalEvent(f, measurementRoot, measurementRoot);
+    }
   }
 
   let patternsApplied: string[] = [];
@@ -243,6 +262,12 @@ async function runPipeline(
     patternsApplied = patterns.map((p) => p.id);
     const polishFindings = await runPolish({ targets: polishTargets, patterns, provider });
     findings.push(...polishFindings);
+    if (recordMeasurement) {
+      for (const f of polishFindings) {
+        recordApply(f.cite.rubricOrPatternId, measurementRoot);
+        recordSignalEvent(f, measurementRoot, measurementRoot);
+      }
+    }
   }
 
   let exemplarsCited: string[] = [];
@@ -255,6 +280,9 @@ async function runPipeline(
     });
     scores.push(...benchmarkScores);
     exemplarsCited = Array.from(new Set(benchmarkScores.flatMap((s) => s.exemplars)));
+    if (recordMeasurement) {
+      for (const id of exemplarsCited) recordCite(id, measurementRoot);
+    }
   }
 
   const output: DesignCraftOutput = {
