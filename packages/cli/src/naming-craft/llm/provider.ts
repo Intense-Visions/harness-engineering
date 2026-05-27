@@ -12,5 +12,10 @@ export {
   type LlmProvider,
   type LlmCallCost,
   MockLlmProvider,
+  InSessionLlmProvider,
+  PromptDeferredError,
+  type DeferredPrompt,
   getProvider,
+  resolveCraftLlmMode,
+  type CraftLlmMode,
 } from '../../shared/craft/llm/provider.js';

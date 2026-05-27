@@ -81,7 +81,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('knowledge_craft');
     // craft-pipeline #10 — security-craft
     expect(names).toContain('security_craft');
-    expect(tools).toHaveLength(80);
+    // naming-craft adds a second tool (naming_craft_finalize) for the in-session two-step flow.
+    expect(names).toContain('naming_craft_finalize');
+    expect(tools).toHaveLength(81);
   });
 
   it('all tool definitions have inputSchema', () => {

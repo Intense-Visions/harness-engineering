@@ -48,6 +48,7 @@ import { createMaintenanceCommand } from './maintenance';
 import { createMcpCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMigrateCommand } from './migrate';
+import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
 import { createNotificationsCommand } from './notifications';
 import { createOrchestratorCommand } from './orchestrator';
@@ -136,6 +137,7 @@ export const commandCreators: Array<() => Command> = [
   createMcpCommand,
   createMcpGuardCommand,
   createMigrateCommand,
+  createModelsCommand,
   createNamingCraftCommand,
   createNotificationsCommand,
   createOrchestratorCommand,

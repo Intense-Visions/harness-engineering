@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createBackendsSubcommand } from './migrate-backends';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -556,7 +557,7 @@ export async function runMigrate(opts: MigrateOptions): Promise<Result<Migration
 }
 
 export function createMigrateCommand(): Command {
-  return new Command('migrate')
+  const cmd = new Command('migrate')
     .description('Migrate legacy harness artifact locations to current layout')
     .option('--dry-run', 'Show the migration plan without moving files', false)
     .option('--yes', 'Skip confirmation prompt', false)
@@ -582,4 +583,10 @@ export function createMigrateCommand(): Command {
       }
       process.exit(result.value.movesFailed === 0 ? ExitCode.SUCCESS : ExitCode.ERROR);
     });
+
+  // Subcommands for targeted migrations. Bare `harness migrate` still runs
+  // the docs-layout migration above (no behavior change).
+  cmd.addCommand(createBackendsSubcommand());
+
+  return cmd;
 }

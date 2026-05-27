@@ -43,7 +43,7 @@ Report all harness-ignore protected code regions
 
 ### `harness backfill-skill-provenance`
 
-Stamp `provenance: user-authored` on every catalog skill missing the field (Hermes Phase 4 one-shot)
+Stamp `provenance: user-authored` on every catalog skill missing the field (one-shot migration)
 
 **Options:**
 
@@ -130,9 +130,9 @@ Remove stale entries from .harness/. Default: only .harness/sessions/ (no write 
 
 - `--dry-run` — List stale entries without deleting them
 - `--path` — Project root path (default: ".")
-- `--all` — Hermes Phase 2: sweep every registered .harness/ target
-- `--include` — Hermes Phase 2: comma-separated target names (mutually-exclusive with --exclude/--all)
-- `--exclude` — Hermes Phase 2: comma-separated target names to skip
+- `--all` — Sweep every registered .harness/ target
+- `--include` — Comma-separated target names (mutually-exclusive with --exclude/--all)
+- `--exclude` — Comma-separated target names to skip
 
 ### `harness copy-craft`
 
@@ -274,7 +274,7 @@ Initialize a new harness-engineering project
 
 ### `harness insights`
 
-Composite project report — health, entropy, decay, attention, impact (Hermes Phase 1).
+Composite project report — health, entropy, decay, attention, impact.
 
 **Options:**
 
@@ -346,18 +346,6 @@ Start the MCP (Model Context Protocol) server on stdio
 - `--tools` — Only register the specified tools (used by Cursor integration)
 - `--tier` — Load a preset tool tier instead of all tools
 - `--budget-tokens` — Auto-select tier to fit this baseline token budget
-
-### `harness migrate`
-
-Migrate legacy harness artifact locations to current layout
-
-**Options:**
-
-- `--dry-run` — Show the migration plan without moving files
-- `--yes` — Skip confirmation prompt
-- `--skip-references` — Do not update path references in docs/sessions after moves
-- `--orphan-strategy` — How to handle orphan plans (ask|skip|bucket) (default: "ask")
-- `--orphan-topic` — Stub topic name when --orphan-strategy=bucket
 
 ### `harness naming-craft`
 
@@ -431,7 +419,7 @@ Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt inje
 
 ### `harness search <query>`
 
-Full-text search over archived + live session content (Hermes Phase 1).
+Full-text search over archived + live session content.
 
 **Arguments:**
 
@@ -823,7 +811,7 @@ Validate harness-linter.yml config
 
 ## Maintenance Commands
 
-Hermes Phase 2 — inspect built-in + custom maintenance tasks and their persisted outputs
+Inspect built-in + custom maintenance tasks and their persisted outputs
 
 ### `harness maintenance list`
 
@@ -861,6 +849,34 @@ Check every MCP/npx package in .mcp.json against OSV.dev advisories
 - `--strict` — Fail closed on network errors (default: fail-open)
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
+
+## Migrate Commands
+
+Migrate legacy harness artifact locations to current layout
+
+### `harness migrate backends`
+
+Copy agent.backends (and routing) from harness.orchestrator.md into harness.config.json.
+
+**Options:**
+
+- `--dry-run` — Show what would change without writing
+- `--force` — Overwrite existing agent.backends in harness.config.json
+
+## Models Commands
+
+Inspect and manage local LLM backends. Currently ships `probe`; LMLM phases add status/suggest/pool/proposals.
+
+### `harness models probe`
+
+Probe a local backend's /v1/models endpoint and report which configured model is loaded.
+
+**Options:**
+
+- `--backend` — Name of an entry in agent.backends. Defaults to the first local/pi entry.
+- `--endpoint` — Override the backend endpoint (bypasses harness.config.json).
+- `--api-key` — Override the API key.
+- `--json` — Print machine-readable JSON instead of a human summary.
 
 ## Notifications Commands
 
@@ -932,7 +948,7 @@ List available agent personas
 
 ## Proposals Commands
 
-Skill-proposal review queue (Hermes Phase 4)
+Skill-proposal review queue
 
 ### `harness proposals approve <id>`
 

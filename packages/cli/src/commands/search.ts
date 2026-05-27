@@ -40,7 +40,7 @@ function fmtBytes(n: number): string {
 
 export function createSearchCommand(): Command {
   return new Command('search')
-    .description('Full-text search over archived + live session content (Hermes Phase 1).')
+    .description('Full-text search over archived + live session content.')
     .argument(
       '<query>',
       'FTS5 query (bare words AND-joined; quotes/AND/OR/NOT/column: for advanced syntax)'

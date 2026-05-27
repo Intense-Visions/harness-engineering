@@ -113,7 +113,7 @@ export function runBackfillSkillProvenance(projectRoot: string): BackfillResult 
 export function createBackfillSkillProvenanceCommand(): Command {
   const cmd = new Command('backfill-skill-provenance')
     .description(
-      'Stamp `provenance: user-authored` on every catalog skill missing the field (Hermes Phase 4 one-shot)'
+      'Stamp `provenance: user-authored` on every catalog skill missing the field (one-shot migration)'
     )
     .option('--root <path>', 'Project root containing agents/skills/', process.cwd())
     .action((opts: { root: string }) => {

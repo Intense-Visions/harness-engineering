@@ -10,11 +10,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { getProvider, type LlmProvider } from './llm/provider.js';
+import { getProvider, type LlmProvider, InSessionLlmProvider } from './llm/provider.js';
 import { extractIdentifiers, type ExtractedIdentifier } from './extract/identifiers.js';
 import { sampleConventions } from './extract/convention.js';
 import { SEED_RUBRICS, type NamingRubric } from './catalog/rubrics/index.js';
-import { critiqueOne } from './phases/critique.js';
+import {
+  critiqueOne,
+  buildPrompt,
+  parseFindingFromRaw,
+  CRITIQUE_SYSTEM_PROMPT,
+} from './phases/critique.js';
+import {
+  saveRunState,
+  loadRunState,
+  deleteRunState,
+  pruneOldRuns,
+} from '../shared/craft/runs/store.js';
 import type {
   NamingCraftOutput,
   NamingFinding,
@@ -22,30 +33,73 @@ import type {
   IdentifierKind,
 } from './findings/schema.js';
 
+export type NamingCraftMode = 'inline' | 'in-session';
+
 export interface NamingCraftInput {
   path: string;
   files?: string[];
   kinds?: Array<IdentifierKind>;
   maxFiles?: number;
   maxIdentifiersPerFile?: number;
+  /** Two-step flow toggle. Defaults follow provider: in-session if env says so, else inline. */
+  mode?: NamingCraftMode;
   /** Optional provider override for testing. */
   __testProvider?: LlmProvider;
+}
+
+/** Projected-cost guard: max prompts collected before bailing. */
+const DEFAULT_PROMPT_BUDGET = 100;
+
+export interface CollectPromptsOutput {
+  status: 'collected' | 'budget-exceeded';
+  runId: string;
+  pendingPrompts: Array<{
+    promptId: string;
+    systemPrompt: string;
+    userPrompt: string;
+  }>;
+  projection: { promptCount: number; budget: number };
+  /** Populated when status='budget-exceeded'. */
+  hint?: string;
+  /** Persisted to disk under .harness/craft/runs/<runId>.json. */
+  runFile?: string;
+}
+
+export interface FinalizeNamingCraftInput {
+  path: string;
+  runId: string;
+  responses: Array<{ promptId: string; raw: string }>;
 }
 
 const DEFAULT_MAX_FILES = 100;
 const DEFAULT_MAX_IDENTIFIERS_PER_FILE = 15;
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
-export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCraftOutput> {
-  const startedAt = Date.now();
+/** Skill-specific run-state metadata persisted between collect and finalize. */
+interface NamingRunMeta {
+  projectRoot: string;
+  startedAt: number;
+  convention: ProjectConvention;
+  rubricsApplied: string[];
+  /** Pairs every queued prompt to the data needed to build a finding. */
+  prompts: Array<{
+    promptId: string;
+    identifier: ExtractedIdentifier;
+    rubricId: string;
+  }>;
+}
+
+interface ProjectContext {
+  projectRoot: string;
+  files: string[];
+  perFile: Map<string, ExtractedIdentifier[]>;
+  convention: ProjectConvention;
+}
+
+function gatherProjectContext(input: NamingCraftInput): ProjectContext {
   const projectRoot = sanitizePath(input.path);
   const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
-  const maxIdentifiersPerFile = input.maxIdentifiersPerFile ?? DEFAULT_MAX_IDENTIFIERS_PER_FILE;
-  const provider = input.__testProvider ?? getProvider();
-
   const files = collectFiles(projectRoot, input.files).slice(0, maxFiles);
-
-  // First pass: extract all identifiers across files (for convention sampling).
   const allIdentifiers: ExtractedIdentifier[] = [];
   const perFile: Map<string, ExtractedIdentifier[]> = new Map();
   for (const file of files) {
@@ -59,8 +113,24 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
     perFile.set(file, ids);
     allIdentifiers.push(...ids);
   }
-
   const convention = sampleConventions(allIdentifiers, files);
+  return { projectRoot, files, perFile, convention };
+}
+
+export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCraftOutput> {
+  const startedAt = Date.now();
+  const maxIdentifiersPerFile = input.maxIdentifiersPerFile ?? DEFAULT_MAX_IDENTIFIERS_PER_FILE;
+  const provider = input.__testProvider ?? getProvider();
+
+  if (provider instanceof InSessionLlmProvider) {
+    throw new Error(
+      'runNamingCraft is the inline entry point; the in-session provider ' +
+        'requires the two-step flow. Call collectNamingCraftPrompts(...) and ' +
+        'then finalizeNamingCraft(...), or set HARNESS_CRAFT_LLM=mock for tests.'
+    );
+  }
+
+  const { perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const findings: NamingFinding[] = [];
 
@@ -96,6 +166,136 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
       convention,
       runId: randomUUID(),
+    },
+  };
+}
+
+/**
+ * Step 1 of the two-step in-session flow. Walks the project, builds one
+ * prompt per (identifier, rubric) pair, persists run-state to disk, and
+ * returns the prompts for the calling agent to answer. No LLM is called.
+ */
+export async function collectNamingCraftPrompts(
+  input: NamingCraftInput & { promptBudget?: number }
+): Promise<CollectPromptsOutput> {
+  const maxIdentifiersPerFile = input.maxIdentifiersPerFile ?? DEFAULT_MAX_IDENTIFIERS_PER_FILE;
+  const budget = input.promptBudget ?? DEFAULT_PROMPT_BUDGET;
+  const { projectRoot, perFile, convention } = gatherProjectContext(input);
+  const rubrics = SEED_RUBRICS;
+  const runId = randomUUID();
+
+  const promptRecords: NamingRunMeta['prompts'] = [];
+  const pending: CollectPromptsOutput['pendingPrompts'] = [];
+
+  outer: for (const [, identifiers] of perFile) {
+    const sample = sampleIdentifiers(identifiers, maxIdentifiersPerFile, input.kinds);
+    for (const identifier of sample) {
+      for (const rubric of rubrics) {
+        if (!rubric.appliesTo.includes(identifier.kind)) continue;
+        // Use the InSession provider only to gain a stable promptId per pair.
+        const promptId = `p${promptRecords.length + 1}`;
+        const userPrompt = buildPrompt({ identifier, rubric, convention });
+        promptRecords.push({ promptId, identifier, rubricId: rubric.id });
+        pending.push({ promptId, systemPrompt: CRITIQUE_SYSTEM_PROMPT, userPrompt });
+        if (pending.length > budget) break outer;
+      }
+    }
+  }
+
+  if (pending.length > budget) {
+    return {
+      status: 'budget-exceeded',
+      runId,
+      pendingPrompts: [],
+      projection: { promptCount: pending.length, budget },
+      hint:
+        `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
+        'Re-invoke with smaller maxFiles / maxIdentifiersPerFile, or pass promptBudget to raise the ceiling.',
+    };
+  }
+
+  const meta: NamingRunMeta = {
+    projectRoot,
+    startedAt: Date.now(),
+    convention,
+    rubricsApplied: rubrics.map((r) => r.id),
+    prompts: promptRecords,
+  };
+  pruneOldRuns(projectRoot);
+  const { runFile } = saveRunState<NamingRunMeta>(projectRoot, {
+    v: 1,
+    runId,
+    skill: 'naming-craft',
+    createdAt: Date.now(),
+    meta,
+  });
+
+  return {
+    status: 'collected',
+    runId,
+    pendingPrompts: pending,
+    projection: { promptCount: pending.length, budget },
+    runFile,
+  };
+}
+
+/**
+ * Step 2 of the two-step in-session flow. Loads run-state, applies the
+ * supplied responses through the same parser the inline path uses, and
+ * returns the final NamingCraftOutput. Deletes the run-state file on
+ * successful completion.
+ */
+export async function finalizeNamingCraft(
+  input: FinalizeNamingCraftInput
+): Promise<NamingCraftOutput> {
+  const startedAt = Date.now();
+  const projectRoot = sanitizePath(input.path);
+  const state = loadRunState<NamingRunMeta>(projectRoot, input.runId);
+  if (state === null) {
+    throw new Error(
+      `naming-craft: no persisted run found for runId=${input.runId} under ${projectRoot}. ` +
+        'Run collectNamingCraftPrompts first, or ensure the path matches the project root used at collection time.'
+    );
+  }
+  if (state.skill !== 'naming-craft') {
+    throw new Error(
+      `naming-craft: runId=${input.runId} belongs to skill ${state.skill}, not naming-craft.`
+    );
+  }
+
+  const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
+  const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));
+  const findings: NamingFinding[] = [];
+
+  for (const response of input.responses) {
+    const promptRecord = promptById.get(response.promptId);
+    if (promptRecord === undefined) continue;
+    const rubric = rubricById.get(promptRecord.rubricId);
+    if (rubric === undefined) continue;
+    const finding = parseFindingFromRaw(response.raw, {
+      identifier: promptRecord.identifier,
+      rubric,
+    });
+    if (finding !== null) findings.push(finding);
+  }
+
+  deleteRunState(projectRoot, input.runId);
+
+  return {
+    findings,
+    summary: {
+      phaseRun: ['critique'],
+      mode: 'fast',
+      durationMs: Date.now() - startedAt,
+      llmCalls: {
+        provider: 'in-session',
+        model: 'host-chat',
+        count: input.responses.length,
+        costUsd: 0,
+      },
+      catalog: { rubricsApplied: state.meta.rubricsApplied },
+      convention: state.meta.convention,
+      runId: input.runId,
     },
   };
 }

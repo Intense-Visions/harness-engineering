@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ArchConfigSchema } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
+import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
 
 export { IngestConfigSchema } from './ingest-schema.js';
@@ -48,6 +49,20 @@ export const AgentConfigSchema = z.object({
   timeout: z.number().default(300000),
   /** Optional list of skill IDs pre-authorized for the agent */
   skills: z.array(z.string()).optional(),
+  /**
+   * Named backend definitions (Spec 2 — multi-backend routing).
+   *
+   * Each entry maps a backend name (chosen by the project) to a backend
+   * type plus its connection details (model, endpoint, apiKey, etc.).
+   * Referenced from `craft.llm.backend`, from orchestrator routing rules,
+   * and from any future subsystem that needs a configured LLM backend.
+   *
+   * Schema is re-exported from @harness-engineering/orchestrator so this
+   * file and the orchestrator runtime validate against the same source.
+   */
+  backends: z.record(z.string(), BackendDefSchema).optional(),
+  /** Routing rules for orchestrator agent dispatch. */
+  routing: RoutingConfigSchema.optional(),
 });
 
 /**
@@ -547,6 +562,43 @@ export const ComplianceConfigSchema = z.object({
   branching: BranchingConfigSchema.default({}),
 });
 
+/**
+ * Schema for the shared `craft.*` config block consumed by all
+ * craft-pipeline ceiling skills (naming-craft, design-craft, copy-craft,
+ * spec-craft, test-craft, knowledge-craft, security-craft).
+ *
+ * Backend selection unifies on `agent.backends`: craft.llm.backend names
+ * an entry there. The non-backend modes (`in-session`, `mock`) live in
+ * `craft.llm.mode` because they don't map to a backend definition.
+ *
+ * Resolution precedence at runtime:
+ *   1. Explicit override passed to getProvider({ mode })
+ *   2. HARNESS_CRAFT_LLM env (CI / test isolation escape hatch)
+ *   3. craft.llm.backend  → adapt agent.backends[name]
+ *   4. craft.llm.mode     → in-session | mock
+ *   5. Built-in default   → in-session
+ */
+export const CraftConfigSchema = z.object({
+  llm: z
+    .object({
+      /**
+       * Name of an entry in `agent.backends` to route craft LLM calls
+       * through. Supported backend types: claude, anthropic, openai,
+       * local, pi, mock. (gemini is declared in agent.backends but is
+       * not yet wired through the craft adapter.)
+       */
+      backend: z.string().optional(),
+      /**
+       * Special-case mode that doesn't correspond to a backend def.
+       *   - `in-session` — defer prompts to the calling chat session
+       *     via the two-step MCP flow (collect → finalize).
+       *   - `mock` — deterministic mock provider, for tests / smoke runs.
+       */
+      mode: z.enum(['in-session', 'mock']).optional(),
+    })
+    .optional(),
+});
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -602,6 +654,8 @@ export const HarnessConfigSchema = z.object({
   phaseGates: PhaseGatesConfigSchema.optional(),
   /** Design system consistency settings */
   design: DesignConfigSchema.optional(),
+  /** Shared configuration for craft-pipeline ceiling skills (LLM-judgment) */
+  craft: CraftConfigSchema.optional(),
   /** Internationalization (i18n) settings */
   i18n: I18nConfigSchema.optional(),
   /** Code review settings */
@@ -661,7 +715,7 @@ export const HarnessConfigSchema = z.object({
     })
     .optional(),
   /**
-   * Hermes Phase 2 — Disk-hygiene rules consumed by `harness cleanup-sessions --all`.
+   * Disk-hygiene rules consumed by `harness cleanup-sessions --all`.
    * Keys correspond to registered target names (sessions, cache, maintenance,
    * dashboard-state, snapshots, analyzer-output); values override the default
    * TTL in hours. Unknown keys are ignored (forward-compatible).
@@ -672,7 +726,7 @@ export const HarnessConfigSchema = z.object({
     })
     .optional(),
   /**
-   * Hermes Phase 2 — Pre-launch OSV malware guard configuration.
+   * Pre-launch OSV malware guard configuration.
    * `enabled: false` disables the guard; `strict: true` reverses the default
    * fail-open posture on OSV.dev network errors.
    */

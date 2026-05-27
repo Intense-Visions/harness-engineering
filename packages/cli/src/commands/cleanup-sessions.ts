@@ -295,12 +295,12 @@ export function createCleanupSessionsCommand(): Command {
     )
     .option('--dry-run', 'List stale entries without deleting them', false)
     .option('--path <path>', 'Project root path', '.')
-    .option('--all', 'Hermes Phase 2: sweep every registered .harness/ target')
+    .option('--all', 'Sweep every registered .harness/ target')
     .option(
       '--include <list>',
-      'Hermes Phase 2: comma-separated target names (mutually-exclusive with --exclude/--all)'
+      'Comma-separated target names (mutually-exclusive with --exclude/--all)'
     )
-    .option('--exclude <list>', 'Hermes Phase 2: comma-separated target names to skip')
+    .option('--exclude <list>', 'Comma-separated target names to skip')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = path.resolve(opts.path);
