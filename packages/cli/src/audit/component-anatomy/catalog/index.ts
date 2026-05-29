@@ -28,6 +28,7 @@
 
 import type { ConventionRule } from '../rules/convention-rule.js';
 import { buttonConvention } from './conventions/button.js';
+import { dialogConvention } from './conventions/dialog.js';
 import { emptyStateConvention } from './conventions/empty-state.js';
 import { inputConvention } from './conventions/input.js';
 
@@ -42,6 +43,7 @@ import { inputConvention } from './conventions/input.js';
  */
 const builtinConventions: ConventionRule[] = [
   buttonConvention,
+  dialogConvention,
   emptyStateConvention,
   inputConvention,
 ];

@@ -23119,6 +23119,68 @@
       "findingIds": [
         "0020d9dbc68c53fd"
       ]
+    },
+    {
+      "capturedAt": "2026-05-29T20:01:30.635Z",
+      "commitHash": "87d1ed3895b0fb36bf9d541f79b3c05d2940ab4c",
+      "securityScore": 99,
+      "totalFindings": 1,
+      "bySeverity": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd"
+      ]
+    },
+    {
+      "capturedAt": "2026-05-29T21:28:10.203Z",
+      "commitHash": "e2a9efcc51d3c75bbdf417780302087c68e5bcf3",
+      "securityScore": 99,
+      "totalFindings": 1,
+      "bySeverity": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd"
+      ]
     }
   ],
   "findingLifecycles": [
