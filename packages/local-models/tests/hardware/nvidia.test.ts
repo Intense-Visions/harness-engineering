@@ -8,9 +8,7 @@ import { detectNVIDIA } from '../../src/hardware/nvidia.js';
 import type { OsModule } from '../../src/hardware/nvidia.js';
 import type { ShellRunner } from '../../src/hardware/shell.js';
 
-const FIXTURES = path
-  .dirname(fileURLToPath(import.meta.url))
-  .replace(/tests\/hardware$/, 'tests/fixtures');
+const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
 
 function makeShell(impl: ShellRunner['run']): ShellRunner {
   return { run: impl };
