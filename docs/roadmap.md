@@ -1974,12 +1974,12 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### design-pipeline sub-project #2: audit-component-anatomy
 
-- **Status:** in-progress
+- **Status:** planned
 - **Spec:** docs/changes/design-pipeline/audit-component-anatomy/proposal.md
 - **Summary:** Audit skill detecting missing required anatomy parts (label, helper text, error state, loading state, empty state). Rules sourced from design-component-anatomy reference content. Lowest-ambiguity sub-project. Needs documented overlap-resolution with harness-accessibility (no double-counting label-missing findings).
 - **Blockers:** —
 - **Plan:** docs/changes/design-pipeline/audit-component-anatomy/plans/2026-05-23-audit-component-anatomy-plan.md
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#355
 
@@ -2023,9 +2023,10 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 - **Summary:** CEILING-RAISING counterpart to sub-projects #1-#4 (which are floor-raising / consistency-engine work). LLM-judgment-based craft elevator that produces stunning, professional-tier output — not just consistent output. Three distinct capability classes, each requiring different infrastructure than the rule-based audits: (a) aesthetic critique — LLM passes with curated rubrics that flag muddy hierarchy, nested cards, low-contrast accents, generic spinners where skeletons belong; pattern-mirrors REFERENCES.md tier-1 #2 (impeccable.style /impeccable polish commands) and #4 (alchaincyf/huashu-design 5-dimension critique with radar output). (b) Polish pattern library — vocabulary of high-craft moves to APPLY (not enforce): spring physics with named constants, stagger timing, easing curves per gesture, skeleton-matches-content-shape, progressive corner rounding; pattern-mirrors REFERENCES.md tier-1 #3 (emilkowalski/skill emil-design-eng SKILL.md). (c) Exemplar-driven targets — curated reference corpus of "this is the bar" anchors per component type (Linear empty list, Stripe loading state, Raycast command palette, Vercel error page); enables visual/LLM-evaluated proximity-to-exemplar scoring. Fundamentally different infrastructure from #1-#4: LLM passes (not AST/tree-sitter queries), pattern application (not constraint enforcement), exemplar corpus (not rule catalog). Composes into #5 orchestrator alongside the floor-raising audits. See docs/changes/design-pipeline/REFERENCES.md tier-1 entries #2, #3, #4 for direct prior art.
 - **Blockers:** —
 - **Plan:** docs/changes/design-pipeline/design-craft-elevator/plans/2026-05-23-design-craft-elevator-plan.md
-- **Assignee:** —
+- **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#371
+- **Updated-At:** 2026-05-29T19:36:34.846Z
 
 ### harness:craft-pipeline orchestrator
 
