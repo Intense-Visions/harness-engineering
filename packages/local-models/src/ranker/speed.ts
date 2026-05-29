@@ -146,46 +146,18 @@ export function estimateSpeed(input: SpeedEstimateInput): SpeedEstimate {
   const backend = input.backend ?? defaultBackend(input.hardware.platform);
   const quantInfo: NormalizedQuant = normalizeQuantId(input.quant);
   const activeParamsB = input.activeB ?? input.sizeB;
-  // GiB to match `VramEstimate.weightsGb`. The denominator of the t/s formula
-  // is bandwidth (GB/s, decimal) ÷ active weight footprint (GiB, binary); the
-  // ~7% unit mismatch shows up as a constant bias in the realised efficiency
-  // multiplier, so we calibrate `BACKEND_EFFICIENCY` against this convention.
-  const activeWeightsGb =
-    (activeParamsB * PARAMS_PER_BILLION * quantInfo.bitsPerWeight) / 8 / BYTES_PER_GIB;
+  const activeWeightsGb = computeActiveWeightsGb(activeParamsB, quantInfo.bitsPerWeight);
 
-  // Won't-fit even with full RAM spillover: short-circuit. The ranker can
-  // still display this candidate; it just won't recommend installing it.
-  const totalAvailableGb = input.hardware.vramGb + input.hardware.ramGb;
-  if (input.vramEstimate.totalGb > totalAvailableGb) {
-    return {
-      tokPerSec: 0,
-      confidence: 'low',
-      effectiveBandwidthGbps: 0,
-      activeWeightsGb,
-      partialOffloadFraction: 1,
-      backend,
-    };
+  if (input.vramEstimate.totalGb > input.hardware.vramGb + input.hardware.ramGb) {
+    return wontFitResult(activeWeightsGb, backend);
   }
 
   const partialOffloadFraction = computePartialOffloadFraction(input.hardware, input.vramEstimate);
-
-  // CPU-only platform: skip the PCIe floor blend. `hardware.bandwidthGbps`
-  // already reflects detected DRAM bandwidth (`cpu.ts`'s family table), so
-  // honouring it lets an EPYC server score above a laptop. The floor is a
-  // GPU-spillover concept; it does not apply when there is no GPU.
-  const effectiveBandwidthGbps =
-    input.hardware.platform === 'cpu'
-      ? input.hardware.bandwidthGbps
-      : input.hardware.bandwidthGbps * (1 - partialOffloadFraction) +
-        CPU_BANDWIDTH_FLOOR_GBPS * partialOffloadFraction;
-
-  const efficiency = BACKEND_EFFICIENCY[backend];
-  // `activeWeightsGb` is positive by construction (sizeB and bitsPerWeight
-  // both > 0 for any model the ranker would surface); guard anyway to keep
-  // the estimator total for callers passing degenerate fixtures.
+  const effectiveBandwidthGbps = computeEffectiveBandwidth(input.hardware, partialOffloadFraction);
   const tokPerSec =
-    activeWeightsGb > 0 ? (effectiveBandwidthGbps * efficiency) / activeWeightsGb : 0;
-
+    activeWeightsGb > 0
+      ? (effectiveBandwidthGbps * BACKEND_EFFICIENCY[backend]) / activeWeightsGb
+      : 0;
   const confidence = computeConfidence({
     partialOffloadFraction,
     backend,
@@ -200,6 +172,45 @@ export function estimateSpeed(input: SpeedEstimateInput): SpeedEstimate {
     partialOffloadFraction,
     backend,
   };
+}
+
+/**
+ * GiB to match `VramEstimate.weightsGb`. The denominator of the t/s formula
+ * is bandwidth (GB/s, decimal) ÷ active weight footprint (GiB, binary); the
+ * ~7% unit mismatch shows up as a constant bias in the realised efficiency
+ * multiplier, so `BACKEND_EFFICIENCY` is calibrated against this convention.
+ */
+function computeActiveWeightsGb(activeParamsB: number, bitsPerWeight: number): number {
+  return (activeParamsB * PARAMS_PER_BILLION * bitsPerWeight) / 8 / BYTES_PER_GIB;
+}
+
+/** Won't-fit short-circuit. Caller still gets a stable envelope to display. */
+function wontFitResult(activeWeightsGb: number, backend: SpeedBackend): SpeedEstimate {
+  return {
+    tokPerSec: 0,
+    confidence: 'low',
+    effectiveBandwidthGbps: 0,
+    activeWeightsGb,
+    partialOffloadFraction: 1,
+    backend,
+  };
+}
+
+/**
+ * CPU-only platforms skip the PCIe floor blend — `hardware.bandwidthGbps`
+ * already reflects detected DRAM bandwidth (`cpu.ts`'s family table), so
+ * honouring it lets an EPYC server score above a laptop. The floor is a
+ * GPU-spillover concept; it doesn't apply when there is no GPU.
+ */
+function computeEffectiveBandwidth(
+  hardware: HardwareProfile,
+  partialOffloadFraction: number
+): number {
+  if (hardware.platform === 'cpu') return hardware.bandwidthGbps;
+  return (
+    hardware.bandwidthGbps * (1 - partialOffloadFraction) +
+    CPU_BANDWIDTH_FLOOR_GBPS * partialOffloadFraction
+  );
 }
 
 function computeConfidence(args: {
