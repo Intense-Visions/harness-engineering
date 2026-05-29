@@ -2,7 +2,7 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-05-17
+updated: 2026-05-27
 last_synced: 2026-05-23T20:39:30.138Z
 last_manual_edit: 2026-05-24T15:27:04.258Z
 ---
@@ -1197,11 +1197,11 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### Hermes Phase 2: Custom Maintenance Jobs
 
-- **Status:** planned
-- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-2-custom-jobs/proposal.md
 - **Summary:** Extend MaintenanceScheduler beyond 21 built-in tasks: user-defined custom jobs with output persistence, context_from chaining, skill-content injection, origin tracking, arbitrary pre-check scripts. Plus pre-launch OSV malware guard on MCP/npx packages and expanded cleanup-sessions to general .harness disk hygiene. From Hermes adoption meta-spec.
-- **Blockers:** Hermes Phase 0: Gateway API + Telemetry
-- **Plan:** —
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-2-custom-jobs/plans/2026-05-17-main-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#312
@@ -1996,9 +1996,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### design-pipeline sub-project #4: harness check-design verifier
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/design-pipeline/check-design-verifier/proposal.md
-- **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1.
+- **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1. Shipped in PR #394 (commit d1c9bda5): new `harness check-design` CLI command composing audit-anatomy + design-craft critique with direct programmatic invocation, graph persistence via `DesignConstraintAdapter.recordFindings()`, graceful per-verifier degradation, and exit-code semantics matching `check-docs` (0 clean / 1 error findings / 2 verifier failure). Subsequent design-pipeline sub-projects #1 (detect-design-drift) and #3 (audit-brand-compliance) were folded in as additional verifiers per the proposal's "5-line addition" plan. The Verifier-shape convention noted in the v1 comment was formally extracted into `packages/cli/src/shared/verifier.ts` at the 4th-verifier threshold (audit-brand-compliance, PR for sub-project #3).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2139,9 +2139,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### craft-pipeline sub-project #10: security-craft
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/craft-pipeline/security-craft/proposal.md
-- **Summary:** LLM-judgment skill for security posture — the ceiling counterpart to harness-security-scan (CVE / OWASP rule-based) and harness-security-reviewer (procedural review). Threat-modeling-as-skill rather than pattern-checking. Ceiling questions: is this trust boundary respected or accidentally bridged? where's the implicit privilege escalation? does this code defend in depth or just at the gate? is principle of least authority honored in shape? what's the assumed adversary and does the code respect it? where does data flow cross a trust boundary unannounced? Hardest-to-land-well of the craft family — judgment-based security risks both false positives (overcaution paralyzes shipping) and false negatives (missed real issues). v1 mitigates the FP risk with three layers: AST-driven signal detection (files with zero signals are skipped), per-rubric appliesToSignals pre-filter, conservative-confidence system prompt biasing the LLM toward `medium` confidence. In review as PR #410.
+- **Summary:** LLM-judgment skill for security posture — the ceiling counterpart to harness-security-scan (CVE / OWASP rule-based) and harness-security-reviewer (procedural review). Threat-modeling-as-skill rather than pattern-checking. Ceiling questions: is this trust boundary respected or accidentally bridged? where's the implicit privilege escalation? does this code defend in depth or just at the gate? is principle of least authority honored in shape? what's the assumed adversary and does the code respect it? where does data flow cross a trust boundary unannounced? Hardest-to-land-well of the craft family — judgment-based security risks both false positives (overcaution paralyzes shipping) and false negatives (missed real issues). v1 mitigates the FP risk with three layers: AST-driven signal detection (files with zero signals are skipped), per-rubric appliesToSignals pre-filter, conservative-confidence system prompt biasing the LLM toward `medium` confidence. Shipped in PR #410 (8 seed rubrics SEC-R001…SEC-R008, 7 signal kinds, new CLI `harness security-craft`, new MCP tool `security_craft`; follow-up PRs #412 and #415 hardened signals.ts comment FPs and refreshed baselines). Sixth craft-pipeline sub-project to ship (of 10); #2 docs-craft, #4 code-craft, #7 api-craft, #8 cli-ergonomics remain planned and still block the orchestrator.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —

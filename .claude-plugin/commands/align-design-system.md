@@ -1,7 +1,7 @@
 ---
 name: harness:align-design-system
 description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project
-argument-hint: '[--path <path>] [--dry-run <dry-run>] [--files <files>] [--mode <mode>]'
+argument-hint: '[--path <path>] [--dry-run <dry-run>] [--files <files>] [--mode <mode>] [--revert <revert>]'
 allowed-tools:
   - Bash
   - Read
