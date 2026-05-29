@@ -23026,6 +23026,37 @@
       },
       "suppressionCount": 0,
       "findingIds": []
+    },
+    {
+      "capturedAt": "2026-05-29T15:17:16.010Z",
+      "commitHash": "fdfd57673813bcf57641c26fa65326e3346e0857",
+      "securityScore": 99,
+      "totalFindings": 1,
+      "bySeverity": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd"
+      ]
     }
   ],
   "findingLifecycles": [
@@ -24106,6 +24137,17 @@
       "firstSeenCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433",
       "resolvedAt": "2026-05-27T11:25:34.726Z",
       "resolvedCommit": "7537425d7dd0ab1c2627062b7cebc9342b33e433"
+    },
+    {
+      "findingId": "0020d9dbc68c53fd",
+      "ruleId": "SEC-CRY-001",
+      "category": "crypto",
+      "severity": "warning",
+      "file": "packages/cli/src/design-craft/measurement/signal.ts",
+      "firstSeenAt": "2026-05-29T15:15:23.744Z",
+      "firstSeenCommit": "fdfd57673813bcf57641c26fa65326e3346e0857",
+      "resolvedAt": null,
+      "resolvedCommit": null
     }
   ]
 }
