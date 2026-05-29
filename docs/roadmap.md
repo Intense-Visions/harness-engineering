@@ -1996,9 +1996,9 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### design-pipeline sub-project #4: harness check-design verifier
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/design-pipeline/check-design-verifier/proposal.md
-- **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1.
+- **Summary:** Convergence-verifier the design align skills rerun after each fix batch — equivalent of harness check-docs in docs-pipeline. Two options to decide during brainstorm: new harness check-design CLI command vs. extension of harness validate. Hooks into existing DesignConstraintAdapter. Prerequisite for the align skill in sub-project #1. Shipped in PR #394 (commit d1c9bda5): new `harness check-design` CLI command composing audit-anatomy + design-craft critique with direct programmatic invocation, graph persistence via `DesignConstraintAdapter.recordFindings()`, graceful per-verifier degradation, and exit-code semantics matching `check-docs` (0 clean / 1 error findings / 2 verifier failure). Subsequent design-pipeline sub-projects #1 (detect-design-drift) and #3 (audit-brand-compliance) were folded in as additional verifiers per the proposal's "5-line addition" plan. The Verifier-shape convention noted in the v1 comment was formally extracted into `packages/cli/src/shared/verifier.ts` at the 4th-verifier threshold (audit-brand-compliance, PR for sub-project #3).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
