@@ -56,6 +56,8 @@ describe('design-craft runPipeline measurement wiring', () => {
     expect(stats.rubrics['rubric-hierarchy-clarity']).toBe(1);
     expect(stats.rubrics['rubric-typography-craft']).toBe(1);
     expect(stats.rubrics['rubric-motion-quality']).toBe(1);
+    expect(stats.rubrics['rubric-color-confidence']).toBe(1);
+    expect(stats.rubrics['rubric-density-rhythm']).toBe(1);
     // CRITIQUE does not bump pattern or exemplar counters.
     expect(stats.patterns).toEqual({});
     expect(stats.exemplars).toEqual({});
@@ -76,11 +78,11 @@ describe('design-craft runPipeline measurement wiring', () => {
       .readFileSync(events, 'utf8')
       .split('\n')
       .filter((l) => l.trim().length > 0);
-    // 3 rubrics × 1 target = 3 findings = 3 events
-    expect(lines).toHaveLength(3);
+    // 5 rubrics × 1 target = 5 findings = 5 events
+    expect(lines).toHaveLength(5);
     const parsed = lines.map((l) => JSON.parse(l) as { finding: { code: string } });
     const codes = parsed.map((e) => e.finding.code).sort();
-    expect(codes).toEqual(['CRAFT-C001', 'CRAFT-C002', 'CRAFT-C003']);
+    expect(codes).toEqual(['CRAFT-C001', 'CRAFT-C002', 'CRAFT-C003', 'CRAFT-C004', 'CRAFT-C005']);
   });
 
   it('honors __recordMeasurement: false (no files written)', async () => {

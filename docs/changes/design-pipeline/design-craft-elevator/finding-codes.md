@@ -23,7 +23,9 @@
   - [CRAFT-C001 — Hierarchy Clarity](#craft-c001--hierarchy-clarity)
   - [CRAFT-C002 — Typography Craft](#craft-c002--typography-craft)
   - [CRAFT-C003 — Motion Quality](#craft-c003--motion-quality)
-  - [CRAFT-C004–C010 — RESERVED (Phase 1 / Phase 2 seed)](#craft-c004c010--reserved-phase-1--phase-2-seed)
+  - [CRAFT-C004 — Color Confidence](#craft-c004--color-confidence)
+  - [CRAFT-C005 — Density & Rhythm](#craft-c005--density--rhythm)
+  - [CRAFT-C006–C010 — RESERVED (Phase 2B seed)](#craft-c006c010--reserved-phase-2b-seed)
   - [CRAFT-C011–C100 — RESERVED (post-seed growth)](#craft-c011c100--reserved-post-seed-growth)
 - [CRAFT-P\* — Polish findings](#craft-p--polish-findings)
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
@@ -59,12 +61,13 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range       | Phase landed     | Status (v1)                                                                   |
-| ----------- | ---------------- | ----------------------------------------------------------------------------- |
-| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).          |
-| `C004–C010` | Phase 1–2        | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics). |
-| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).    |
-| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                  |
+| Range       | Phase landed     | Status (v1)                                                                                                                                               |
+| ----------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                                      |
+| `C004–C005` | Phase 1B (this)  | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).                                |
+| `C006–C010` | Phase 2B         | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics — restraint, polish-details, copy-voice, interaction-craft, brand-coherence). |
+| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                                                |
+| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                              |
 
 **CRAFT-P (polish patterns):**
 
@@ -325,21 +328,97 @@ Stripe checkout amount input: spring-physics character ticker on value change, 1
 - The Phase 0 spike notes this rubric does NOT need a `confidenceCap` field today (the prompt enforces the cap through LLM instruction). A first-class `confidenceCap` schema field is flagged as a possible future addition.
 - Pairs naturally with `CRAFT-P001` (spring-physics) — many CRITIQUE findings on motion will recommend the spring-physics pattern as the POLISH suggestion.
 
-### CRAFT-C004–C010 — RESERVED (Phase 1 / Phase 2 seed)
+### CRAFT-C004 — Color Confidence
 
-Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion). The remaining 7 rubrics in the seed must be authored during Phase 1 Stream B (5 additional Phase 1 rubrics) and Phase 2 Stream B (2 final rubrics to complete the seed). Per the proposal's success criterion #7 enumeration, the seed list is:
+**Catalog entry id:** `rubric-color-confidence`
+
+**Tier / impact:** `tier: foundational`, `impact: large`. **Confidence cap:** `medium` in `mode: fast` (code-only) per the prompt's explicit note — declared tokens are visible but rendered hue is not. `mode: deep` (vision + render) lifts the cap.
+
+**Applies to:** `[component, page]` — color confidence applies at both scopes (component-level role usage and page-level chroma distribution).
+
+**Source citation:** `refactoring-ui#color + vercel-geist#palette` — <https://www.refactoringui.com/>
+
+**Prompt** (verbatim from `catalog/rubrics/color-confidence.ts`):
+
+> Evaluate the color confidence of {target}.
+>
+> - Does the surface commit to a small set of named roles (text, surface, accent, success, danger, muted) or scatter raw hex / rgb values?
+> - Is the accent earning its presence (one primary CTA, one focal highlight) or smeared across multiple competing elements?
+> - Are neutrals doing structural work (cards, dividers, hover) without drifting into tinted grays that read as accidental color?
+> - Is contrast between text and surface sufficient for the role (body ≥ 4.5:1; large display ≥ 3:1) or does the surface lean on chroma to compensate for low luminance contrast?
+> - Are semantic colors used consistently (danger only for destructive outcomes, success only for confirmation) or decoratively?
+> - Is dark mode a real rethink (recomputed roles, recovered contrast) or a token swap that flattens hierarchy?
+>   Use the 3-axis output model (tier x impact x confidence). Be honest about confidence — code-only analysis sees declared tokens but not rendered hue, so confidence should drop when only raw values are visible without role context.
+
+**Message** (LLM-generated; example shape):
+
+> `Color usage in {target} {finding-specific narrative — e.g., "scatters seven raw hex values across cards, badges, and dividers without role tokens, and uses the accent indigo on three competing CTAs"}. {recommendation — e.g., "Commit to a single accent on the primary CTA, demote secondary actions to neutral, and replace raw values with named role tokens"}.`
+
+**Positive example (finding emitted):**
+
+Marketing dashboard with seven accent hues sprinkled across cards, badges, hover states, and section dividers. Raw `#3B82F6` and `rgb(34,197,94)` interleaved with token names. Every status pill gets a custom color, so semantic meaning is lost — green just means "chart entry," not "success."
+
+**Negative example (no finding):**
+
+Linear settings panel — a single accent (indigo) reserved for the active nav item and the primary save CTA, neutrals carry every structural border, success/danger appear only on confirmation toasts. Dark mode flips role tokens with recomputed contrast, not a luminance invert. The eye reads one accent and one structure layer.
+
+**Schema notes:**
+
+- `tier: foundational` reflects that color confidence is a baseline craft dimension; a project that scatters seven accents without role tokens is unfinished at the foundation layer, not at the polish layer.
+- Pairs naturally with `audit-brand-compliance` (sub-project #3 — declared brand-color usage rules). When that skill is configured, color-confidence findings the audit already flagged are deferred via the i18n-style overlap resolution (mirrors `CRAFT-C003` × `harness-design` deferral).
+
+### CRAFT-C005 — Density & Rhythm
+
+**Catalog entry id:** `rubric-density-rhythm`
+
+**Tier / impact:** `tier: foundational`, `impact: medium`. **Confidence cap:** `medium` in `mode: fast` (code-only) — declared spacing scales are visible but rendered rhythm is not. `mode: deep` lifts the cap.
+
+**Applies to:** `[component, page]` — rhythm operates at both scopes (component-internal pair-vs-group gaps, page-level section rhythm).
+
+**Source citation:** `refactoring-ui#spacing + linear-app#density` — <https://www.refactoringui.com/>
+
+**Prompt** (verbatim from `catalog/rubrics/density-rhythm.ts`):
+
+> Evaluate the density and spacing rhythm of {target}.
+>
+> - Does the surface honor a single spacing scale (e.g. 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64) or scatter arbitrary pixel margins?
+> - Is the gap between paired elements (label + control, icon + text) tighter than the gap to the next group, so the eye reads clusters?
+> - Is the surface honest about its density — generous when content rewards generosity (marketing, hero, empty states), compact when content rewards compactness (dashboards, command palettes, tables)?
+> - Does vertical rhythm survive at varying viewport widths, or do the gaps collapse / explode at common breakpoints?
+> - Are dividers earning their presence (only where whitespace alone fails to group) or used as decorative seams?
+> - Are sibling cards / rows / sections rhythmically spaced, or does one out-of-scale gap break the pattern?
+>   Use the 3-axis output model (tier x impact x confidence). Confidence should drop when the target lacks a declared spacing scale to compare against, or when only inline styles are visible without surrounding layout context.
+
+**Message** (LLM-generated; example shape):
+
+> `Spacing in {target} {finding-specific narrative — e.g., "uses 14 / 17 / 21 / 11 pixel values inline without an underlying scale, and label-to-control gaps are equal to group-to-group gaps so pairing collapses"}. {recommendation — e.g., "Adopt a 4/8/16/24/32 scale, tighten label-control gaps to 8, and widen group separation to 24 so clusters read"}.`
+
+**Positive example (finding emitted):**
+
+Settings form with `margin: 14px`, `padding: 17px 21px`, and `gap: 11px` interleaved — no scale, no rhythm. Label sits 12px from its control AND 12px from the next group, so pairing collapses. Horizontal rules between every row of equal weight, plus generous whitespace on a dense list view that should be compact. Mobile gaps snap to 6px while desktop is at 32px — no continuity.
+
+**Negative example (no finding):**
+
+Linear issue detail page — 4/8/16/24/32 scale used throughout, label-to-control gap is 8 while group-to-group is 24, so the eye reads pairs without effort. Dashboard rows compact at 36px, marketing hero generous at 96px — same product, honest about role. Dividers appear only between unrelated regions; everywhere else whitespace handles grouping.
+
+**Schema notes:**
+
+- `tier: foundational` × `impact: medium` deliberately exercises a different tier × impact pair than `CRAFT-C001` (foundational × large) and `CRAFT-C004` (foundational × large), reinforcing the axes' independence within the foundational tier.
+- Pairs naturally with `CRAFT-P003` (stagger-timing) where rhythm becomes temporal as well as spatial.
+
+### CRAFT-C006–C010 — RESERVED (Phase 2B seed)
+
+Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion), Phase 1B (this) defined 2 more (color-confidence, density-rhythm). The remaining 5 rubrics in the seed are authored during Phase 2B. Per the proposal's success criterion #7 enumeration, the remaining seed list is:
 
 | Likely code  | Probable rubric (per success criterion #7 enumeration) |
 | ------------ | ------------------------------------------------------ |
-| `CRAFT-C004` | Color confidence                                       |
-| `CRAFT-C005` | Density rhythm                                         |
 | `CRAFT-C006` | Restraint                                              |
 | `CRAFT-C007` | Polish details                                         |
 | `CRAFT-C008` | Copy voice                                             |
 | `CRAFT-C009` | Interaction craft                                      |
 | `CRAFT-C010` | Brand coherence                                        |
 
-> **All codes in C004–C010 are RESERVED — to be defined during Phase 1 / Phase 2 catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+> **All codes in C006–C010 are RESERVED — to be defined during Phase 2B catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-C011–C100 — RESERVED (post-seed growth)
 

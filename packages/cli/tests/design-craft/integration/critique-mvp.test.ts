@@ -159,11 +159,12 @@ describe('design-craft MCP handler (MVP)', () => {
       };
     };
 
-    // Phase 2: MCP path now runs all 3 seed rubrics (hierarchy-clarity,
-    // typography-craft, motion-quality) → 3 findings × 1 target.
-    expect(payload.findings).toHaveLength(3);
+    // Phase 1B half-seed: MCP path now runs all 5 seed rubrics
+    // (hierarchy-clarity, typography-craft, motion-quality, color-confidence,
+    // density-rhythm) → 5 findings × 1 target.
+    expect(payload.findings).toHaveLength(5);
     const codes = payload.findings.map((f) => f.code).sort();
-    expect(codes).toEqual(['CRAFT-C001', 'CRAFT-C002', 'CRAFT-C003']);
+    expect(codes).toEqual(['CRAFT-C001', 'CRAFT-C002', 'CRAFT-C003', 'CRAFT-C004', 'CRAFT-C005']);
     for (const finding of payload.findings) {
       expect(finding.confidence).toBe('low');
       expect(finding.derived.priority).toBeGreaterThan(0);
@@ -172,11 +173,13 @@ describe('design-craft MCP handler (MVP)', () => {
     expect(payload.summary.phaseRun).toEqual(['critique']);
     expect(payload.summary.mode).toBe('fast');
     expect(payload.summary.llmCalls.provider).toBe('mock');
-    expect(payload.summary.llmCalls.count).toBe(3);
+    expect(payload.summary.llmCalls.count).toBe(5);
     expect(payload.summary.catalog.rubricsApplied).toEqual([
       'rubric-hierarchy-clarity',
       'rubric-typography-craft',
       'rubric-motion-quality',
+      'rubric-color-confidence',
+      'rubric-density-rhythm',
     ]);
     expect(payload.summary.runId).toMatch(/^[0-9a-f-]{36}$/);
 
