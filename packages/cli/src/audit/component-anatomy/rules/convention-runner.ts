@@ -36,6 +36,11 @@ import type { ConventionRule } from './convention-rule.js';
  *   - ANAT-D004 — Input.label         (Phase 2 catalog expansion: first
  *                                      Tier-1 critical for Input; primary
  *                                      a11y deferral overlap with A11Y-050)
+ *   - ANAT-D005 — Dialog.title        (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for Dialog; primary
+ *                                      a11y deferral overlap with A11Y-010,
+ *                                      same three-satisfier shape as
+ *                                      Input.label)
  *   - ANAT-D020 — EmptyState.headline (Phase 2 catalog expansion: first
  *                                      Tier-1 critical for EmptyState;
  *                                      sourced from Open UI rather than
@@ -55,6 +60,9 @@ const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   },
   Input: {
     label: 'ANAT-D004',
+  },
+  Dialog: {
+    title: 'ANAT-D005',
   },
   EmptyState: {
     headline: 'ANAT-D020',
@@ -97,6 +105,18 @@ function isSlotSatisfied(
     // sites for v1 (the ANAT-U* call-site family is reserved for v2).
     return (
       memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
+    );
+  }
+
+  if (componentType === 'Dialog' && slotName === 'title') {
+    // Per finding-codes.md ANAT-D005 satisfiability: any of `title` prop,
+    // `aria-label` prop, or `aria-labelledby` prop. Same three-satisfier
+    // shape as ANAT-D004 (Input.label) — APG dialog-modal mandates the
+    // accessible name via aria-labelledby (pointing at a visible heading)
+    // or aria-label when no visible label exists; libraries surface this
+    // ergonomically as a `title` prop.
+    return (
+      memberSet.has('title') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
     );
   }
 

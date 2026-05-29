@@ -38,6 +38,11 @@ describe('catalog registry', () => {
     expect(types).toContain('EmptyState');
   });
 
+  it('exposes Dialog as a catalogued type (Phase 2 expansion #4)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('Dialog');
+  });
+
   it('returns the same set of types from the public `exports.ts` surface', () => {
     // harness-accessibility step 2.6 imports getCatalogTypes from the
     // public exports surface. The contract is that both paths return
@@ -77,6 +82,22 @@ describe('catalog registry', () => {
     expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
     expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
+  });
+
+  it('looks up Dialog to its full ConventionRule with title as the required Tier-1 slot', () => {
+    const rule = lookupConvention('Dialog');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('Dialog');
+    // Dialog sources from APG's dialog-modal pattern — the canonical
+    // authoritative spec for the modal-overlay accessible-name mandate.
+    expect(rule!.source.ref).toBe('APG/dialog-modal');
+    // Dialog.title is the only Tier-1 required slot in v1 — the
+    // description, close-action, and footer slots are recommended
+    // (Tier-2) and not yet flagged.
+    expect(rule!.slots.find((s) => s.name === 'title')?.required).toBe(true);
+    expect(rule!.slots.find((s) => s.name === 'description')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'close-action')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'footer')?.required).toBe(false);
   });
 
   it('looks up EmptyState to its full ConventionRule with headline as the required Tier-1 slot', () => {
