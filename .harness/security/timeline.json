@@ -23090,8 +23090,8 @@
       ]
     },
     {
-      "capturedAt": "2026-05-29T19:46:08.093Z",
-      "commitHash": "7750dc266a547de3f09f9ffa17c40a911cc30741",
+      "capturedAt": "2026-05-29T18:36:06.288Z",
+      "commitHash": "24d0bd5f16aebf423a37347f2e4034ad79f241c3",
       "securityScore": 99,
       "totalFindings": 1,
       "bySeverity": {

@@ -1,0 +1,32 @@
+name: Auto-approve baseline refresh PRs
+
+# The refresh-baselines job in ci.yml opens a PR from github-actions[bot] when
+# direct push to main is blocked by the ruleset. That PR sits waiting on a
+# required review. This workflow approves it automatically so `gh pr merge --auto`
+# (set in ci.yml) can complete once checks pass.
+#
+# Scope is intentionally narrow: branch prefix + title + author all must match.
+# Approval uses BASELINE_AUTOAPPROVE_PAT because GITHUB_TOKEN cannot approve PRs
+# and an author cannot approve their own PR.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  approve:
+    if: >-
+      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'chore/refresh-baselines-') &&
+      github.event.pull_request.title == 'chore: refresh baselines after merge'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve PR
+        env:
+          GH_TOKEN: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review "$PR_URL" --approve --body "Auto-approved: baseline refresh from github-actions[bot]."

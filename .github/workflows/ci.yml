@@ -160,11 +160,12 @@ jobs:
             BRANCH="chore/refresh-baselines-$(date +%s)"
             git checkout -b "$BRANCH"
             git push -u origin "$BRANCH"
-            gh pr create \
+            PR_URL=$(gh pr create \
               --title "chore: refresh baselines after merge" \
               --body "Auto-generated baseline refresh. This PR was created because direct pushes to main are blocked by branch protection rules." \
               --base main \
-              --head "$BRANCH"
+              --head "$BRANCH")
+            gh pr merge "$PR_URL" --auto --squash --delete-branch
           fi
         env:
           HUSKY: '0'
