@@ -33,6 +33,11 @@ describe('catalog registry', () => {
     expect(types).toContain('Input');
   });
 
+  it('exposes EmptyState as a catalogued type (Phase 2 expansion #3)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('EmptyState');
+  });
+
   it('returns the same set of types from the public `exports.ts` surface', () => {
     // harness-accessibility step 2.6 imports getCatalogTypes from the
     // public exports surface. The contract is that both paths return
@@ -72,6 +77,24 @@ describe('catalog registry', () => {
     expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
     expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
+  });
+
+  it('looks up EmptyState to its full ConventionRule with headline as the required Tier-1 slot', () => {
+    const rule = lookupConvention('EmptyState');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('EmptyState');
+    // EmptyState sources from Open UI rather than APG — APG does not
+    // catalog EmptyState (not an interactive ARIA pattern). Per
+    // Decision #5's source hierarchy, Open UI is the next-most
+    // authoritative public reference.
+    expect(rule!.source.ref).toBe('OpenUI/empty-state');
+    expect(rule!.slots.find((s) => s.name === 'headline')?.required).toBe(true);
+    // Per Phase 0 spec § EmptyState: headline is the ONLY required
+    // slot. icon, description, and the action slots are optional.
+    expect(rule!.slots.find((s) => s.name === 'icon')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'description')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'primary-action')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'secondary-action')?.required).toBe(false);
   });
 
   it('returns null for an unknown component type (silent skip per Decision #1)', () => {
