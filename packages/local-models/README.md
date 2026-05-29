@@ -6,7 +6,7 @@ See [`docs/changes/local-model-lifecycle-manager/proposal.md`](../../docs/change
 
 ## Status
 
-**Phase 2b — VRAM + speed math.**
+**Phase 2c — Evidence + recency + benchmark sources/merge.**
 
 Public surface so far:
 
@@ -17,8 +17,12 @@ Public surface so far:
 - `normalizeQuantId` / `QUANT_BITS_PER_WEIGHT` (Phase 2b) — canonical GGUF + MLX quant table with case-insensitive alias resolution and a conservative fallback for unknown ids.
 - `estimateVram` (Phase 2b) — four-term VRAM decomposition (weights + KV cache + activations + framework overhead) for any `(sizeB, activeB?, quant, contextTokens, kvCacheQuant)` tuple. MoE keeps all weights resident; `activeB` is echoed for the speed estimator.
 - `estimateSpeed` (Phase 2b) — bandwidth-bound token throughput projection with backend-efficiency multipliers, MoE active-params handling, partial-offload blending toward a CPU floor, and a hard-zero short-circuit for won't-fit candidates. Never throws.
+- `gradeEvidence` / `EVIDENCE_CONFIDENCE` (Phase 2c) — five-rung evidence ladder (`direct`, `variant`, `base`, `interpolated`, `self-reported`) with calibrated confidence multipliers; self-reported observations are absorbed.
+- `applyRecencyDecay` (Phase 2c) — exponential age decay (halflife 9 months) plus an optional lineage step penalty (`× 0.6` per generation behind the target). Weights clamp at `MIN_RECENCY_WEIGHT = 0.05`.
+- `openLlmLeaderboardSource` / `huggingFacePopularitySource` (Phase 2c) — two seed adapters behind the `BenchmarkSource` interface. Both take an injected `Fetcher` so CI never touches the network; every failure path surfaces as a structured `SourceWarning` rather than throwing.
+- `mergeBenchmarks` (Phase 2c) — folds evidence × recency × source weight into a single `{ score (0–100), confidence: 'high' | 'medium' | 'low', contributions }` per candidate. Empty input short-circuits to `confidence: 'low'`; never throws.
 
-Evidence + recency grading, live benchmark sources, the merge algorithm, the `RankedModel` orchestrator, the pool manager, the Ollama installer, the proposal engine, the scheduler, and the HTTP / CLI / dashboard surfaces ship in Phases 2c–9 per the spec.
+The `RankedModel` orchestrator and parity fixtures land in Phase 2d. Pool manager, Ollama installer, proposal engine, scheduler, and HTTP / CLI / dashboard surfaces ship in Phases 3–9 per the spec.
 
 ## Goals (recap)
 
