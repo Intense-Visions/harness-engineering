@@ -185,7 +185,17 @@ describe('design-craft MCP handler — POLISH phase wiring', () => {
     expect(payload.findings[0].before).toContain('cubic-bezier');
     expect(payload.findings[0].after).toContain('spring');
     expect(payload.summary.phaseRun).toEqual(['polish']);
-    expect(payload.summary.catalog.patternsApplied).toEqual(['pattern-spring-physics']);
+    // patternsApplied lists the catalog items the phase considered (loaded
+    // into runPolish), not the ones that emitted findings. Widened in the
+    // Phase 2 catalog increment to include skeleton-content-matched (P002)
+    // and stagger-timing (P003); only spring-physics (P001) actually fires
+    // for the cubic-bezier fixture because the prefilter rules out the
+    // other two.
+    expect(payload.summary.catalog.patternsApplied).toEqual([
+      'pattern-spring-physics',
+      'pattern-skeleton-content-matched',
+      'pattern-stagger-timing',
+    ]);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

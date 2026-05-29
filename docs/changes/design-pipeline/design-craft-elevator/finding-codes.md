@@ -59,29 +59,32 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range       | Phase landed | Status (v1)                                                                   |
-| ----------- | ------------ | ----------------------------------------------------------------------------- |
-| `C001–C003` | Phase 0      | Defined (hierarchy, typography, motion — Phase 0 spike artifacts).            |
-| `C004–C010` | Phase 1–2    | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics). |
-| `C011–C020` | Post-v1      | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).    |
-| `C021–C100` | Long-term    | Reserved for community contribution + signal-loop proposals.                  |
+| Range       | Phase landed     | Status (v1)                                                                   |
+| ----------- | ---------------- | ----------------------------------------------------------------------------- |
+| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).          |
+| `C004–C010` | Phase 1–2        | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics). |
+| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).    |
+| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                  |
 
 **CRAFT-P (polish patterns):**
 
-| Range       | Phase landed | Status (v1)                                                                                                                                      |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `P001–P003` | Phase 0      | Defined (spring-physics, skeleton-content-matched, stagger-timing — Phase 0 spike).                                                              |
-| `P004–P015` | Phase 1–2    | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). |
-| `P016–P075` | Post-v1      | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                      |
-| `P076–P100` | Long-term    | Reserved for community contribution + signal-loop proposals.                                                                                     |
+| Range       | Phase landed     | Status (v1)                                                                                                                                      |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `P001`      | Phase 2 (PR 431) | Shipped (spring-physics — wired into `SEED_PATTERNS`).                                                                                           |
+| `P002–P003` | Phase 2 (this)   | Shipped (skeleton-content-matched, stagger-timing — wired into `SEED_PATTERNS` from Phase 0 spike artifacts).                                    |
+| `P004–P015` | Phase 1–2        | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). |
+| `P016–P075` | Post-v1          | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                      |
+| `P076–P100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                     |
 
 **CRAFT-B (benchmark identifiers):**
 
-| Range       | Phase landed | Status (v1)                                                                              |
-| ----------- | ------------ | ---------------------------------------------------------------------------------------- |
-| `B001–B005` | Phase 0      | Anchor identifiers reserved for the 3 Phase 0 exemplars + 2 reserved early v1 exemplars. |
-| `B006–B050` | Phase 1–2    | Reserved for seed exemplar set (success criterion #9 lists 50 exemplars across 5 types). |
-| `B051–B100` | Post-v1      | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                     |
+| Range       | Phase landed     | Status (v1)                                                                                                         |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                          |
+| `B002–B003` | Phase 2 (this)   | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts). |
+| `B004–B005` | Phase 0          | Anchor identifiers reserved for the 2 reserved early v1 exemplars.                                                  |
+| `B006–B050` | Phase 1–2        | Reserved for seed exemplar set (success criterion #9 lists 50 exemplars across 5 types).                            |
+| `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
 
