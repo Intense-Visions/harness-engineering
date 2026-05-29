@@ -28,16 +28,18 @@
 
 import type { ConventionRule } from '../rules/convention-rule.js';
 import { buttonConvention } from './conventions/button.js';
+import { inputConvention } from './conventions/input.js';
 
 /**
- * Built-in convention catalog. Phase 1 ships Button only; Phase 2
- * catalog expansion grows this to the 20-component v1 set documented
- * in proposal.md § Success Criteria #7.
+ * Built-in convention catalog. Phase 1 shipped Button; Phase 2 catalog
+ * expansion grows this to the 20-component v1 set documented in
+ * proposal.md § Success Criteria #7. New entries land as one-line
+ * additions to this array.
  *
  * Entries are immutable at the module boundary — consumers receive
  * copies via `listConventions()` and the keys via `getCatalogTypes()`.
  */
-const builtinConventions: ConventionRule[] = [buttonConvention];
+const builtinConventions: ConventionRule[] = [buttonConvention, inputConvention];
 
 const conventionByType = new Map<string, ConventionRule>(
   builtinConventions.map((rule) => [rule.componentType, rule])

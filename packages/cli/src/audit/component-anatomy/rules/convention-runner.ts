@@ -30,10 +30,15 @@ import type { ConventionRule } from './convention-rule.js';
 /**
  * Static map: (componentType, slot.name) → finding code.
  *
- * Phase-1-vertical-slice scope — only Button slots are wired. Phase 2
- * catalog expansion extends this map per the finding-codes.md range
- * allocation (D004–D009 and D016–D019 reserved for Button overflow,
- * D010–D015 for Tabs, D020–D029 for EmptyState, etc.).
+ * Phase 2 catalog expansion extends this map per the finding-codes.md
+ * range allocation. Current assignments:
+ *   - ANAT-D001 — Button.content (Phase 1 vertical slice)
+ *   - ANAT-D004 — Input.label    (Phase 2 catalog expansion: first
+ *                                 Tier-1 critical for Input; primary
+ *                                 a11y deferral overlap with A11Y-050)
+ *
+ * Remaining Tier-1 codes in D004–D029 are assigned in landing order as
+ * Phase 2 conventions ship per the finding-codes.md reservation table.
  *
  * When a required slot lacks a mapped code the runner skips it (does
  * not emit a finding) rather than fabricate a synthetic code — keeps
@@ -42,6 +47,9 @@ import type { ConventionRule } from './convention-rule.js';
 const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   Button: {
     content: 'ANAT-D001',
+  },
+  Input: {
+    label: 'ANAT-D004',
   },
 };
 
@@ -70,6 +78,18 @@ function isSlotSatisfied(
 
   if (componentType === 'Button' && slotName === 'content') {
     return memberSet.has('children') || memberSet.has('label') || memberSet.has('aria-label');
+  }
+
+  if (componentType === 'Input' && slotName === 'label') {
+    // Per finding-codes.md ANAT-D004 satisfiability: any of `label` prop,
+    // `aria-label` prop, or `aria-labelledby` prop. Authors who route
+    // labelling through an external `<label htmlFor>` element must wire
+    // it via `aria-labelledby` to be visible to the audit (and to a11y
+    // tools generally) — the audit deliberately does not inspect call
+    // sites for v1 (the ANAT-U* call-site family is reserved for v2).
+    return (
+      memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
+    );
   }
 
   // Fallback: exact-name match. Future slots can register specialised
