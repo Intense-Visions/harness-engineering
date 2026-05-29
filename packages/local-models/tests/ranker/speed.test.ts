@@ -159,4 +159,21 @@ describe('estimateTokPerSec', () => {
     expect(BACKEND_EFFICIENCY.cuda).toBeGreaterThan(BACKEND_EFFICIENCY.metal);
     expect(BACKEND_EFFICIENCY.cpu).toBeLessThan(BACKEND_EFFICIENCY.metal);
   });
+
+  it('degenerate zero-byte shape returns tokPerSec: 0 without dividing by zero', () => {
+    const empty: ModelShape = {
+      paramsB: 0,
+      layers: 0,
+      hiddenSize: 0,
+      numAttnHeads: 0,
+      numKvHeads: 0,
+      headDim: 0,
+      vocabSize: 0,
+      contextLen: 0,
+    };
+    const r = estimateTokPerSec({ shape: empty, quant: 'Q4_K_M', hardware: m3_max });
+    expect(r.tokPerSec).toBe(0);
+    expect(r.bytesPerToken).toBe(0);
+    expect(Number.isFinite(r.tokPerSec)).toBe(true);
+  });
 });

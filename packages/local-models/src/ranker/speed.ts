@@ -154,9 +154,17 @@ function resolveQuantFactor(quant: string): { factor: number; note: SpeedNote | 
 }
 
 /**
- * Bytes streamed per generated token: the active weights (all of them flow
- * through the compute unit once) plus the KV cache row (read for cross-token
- * attention).
+ * Bytes streamed per generated token under the weight-bandwidth-bound model
+ * that drives the rest of this estimator:
+ *
+ * - The active weights move through the compute unit exactly once per token
+ *   (the dominant term — for Qwen3-32B Q4_K_M that is ≈ 16.76 GiB per token).
+ * - One KV row is **written** per token (the small `2 × layers × headDim ×
+ *   numKvHeads × 2 bytes` term). The per-token **read** of all prior KV
+ *   entries scales with context length and is absorbed into the weight-
+ *   bandwidth term only approximately; an explicit `contextLen` factor would
+ *   bump the speed estimate by 5–15 % on long contexts. That calibration
+ *   belongs to Phase 2d's parity work, not 2b.
  *
  * MoE shapes use `activeParamsB`; dense shapes use `paramsB`.
  */

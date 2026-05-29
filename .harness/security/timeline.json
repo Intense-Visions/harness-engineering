@@ -23088,6 +23088,37 @@
       "findingIds": [
         "0020d9dbc68c53fd"
       ]
+    },
+    {
+      "capturedAt": "2026-05-29T20:15:49.290Z",
+      "commitHash": "2978b7ca9dc7c00d6f1a4f950293414b346d5a22",
+      "securityScore": 99,
+      "totalFindings": 1,
+      "bySeverity": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd"
+      ]
     }
   ],
   "findingLifecycles": [
