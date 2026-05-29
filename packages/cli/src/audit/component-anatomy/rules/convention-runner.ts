@@ -32,10 +32,15 @@ import type { ConventionRule } from './convention-rule.js';
  *
  * Phase 2 catalog expansion extends this map per the finding-codes.md
  * range allocation. Current assignments:
- *   - ANAT-D001 — Button.content (Phase 1 vertical slice)
- *   - ANAT-D004 — Input.label    (Phase 2 catalog expansion: first
- *                                 Tier-1 critical for Input; primary
- *                                 a11y deferral overlap with A11Y-050)
+ *   - ANAT-D001 — Button.content      (Phase 1 vertical slice)
+ *   - ANAT-D004 — Input.label         (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for Input; primary
+ *                                      a11y deferral overlap with A11Y-050)
+ *   - ANAT-D020 — EmptyState.headline (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for EmptyState;
+ *                                      sourced from Open UI rather than
+ *                                      APG since EmptyState is not an
+ *                                      interactive ARIA pattern)
  *
  * Remaining Tier-1 codes in D004–D029 are assigned in landing order as
  * Phase 2 conventions ship per the finding-codes.md reservation table.
@@ -50,6 +55,9 @@ const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   },
   Input: {
     label: 'ANAT-D004',
+  },
+  EmptyState: {
+    headline: 'ANAT-D020',
   },
 };
 
@@ -90,6 +98,15 @@ function isSlotSatisfied(
     return (
       memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
     );
+  }
+
+  if (componentType === 'EmptyState' && slotName === 'headline') {
+    // Per finding-codes.md ANAT-D020 satisfiability: any of `title` prop,
+    // `headline` prop, or `children` (the headline rendered as the first
+    // text child). Names only — Phase 1 satisfiability stance matches
+    // ANAT-D001 and ANAT-D004 (no type-compatibility check on `children`
+    // — its presence as a typed member is sufficient).
+    return memberSet.has('title') || memberSet.has('headline') || memberSet.has('children');
   }
 
   // Fallback: exact-name match. Future slots can register specialised

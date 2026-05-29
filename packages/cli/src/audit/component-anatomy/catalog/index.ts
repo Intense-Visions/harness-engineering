@@ -28,6 +28,7 @@
 
 import type { ConventionRule } from '../rules/convention-rule.js';
 import { buttonConvention } from './conventions/button.js';
+import { emptyStateConvention } from './conventions/empty-state.js';
 import { inputConvention } from './conventions/input.js';
 
 /**
@@ -39,7 +40,11 @@ import { inputConvention } from './conventions/input.js';
  * Entries are immutable at the module boundary — consumers receive
  * copies via `listConventions()` and the keys via `getCatalogTypes()`.
  */
-const builtinConventions: ConventionRule[] = [buttonConvention, inputConvention];
+const builtinConventions: ConventionRule[] = [
+  buttonConvention,
+  emptyStateConvention,
+  inputConvention,
+];
 
 const conventionByType = new Map<string, ConventionRule>(
   builtinConventions.map((rule) => [rule.componentType, rule])
