@@ -43,7 +43,12 @@ describe('catalog registry', () => {
     expect(types).toContain('Dialog');
   });
 
-  it('exposes Switch as a catalogued type (Phase 2 expansion)', () => {
+  it('exposes Select as a catalogued type (Phase 2 expansion #5)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('Select');
+  });
+
+  it('exposes Switch as a catalogued type (Phase 2 expansion #6)', () => {
     const types = getCatalogTypes();
     expect(types).toContain('Switch');
   });
@@ -103,6 +108,22 @@ describe('catalog registry', () => {
     expect(rule!.slots.find((s) => s.name === 'description')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'close-action')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'footer')?.required).toBe(false);
+  });
+
+  it('looks up Select to its full ConventionRule with label as the required Tier-1 slot', () => {
+    const rule = lookupConvention('Select');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('Select');
+    // Select sources from APG's listbox pattern — APG carries the
+    // normative accessible-name contract; Open UI is descriptive only.
+    expect(rule!.source.ref).toBe('APG/listbox');
+    // Select.label is the only Tier-1 required slot in v1 — helper-text,
+    // error-text, and placeholder slots are recommended (Tier-2) and not
+    // yet flagged. Same single-required-slot shape as Input.
+    expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
+    expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'placeholder')?.required).toBe(false);
   });
 
   it('looks up EmptyState to its full ConventionRule with headline as the required Tier-1 slot', () => {

@@ -24,6 +24,7 @@
     - [ANAT-D003 — Button: missing required `default` state](#anat-d003--button-missing-required-default-state)
     - [ANAT-D004 — Input: missing required `label` slot](#anat-d004--input-missing-required-label-slot)
     - [ANAT-D005 — Dialog: missing required `title` slot](#anat-d005--dialog-missing-required-title-slot)
+    - [ANAT-D006 — Select: missing required `label` slot](#anat-d006--select-missing-required-label-slot)
     - [ANAT-D007 — Switch: missing required `label` slot](#anat-d007--switch-missing-required-label-slot)
     - [ANAT-D010 — Tabs: missing required `root` slot](#anat-d010--tabs-missing-required-root-slot)
     - [ANAT-D011 — Tabs: missing required `tablist` slot](#anat-d011--tabs-missing-required-tablist-slot)
@@ -33,7 +34,7 @@
     - [ANAT-D015 — Tabs: missing required `focused` state (roving tabindex)](#anat-d015--tabs-missing-required-focused-state-roving-tabindex)
     - [ANAT-D020 — EmptyState: missing required `headline` slot](#anat-d020--emptystate-missing-required-headline-slot)
     - [ANAT-D021 — EmptyState: missing required `default` state](#anat-d021--emptystate-missing-required-default-state)
-    - [ANAT-D006, D008–D009 — RESERVED (critical required-slot, form-field overflow)](#anat-d006-d008d009--reserved-critical-required-slot-form-field-overflow)
+    - [ANAT-D008–D009 — RESERVED (critical required-slot, form-field overflow)](#anat-d008d009--reserved-critical-required-slot-form-field-overflow)
     - [ANAT-D022–D029 — RESERVED (critical required-slot)](#anat-d022d029--reserved-critical-required-slot)
   - [Tier-2 recommended: recommended-state missing (D030–D099)](#tier-2-recommended-recommended-state-missing-d030d099)
   - [Tier-3 optional: variant / size / cosmetic missing (D100–D199)](#tier-3-optional-variant--size--cosmetic-missing-d100d199)
@@ -189,7 +190,7 @@ JSDoc matches convention; no divergence; no finding.
 
 The Tier-1 band is reserved for definition findings where a component **omits a part the convention marks `required: true`**. These are baseline-failure findings — the component is structurally incomplete relative to its catalog convention. Default severity `error` at `standard` strictness.
 
-Codes D001–D003 belong to the Button convention (Phase 0 spike: `conventions/button.md`). Code D004 belongs to the Input convention (Phase 2 catalog expansion). Code D005 belongs to the Dialog convention (Phase 0 spike: `conventions/dialog.md`). Code D007 belongs to the Switch convention (Phase 2 catalog expansion: `conventions/switch.md`). Codes D010–D015 belong to the Tabs convention (Phase 0 spike: `conventions/tabs.md`). Codes D020–D021 belong to the EmptyState convention (Phase 0 spike: `conventions/empty-state.md`). Codes D006, D008–D009, D016–D019, and D022–D029 are RESERVED for Phase 2 — assignment proceeds in the order the catalog authors land conventions per Decision #5's 20-component scope.
+Codes D001–D003 belong to the Button convention (Phase 0 spike: `conventions/button.md`). Code D004 belongs to the Input convention (Phase 2 catalog expansion). Code D005 belongs to the Dialog convention (Phase 0 spike: `conventions/dialog.md`). Code D006 belongs to the Select convention (Phase 2 catalog expansion: `conventions/select.md`). Code D007 belongs to the Switch convention (Phase 2 catalog expansion: `conventions/switch.md`). Codes D010–D015 belong to the Tabs convention (Phase 0 spike: `conventions/tabs.md`). Codes D020–D021 belong to the EmptyState convention (Phase 0 spike: `conventions/empty-state.md`). Codes D008–D009, D016–D019, and D022–D029 are RESERVED for Phase 2 — assignment proceeds in the order the catalog authors land conventions per Decision #5's 20-component scope.
 
 #### ANAT-D001 — Button: missing required `content` slot
 
@@ -863,6 +864,122 @@ export const Dialog = (props: DialogProps) =>
 - Coordinates with harness-accessibility deferral (Phase 1 step 2.6): when `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers `A11Y-010` (`role="dialog"` without an accessible name) for Dialog call sites in favor of this definition-side finding. Dialog joins Button and Input as the third catalogued component to share the A11Y-010 deferral path — the deferral pattern ensures the same root cause is reported exactly once.
 - Tier-2 Dialog slots (`description`, `close-action`, `footer`) and states (`open` / `closed`) are catalogued on the convention rule but not yet wired to a finding code. The D060-D069 Tier-2 sub-band is reserved for the recommended overlay states per the bucket allocation table below.
 
+#### ANAT-D006 — Select: missing required `label` slot
+
+**Severity default:** `error`
+
+**Component type:** Select
+
+**Source citation:** `APG/listbox` — <https://www.w3.org/WAI/ARIA/apg/patterns/listbox/>
+
+**Message template:**
+
+> `Select definition is missing the required \`label\` slot. A Select that accepts no labelling affordance (no \`label\`, \`aria-label\`, or \`aria-labelledby\` prop) is the canonical APG violation — assistive technology cannot announce the field's purpose.`
+
+**Fix hint** (verbatim from the convention rule):
+
+> Add a labelling affordance. Accept a `label` prop (string), an `aria-label` prop (string), or an `aria-labelledby` prop (id reference). A Select without any labelling affordance is the canonical APG violation — assistive technology cannot announce the field's purpose.
+
+**Positive example (finding emitted):**
+
+```tsx
+interface SelectProps {
+  value?: string;
+  onChange?: (next: string) => void;
+  options: Array<{ value: string; label: string }>;
+  // No label, aria-label, or aria-labelledby — label slot missing.
+}
+
+export const Select = ({ value, onChange, options }: SelectProps) => (
+  <select value={value} onChange={(e) => onChange?.(e.target.value)}>
+    {options.map((opt) => (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
+    ))}
+  </select>
+);
+```
+
+Emits one `ANAT-D006` error finding at the Select definition.
+
+**Positive example (finding emitted — `placeholder` only):**
+
+```tsx
+interface SelectProps {
+  placeholder: string;
+  value?: string;
+  options: Array<{ value: string; label: string }>;
+}
+
+export const Select = ({ placeholder, value, options }: SelectProps) => (
+  <select value={value}>
+    <option value="">{placeholder}</option>
+    {options.map((opt) => (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
+    ))}
+  </select>
+);
+```
+
+`placeholder` is **not** a satisfier — APG explicitly warns that placeholder text disappears on selection and is not announced as the field's label. Still emits one `ANAT-D006` finding.
+
+**Negative example (no finding — `label` prop):**
+
+```tsx
+interface SelectProps {
+  label: string;
+  value?: string;
+  options: Array<{ value: string; label: string }>;
+}
+
+export const Select = ({ label, value, options }: SelectProps) => (
+  <label>
+    {label}
+    <select value={value}>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+```
+
+The `label: string` prop satisfies the `label` slot. No finding.
+
+**Negative example (no finding — `aria-labelledby` prop):**
+
+```tsx
+interface SelectProps {
+  'aria-labelledby': string;
+  value?: string;
+  options: Array<{ value: string; label: string }>;
+}
+
+export const Select = (props: SelectProps) => (
+  <select aria-labelledby={props['aria-labelledby']} value={props.value}>
+    {props.options.map((opt) => (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
+    ))}
+  </select>
+);
+```
+
+`aria-labelledby` is one of the three accepted labelling affordances. No finding.
+
+**Schema notes:**
+
+- The AST runner satisfies the `label` slot by detecting any of: a `label` prop, an `aria-label` prop, or an `aria-labelledby` prop on the parsed prop type. Names only — type compatibility (string vs. ReactNode) is not yet checked, matching the Phase 1 ANAT-D001 / ANAT-D004 / ANAT-D005 satisfiability stance.
+- `placeholder` is **deliberately excluded** from the satisfier list per APG `listbox` § "Labeling a Listbox" — placeholder text is announced by some screen readers as a value, not as the field's label, and disappears on selection. Authors who rely on placeholder text alone should add a separate `aria-label`.
+- Coordinates with harness-accessibility deferral (Phase 1 step 2.6): when `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers `A11Y-050` (`<select>` without an associated `<label>`) for Select call sites in favor of this definition-side finding. Select joins Input and Dialog as the fourth catalogued component to share the labelling-deferral path with `harness-accessibility` (the third to share the `A11Y-050` overlap specifically — Dialog uses `A11Y-010`).
+- Tier-2 Select slots (`helper-text`, `error-text`) and recommended states (`focus`, `disabled`, `invalid`, `open`) are catalogued on the convention rule but not yet wired to a finding code. The D040-D049 Tier-2 form-field band is reserved for those when the runner ships recommended-slot findings.
+
 #### ANAT-D007 — Switch: missing required `label` slot
 
 **Severity default:** `error`
@@ -930,20 +1047,20 @@ export const Switch = (props: SwitchProps) => (
 
 **Schema notes:**
 
-- The AST runner satisfies the `label` slot by detecting any of: a `label` prop, an `aria-label` prop, or an `aria-labelledby` prop on the parsed prop type. Names only — type compatibility (string vs. ReactNode) is not yet checked, matching the Phase 1 ANAT-D001 satisfiability stance and the three-satisfier shape established by ANAT-D004 (Input.label) and ANAT-D005 (Dialog.title).
+- The AST runner satisfies the `label` slot by detecting any of: a `label` prop, an `aria-label` prop, or an `aria-labelledby` prop on the parsed prop type. Names only — type compatibility (string vs. ReactNode) is not yet checked, matching the Phase 1 ANAT-D001 satisfiability stance and the three-satisfier shape established by ANAT-D004 (Input.label), ANAT-D005 (Dialog.title), and ANAT-D006 (Select.label).
 - Authors who route labelling through an external `<label htmlFor>` element should wire it via `aria-labelledby` to remain audit-visible. The audit deliberately does NOT inspect call sites for v1 — usage-side checks belong to the reserved `ANAT-U*` namespace (v2).
-- Coordinates with harness-accessibility deferral (Phase 1 step 2.6): when `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers `A11Y-010` (`role="switch"` without an accessible name) for Switch call sites in favor of this definition-side finding. Switch joins Button, Input, and Dialog as a catalogued component sharing the A11Y deferral path — the deferral pattern ensures the same root cause is reported exactly once.
+- Coordinates with harness-accessibility deferral (Phase 1 step 2.6): when `design.audit.componentAnatomy.enabled = true`, harness-accessibility defers `A11Y-010` (`role="switch"` without an accessible name) for Switch call sites in favor of this definition-side finding. Switch joins Button, Input, Dialog, and Select as a catalogued component sharing the A11Y deferral path — the deferral pattern ensures the same root cause is reported exactly once.
 - Tier-2 Switch slots (`helper-text`, `error-text`) and recommended states (`checked`, `focus`, `disabled`) are catalogued on the convention rule but not yet wired to a finding code. The D040–D049 Tier-2 form-field sub-band and the D080–D089 Tier-2 pressed/active sub-band are reserved for those when the runner ships recommended-slot findings.
 
-#### ANAT-D006, D008–D009 — RESERVED (critical required-slot, form-field overflow)
+#### ANAT-D008–D009 — RESERVED (critical required-slot, form-field overflow)
 
-These codes are RESERVED for Phase 2 catalog expansion. Switch claimed `D007` for its `label` slot; remaining critical form-field slots (e.g., Select's labelling affordance, Checkbox/Radio binary-control labelling) consume `D006`, `D008`, and `D009` in landing order.
+These codes are RESERVED for Phase 2 catalog expansion. Input claimed `D004`, Dialog claimed `D005`, Select claimed `D006`, and Switch claimed `D007`; remaining critical form-field slots (e.g., Checkbox/Radio binary-control labelling) consume `D008`–`D009` in landing order.
 
 > **To be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 #### ANAT-D022–D029 — RESERVED (critical required-slot)
 
-These codes are RESERVED for Phase 2 catalog expansion. Convention authors assign them in landing order for the remaining catalog components (Select, Card, Menu, Toast, Form, Accordion, Tooltip, Popover, Drawer, Slider, Checkbox, Radio, Avatar, Badge). Each landed component's critical findings claim the next contiguous codes in the D001–D029 band. If a single component requires more than 8 critical codes, overflow allocates into D006, D008–D009, and D016–D019 before considering band-resize.
+These codes are RESERVED for Phase 2 catalog expansion. Convention authors assign them in landing order for the remaining catalog components (Card, Menu, Toast, Form, Accordion, Tooltip, Popover, Drawer, Slider, Checkbox, Radio, Avatar, Badge). Each landed component's critical findings claim the next contiguous codes in the D001–D029 band. If a single component requires more than 8 critical codes, overflow allocates into D008–D009 and D016–D019 before considering band-resize.
 
 > **To be defined during Phase 2 catalog expansion.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 

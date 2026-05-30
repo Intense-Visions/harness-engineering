@@ -31,6 +31,7 @@ import { buttonConvention } from './conventions/button.js';
 import { dialogConvention } from './conventions/dialog.js';
 import { emptyStateConvention } from './conventions/empty-state.js';
 import { inputConvention } from './conventions/input.js';
+import { selectConvention } from './conventions/select.js';
 import { switchConvention } from './conventions/switch.js';
 
 /**
@@ -47,6 +48,7 @@ const builtinConventions: ConventionRule[] = [
   dialogConvention,
   emptyStateConvention,
   inputConvention,
+  selectConvention,
   switchConvention,
 ];
 
