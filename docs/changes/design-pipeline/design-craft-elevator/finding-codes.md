@@ -25,7 +25,9 @@
   - [CRAFT-C003 — Motion Quality](#craft-c003--motion-quality)
   - [CRAFT-C004 — Color Confidence](#craft-c004--color-confidence)
   - [CRAFT-C005 — Density & Rhythm](#craft-c005--density--rhythm)
-  - [CRAFT-C006–C010 — RESERVED (Phase 2B seed)](#craft-c006c010--reserved-phase-2b-seed)
+  - [CRAFT-C006 — Restraint](#craft-c006--restraint)
+  - [CRAFT-C007 — Polish Details](#craft-c007--polish-details)
+  - [CRAFT-C008–C010 — RESERVED (Phase 2B seed)](#craft-c008c010--reserved-phase-2b-seed)
   - [CRAFT-C011–C100 — RESERVED (post-seed growth)](#craft-c011c100--reserved-post-seed-growth)
 - [CRAFT-P\* — Polish findings](#craft-p--polish-findings)
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
@@ -61,13 +63,14 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                               |
-| ----------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                                      |
-| `C004–C005` | Phase 1B (this)  | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).                                |
-| `C006–C010` | Phase 2B         | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics — restraint, polish-details, copy-voice, interaction-craft, brand-coherence). |
-| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                                                |
-| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                              |
+| Range       | Phase landed     | Status (v1)                                                                                                                                  |
+| ----------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                         |
+| `C004–C005` | Phase 1B         | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).                   |
+| `C006–C007` | Phase 2B (this)  | Shipped (restraint, polish-details — first pair of the Phase 2B widen-to-10 set; bridges foundational and polish tiers in the loop).         |
+| `C008–C010` | Phase 2B         | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics — copy-voice, interaction-craft, brand-coherence still to ship). |
+| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                                   |
+| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                 |
 
 **CRAFT-P (polish patterns):**
 
@@ -406,19 +409,98 @@ Linear issue detail page — 4/8/16/24/32 scale used throughout, label-to-contro
 - `tier: foundational` × `impact: medium` deliberately exercises a different tier × impact pair than `CRAFT-C001` (foundational × large) and `CRAFT-C004` (foundational × large), reinforcing the axes' independence within the foundational tier.
 - Pairs naturally with `CRAFT-P003` (stagger-timing) where rhythm becomes temporal as well as spatial.
 
-### CRAFT-C006–C010 — RESERVED (Phase 2B seed)
+### CRAFT-C006 — Restraint
 
-Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion), Phase 1B (this) defined 2 more (color-confidence, density-rhythm). The remaining 5 rubrics in the seed are authored during Phase 2B. Per the proposal's success criterion #7 enumeration, the remaining seed list is:
+**Catalog entry id:** `rubric-restraint`
+
+**Tier / impact:** `tier: foundational`, `impact: large`. Confidence is per-call — restraint reads well from code (counts of nested containers, redundant prop combinations, competing CTAs) so the rubric prompt does not impose a code-only ceiling.
+
+**Applies to:** `[component, page]` — restraint operates at both scopes (component-internal ornament accumulation and page-level competing focal points).
+
+**Source citation:** `refactoring-ui#less-is-more + dieter-rams#10-principles` — <https://www.refactoringui.com/>
+
+**Prompt** (verbatim from `catalog/rubrics/restraint.ts`):
+
+> Evaluate the restraint of {target}.
+>
+> - Does every visible element earn its place, or has the surface accumulated ornament (gradients, borders, shadows, icons, badges) past the point where it adds meaning?
+> - Is there a single focal action, or do multiple CTAs compete for the same attention budget?
+> - Are decorative flourishes (illustrations, mascots, animated backgrounds) earning their cost in cognitive load and load time, or are they filler standing in for an unclear message?
+> - Are containers nested where flat layout would carry the same hierarchy (cards-in-cards, panels-in-panels)?
+> - Are properties repeated where one would do (multiple separators, redundant labels, label + icon + tooltip all naming the same thing)?
+> - Does the surface trust the reader to follow a clear path, or does it hand-hold with explainer text, callouts, and arrows pointing at things that need no pointing?
+>   Use the 3-axis output model (tier x impact x confidence). Restraint reads well from code (counting visible elements, nesting depth, redundant prop combinations is structural), so confidence here can be reasonably high even in fast/code-only mode.
+
+**Message** (LLM-generated; example shape):
+
+> `Restraint in {target} {finding-specific narrative — e.g., "three nested rounded containers wrap each plan card and two equally-weighted CTAs sit at the bottom of every card"}. {recommendation — e.g., "Flatten to one container per card, demote one CTA to a ghost link, and let whitespace carry the hierarchy"}.`
+
+**Positive example (finding emitted):**
+
+Marketing pricing page with three plan cards, each wrapped in a rounded container, each container wrapped in a gradient border, each gradient border wrapped in a drop-shadow panel. Every feature row gets a checkmark icon, an "info" tooltip trigger, AND an italic sub-line repeating the row label. Two competing CTAs ("Start free" and "Talk to sales") sit at equal weight at the bottom of every card.
+
+**Negative example (no finding):**
+
+Linear command palette — one input, one result list, one keyboard shortcut footer. No nested cards, no badges decorating each row, no illustrated empty state competing with the input. The single accent sits on the selected row and nowhere else. Every pixel is doing work.
+
+**Schema notes:**
+
+- `tier: foundational` × `impact: large` joins `CRAFT-C001` and `CRAFT-C004` in the foundational-large band. Three foundational-large rubrics asking different questions (hierarchy, color, restraint) gives the CRITIQUE loop meaningful coverage of the structural craft floor.
+- Unlike motion (C003), color (C004), and density (C005), restraint does **not** declare a code-only confidence cap — the structural signals it asks about (element counts, nesting depth, prop redundancy) are visible from source.
+- Pairs naturally with `audit-component-anatomy` (sub-project #2): anatomy enforces required parts; restraint asks whether OPTIONAL parts have crept in past necessity.
+
+### CRAFT-C007 — Polish Details
+
+**Catalog entry id:** `rubric-polish-details`
+
+**Tier / impact:** `tier: polish`, `impact: medium`. **Confidence cap:** none declared as a rubric-level cap — the prompt itself instructs the LLM to lower confidence for sub-questions that need rendering (optical alignment, transition tuning) while keeping it high for sub-questions visible from code (focus states, state coverage, copy tone, keyboard handlers).
+
+**Applies to:** `[component, page]` — polish-details audits cut across both scopes (component-internal focus rings and state coverage; page-level keyboard-tab-order and copy-edge consistency).
+
+**Source citation:** `emil-design-eng#polish-checklist + stripe-press#detail-work` — <https://github.com/emilkowalski/skill/blob/main/skills/emil-design-eng/SKILL.md>
+
+**Prompt** (verbatim from `catalog/rubrics/polish-details.ts`):
+
+> Evaluate the polish details of {target}.
+>
+> - Are focus states visible, distinct from hover, and consistent across interactive elements — or is `outline: none` shipping with no replacement?
+> - Are empty, loading, and error states modelled, or does the component only render the happy path?
+> - Are interactive elements optically aligned (icon-to-baseline, glyph-to-button-center) rather than mathematically aligned by bounding box?
+> - Are corner radii consistent within their nesting context (outer radius > inner radius by the gap, not arbitrary), or do nested rounded shapes fight each other?
+> - Are transitions tuned (not the default `transition: all 0.3s`), including the disabled-vs-enabled flip, the hover settle, and the active press?
+> - Is the keyboard story complete — tab order sensible, Escape closes overlays, Enter activates default action, Arrow keys navigate where appropriate?
+> - Are the copy edges polished — error messages specific and actionable, empty states inviting rather than dead, button labels in active voice ("Save changes" not "Submit")?
+>   Use the 3-axis output model (tier x impact x confidence). Many polish details (focus rings, state coverage, copy tone) are visible from code; some (optical alignment, motion-tuning quality) need rendering. Confidence should drop on the latter in fast/code-only mode.
+
+**Message** (LLM-generated; example shape):
+
+> `Polish details in {target} {finding-specific narrative — e.g., "ship outline: none with no replacement focus ring, transition: all 0.3s on the save button, and a 500-only error banner with no specific guidance"}. {recommendation — e.g., "Add a visible 2px focus ring, scope the transition to color/border only, and rewrite the error to name the failed field and the action to retry"}.`
+
+**Positive example (finding emitted):**
+
+Settings dialog ships with `outline: none` on every interactive element and no replacement focus ring. The "Save" button has a `transition: all 0.3s` so even the cursor-color change wobbles. No empty state — when the list is empty, the dialog shows a flat grey rectangle with the word "Empty." Error case is a red banner reading "Error: failed to save (500)". Outer card radius 16, inner button radius 16, the inner shape protrudes the outer at every corner. No Escape handler.
+
+**Negative example (no finding):**
+
+Stripe payment form — focus ring is a 2px offset indigo outline, distinct from the 1px hover border. Empty state ("No saved cards") invites action with a single ghost CTA; loading state renders a content-matched skeleton, not a spinner; the field-level error sits inline with a specific message ("This card is expired — try another"). Outer card radius is 12, inner button radius is 8, the gap is right. Tab order follows visual order; Escape closes the modal.
+
+**Schema notes:**
+
+- `tier: polish` × `impact: medium` adds the first polish-tier critique rubric to the seed (C001/C002/C004/C005/C006 are all foundational; C003 was polish but flagged as a code-only confidence-capped exception). The CRITIQUE loop now produces findings across both tiers in a single run.
+- Pairs naturally with the entire CRAFT-P* polish-pattern family (spring-physics, skeleton-content-matched, stagger-timing) — many polish-details findings will recommend a specific CRAFT-P* pattern as the follow-up POLISH suggestion.
+- Pairs naturally with `harness-accessibility`: focus-ring presence is a polish concern AND an a11y concern. When `harness-accessibility` is configured, `A11Y-FOCUS-001`-style findings are deferred from this rubric via the standard overlap resolution (mirrors `CRAFT-C003` × `harness-design` deferral).
+
+### CRAFT-C008–C010 — RESERVED (Phase 2B seed)
+
+Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion), Phase 1B added 2 more (color-confidence, density-rhythm), Phase 2B (this) added 2 more (restraint, polish-details). The remaining 3 rubrics in the seed are authored during the final Phase 2B widen-to-10 slice. Per the proposal's success criterion #7 enumeration, the remaining seed list is:
 
 | Likely code  | Probable rubric (per success criterion #7 enumeration) |
 | ------------ | ------------------------------------------------------ |
-| `CRAFT-C006` | Restraint                                              |
-| `CRAFT-C007` | Polish details                                         |
 | `CRAFT-C008` | Copy voice                                             |
 | `CRAFT-C009` | Interaction craft                                      |
 | `CRAFT-C010` | Brand coherence                                        |
 
-> **All codes in C006–C010 are RESERVED — to be defined during Phase 2B catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+> **All codes in C008–C010 are RESERVED — to be defined during the final Phase 2B widen-to-10 slice.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-C011–C100 — RESERVED (post-seed growth)
 
