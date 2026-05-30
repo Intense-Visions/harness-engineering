@@ -6,7 +6,7 @@ See [`docs/changes/local-model-lifecycle-manager/proposal.md`](../../docs/change
 
 ## Status
 
-**Phase 3a — Pool state + eviction planner.**
+**Phase 3b — Install adapter (interface + Ollama + advisory).**
 
 Public surface so far:
 
@@ -23,8 +23,10 @@ Public surface so far:
 - `mergeBenchmarks` (Phase 2c) — folds evidence × recency × source weight into a single `{ score (0–100), confidence: 'high' | 'medium' | 'low', contributions }` per candidate. Empty input short-circuits to `confidence: 'low'`; never throws.
 - `PoolStateStore` (Phase 3a) — atomic on-disk persistence of `PoolState` to `~/.harness/local-models/pool.json` (tmp + rename, O2). Versioned schema with graceful degradation to `EmptyPoolState()` on missing / malformed / version-mismatched files. Single mutation path (`update`) always recomputes derived `diskUsedGb` from the entry sum.
 - `planEviction` (Phase 3a) — pure lowest-score-LRU planner. Sorts pool entries by `(currentScore, lastUsedAt, installedAt)` ascending (treating `lastUsedAt: null` as oldest) and accumulates evictions until the requested `freeBudgetGb` is met or the pool is exhausted.
+- `InstallAdapter` / `OllamaInstallAdapter` / `AdvisoryInstallAdapter` (Phase 3b) — transport-agnostic install contract plus two concrete implementations. The Ollama adapter speaks `/api/pull` (NDJSON streaming with typed `InstallEvent`s), `/api/delete`, `/api/tags`, and `/api/show` via an injected `Fetcher`. The advisory adapter renders copy-paste commands (`lms get …`, `vllm serve …`, `llama-server -m …`) for backends whose lifecycle is operator-driven (D4); `install`/`evict`/`inspect` reject with `InstallError('advisory_only', …)`. `InstallError.code` is the stable taxonomy higher layers branch on: `advisory_only`, `failed_target_missing` (D13), `installer_unavailable` (S6), `install_failed` (S7), `not_in_pool` (D12), `parse_failed`.
+- `nullInstallAdapter` (Phase 3b) — `InstallAdapter` whose methods reject with `installer_unavailable`. Test seam and the manager's default when LMLM is disabled.
 
-The `RankedModel` orchestrator and parity fixtures land in Phase 2d. The full `PoolManager` orchestrator, Ollama installer, proposal engine, scheduler, and HTTP / CLI / dashboard surfaces ship in Phases 3b–9 per the spec.
+The `RankedModel` orchestrator and parity fixtures land in Phase 2d. The `PoolManager` orchestrator that composes the install adapter with `PoolStateStore` + `planEviction` + allowlist enforcement, the CLI subcommands, the proposal engine, scheduler, and HTTP / dashboard surfaces ship in Phases 3c–9 per the spec.
 
 ## Goals (recap)
 
