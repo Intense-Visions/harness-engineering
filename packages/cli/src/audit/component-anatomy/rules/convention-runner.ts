@@ -41,6 +41,12 @@ import type { ConventionRule } from './convention-rule.js';
  *                                      a11y deferral overlap with A11Y-010,
  *                                      same three-satisfier shape as
  *                                      Input.label)
+ *   - ANAT-D006 — Select.label        (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for Select; claims
+ *                                      ANAT-D006 from the D006–D009
+ *                                      "Input/Select overflow" reserved
+ *                                      band; same three-satisfier shape
+ *                                      as Input.label / Dialog.title)
  *   - ANAT-D020 — EmptyState.headline (Phase 2 catalog expansion: first
  *                                      Tier-1 critical for EmptyState;
  *                                      sourced from Open UI rather than
@@ -63,6 +69,9 @@ const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   },
   Dialog: {
     title: 'ANAT-D005',
+  },
+  Select: {
+    label: 'ANAT-D006',
   },
   EmptyState: {
     headline: 'ANAT-D020',
@@ -117,6 +126,18 @@ function isSlotSatisfied(
     // ergonomically as a `title` prop.
     return (
       memberSet.has('title') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
+    );
+  }
+
+  if (componentType === 'Select' && slotName === 'label') {
+    // Per finding-codes.md ANAT-D006 satisfiability: any of `label` prop,
+    // `aria-label` prop, or `aria-labelledby` prop. Same three-satisfier
+    // shape as ANAT-D004 (Input.label) — APG `listbox` mandates the
+    // accessible name on the control; libraries surface this as a `label`
+    // prop ergonomically. Note: `placeholder` is NOT a satisfier (APG
+    // explicitly warns that placeholder text is not the field's label).
+    return (
+      memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
     );
   }
 
