@@ -1,0 +1,38 @@
+{
+  "label": "Apple M3 Max — 36 GB unified memory",
+  "hardware": {
+    "platform": "macos",
+    "vramGb": 36,
+    "ramGb": 36,
+    "bandwidthGbps": 300,
+    "gpuName": "Apple M3 Max",
+    "cpuName": "Apple M3 Max",
+    "detectedAt": "2026-05-28"
+  },
+  "candidates": [
+    {
+      "hfRepoId": "Qwen/Qwen3-32B-GGUF",
+      "ollamaName": "qwen3:32b",
+      "sizeB": 32,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+      "ollamaName": "deepseek-r1:32b",
+      "sizeB": 32,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "meta-llama/Llama-3.3-70B-Instruct-GGUF",
+      "ollamaName": "llama3.3:70b",
+      "sizeB": 70,
+      "quant": "Q4_K_M"
+    }
+  ],
+  "expected": {
+    "hfRepoId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+    "scoreMin": 55,
+    "scoreMax": 60
+  },
+  "note": "Llama-3.3-70B-Q4_K_M is ~44 GB total and won't fit in 36 GB unified memory, so the default-filter drops it. Among the 32B candidates (both ~22 GB total), DeepSeek-R1's variant evidence at 67.8 outranks Qwen3-32B's base evidence at 64.2."
+}
