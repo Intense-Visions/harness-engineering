@@ -43,6 +43,11 @@ describe('catalog registry', () => {
     expect(types).toContain('Dialog');
   });
 
+  it('exposes Switch as a catalogued type (Phase 2 expansion)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('Switch');
+  });
+
   it('returns the same set of types from the public `exports.ts` surface', () => {
     // harness-accessibility step 2.6 imports getCatalogTypes from the
     // public exports surface. The contract is that both paths return
@@ -116,6 +121,25 @@ describe('catalog registry', () => {
     expect(rule!.slots.find((s) => s.name === 'description')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'primary-action')?.required).toBe(false);
     expect(rule!.slots.find((s) => s.name === 'secondary-action')?.required).toBe(false);
+  });
+
+  it('looks up Switch to its full ConventionRule with label as the required Tier-1 slot', () => {
+    const rule = lookupConvention('Switch');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('Switch');
+    // Switch sources from APG's switch pattern — the normative
+    // accessibility contract for the binary toggle control.
+    expect(rule!.source.ref).toBe('APG/switch');
+    // Switch.label is the only Tier-1 required slot in v1 — the
+    // helper-text and error-text slots are recommended (Tier-2) and
+    // not yet flagged.
+    expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
+    expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
+    // Switch has no canonical stylistic variants in APG / Open UI —
+    // catalogued as an empty array so the convention surface stays
+    // uniform with Input / Dialog.
+    expect(rule!.variants).toEqual([]);
   });
 
   it('returns null for an unknown component type (silent skip per Decision #1)', () => {

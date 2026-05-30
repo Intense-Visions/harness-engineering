@@ -46,6 +46,12 @@ import type { ConventionRule } from './convention-rule.js';
  *                                      sourced from Open UI rather than
  *                                      APG since EmptyState is not an
  *                                      interactive ARIA pattern)
+ *   - ANAT-D007 — Switch.label        (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for Switch; same
+ *                                      three-satisfier shape as
+ *                                      Input.label / Dialog.title; APG
+ *                                      `switch` pattern carries the
+ *                                      normative labelling mandate)
  *
  * Remaining Tier-1 codes in D004–D029 are assigned in landing order as
  * Phase 2 conventions ship per the finding-codes.md reservation table.
@@ -66,6 +72,9 @@ const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   },
   EmptyState: {
     headline: 'ANAT-D020',
+  },
+  Switch: {
+    label: 'ANAT-D007',
   },
 };
 
@@ -127,6 +136,17 @@ function isSlotSatisfied(
     // ANAT-D001 and ANAT-D004 (no type-compatibility check on `children`
     // — its presence as a typed member is sufficient).
     return memberSet.has('title') || memberSet.has('headline') || memberSet.has('children');
+  }
+
+  if (componentType === 'Switch' && slotName === 'label') {
+    // Per finding-codes.md ANAT-D007 satisfiability: any of `label` prop,
+    // `aria-label` prop, or `aria-labelledby` prop. The three-satisfier
+    // shape matches ANAT-D004 (Input.label) and ANAT-D005 (Dialog.title)
+    // exactly — APG `switch` mandates the accessible name via the same
+    // labelling vocabulary the form-control family shares.
+    return (
+      memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
+    );
   }
 
   // Fallback: exact-name match. Future slots can register specialised

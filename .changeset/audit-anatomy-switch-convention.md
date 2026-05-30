@@ -1,0 +1,7 @@
+---
+'@harness-engineering/cli': minor
+---
+
+audit-component-anatomy: add Switch convention with `ANAT-D007` (missing required `label` slot).
+
+Phase 2 catalog expansion — extends the form-control family (Input / Dialog / Switch) after Button, Input, EmptyState, and Dialog. `Switch` joins the registry returned by `getCatalogTypes()`. Sources from the APG `switch` pattern (the canonical authoritative spec for the binary toggle accessible-name mandate). The convention runner emits `ANAT-D007` (severity `error` at standard strictness, `warn` at permissive) when a Switch definition's prop type exposes none of the three documented satisfiers: `label` prop, `aria-label` prop, or `aria-labelledby` prop — the same three-satisfier shape as `Input.label` (ANAT-D004) and `Dialog.title` (ANAT-D005). Other anatomy parts (helper-text / error-text slots; `checked` / `unchecked` / `focus` / `disabled` recommended states; sizes) ship on the convention for catalog completeness but are not yet wired to finding codes — the `ANAT-D006`, `D008`–`D009` Tier-1 form-field overflow band and the `ANAT-D040`–`D049` Tier-2 form-field band are reserved for follow-up tasks. Adds 7 new integration tests covering each satisfier path, strictness=permissive softening + strictness=strict cap, and a Button+Input+Switch three-way partition; 2 catalog-registry unit tests assert Switch presence and Tier-1 slot shape. Switch becomes a catalogued component sharing the `A11Y-010` deferral path with `harness-accessibility`.
