@@ -3,14 +3,18 @@
 // Phase 2 catalog increment guard tests.
 //
 // Coverage:
-//   1. SEED_PATTERNS exposes the three Phase 2 patterns in code order
-//      (CRAFT-P001, P002, P003) with the right tier x impact pairs
-//      asserted from the proposal:
-//         spring-physics      polish x medium
-//         skeleton-content    polish x large
-//         stagger-timing      polish x small
+//   1. SEED_PATTERNS exposes the five Phase 2 patterns in code order
+//      (CRAFT-P001 .. P005) with the right tier x impact pairs asserted
+//      from the proposal:
+//         spring-physics             polish x medium
+//         skeleton-content-matched   polish x large
+//         stagger-timing             polish x small
+//         page-transition-crossfade  foundational x medium
+//         fluid-type-scale           polish x large
 //      This locks the catalog's tier-vs-impact independence — adding a
-//      new pattern that conflates the two would surface here.
+//      new pattern that conflates the two would surface here. P004 is
+//      the first foundational-tier polish pattern in the seed; P005
+//      opens the typography sub-category.
 //   2. SEED_EXEMPLARS exposes the three Phase 2 exemplars across three
 //      component types (EmptyState, LoadingState, CommandPalette) so
 //      BENCHMARK fans out across more than one type from v1.
@@ -31,12 +35,14 @@ import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
 import { handleDesignCraft } from '../../../src/mcp/tools/design-craft.js';
 
 describe('design-craft Phase 2 catalog seed — patterns', () => {
-  it('SEED_PATTERNS contains the three Phase 2 patterns in stable order', () => {
+  it('SEED_PATTERNS contains the five Phase 2 patterns in stable order', () => {
     const ids = SEED_PATTERNS.map((p) => p.id);
     expect(ids).toEqual([
       'pattern-spring-physics',
       'pattern-skeleton-content-matched',
       'pattern-stagger-timing',
+      'pattern-page-transition-crossfade',
+      'pattern-fluid-type-scale',
     ]);
   });
 
@@ -60,6 +66,28 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
       impact: 'small',
       phase: 'polish',
     });
+    expect(byId.get('pattern-page-transition-crossfade')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-P004',
+      tier: 'foundational',
+      impact: 'medium',
+      phase: 'polish',
+    });
+    expect(byId.get('pattern-fluid-type-scale')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-P005',
+      tier: 'polish',
+      impact: 'large',
+      phase: 'polish',
+    });
+  });
+
+  it('the widened seed spans both foundational and polish tiers', () => {
+    // P004 is the first foundational-tier polish pattern. Asserting this
+    // explicitly defends against a regression that would collapse the
+    // seed back into a single tier and lose the floor-vs-elevation
+    // distinction proven by ADR 0019.
+    const tiers = new Set(SEED_PATTERNS.map((p) => p.findingTemplate.tier));
+    expect(tiers.has('foundational')).toBe(true);
+    expect(tiers.has('polish')).toBe(true);
   });
 
   it('every pattern carries the ADR 0020 provenance fields', () => {
