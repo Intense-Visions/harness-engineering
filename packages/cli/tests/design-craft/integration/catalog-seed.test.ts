@@ -31,12 +31,14 @@ import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
 import { handleDesignCraft } from '../../../src/mcp/tools/design-craft.js';
 
 describe('design-craft Phase 2 catalog seed — patterns', () => {
-  it('SEED_PATTERNS contains the three Phase 2 patterns in stable order', () => {
+  it('SEED_PATTERNS contains the Phase 2 patterns in stable order', () => {
     const ids = SEED_PATTERNS.map((p) => p.id);
     expect(ids).toEqual([
       'pattern-spring-physics',
       'pattern-skeleton-content-matched',
       'pattern-stagger-timing',
+      'pattern-progressive-corner-rounding',
+      'pattern-focus-ring-craft',
     ]);
   });
 
@@ -60,6 +62,24 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
       impact: 'small',
       phase: 'polish',
     });
+    expect(byId.get('pattern-progressive-corner-rounding')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-P006',
+      tier: 'polish',
+      impact: 'small',
+      phase: 'polish',
+    });
+    expect(byId.get('pattern-focus-ring-craft')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-P007',
+      tier: 'foundational',
+      impact: 'large',
+      phase: 'polish',
+    });
+  });
+
+  it('the seed spans both foundational and polish tiers', () => {
+    const tiers = new Set(SEED_PATTERNS.map((p) => p.findingTemplate.tier));
+    expect(tiers.has('foundational')).toBe(true);
+    expect(tiers.has('polish')).toBe(true);
   });
 
   it('every pattern carries the ADR 0020 provenance fields', () => {
