@@ -455,7 +455,7 @@ LLM-judgment critique of prose-in-code across six surfaces: error messages, log 
 
 ### `design_craft`
 
-Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a project's components. Fast-mode CRITIQUE iterates the v1 seed of 10 rubrics (hierarchy-clarity, typography-craft, motion-quality, color-confidence, density-rhythm, restraint, polish-details, copy-voice, interaction-craft, brand-coherence), POLISH iterates the 3 seed patterns (spring-physics, skeleton-content-matched, stagger-timing), BENCHMARK iterates the 5 anchor exemplars covering EmptyState / LoadingState / CommandPalette / ErrorState / Modal.
+Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a project's components. Fast-mode CRITIQUE iterates the v1 seed of 10 rubrics (hierarchy-clarity, typography-craft, motion-quality, color-confidence, density-rhythm, restraint, polish-details, copy-voice, interaction-craft, brand-coherence), POLISH iterates the 3 seed patterns (spring-physics, skeleton-content-matched, stagger-timing), BENCHMARK iterates the 6 anchor exemplars covering EmptyState / LoadingState / CommandPalette / ErrorState / Modal / Button.
 
 **Parameters:**
 
