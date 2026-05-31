@@ -53,6 +53,11 @@ describe('catalog registry', () => {
     expect(types).toContain('Switch');
   });
 
+  it('exposes Checkbox as a catalogued type (Phase 2 expansion #7)', () => {
+    const types = getCatalogTypes();
+    expect(types).toContain('Checkbox');
+  });
+
   it('returns the same set of types from the public `exports.ts` surface', () => {
     // harness-accessibility step 2.6 imports getCatalogTypes from the
     // public exports surface. The contract is that both paths return
@@ -160,6 +165,31 @@ describe('catalog registry', () => {
     // Switch has no canonical stylistic variants in APG / Open UI —
     // catalogued as an empty array so the convention surface stays
     // uniform with Input / Dialog.
+    expect(rule!.variants).toEqual([]);
+  });
+
+  it('looks up Checkbox to its full ConventionRule with label as the required Tier-1 slot', () => {
+    const rule = lookupConvention('Checkbox');
+    expect(rule).not.toBeNull();
+    expect(rule!.componentType).toBe('Checkbox');
+    // Checkbox sources from APG's checkbox pattern — the normative
+    // accessibility contract for the tri-state form control.
+    expect(rule!.source.ref).toBe('APG/checkbox');
+    // Checkbox.label is the only Tier-1 required slot in v1 — the
+    // helper-text and error-text slots are recommended (Tier-2) and
+    // not yet flagged.
+    expect(rule!.slots.find((s) => s.name === 'label')?.required).toBe(true);
+    expect(rule!.slots.find((s) => s.name === 'helper-text')?.required).toBe(false);
+    expect(rule!.slots.find((s) => s.name === 'error-text')?.required).toBe(false);
+    // Checkbox is the first catalogued component to carry the
+    // `indeterminate` state — included as Tier-2 recommended (not yet
+    // gated by the runner). Locked here so a future schema change can't
+    // silently drop it.
+    expect(rule!.states.find((s) => s.name === 'indeterminate')?.required).toBe(false);
+    expect(rule!.states.find((s) => s.name === 'indeterminate')?.exclusive).toBe(true);
+    // Checkbox has no canonical stylistic variants in APG / Open UI —
+    // catalogued as an empty array so the convention surface stays
+    // uniform with Input / Dialog / Switch.
     expect(rule!.variants).toEqual([]);
   });
 

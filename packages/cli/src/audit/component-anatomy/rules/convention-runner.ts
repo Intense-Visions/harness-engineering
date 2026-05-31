@@ -58,6 +58,16 @@ import type { ConventionRule } from './convention-rule.js';
  *                                      Input.label / Dialog.title; APG
  *                                      `switch` pattern carries the
  *                                      normative labelling mandate)
+ *   - ANAT-D008 — Checkbox.label      (Phase 2 catalog expansion: first
+ *                                      Tier-1 critical for Checkbox;
+ *                                      claims ANAT-D008 from the D008–D009
+ *                                      "form-field overflow" reserved band;
+ *                                      same three-satisfier shape as
+ *                                      Input.label / Dialog.title /
+ *                                      Select.label / Switch.label — fifth
+ *                                      repetition locks the satisfier set
+ *                                      as an established invariant for the
+ *                                      form-control family)
  *
  * Remaining Tier-1 codes in D004–D029 are assigned in landing order as
  * Phase 2 conventions ship per the finding-codes.md reservation table.
@@ -84,6 +94,9 @@ const slotFindingCodes: Record<string, Record<string, AnatomyFindingCode>> = {
   },
   Switch: {
     label: 'ANAT-D007',
+  },
+  Checkbox: {
+    label: 'ANAT-D008',
   },
 };
 
@@ -165,6 +178,18 @@ function isSlotSatisfied(
     // shape matches ANAT-D004 (Input.label) and ANAT-D005 (Dialog.title)
     // exactly — APG `switch` mandates the accessible name via the same
     // labelling vocabulary the form-control family shares.
+    return (
+      memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
+    );
+  }
+
+  if (componentType === 'Checkbox' && slotName === 'label') {
+    // Per finding-codes.md ANAT-D008 satisfiability: any of `label` prop,
+    // `aria-label` prop, or `aria-labelledby` prop. Fifth repetition of
+    // the three-satisfier shape established by ANAT-D004 (Input.label),
+    // ANAT-D005 (Dialog.title), ANAT-D006 (Select.label), and ANAT-D007
+    // (Switch.label) — APG `checkbox` mandates the accessible name via
+    // the same labelling vocabulary the form-control family shares.
     return (
       memberSet.has('label') || memberSet.has('aria-label') || memberSet.has('aria-labelledby')
     );

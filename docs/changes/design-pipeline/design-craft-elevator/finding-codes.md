@@ -27,7 +27,9 @@
   - [CRAFT-C005 — Density & Rhythm](#craft-c005--density--rhythm)
   - [CRAFT-C006 — Restraint](#craft-c006--restraint)
   - [CRAFT-C007 — Polish Details](#craft-c007--polish-details)
-  - [CRAFT-C008–C010 — RESERVED (Phase 2B seed)](#craft-c008c010--reserved-phase-2b-seed)
+  - [CRAFT-C008 — Copy Voice](#craft-c008--copy-voice)
+  - [CRAFT-C009 — Interaction Craft](#craft-c009--interaction-craft)
+  - [CRAFT-C010 — Brand Coherence](#craft-c010--brand-coherence)
   - [CRAFT-C011–C100 — RESERVED (post-seed growth)](#craft-c011c100--reserved-post-seed-growth)
 - [CRAFT-P\* — Polish findings](#craft-p--polish-findings)
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
@@ -63,14 +65,14 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                  |
-| ----------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                         |
-| `C004–C005` | Phase 1B         | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).                   |
-| `C006–C007` | Phase 2B (this)  | Shipped (restraint, polish-details — first pair of the Phase 2B widen-to-10 set; bridges foundational and polish tiers in the loop).         |
-| `C008–C010` | Phase 2B         | Reserved for seed catalog completion (success criterion #7 lists 10 rubrics — copy-voice, interaction-craft, brand-coherence still to ship). |
-| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                                   |
-| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                 |
+| Range       | Phase landed     | Status (v1)                                                                                                                          |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                 |
+| `C004–C005` | Phase 1B         | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).           |
+| `C006–C007` | Phase 2B         | Shipped (restraint, polish-details — first pair of the Phase 2B widen-to-10 set; bridges foundational and polish tiers in the loop). |
+| `C008–C010` | Phase 2C (this)  | Shipped (copy-voice, interaction-craft, brand-coherence — closes the v1 seed at success criterion #7's target of 10 rubrics).        |
+| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                           |
+| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                         |
 
 **CRAFT-P (polish patterns):**
 
@@ -490,17 +492,122 @@ Stripe payment form — focus ring is a 2px offset indigo outline, distinct from
 - Pairs naturally with the entire CRAFT-P* polish-pattern family (spring-physics, skeleton-content-matched, stagger-timing) — many polish-details findings will recommend a specific CRAFT-P* pattern as the follow-up POLISH suggestion.
 - Pairs naturally with `harness-accessibility`: focus-ring presence is a polish concern AND an a11y concern. When `harness-accessibility` is configured, `A11Y-FOCUS-001`-style findings are deferred from this rubric via the standard overlap resolution (mirrors `CRAFT-C003` × `harness-design` deferral).
 
-### CRAFT-C008–C010 — RESERVED (Phase 2B seed)
+### CRAFT-C008 — Copy Voice
 
-Success criterion #7 ships **10 critique rubrics** in the H seed. Phase 0 defined 3 (hierarchy, typography, motion), Phase 1B added 2 more (color-confidence, density-rhythm), Phase 2B (this) added 2 more (restraint, polish-details). The remaining 3 rubrics in the seed are authored during the final Phase 2B widen-to-10 slice. Per the proposal's success criterion #7 enumeration, the remaining seed list is:
+**Catalog entry id:** `rubric-copy-voice`
 
-| Likely code  | Probable rubric (per success criterion #7 enumeration) |
-| ------------ | ------------------------------------------------------ |
-| `CRAFT-C008` | Copy voice                                             |
-| `CRAFT-C009` | Interaction craft                                      |
-| `CRAFT-C010` | Brand coherence                                        |
+**Tier / impact:** `tier: polish`, `impact: medium`. **Confidence cap:** none declared as a rubric-level cap — copy reads fully from code (string literals, JSX text nodes, i18n keys), so the prompt instructs the LLM to keep confidence high in fast/code-only mode for surfaces whose copy is colocated and lower it only when strings live in an external locale bundle the model cannot see.
 
-> **All codes in C008–C010 are RESERVED — to be defined during the final Phase 2B widen-to-10 slice.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+**Applies to:** `[component, page]` — voice quality is evaluated at the component scope for buttons / labels / inline errors and at the page scope for cross-surface tone consistency.
+
+**Source citation:** `refactoring-ui#voice + nicely-said#tone` — <https://www.refactoringui.com/>
+
+**Prompt** (verbatim from `catalog/rubrics/copy-voice.ts`):
+
+> Evaluate the copy voice of {target}.
+>
+> - Are button labels written in active voice with a verb that names the outcome ("Save changes", "Send invite") rather than generic acknowledgements ("OK", "Submit", "Continue") that hide the action?
+> - Are error messages specific and recovery-oriented ("This email is already in use — sign in instead?") rather than blame-shaped ("Error: invalid input", "Something went wrong") that leave the user nowhere to go?
+> - Are empty states inviting and forward-looking ("Start your first project") rather than dead-end declarations ("No items.")?
+> - Is helper / placeholder text doing work the label should do, or vice-versa (a label that says "Email" with placeholder "Enter your email" is two labels for one field)?
+> - Does the voice stay consistent across happy / loading / empty / error states, or does it shift register (warm onboarding → terse errors → corporate compliance footer)?
+> - Are there marketing-deck phrases ("unlock", "supercharge", "seamless", "next-gen") leaking into the product surface where the user just wants to do their task?
+>   Use the 3-axis output model (tier x impact x confidence).
+
+**Message** (LLM-generated; example shape):
+
+> `Copy voice in {target} {finding-specific narrative — e.g., "ships generic 'Submit' / 'OK' button labels, an 'Error: failed (500)' toast that names neither the failure nor the recovery, and a 'No items.' empty state that closes off the next step"}. {recommendation — e.g., "Rewrite buttons as verb + outcome, errors as specific cause + actionable recovery, and the empty state as an invitation to the first action"}.`
+
+**Positive example (finding emitted):**
+
+SaaS settings page — every primary CTA reads "Submit"; the empty projects view says "No projects."; the error toast on a 500 says "Error: failed to save (500)". A "Pro Tip!" callout near the top reads "Unlock the full power of next-gen workflows with our supercharged AI." None of the strings tell the user what to do next; none of them sound like the same product wrote them.
+
+**Negative example (no finding):**
+
+Stripe Connect onboarding — buttons read "Continue to verification" and "Save and exit" (verb + outcome, never "Submit"). The empty payouts table greets you with "You haven't received any payouts yet — your first will appear here once a charge clears." Error on a rejected card: "This card was declined by the issuer. Try a different card or contact your bank." Voice stays warm-direct across every state.
+
+**Schema notes:**
+
+- `tier: polish` × `impact: medium` joins `CRAFT-C007` (polish-details) in the polish-medium band — both are seam-sanding rubrics where the foundation is right but the finish carries the experience.
+- Pairs naturally with `harness-design` brand-voice declarations: when DESIGN.md ships a `voice.forbidden_phrases` list, audit-brand-compliance flags those phrases via `BRAND-V001`; this rubric catches the upstream craft question (does the voice feel like the same product?) that the declared rule list cannot ask. Findings are not deferred — they critique different planes.
+
+### CRAFT-C009 — Interaction Craft
+
+**Catalog entry id:** `rubric-interaction-craft`
+
+**Tier / impact:** `tier: polish`, `impact: large`. **Confidence cap:** none declared as a rubric-level cap — the prompt itself instructs the LLM to lower confidence for sub-questions that need rendering (hover-to-press timing, optimistic UI feel, gesture mapping) while keeping it high for sub-questions visible from code (keyDown handlers, autoFocus, aria-\*, optimistic-mutation patterns).
+
+**Applies to:** `[component, page]` — interaction craft cuts across both scopes (component-level keyboard / hover / press behavior; page-level cross-component navigation rhythm).
+
+**Source citation:** `emil-design-eng#interaction + raycast#keyboard-quality` — <https://github.com/emilkowalski/skill/blob/main/skills/emil-design-eng/SKILL.md>
+
+**Prompt** (verbatim from `catalog/rubrics/interaction-craft.ts`):
+
+> Evaluate the interaction craft of {target}.
+>
+> - Is the keyboard story first-class — is every interactive surface reachable, does Enter activate the default action, does Escape cancel where it should, do Arrow keys traverse what they should traverse — or is the keyboard an afterthought handled only by the browser default?
+> - Are mutations optimistic where the outcome is near-certain (favorite toggle, mark-read, rename) so the surface feels responsive, with graceful rollback on failure — or does every interaction round-trip through a spinner?
+> - Does the surface anticipate the next input — autofocus on the field the user will type next, pre-select the most likely option, surface the keyboard shortcut next to the action — or does the user navigate every step manually?
+> - Are hover / active / pressed states distinct from focus and from each other, with motion that maps to the gesture (settle on release, lift on hover) rather than a single instant color swap?
+> - Are destructive actions guarded with the right friction — confirm for irreversible, undo banner for reversible, immediate for trivial — or is every destructive action gated by a modal regardless of blast radius?
+> - Does the surface handle the in-between states gracefully — pending, partial-success, retry-in-progress — or does it show only success and failure?
+>   Use the 3-axis output model (tier x impact x confidence). Some interaction craft reads from code (keyDown handlers, autoFocus, aria-\*) but much of it (hover-to-press timing, optimistic UI feel, gesture mapping) needs rendering.
+
+**Message** (LLM-generated; example shape):
+
+> `Interaction craft in {target} {finding-specific narrative — e.g., "has no Escape handler on the dialog, every save round-trips through a 500ms spinner even for local-only edits, and the delete action is gated by a modal regardless of whether the item is recoverable"}. {recommendation — e.g., "Wire Escape to close, mark local edits as optimistic with inline rollback, and tier the destructive friction: confirm-modal for irreversible, undo-banner for reversible"}.`
+
+**Positive example (finding emitted):**
+
+Settings dialog where the "Delete account" button opens a modal with another "Delete account" button that opens another confirm with a checkbox; Tab traversal skips the cancel button; Escape does nothing; Enter on the username field submits the form even though the user is mid-edit. Every save action shows a 500ms spinner even when the change is local-only. No keyboard shortcuts anywhere.
+
+**Negative example (no finding):**
+
+Raycast command palette — every action ships with its shortcut rendered to the right of the row; Enter activates, Escape closes, Arrow keys traverse, Tab cycles sections. Favorite toggle is optimistic with an inline rollback on failure. The text field autofocuses on open; the most recent command pre-selects. Hover lifts the row a hair; press settles it; release runs the action.
+
+**Schema notes:**
+
+- `tier: polish` × `impact: large` is the first polish-large rubric in the seed alongside `CRAFT-C002` (typography-craft) and `CRAFT-C005` (density-rhythm). Three polish-large rubrics asking different questions (typography, density, interaction) gives the loop meaningful coverage of the polish-tier ceiling.
+- Pairs naturally with `harness-accessibility`: the keyboard sub-questions overlap directly with WCAG 2.1 keyboard-operable criteria. When `harness-accessibility` is configured, `A11Y-KBD-*`-style findings are deferred from this rubric via the standard overlap resolution (mirrors `CRAFT-C003` × `harness-design` deferral).
+
+### CRAFT-C010 — Brand Coherence
+
+**Catalog entry id:** `rubric-brand-coherence`
+
+**Tier / impact:** `tier: foundational`, `impact: large`. **Confidence cap:** none declared as a rubric-level cap — the prompt itself instructs the LLM to anchor fast-mode judgments on token usage and component composition (visible from code) and reserve full visual-rhythm and motion-character judgments for deep-mode runs.
+
+**Applies to:** `[component, page]` — brand coherence is most legible at the page scope (cross-region visual rhythm) but component-level token usage / icon-library imports are early signals.
+
+**Source citation:** `stripe-press#consistency + linear-brand#presence` — <https://stripe.press/>
+
+**Prompt** (verbatim from `catalog/rubrics/brand-coherence.ts`):
+
+> Evaluate the brand coherence of {target}.
+>
+> - Does the surface read like the same product family as the company's other surfaces (marketing, docs, dashboard, mobile) — same typographic register, same color personality, same density rhythm — or does it feel like a different team shipped it?
+> - Is the visual identity load-bearing (color used to mean something, typography setting a tone, motion expressing a character) or is it generic-template tier where any logo would fit in the corner?
+> - Does interactive moment-by-moment feel match the brand — playful surfaces use playful motion, serious surfaces use restrained motion — or is the motion library a default with no point of view?
+> - Are the visual flourishes that DO appear (illustrations, icons, accent shapes) drawn from a coherent system, or do they feel like stock pieces assembled from different libraries?
+> - If someone screenshotted this surface with the logo removed, would another team in the company recognize it as theirs?
+> - Is the surface confident about its identity (committing to a point of view) or does it hedge with generic-modern-SaaS choices to avoid alienating anyone?
+>   Use the 3-axis output model (tier x impact x confidence).
+
+**Message** (LLM-generated; example shape):
+
+> `Brand coherence in {target} {finding-specific narrative — e.g., "imports a different icon library than the rest of the product, defaults to the system font where every other surface uses the custom display face, and reaches for stock illustration above the section header"}. {recommendation — e.g., "Replace the icon library with the in-product set, route typography through the existing font stack tokens, and commission a custom illustration in the product's drawing register"}.`
+
+**Positive example (finding emitted):**
+
+A startup's in-product billing page that imports a different icon library than the rest of the app, uses a system font where every other surface uses the custom display face, lays out cards in a three-column grid where the rest of the product uses generous single-column flows, and reaches for a stock illustration of two people high-fiving above the "Plans" header. The screenshot, logo removed, could belong to any of a hundred companies.
+
+**Negative example (no finding):**
+
+Linear settings page — same typographic scale as the issue view, same restrained motion library (no easter-egg flourishes), same monochromatic palette with the single brand accent reserved for the active row. Icons are drawn from the same custom set as the rest of the product. With the logo removed, a Linear user would still know it was Linear from the first glance.
+
+**Schema notes:**
+
+- `tier: foundational` × `impact: large` joins `CRAFT-C001` (hierarchy), `CRAFT-C004` (color-confidence), and `CRAFT-C006` (restraint) in the foundational-large band. Four foundational-large rubrics asking different questions (hierarchy, color, restraint, brand) gives the CRITIQUE loop saturated coverage of the structural craft floor — a surface that passes all four has the identity question settled.
+- Pairs naturally with `audit-brand-compliance` (sub-project #3 — declared brand-token / forbidden-phrase enforcement). When that skill is configured and emits `BRAND-T001` or `BRAND-V001` findings, those findings are deferred from this rubric via the i18n-style overlap resolution. This rubric still emits findings on the upstream craft question (does the surface feel like the same product?) that the declared rule list cannot ask.
 
 ### CRAFT-C011–C100 — RESERVED (post-seed growth)
 

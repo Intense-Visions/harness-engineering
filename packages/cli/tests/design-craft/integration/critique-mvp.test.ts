@@ -159,10 +159,11 @@ describe('design-craft MCP handler (MVP)', () => {
       };
     };
 
-    // Phase 2B widen-to-seven: MCP path now runs all 7 seed rubrics
+    // Phase 2C widen-to-10: MCP path now runs all 10 seed rubrics
     // (hierarchy-clarity, typography-craft, motion-quality, color-confidence,
-    // density-rhythm, restraint, polish-details) → 7 findings × 1 target.
-    expect(payload.findings).toHaveLength(7);
+    // density-rhythm, restraint, polish-details, copy-voice, interaction-craft,
+    // brand-coherence) → 10 findings × 1 target. Closes SC #7.
+    expect(payload.findings).toHaveLength(10);
     const codes = payload.findings.map((f) => f.code).sort();
     expect(codes).toEqual([
       'CRAFT-C001',
@@ -172,6 +173,9 @@ describe('design-craft MCP handler (MVP)', () => {
       'CRAFT-C005',
       'CRAFT-C006',
       'CRAFT-C007',
+      'CRAFT-C008',
+      'CRAFT-C009',
+      'CRAFT-C010',
     ]);
     for (const finding of payload.findings) {
       expect(finding.confidence).toBe('low');
@@ -181,7 +185,7 @@ describe('design-craft MCP handler (MVP)', () => {
     expect(payload.summary.phaseRun).toEqual(['critique']);
     expect(payload.summary.mode).toBe('fast');
     expect(payload.summary.llmCalls.provider).toBe('mock');
-    expect(payload.summary.llmCalls.count).toBe(7);
+    expect(payload.summary.llmCalls.count).toBe(10);
     expect(payload.summary.catalog.rubricsApplied).toEqual([
       'rubric-hierarchy-clarity',
       'rubric-typography-craft',
@@ -190,6 +194,9 @@ describe('design-craft MCP handler (MVP)', () => {
       'rubric-density-rhythm',
       'rubric-restraint',
       'rubric-polish-details',
+      'rubric-copy-voice',
+      'rubric-interaction-craft',
+      'rubric-brand-coherence',
     ]);
     expect(payload.summary.runId).toMatch(/^[0-9a-f-]{36}$/);
 
