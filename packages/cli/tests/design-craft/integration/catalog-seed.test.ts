@@ -35,6 +35,7 @@ import { SEED_PATTERNS } from '../../../src/design-craft/catalog/patterns/index.
 import {
   SEED_EXEMPLARS,
   vercelErrorStateExemplar,
+  stripePayButtonExemplar,
 } from '../../../src/design-craft/catalog/exemplars/index.js';
 import { runBenchmark } from '../../../src/design-craft/phases/benchmark.js';
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
@@ -112,12 +113,31 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
 });
 
 describe('design-craft Phase 2 catalog seed — exemplars', () => {
-  it('SEED_EXEMPLARS spans the five anchor component types in stable order', () => {
+  it('SEED_EXEMPLARS spans the six anchor component types in stable order', () => {
     const types = SEED_EXEMPLARS.map((e) => e.componentType);
-    expect(types).toEqual(['EmptyState', 'LoadingState', 'CommandPalette', 'ErrorState', 'Modal']);
+    expect(types).toEqual([
+      'EmptyState',
+      'LoadingState',
+      'CommandPalette',
+      'ErrorState',
+      'Modal',
+      'Button',
+    ]);
   });
 
-  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B005 anchor identifiers in finding-codes.md', () => {
+  it('every canonical componentType from the 50-exemplar plan is anchored', () => {
+    // Spec calls out 5 canonical componentTypes (EmptyState / LoadingState /
+    // ErrorState / Modal / Button). CommandPalette is the informal sixth
+    // anchor inherited from the Phase 0 spike. Assert every canonical type
+    // appears so future increments grow horizontally (per-type) rather
+    // than introducing a new type without an exemplar.
+    const types = new Set(SEED_EXEMPLARS.map((e) => e.componentType));
+    for (const required of ['EmptyState', 'LoadingState', 'ErrorState', 'Modal', 'Button']) {
+      expect(types.has(required)).toBe(true);
+    }
+  });
+
+  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B006 anchor identifiers in finding-codes.md', () => {
     const ids = SEED_EXEMPLARS.map((e) => e.id);
     expect(ids).toEqual([
       'exemplar-linear-empty-list',
@@ -125,6 +145,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-raycast-command-palette',
       'exemplar-vercel-error-state',
       'exemplar-linear-issue-modal',
+      'exemplar-stripe-pay-button',
     ]);
   });
 
@@ -293,5 +314,87 @@ describe('design-craft Vercel error-state exemplar wired end-to-end', () => {
     // Min confidence of medium/high/medium/high/medium = medium
     expect(score?.overall.confidence).toBe('medium');
     expect(score?.gaps[0]).toContain('diagnostics');
+  });
+});
+
+const BUTTON_SOURCE = `
+// Fixture: a primary commit-value button modeled on the four-state rhythm.
+export function PayButton(props: { amount: string; onPay: () => void }) {
+  return (
+    <button type="submit" onClick={props.onPay} className="primary">
+      Pay {props.amount}
+    </button>
+  );
+}
+`;
+
+const BUTTON_RADAR_RESPONSE = [
+  '```json',
+  JSON.stringify(
+    {
+      philosophicalCoherence: {
+        score: 80,
+        confidence: 'medium',
+        notes:
+          'Label carries the commit value; visual treatment relies on a single class without the state rhythm of the exemplar.',
+      },
+      hierarchy: {
+        score: 85,
+        confidence: 'high',
+        notes: 'Single focal action; no competing secondary actions in the fixture surface.',
+      },
+      craftExecution: {
+        score: 65,
+        confidence: 'medium',
+        notes:
+          'Hover / press / loading / disabled / focus states are not defined; relies on default browser focus ring.',
+      },
+      function: {
+        score: 90,
+        confidence: 'high',
+        notes: 'Names the action and the amount together; commits a specific transaction.',
+      },
+      innovation: {
+        score: 50,
+        confidence: 'medium',
+        notes: 'Conventional shape; no signature move beyond the commit-value label.',
+      },
+      gaps: [
+        'No defined hover / press / loading / disabled / focus state rhythm — only the resting style is set.',
+        'Focus ring relies on the browser default rather than the three-layer pattern (`CRAFT-P007`).',
+      ],
+    },
+    null,
+    2
+  ),
+  '```',
+].join('\n');
+
+describe('design-craft Stripe pay-button exemplar wired end-to-end', () => {
+  it('scores a Button target against the CRAFT-B006 exemplar', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'PayButton', response: BUTTON_RADAR_RESPONSE },
+    ]);
+
+    const [score] = await runBenchmark({
+      targets: [
+        {
+          file: 'fixtures/PayButton.tsx',
+          component: 'PayButton',
+          source: BUTTON_SOURCE,
+          componentType: 'Button',
+        },
+      ],
+      exemplars: [stripePayButtonExemplar],
+      provider,
+    });
+
+    expect(score).toBeTruthy();
+    expect(score?.exemplars).toEqual(['exemplar-stripe-pay-button']);
+    // Mean of 80/85/65/90/50 = 74
+    expect(score?.overall.score).toBe(74);
+    // Min confidence of medium/high/medium/high/medium = medium
+    expect(score?.overall.confidence).toBe('medium');
+    expect(score?.gaps[0]).toContain('state rhythm');
   });
 });

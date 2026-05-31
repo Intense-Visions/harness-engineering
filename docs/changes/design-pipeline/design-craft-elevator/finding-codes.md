@@ -41,8 +41,8 @@
   - [CRAFT-P016–P100 — RESERVED (post-seed growth)](#craft-p016p100--reserved-post-seed-growth)
 - [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
-  - [CRAFT-B001–B005 — anchor benchmark identifiers (seed exemplar set)](#craft-b001b005--anchor-benchmark-identifiers-seed-exemplar-set)
-  - [CRAFT-B006–B050 — RESERVED (seed exemplar set growth)](#craft-b006b050--reserved-seed-exemplar-set-growth)
+  - [CRAFT-B001–B006 — anchor benchmark identifiers (seed exemplar set)](#craft-b001b006--anchor-benchmark-identifiers-seed-exemplar-set)
+  - [CRAFT-B007–B050 — RESERVED (seed exemplar set growth)](#craft-b007b050--reserved-seed-exemplar-set-growth)
   - [CRAFT-B051–B100 — RESERVED (post-seed growth)](#craft-b051b100--reserved-post-seed-growth)
 - [Exemplar references (used by BENCHMARK runs)](#exemplar-references-used-by-benchmark-runs)
 - [Reserved-code authoring convention](#reserved-code-authoring-convention)
@@ -90,13 +90,14 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-B (benchmark identifiers):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                                                                                  |
-| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                   |
-| `B002–B003` | Phase 2          | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                          |
-| `B004–B005` | Phase 2 (this)   | Shipped (vercel-error-state, linear-issue-modal — completes the early v1 anchor set so BENCHMARK covers all five canonical componentTypes: EmptyState / LoadingState / CommandPalette / ErrorState / Modal). |
-| `B006–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — horizontal growth from the five anchors above).                                                              |
-| `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                         |
+| Range       | Phase landed     | Status (v1)                                                                                                                                                                                                                                                     |
+| ----------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
+| `B002–B003` | Phase 2          | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
+| `B004–B005` | Phase 2          | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
+| `B006`      | Phase 2 (this)   | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
+| `B007–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — horizontal growth from the six anchors above).                                                                                                                  |
+| `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
 
@@ -971,31 +972,32 @@ The `CRAFT-B*` family differs from `CRAFT-C*` and `CRAFT-P*`:
 
 The radar dimensions are documented in [5-dimension radar (CRAFT-B)](#5-dimension-radar-craft-b) above.
 
-### CRAFT-B001–B005 — anchor benchmark identifiers (seed exemplar set)
+### CRAFT-B001–B006 — anchor benchmark identifiers (seed exemplar set)
 
-The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen. The anchor `CRAFT-B*` reservations align with the Phase 0 exemplar set so any subsequent BENCHMARK run on these target/exemplar pairs reuses the same code:
+The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen; later Phase 2 increments closed the early v1 anchor set at six exemplars covering every canonical componentType the spec calls out for the 50-exemplar plan. The anchor `CRAFT-B*` reservations align with the seed exemplar set so any subsequent BENCHMARK run on these target/exemplar pairs reuses the same code:
 
-| Code         | Anchor exemplar (citation target)  | componentType  | Source citation                                                       |
-| ------------ | ---------------------------------- | -------------- | --------------------------------------------------------------------- |
-| `CRAFT-B001` | `exemplar-linear-empty-list`       | EmptyState     | `linear-app` — <https://linear.app/method>                            |
-| `CRAFT-B002` | `exemplar-stripe-loading-state`    | LoadingState   | `stripe-checkout` — <https://docs.stripe.com/elements/appearance-api> |
-| `CRAFT-B003` | `exemplar-raycast-command-palette` | CommandPalette | `raycast-app` — <https://www.raycast.com>                             |
-| `CRAFT-B004` | `exemplar-vercel-error-state`      | ErrorState     | `vercel-geist#error-state` — <https://vercel.com/geist/introduction>  |
-| `CRAFT-B005` | `exemplar-linear-issue-modal`      | Modal          | `linear-app#issue-modal` — <https://linear.app/method>                |
+| Code         | Anchor exemplar (citation target)  | componentType  | Source citation                                                                  |
+| ------------ | ---------------------------------- | -------------- | -------------------------------------------------------------------------------- |
+| `CRAFT-B001` | `exemplar-linear-empty-list`       | EmptyState     | `linear-app` — <https://linear.app/method>                                       |
+| `CRAFT-B002` | `exemplar-stripe-loading-state`    | LoadingState   | `stripe-checkout` — <https://docs.stripe.com/elements/appearance-api>            |
+| `CRAFT-B003` | `exemplar-raycast-command-palette` | CommandPalette | `raycast-app` — <https://www.raycast.com>                                        |
+| `CRAFT-B004` | `exemplar-vercel-error-state`      | ErrorState     | `vercel-geist#error-state` — <https://vercel.com/geist/introduction>             |
+| `CRAFT-B005` | `exemplar-linear-issue-modal`      | Modal          | `linear-app#issue-modal` — <https://linear.app/method>                           |
+| `CRAFT-B006` | `exemplar-stripe-pay-button`       | Button         | `stripe-checkout#pay-button` — <https://docs.stripe.com/elements/appearance-api> |
 
 Phase 0 spike `benchmark-specimens/empty-state-vs-linear.md` is the canonical worked example for `CRAFT-B001`: a hypothetical `MyEmptyState` component scored against `exemplar-linear-empty-list`. The specimen output (overall 64, per-dimension scores 65/70/55/80/50, five gaps narratives) demonstrates the full BenchmarkScore shape and confirms the 3-axis × 5-dim schemas hold together.
 
 Per Phase 0 review observation O4, `componentType` (e.g., `CommandPalette`) is a free string — the v1 seed need not ship every exemplar's component-type, but the schema accepts arbitrary types. Raycast's CommandPalette is retained informally as a v2 candidate; the `CRAFT-B003` anchor code remains reserved for its eventual BENCHMARK target so subsequent benchmark runs reuse this identifier.
 
-`CRAFT-B004` (`exemplar-vercel-error-state`) and `CRAFT-B005` (`exemplar-linear-issue-modal`) close the early v1 anchor set — together with B001–B003 they cover every canonical component type the spec calls out for the 50-exemplar seed (EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). Button remains unclaimed; the next exemplar-widen increment will introduce it under `CRAFT-B006` and complete the five canonical anchors.
+`CRAFT-B004` (`exemplar-vercel-error-state`) and `CRAFT-B005` (`exemplar-linear-issue-modal`) extend the early v1 anchor set with the ErrorState and Modal componentTypes. `CRAFT-B006` (`exemplar-stripe-pay-button`) closes it by claiming the Button anchor — together with B001–B005 it covers every canonical componentType the spec calls out for the 50-exemplar seed (EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). All five canonical componentTypes are now seeded; subsequent exemplar-widen increments grow horizontally (additional exemplars per componentType) rather than introducing new componentTypes.
 
-### CRAFT-B006–B050 — RESERVED (seed exemplar set growth)
+### CRAFT-B007–B050 — RESERVED (seed exemplar set growth)
 
-Codes B006–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during Phase 1 Stream B and Phase 2 Stream B.
+Codes B007–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during Phase 1 Stream B and Phase 2 Stream B.
 
-The next slot (`CRAFT-B006`) is unallocated and intended for the first Button anchor exemplar (the only canonical componentType not yet seeded). Subsequent slots fill in per-type as additional exemplars promote to BENCHMARK-target status.
+The next slot (`CRAFT-B007`) is unallocated and intended for the second exemplar within whichever canonical componentType lands next — every canonical type is already anchored, so growth is per-type horizontal from here. Subsequent slots fill in per-type as additional exemplars promote to BENCHMARK-target status.
 
-> **All codes in B006–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+> **All codes in B007–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-B051–B100 — RESERVED (post-seed growth)
 
@@ -1049,6 +1051,14 @@ For convenient lookup, the Phase 0 exemplars cited by `CRAFT-B*` anchor identifi
 - **Radar reference:** philosophicalCoherence 94, hierarchy 93, craftExecution 93, function 95, innovation 82
 - **Why exemplar:** Proof point that a Modal can carry significant content density without losing focus — one focal region (not three competing ones), flat surface (no nested cards-in-cards), restrained dimmer (not theatrical blackout), tuned spring motion paired with instant keyboard response, optimistic inline mutations (no blocking spinners). Composes naturally with `CRAFT-C001` (hierarchy), `CRAFT-C006` (restraint), and `CRAFT-C009` (interaction craft).
 
+### `exemplar-stripe-pay-button` (referenced by `CRAFT-B006`)
+
+- **Component type:** Button
+- **URL:** <https://stripe.com/payments/checkout>
+- **Source citation:** `stripe-checkout#pay-button` — <https://docs.stripe.com/elements/appearance-api>
+- **Radar reference:** philosophicalCoherence 93, hierarchy 95, craftExecution 94, function 96, innovation 75
+- **Why exemplar:** Demonstrates the high-craft primary CTA pattern: the label carries the commit value so the action is specific (not generic); the visual treatment is one token + one border (no gradient/shadow/shine stack); the hover / press / loading / disabled / focus states ride one rhythm; the focus ring uses the three-layer pattern paired with `:focus-visible`; the loading state is layout-locked so the surface does not jitter mid-transaction. Composes naturally with `CRAFT-C001` (hierarchy), `CRAFT-C006` (restraint), `CRAFT-C007` (polish-details), `CRAFT-C009` (interaction craft), `CRAFT-P001` (spring-physics), and `CRAFT-P007` (focus-ring-craft).
+
 ---
 
 ## Reserved-code authoring convention
@@ -1058,7 +1068,7 @@ When filling in a code marked `RESERVED`, follow this checklist:
 1. **Claim the next free code in the appropriate family band.**
    - `CRAFT-C*` — next free in C004–C010 for seed completion; C011+ for post-seed growth.
    - `CRAFT-P*` — next free in P004–P015 for seed completion; P016+ for post-seed growth.
-   - `CRAFT-B*` — next free in B004–B005 for early v1 exemplars; B006+ as additional seed exemplars become benchmark targets.
+   - `CRAFT-B*` — every canonical componentType anchor (B001–B006) is allocated; B007+ is next free as additional seed exemplars become benchmark targets within an already-anchored componentType.
 2. **Author the catalog entry** in `packages/cli/src/skills/harness-design-craft/src/catalog/rubrics/{slug}.yaml`, `catalog/patterns/{slug}.yaml`, or `catalog/exemplars/{slug}.yaml`.
 3. **Pick `tier`, `impact`, `appliesTo` / `applicableTo`** per the schema. For C entries, `tier` defaults to `foundational` only for craft moves that elevate baseline quality across most projects (hierarchy, typography, restraint). Motion / skeleton / advanced rubrics default to `tier: polish`. For P entries, the `findingTemplate.tier` reflects whether the pattern is structural (`foundational`) or elevating (`polish` / `aspirational`).
 4. **Cite the source** with one of the published prefixes (see [Source citation prefixes](#source-citation-prefixes)). Adding a new prefix requires updating this table AND the contribution schema validator.
