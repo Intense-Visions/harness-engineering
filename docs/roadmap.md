@@ -1129,7 +1129,7 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### Local Model Lifecycle Manager (LMLM)
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/local-model-lifecycle-manager/proposal.md
 - **Summary:** Hardware-aware local model recommender, pool-bounded autonomy with proposal loop, Ollama-first install, dashboard + CLI surfaces. Approved by Chad 2026-05-24.
 - **Blockers:** —
@@ -1975,14 +1975,15 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 
 ### design-pipeline sub-project #2: audit-component-anatomy
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-pipeline/audit-component-anatomy/proposal.md
 - **Summary:** Audit skill detecting missing required anatomy parts (label, helper text, error state, loading state, empty state). Rules sourced from design-component-anatomy reference content. Lowest-ambiguity sub-project. Needs documented overlap-resolution with harness-accessibility (no double-counting label-missing findings).
 - **Blockers:** —
 - **Plan:** docs/changes/design-pipeline/audit-component-anatomy/plans/2026-05-23-audit-component-anatomy-plan.md
-- **Assignee:** —
+- **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#355
+- **Updated-At:** 2026-05-30T19:57:15.090Z
 
 ### design-pipeline sub-project #3: audit-brand-compliance
 
@@ -2027,7 +2028,7 @@ last_manual_edit: 2026-05-24T15:27:04.258Z
 - **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#371
-- **Updated-At:** 2026-05-29T19:36:34.846Z
+- **Updated-At:** 2026-05-31T12:25:01.804Z
 
 ### harness:craft-pipeline orchestrator
 
