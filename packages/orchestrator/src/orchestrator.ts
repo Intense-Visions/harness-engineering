@@ -11,6 +11,7 @@ import type { OrchestratorState, LiveSession } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
 import { applyEvent } from './core/state-machine';
 import { createEmptyState } from './core/state-helpers';
+import { detectStalledIssues } from './core/stall-detector';
 import { AnalysisArchive } from './core/analysis-archive';
 import { IntelligencePipelineRunner } from './intelligence/pipeline-runner';
 import { CompletionHandler } from './completion/handler';
@@ -939,35 +940,31 @@ export class Orchestrator extends EventEmitter {
     // 6b. Check for stalled agents — emit stall_detected if an agent hasn't
     //     produced any event within the configured stallTimeoutMs window.
     //     Snapshot stalled IDs first because applyEvent replaces this.state,
-    //     invalidating any live Map iterator.
+    //     invalidating any live Map iterator. Detection falls back to
+    //     `startedAt` so an agent that emits zero events still times out.
     const stallTimeoutMs = this.config.agent.stallTimeoutMs;
-    if (stallTimeoutMs > 0) {
-      const stalledIds: string[] = [];
-      for (const [runId, runEntry] of this.state.running) {
-        const lastTs = runEntry.session?.lastTimestamp;
-        if (!lastTs) continue; // No events yet — still initializing
-        const silentMs = nowMs - new Date(lastTs).getTime();
-        if (silentMs >= stallTimeoutMs) {
-          stalledIds.push(runId);
-        }
-      }
-      for (const runId of stalledIds) {
-        // Re-read from current state — a prior stall may have already removed this entry
-        const runEntry = this.state.running.get(runId);
-        if (!runEntry) continue;
-        this.logger.warn(
-          `Agent stalled for ${runEntry.identifier}: ${Math.round((nowMs - new Date(runEntry.session?.lastTimestamp ?? 0).getTime()) / 1000)}s since last event`,
-          { issueId: runId }
-        );
-        const stallEvent: OrchestratorEvent = {
-          type: 'stall_detected',
+    const stalledIds = detectStalledIssues(this.state.running, nowMs, stallTimeoutMs);
+    for (const runId of stalledIds) {
+      // Re-read from current state — a prior stall may have already removed this entry
+      const runEntry = this.state.running.get(runId);
+      if (!runEntry) continue;
+      const reference = runEntry.session?.lastTimestamp ?? runEntry.startedAt;
+      const silentSec = Math.round((nowMs - new Date(reference).getTime()) / 1000);
+      const sinceWhat = runEntry.session?.lastTimestamp ? 'last event' : 'dispatch';
+      this.logger.warn(
+        `Agent stalled for ${runEntry.identifier}: ${silentSec}s since ${sinceWhat}`,
+        {
           issueId: runId,
-        };
-        const stallResult = applyEvent(this.state, stallEvent, this.config);
-        this.state = stallResult.nextState;
-        for (const eff of stallResult.effects) {
-          await this.handleEffect(eff);
         }
+      );
+      const stallEvent: OrchestratorEvent = {
+        type: 'stall_detected',
+        issueId: runId,
+      };
+      const stallResult = applyEvent(this.state, stallEvent, this.config);
+      this.state = stallResult.nextState;
+      for (const eff of stallResult.effects) {
+        await this.handleEffect(eff);
       }
     }
 
