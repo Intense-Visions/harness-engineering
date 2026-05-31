@@ -35,7 +35,9 @@
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
   - [CRAFT-P002 — Skeleton (Content-Matched)](#craft-p002--skeleton-content-matched)
   - [CRAFT-P003 — Stagger Timing](#craft-p003--stagger-timing)
-  - [CRAFT-P004–P015 — RESERVED (Phase 1 / Phase 2 seed)](#craft-p004p015--reserved-phase-1--phase-2-seed)
+  - [CRAFT-P004 — Page Transition Crossfade](#craft-p004--page-transition-crossfade)
+  - [CRAFT-P005 — Fluid Type Scale](#craft-p005--fluid-type-scale)
+  - [CRAFT-P006–P015 — RESERVED (Phase 1 / Phase 2 seed)](#craft-p006p015--reserved-phase-1--phase-2-seed)
   - [CRAFT-P016–P100 — RESERVED (post-seed growth)](#craft-p016p100--reserved-post-seed-growth)
 - [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
@@ -77,13 +79,14 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-P (polish patterns):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                      |
-| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `P001`      | Phase 2 (PR 431) | Shipped (spring-physics — wired into `SEED_PATTERNS`).                                                                                           |
-| `P002–P003` | Phase 2 (this)   | Shipped (skeleton-content-matched, stagger-timing — wired into `SEED_PATTERNS` from Phase 0 spike artifacts).                                    |
-| `P004–P015` | Phase 1–2        | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). |
-| `P016–P075` | Post-v1          | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                      |
-| `P076–P100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                     |
+| Range       | Phase landed     | Status (v1)                                                                                                                                                                                                   |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `P001`      | Phase 2 (PR 431) | Shipped (spring-physics — wired into `SEED_PATTERNS`).                                                                                                                                                        |
+| `P002–P003` | Phase 2          | Shipped (skeleton-content-matched, stagger-timing — wired into `SEED_PATTERNS` from Phase 0 spike artifacts).                                                                                                 |
+| `P004–P005` | Phase 2 (this)   | Shipped (page-transition-crossfade closes the motion sub-category to 3; fluid-type-scale opens the typography sub-category — adds the first foundational-tier polish pattern to the seed).                    |
+| `P006–P015` | Phase 2          | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout; 2 skeleton + 2 typography + 3 interaction + 3 layout remain). |
+| `P016–P075` | Post-v1          | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                                                                                   |
+| `P076–P100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                                                                                  |
 
 **CRAFT-B (benchmark identifiers):**
 
@@ -790,23 +793,160 @@ transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 - Introduces a third novel `kind` value (`jsx-pattern`) — schema remains open-ended on `kind`.
 - The `after` block cross-references `pattern-spring-physics` (`CRAFT-P001`). The schema does not currently model pattern-to-pattern dependencies; Phase 0 spike flagged this for future consideration.
 
-### CRAFT-P004–P015 — RESERVED (Phase 1 / Phase 2 seed)
+### CRAFT-P004 — Page Transition Crossfade
 
-Success criterion #8 ships **15 polish patterns** in the H seed (3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). Phase 0 defined 3 (one motion: spring-physics; one skeleton: content-matched skeleton; one motion: stagger-timing). The remaining 12 patterns in the seed must be authored during Phase 1 Stream B (~2 more) and Phase 2 Stream B (~10 final patterns to complete the seed).
+**Catalog entry id:** `pattern-page-transition-crossfade`
+
+**Tier / impact:** `tier: foundational`, `impact: medium`. The first foundational-tier pattern in the polish seed — the absence of a route transition is felt as a craft defect (the SPA feels "snappy" but cheap), so the tier reads as foundational even though the move itself is a finishing touch.
+
+**Applicable to** (pattern-match discriminators from `applicableTo`):
+
+- `{ kind: 'jsx-pattern', match: 'AnimatePresence' }`
+- `{ kind: 'identifier', match: 'usePathname' }`
+- `{ kind: 'identifier', match: 'useRouter' }`
+- `{ kind: 'css-property', match: 'view-transition-name' }`
+
+**Source citation:** `vercel-geist#page-transition` — <https://vercel.com/geist/motion>
+
+**Trigger condition `when`:**
+
+> Route changes swap the current page for the next with no visual continuity. The eye reads the change as a hard reload — even on a SPA — because the only signal is "old DOM gone, new DOM here." This breaks the illusion that the user is navigating one continuous surface and makes the product feel like a stack of disconnected pages.
+
+**Suggestion `suggest`:**
+
+> Wrap the route outlet in a brief opacity crossfade. Recommended timing:
+>
+> - Outgoing page: ~80ms fade-out, ease-out
+> - Incoming page: ~120ms fade-in, ease-out, starting after the outgoing fade resolves (total transition budget ~200ms)
+>
+> Pair with the native CSS view-transitions API where browser support allows; fall back to AnimatePresence (framer-motion) or a CSS class-swap with a transition. Always pair with `prefers-reduced-motion`: skip the fade and swap instantly when the user has motion-sensitivity preferences set. Avoid combining the crossfade with simultaneous content motion (stagger, spring entrances) on the incoming page — the crossfade is the route signal; content-level motion comes after.
+
+**Before (positive — finding emitted):**
+
+```tsx
+// Next.js app router — Layout.tsx (no transition between routes)
+export default function Layout({ children }: { children: ReactNode }) {
+  return <main>{children}</main>;
+}
+```
+
+**After (suggestion content):**
+
+```tsx
+// Using framer-motion AnimatePresence + the route pathname as key
+import { AnimatePresence, motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
+
+export default function Layout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.main
+        key={pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.main>
+    </AnimatePresence>
+  );
+}
+```
+
+**Schema notes:**
+
+- `tier: foundational` × `impact: medium` is a new tier × impact cell for the polish seed — joins `CRAFT-P001` (polish × medium), `CRAFT-P002` (polish × large), `CRAFT-P003` (polish × small), and `CRAFT-P005` (polish × large) in proving the catalogue's tier × impact independence (Phase 0 review observation O3).
+- Closes the v1 motion sub-category at 3 patterns (P001 spring-physics, P003 stagger-timing, P004 page-transition-crossfade) per success criterion #8.
+- Pairs naturally with `CRAFT-C003` (Motion Quality) — many CRITIQUE motion findings on missing route transitions will recommend this POLISH pattern.
+
+### CRAFT-P005 — Fluid Type Scale
+
+**Catalog entry id:** `pattern-fluid-type-scale`
+
+**Tier / impact:** `tier: polish`, `impact: large`. Fluid type elevates every page with typographic hierarchy, so impact reads as large even though the tier stays `polish` (a project with a fixed type scale is not broken, just unrefined).
+
+**Applicable to** (pattern-match discriminators from `applicableTo`):
+
+- `{ kind: 'css-property', match: 'font-size' }`
+- `{ kind: 'tailwind-class', match: 'text-' }`
+- `{ kind: 'identifier', match: 'fontSize' }`
+- `{ kind: 'css-at-rule', match: 'media' }`
+
+**Source citation:** `vercel-geist#typography` — <https://vercel.com/geist/typography>
+
+**Trigger condition `when`:**
+
+> Typographic scale is defined as a fixed sequence of font-size values (e.g., 14 / 16 / 18 / 24 / 32) and breakpoint-stepped via media queries or Tailwind responsive variants (text-sm md:text-base lg:text-lg). Between breakpoints the type "jumps" — a 1280px viewport gets the desktop size, a 1279px viewport gets the tablet size, with no interpolation. Headlines feel undersized on wide screens and oversized on narrow ones.
+
+**Suggestion `suggest`:**
+
+> Replace stepped sizes with a fluid clamp() scale that interpolates between min and max across a calibrated viewport range. Formula:
+>
+> ```
+> font-size: clamp(<min>, <preferred>, <max>);
+> ```
+>
+> where `<preferred>` is a linear combination of `vi` (viewport inline) and `rem` calibrated to hit `<min>` at your narrow audience viewport (e.g., 360px) and `<max>` at your wide audience viewport (e.g., 1280px).
+>
+> Use a utility (e.g., utopia.fyi, the Geist `fluid()` helper, or a CSS variable per scale step) so the formula is calculated, not guessed. Pair with `text-wrap: balance` on headings and `text-wrap: pretty` on body for the matching wrap-quality move.
+
+**Before (positive — finding emitted):**
+
+```css
+/* CSS — fixed scale, breakpoint-stepped */
+.title {
+  font-size: 1.5rem;
+}
+@media (min-width: 768px) {
+  .title {
+    font-size: 2rem;
+  }
+}
+@media (min-width: 1280px) {
+  .title {
+    font-size: 2.5rem;
+  }
+}
+```
+
+**After (suggestion content):**
+
+```css
+/* CSS — fluid scale calibrated for 360px–1280px audience */
+.title {
+  /* clamp(min, preferred, max) — preferred interpolates linearly */
+  font-size: clamp(1.5rem, 0.93rem + 1.79vi, 2.5rem);
+  text-wrap: balance;
+}
+
+/* Tailwind v4 equivalent using arbitrary value */
+/* <h1 className="text-[clamp(1.5rem,0.93rem+1.79vi,2.5rem)] text-balance"> */
+```
+
+**Schema notes:**
+
+- Introduces two novel `kind` values (`tailwind-class`, `css-at-rule`) relative to the prior four patterns. Phase 0 review observation O2 confirms schema remains open on `kind`.
+- Opens the typography sub-category of the polish seed — P008 + P010 will land in subsequent slices to complete the 3-typography target per success criterion #8.
+- Pairs naturally with `CRAFT-C002` (Typography Craft) — CRITIQUE findings on typographic scale frequently recommend this POLISH pattern as the elevation move.
+
+### CRAFT-P006–P015 — RESERVED (Phase 1 / Phase 2 seed)
+
+Success criterion #8 ships **15 polish patterns** in the H seed (3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout). Five are now shipped: P001 spring-physics (motion), P002 skeleton-content-matched (skeleton), P003 stagger-timing (motion), P004 page-transition-crossfade (motion — closes the motion sub-category to 3), P005 fluid-type-scale (typography — opens the typography sub-category). The remaining 10 patterns must be authored across subsequent Phase 2 increments.
 
 Probable bucket assignments within the band:
 
-| Sub-band    | Category    | Patterns to define                                                                                       |
-| ----------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| `P004–P005` | Motion      | 2 more motion patterns to complete the 3-motion bucket (P001, P003 already motion; P004/P005 = ?)        |
-| `P006–P007` | Skeleton    | 2 more skeleton patterns to complete the 3-skeleton bucket (P002 already content-matched; P006/P007 = ?) |
-| `P008–P010` | Typography  | 3 typography polish patterns (modular scale, tabular numerals, display tracking, etc.)                   |
-| `P011–P013` | Interaction | 3 interaction polish patterns (hover-state-overlay, focus-ring craft, drag-affordance, etc.)             |
-| `P014–P015` | Layout      | 2 of 3 layout polish patterns (density rhythm, vertical rhythm, gestalt grouping, etc.)                  |
+| Sub-band    | Category    | Patterns to define                                                                                                                       |
+| ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `P006–P007` | Skeleton    | 2 more skeleton patterns to complete the 3-skeleton bucket (P002 already content-matched; P006/P007 = skeleton-pulse, skeleton-shimmer?) |
+| `P008–P009` | Typography  | 2 more typography polish patterns (modular-scale-step, tabular-numerals, display-tracking, etc.)                                         |
+| `P010–P012` | Interaction | 3 interaction polish patterns (hover-state-overlay, focus-ring craft, drag-affordance, etc.)                                             |
+| `P013–P015` | Layout      | 3 layout polish patterns (density rhythm, vertical rhythm, gestalt grouping, etc.)                                                       |
 
-The bucket boundaries are guidance only — Phase 2 Stream B authors may rebalance if a category requires more entries than its band reserves.
+The bucket boundaries are guidance only — subsequent slices may rebalance if a category requires more entries than its band reserves.
 
-> **All codes in P004–P015 are RESERVED — to be defined during Phase 1 / Phase 2 catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+> **All codes in P006–P015 are RESERVED — to be defined during subsequent Phase 2 catalog work.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-P016–P100 — RESERVED (post-seed growth)
 
