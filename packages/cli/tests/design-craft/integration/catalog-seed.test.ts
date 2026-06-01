@@ -39,6 +39,8 @@ import {
   SEED_EXEMPLARS,
   vercelErrorStateExemplar,
   stripePayButtonExemplar,
+  notionEmptyDatabaseExemplar,
+  vercelBuildProgressExemplar,
 } from '../../../src/design-craft/catalog/exemplars/index.js';
 import { runBenchmark } from '../../../src/design-craft/phases/benchmark.js';
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
@@ -130,7 +132,7 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
 });
 
 describe('design-craft Phase 2 catalog seed — exemplars', () => {
-  it('SEED_EXEMPLARS spans the six anchor component types in stable order', () => {
+  it('SEED_EXEMPLARS spans the eight seed exemplars in stable componentType order', () => {
     const types = SEED_EXEMPLARS.map((e) => e.componentType);
     expect(types).toEqual([
       'EmptyState',
@@ -139,6 +141,8 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'ErrorState',
       'Modal',
       'Button',
+      'EmptyState',
+      'LoadingState',
     ]);
   });
 
@@ -154,7 +158,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     }
   });
 
-  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B006 anchor identifiers in finding-codes.md', () => {
+  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B008 anchor identifiers in finding-codes.md', () => {
     const ids = SEED_EXEMPLARS.map((e) => e.id);
     expect(ids).toEqual([
       'exemplar-linear-empty-list',
@@ -163,7 +167,26 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-vercel-error-state',
       'exemplar-linear-issue-modal',
       'exemplar-stripe-pay-button',
+      'exemplar-notion-empty-database',
+      'exemplar-vercel-build-progress',
     ]);
+  });
+
+  it('EmptyState and LoadingState now each carry a second register-distinct anchor', () => {
+    // B007 (Notion empty database) opens the horizontal-growth phase by
+    // adding a second EmptyState anchor in the INSTRUCTIONAL register
+    // opposite Linear's RESOLVED register. B008 (Vercel build progress)
+    // pairs with it as a second LoadingState anchor in the NARRATIVE
+    // register opposite Stripe's PREVIEW (content-matched skeleton)
+    // register. Assert both component types are represented twice so
+    // BENCHMARK can score targets against the right tonal model rather
+    // than collapsing every empty/loading state toward a single anchor.
+    const counts = SEED_EXEMPLARS.reduce<Record<string, number>>((acc, e) => {
+      acc[e.componentType] = (acc[e.componentType] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(counts.EmptyState).toBe(2);
+    expect(counts.LoadingState).toBe(2);
   });
 
   it('every exemplar carries the ADR 0020 provenance fields and a complete radarReference', () => {
@@ -413,5 +436,175 @@ describe('design-craft Stripe pay-button exemplar wired end-to-end', () => {
     // Min confidence of medium/high/medium/high/medium = medium
     expect(score?.overall.confidence).toBe('medium');
     expect(score?.gaps[0]).toContain('state rhythm');
+  });
+});
+
+const INSTRUCTIONAL_EMPTY_STATE_SOURCE = `
+// Fixture: a fresh-database empty surface that prompts a system gesture.
+export function FreshDatabase() {
+  return (
+    <div className="page">
+      <p className="prompt">Press / for commands</p>
+    </div>
+  );
+}
+`;
+
+const INSTRUCTIONAL_EMPTY_STATE_RADAR_RESPONSE = [
+  '```json',
+  JSON.stringify(
+    {
+      philosophicalCoherence: {
+        score: 78,
+        confidence: 'medium',
+        notes:
+          'Prompt reads as an inline cue rather than a separate chrome surface; aligned with the instructional register of the exemplar.',
+      },
+      hierarchy: {
+        score: 82,
+        confidence: 'high',
+        notes: 'Single focal element (the prompt); no competing chrome around emptiness.',
+      },
+      craftExecution: {
+        score: 68,
+        confidence: 'medium',
+        notes:
+          'Prompt typography untuned; relies on default body styles rather than the content typeface and tuned weight.',
+      },
+      function: {
+        score: 86,
+        confidence: 'high',
+        notes:
+          'Names the input gesture (slash) and the destination action surface; teaches the system rather than describing intent.',
+      },
+      innovation: {
+        score: 60,
+        confidence: 'medium',
+        notes:
+          'Conventional inline-prompt shape; no signature move beyond the gesture-naming label.',
+      },
+      gaps: [
+        'No keyboard-first escape path defined for the empty surface — the prompt names slash but the surrounding navigation is not addressed.',
+        'Prompt typography relies on default body styles rather than the tuned content-typeface register the exemplar carries.',
+      ],
+    },
+    null,
+    2
+  ),
+  '```',
+].join('\n');
+
+describe('design-craft Notion empty-database exemplar wired end-to-end', () => {
+  it('scores an EmptyState target against the CRAFT-B007 exemplar', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'FreshDatabase', response: INSTRUCTIONAL_EMPTY_STATE_RADAR_RESPONSE },
+    ]);
+
+    const [score] = await runBenchmark({
+      targets: [
+        {
+          file: 'fixtures/FreshDatabase.tsx',
+          component: 'FreshDatabase',
+          source: INSTRUCTIONAL_EMPTY_STATE_SOURCE,
+          componentType: 'EmptyState',
+        },
+      ],
+      exemplars: [notionEmptyDatabaseExemplar],
+      provider,
+    });
+
+    expect(score).toBeTruthy();
+    expect(score?.exemplars).toEqual(['exemplar-notion-empty-database']);
+    // Mean of 78/82/68/86/60 = 74.8 → rounds to 75
+    expect(score?.overall.score).toBe(75);
+    // Min confidence of medium/high/medium/high/medium = medium
+    expect(score?.overall.confidence).toBe('medium');
+    expect(score?.gaps[0]).toContain('keyboard-first');
+  });
+});
+
+const NARRATIVE_LOADING_STATE_SOURCE = `
+// Fixture: a build-progress surface that streams phase names and log lines.
+export function BuildProgress(props: { phase: string; logLines: string[] }) {
+  return (
+    <section>
+      <header>Building {props.phase}</header>
+      <pre>
+        {props.logLines.join('\\n')}
+      </pre>
+    </section>
+  );
+}
+`;
+
+const NARRATIVE_LOADING_STATE_RADAR_RESPONSE = [
+  '```json',
+  JSON.stringify(
+    {
+      philosophicalCoherence: {
+        score: 70,
+        confidence: 'medium',
+        notes:
+          'Surface names a single phase rather than the full journey; misses the at-a-glance stepper register of the exemplar.',
+      },
+      hierarchy: {
+        score: 72,
+        confidence: 'medium',
+        notes:
+          'Active phase reads as a single header; no stepper across completed / active / future phases.',
+      },
+      craftExecution: {
+        score: 64,
+        confidence: 'medium',
+        notes:
+          'Log region uses raw <pre> typography; no tabular-figure timestamps, no auto-tail behavior, no reduced-motion handling.',
+      },
+      function: {
+        score: 82,
+        confidence: 'high',
+        notes: 'The progress is legible; the user can follow what the build is doing right now.',
+      },
+      innovation: {
+        score: 50,
+        confidence: 'medium',
+        notes: 'Conventional single-phase shape; no signature move beyond the streaming log.',
+      },
+      gaps: [
+        'No stepper across the full journey — only the active phase is named, so the user cannot see what comes next.',
+        'Log region lacks the auto-tail + pause-on-scroll behavior the exemplar uses to respect the user during failure investigation.',
+      ],
+    },
+    null,
+    2
+  ),
+  '```',
+].join('\n');
+
+describe('design-craft Vercel build-progress exemplar wired end-to-end', () => {
+  it('scores a LoadingState target against the CRAFT-B008 exemplar', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'BuildProgress', response: NARRATIVE_LOADING_STATE_RADAR_RESPONSE },
+    ]);
+
+    const [score] = await runBenchmark({
+      targets: [
+        {
+          file: 'fixtures/BuildProgress.tsx',
+          component: 'BuildProgress',
+          source: NARRATIVE_LOADING_STATE_SOURCE,
+          componentType: 'LoadingState',
+        },
+      ],
+      exemplars: [vercelBuildProgressExemplar],
+      provider,
+    });
+
+    expect(score).toBeTruthy();
+    expect(score?.exemplars).toEqual(['exemplar-vercel-build-progress']);
+    // Mean of 70/72/64/82/50 = 67.6 → rounds to 68
+    expect(score?.overall.score).toBe(68);
+    // Min confidence of medium/medium/medium/high/medium = medium
+    expect(score?.overall.confidence).toBe('medium');
+    expect(score?.gaps[0]).toContain('stepper');
   });
 });
