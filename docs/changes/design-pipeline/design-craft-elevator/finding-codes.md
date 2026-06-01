@@ -41,8 +41,8 @@
   - [CRAFT-P016–P100 — RESERVED (post-seed growth)](#craft-p016p100--reserved-post-seed-growth)
 - [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
-  - [CRAFT-B001–B006 — anchor benchmark identifiers (seed exemplar set)](#craft-b001b006--anchor-benchmark-identifiers-seed-exemplar-set)
-  - [CRAFT-B007–B050 — RESERVED (seed exemplar set growth)](#craft-b007b050--reserved-seed-exemplar-set-growth)
+  - [CRAFT-B001–B008 — seed benchmark identifiers (canonical anchors + horizontal-growth pair)](#craft-b001b008--seed-benchmark-identifiers-canonical-anchors--horizontal-growth-pair)
+  - [CRAFT-B009–B050 — RESERVED (seed exemplar set growth)](#craft-b009b050--reserved-seed-exemplar-set-growth)
   - [CRAFT-B051–B100 — RESERVED (post-seed growth)](#craft-b051b100--reserved-post-seed-growth)
 - [Exemplar references (used by BENCHMARK runs)](#exemplar-references-used-by-benchmark-runs)
 - [Reserved-code authoring convention](#reserved-code-authoring-convention)
@@ -95,8 +95,9 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 | `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
 | `B002–B003` | Phase 2          | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
 | `B004–B005` | Phase 2          | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
-| `B006`      | Phase 2 (this)   | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
-| `B007–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — horizontal growth from the six anchors above).                                                                                                                  |
+| `B006`      | Phase 2          | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
+| `B007–B008` | Phase 2 (this)   | Shipped (notion-empty-database, vercel-build-progress — opens the horizontal-growth phase with a second EmptyState anchor in the INSTRUCTIONAL register and a second LoadingState anchor in the NARRATIVE register).                                            |
+| `B009–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — continuing horizontal growth from the eight anchors above).                                                                                                     |
 | `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
@@ -196,6 +197,8 @@ Each catalog entry's `source.ref` field cites a published authority. The seed pr
 | `stripe-checkout`           | Stripe checkout surface — exemplar source for production-quality skeletons.                                      |
 | `raycast-app`               | Raycast product surface — exemplar source for keyboard-driven density.                                           |
 | `vercel-geist#error-state`  | Vercel deploy/build error surface — exemplar source for the ErrorState anchor (calm-and-forensic over alarming). |
+| `vercel-app#`               | Vercel application surfaces (e.g. deployment-builds progress) — exemplar source for narrative LoadingState.      |
+| `notion-app#`               | Notion application surfaces (e.g. empty-database / blank-page) — exemplar source for instructional EmptyState.   |
 | `design-component-anatomy/` | Internal harness knowledge skill (shared with sub-project #2's audit).                                           |
 
 New prefixes added during catalog growth must be recorded in this table AND in the contribution-format schema validator.
@@ -972,9 +975,9 @@ The `CRAFT-B*` family differs from `CRAFT-C*` and `CRAFT-P*`:
 
 The radar dimensions are documented in [5-dimension radar (CRAFT-B)](#5-dimension-radar-craft-b) above.
 
-### CRAFT-B001–B006 — anchor benchmark identifiers (seed exemplar set)
+### CRAFT-B001–B008 — seed benchmark identifiers (canonical anchors + horizontal-growth pair)
 
-The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen; later Phase 2 increments closed the early v1 anchor set at six exemplars covering every canonical componentType the spec calls out for the 50-exemplar plan. The anchor `CRAFT-B*` reservations align with the seed exemplar set so any subsequent BENCHMARK run on these target/exemplar pairs reuses the same code:
+The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen; subsequent Phase 2 increments closed the canonical-anchor set at six exemplars (one per canonical componentType the spec calls out for the 50-exemplar plan), then opened the horizontal-growth phase with a second EmptyState and a second LoadingState anchor in distinct tonal registers. The anchor `CRAFT-B*` reservations align with the seed exemplar set so any subsequent BENCHMARK run on these target/exemplar pairs reuses the same code:
 
 | Code         | Anchor exemplar (citation target)  | componentType  | Source citation                                                                  |
 | ------------ | ---------------------------------- | -------------- | -------------------------------------------------------------------------------- |
@@ -984,20 +987,24 @@ The Phase 0 spike produced 3 exemplars and 1 worked benchmark specimen; later Ph
 | `CRAFT-B004` | `exemplar-vercel-error-state`      | ErrorState     | `vercel-geist#error-state` — <https://vercel.com/geist/introduction>             |
 | `CRAFT-B005` | `exemplar-linear-issue-modal`      | Modal          | `linear-app#issue-modal` — <https://linear.app/method>                           |
 | `CRAFT-B006` | `exemplar-stripe-pay-button`       | Button         | `stripe-checkout#pay-button` — <https://docs.stripe.com/elements/appearance-api> |
+| `CRAFT-B007` | `exemplar-notion-empty-database`   | EmptyState     | `notion-app#empty-database` — <https://www.notion.so/help/category/databases>    |
+| `CRAFT-B008` | `exemplar-vercel-build-progress`   | LoadingState   | `vercel-app#deployment-builds` — <https://vercel.com/docs/deployments/builds>    |
 
 Phase 0 spike `benchmark-specimens/empty-state-vs-linear.md` is the canonical worked example for `CRAFT-B001`: a hypothetical `MyEmptyState` component scored against `exemplar-linear-empty-list`. The specimen output (overall 64, per-dimension scores 65/70/55/80/50, five gaps narratives) demonstrates the full BenchmarkScore shape and confirms the 3-axis × 5-dim schemas hold together.
 
 Per Phase 0 review observation O4, `componentType` (e.g., `CommandPalette`) is a free string — the v1 seed need not ship every exemplar's component-type, but the schema accepts arbitrary types. Raycast's CommandPalette is retained informally as a v2 candidate; the `CRAFT-B003` anchor code remains reserved for its eventual BENCHMARK target so subsequent benchmark runs reuse this identifier.
 
-`CRAFT-B004` (`exemplar-vercel-error-state`) and `CRAFT-B005` (`exemplar-linear-issue-modal`) extend the early v1 anchor set with the ErrorState and Modal componentTypes. `CRAFT-B006` (`exemplar-stripe-pay-button`) closes it by claiming the Button anchor — together with B001–B005 it covers every canonical componentType the spec calls out for the 50-exemplar seed (EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). All five canonical componentTypes are now seeded; subsequent exemplar-widen increments grow horizontally (additional exemplars per componentType) rather than introducing new componentTypes.
+`CRAFT-B004` (`exemplar-vercel-error-state`) and `CRAFT-B005` (`exemplar-linear-issue-modal`) extended the early v1 anchor set with the ErrorState and Modal componentTypes. `CRAFT-B006` (`exemplar-stripe-pay-button`) closed the canonical-anchor sweep by claiming the Button anchor — together with B001–B005 it covered every canonical componentType the spec calls out for the 50-exemplar seed (EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor).
 
-### CRAFT-B007–B050 — RESERVED (seed exemplar set growth)
+`CRAFT-B007` (`exemplar-notion-empty-database`) and `CRAFT-B008` (`exemplar-vercel-build-progress`) open the horizontal-growth phase. Both anchor a second exemplar within an already-anchored componentType, but each carries a tonal register distinct from its peer anchor: Notion's EmptyState is the INSTRUCTIONAL register (agency-led "here is the gesture that unlocks the surface") opposite Linear's RESOLVED register ("you're done, nothing to do"); Vercel's LoadingState is the NARRATIVE register (progress-led, multi-phase, log-streamed) opposite Stripe's PREVIEW register (content-matched skeleton). Carrying both registers per componentType lets BENCHMARK score targets against the right tonal model rather than collapsing every empty/loading state toward a single anchor. Subsequent exemplar-widen increments continue growing horizontally per componentType from here.
 
-Codes B007–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during Phase 1 Stream B and Phase 2 Stream B.
+### CRAFT-B009–B050 — RESERVED (seed exemplar set growth)
 
-The next slot (`CRAFT-B007`) is unallocated and intended for the second exemplar within whichever canonical componentType lands next — every canonical type is already anchored, so growth is per-type horizontal from here. Subsequent slots fill in per-type as additional exemplars promote to BENCHMARK-target status.
+Codes B009–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during subsequent Phase 2 Stream B increments.
 
-> **All codes in B007–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+The next slot (`CRAFT-B009`) is unallocated. Growth from here continues per-componentType — every canonical type now carries at least one anchor and two carry a second register-distinct anchor; new slots fill in as additional exemplars promote to BENCHMARK-target status.
+
+> **All codes in B009–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-B051–B100 — RESERVED (post-seed growth)
 
@@ -1058,6 +1065,22 @@ For convenient lookup, the Phase 0 exemplars cited by `CRAFT-B*` anchor identifi
 - **Source citation:** `stripe-checkout#pay-button` — <https://docs.stripe.com/elements/appearance-api>
 - **Radar reference:** philosophicalCoherence 93, hierarchy 95, craftExecution 94, function 96, innovation 75
 - **Why exemplar:** Demonstrates the high-craft primary CTA pattern: the label carries the commit value so the action is specific (not generic); the visual treatment is one token + one border (no gradient/shadow/shine stack); the hover / press / loading / disabled / focus states ride one rhythm; the focus ring uses the three-layer pattern paired with `:focus-visible`; the loading state is layout-locked so the surface does not jitter mid-transaction. Composes naturally with `CRAFT-C001` (hierarchy), `CRAFT-C006` (restraint), `CRAFT-C007` (polish-details), `CRAFT-C009` (interaction craft), `CRAFT-P001` (spring-physics), and `CRAFT-P007` (focus-ring-craft).
+
+### `exemplar-notion-empty-database` (referenced by `CRAFT-B007`)
+
+- **Component type:** EmptyState (second anchor — INSTRUCTIONAL register)
+- **URL:** <https://www.notion.so/help/guides/database-views>
+- **Source citation:** `notion-app#empty-database` — <https://www.notion.so/help/category/databases>
+- **Radar reference:** philosophicalCoherence 95, hierarchy 90, craftExecution 91, function 93, innovation 86
+- **Why exemplar:** Demonstrates the INSTRUCTIONAL EmptyState register opposite Linear's RESOLVED register (`CRAFT-B001`). The surface IS the empty state — no centered illustration, no card boundary, no painted background. The single inline prompt ("Press / for commands") teaches the system gesture rather than instructing on intent; the empty state is geometrically a subset of the loaded state so first-keystroke transitions are layout-stable; every escape route is keyboard-first. Carrying both Linear and Notion as EmptyState anchors lets BENCHMARK distinguish "this surface wants the resolved register" from "this surface wants the agency register" rather than scoring every empty state against a single tonal model. Composes naturally with `CRAFT-C001` (hierarchy), `CRAFT-C006` (restraint), `CRAFT-C008` (copy voice), and `CRAFT-C009` (interaction craft).
+
+### `exemplar-vercel-build-progress` (referenced by `CRAFT-B008`)
+
+- **Component type:** LoadingState (second anchor — NARRATIVE register)
+- **URL:** <https://vercel.com/docs/deployments/builds>
+- **Source citation:** `vercel-app#deployment-builds` — <https://vercel.com/docs/deployments/managing-deployments>
+- **Radar reference:** philosophicalCoherence 92, hierarchy 94, craftExecution 93, function 96, innovation 84
+- **Why exemplar:** Demonstrates the NARRATIVE LoadingState register opposite Stripe's PREVIEW register (`CRAFT-B002`). The journey is visible at a glance — a horizontal stepper across named phases ("Queued", "Building", "Deploying", "Assigning Domains") plus a live log tail pinned to the active phase. The active phase signals aliveness with a tuned breath (~1.8s cycle) rather than a spinner; phase transitions slide on a tuned spring (~240ms); reduced-motion degrades gracefully. The loading state ends with a clean handoff to a summary card rather than a sudden swap. Carrying both Stripe and Vercel as LoadingState anchors lets BENCHMARK distinguish "this surface wants the preview register" from "this surface wants the progress register." Composes naturally with `CRAFT-C001` (hierarchy), `CRAFT-C003` (motion quality), `CRAFT-C006` (restraint), `CRAFT-C008` (copy voice), `CRAFT-C009` (interaction craft), and `CRAFT-P003` (stagger-timing).
 
 ---
 

@@ -192,10 +192,21 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
 
     expect(payload.scores).toHaveLength(1);
     expect(payload.scores[0].target.component).toBe('EmptyInbox');
-    expect(payload.scores[0].exemplars).toEqual(['exemplar-linear-empty-list']);
+    // EmptyState targets now match TWO seed exemplars (Linear's resolved
+    // register CRAFT-B001 + Notion's instructional register CRAFT-B007).
+    // The MCP handler forwards every matching exemplar so BENCHMARK can
+    // score against both registers in a single pass; cited exemplars are
+    // returned in seed-array order.
+    expect(payload.scores[0].exemplars).toEqual([
+      'exemplar-linear-empty-list',
+      'exemplar-notion-empty-database',
+    ]);
     expect(payload.scores[0].overall.score).toBe(77);
     expect(payload.summary.phaseRun).toEqual(['benchmark']);
-    expect(payload.summary.catalog.exemplarsCited).toEqual(['exemplar-linear-empty-list']);
+    expect(payload.summary.catalog.exemplarsCited).toEqual([
+      'exemplar-linear-empty-list',
+      'exemplar-notion-empty-database',
+    ]);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
