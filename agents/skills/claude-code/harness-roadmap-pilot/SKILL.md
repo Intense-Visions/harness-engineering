@@ -58,6 +58,30 @@ Top candidates (scored by position 50%, dependents 30%, affinity 20%):
    - Read the spec's Success Criteria section
    - Assess effort and impact from the spec content
 
+1a. **Read `STRATEGY.md` if present at repo root (strategy-alignment input).** Use a Node one-liner that calls `validateStrategy` from `@harness-engineering/core`, then (when valid) `parseStrategyDoc` + `asStrategyDoc`:
+
+```bash
+node -e "import('@harness-engineering/core').then(async m => {
+  const v = await m.validateStrategy(process.cwd());
+  if (!v.present || !v.valid) { console.log(JSON.stringify({ grounded: false })); return; }
+  const raw = require('fs').readFileSync('STRATEGY.md', 'utf-8');
+  console.log(JSON.stringify({ grounded: true, doc: m.asStrategyDoc(m.parseStrategyDoc(raw)) }));
+})"
+```
+
+When `grounded: true`, capture the `Target problem`, `Our approach`, and `Tracks` section bodies. For each top-3 candidate, compute a strategy-alignment score:
+
+- `+0.5` if the candidate's feature name or spec keywords plausibly advance one of the `Tracks` (case-insensitive substring or paraphrase match)
+- `+0.25` if the candidate's spec Overview cites the `Target problem` or `Our approach` verbatim or near-verbatim
+- `0` otherwise
+
+The alignment score is a **tiebreaker bonus**, NEVER a hard filter:
+
+- Apply only when the absolute difference between two candidates' base scores is `≤ 0.05` (items score similarly on `position × 0.5 + dependents × 0.3 + affinity × 0.2`).
+- Never let the bonus override a meaningful base-score difference.
+- When alignment is applied, cite it in the recommendation rationale ("Tiebreaker: aligned with track 'pulse-reports' from STRATEGY.md").
+- When `STRATEGY.md` is absent or invalid, skip this step silently; the recommendation proceeds without a strategy tiebreaker.
+
 1b. Read the most recent pulse report (if any):
 
 - List entries in `docs/pulse-reports/` and **filter to those matching the
@@ -166,6 +190,7 @@ Proceed with Feature A? (y/n/pick another)
 - **`scoreRoadmapCandidates`** -- Underlying file-backed scoring algorithm. Prefer `scoreRoadmapCandidatesForMode` from the skill; direct callers in file-backed-only code paths can still use this.
 - **`manage_roadmap update`** -- Used for assignment. Supports `assignee` field which delegates to `assignFeature` internally, handles history tracking, and automatically triggers external sync (GitHub Issues). In file-less mode, `manage_roadmap` dispatches through the tracker; the skill flow is unchanged.
 - **`emit_interaction`** -- Used for the skill transition at the end. Transitions to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists).
+- **`STRATEGY.md` alignment (Phase 2 step 1a)** -- When present at repo root and valid, loaded via `validateStrategy` + `parseStrategyDoc` + `asStrategyDoc` from `@harness-engineering/core`. Applied as a bounded tiebreaker bonus (max `+0.75`) only when candidates score within `0.05` on the base formula. Boundary: roadmap-pilot READS; `harness-strategy` WRITES. Never modify `STRATEGY.md` from this skill.
 - **`harness validate`** -- Run after assignment is written.
 
 ## Success Criteria
@@ -178,15 +203,18 @@ Proceed with Feature A? (y/n/pick another)
 6. Reassignment produces two history records (unassigned + assigned)
 7. Transition routes to brainstorming (no spec) or autopilot (spec exists)
 8. When a pulse report exists, the recommendation rationale cites pulse signal for any top-3 candidate whose area is referenced in the pulse Headlines or Followups.
-9. `harness validate` passes after all changes
+9. When `STRATEGY.md` is present and valid AND two candidates score within `0.05` on the base formula, the recommendation rationale cites strategy-alignment as the tiebreaker. The bonus never overrides a meaningful base-score difference.
+10. When `STRATEGY.md` is absent or invalid, the skill completes without error and no strategy-alignment rationale appears in the output.
+11. `harness validate` passes after all changes
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                                         | Reality                                                                                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| "The top-scored candidate is obviously correct, so I can assign it without asking the human"                            | The Iron Law: never assign or transition without the human confirming the recommendation first.                                         |
-| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings. |
-| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                             |
+| Rationalization                                                                                                         | Reality                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-scored candidate is obviously correct, so I can assign it without asking the human"                            | The Iron Law: never assign or transition without the human confirming the recommendation first.                                                                                  |
+| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings.                                          |
+| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                                                                      |
+| "STRATEGY.md exists, so I should let it override the top-scored candidate when alignment is clear"                      | The alignment bonus is bounded (max `+0.75`) and only fires when base scores are within `0.05`. It is a tiebreaker, not a hard filter — a clearly higher-scored item still wins. |
 
 ## Examples
 

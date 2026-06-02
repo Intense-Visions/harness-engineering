@@ -154,6 +154,60 @@ Detect plugin-only state by checking whether `harness` resolves on PATH (`comman
 
     **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects will be dispatched at step 6 below to `initialize-test-suite-project` and have no UI to govern.
 
+5c. **Capture strategic anchor (all levels).** Offer a three-way prompt for `STRATEGY.md` — the durable upstream product anchor read by `harness-brainstorming`, `harness-ideate`, and `harness-roadmap-pilot`. Use `emit_interaction`:
+
+    ```json
+    emit_interaction({
+      type: "question",
+      question: {
+        text: "Capture strategic anchor (STRATEGY.md) now?",
+        options: [
+          {
+            label: "Yes — run the strategy interview",
+            pros: [
+              "Grounds brainstorm/ideate/roadmap-pilot in product-level context",
+              "Durable across milestones and phases (peer of README.md)"
+            ],
+            cons: ["Adds an interview (10-20 minutes) to init"],
+            risk: "low",
+            effort: "medium"
+          },
+          {
+            label: "No — this project does not need a strategy doc",
+            pros: ["Permanent decline recorded; init does not re-ask on rerun"],
+            cons: ["Re-running init will not re-offer; user must run /harness:strategy manually"],
+            risk: "low",
+            effort: "low"
+          },
+          {
+            label: "Not sure yet",
+            pros: ["Decision deferred without commitment", "Can run /harness:strategy later"],
+            cons: ["No decline flag set; init may re-offer on rerun"],
+            risk: "low",
+            effort: "low"
+          }
+        ],
+        recommendation: { optionIndex: 0, reason: "Strategy grounds brainstorm/ideate/roadmap-pilot — value compounds as the project grows", confidence: "medium" }
+      }
+    })
+    ```
+
+    Before prompting, check whether `STRATEGY.md` already exists at repo root. Three cases:
+
+    - **Absent (most common on init).** Present the prompt above. Apply the answer:
+      - **Yes:** delegate to `harness-strategy` (which routes via its own Phase 0 to the first-run interview). When `harness-strategy` completes, continue with step 6.
+      - **No:** write `init.strategy.declined: true` to `.harness/state.json` (merge into existing JSON; do not clobber). This is the explicit decline location; re-running init detects the flag and skips the prompt.
+      - **Not sure yet:** no state write. `/harness:strategy` remains available standalone, and a future re-run of init will re-offer.
+
+    - **Present and valid.** Skip the prompt silently. Surface a one-line note: `STRATEGY.md detected — downstream skills will pick it up as grounding`. No `init.strategy.declined` write.
+
+    - **Present but invalid.** Surface the validation error verbatim (run a Node one-liner that imports `validateStrategy` from `@harness-engineering/core` and pipes the error). Offer three paths (mirror `harness-strategy` Phase 0):
+      - **a) Fix now via `/harness:strategy` update** → delegate to `harness-strategy` with the broken section pre-selected.
+      - **b) Move file to `STRATEGY.md.bak.<YYYY-MM-DD-HHmm>` and run a fresh interview** → rename, then delegate to `harness-strategy` Phase 1.
+      - **c) Ignore for this init and proceed** → record `init.strategy.declined: true` and continue. Init does NOT block on present-but-invalid STRATEGY.md.
+
+    Mirror the i18n / design-system pattern: ask once, record the answer, never silently skip.
+
 6. **Test-suite projects only — dispatch to `initialize-test-suite-project`.** If Phase 1 step 5 classified this as a test suite, invoke `initialize-test-suite-project` now and let it own archetype selection, shared-library decision, layer variants (A self-contained vs B consumer), ESLint flat-config fix, tag taxonomy, reporter stack, custom report, and the "prove the guards fire" verification. Return here for Phase 4 step 4+ (knowledge graph, roadmap, commit). Product and service projects skip this step entirely.
 
 ### Phase 4: VALIDATE — Confirm Everything Works
@@ -283,6 +337,8 @@ This phase closes the parity gap that the marketplace plugin install does not co
 - **`harness integrations list` / `harness integrations add <name>`** — Phase 5 step 6. Lists Tier-0 (zero-config) and Tier-1 (API-key) MCP integrations and adds them to project `.mcp.json`.
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
 - **`harness-design-system` (deferred via `on_new_feature`)** — Phase 3 step 5b records `design.enabled` + `design.platforms` in `harness.config.json` but does NOT run the full design-system skill. Token generation defers to the first design-touching feature, where `harness-design-system` fires via `on_new_feature` and reads `design.enabled` to decide whether to proceed.
+- **`harness-strategy`** — Phase 3 step 5c delegates to this skill on "Yes". The skill conducts a first-run interview (pushback rules with a 2-round cap per section) and writes a valid `STRATEGY.md` at repo root via `writeStrategyDoc`. On "No" init writes `init.strategy.declined: true` to `.harness/state.json`. On "Not sure yet" no state is written; the user can run `/harness:strategy` standalone. When `STRATEGY.md` already exists and is valid the prompt is skipped; when present-but-invalid the user gets the three-path repair offer.
+- **`validateStrategy`** — `@harness-engineering/core` helper used by Phase 3 step 5c to detect present-but-invalid `STRATEGY.md`. Invoked through a Node one-liner so init does not require importing core directly.
 - **`initialize-test-suite-project`** — Sub-skill. Invoked during Phase 3 step 6 when Phase 1 step 5 classified the project as a test suite. Owns archetype selection, shared-library vs in-repo decision, layer variants, tag taxonomy, reporter stack, custom report, and "prove the guards fire" verification.
 - **`harness-roadmap` skill** — Phase 6 step 1 invokes this skill (or `/harness:roadmap --create`) when the user opts in to creating `docs/roadmap.md`. The `manage_roadmap` MCP tool does not create roadmaps; it manages entries in an existing one.
 - **`manage_roadmap` MCP tool** — Phase 6 step 1, when `design.enabled === true`, calls `manage_roadmap` with `action: add` to insert a `planned` "Set up design system" item under milestone `Current Work` with a summary describing the deferred work.
@@ -299,6 +355,7 @@ This phase closes the parity gap that the marketplace plugin install does not co
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
 - For non-test-suite projects, the design-system question was asked and `harness.config.json` reflects the answer: `design.enabled: true` (with `design.platforms` populated) for yes, `design.enabled: false` for no, or absent for not-sure.
+- The strategy question (Phase 3 step 5c) was asked unless `STRATEGY.md` already existed and was valid (in which case the prompt was skipped silently with a one-line detection note). The answer was recorded according to the documented semantics: Yes → `STRATEGY.md` exists and `harness validate` passes against `StrategyDocSchema`; No → `.harness/state.json` contains `init.strategy.declined: true`; Not sure yet → no `STRATEGY.md` and no `init.strategy.declined` flag.
 - **Phase 5 (INSTRUMENT) outputs:** `.harness/graph/` is populated; `.harness/arch/baselines.json` exists; `harness check-perf` ran without errors (intermediate and above); `.harness/telemetry.json` exists if the human opted into identity tagging; legacy layout warnings were surfaced via `harness migrate --dry-run` and either resolved or explicitly deferred; Tier-0 MCP integrations (context7, sequential-thinking, playwright) are present in the project's `.mcp.json` (or the human declined and that decision is recorded).
 - The roadmap question was asked. If the user answered yes, `docs/roadmap.md` exists and was created via `harness-roadmap` (or the documented `/harness:roadmap --create` fallback).
 - When `design.enabled === true` AND the user answered yes to the roadmap question, `docs/roadmap.md` contains a `planned` entry titled "Set up design system" under milestone `Current Work` with a summary describing the deferred work. The entry is absent in all other answer combinations.
@@ -307,16 +364,19 @@ This phase closes the parity gap that the marketplace plugin install does not co
 
 ## Rationalizations to Reject
 
-| Rationalization                                                          | Why It Is Wrong                                                                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.                                                                                                                                               |
-| "We should start at the advanced level since we want full coverage"      | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                                                                                |
-| "I will skip the i18n question to keep setup fast"                       | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                                                                           |
-| "I will skip the design-system question to keep setup fast"              | Phase 3 step 5b requires asking about design and recording the answer in `design.enabled`. Skipping creates ambiguity about whether the omission was intentional and bypasses the linkage between init and the deferred `harness-design-system` invocation on `on_new_feature`. |
-| "Validation passed, so the project is ready"                             | Phase 5 captures baselines, configures telemetry identity, surfaces legacy warnings, and wires Tier-0 integrations. Validation alone is not sufficient.                                                                                                                         |
-| "Plugin install means setup is done"                                     | The marketplace plugin ships skills, slash commands, subagents, hooks, and MCP — but it cannot mutate the user's project state. `harness.config.json`, baselines, telemetry identity, and Tier-0 integrations require running this skill once per project.                      |
-| "Skip Phase 5 if we already ran `harness setup`"                         | Phase 5 is idempotent. It safely no-ops where setup already wired things and fills gaps where it didn't (common case: setup ran once, then a new Tier-0 integration was added or a layout was migrated). Re-running is the right behavior.                                      |
-| "This is a test suite, we'll configure layers in this skill"             | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas.                                                       |
+| Rationalization                                                              | Why It Is Wrong                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The generated AGENTS.md template looks fine -- no need to customize it"     | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions.                                                                                                                                                                                                                                     |
+| "We should start at the advanced level since we want full coverage"          | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules.                                                                                                                                                                                                                                      |
+| "I will skip the i18n question to keep setup fast"                           | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional.                                                                                                                                                                                                                                 |
+| "I will skip the design-system question to keep setup fast"                  | Phase 3 step 5b requires asking about design and recording the answer in `design.enabled`. Skipping creates ambiguity about whether the omission was intentional and bypasses the linkage between init and the deferred `harness-design-system` invocation on `on_new_feature`.                                                                                       |
+| "I will skip the strategy question — it's just paperwork"                    | Phase 3 step 5c is the only point in the workflow where init asks the user to capture the strategic anchor. Skipping bypasses the grounding signal that brainstorming, ideate, and roadmap-pilot read; downstream skill output degrades silently. Even a "No" or "Not sure yet" answer is better than no answer because it locks in the decision (or absence of one). |
+| "STRATEGY.md exists already, so I should re-run the interview to refresh it" | When `STRATEGY.md` is present and valid, Phase 3 step 5c skips the prompt silently. Refreshing strategy mid-init is out of scope — that is what the standalone `/harness:strategy` update flow is for. Surface a one-line detection note and continue.                                                                                                                |
+| "STRATEGY.md is present but invalid, so I should block init"                 | Phase 3 step 5c explicitly does NOT block. It surfaces the validation error, offers three repair paths (fix now / move-to-bak / ignore), and continues based on the user's choice. Init is the wrong place to gate on strategy correctness.                                                                                                                           |
+| "Validation passed, so the project is ready"                                 | Phase 5 captures baselines, configures telemetry identity, surfaces legacy warnings, and wires Tier-0 integrations. Validation alone is not sufficient.                                                                                                                                                                                                               |
+| "Plugin install means setup is done"                                         | The marketplace plugin ships skills, slash commands, subagents, hooks, and MCP — but it cannot mutate the user's project state. `harness.config.json`, baselines, telemetry identity, and Tier-0 integrations require running this skill once per project.                                                                                                            |
+| "Skip Phase 5 if we already ran `harness setup`"                             | Phase 5 is idempotent. It safely no-ops where setup already wired things and fills gaps where it didn't (common case: setup ran once, then a new Tier-0 integration was added or a layout was migrated). Re-running is the right behavior.                                                                                                                            |
+| "This is a test suite, we'll configure layers in this skill"                 | Phase 3 step 6 dispatches to `initialize-test-suite-project` for archetype selection, layer variants, and the rest. Do not inline test-suite-specific configuration here — the sub-skill owns it and carries the gotchas.                                                                                                                                             |
 
 ## Examples
 
@@ -390,6 +450,11 @@ Step 5b (design): "Will this project have a UI requiring a design system?"
   Result: design.enabled = true, design.platforms = ["web"] in harness.config.json.
   Inform: "Design tokens will be generated when you start your first design-touching
   feature — harness-design-system fires automatically via on_new_feature."
+
+Step 5c (strategy): "Capture strategic anchor (STRATEGY.md) now?"
+  Human: "Yes."
+  Delegate to harness-strategy → first-run interview → STRATEGY.md written.
+  Result: STRATEGY.md exists at repo root; harness validate passes against StrategyDocSchema.
 
 Step 6 (test-suite dispatch): skipped (not a test suite).
 ```
@@ -496,6 +561,7 @@ npx @harness-engineering/cli init  # auto-detects framework
 Customize AGENTS.md with project-specific content.
 Phase 3 step 5 (i18n): "No, English only." → i18n.enabled = false.
 Phase 3 step 5b (design): "No, this is a backend service." → design.enabled = false.
+Phase 3 step 5c (strategy): "Not sure yet." → no STRATEGY.md, no init.strategy.declined flag; user can run /harness:strategy later.
 Phase 3 step 6 (test-suite dispatch): not a test suite, skipped.
 ```
 
