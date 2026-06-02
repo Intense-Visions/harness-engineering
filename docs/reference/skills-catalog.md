@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-753 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+754 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (36 skills)
+## Tier 2 — Maintenance (37 skills)
 
 ### align-design-system
 
@@ -398,6 +398,15 @@ Deep soundness analysis of specs and plans with auto-fix and convergence loop
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
+
+### harness-strategy
+
+First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
 
 ### harness-supply-chain-audit
 

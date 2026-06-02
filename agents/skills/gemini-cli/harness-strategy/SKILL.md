@@ -1,0 +1,158 @@
+# Harness Strategy
+
+> Repo-root strategic anchor. **Phase 2 of the strategic-anchor spec ships the skill**: a first-run interview that writes a valid `STRATEGY.md`, plus an update flow that re-interviews one section at a time with pushback against fluff, goals-as-strategy, and feature-lists-as-strategy. Downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+
+## When to Use
+
+- Manually, when a project wants a durable upstream product anchor that survives across milestones and phases
+- When `STRATEGY.md` is absent and the user invokes `/harness:strategy`
+- When `STRATEGY.md` exists and the user wants to update one section (the user picks which one; nothing is auto-rewritten)
+- NOT for tactical phase tracking — that's `docs/roadmap.md` (kept deliberately separate; see proposal Decision 1)
+- NOT for generating strategy from code or commit history — strategy is a human commitment, never a derived artifact (proposal Decision 8)
+- NOT for producing specs/plans/code — those are `harness-brainstorming`'s job; this skill only writes `STRATEGY.md`
+
+## Process
+
+### Iron Law
+
+**The skill never writes `STRATEGY.md` without explicit user confirmation of the assembled doc, and never silently accepts an answer that fails a pushback rule on the FIRST round.** The 2-round cap is the _capitulation_ point, not the _bypass_ point — round 1 must always fire when a rule matches.
+
+---
+
+### Phase 0: ROUTE BY FILE STATE
+
+1. **Locate `STRATEGY.md` at repo root.** Use `path.join(process.cwd(), 'STRATEGY.md')`.
+2. **If absent** → proceed to Phase 1 (first-run interview).
+3. **If present** → shell out to a Node one-liner that imports `validateStrategy` from `@harness-engineering/core` and run it against `process.cwd()`. Capture `{ ok, error }`.
+   - **valid** → proceed to Phase 2 (update run).
+   - **invalid** → surface the validation error verbatim, then offer three paths via `emit_interaction` (or numbered chat options when MCP is unavailable):
+     - **a)** Fix the offending section now via the update flow → proceed to Phase 2 with the broken section pre-selected.
+     - **b)** Move file to `STRATEGY.md.bak.<YYYY-MM-DD-HHmm>` and run Phase 1 fresh.
+     - **c)** Exit; user repairs manually. No further action.
+
+The skill MUST NOT auto-overwrite a present-but-invalid STRATEGY.md — that's the user's prior work, even if broken. The three-path offer is the contract.
+
+---
+
+### Phase 1: FIRST-RUN INTERVIEW
+
+Read `references/interview.md` for the three pushback rules and the 2-round cap. Both are mandatory.
+
+Walk sections in **template order** — never out of order, because each section informs the next:
+
+1. **Target problem.** Open with: _"In 2-4 sentences: what is specifically broken in the world that this product addresses? Not the goal — the diagnosis."_ Capture. Apply `Fluff detection` and `Goal-as-strategy` rules.
+2. **Our approach.** Open with: _"What is your distinctive bet on how to solve the target problem? The choice you're making about HOW, not WHAT you're building."_ Apply all three rules (`Fluff`, `Goal-as-strategy`, `Feature-list-as-strategy`) — this is where feature-list answers live.
+3. **Who it's for.** Open with: _"Specific persona — who is the person, what context are they in, what alternatives are they currently using? 'Developers' is not a specific persona."_ Apply `Fluff detection`.
+4. **Key metrics.** Open with: _"What 1-5 metrics, measured where, would tell you the bet is paying off? Each metric is a bullet line: `- <name>: <how measured, where it lives>`."_ Apply `Fluff detection` per bullet.
+5. **Tracks.** Open with: _"What 1-5 tracks of work are you currently investing in to advance the bet? Each track is a bullet line: `- <track name>: <one-sentence current investment>`."_ Apply `Feature-list-as-strategy` per bullet (a "track" should be an investment direction, not a feature name).
+6. **Optional sections.** Ask once whether to add `Milestones`, `Not working on`, and/or `Marketing`. If yes, walk each with the same rules. If no, skip — they remain absent (the schema allows omission).
+7. **Assemble.** Show the full proposed doc. Ask explicitly: _"Write this to STRATEGY.md?"_ Wait for yes/no.
+8. **Write.** Shell out to a Node one-liner that imports `writeStrategyDoc` from `@harness-engineering/core`. Pipe the JSON through stdin so user-supplied section bodies, product name, etc. never cross the shell tokenizer (quotes, backticks, `$()`, `$VAR` in user input would otherwise break the command or open injection):
+
+   ```bash
+   echo '<json-blob>' | node -e "import('@harness-engineering/core').then(m => m.writeStrategyDoc(JSON.parse(require('fs').readFileSync(0, 'utf-8')), { cwd: process.cwd() })).catch(err => { console.error(err.message); process.exit(1); })"
+   ```
+
+   The `<json-blob>` is the assembled `StrategyDoc` shape: `{ frontmatter: { name, last_updated, version }, sections: [{ name, body }, ...] }`. Set `last_updated` to today's ISO date; `version` to `1` for first run.
+
+9. **Validate.** Run `harness validate` to confirm the file passes `StrategyDocSchema`. On failure, surface the error and stop (do not retry).
+
+---
+
+### Phase 2: UPDATE RUN
+
+1. **Re-read the existing file** via a Node one-liner that imports `parseStrategyDoc` + `asStrategyDoc` from `@harness-engineering/core`. Capture the parsed doc shape.
+2. **Summarize current state** in 3-5 lines: frontmatter (`name`, `last_updated`, `version`), then the first sentence of each present section. This is the "what's there now" view the user needs to choose what to revisit.
+3. **Ask which section to revisit.** Present the section names as numbered options. Allow `none` (exit) or `multiple` (sequential re-interviews).
+4. **Re-interview each selected section** with the same pushback rules and 2-round cap from Phase 1. Do not re-ask sections the user did not select.
+5. **Bump frontmatter.** Set `last_updated` to today's ISO date. Increment `version` by 1.
+6. **Confirm and write.** Show the diff between the parsed doc and the new doc (added/changed sections). Ask explicitly: _"Write the update?"_ Wait for yes/no. Call `writeStrategyDoc` via the same Node one-liner pattern as Phase 1.8. The writer preserves the user's H1 line and writes a `.bak` only if no `.bak` exists yet (idempotent — the original pre-strategy file is the rollback target).
+7. **Validate.** Run `harness validate`.
+
+---
+
+### Phase 3: DOWNSTREAM HANDOFF
+
+After Phase 1 or Phase 2 completes successfully, print this short note (3-5 lines):
+
+```
+STRATEGY.md written. Downstream skills that pick this up as grounding:
+  - harness-brainstorming     (Phase 5 of strategic-anchor spec — reads STRATEGY.md in Phase 1 EXPLORE)
+  - harness-ideate            (Phase 4 of spec — generates ranked candidates grounded in STRATEGY.md)
+  - harness-roadmap-pilot     (Phase 6 of spec — strategy-alignment tiebreaker)
+  - BusinessKnowledgeIngestor (Phase 7 of spec — strategy domain → business_fact nodes)
+Soft-fail when absent; no downstream skill blocks on STRATEGY.md's presence.
+```
+
+The handoff exists to set the user's expectation about _why_ they just answered those questions. It is short by design — this is not a section to grow.
+
+## Harness Integration
+
+- **`harness validate`** — Run after `writeStrategyDoc`; the existing `validateStrategy` helper (Phase 1 of this spec) catches schema violations.
+- **`@harness-engineering/core`** primitives consumed by this skill:
+  - `writeStrategyDoc(doc, { cwd, skipBackup? })` — atomic disk write with `.bak` on first overwrite.
+  - `serializeStrategyDoc(doc, opts?)` — pure serializer the writer composes (rarely called directly from the skill).
+  - `parseStrategyDoc(raw)` + `asStrategyDoc(parsed)` — Phase 2's read path.
+  - `validateStrategy(cwd)` — Phase 0's routing oracle.
+  - `StrategyDocSchema` — the contract `writeStrategyDoc` enforces at write time.
+- **Boundary with `harness-pulse`** — Pulse reads `STRATEGY.md` to seed metric names; strategy writes it. Pulse NEVER writes to `STRATEGY.md` (Decision 6 of the feedback-loops spec). Strategy NEVER touches `harness.config.json`.
+- **Boundary with `harness-brainstorming`** — Brainstorming consumes `STRATEGY.md` as grounding context; this skill produces it. Phase 5 of the strategic-anchor spec wires the brainstorming read path.
+- **Decision 1 (separation from roadmap.md)** — `docs/roadmap.md` is tactical phase tracking; `STRATEGY.md` is the strategic anchor. They never merge. Documented in `references/interview.md`.
+- **Decision 2 (placeholder rejection)** — A STRATEGY.md with the template placeholder text (e.g., `<2-4 sentences. ...>`) still in it FAILS validation. The skill never writes placeholder text; the writer validates before touching disk.
+
+## Success Criteria
+
+- On a project with no `STRATEGY.md`, the first-run interview produces a valid `STRATEGY.md` ≤ 100 lines that passes `harness validate`.
+- Re-running the skill on a project with a valid `STRATEGY.md` enters Phase 2 (update), preserves sections the user did not touch verbatim, bumps `version`, and updates `last_updated`.
+- All three pushback rules (`Fluff detection`, `Goal-as-strategy`, `Feature-list-as-strategy`) fire on at least one canonical anti-pattern fixture in `references/interview.md`.
+- After Phase 1 or 2, `harness validate` passes.
+- A `STRATEGY.md.bak` is written on the _first_ overwrite of an existing file, but NOT clobbered on subsequent overwrites (idempotency).
+- A present-but-invalid STRATEGY.md surfaces the validation error and offers the three repair paths from Phase 0; the skill never auto-overwrites a present-but-invalid file.
+
+## Examples
+
+### Example: greenfield (no STRATEGY.md)
+
+- Phase 0: `validateStrategy` returns `{ present: false, valid: true }`; route to Phase 1.
+- Phase 1.1: ask Target problem. User answers `"engineering teams want to be the best at shipping"`. **Fluff detection** fires: "be the best at" is empty-modifier vocabulary. Repair suggestion: "Replace `be the best at shipping` with a concrete diagnosis." User revises: `"engineering teams ship without a strategic anchor; brainstorming starts mid-stream"`. Accepted.
+- Phase 1.2-5: walk Our approach, Who it's for, Key metrics, Tracks with the same pushback discipline.
+- Phase 1.6: user declines optional sections.
+- Phase 1.7: show full doc; user confirms.
+- Phase 1.8: `writeStrategyDoc` writes the file; no `.bak` written (fresh create).
+- Phase 1.9: `harness validate` passes.
+- Phase 3: handoff note printed.
+
+### Example: update existing STRATEGY.md (one section)
+
+- Phase 0: `validateStrategy` returns `{ present: true, valid: true }`; route to Phase 2.
+- Phase 2.1-2: parse and summarize. Current state shows `name: Acme, last_updated: 2026-05-01, version: 3` and 5 required sections.
+- Phase 2.3: user selects `Tracks` for revisit.
+- Phase 2.4: re-interview Tracks. User answers `"add features X, Y, Z to the dashboard"`. **Feature-list-as-strategy** fires: 3+ feature names. Repair suggestion: "What's the coherent action these features are instances of?" User revises: `"- Dashboard track: collapse 3 separate widgets into one explorable surface"`. Accepted.
+- Phase 2.5: frontmatter bumped to `last_updated: 2026-06-02, version: 4`.
+- Phase 2.6: show diff; user confirms. `writeStrategyDoc` writes the file; `.bak` already exists from a prior overwrite — NOT clobbered.
+- Phase 2.7: `harness validate` passes.
+
+### Example: present-but-invalid STRATEGY.md
+
+- Phase 0: `validateStrategy` returns an error like `section "Key metrics": unfilled template placeholder detected (- <metric 1>: <how it's measured, where it lives>)`. Surface verbatim.
+- User picks **a) Fix now**: skill enters Phase 2 with `Key metrics` pre-selected. User answers; skill writes the file.
+
+### Example: pushback gives up after the cap
+
+- Phase 1.1: ask Target problem. User answers `"deliver value"`. **Fluff detection** fires. Round 1: suggest repair. User answers `"deliver maximum value"`. Round 2: suggest repair again. User answers `"deliver excellent value"`. **Cap reached** — skill captures the answer verbatim AND emits a flag in the doc summary: `"⚠ Target problem: flagged for revisit — pushback cap reached without concrete diagnosis."` Continue to the next section.
+
+## Gates
+
+- **The 2-round pushback cap is non-negotiable.** No flag, no override, no "I know what I'm doing" path — the cap is the disable mechanism (proposal §Risks).
+- **The skill MUST NEVER write to `STRATEGY.md` without explicit user confirmation** of the assembled or updated doc.
+- **`writeStrategyDoc` is the only sanctioned write path.** Do not hand-edit `STRATEGY.md`. The writer is the layer that validates against the schema, preserves the H1, writes the `.bak`, and does the atomic rename.
+- **`harness validate` must pass before exit** of Phase 1 or Phase 2. A malformed STRATEGY.md silently breaks the downstream grounding reads (Phases 5/6/7 of the spec).
+- **Round 1 pushback MUST always fire when a rule matches.** The cap protects users from infinite loops, not from feedback. Skipping round 1 violates the Iron Law.
+
+## Escalation
+
+- **User insists pushback is wrong:** Capture the answer verbatim after round 1 (do not push back twice if the user explicitly disagrees with round 1). Surface a one-line flag in the doc summary. Continue.
+- **`writeStrategyDoc` throws a schema error:** Report the error verbatim. Do not retry without user fix. The most common cause is a section body that's empty or still contains template placeholder text.
+- **STRATEGY.md frontmatter is malformed (Phase 2):** Treat as present-but-invalid; route through Phase 0's three-path offer.
+- **User wants to add a section name not in the documented schema:** Refuse and cite Decision 2 of the proposal ("schema validation rejects unknown sections; expansion requires a separate ADR"). Offer to file the proposal ADR as a follow-up.
+- **Atomic rename fails (e.g., permission denied):** Surface the filesystem error verbatim. The temp file is cleaned up by the writer; no partial STRATEGY.md is left behind.
