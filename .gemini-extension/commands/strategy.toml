@@ -36,7 +36,7 @@ Phases:
 
 ### Iron Law
 
-**The skill never writes `STRATEGY.md` without explicit user confirmation of the assembled doc, and never silently accepts an answer that fails a pushback rule on the FIRST round.** The 2-round cap is the *capitulation* point, not the *bypass* point — round 1 must always fire when a rule matches.
+**The skill never writes `STRATEGY.md` without explicit user confirmation of the assembled doc, and never silently accepts an answer that fails a pushback rule on the FIRST round.** The 2-round cap is the _capitulation_ point, not the _bypass_ point — round 1 must always fire when a rule matches.
 
 ---
 
@@ -61,13 +61,13 @@ Read `references/interview.md` for the three pushback rules and the 2-round cap.
 
 Walk sections in **template order** — never out of order, because each section informs the next:
 
-1. **Target problem.** Open with: *"In 2-4 sentences: what is specifically broken in the world that this product addresses? Not the goal — the diagnosis."* Capture. Apply `Fluff detection` and `Goal-as-strategy` rules.
-2. **Our approach.** Open with: *"What is your distinctive bet on how to solve the target problem? The choice you're making about HOW, not WHAT you're building."* Apply all three rules (`Fluff`, `Goal-as-strategy`, `Feature-list-as-strategy`) — this is where feature-list answers live.
-3. **Who it's for.** Open with: *"Specific persona — who is the person, what context are they in, what alternatives are they currently using? 'Developers' is not a specific persona."* Apply `Fluff detection`.
-4. **Key metrics.** Open with: *"What 1-5 metrics, measured where, would tell you the bet is paying off? Each metric is a bullet line: `- <name>: <how measured, where it lives>`."* Apply `Fluff detection` per bullet.
-5. **Tracks.** Open with: *"What 1-5 tracks of work are you currently investing in to advance the bet? Each track is a bullet line: `- <track name>: <one-sentence current investment>`."* Apply `Feature-list-as-strategy` per bullet (a "track" should be an investment direction, not a feature name).
+1. **Target problem.** Open with: _"In 2-4 sentences: what is specifically broken in the world that this product addresses? Not the goal — the diagnosis."_ Capture. Apply `Fluff detection` and `Goal-as-strategy` rules.
+2. **Our approach.** Open with: _"What is your distinctive bet on how to solve the target problem? The choice you're making about HOW, not WHAT you're building."_ Apply all three rules (`Fluff`, `Goal-as-strategy`, `Feature-list-as-strategy`) — this is where feature-list answers live.
+3. **Who it's for.** Open with: _"Specific persona — who is the person, what context are they in, what alternatives are they currently using? 'Developers' is not a specific persona."_ Apply `Fluff detection`.
+4. **Key metrics.** Open with: _"What 1-5 metrics, measured where, would tell you the bet is paying off? Each metric is a bullet line: `- <name>: <how measured, where it lives>`."_ Apply `Fluff detection` per bullet.
+5. **Tracks.** Open with: _"What 1-5 tracks of work are you currently investing in to advance the bet? Each track is a bullet line: `- <track name>: <one-sentence current investment>`."_ Apply `Feature-list-as-strategy` per bullet (a "track" should be an investment direction, not a feature name).
 6. **Optional sections.** Ask once whether to add `Milestones`, `Not working on`, and/or `Marketing`. If yes, walk each with the same rules. If no, skip — they remain absent (the schema allows omission).
-7. **Assemble.** Show the full proposed doc. Ask explicitly: *"Write this to STRATEGY.md?"* Wait for yes/no.
+7. **Assemble.** Show the full proposed doc. Ask explicitly: _"Write this to STRATEGY.md?"_ Wait for yes/no.
 8. **Write.** Shell out to a Node one-liner that imports `writeStrategyDoc` from `@harness-engineering/core`. Pipe the JSON through stdin so user-supplied section bodies, product name, etc. never cross the shell tokenizer (quotes, backticks, `$()`, `$VAR` in user input would otherwise break the command or open injection):
 
    ```bash
@@ -87,7 +87,7 @@ Walk sections in **template order** — never out of order, because each section
 3. **Ask which section to revisit.** Present the section names as numbered options. Allow `none` (exit) or `multiple` (sequential re-interviews).
 4. **Re-interview each selected section** with the same pushback rules and 2-round cap from Phase 1. Do not re-ask sections the user did not select.
 5. **Bump frontmatter.** Set `last_updated` to today's ISO date. Increment `version` by 1.
-6. **Confirm and write.** Show the diff between the parsed doc and the new doc (added/changed sections). Ask explicitly: *"Write the update?"* Wait for yes/no. Call `writeStrategyDoc` via the same Node one-liner pattern as Phase 1.8. The writer preserves the user's H1 line and writes a `.bak` only if no `.bak` exists yet (idempotent — the original pre-strategy file is the rollback target).
+6. **Confirm and write.** Show the diff between the parsed doc and the new doc (added/changed sections). Ask explicitly: _"Write the update?"_ Wait for yes/no. Call `writeStrategyDoc` via the same Node one-liner pattern as Phase 1.8. The writer preserves the user's H1 line and writes a `.bak` only if no `.bak` exists yet (idempotent — the original pre-strategy file is the rollback target).
 7. **Validate.** Run `harness validate`.
 
 ---
@@ -105,7 +105,7 @@ STRATEGY.md written. Downstream skills that pick this up as grounding:
 Soft-fail when absent; no downstream skill blocks on STRATEGY.md's presence.
 ```
 
-The handoff exists to set the user's expectation about *why* they just answered those questions. It is short by design — this is not a section to grow.
+The handoff exists to set the user's expectation about _why_ they just answered those questions. It is short by design — this is not a section to grow.
 
 ## Harness Integration
 
@@ -127,7 +127,7 @@ The handoff exists to set the user's expectation about *why* they just answered 
 - Re-running the skill on a project with a valid `STRATEGY.md` enters Phase 2 (update), preserves sections the user did not touch verbatim, bumps `version`, and updates `last_updated`.
 - All three pushback rules (`Fluff detection`, `Goal-as-strategy`, `Feature-list-as-strategy`) fire on at least one canonical anti-pattern fixture in `references/interview.md`.
 - After Phase 1 or 2, `harness validate` passes.
-- A `STRATEGY.md.bak` is written on the *first* overwrite of an existing file, but NOT clobbered on subsequent overwrites (idempotency).
+- A `STRATEGY.md.bak` is written on the _first_ overwrite of an existing file, but NOT clobbered on subsequent overwrites (idempotency).
 - A present-but-invalid STRATEGY.md surfaces the validation error and offers the three repair paths from Phase 0; the skill never auto-overwrites a present-but-invalid file.
 
 ## Examples
