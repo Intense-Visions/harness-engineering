@@ -83,7 +83,7 @@ Items have:
 - "feat: compound-engineering Strategic Anchor phase 7 — assignee: chad@,
   status: in-progress, blocked_by: none."
 - "chore: bump @harness-engineering/graph version on release — status: planned."
-- "spec: docs/changes/<feature>/proposal.md — status: review."
+- `spec: docs/changes/<feature>/proposal.md — status: review.`
 
 ### Does NOT belong in roadmap
 
