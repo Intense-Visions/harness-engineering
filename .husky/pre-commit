@@ -12,3 +12,16 @@ if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,sec
   fi
 fi
 npx lint-staged
+
+# Auto-regenerate plugin artifacts if any generator input is staged.
+# lint-staged runs Prettier on SKILL.md, which can leave the rendered
+# .{claude-plugin,cursor-plugin,gemini-extension,codex-plugin}/ files
+# out of sync with their source. Match the arch-baseline pattern above:
+# detect drift, auto-fix, re-stage, continue.
+if git diff --cached --name-only | grep -qE '^(agents/skills/|scripts/(generate-plugin|lib/plugin-config))'; then
+  if ! pnpm generate:plugin:check >/dev/null 2>&1; then
+    echo "Plugin artifacts drifted — regenerating..."
+    pnpm generate:plugin:all >/dev/null 2>&1
+    git add .claude-plugin .cursor-plugin .gemini-extension .codex-plugin 2>/dev/null
+  fi
+fi
