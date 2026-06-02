@@ -839,6 +839,7 @@ Run the unified 7-phase code review pipeline: gate, mechanical checks, context s
 - `ci` (boolean, optional) — Enable eligibility gate and non-interactive output
 - `deep` (boolean, optional) — Add threat modeling pass to security agent
 - `noMechanical` (boolean, optional) — Skip mechanical checks (useful if already run)
+- `depth` (string, optional) — Override Phase 3.5 depth calibration. "deep" forces all conditional subagents (adversarial, typescript-strict, frontend-races).
 - `prNumber` (number, optional) — PR number (required for --comment and CI gate)
 - `repo` (string, optional) — Repository in owner/repo format (required for --comment)
 - `offset` (number, optional) — Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (critical > important > suggestion).

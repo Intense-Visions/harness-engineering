@@ -1,5 +1,0 @@
----
-'@harness-engineering/cli': minor
----
-
-design-craft catalog increment: widen the POLISH and BENCHMARK seed sets to three entries each by porting the remaining Phase 0 paper artifacts into TypeScript. Adds polish patterns `pattern-skeleton-content-matched` (CRAFT-P002, polish × large — Spinner / Loading text → content-matched skeleton with shimmer + reduced-motion fallback) and `pattern-stagger-timing` (CRAFT-P003, polish × small — list entrances staggered 30-60ms with reverse on exit, capped at 600ms total). Adds exemplars `exemplar-stripe-loading-state` (LoadingState, CRAFT-B002) and `exemplar-raycast-command-palette` (CommandPalette, CRAFT-B003 — sixth componentType, intentionally beyond the v1 seed list to assert the catalog's free-string componentType). All wired through the `mcp__harness__design_craft` MCP tool via the existing `SEED_PATTERNS` / `SEED_EXEMPLARS` constants — no schema or handler changes required. Together with the Phase 2 seed (PR #431) the catalog now exercises tier × impact independence across three combinations (polish × medium, polish × large, polish × small) and BENCHMARK fans out across three component types from v1.
