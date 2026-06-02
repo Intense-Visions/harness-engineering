@@ -8,10 +8,10 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -22,10 +22,10 @@
           "systemNodeId": "module:packages/orchestrator/tests/core",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -36,10 +36,10 @@
           "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -52,10 +52,10 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -66,10 +66,10 @@
           "systemNodeId": "module:packages/orchestrator/tests/core",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -80,10 +80,10 @@
           "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -92,7 +92,7 @@
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T14:46:51.839Z"
+      "computedAt": "2026-06-02T15:00:44.843Z"
     },
     "default": {
       "persona": "default",
@@ -130,9 +130,9 @@
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T14:46:51.839Z"
+      "computedAt": "2026-06-02T15:00:44.843Z"
     }
   },
-  "computedAt": "2026-06-02T14:46:51.839Z",
+  "computedAt": "2026-06-02T15:00:44.843Z",
   "version": 1
 }
