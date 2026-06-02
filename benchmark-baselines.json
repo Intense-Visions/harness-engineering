@@ -1,34 +1,34 @@
 {
   "core/validateConfig - valid config object": {
-    "mean": 0.001631238255099249,
-    "p99": 0.0032759999999143474
+    "mean": 0.0016639730103899003,
+    "p99": 0.003367000000025655
   },
   "core/validateConfig - invalid config object": {
-    "mean": 0.010328321104707407,
-    "p99": 0.021289999999908105
+    "mean": 0.010955670895505991,
+    "p99": 0.022070999999868945
   },
   "core/validateCommitMessage - valid conventional commit": {
-    "mean": 0.00045607179479684076,
+    "mean": 0.00044013318163401056,
     "p99": 0.0004910000002382731
   },
   "core/validateCommitMessage - invalid commit message": {
-    "mean": 0.0005564782539498952,
-    "p99": 0.0006210000001374283
+    "mean": 0.000553137663659541,
+    "p99": 0.0006020000000717118
   },
   "graph/GraphStore - addNode - single node": {
-    "mean": 0.0010812448235520964,
-    "p99": 0.0025150000000166983
+    "mean": 0.0010632241759503977,
+    "p99": 0.002505000000041946
   },
   "graph/GraphStore - findNodes - by type": {
-    "mean": 0.0011574149278469723,
-    "p99": 0.0016229999998813582
+    "mean": 0.001172817049943302,
+    "p99": 0.0016330000000834843
   },
   "graph/ContextQL - execute - depth 2 from module root": {
-    "mean": 0.01084459048713853,
-    "p99": 0.021771000000171625
+    "mean": 0.011708568026415355,
+    "p99": 0.022591999999804102
   },
   "graph/groupNodesByImpact - categorize ~85 nodes": {
-    "mean": 0.005027555413666727,
-    "p99": 0.009528000000045722
+    "mean": 0.005178378961431592,
+    "p99": 0.007292999999663152
   }
 }
