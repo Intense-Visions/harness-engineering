@@ -411,7 +411,7 @@ Deep soundness analysis of specs and plans with auto-fix and convergence loop
 
 ### harness-test-advisor
 
-Graph-based test selection — answers "what tests should I run?"
+Graph-based test selection and project-wide coverage audit — answers "what tests should I run?" or "what's untested?"
 
 - **Triggers:** manual, on_pr
 - **Platforms:** claude-code, gemini-cli, cursor, codex
