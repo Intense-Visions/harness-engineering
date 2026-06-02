@@ -1,9 +1,9 @@
 {
   "packages/core": {
-    "lines": 91.16,
-    "branches": 75.72,
-    "functions": 92.4,
-    "statements": 88.73
+    "lines": 91.15,
+    "branches": 75.77,
+    "functions": 92.42,
+    "statements": 88.74
   },
   "packages/graph": {
     "lines": 96.35,
