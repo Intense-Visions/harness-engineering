@@ -1,6 +1,14 @@
 import type { ReviewFinding, ReviewStrength, EvidenceCoverageReport } from '../types';
 import { determineAssessment } from './assessment';
 import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
+import type { DepthCalibration } from '../depth-calibrator';
+
+/** Format the confidence field consistently regardless of legacy/new shape. */
+function formatConfidence(c: ReviewFinding['confidence']): string {
+  if (c === undefined) return '';
+  if (typeof c === 'number') return ` (conf ${c})`;
+  return ` (conf ${c})`;
+}
 
 /**
  * Format a single finding as a terminal text block.
@@ -10,7 +18,11 @@ export function formatFindingBlock(finding: ReviewFinding): string {
   const location = `${finding.file}:L${finding.lineRange[0]}-${finding.lineRange[1]}`;
 
   const trustBadge = finding.trustScore != null ? ` [${finding.trustScore}%]` : '';
-  lines.push(`  [${finding.domain}] ${finding.title}${trustBadge}`);
+  const subagentBadge =
+    finding.subagent && finding.subagent !== finding.domain ? `:${finding.subagent}` : '';
+  lines.push(
+    `  [${finding.domain}${subagentBadge}] ${finding.title}${formatConfidence(finding.confidence)}${trustBadge}`
+  );
   lines.push(`    Location: ${location}`);
   lines.push(`    Rationale: ${finding.rationale}`);
 
@@ -21,6 +33,28 @@ export function formatFindingBlock(finding: ReviewFinding): string {
   return lines.join('\n');
 }
 
+/** Capitalize the first letter of a string. */
+function titleCase(s: string): string {
+  if (s.length === 0) return s;
+  return s[0]!.toUpperCase() + s.slice(1);
+}
+
+/** Render the Phase 3.5 calibration header. */
+export function formatDepthHeader(calibration: DepthCalibration): string {
+  const overrideTag = calibration.overridden ? ' (override)' : '';
+  const signals =
+    calibration.riskSignals.length === 0 ? 'none' : calibration.riskSignals.join(', ');
+  const activations =
+    calibration.activations.size === 0 ? 'none' : [...calibration.activations].join(', ');
+  return [
+    `## Review Depth: ${titleCase(calibration.depth)}${overrideTag}`,
+    `  Changed lines: ${calibration.changedLines}`,
+    `  Risk signals: ${signals}`,
+    `  Conditional subagents: ${activations}`,
+    '',
+  ].join('\n');
+}
+
 /**
  * Format the full terminal output in Strengths / Issues / Assessment format.
  */
@@ -28,9 +62,15 @@ export function formatTerminalOutput(options: {
   findings: ReviewFinding[];
   strengths: ReviewStrength[];
   evidenceCoverage?: EvidenceCoverageReport;
+  depthCalibration?: DepthCalibration;
 }): string {
   const { findings, strengths } = options;
   const sections: string[] = [];
+
+  // --- Depth calibration (Phase 3.5) ---
+  if (options.depthCalibration) {
+    sections.push(formatDepthHeader(options.depthCalibration));
+  }
 
   // --- Strengths ---
   sections.push('## Strengths\n');

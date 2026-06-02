@@ -16,6 +16,8 @@ export type {
   ModelTier,
   FindingSeverity,
   ReviewFinding,
+  ReviewSubagent,
+  ReviewConfidence,
   ReviewAgentDescriptor,
   AgentReviewResult,
   FanOutOptions,
@@ -62,11 +64,35 @@ export {
   SECURITY_DESCRIPTOR,
   runArchitectureAgent,
   ARCHITECTURE_DESCRIPTOR,
+  runAdversarialAgent,
+  ADVERSARIAL_DESCRIPTOR,
+  runTypescriptStrictAgent,
+  TYPESCRIPT_STRICT_DESCRIPTOR,
+  runFrontendRacesAgent,
+  FRONTEND_RACES_DESCRIPTOR,
   AGENT_DESCRIPTORS,
+  CONDITIONAL_SUBAGENT_DESCRIPTORS,
 } from './agents';
 
 // Fan-out orchestrator
-export { fanOutReview } from './fan-out';
+export { fanOutReview, fanOutConditionalSubagents, SUBAGENT_ORDER } from './fan-out';
+export type { ConditionalAgentResult } from './fan-out';
+
+// Phase 3.5: Depth calibration
+export {
+  calibrateDepth,
+  countChangedLines,
+  detectRiskKeywords,
+  computeDepth,
+  computeActivations,
+  RISK_KEYWORDS,
+} from './depth-calibrator';
+export type {
+  ReviewDepth,
+  ConditionalSubagent,
+  DepthCalibration,
+  CalibrateDepthOptions,
+} from './depth-calibrator';
 
 // Phase 5: Validation
 export { validateFindings } from './validate-findings';

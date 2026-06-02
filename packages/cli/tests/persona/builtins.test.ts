@@ -25,10 +25,11 @@ describe('built-in personas', () => {
     });
   }
 
-  it('lists all 8 built-in personas', () => {
+  it('lists all built-in personas', () => {
     const result = listPersonas(PERSONAS_DIR);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.length).toBe(12);
+    // 12 core personas + 3 conditional review subagents (adversarial, typescript-strict, frontend-races)
+    expect(result.value.length).toBe(15);
   });
 });

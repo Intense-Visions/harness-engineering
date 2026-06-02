@@ -1,0 +1,54 @@
+version: 2
+name: Frontend-races Reviewer
+description: Framework-aware reviewer for async-UI diffs — flags lifecycle gaps, hook-timing mistakes, concurrent interactions, and stale-work races
+role: >
+  Activate when the TypeScript-strict reviewer is active AND the diff contains
+  an async-UI signal (`.tsx`, `useEffect`, `useState`, `setTimeout`,
+  `setInterval`, `addEventListener`, `data-controller=` for Stimulus).
+  Hunt for lifecycle cleanup gaps (listeners and timers outliving the owner),
+  hook-timing mistakes (state in the wrong hook, async after unmount),
+  concurrent-interaction bugs (overlapping clicks/requests, impossible-state
+  booleans), and promise/timer flows that leave stale work behind.
+
+  Emit `ReviewFinding[]` with `domain: 'bug'`, `subagent: 'frontend-races'`,
+  and numeric `confidence` per the shared confidence rubric.
+skills:
+  - harness-code-review
+steps:
+  - skill: harness-code-review
+    when: manual
+    output: auto
+  - skill: harness-code-review
+    when: on_pr
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "**/*.tsx"
+        - "**/*.ts"
+config:
+  severity: warning
+  autoFix: false
+  timeout: 600000
+  # Activation predicate (read by Phase 3.5 of harness-code-review):
+  # - TypeScript-strict must be active
+  # - AND diff contains at least one of:
+  #     `.tsx`, `useEffect`, `useState`, `setTimeout`, `setInterval`,
+  #     `addEventListener`, `data-controller=`
+  activation:
+    depends_on: typescript-strict
+    diff_signals:
+      - ".tsx"
+      - "useEffect"
+      - "useState"
+      - "setTimeout"
+      - "setInterval"
+      - "addEventListener"
+      - "data-controller="
+references:
+  rubric: agents/skills/claude-code/harness-code-review/references/confidence-rubric.md
+outputs:
+  agents-md: false
+  ci-workflow: false
+  runtime-config: true
