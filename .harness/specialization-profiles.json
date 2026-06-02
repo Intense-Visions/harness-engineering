@@ -8,14 +8,14 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.7500000000000001,
             "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.747988484955617
           },
           "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
         },
         {
           "persona": "primary",
@@ -44,12 +44,10 @@
           "expertiseLevel": "novice",
           "sampleSize": 1,
           "lastOutcome": "2026-06-02T13:47:08.182Z"
-        }
-      ],
-      "strengths": [
+        },
         {
           "persona": "primary",
-          "systemNodeId": "module:templates/gin",
+          "systemNodeId": "module:templates/nextjs/src/app",
           "taskType": "*",
           "score": {
             "temporalSuccessRate": 0.6666666666666667,
@@ -59,7 +57,23 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
+        }
+      ],
+      "strengths": [
+        {
+          "persona": "primary",
+          "systemNodeId": "module:templates/gin",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.7500000000000001,
+            "consistencyScore": 1,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.747988484955617
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
         },
         {
           "persona": "primary",
@@ -92,7 +106,7 @@
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T15:00:44.843Z"
+      "computedAt": "2026-06-02T16:51:46.908Z"
     },
     "default": {
       "persona": "default",
@@ -102,14 +116,42 @@
           "systemNodeId": "module:packages/core/tests/review",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
           "lastOutcome": "2026-06-02T14:26:37.227Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666667,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:templates/nextjs/src/app",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666667,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
         }
       ],
       "strengths": [
@@ -118,21 +160,49 @@
           "systemNodeId": "module:packages/core/tests/review",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
           "lastOutcome": "2026-06-02T14:26:37.227Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666667,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:templates/nextjs/src/app",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666667,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
         }
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T15:00:44.843Z"
+      "computedAt": "2026-06-02T16:51:46.908Z"
     }
   },
-  "computedAt": "2026-06-02T15:00:44.843Z",
+  "computedAt": "2026-06-02T16:51:46.908Z",
   "version": 1
 }
