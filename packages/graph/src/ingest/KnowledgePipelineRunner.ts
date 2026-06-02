@@ -291,12 +291,32 @@ export class KnowledgePipelineRunner {
         durationMs: 0,
       };
     }
-    // Aggregate solutions ingestion errors alongside the knowledge ingestion
-    // errors so contributors get a unified view of frontmatter / parse failures.
+    // Strategy anchor from repo-root STRATEGY.md (Strategic Anchor phase 7).
+    // Produces business_fact nodes with metadata.domain === 'strategy'. Absent
+    // STRATEGY.md is the common case for existing projects — the ingestor
+    // soft-fails so adoption stays opt-in.
+    const strategyPath = path.join(options.projectDir, 'STRATEGY.md');
+    let strategyResult: IngestResult;
+    try {
+      strategyResult = await bkIngestor.ingestStrategy(strategyPath);
+    } catch {
+      strategyResult = {
+        nodesAdded: 0,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: [],
+        durationMs: 0,
+      };
+    }
+
+    // Aggregate solutions + strategy ingestion errors alongside the knowledge
+    // ingestion errors so contributors get a unified view of frontmatter /
+    // parse failures.
     bkResult = {
       ...bkResult,
-      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded,
-      errors: [...bkResult.errors, ...solutionsResult.errors],
+      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded + strategyResult.nodesAdded,
+      errors: [...bkResult.errors, ...solutionsResult.errors, ...strategyResult.errors],
     };
 
     // Decision ADRs from docs/knowledge/decisions/
