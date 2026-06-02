@@ -8,14 +8,42 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.6666666666666666,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "composite": 0.6802773629873149
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:19:10.984Z"
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "module:packages/orchestrator/tests/core",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
         }
       ],
       "strengths": [
@@ -24,21 +52,87 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.6666666666666666,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "composite": 0.6802773629873149
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:19:10.984Z"
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "module:packages/orchestrator/tests/core",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T13:47:08.182Z"
         }
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T13:22:30.623Z"
+      "computedAt": "2026-06-02T14:46:51.839Z"
+    },
+    "default": {
+      "persona": "default",
+      "entries": [
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/core/tests/review",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T14:26:37.227Z"
+        }
+      ],
+      "strengths": [
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/core/tests/review",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T14:26:37.227Z"
+        }
+      ],
+      "weaknesses": [],
+      "overallLevel": "novice",
+      "computedAt": "2026-06-02T14:46:51.839Z"
     }
   },
-  "computedAt": "2026-06-02T13:22:30.623Z",
+  "computedAt": "2026-06-02T14:46:51.839Z",
   "version": 1
 }

@@ -1,0 +1,13 @@
+---
+'@harness-engineering/cli': minor
+---
+
+audit-brand-compliance v1 — 4th composed verifier in `harness check-design`. Ships two rule families: BRAND-T001 (token misuse against `$extensions.harness.brand.forbidden_contexts` per ADR 0028) and BRAND-V001 (forbidden phrases in JSX text + string-typed attributes, case-insensitive substring match). Both rules silently skip when their input resolver returns null — projects opt in by adding the DESIGN.md `## Brand Rules` section or the tokens.json `$extensions.harness.brand` block.
+
+Module layout under `packages/cli/src/brand/`: `findings/finding.ts` (BrandFinding shape), `resolvers/design-md-brand.ts` (parses voice / tone-by-context / assets / semantic-token-aliases blocks; v1 uses voice only), `resolvers/token-extensions.ts` (walks tokens.json for the brand extension), `rules/token-misuse-rule.ts`, `rules/forbidden-phrases-rule.ts`, and `index.ts` orchestrating `runAuditBrand`. Severity follows the existing model (`error` in strict for both, `error`/`warn` in standard, `info` in permissive).
+
+Cross-cutting: extracts the formal `Verifier<F, Cat, Meta>` interface into `packages/cli/src/shared/verifier.ts` at the 4th-verifier threshold per the convention note in `check-design.ts`. `DetectDriftOutput`, `AuditAnatomyOutput`, and `AuditBrandOutput` declare conformance via type aliases — zero runtime change, all-additive at the type level. Adding a 5th verifier now costs only a type-alias declaration. Composition wired into `check-design.ts` as VERIFIER 4 (try/catch degrades gracefully on brand failure; `findingsByVerifier.brand` flows through `persistFindings` with the 4-array signature). `harness validate` runs the brand audit when `design.audit.brandCompliance.enabled !== false`.
+
+Surface area: new MCP tool `audit_brand` ({ path, mode, files?, designStrictness?, rules? }), new `design.audit.brandCompliance` Zod sub-schema (sibling to `componentAnatomy` and `driftDetection`), 4-platform skill markdown (claude-code / codex / cursor / gemini-cli), and the auto-doc regeneration that lists `audit_brand` in `docs/reference/mcp-tools.md`. No standalone `harness audit-brand` CLI command in v1 — brand is reached via `check-design`. No new graph node/edge types — brand findings reuse `VIOLATES_design` via `DesignConstraintAdapter.recordFindings()`.
+
+Deferred to v1.x: tone-by-context (requires component-state inference from JSX), reading-level + sentence-length rules (attach per tone-context), asset-usage rules (image-tag scanning), semantic-token-alias enforcement (overlaps with detect-drift T001 — design once both have real usage), standalone CLI command, dedicated `VIOLATES_brand` graph edge. v3 LLM-judgment tone rules pair with craft-pipeline #5 copy-craft.

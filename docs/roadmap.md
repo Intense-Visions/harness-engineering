@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-05-27
-last_synced: 2026-05-23T20:39:30.138Z
-last_manual_edit: 2026-06-02T13:16:00.326Z
+last_synced: 2026-06-02T13:29:44.005Z
+last_manual_edit: 2026-06-02T13:32:41.296Z
 ---
 
 # Roadmap
@@ -1171,29 +1171,31 @@ last_manual_edit: 2026-06-02T13:16:00.326Z
 - **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#262
-- **Updated-At:** 2026-06-02T13:20:11.009Z
+- **Updated-At:** 2026-06-02T13:35:56.932Z
 
 ### Compound Engineering Adoption: Feedback Loops
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/compound-engineering-adoption/feedback-loops/proposal.md
 - **Summary:** Add harness-pulse and harness-compound skills with two new report-only maintenance tasks (product-pulse daily, compound-candidates weekly). Closes the read-side and post-mortem capture gaps. Deprecates .harness/learnings.md.
 - **Blockers:** —
 - **Plan:** docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-1-schema-foundations-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-2-harness-compound-skill-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-3-harness-pulse-skill-interview-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-4-pulse-run-cli-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-5-compound-scan-candidates-cli-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-6-maintenance-task-registration-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-7-orchestrator-cross-skill-integration-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-8-documentation-and-adrs-plan.md
-- **Assignee:** —
+- **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#263
+- **Updated-At:** 2026-06-02T13:41:59.609Z
 
 ### Compound Engineering Adoption: Review Depth
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/compound-engineering-adoption/review-depth/proposal.md
 - **Summary:** Add adversarial reviewer + framework-persona reviewers (typescript-strict, frontend-races) + Quick/Standard/Deep depth calibration in harness-code-review. Standardizes anchored confidence rubric and unified findings schema across all review personas.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#264
+- **Updated-At:** 2026-06-02T13:47:40.063Z
 
 ## Hermes Adoption
 
@@ -1998,10 +2000,10 @@ last_manual_edit: 2026-06-02T13:16:00.326Z
 
 ### harness:design-pipeline orchestrator
 
-- **Status:** blocked
+- **Status:** done
 - **Spec:** —
 - **Summary:** Initiative parent. **Two-layer architecture (decomposition refined 2026-05-23):** the FLOOR-RAISING layer (consistency engine, rule-based) is sub-projects #1-#4 + #0 brand-guidelines decision. The CEILING-RAISING layer (craft elevator, LLM-judgment-based) is sub-project #6 design-craft-elevator — a fundamentally different infrastructure (LLM critique passes, polish pattern library, exemplar corpus) that produces stunning output not just consistent output. Floor + ceiling together = world-class designs; floor alone = consistent mediocrity. Sub-projects: #1 detect-design-drift + align-design-system, #2 audit-component-anatomy, #3 audit-brand-compliance (blocked on #0 brand-guidelines decision), #4 harness check-design verifier, #5 (this entry) the orchestrator composing all sub-projects with FRESHEN/DETECT/FIX/AUDIT/FILL/REPORT phases mirroring harness-docs-pipeline, #6 design-craft-elevator (ceiling-raising LLM-judgment work). Existing operational dependency wired in as-is: harness-accessibility. See memory project_design_pipeline_idea.md. **Prior-art bar (must-beat references for all sub-projects):** docs/changes/design-pipeline/REFERENCES.md. #1-#4 lean on REFERENCES.md entries #5-#10 (DTCG, ESLint plugins, anatomy specs). #6 leans on REFERENCES.md entries #2, #3, #4 (impeccable, emil-design-eng, huashu-design).
-- **Blockers:** design-pipeline sub-project #1: detect-design-drift + align-design-system, design-pipeline sub-project #2: audit-component-anatomy, design-pipeline sub-project #3: audit-brand-compliance, design-pipeline sub-project #4: harness check-design verifier, design-pipeline sub-project #6: design-craft-elevator
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -2032,7 +2034,7 @@ last_manual_edit: 2026-06-02T13:16:00.326Z
 
 ### design-pipeline sub-project #3: audit-brand-compliance
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-pipeline/audit-brand-compliance/proposal.md
 - **Summary:** Audit skill for semantic token misuse, brand voice violations in copy, and asset misuse. Highest-ambiguity sub-project. Blocked on brand-guidelines source-of-truth decision (sub-project #0): extend DESIGN.md schema with structured brand rules, or add a brand-guidelines authoring skill. Overlaps with #1 — raw token bypass goes to #1, semantic misuse to this.
 - **Blockers:** —
