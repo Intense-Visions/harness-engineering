@@ -1,6 +1,11 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { z } from 'zod';
+import {
+  OPTIONAL_STRATEGY_SECTIONS,
+  REQUIRED_STRATEGY_SECTIONS,
+  type StrategySectionName,
+} from '@harness-engineering/types';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, IngestResult, NodeType, EdgeType } from '../types.js';
 import { emptyResult } from './ingestUtils.js';
@@ -177,6 +182,53 @@ export class BusinessKnowledgeIngestor {
     };
   }
 
+  /**
+   * Ingest a STRATEGY.md file at the given path, emitting one `business_fact`
+   * node per known section. Soft-fails on missing/unreadable file and on
+   * frontmatter shape mismatches — the upstream validator (core's
+   * StrategyDocSchema, invoked by `harness validate`) is the authoritative
+   * gate. This ingestor is intentionally permissive so a half-finished
+   * strategy still contributes whichever sections are present.
+   *
+   * Layer note: the graph layer imports STRATEGY contract types from
+   * `@harness-engineering/types` but never the Zod schema or parser from
+   * `@harness-engineering/core` (graph → types only).
+   */
+  async ingestStrategy(strategyPath: string): Promise<IngestResult> {
+    const start = Date.now();
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(strategyPath, 'utf-8');
+    } catch {
+      return emptyResult(Date.now() - start);
+    }
+
+    const parsed = parseStrategyMarkdown(raw);
+    if (!parsed) {
+      return {
+        ...emptyResult(Date.now() - start),
+        errors: [`${strategyPath}: STRATEGY.md missing frontmatter`],
+      };
+    }
+
+    const fileBasename = path.basename(strategyPath);
+    let nodesAdded = 0;
+    for (const section of parsed.sections) {
+      this.store.addNode(buildStrategyNode(section, parsed.frontmatter, fileBasename));
+      nodesAdded++;
+    }
+
+    return {
+      nodesAdded,
+      nodesUpdated: 0,
+      edgesAdded: 0,
+      edgesUpdated: 0,
+      errors: [],
+      durationMs: Date.now() - start,
+    };
+  }
+
   private async createNodes(
     files: string[],
     knowledgeDir: string,
@@ -335,6 +387,116 @@ function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string
   return {
     frontmatter: frontmatter as unknown as Frontmatter,
     body,
+  };
+}
+
+const KNOWN_STRATEGY_SECTIONS = new Set<string>([
+  ...REQUIRED_STRATEGY_SECTIONS,
+  ...OPTIONAL_STRATEGY_SECTIONS,
+]);
+
+interface StrategyParseResult {
+  frontmatter: Record<string, unknown>;
+  sections: { name: StrategySectionName; body: string }[];
+}
+
+interface H2Match {
+  name: string;
+  headingStart: number;
+  bodyStart: number;
+}
+
+/**
+ * Minimal STRATEGY.md parser local to the graph layer. Authoritative parsing
+ * lives in `@harness-engineering/core` but the graph layer cannot depend on
+ * core (layer rule), so this re-implements the subset needed for graph node
+ * creation: YAML key/value frontmatter and H2-delimited section bodies whose
+ * names match the contract from `@harness-engineering/types`.
+ */
+function parseStrategyMarkdown(raw: string): StrategyParseResult | null {
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!fmMatch) return null;
+  return {
+    frontmatter: parseStrategyFrontmatter(fmMatch[1]!),
+    sections: extractStrategySections(fmMatch[2]!),
+  };
+}
+
+function parseStrategyFrontmatter(block: string): Record<string, unknown> {
+  const frontmatter: Record<string, unknown> = {};
+  for (const line of block.split(/\r?\n/)) {
+    const kv = line.match(/^(\w+):\s*(.+?)\s*$/);
+    if (!kv) continue;
+    frontmatter[kv[1]!] = coerceFrontmatterValue(kv[1]!, kv[2]!);
+  }
+  return frontmatter;
+}
+
+function coerceFrontmatterValue(key: string, rawValue: string): string | number {
+  const unquoted = rawValue.replace(/^['"]|['"]$/g, '');
+  if (key !== 'version') return unquoted;
+  const n = Number(unquoted);
+  return Number.isFinite(n) ? n : unquoted;
+}
+
+function findH2Matches(body: string): H2Match[] {
+  const h2Re = /^##[ \t]+(.+?)[ \t]*$/gm;
+  const matches: H2Match[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = h2Re.exec(body)) !== null) {
+    matches.push({
+      name: (m[1] ?? '').trim(),
+      headingStart: m.index,
+      bodyStart: m.index + m[0].length,
+    });
+  }
+  return matches;
+}
+
+function extractStrategySections(body: string): { name: StrategySectionName; body: string }[] {
+  const matches = findH2Matches(body);
+  const sections: { name: StrategySectionName; body: string }[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i]!;
+    if (!KNOWN_STRATEGY_SECTIONS.has(current.name)) continue;
+    const sliceEnd = matches[i + 1]?.headingStart ?? body.length;
+    const sectionBody = body.slice(current.bodyStart, sliceEnd).trim();
+    if (!sectionBody) continue;
+    sections.push({ name: current.name as StrategySectionName, body: sectionBody });
+  }
+  return sections;
+}
+
+function sectionSlugFor(name: StrategySectionName): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildStrategyNode(
+  section: { name: StrategySectionName; body: string },
+  frontmatter: Record<string, unknown>,
+  fileBasename: string
+): GraphNode {
+  const productName = typeof frontmatter.name === 'string' ? frontmatter.name : 'strategy';
+  const lastUpdated =
+    typeof frontmatter.last_updated === 'string' ? frontmatter.last_updated : undefined;
+  const version = typeof frontmatter.version === 'number' ? frontmatter.version : undefined;
+  return {
+    id: `bk:strategy:${sectionSlugFor(section.name)}`,
+    type: 'business_fact',
+    name: `${productName}: ${section.name}`,
+    path: fileBasename,
+    content: section.body,
+    metadata: {
+      domain: 'strategy',
+      section: section.name,
+      product_name: productName,
+      source: 'strategy',
+      ...(lastUpdated && { last_updated: lastUpdated }),
+      ...(version !== undefined && { version }),
+    },
   };
 }
 

@@ -291,12 +291,29 @@ export class KnowledgePipelineRunner {
         durationMs: 0,
       };
     }
-    // Aggregate solutions ingestion errors alongside the knowledge ingestion
-    // errors so contributors get a unified view of frontmatter / parse failures.
+    // STRATEGY.md at repo root — produces business_fact nodes per section.
+    const strategyPath = path.join(options.projectDir, 'STRATEGY.md');
+    let strategyResult: IngestResult;
+    try {
+      strategyResult = await bkIngestor.ingestStrategy(strategyPath);
+    } catch {
+      strategyResult = {
+        nodesAdded: 0,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: [],
+        durationMs: 0,
+      };
+    }
+
+    // Aggregate solutions and strategy ingestion errors alongside the knowledge
+    // ingestion errors so contributors get a unified view of frontmatter /
+    // parse failures.
     bkResult = {
       ...bkResult,
-      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded,
-      errors: [...bkResult.errors, ...solutionsResult.errors],
+      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded + strategyResult.nodesAdded,
+      errors: [...bkResult.errors, ...solutionsResult.errors, ...strategyResult.errors],
     };
 
     // Decision ADRs from docs/knowledge/decisions/
