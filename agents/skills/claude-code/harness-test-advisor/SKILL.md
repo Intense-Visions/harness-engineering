@@ -8,8 +8,9 @@
 - In CI — optimize test suite execution order
 - When a test fails — understand which changes could have caused it
 - When `on_pr` triggers fire
-- NOT for writing tests (use harness-tdd)
-- NOT for test quality analysis (out of scope)
+- **Coverage Audit mode** — when no diff is available and the user asks for "coverage gaps", "deep dive", "coverage plan", or "what's untested", run project-wide gap analysis instead of test selection
+- NOT for writing tests (use harness-tdd, or `canary:canary-write-test` for uncovered files surfaced by Coverage Audit)
+- NOT for test quality analysis at the test-selection level (Coverage Audit mode does include a capped quality review via `canary:canary-review-test`)
 
 ## Prerequisites
 

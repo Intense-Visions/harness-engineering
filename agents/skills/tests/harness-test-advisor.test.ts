@@ -24,6 +24,10 @@ function readSkillYaml(platform: string): Record<string, unknown> {
   return parse(readFileSync(path, 'utf-8'));
 }
 
+function readSkillMd(platform: string): string {
+  return readFileSync(resolve(SKILLS_DIR, platform, SKILL_NAME, 'SKILL.md'), 'utf-8');
+}
+
 describe('harness-test-advisor Coverage Audit metadata', () => {
   it.each(PLATFORMS)('%s skill.yaml exposes an audit CLI arg', (platform) => {
     const meta = readSkillYaml(platform) as {
@@ -31,5 +35,13 @@ describe('harness-test-advisor Coverage Audit metadata', () => {
     };
     const argNames = meta.cli.args.map((a) => a.name);
     expect(argNames).toContain('audit');
+  });
+});
+
+describe('harness-test-advisor SKILL.md surfaces Coverage Audit mode', () => {
+  it.each(PLATFORMS)('%s SKILL.md advertises Coverage Audit in When to Use', (platform) => {
+    const body = readSkillMd(platform);
+    const whenToUse = body.split('## Prerequisites')[0] ?? '';
+    expect(whenToUse).toMatch(/Coverage Audit/);
   });
 });
