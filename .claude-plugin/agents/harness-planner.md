@@ -319,7 +319,16 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 5. **Check failures log.** Read `.harness/failures.md`. If planned approaches match known failures, flag them.
 6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues.
 7. **Write the plan to `docs/changes/<topic>/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Resolve `<topic>` from the spec path — if the spec lives at `docs/changes/<topic>/proposal.md`, the plan goes in the sibling `plans/` directory. If the spec is not under `docs/changes/`, fall back to `docs/plans/` and flag the spec location for human review. Create directories as needed.
-8. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global path:
+8. **Commit plan artifact.** Immediately after writing the plan, commit it so the paper trail enters git history at planning time, not after execution:
+
+   ```bash
+   git add docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md
+   git commit -m "docs(<topic>): add plan"
+   ```
+
+   Use `docs/plans/` if the spec is not under `docs/changes/<topic>/`. Do not skip — `harness-execution` commits only implementation files, so a plan uncommitted here stays untracked until someone notices. If a pre-commit hook reformats the file, re-add and re-commit.
+
+9. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global path:
    - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
    - Global (fallback, **deprecated**): `.harness/handoff.json`
 
@@ -327,11 +336,11 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 
    Fields: `fromSkill`, `phase`, `summary`, `completed`, `pending`, `concerns`, `decisions`, `contextKeywords`.
 
-9. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
+10. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
 
-10. **Request plan sign-off:** Use `emit_interaction` (type: `confirmation`) with plan path, task count, and time estimate.
+11. **Request plan sign-off:** Use `emit_interaction` (type: `confirmation`) with plan path, task count, and time estimate.
 
-11. **Suggest transition to execution.** After approval, call `emit_interaction` with type: `transition`, `completedPhase: "planning"`, `suggestedNext: "execution"`, `requiresConfirmation: true`. Include `qualityGate` with checks: plan-written, harness-validate, observable-truths-traced, human-approved. If confirmed: invoke harness-execution. If declined: stop (handoff already written).
+12. **Suggest transition to execution.** After approval, call `emit_interaction` with type: `transition`, `completedPhase: "planning"`, `suggestedNext: "execution"`, `requiresConfirmation: true`. Include `qualityGate` with checks: plan-written, harness-validate, observable-truths-traced, human-approved. If confirmed: invoke harness-execution. If declined: stop (handoff already written).
 
 ---
 
@@ -417,6 +426,7 @@ When referencing existing code in task specs, cite evidence using `file:line` fo
 
 - **`harness validate`** — Run in Phase 4 (before writing plan) and included in every task.
 - **`harness check-deps`** — Referenced in tasks adding imports or creating modules.
+- **Plan commit** — After writing the plan (Phase 4 Step 8), commit `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` so the paper trail enters git history at planning time. `harness-execution` does not backfill — see issue #487.
 - **Plan location** — `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` when the spec lives under `docs/changes/<topic>/proposal.md`; otherwise `docs/plans/` as a fallback.
 - **Handoff** — Once approved, invoke harness-execution for task-by-task implementation.
 - **Session directory** — Session-scoped writes go to `.harness/sessions/<slug>/`. Structure: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and produced file lists). Global `.harness/handoff.json` is deprecated for session-aware invocations.

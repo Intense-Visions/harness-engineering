@@ -186,14 +186,23 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
    The human must explicitly approve before this skill is complete.
 
-7. **Add feature to roadmap.** If `docs/roadmap.md` exists:
+7. **Commit spec artifacts.** After approval, commit the spec and skill recommendations so the paper trail enters git history at sign-off rather than retroactively:
+
+   ```bash
+   git add docs/changes/<feature>/proposal.md docs/changes/<feature>/SKILLS.md
+   git commit -m "docs(<feature>): add spec"
+   ```
+
+   Do not skip this step. `harness-execution` commits only implementation files, so a spec uncommitted here stays untracked until someone notices. If a pre-commit hook reformats either file, re-add and re-commit.
+
+8. **Add feature to roadmap.** If `docs/roadmap.md` exists:
    - Derive feature name from the spec title (the H1 heading).
    - Call `manage_roadmap` with action `add`, `status: "planned"`, `milestone: "Current Work"`, and the spec path.
    - If the feature already exists, skip silently.
    - If `manage_roadmap` is unavailable, fall back to `parseRoadmap`/`serializeRoadmap` from core. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."
    - If no roadmap exists, skip silently.
 
-8. **Write handoff and suggest transition.** After approval:
+9. **Write handoff and suggest transition.** After approval:
 
    Write handoff to the session-scoped path when a session slug is known, otherwise fall back to the global path:
    - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
@@ -325,6 +334,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **Spec location** -- `docs/changes/<feature>/proposal.md`.
 - **Handoff** -- Once approved, invoke harness-planning to create the implementation plan.
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
+- **Spec commit** -- After sign-off (Phase 4 Step 7), commit `docs/changes/<feature>/proposal.md` and `docs/changes/<feature>/SKILLS.md` so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these — see issue #487.
 - **Roadmap sync** -- After approval, call `manage_roadmap` action `add` to register as `planned`. Skip silently if no roadmap. Duplicates ignored.
 - **`emit_interaction`** -- End of Phase 4 to suggest transition to harness-planning (confirmed transition).
 
