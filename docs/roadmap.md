@@ -1152,14 +1152,15 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 
 ### Central Telemetry Collection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/central-telemetry/proposal.md
 - **Summary:** Anonymous product analytics via PostHog HTTP API with granular opt-in identity and zero vendor dependencies
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/central-telemetry/plans/2026-04-10-central-telemetry-phase1-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#138
+- **Updated-At:** 2026-06-02T12:42:00.000Z
 
 ### Compound Engineering Adoption: Strategic Anchor
 
