@@ -24,13 +24,38 @@ function pickLongest(a: string | undefined, b: string | undefined): string | und
   return a ?? b;
 }
 
+/**
+ * Numeric strength of a confidence value (used as the dedup tiebreaker).
+ * Returns 0 when no confidence is set, so existing 4-agent findings without
+ * confidence are not preferred over conditional-subagent findings that have it.
+ */
+function confidenceStrength(f: ReviewFinding): number {
+  if (typeof f.confidence === 'number') return f.confidence;
+  if (f.confidence === 'high') return 75;
+  if (f.confidence === 'medium') return 50;
+  if (f.confidence === 'low') return 25;
+  return 0;
+}
+
+/**
+ * Tiebreaker order for dedup: severity wins; on tie, higher confidence wins;
+ * if neither has confidence, the receiver wins (deterministic stable order).
+ */
+function pickPrimary(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
+  const sevDiff = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+  if (sevDiff !== 0) return sevDiff > 0 ? a : b;
+  const confDiff = confidenceStrength(a) - confidenceStrength(b);
+  if (confDiff !== 0) return confDiff > 0 ? a : b;
+  return a;
+}
+
 /** Build a merged title from domains and the primary finding. */
 function buildMergedTitle(
   a: ReviewFinding,
   b: ReviewFinding,
   domains: Set<ReviewDomain>
 ): { title: string; primaryFinding: ReviewFinding } {
-  const primaryFinding = SEVERITY_RANK[a.severity] >= SEVERITY_RANK[b.severity] ? a : b;
+  const primaryFinding = pickPrimary(a, b);
   const domainList = [...domains].sort().join(', ');
   const cleanTitle = primaryFinding.title.replace(/^\[.*?\]\s*/, '');
   return { title: `[${domainList}] ${cleanTitle}`, primaryFinding };
@@ -104,6 +129,9 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
 
   setIfDefined(merged, 'suggestion', pickLongest(a.suggestion, b.suggestion));
   setIfDefined(merged, 'trustScore', mergeTrustScore(a, b));
+  // Preserve the subagent identifier of the primary (highest severity / highest
+  // confidence) finding so consumers know which subagent owns the merged entry.
+  setIfDefined(merged, 'subagent', primaryFinding.subagent ?? a.subagent ?? b.subagent);
   mergeSecurityFields(merged, primaryFinding, a, b);
 
   return merged;

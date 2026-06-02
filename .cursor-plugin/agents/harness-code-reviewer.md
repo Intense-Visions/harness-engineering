@@ -60,20 +60,22 @@ A reviewer who applies fixes is no longer reviewing — they are editing with re
 The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.
 
 ```
-Phase 1: GATE --> Phase 2: MECHANICAL --> Phase 3: CONTEXT --> Phase 4: FAN-OUT
-                                                                      |
-Phase 7: OUTPUT <-- Phase 6: DEDUP+MERGE <-- Phase 5: VALIDATE <------+
+Phase 1: GATE --> Phase 2: MECHANICAL --> Phase 3: CONTEXT --> Phase 3.5: CALIBRATE
+                                                                                 |
+                                                                                 v
+Phase 7: OUTPUT <-- Phase 6: DEDUP+MERGE <-- Phase 5: VALIDATE <-- Phase 4: FAN-OUT
 ```
 
-| Phase          | Tier  | Purpose                          | Exit Condition                                    |
-| -------------- | ----- | -------------------------------- | ------------------------------------------------- |
-| 1. GATE        | fast  | Skip ineligible PRs (CI only)    | PR eligible, or exit with reason                  |
-| 2. MECHANICAL  | none  | Lint, typecheck, test, sec scan  | All pass -> continue; any fail -> report and stop |
-| 3. CONTEXT     | fast  | Scope context per review domain  | Context bundles assembled for each subagent       |
-| 4. FAN-OUT     | mixed | Parallel review subagents        | All subagents return ReviewFinding[]              |
-| 5. VALIDATE    | none  | Exclude mechanical dupes, verify | Unvalidated findings discarded                    |
-| 6. DEDUP+MERGE | none  | Group, merge, assign severity    | Deduplicated finding list with merged evidence    |
-| 7. OUTPUT      | none  | Text output or GitHub comments   | Review delivered, exit code set                   |
+| Phase          | Tier  | Purpose                                            | Exit Condition                                    |
+| -------------- | ----- | -------------------------------------------------- | ------------------------------------------------- |
+| 1. GATE        | fast  | Skip ineligible PRs (CI only)                      | PR eligible, or exit with reason                  |
+| 2. MECHANICAL  | none  | Lint, typecheck, test, sec scan                    | All pass -> continue; any fail -> report and stop |
+| 3. CONTEXT     | fast  | Scope context per review domain                    | Context bundles assembled for each subagent       |
+| 3.5. CALIBRATE | none  | Pick depth tier + activate conditional subagents   | DepthCalibration recorded in PipelineContext      |
+| 4. FAN-OUT     | mixed | Parallel review subagents (4 base + N conditional) | All subagents return ReviewFinding[]              |
+| 5. VALIDATE    | none  | Exclude mechanical dupes, verify                   | Unvalidated findings discarded                    |
+| 6. DEDUP+MERGE | none  | Group, merge, assign severity                      | Deduplicated finding list with merged evidence    |
+| 7. OUTPUT      | none  | Text output or GitHub comments                     | Review delivered, exit code set                   |
 
 ### Finding Schema
 
@@ -89,19 +91,35 @@ interface ReviewFinding {
   suggestion?: string; // fix, if available
   evidence: string[]; // supporting context from agent
   validatedBy: 'mechanical' | 'graph' | 'heuristic';
+  // Additive — populated by the new conditional subagents only:
+  subagent?:
+    | 'compliance'
+    | 'bug'
+    | 'security'
+    | 'architecture'
+    | 'learnings'
+    | 'adversarial'
+    | 'typescript-strict'
+    | 'frontend-races';
+  confidence?: 'high' | 'medium' | 'low' | 25 | 50 | 75 | 100;
 }
 ```
 
+The two optional fields are additive — existing 4 agents leave them
+undefined. Numeric `confidence` values follow the anchored rubric at
+[references/confidence-rubric.md](references/confidence-rubric.md).
+
 ### Flags
 
-| Flag              | Effect                                                               |
-| ----------------- | -------------------------------------------------------------------- |
-| `--comment`       | Post inline comments to GitHub PR via `gh` CLI or GitHub MCP         |
-| `--deep`          | Pass `--deep` to `harness-security-review` for threat modeling       |
-| `--no-mechanical` | Skip mechanical checks (useful if already run in CI)                 |
-| `--ci`            | Enable eligibility gate, non-interactive output                      |
-| `--fast`          | Skip learnings, fast-tier agents for all fan-out slots               |
-| `--thorough`      | Always load learnings, full roster + meta-judge, learnings in output |
+| Flag              | Effect                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `--comment`       | Post inline comments to GitHub PR via `gh` CLI or GitHub MCP                         |
+| `--deep`          | Pass `--deep` to `harness-security-review` for threat modeling                       |
+| `--no-mechanical` | Skip mechanical checks (useful if already run in CI)                                 |
+| `--ci`            | Enable eligibility gate, non-interactive output                                      |
+| `--fast`          | Skip learnings, fast-tier agents for all fan-out slots                               |
+| `--thorough`      | Always load learnings, full roster + meta-judge, learnings in output                 |
+| `--depth`         | Override Phase 3.5 calibration: `quick`/`standard`/`deep`. `deep` activates all subs |
 
 ### Rigor Levels
 
@@ -281,7 +299,33 @@ git log --oneline -5 -- <affected-file>
 
 Use to determine: **Hotspot?** (3+ changes in last 5 commits) **Recently refactored?** **Multiple authors?** **Last change was bugfix?** (yellow flag)
 
-**Exit:** Context bundles assembled for all four domains. Continue to Phase 4.
+**Exit:** Context bundles assembled for all four domains. Continue to Phase 3.5.
+
+---
+
+### Phase 3.5: CALIBRATE DEPTH
+
+**Tier:** none (mechanical) | **Purpose:** Pick a depth tier (Quick/Standard/Deep) from diff size + risk-keyword detection and decide which conditional subagents activate in Phase 4. The existing 4 agents always run; this phase only gates _additional_ work.
+
+**Inputs:** `DiffInfo`, commit message, optional `--depth quick|standard|deep` override.
+
+**Steps:**
+
+1. **Count changed lines.** Sum `+`/`-` lines per file, excluding test files (`*.test.{ts,tsx,js,jsx}`, `__tests__/**`, `*.spec.{ts,tsx,js,jsx}`), generated files (`*.generated.{ts,tsx,js,jsx}`), lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`), and `dist/` / `build/` directories.
+2. **Detect risk keywords.** Match the canonical keyword list from [references/risk-keywords.md](references/risk-keywords.md) against the diff content, file paths, and commit message (case-insensitive, whole-word for single-word keywords, substring for multi-word keywords like `external API`).
+3. **Compute tier.**
+   - **Quick:** `< 50` lines AND `0` keywords
+   - **Standard:** `50–199` lines OR exactly `1` keyword
+   - **Deep:** `≥ 200` lines OR `≥ 2` keywords
+4. **Compute activation set** (`adversarial`, `typescript-strict`, `frontend-races`):
+   - `adversarial` — active at Standard or Deep
+   - `typescript-strict` — active when the diff contains a non-test `.ts` or `.tsx` (excluding `*.d.ts`)
+   - `frontend-races` — active when `typescript-strict` is active AND the diff contains one of `.tsx`, `useEffect`, `useState`, `setTimeout`, `setInterval`, `addEventListener`, `data-controller=`
+5. **Override (`--depth deep`)** — forces Deep tier and activates all three conditional subagents.
+
+**Output:** `DepthCalibration { depth, changedLines, riskSignals, activations, overridden }` recorded in `PipelineContext`. Phase 7 displays the calibration result at the top of the review.
+
+**Exit:** Calibration complete. Continue to Phase 4.
 
 ---
 
@@ -407,7 +451,48 @@ Reviews architectural violations, dependency direction, and design pattern compl
 
 **Output:** `ReviewFinding[]` with `domain: 'architecture'`
 
-**Exit:** All four agents returned findings. Continue to Phase 5.
+---
+
+#### Conditional Subagents (depth-gated, activated by Phase 3.5)
+
+The dispatcher reads `PipelineContext.depthCalibration.activations` and runs only those listed. Each conditional subagent emits findings under existing domain values (`bug` or `architecture`) and populates `subagent` + `confidence` per the [confidence rubric](references/confidence-rubric.md).
+
+##### Adversarial (strong tier) — activates at Standard or Deep
+
+Constructs failure scenarios that fall _between_ the base 4 agents.
+
+**Hunt categories:**
+
+- **Assumption violation** — invariants the diff depends on but does not enforce (e.g., `JSON.parse` on untrusted input)
+- **Composition failures** — two patterns correct alone that misbehave together (floating Promise chains, optional-chain calls)
+- **Abuse cases** — adversarial input shapes the diff does not anticipate (unbounded `fetch`, accidentally enumerable surfaces)
+- **Cascade chains (Deep only)** — single failures propagating through downstream callers (`new Promise` without `reject`)
+
+**Output:** `ReviewFinding[]` with `domain: 'bug'`, `subagent: 'adversarial'`, `confidence: 50|75|100`.
+
+##### TypeScript-strict (standard tier) — activates when a non-test `.ts`/`.tsx` is in the diff
+
+**Hunt categories:**
+
+- **Type holes that disable the checker** — explicit `any`, `// @ts-ignore`, `as unknown as T`, non-null assertions in non-`process.env` contexts
+- **Refactor regression risk** — removed guards whose call sites have no test coverage
+- **Existing-file complexity** — production TS files growing past 400 lines (Single Responsibility flag)
+- **Five-second rule** — `handle*` / `process*` / `do*` style names that fail to predict behavior at the call site
+
+**Output:** `ReviewFinding[]` with `domain: 'bug'` (type holes / regression) or `domain: 'architecture'` (complexity), `subagent: 'typescript-strict'`, `confidence: 50|75|100`.
+
+##### Frontend-races (standard tier) — activates when TypeScript-strict is active AND an async-UI signal is present
+
+**Hunt categories:**
+
+- **Lifecycle cleanup gaps** — `setInterval` / `setTimeout` / `addEventListener` without matching cleanup in the same module
+- **Hook timing mistakes** — `useEffect` immediately calling `setState` for a render-time-derivable value
+- **Concurrent interactions** — overlapping clicks/requests, impossible-state booleans
+- **Stale work** — `await fetch` followed by `setState` with no `AbortController` / `AbortSignal.timeout`
+
+**Output:** `ReviewFinding[]` with `domain: 'bug'`, `subagent: 'frontend-races'`, `confidence: 50|75|100`.
+
+**Exit:** All base agents + active conditional subagents returned findings. Continue to Phase 5.
 
 ---
 

@@ -1,0 +1,43 @@
+version: 2
+name: Adversarial Reviewer
+description: Constructs failure scenarios between the existing 4 review agents — assumption violations, composition failures, abuse cases, and cascade chains
+role: >
+  Sit between bug, security, and architecture. Hunt for failure modes that
+  single-pattern agents miss — assumptions the diff relies on but does not
+  enforce, two correct pieces that misbehave together, adversarial inputs the
+  diff does not anticipate, and (at Deep depth) single failures that cascade
+  through downstream callers.
+
+  Never re-flag findings owned by the existing 4 agents. Emit `ReviewFinding[]`
+  with `domain: 'bug'`, `subagent: 'adversarial'`, and numeric `confidence`
+  per the shared confidence rubric.
+skills:
+  - harness-code-review
+steps:
+  - skill: harness-code-review
+    when: manual
+    output: auto
+  - skill: harness-code-review
+    when: on_pr
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "src/**"
+        - "packages/**"
+config:
+  severity: warning
+  autoFix: false
+  timeout: 600000
+  # Activation predicate (read by Phase 3.5 of harness-code-review):
+  # - Active at Standard or Deep depth
+  # - Cascade-construction hunt category gated to Deep depth
+  activation:
+    depth: ["standard", "deep"]
+references:
+  rubric: agents/skills/claude-code/harness-code-review/references/confidence-rubric.md
+outputs:
+  agents-md: false
+  ci-workflow: false
+  runtime-config: true

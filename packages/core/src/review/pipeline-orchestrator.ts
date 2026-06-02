@@ -19,11 +19,12 @@ import { checkEligibility } from './eligibility-gate';
 import { runMechanicalChecks } from './mechanical-checks';
 import { buildExclusionSet, ExclusionSet } from './exclusion-set';
 import { scopeContext } from './context-scoper';
-import { fanOutReview } from './fan-out';
+import { fanOutReview, fanOutConditionalSubagents } from './fan-out';
 import { validateFindings } from './validate-findings';
 import { deduplicateFindings } from './deduplicate-findings';
 import { generateRubric } from './meta-judge';
 import { splitBundlesByStage } from './two-stage';
+import { calibrateDepth, type DepthCalibration } from './depth-calibrator';
 import {
   formatTerminalOutput,
   formatGitHubComment,
@@ -211,6 +212,29 @@ export async function runReviewPipeline(
     contextBundles = contextBundles.map((b) => ({ ...b, rubric }));
   }
 
+  // --- Phase 3.5: CALIBRATE DEPTH ---
+  // Compute Quick/Standard/Deep tier from diff size + risk-keyword detection
+  // and derive the conditional-subagent activation set. Always runs; the
+  // result is recorded in PipelineContext and surfaced in Phase 7 output.
+  let depthCalibration: DepthCalibration;
+  try {
+    depthCalibration = calibrateDepth({
+      diff,
+      commitMessage,
+      ...(flags.depth != null ? { override: flags.depth } : {}),
+    });
+  } catch {
+    // Calibration must not block the pipeline. Fall back to standard depth
+    // with no conditional subagents activated.
+    depthCalibration = {
+      depth: 'standard',
+      changedLines: diff.totalDiffLines,
+      riskSignals: [],
+      activations: new Set(),
+      overridden: false,
+    };
+  }
+
   // --- Phase 4: FAN-OUT ---
   // In isolated mode, run fan-out twice with disjoint context bundles:
   // spec-compliance first (compliance + architecture see the spec),
@@ -227,7 +251,20 @@ export async function runReviewPipeline(
   } else {
     agentResults = await fanOutReview({ bundles: contextBundles });
   }
-  const rawFindings: ReviewFinding[] = agentResults.flatMap((r) => r.findings);
+
+  // Conditional subagents (adversarial, typescript-strict, frontend-races)
+  // dispatched per the depth calibrator's activation set. Empty set when
+  // calibration produced no activations — zero overhead.
+  const conditionalResults = await fanOutConditionalSubagents({
+    bundles: contextBundles,
+    activations: depthCalibration.activations,
+    depth: depthCalibration.depth,
+  });
+
+  const rawFindings: ReviewFinding[] = [
+    ...agentResults.flatMap((r) => r.findings),
+    ...conditionalResults.flatMap((r) => r.findings),
+  ];
 
   // --- Phase 5: VALIDATE ---
   const fileContents = new Map<string, string>();
@@ -275,6 +312,7 @@ export async function runReviewPipeline(
     findings: dedupedFindings,
     strengths,
     ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
+    depthCalibration,
   });
 
   let githubComments: GitHubInlineComment[] = [];
@@ -291,6 +329,7 @@ export async function runReviewPipeline(
     terminalOutput,
     githubComments,
     exitCode,
+    depthCalibration,
     ...(mechanicalResult != null ? { mechanicalResult } : {}),
     ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
   };

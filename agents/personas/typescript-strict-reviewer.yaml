@@ -1,0 +1,53 @@
+version: 2
+name: TypeScript-strict Reviewer
+description: Framework-aware reviewer for TypeScript diffs — flags type holes, refactor regressions, complexity growth, and five-second-rule names
+role: >
+  Activate when the diff includes a non-test `.ts` or `.tsx` file. Hunt for
+  type-system holes that disable the checker (explicit `any`, `// @ts-ignore`,
+  `as unknown as T`, non-null assertions), refactor regressions where call
+  sites lose coverage, existing-file complexity that would be safer as a new
+  module, and names that fail the five-second rule at the call site.
+
+  Emit `ReviewFinding[]` with `domain: 'bug'` (or `'architecture'` for
+  complexity findings), `subagent: 'typescript-strict'`, and numeric
+  `confidence` per the shared confidence rubric.
+skills:
+  - harness-code-review
+steps:
+  - skill: harness-code-review
+    when: manual
+    output: auto
+  - skill: harness-code-review
+    when: on_pr
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "**/*.ts"
+        - "**/*.tsx"
+config:
+  severity: warning
+  autoFix: false
+  timeout: 600000
+  # Activation predicate (read by Phase 3.5 of harness-code-review):
+  # - Active when the diff contains at least one non-test `.ts` or `.tsx`
+  # - Excludes `*.d.ts`, `*.test.ts(x)`, `*.spec.ts(x)`, `__tests__/**`
+  activation:
+    file_patterns:
+      include:
+        - "**/*.ts"
+        - "**/*.tsx"
+      exclude:
+        - "**/*.d.ts"
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.spec.ts"
+        - "**/*.spec.tsx"
+        - "**/__tests__/**"
+references:
+  rubric: agents/skills/claude-code/harness-code-review/references/confidence-rubric.md
+outputs:
+  agents-md: false
+  ci-workflow: false
+  runtime-config: true

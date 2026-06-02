@@ -56,6 +56,12 @@ export interface PipelineFlags {
    * code-quality review and vice versa.
    */
   isolated?: boolean;
+  /**
+   * Author override for the depth calibrator (Phase 3.5). When set, forces
+   * the depth tier regardless of diff size and risk-keyword count.
+   * `'deep'` additionally activates every conditional subagent.
+   */
+  depth?: import('../depth-calibrator').ReviewDepth;
 }
 
 /**
@@ -103,6 +109,10 @@ export interface PipelineContext {
   /** Context bundles per review domain */
   contextBundles?: ContextBundle[];
 
+  // --- Phase 3.5: CALIBRATE output ---
+  /** Depth calibration result (depth tier, risk signals, activations). */
+  depthCalibration?: import('../depth-calibrator').DepthCalibration;
+
   // --- Phase 4: FAN-OUT output ---
   /** Raw findings from all agents */
   rawFindings?: ReviewFinding[];
@@ -134,6 +144,8 @@ export interface PipelineContext {
  * Immutable result returned from `runPipeline()`.
  */
 export interface ReviewPipelineResult {
+  /** Depth calibration result, when Phase 3.5 ran. */
+  depthCalibration?: import('../depth-calibrator').DepthCalibration;
   /** Whether the pipeline was skipped by the eligibility gate */
   skipped: boolean;
   /** Reason for skipping */

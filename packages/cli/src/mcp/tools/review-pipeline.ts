@@ -33,6 +33,12 @@ export const runCodeReviewDefinition = {
         type: 'boolean',
         description: 'Skip mechanical checks (useful if already run)',
       },
+      depth: {
+        type: 'string',
+        enum: ['quick', 'standard', 'deep'],
+        description:
+          'Override Phase 3.5 depth calibration. "deep" forces all conditional subagents (adversarial, typescript-strict, frontend-races).',
+      },
       prNumber: {
         type: 'number',
         description: 'PR number (required for --comment and CI gate)',
@@ -63,6 +69,7 @@ export async function handleRunCodeReview(input: {
   ci?: boolean;
   deep?: boolean;
   noMechanical?: boolean;
+  depth?: 'quick' | 'standard' | 'deep';
   prNumber?: number;
   repo?: string;
   offset?: number;
@@ -113,6 +120,7 @@ export async function handleRunCodeReview(input: {
         ci: input.ci ?? false,
         deep: input.deep ?? false,
         noMechanical: input.noMechanical ?? false,
+        ...(input.depth != null ? { depth: input.depth } : {}),
       },
       ...(input.repo != null ? { repo: input.repo } : {}),
     });
@@ -134,6 +142,15 @@ export async function handleRunCodeReview(input: {
               assessment: result.assessment,
               findings: sortedFindings,
               findingCount: sortedFindings.length,
+              depthCalibration: result.depthCalibration
+                ? {
+                    depth: result.depthCalibration.depth,
+                    changedLines: result.depthCalibration.changedLines,
+                    riskSignals: result.depthCalibration.riskSignals,
+                    activations: [...result.depthCalibration.activations],
+                    overridden: result.depthCalibration.overridden,
+                  }
+                : undefined,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
               exitCode: result.exitCode,
@@ -158,6 +175,15 @@ export async function handleRunCodeReview(input: {
               findings: paged.items,
               findingCount: result.findings.length,
               pagination: paged.pagination,
+              depthCalibration: result.depthCalibration
+                ? {
+                    depth: result.depthCalibration.depth,
+                    changedLines: result.depthCalibration.changedLines,
+                    riskSignals: result.depthCalibration.riskSignals,
+                    activations: [...result.depthCalibration.activations],
+                    overridden: result.depthCalibration.overridden,
+                  }
+                : undefined,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
               exitCode: result.exitCode,

@@ -93,8 +93,8 @@ describe('generateAgentDefinitions', () => {
       output: tmpDir,
       dryRun: false,
     });
-    // 12 personas = 12 agent files
-    expect(results[0]!.added.length).toBe(12);
+    // 12 core personas + 3 conditional review subagents = 15 agent files
+    expect(results[0]!.added.length).toBe(15);
   });
 });
 

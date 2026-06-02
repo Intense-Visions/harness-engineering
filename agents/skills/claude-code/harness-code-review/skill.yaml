@@ -42,6 +42,9 @@ cli:
     - name: --thorough
       description: Maximum rigor — always load learnings, full agent roster + meta-judge
       required: false
+    - name: --depth
+      description: "Override Phase 3.5 depth calibration: quick|standard|deep. 'deep' activates all conditional subagents (adversarial, typescript-strict, frontend-races)."
+      required: false
     - name: session-slug
       description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
