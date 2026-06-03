@@ -56,7 +56,7 @@ export function requiredScopeForRoute(method: string, path: string): TokenScope 
   if (path.startsWith('/api/maintenance')) return 'trigger-job';
   if (path.startsWith('/api/streams')) return 'read-status';
   if (path.startsWith('/api/sessions')) return 'read-status';
-  if (path.startsWith('/api/chat-proxy')) return 'trigger-job';
+  if (path === '/api/chat' || path.startsWith('/api/chat-proxy')) return 'trigger-job';
 
   return null;
 }

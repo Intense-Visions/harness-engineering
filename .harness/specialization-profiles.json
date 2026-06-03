@@ -8,6 +8,20 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
+            "temporalSuccessRate": 0.7500000000000001,
+            "consistencyScore": 1,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.747988484955617
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "module:templates/nextjs/src/app",
+          "taskType": "*",
+          "score": {
             "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
@@ -15,17 +29,17 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
         },
         {
           "persona": "primary",
           "systemNodeId": "module:packages/orchestrator/tests/core",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.6666666666666666,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "composite": 0.6802773629873149
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -36,10 +50,10 @@
           "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.6666666666666666,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "composite": 0.6802773629873149
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -52,6 +66,20 @@
           "systemNodeId": "module:templates/gin",
           "taskType": "*",
           "score": {
+            "temporalSuccessRate": 0.7500000000000001,
+            "consistencyScore": 1,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.747988484955617
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
+        },
+        {
+          "persona": "primary",
+          "systemNodeId": "module:templates/nextjs/src/app",
+          "taskType": "*",
+          "score": {
             "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
@@ -59,31 +87,17 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
+          "lastOutcome": "2026-06-02T16:05:45.383Z"
         },
         {
           "persona": "primary",
           "systemNodeId": "module:packages/orchestrator/tests/core",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666667,
+            "temporalSuccessRate": 0.6666666666666666,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666667,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
+            "composite": 0.6802773629873149
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
@@ -92,27 +106,25 @@
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T15:00:44.843Z"
+      "computedAt": "2026-06-03T02:04:50.051Z"
     },
     "default": {
       "persona": "default",
       "entries": [
         {
           "persona": "default",
-          "systemNodeId": "module:packages/core/tests/review",
+          "systemNodeId": "module:templates/nextjs/src/app",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.75,
             "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.7479884849556169
           },
           "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T14:26:37.227Z"
-        }
-      ],
-      "strengths": [
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-03T00:01:58.685Z"
+        },
         {
           "persona": "default",
           "systemNodeId": "module:packages/core/tests/review",
@@ -126,13 +138,113 @@
           "expertiseLevel": "novice",
           "sampleSize": 1,
           "lastOutcome": "2026-06-02T14:26:37.227Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:templates/gin",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-03T00:01:58.685Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "file:packages/core/src/context/knowledge-map.ts",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-03T00:01:58.685Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "file:packages/core/src/security/rules/deserialization.ts",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-03T00:01:58.685Z"
+        }
+      ],
+      "strengths": [
+        {
+          "persona": "default",
+          "systemNodeId": "module:templates/nextjs/src/app",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.75,
+            "consistencyScore": 1,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.7479884849556169
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-03T00:01:58.685Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/core/tests/review",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T14:26:37.227Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666666,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.6802773629873149
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-02T16:51:13.973Z"
         }
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-02T15:00:44.843Z"
+      "computedAt": "2026-06-03T02:04:50.051Z"
     }
   },
-  "computedAt": "2026-06-02T15:00:44.843Z",
+  "computedAt": "2026-06-03T02:04:50.051Z",
   "version": 1
 }

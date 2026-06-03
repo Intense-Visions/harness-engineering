@@ -29,6 +29,12 @@ describe('requiredScopeForRoute', () => {
   it('returns null for unknown routes (default-deny upstream)', () => {
     expect(requiredScopeForRoute('GET', '/api/unknown')).toBeNull();
   });
+  it('maps POST /api/chat to trigger-job (chat proxy, legacy path the dashboard posts to)', () => {
+    expect(requiredScopeForRoute('POST', '/api/chat')).toBe('trigger-job');
+  });
+  it('maps POST /api/chat-proxy to trigger-job (v1 alias rewrite target)', () => {
+    expect(requiredScopeForRoute('POST', '/api/chat-proxy')).toBe('trigger-job');
+  });
   it('maps POST /api/v1/jobs/maintenance to trigger-job', () => {
     expect(requiredScopeForRoute('POST', '/api/v1/jobs/maintenance')).toBe('trigger-job');
   });

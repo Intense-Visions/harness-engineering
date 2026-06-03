@@ -79,7 +79,7 @@ export function handleChatProxyRoute(
 ): boolean {
   const { method, url } = req;
 
-  if (method === 'POST' && url === '/api/chat') {
+  if (method === 'POST' && (url === '/api/chat' || url === '/api/chat-proxy')) {
     void handleChatRequest(req, res, command);
     return true;
   }
