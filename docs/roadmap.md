@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-05-27
 last_synced: 2026-06-02T13:29:44.005Z
-last_manual_edit: 2026-06-02T13:32:41.296Z
+last_manual_edit: 2026-06-03T17:48:05.672Z
 ---
 
 # Roadmap
@@ -1057,7 +1057,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 - **Summary:** Carry-forward polish from init-design-roadmap-config: (S2) refresh proposal.md:146 stale Registrations bullet to reflect harness-roadmap skill invocation, (S3) add harness-roadmap to initialize-harness-project skill.yaml depends_on for symmetry with harness-design-system, plus FINAL-S1 helper extraction, FINAL-S2 'not sure' vocabulary homogenization, FINAL-S3 catalog-consistency test docstring clarification.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#257
 
@@ -1169,7 +1169,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 - **Summary:** Phases 1-6 shipped (schema, harness-strategy skill, init wiring, harness-ideate skill, brainstorming + roadmap-pilot grounding). Phases 7 (BusinessKnowledgeIngestor strategy domain) and 8 (ADRs + AGENTS.md "Strategic Anchor" section) outstanding.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-5c895000
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#262
 - **Updated-At:** 2026-06-02T23:19:00.486Z
@@ -1181,7 +1181,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 - **Summary:** Add harness-pulse and harness-compound skills with two new report-only maintenance tasks (product-pulse daily, compound-candidates weekly). Closes the read-side and post-mortem capture gaps. Deprecates .harness/learnings.md.
 - **Blockers:** —
 - **Plan:** docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-1-schema-foundations-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-2-harness-compound-skill-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-3-harness-pulse-skill-interview-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-4-pulse-run-cli-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-5-compound-scan-candidates-cli-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-6-maintenance-task-registration-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-7-orchestrator-cross-skill-integration-plan.md, docs/changes/compound-engineering-adoption/feedback-loops/plans/2026-05-05-feedback-loops-phase-8-documentation-and-adrs-plan.md
-- **Assignee:** orchestrator-5c895000
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#263
 - **Updated-At:** 2026-06-02T13:41:59.609Z
@@ -1193,7 +1193,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 - **Summary:** Add adversarial reviewer + framework-persona reviewers (typescript-strict, frontend-races) + Quick/Standard/Deep depth calibration in harness-code-review. Standardizes anchored confidence rubric and unified findings schema across all review personas.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-5c895000
+- **Assignee:** @chadjw
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#264
 - **Updated-At:** 2026-06-02T13:47:40.063Z
@@ -2273,3 +2273,4 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 | design-pipeline sub-project #2: audit-component-anatomy          | @chadjw  | assigned | 2026-05-23 |
 | design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw  | assigned | 2026-05-23 |
 | design-pipeline sub-project #3: audit-brand-compliance           | @chadjw  | assigned | 2026-06-02 |
+| Init design + roadmap polish follow-ups                          | @chadjw  | assigned | 2026-06-03 |
