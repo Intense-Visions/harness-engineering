@@ -1,5 +1,24 @@
 # @harness-engineering/dashboard
 
+## 0.8.2
+
+### Patch Changes
+
+- Updated dependencies [1cc843b]
+- Updated dependencies [c17ad8b]
+- Updated dependencies [99b5cbf]
+- Updated dependencies [7c66168]
+- Updated dependencies [5f9ed8c]
+- Updated dependencies [ee2f6a0]
+- Updated dependencies [7353b60]
+- Updated dependencies [318b878]
+- Updated dependencies [af56053]
+- Updated dependencies [aaefe1b]
+  - @harness-engineering/orchestrator@0.8.1
+  - @harness-engineering/core@0.29.0
+  - @harness-engineering/graph@0.11.0
+  - @harness-engineering/types@0.16.0
+
 ## 0.8.1
 
 ### Patch Changes

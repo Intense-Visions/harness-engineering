@@ -1,5 +1,29 @@
 # @harness-engineering/orchestrator
 
+## 0.8.1
+
+### Patch Changes
+
+- 1cc843b: Fix HTTP 403 on `POST /api/chat`. Commit 261c4afc (2026-05-14) flipped the orchestrator scope check from default-permit to default-deny, but `/api/chat` was never added to `requiredScopeForRoute` — every chat request, including admin in unauth-dev mode, was hitting the unmapped-route 403 branch and breaking the dashboard "Discuss the escalation…" panel. Maps `/api/chat` (and the rewrite target `/api/chat-proxy`) to `trigger-job`, and broadens the chat-proxy handler URL match to accept both names so the `/api/v1/chat-proxy` alias no longer falls through to 404. Includes regression tests in `scopes.test.ts` covering both paths.
+- ee2f6a0: Close stall-detector gap for zero-event agents.
+
+  The stall detector in `asyncTick` short-circuited when `session?.lastTimestamp` was null, with the comment "still initializing." This left no upper bound on initialization: any dispatched agent that emits zero session events (silent crash, broken backend stream, hung subprocess before first stdout) sat in `state.running` indefinitely. Over a long-running orchestrator process these zero-event entries accumulated until `running.size >= maxConcurrentAgents`, at which point `canDispatch` silently returned false for every new candidate and the roadmap appeared to be ignored. Restart wiped the in-memory map and dispatch resumed — matching the user-observed "restart fixes it" workaround.
+
+  Extracts detection into a pure `detectStalledIssues` helper that falls back to `entry.startedAt` when `session.lastTimestamp` is null. Zero-event agents now stall-detect after `stallTimeoutMs` since dispatch and follow the existing retry/escalate path that removes them from `running`.
+
+- Updated dependencies [c17ad8b]
+- Updated dependencies [99b5cbf]
+- Updated dependencies [7c66168]
+- Updated dependencies [5f9ed8c]
+- Updated dependencies [7353b60]
+- Updated dependencies [318b878]
+- Updated dependencies [af56053]
+- Updated dependencies [aaefe1b]
+  - @harness-engineering/core@0.29.0
+  - @harness-engineering/graph@0.11.0
+  - @harness-engineering/types@0.16.0
+  - @harness-engineering/intelligence@0.2.7
+
 ## 0.8.0
 
 ### Minor Changes

@@ -1,7 +1,0 @@
----
-'@harness-engineering/cli': minor
----
-
-audit-component-anatomy: add Dialog convention with `ANAT-D005` (missing required `title` slot).
-
-Phase 2 catalog expansion — fourth component after Button, Input, and EmptyState. `Dialog` joins the registry returned by `getCatalogTypes()`. Sources from the APG `dialog-modal` pattern (the canonical authoritative spec for the modal-overlay accessible-name mandate). The convention runner emits `ANAT-D005` (severity `error` at standard strictness, `warn` at permissive) when a Dialog definition's prop type exposes none of the three documented satisfiers: `title` prop, `aria-label` prop, or `aria-labelledby` prop — the same three-satisfier shape as `Input.label` (ANAT-D004). Other anatomy parts (description / close-action / footer slots, `open` / `closed` states, `alert` / `standard` variants, and sizes) ship on the convention for catalog completeness but are not yet wired to finding codes — the `ANAT-D006`–`ANAT-D009` Tier-1 overflow band and the `ANAT-D060`–`ANAT-D069` Tier-2 recommended-overlay-states sub-band are reserved for follow-up tasks. Adds 7 new integration tests covering each satisfier path, strictness=permissive softening + strictness=strict cap, and a Button+Input+Dialog+EmptyState four-way partition; 2 catalog-registry unit tests assert Dialog's presence and Tier-1 slot shape. Dialog becomes the third catalogued component to share the `A11Y-010` deferral path with `harness-accessibility`.

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.29.0
+
+### Minor Changes
+
+- 7353b60: Add review depth calibration + adversarial / framework-aware reviewers to `harness-code-review`. New `Phase 3.5: CALIBRATE DEPTH` selects Quick / Standard / Deep from diff size and a canonical risk-keyword list, then dispatches three conditional subagents alongside the existing 4 base agents:
+  - `adversarial` — assumption violations, composition failures, abuse cases (and at Deep, cascade chains)
+  - `typescript-strict` — type holes that disable the checker, refactor regression, complexity growth
+  - `frontend-races` — lifecycle cleanup gaps, hook timing, concurrent interactions, stale-response races
+
+  `ReviewFinding` gains two optional additive fields: `subagent` (which subagent produced it) and a widened `confidence` union that accepts both the legacy `'high'|'medium'|'low'` and new numeric anchors `25|50|75|100`. Phase 6 dedup uses confidence as a tiebreaker when severity ties. New `--depth quick|standard|deep` CLI/MCP flag overrides calibration. Reference files: `references/confidence-rubric.md`, `references/risk-keywords.md`. ADR-0034.
+
+- 318b878: Add `STRATEGY.md` schema and validator (strategic-anchor phase 1 of 8 in the compound-engineering-adoption initiative).
+  - `packages/types` exports `StrategyFrontmatter`, `StrategyDoc`, `StrategySection`, `REQUIRED_STRATEGY_SECTIONS`, `OPTIONAL_STRATEGY_SECTIONS`.
+  - `packages/core/strategy` exports `StrategyDocSchema`, `StrategyFrontmatterSchema`, `parseStrategyDoc`, `asStrategyDoc`.
+  - `packages/core/validation` exports `validateStrategy(cwd)` consumed by `harness validate`.
+  - CLI `harness validate` now reports a `strategyConfig` check: soft-passes when STRATEGY.md is absent; fails with a precise per-section message when present and malformed (missing required section, unfilled template placeholder, malformed frontmatter).
+
+  Scope: schema + validator only. The `harness-strategy` skill, the `harness-ideate` skill, init wiring, brainstorming/roadmap-pilot grounding, knowledge-graph integration, and ADRs ship in follow-up PRs (one per phase, matching the feedback-loops cadence).
+
+- af56053: Ship the `harness-strategy` skill and the `writeStrategyDoc` writer (strategic-anchor phase 2 of 8 in the compound-engineering-adoption initiative).
+  - `packages/core/strategy` exports `writeStrategyDoc(doc, { cwd, skipBackup? })` — atomic disk write of `STRATEGY.md` with schema-validation-rejects-disk-write, an idempotent `.bak` on first overwrite, H1 preservation across re-writes, and `tmp-<pid>` + `rename` semantics that mirror `writePulseConfig`. Composes a pure `serializeStrategyDoc(doc, opts?)` (also exported) so the serializer is unit-testable without filesystem fixtures.
+  - `agents/skills/{claude-code,gemini-cli,cursor,codex}/harness-strategy/` ships the rigid skill (Phase 0 file-state routing; Phase 1 first-run interview in template order; Phase 2 per-section update flow; Phase 3 downstream handoff). `references/interview.md` documents the three pushback rules (fluff detection, goal-as-strategy, feature-list-as-strategy) with detection signals, repair scripts, anti-pattern fixtures, and the hard 2-round-per-section cap.
+  - CLI emits `/harness:strategy` via `generate-slash-commands` (and the per-platform plugin generators); the slash command appears in `.claude-plugin/commands/strategy.md`, `.gemini-extension/commands/strategy.toml`, `.cursor-plugin/commands/strategy.md`, plus the `agents/commands/*` mirrors. Skill listed in the auto-generated skills catalog.
+
+  Scope: writer + skill prose only. Init wiring, `harness-ideate`, brainstorming/roadmap-pilot grounding, knowledge-graph integration, and ADRs ship in follow-up PRs (one per phase).
+
+### Patch Changes
+
+- c17ad8b: Reduce `harness cleanup --type drift` false positives on ADR-heavy projects (chat-492):
+  - Inline-reference extractor now rejects BCP-47 locale codes (`vi`, `cs`, `pt-BR`, `zh-Hant-CN`) and file-name backticks (`AGENTS.md`, `harness.config.json`, `.gitignore`) so they no longer surface as "symbol not found" drift.
+  - API-signature drift detection skips refs inside forward-looking docs by default: `docs/architecture/`, `docs/decisions/`, `docs/proposals/`, `docs/adr/`. These describe intended future code and shouldn't drift-check against the current codebase. Configurable via `DriftConfig.forwardLookingPaths`.
+  - Markdown link parser splits `file.md#anchor` before the file-existence check, eliminating false-positive structure drift on anchor links. When the file exists, the anchor is validated against the target file's GFM-slugged headings — surfacing as `link-anchor` context with `medium` confidence so real typos (e.g. em-dash slug mistakes) still get caught.
+
+- Updated dependencies [99b5cbf]
+- Updated dependencies [7c66168]
+- Updated dependencies [5f9ed8c]
+- Updated dependencies [318b878]
+- Updated dependencies [aaefe1b]
+  - @harness-engineering/graph@0.11.0
+  - @harness-engineering/types@0.16.0
+
 ## 0.28.2
 
 ### Patch Changes
