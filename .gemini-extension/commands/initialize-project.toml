@@ -670,6 +670,7 @@ state:
 depends_on:
   - initialize-test-suite-project
   - harness-design-system
+  - harness-roadmap
 
 </execution_context>
 

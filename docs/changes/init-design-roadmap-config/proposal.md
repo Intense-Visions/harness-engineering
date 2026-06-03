@@ -143,7 +143,7 @@ No special-casing needed — natural consequence of existing flow control.
 - `harness-design-system` is already registered with `on_project_init` trigger declared. No new registration needed.
 - `manage_roadmap` MCP tool already exists.
 - `agents/skills/claude-code/initialize-harness-project/skill.yaml` `depends_on` should add `harness-design-system` (currently lists only `initialize-test-suite-project`).
-- Roadmap operations go through `manage_roadmap` MCP tool, not a skill — no `depends_on` entry needed.
+- The init skill invokes the `harness-roadmap` skill to create `docs/roadmap.md`, then calls `manage_roadmap.add` to register the design-system item — add `harness-roadmap` to `depends_on` alongside `harness-design-system`.
 
 ### Documentation Updates
 
