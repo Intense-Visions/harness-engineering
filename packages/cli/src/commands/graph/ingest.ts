@@ -49,6 +49,7 @@ export async function runIngest(
     CodeIngestor,
     TopologicalLinker,
     KnowledgeIngestor,
+    BusinessKnowledgeIngestor,
     GitIngestor,
     RequirementIngestor,
     SyncManager,
@@ -114,9 +115,21 @@ export async function runIngest(
       result = await new CodeIngestor(store, ingestOptions).ingest(projectPath);
       new TopologicalLinker(store).link();
       break;
-    case 'knowledge':
-      result = await new KnowledgeIngestor(store).ingestAll(projectPath);
+    case 'knowledge': {
+      // Run KnowledgeIngestor (ADRs, learnings, failures, general docs) AND
+      // BusinessKnowledgeIngestor (docs/knowledge, docs/solutions, STRATEGY.md).
+      // Previously --source knowledge only ran the former, leaving the latter
+      // substrate unreachable except via `harness knowledge-pipeline` — which
+      // surfaced as a silent `+0 nodes` for users who probed via this command.
+      // See github issue #504 Finding 1.
+      const knowledge = await new KnowledgeIngestor(store).ingestAll(projectPath);
+      const bk = new BusinessKnowledgeIngestor(store);
+      const bkKnowledge = await bk.ingest(path.join(projectPath, 'docs', 'knowledge'));
+      const bkSolutions = await bk.ingestSolutions(path.join(projectPath, 'docs', 'solutions'));
+      const bkStrategy = await bk.ingestStrategy(path.join(projectPath, 'STRATEGY.md'));
+      result = mergeResults(knowledge, bkKnowledge, bkSolutions, bkStrategy);
       break;
+    }
     case 'git':
       result = await new GitIngestor(store).ingest(projectPath);
       break;
@@ -194,6 +207,15 @@ export function createIngestCommand(): Command {
           console.log(
             `Ingested (${label}): +${result.nodesAdded} nodes, +${result.edgesAdded} edges (${result.durationMs}ms)`
           );
+          // Surface per-file parse / schema failures that were collected into
+          // result.errors but previously thrown away by this branch. Silent
+          // `+0 nodes` made schema mismatches undebuggable (see issue #504
+          // Finding 1). Errors go to stderr so JSON consumers stay unaffected
+          // and `--json` mode still emits a clean single-line payload above.
+          if (result.errors.length > 0) {
+            console.warn(`  ${result.errors.length} parse/skip warning(s):`);
+            for (const err of result.errors) console.warn(`    - ${err}`);
+          }
         }
       } catch (err) {
         console.error('Ingest failed:', err instanceof Error ? err.message : err);

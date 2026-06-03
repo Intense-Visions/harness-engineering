@@ -148,6 +148,32 @@ describe('MermaidParser', () => {
       expect(result.metadata.format).toBe('mermaid');
       expect(result.metadata.diagramType).toBe('unknown');
     });
+
+    // Regression: github issue #504, Finding 2. Mermaid's grammar treats `%%`
+    // as a comment, so files commonly start with `%% Source: docs/foo.md`
+    // provenance headers. Previously detectDiagramType broke on the first
+    // non-empty line and returned 'unknown' for any file with leading `%%`.
+    describe('%% comment tolerance', () => {
+      it('detects sequence type when first line is %% comment', () => {
+        const content = `%% Source: docs/foo.md\nsequenceDiagram\n    participant A\n    participant B\n    A->>B: hello`;
+        const result = parser.parse(content, 'probe.mmd');
+        expect(result.metadata.diagramType).toBe('sequence');
+        expect(result.entities.length).toBeGreaterThanOrEqual(2);
+      });
+
+      it('detects flowchart type when preceded by multiple %% lines and blank lines', () => {
+        const content = `%% Source of truth: docs/architecture.md\n%% Last reviewed: 2026-01-01\n\nflowchart LR\n  A[Start] --> B[End]`;
+        const result = parser.parse(content, 'probe.mmd');
+        expect(result.metadata.diagramType).toBe('flowchart');
+        expect(result.entities.length).toBeGreaterThanOrEqual(2);
+      });
+
+      it('returns unknown when ONLY %% comments are present', () => {
+        const result = parser.parse(`%% just a comment\n%% another`, 'probe.mmd');
+        expect(result.metadata.diagramType).toBe('unknown');
+        expect(result.entities).toHaveLength(0);
+      });
+    });
   });
 });
 
