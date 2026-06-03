@@ -116,6 +116,65 @@ describe('KnowledgePipelineRunner', () => {
       const result = await runner.run(makeOptions());
       expect(result.extraction.codeSignals).toBe(0);
     });
+
+    it('ingests STRATEGY.md as business_fact nodes in extraction phase', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'STRATEGY.md'),
+        `---
+name: Sample Product
+last_updated: 2026-06-02
+version: 1
+---
+
+# Sample Product Strategy
+
+## Target problem
+
+A real diagnosis sentence about the problem we address.
+
+## Our approach
+
+A real distinctive bet on how we solve it.
+
+## Who it's for
+
+Specific persona we serve, not "developers" generically.
+
+## Key metrics
+
+- m: a metric
+
+## Tracks
+
+- t: a track
+`,
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // STRATEGY.md ingestion is counted under businessKnowledge.
+      expect(result.extraction.businessKnowledge).toBeGreaterThanOrEqual(5);
+
+      const strategyFacts = store
+        .findNodes({ type: 'business_fact' })
+        .filter((n) => n.metadata?.domain === 'strategy');
+      expect(strategyFacts.length).toBeGreaterThanOrEqual(5);
+      expect(strategyFacts.every((n) => n.metadata?.source === 'STRATEGY.md')).toBe(true);
+    });
+
+    it('survives missing STRATEGY.md without error', async () => {
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // No strategy nodes produced and no error surfaced.
+      const strategyFacts = store
+        .findNodes({ type: 'business_fact' })
+        .filter((n) => n.metadata?.domain === 'strategy');
+      expect(strategyFacts).toHaveLength(0);
+      expect(result.verdict).not.toBe('fail');
+    });
   });
 
   describe('gap report', () => {
