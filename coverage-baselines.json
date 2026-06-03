@@ -6,16 +6,16 @@
     "statements": 88.74
   },
   "packages/graph": {
-    "lines": 96.35,
-    "branches": 81.88,
-    "functions": 97,
-    "statements": 94.63
+    "lines": 96.38,
+    "branches": 81.93,
+    "functions": 97.02,
+    "statements": 94.64
   },
   "packages/cli": {
-    "lines": 77.73,
-    "branches": 64.56,
-    "functions": 82.23,
-    "statements": 76.37
+    "lines": 77.78,
+    "branches": 64.49,
+    "functions": 82.21,
+    "statements": 76.42
   },
   "packages/orchestrator": {
     "lines": 82.87,
