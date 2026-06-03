@@ -49,6 +49,7 @@ export async function runIngest(
     CodeIngestor,
     TopologicalLinker,
     KnowledgeIngestor,
+    BusinessKnowledgeIngestor,
     GitIngestor,
     RequirementIngestor,
     SyncManager,
@@ -114,9 +115,21 @@ export async function runIngest(
       result = await new CodeIngestor(store, ingestOptions).ingest(projectPath);
       new TopologicalLinker(store).link();
       break;
-    case 'knowledge':
-      result = await new KnowledgeIngestor(store).ingestAll(projectPath);
+    case 'knowledge': {
+      // Run KnowledgeIngestor (ADRs, learnings, failures, general docs) AND
+      // BusinessKnowledgeIngestor (docs/knowledge, docs/solutions, STRATEGY.md).
+      // Previously --source knowledge only ran the former, leaving the latter
+      // substrate unreachable except via `harness knowledge-pipeline` — which
+      // surfaced as a silent `+0 nodes` for users who probed via this command.
+      // See github issue #504 Finding 1.
+      const knowledge = await new KnowledgeIngestor(store).ingestAll(projectPath);
+      const bk = new BusinessKnowledgeIngestor(store);
+      const bkKnowledge = await bk.ingest(path.join(projectPath, 'docs', 'knowledge'));
+      const bkSolutions = await bk.ingestSolutions(path.join(projectPath, 'docs', 'solutions'));
+      const bkStrategy = await bk.ingestStrategy(path.join(projectPath, 'STRATEGY.md'));
+      result = mergeResults(knowledge, bkKnowledge, bkSolutions, bkStrategy);
       break;
+    }
     case 'git':
       result = await new GitIngestor(store).ingest(projectPath);
       break;
@@ -166,6 +179,46 @@ export async function runIngest(
   return result;
 }
 
+// Print the human-readable summary for a completed ingest run. Errors are
+// emitted to stderr so JSON consumers stay unaffected when `--json` is set.
+// Extracted from the action handler to keep `createIngestCommand` under the
+// project cyclomatic-complexity threshold and to make the per-file warning
+// behavior independently testable.
+function printIngestSummary(result: IngestResult, label: string): void {
+  console.log(
+    `Ingested (${label}): +${result.nodesAdded} nodes, +${result.edgesAdded} edges (${result.durationMs}ms)`
+  );
+  if (result.errors.length === 0) return;
+  console.warn(`  ${result.errors.length} parse/skip warning(s):`);
+  for (const err of result.errors) console.warn(`    - ${err}`);
+}
+
+async function handleIngestAction(
+  opts: { source?: string; all?: boolean; full?: boolean },
+  cmd: Command
+): Promise<void> {
+  if (!opts.source && !opts.all) {
+    console.error('Error: --source or --all is required');
+    process.exit(1);
+  }
+  const globalOpts = cmd.optsWithGlobals();
+  const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
+  try {
+    const runOpts: { full?: boolean; all?: boolean } = {};
+    if (opts.full !== undefined) runOpts.full = opts.full;
+    if (opts.all !== undefined) runOpts.all = opts.all;
+    const result = await runIngest(projectPath, opts.source ?? '', runOpts);
+    if (globalOpts.json) {
+      console.log(JSON.stringify(result));
+    } else {
+      printIngestSummary(result, opts.all ? 'all' : (opts.source ?? ''));
+    }
+  } catch (err) {
+    console.error('Ingest failed:', err instanceof Error ? err.message : err);
+    process.exit(2);
+  }
+}
+
 export function createIngestCommand(): Command {
   return new Command('ingest')
     .description('Ingest data into the knowledge graph')
@@ -175,29 +228,5 @@ export function createIngestCommand(): Command {
     )
     .option('--all', 'Run all sources (code, knowledge, git, and configured connectors)')
     .option('--full', 'Force full re-ingestion')
-    .action(async (opts, cmd) => {
-      if (!opts.source && !opts.all) {
-        console.error('Error: --source or --all is required');
-        process.exit(1);
-      }
-      const globalOpts = cmd.optsWithGlobals();
-      const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
-      try {
-        const result = await runIngest(projectPath, opts.source ?? '', {
-          full: opts.full,
-          all: opts.all,
-        });
-        if (globalOpts.json) {
-          console.log(JSON.stringify(result));
-        } else {
-          const label = opts.all ? 'all' : opts.source;
-          console.log(
-            `Ingested (${label}): +${result.nodesAdded} nodes, +${result.edgesAdded} edges (${result.durationMs}ms)`
-          );
-        }
-      } catch (err) {
-        console.error('Ingest failed:', err instanceof Error ? err.message : err);
-        process.exit(2);
-      }
-    });
+    .action(handleIngestAction);
 }

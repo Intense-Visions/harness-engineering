@@ -27,6 +27,31 @@ const mockKnowledgeIngest = vi.fn().mockResolvedValue({
   durationMs: 50,
 });
 
+const mockBkIngest = vi.fn().mockResolvedValue({
+  nodesAdded: 0,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 0,
+});
+const mockBkIngestSolutions = vi.fn().mockResolvedValue({
+  nodesAdded: 0,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 0,
+});
+const mockBkIngestStrategy = vi.fn().mockResolvedValue({
+  nodesAdded: 0,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 0,
+});
+
 const mockGitIngest = vi.fn().mockResolvedValue({
   nodesAdded: 20,
   nodesUpdated: 2,
@@ -89,6 +114,12 @@ vi.mock('@harness-engineering/graph', () => ({
   KnowledgeIngestor: class {
     constructor() {}
     ingestAll = mockKnowledgeIngest;
+  },
+  BusinessKnowledgeIngestor: class {
+    constructor() {}
+    ingest = mockBkIngest;
+    ingestSolutions = mockBkIngestSolutions;
+    ingestStrategy = mockBkIngestStrategy;
   },
   GitIngestor: class {
     constructor() {}
@@ -158,6 +189,16 @@ beforeEach(() => {
     errors: [],
     durationMs: 50,
   });
+  for (const m of [mockBkIngest, mockBkIngestSolutions, mockBkIngestStrategy]) {
+    m.mockResolvedValue({
+      nodesAdded: 0,
+      nodesUpdated: 0,
+      edgesAdded: 0,
+      edgesUpdated: 0,
+      errors: [],
+      durationMs: 0,
+    });
+  }
   mockGitIngest.mockResolvedValue({
     nodesAdded: 20,
     nodesUpdated: 2,
@@ -228,6 +269,45 @@ describe('runIngest', () => {
       expect(result.nodesUpdated).toBe(1);
       expect(mockKnowledgeIngest).toHaveBeenCalledWith('/project');
       expect(mockStore.save).toHaveBeenCalled();
+    });
+
+    // Regression: github issue #504 Finding 1. Previously --source knowledge
+    // only ran KnowledgeIngestor, so docs/knowledge/, docs/solutions/, and
+    // STRATEGY.md were silently invisible from this command.
+    it('also runs BusinessKnowledgeIngestor against docs/knowledge, docs/solutions, STRATEGY.md', async () => {
+      await runIngest('/project', 'knowledge');
+      expect(mockBkIngest).toHaveBeenCalledWith(expect.stringMatching(/docs[\\/]knowledge$/));
+      expect(mockBkIngestSolutions).toHaveBeenCalledWith(
+        expect.stringMatching(/docs[\\/]solutions$/)
+      );
+      expect(mockBkIngestStrategy).toHaveBeenCalledWith(expect.stringMatching(/STRATEGY\.md$/));
+    });
+
+    it('aggregates nodes and errors from KnowledgeIngestor and BusinessKnowledgeIngestor', async () => {
+      mockBkIngest.mockResolvedValue({
+        nodesAdded: 5,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: ['docs/knowledge/bad.md: missing required key "last_updated"'],
+        durationMs: 10,
+      });
+      mockBkIngestSolutions.mockResolvedValue({
+        nodesAdded: 2,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: ['docs/solutions/x.md: no frontmatter found'],
+        durationMs: 10,
+      });
+
+      const result = await runIngest('/project', 'knowledge');
+      // 3 (KnowledgeIngestor) + 5 (bk knowledge) + 2 (bk solutions) + 0 (bk strategy)
+      expect(result.nodesAdded).toBe(10);
+      expect(result.errors).toEqual([
+        'docs/knowledge/bad.md: missing required key "last_updated"',
+        'docs/solutions/x.md: no frontmatter found',
+      ]);
     });
   });
 
