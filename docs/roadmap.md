@@ -1164,7 +1164,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 
 ### Compound Engineering Adoption: Strategic Anchor
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/compound-engineering-adoption/strategic-anchor/proposal.md
 - **Summary:** Phases 1-6 shipped (schema, harness-strategy skill, init wiring, harness-ideate skill, brainstorming + roadmap-pilot grounding). Phases 7 (BusinessKnowledgeIngestor strategy domain) and 8 (ADRs + AGENTS.md "Strategic Anchor" section) outstanding.
 - **Blockers:** —
@@ -1172,7 +1172,7 @@ last_manual_edit: 2026-06-02T13:32:41.296Z
 - **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#262
-- **Updated-At:** 2026-06-02T13:35:56.932Z
+- **Updated-At:** 2026-06-02T23:19:00.486Z
 
 ### Compound Engineering Adoption: Feedback Loops
 
