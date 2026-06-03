@@ -146,41 +146,9 @@ export class DecisionIngestor {
     let edgesAdded = 0;
 
     for (const filePath of files) {
-      try {
-        const raw = await fs.readFile(filePath, 'utf-8');
-        const parsed = parseArchitectureAdr(raw);
-        if (!parsed) continue;
-
-        const filename = path.basename(filePath, '.md');
-        const relFromArch = path.relative(architectureDir, filePath).replaceAll('\\', '/');
-        const topic = relFromArch.includes('/') ? relFromArch.split('/')[0]! : '';
-        const nodeId = topic
-          ? `decision:architecture:${topic}:${filename}`
-          : `decision:architecture:${filename}`;
-
-        const node: GraphNode = {
-          id: nodeId,
-          type: 'decision' as NodeType,
-          name: parsed.title,
-          path: filePath,
-          content: parsed.body.trim(),
-          metadata: {
-            number: parsed.number,
-            ...(topic && { domain: topic }),
-            source: 'architecture',
-            ...(parsed.date && { date: parsed.date }),
-            ...(parsed.status && { status: parsed.status }),
-            ...(parsed.deciders && { deciders: parsed.deciders }),
-          },
-        };
-
-        this.store.addNode(node);
-        nodesAdded++;
-
-        edgesAdded += this.linkToCode(parsed.body, nodeId);
-      } catch (err) {
-        errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const delta = await this.processArchitectureAdrFile(filePath, architectureDir, errors);
+      nodesAdded += delta.nodesAdded;
+      edgesAdded += delta.edgesAdded;
     }
 
     return {
@@ -191,6 +159,32 @@ export class DecisionIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  /**
+   * Read, parse, and add a single architecture-advisor ADR. Returns the delta
+   * the caller should fold into the aggregate counts. Errors are appended to
+   * the shared `errors` array rather than thrown, matching the soft-fail
+   * contract of `ingest()`.
+   */
+  private async processArchitectureAdrFile(
+    filePath: string,
+    architectureDir: string,
+    errors: string[]
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8');
+      const parsed = parseArchitectureAdr(raw);
+      if (!parsed) return { nodesAdded: 0, edgesAdded: 0 };
+
+      const node = buildArchitectureAdrNode(parsed, filePath, architectureDir);
+      this.store.addNode(node);
+      const edgesAdded = this.linkToCode(parsed.body, node.id);
+      return { nodesAdded: 1, edgesAdded };
+    } catch (err) {
+      errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      return { nodesAdded: 0, edgesAdded: 0 };
+    }
   }
 
   private parseFrontmatter(raw: string): { frontmatter: DecisionFrontmatter; body: string } | null {
@@ -282,6 +276,34 @@ interface ParsedArchitectureAdr {
  * signals the file is not an ADR (e.g. a topic README), so the caller skips
  * it rather than producing a malformed node.
  */
+function buildArchitectureAdrNode(
+  parsed: ParsedArchitectureAdr,
+  filePath: string,
+  architectureDir: string
+): GraphNode {
+  const filename = path.basename(filePath, '.md');
+  const relFromArch = path.relative(architectureDir, filePath).replaceAll('\\', '/');
+  const topic = relFromArch.includes('/') ? relFromArch.split('/')[0]! : '';
+  const nodeId = topic
+    ? `decision:architecture:${topic}:${filename}`
+    : `decision:architecture:${filename}`;
+  return {
+    id: nodeId,
+    type: 'decision' as NodeType,
+    name: parsed.title,
+    path: filePath,
+    content: parsed.body.trim(),
+    metadata: {
+      number: parsed.number,
+      ...(topic && { domain: topic }),
+      source: 'architecture',
+      ...(parsed.date && { date: parsed.date }),
+      ...(parsed.status && { status: parsed.status }),
+      ...(parsed.deciders && { deciders: parsed.deciders }),
+    },
+  };
+}
+
 function parseArchitectureAdr(raw: string): ParsedArchitectureAdr | null {
   const h1 = raw.match(ARCHITECTURE_ADR_H1);
   if (!h1) return null;
