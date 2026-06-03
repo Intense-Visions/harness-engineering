@@ -12,6 +12,15 @@ export interface DriftConfig {
   checkExamples: boolean;
   checkStructure: boolean;
   ignorePatterns: string[];
+  /**
+   * Path prefixes (relative or absolute substrings) for docs that describe
+   * intended future code rather than the current codebase. API-signature
+   * drift is suppressed for refs inside these docs — see github issue #492.
+   *
+   * Default: ['docs/architecture/', 'docs/decisions/', 'docs/proposals/',
+   * 'docs/adr/']. Override via the entropy config to extend or replace.
+   */
+  forwardLookingPaths: string[];
 }
 
 export interface DeadCodeConfig {

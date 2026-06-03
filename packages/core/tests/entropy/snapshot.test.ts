@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   resolveEntryPoints,
   parseDocumentationFile,
@@ -165,6 +165,77 @@ describe('parseDocumentationFile', () => {
       expect(result.value.inlineRefs.length).toBeGreaterThan(0);
       expect(result.value.inlineRefs.some((r) => r.reference === 'createUser')).toBe(true);
     }
+  });
+
+  // Regression: github issue #492. BCP-47 locale codes and file-name
+  // backticks were being accepted as code references and downstream
+  // surfaced as "symbol not found" drift findings.
+  describe('inline reference filtering', () => {
+    let tmpFile: string;
+    beforeEach(async () => {
+      const os = await import('node:os');
+      const fs = await import('node:fs/promises');
+      tmpFile = join(os.tmpdir(), `inline-ref-filter-${Date.now()}.md`);
+      await fs.writeFile(
+        tmpFile,
+        [
+          '# Roadmap',
+          '',
+          'Expand i18n locales: `vi`, `cs`, `ne`, `en`, `hi`, `pt-BR`, `zh-Hant-CN`.',
+          '',
+          'See `AGENTS.md` and `harness.config.json` for setup.',
+          '',
+          'Also see `package.json`, `tsconfig.json`, `.gitignore`.',
+          '',
+          'Real code symbols: `createUser`, `User.email`, `findUserById()`.',
+          '',
+        ].join('\n')
+      );
+    });
+    afterEach(async () => {
+      const fs = await import('node:fs/promises');
+      try {
+        await fs.unlink(tmpFile);
+      } catch {
+        // best-effort
+      }
+    });
+
+    it('rejects BCP-47 locale codes as inline references', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      for (const locale of ['vi', 'cs', 'ne', 'en', 'hi', 'pt-BR', 'zh-Hant-CN']) {
+        expect(refs).not.toContain(locale);
+      }
+    });
+
+    it('rejects file-name backticks (.md, .json, .gitignore) as inline references', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      for (const fileRef of [
+        'AGENTS.md',
+        'harness.config.json',
+        'package.json',
+        'tsconfig.json',
+        '.gitignore',
+      ]) {
+        expect(refs).not.toContain(fileRef);
+      }
+    });
+
+    it('still accepts genuine code symbols (createUser, User.email)', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      expect(refs).toContain('createUser');
+      expect(refs).toContain('User.email');
+      expect(refs).toContain('findUserById');
+    });
   });
 });
 
