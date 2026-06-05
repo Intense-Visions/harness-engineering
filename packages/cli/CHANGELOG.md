@@ -1,5 +1,16 @@
 # @harness-engineering/cli
 
+## 2.8.1
+
+### Patch Changes
+
+- 0beffc7: Fix `runDeepReview` in `review-changes` MCP tool emitting the full unpaginated `findings` array via the embedded `pipeline` payload. After passing `_skipPagination: true` to the inner review call, the wrapper was re-emitting `pipeline: parsed` which still carried the full list, silently defeating the intent of the 22dd345f9 "double pagination" fix for any client reading `pipeline.findings`. Now strips `findings` and `findingCount` out of `pipeline` before re-emitting, keeping the paginated top-level fields as the canonical response shape. Surfaced by cross-phase review of the paged-mcp-tool-responses spec.
+- 1cbb786: Wire the previously-dead `LazyLocalAdapterOptions.llmTimeoutMs` through to the inner `OpenAICompatibleAnalysisProvider`. Without this, callers pointing at an unreachable local endpoint (LM Studio not running, Ollama not started) blocked for ~7s per call as the OpenAI SDK ran its default 90s timeout + `maxRetries: 2` exponential backoff before throwing. Now `llmTimeoutMs` actually applies — fail-fast on unreachable endpoints when configured.
+- Updated dependencies [0ca37f4]
+- Updated dependencies [a6f7cd3]
+  - @harness-engineering/dashboard@0.8.3
+  - @harness-engineering/orchestrator@0.8.2
+
 ## 2.8.0
 
 ### Minor Changes
