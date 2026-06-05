@@ -33,6 +33,10 @@ describe('LazyLocalAdapter', () => {
       apiKey: 'lm-studio',
       configured: ['gemma-4-e4b', 'qwen3:8b'],
       fetchModels,
+      // Fail fast on the unreachable port — the test is about caching, not HTTP.
+      // Without this, the OpenAI SDK's default 90s timeout + retry backoff blows
+      // past vitest's 30s testTimeout when looping 3 calls.
+      llmTimeoutMs: 100,
     });
 
     for (let i = 0; i < 3; i++) {
