@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-06-04
 last_synced: 2026-06-04T23:42:12.128Z
-last_manual_edit: 2026-06-04T23:42:12.128Z
+last_manual_edit: 2026-06-05T02:45:19.209Z
 ---
 
 # Roadmap
@@ -1197,6 +1197,17 @@ last_manual_edit: 2026-06-04T23:42:12.128Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#264
 - **Updated-At:** 2026-06-02T13:47:40.063Z
+
+### Auto-promotion of brainstormed roadmap items
+
+- **Status:** planned
+- **Spec:** docs/changes/brainstorm-auto-promote/proposal.md
+- **Summary:** Brainstorming Phase 4 promotes existing backlog rows to planned atomically with the spec commit, via new `manage_roadmap action: promote`. Sub-project 1 of 4 in the brainstorm-driven roadmap loop initiative.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#574
 
 ## Hermes Adoption
 
