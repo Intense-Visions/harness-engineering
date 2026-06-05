@@ -83,7 +83,7 @@ When no arguments are provided (standalone invocation), discover plan from `docs
 4. **Load session summary for cold start.** If resuming (session slug known):
    - Call `listActiveSessions()` to read the session index.
    - Call `loadSessionSummary()` for the target session.
-   - If ambiguous, present the index and ask which session to resume.
+   - If ambiguous, present the index and ask which session to resume. Ask in plain text — do not elevate this to `AskUserQuestion` (the session index can exceed its 4-option cap and a natural header like "Pick session" can exceed its 12-char cap, rendering the call as ERR).
 
 5. **Check for known dead ends.** Review `learnings` tagged `[outcome:failure]`. Warn if any match current plan approaches.
 

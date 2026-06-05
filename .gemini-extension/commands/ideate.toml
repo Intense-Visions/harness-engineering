@@ -37,6 +37,8 @@ Phases:
 
 ## Process
 
+**Prompt the human in plain text** — every confirmation and selection in this skill (`Proceed? (y/n)`, post-critique selection, etc.) is plain text only. Do not elevate to `AskUserQuestion`: natural headers like "Confirm inputs" exceed its 12-char cap and option lists routinely exceed its 4-option cap, rendering the call as ERR.
+
 ### Iron Law
 
 **The skill produces exactly ONE ranked artifact per run, at `docs/ideation/<slug>-YYYY-MM-DD.md`, and NEVER produces a spec, plan, ADR, or code.** If the user wants a spec from a ranked idea, they invoke `harness-brainstorming` next — that is the contract.

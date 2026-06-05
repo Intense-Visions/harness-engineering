@@ -14,6 +14,8 @@
 
 ## Process
 
+**Prompt the human in plain text** — every confirmation, drift acknowledgement, and contradiction resolution in this skill is plain text only. Do not elevate to `AskUserQuestion`: source labels and finding descriptions routinely exceed its 4-option / 12-char caps, rendering the call as ERR.
+
 1. **EXTRACT:** Run code signal extractors, diagram parsers, BusinessKnowledgeIngestor, and KnowledgeLinker against the project
 2. **RECONCILE:** Build pre-extraction snapshot (current graph state) and post-extraction snapshot, then run StructuralDriftDetector
 3. **DETECT:** Partition findings by classification (new/stale/drifted/contradicting), generate gap report

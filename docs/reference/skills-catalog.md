@@ -129,7 +129,7 @@ Scaffold a new harness-compliant project, including design system and roadmap co
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
-- **Depends on:** initialize-test-suite-project, harness-design-system
+- **Depends on:** initialize-test-suite-project, harness-design-system, harness-roadmap
 
 ### initialize-test-suite-project
 

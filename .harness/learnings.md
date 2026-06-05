@@ -1,3 +1,13 @@
+## 2026-06-04: init-design-roadmap-polish — autopilot resume and pre-push hook interactions
+
+Three reusable observations from resuming a session at FINAL_REVIEW and shipping the PR:
+
+1. **State files and review artifacts can drift.** `final-review.json` was written when the cross-phase review ran, but `autopilot-state.json` kept `finalReview.status: "pending"` because the state transition never landed (likely the prior session ended mid-DONE-transition). Always reconcile both on resume: trust the artifact if it exists and is internally consistent, then advance state.
+
+2. **Pre-push hooks check on-disk state, not the push payload.** Unrelated uncommitted WT changes (e.g. `docs/roadmap.md` failing prettier; pre-existing platform-parity drift in `harness-ideate` + `harness-knowledge-pipeline` SKILL.md copies) blocked `git push` even though they were neither staged nor in the PR diff. Symptom: hooks run prettier/test against the whole working tree before allowing the push. Disposition: stash unrelated WT changes; fix or sync pre-existing drift on the same branch as a separate `chore:` commit (not folded into spec phase commits).
+
+3. **Platform parity drift is silently re-introduced when only `claude-code` copies are edited.** The `tests/platform-parity.test.ts` failures pointed at exactly the right `cp` commands in their assertion messages. When syncing a batch of staged claude-code SKILL.md edits to other platforms, copy claude-code → codex/cursor/gemini-cli for each; some staged edits may turn out to be no-op (whitespace) and already in parity. Verify with `pnpm run test` before pushing.
+
 ## 2026-05-23: Architecture constraints discovered while spec'ing + scaffolding design-pipeline sub-projects #2 + #6
 
 Three load-bearing facts about this codebase that the design-pipeline specs assumed wrong:

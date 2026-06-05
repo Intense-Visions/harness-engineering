@@ -1053,7 +1053,7 @@ last_manual_edit: 2026-06-04T23:42:12.128Z
 ### Init design + roadmap polish follow-ups
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/init-design-roadmap-polish/proposal.md
 - **Summary:** Carry-forward polish from init-design-roadmap-config: (S2) refresh proposal.md:146 stale Registrations bullet to reflect harness-roadmap skill invocation, (S3) add harness-roadmap to initialize-harness-project skill.yaml depends_on for symmetry with harness-design-system, plus FINAL-S1 helper extraction, FINAL-S2 'not sure' vocabulary homogenization, FINAL-S3 catalog-consistency test docstring clarification.
 - **Blockers:** —
 - **Plan:** —

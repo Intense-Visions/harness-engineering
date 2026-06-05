@@ -146,6 +146,8 @@ Proceed with Feature A? (y/n/pick another)
 
 ### Phase 3: CONFIRM -- Human Decision
 
+Ask the human in plain text (matching the `y/n/pick another` example above). Do not elevate this confirmation to an `AskUserQuestion` tool call — candidate labels and natural header choices ("Pick candidate", etc.) exceed its 12-char `header` cap and the prompt is rejected as ERR.
+
 1. Wait for human confirmation.
    - If **yes**: proceed to Phase 4.
    - If **pick another**: ask which candidate number, then proceed with that pick.
