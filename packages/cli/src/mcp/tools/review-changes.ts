@@ -254,6 +254,11 @@ async function runDeepReview(
   const sorted = sortFindingsBySeverity(rawFindings);
   const paged = paginate(sorted, offset ?? 0, limit ?? 20);
 
+  // Strip the full unpaginated findings array out of the embedded pipeline payload —
+  // we already surface findings/findingCount as paginated top-level fields, and re-emitting
+  // the full list here would defeat _skipPagination and re-introduce token bloat.
+  const { findings: _full, findingCount: _fullCount, ...pipelineRest } = parsed;
+
   return {
     content: [
       {
@@ -266,7 +271,7 @@ async function runDeepReview(
           assessment: parsed.assessment,
           findingCount: parsed.findingCount,
           lineCount: diffLines,
-          pipeline: parsed,
+          pipeline: pipelineRest,
         }),
       },
     ],

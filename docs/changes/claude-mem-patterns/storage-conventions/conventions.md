@@ -6,12 +6,14 @@ This document describes the storage patterns, access characteristics, and future
 
 ## 1. File Inventory
 
-| Pattern                | File                  | Constant              | Format                                                          | Write             | Read                         | Scope            |
-| ---------------------- | --------------------- | --------------------- | --------------------------------------------------------------- | ----------------- | ---------------------------- | ---------------- |
-| Progressive Disclosure | `learnings.md`        | `LEARNINGS_FILE`      | Markdown with `<!-- hash:XXX tags:a,b -->` frontmatter comments | Append-only       | Full scan + index extraction | Global + session |
-| Content Deduplication  | `content-hashes.json` | `CONTENT_HASHES_FILE` | JSON object (`ContentHashIndex`)                                | Read-modify-write | Key lookup by hash           | Global + session |
-| Structured Event Log   | `events.jsonl`        | `EVENTS_FILE`         | JSONL (one `SkillEvent` JSON object per line)                   | Append-only       | Tail-read (most recent N)    | Global + session |
-| AST Code Navigation    | (none)                | —                     | In-memory tree-sitter parser cache                              | —                 | Read-only (source files)     | Process lifetime |
+| Pattern                | File                  | Constant              | Format                                                          | Write                | Read                         | Scope                             |
+| ---------------------- | --------------------- | --------------------- | --------------------------------------------------------------- | -------------------- | ---------------------------- | --------------------------------- |
+| Progressive Disclosure | `learnings.md`        | `LEARNINGS_FILE`      | Markdown with `<!-- hash:XXX tags:a,b -->` frontmatter comments | Append-only (locked) | Full scan + index extraction | Global + session                  |
+| Content Deduplication  | `content-hashes.json` | `CONTENT_HASHES_FILE` | JSON object (`ContentHashIndex`)                                | Read-modify-write    | Key lookup by hash           | Global + session (learnings only) |
+| Structured Event Log   | `events.jsonl`        | `EVENTS_FILE`         | JSONL (one `SkillEvent` JSON object per line)                   | Append-only          | Tail-read (most recent N)    | Global + session                  |
+| AST Code Navigation    | (none)                | —                     | In-memory tree-sitter parser cache                              | —                    | Read-only (source files)     | Process lifetime                  |
+
+> **Note:** `content-hashes.json` backs **learnings dedup only**. Event dedup uses an in-memory hash set rebuilt from `events.jsonl` on first access — see §3 for the split.
 
 ### File Locations
 
@@ -27,16 +29,16 @@ This document describes the storage patterns, access characteristics, and future
         └── events.jsonl      # Session-scoped event log
 ```
 
-All paths resolve through the state module constants in `packages/core/src/state/constants.ts`.
+All paths resolve through the state module constants in `packages/core/src/state/constants.ts`. Some call sites (`learnings.ts`) import `LEARNINGS_FILE` via the re-export in `state-shared.ts` rather than directly from `constants.ts`; both routes are equivalent.
 
 ## 2. Access Patterns
 
 ### learnings.md
 
 - **Write:** `appendLearning()` appends a dated markdown bullet with `<!-- hash:XXX tags:a,b -->` frontmatter comment preceding the entry. Each write first checks `content-hashes.json` for duplicates.
-- **Read (index scan):** `loadIndexEntries()` extracts `LearningsIndexEntry` objects (hash, tags, first-line summary) without loading full entry text. Used when `depth: "index"`.
+- **Read (index scan):** `loadIndexEntries()` extracts `LearningsIndexEntry` objects (hash, tags, first-line summary, full text, optional `rootCause` / `triedAndFailed`) without invoking the relevance scorer. Used when `depth: "index"`.
 - **Read (full):** `loadBudgetedLearnings()` loads entries with relevance scoring against an intent string, within a token budget. Used when `depth: "summary"` (default) or `depth: "full"`.
-- **Concurrency:** Append-only writes are safe for single-writer scenarios. Two concurrent appends may both succeed but could interleave. No file locking implemented.
+- **Concurrency:** Protected by a file-based lock (`learnings.md.lock` opened with `O_CREAT | O_EXCL | O_WRONLY`, with bounded exponential backoff — 3 retries at 50/100/200 ms). The lock spans the dedup-check + append + `content-hashes.json` update so concurrent writers serialize cleanly. Single-process workloads pay one extra `open`/`unlink` per append; multi-process workloads serialize correctly.
 - **Corruption recovery:** Entries without frontmatter are treated as valid (backward compatible). `parseFrontmatter()` returns `null` for malformed frontmatter — the entry is included but not indexed.
 
 ### content-hashes.json
@@ -48,9 +50,10 @@ All paths resolve through the state module constants in `packages/core/src/state
 
 ### events.jsonl
 
-- **Write:** `emitEvent()` appends a single JSON line with `\n` terminator. Content hash computed from `{skill, type, summary, session}` to prevent duplicates within a session.
+- **Write:** `emitEvent()` appends a single JSON line with `\n` terminator. Content hash computed from `{skill}|{type}|{summary}|{session}` to prevent duplicates within a session.
 - **Read:** `loadEvents()` reads the file, parses each line as JSON, filters by type/session, and returns the most recent N events. `formatEventTimeline()` renders events as a compact markdown timeline.
-- **Concurrency:** Append-only JSONL is safe for concurrent writers at the OS level (each write is a single `appendFile` call). Partial writes result in an incomplete final line, which is skipped during parsing.
+- **Dedup store:** Events do **not** share `content-hashes.json` with learnings. Instead, `emitEvent` maintains an in-memory `Map<eventsPath, Set<contentHash>>` (`knownHashesCache`), populated lazily from `events.jsonl` on first access per process. The JSONL file is self-describing — each line carries its own `contentHash` — so no sidecar is needed for recovery.
+- **Concurrency:** Append-only JSONL is safe for concurrent writers at the OS level (each write is a single `appendFile` call) — no file lock is taken. Partial writes result in an incomplete final line, which is skipped during parsing. The deliberate asymmetry vs `learnings.md` (which does lock) reflects that events have no read-modify-write step and that the dedup cache is per-process, so cross-process duplicates are tolerated.
 - **Corruption recovery:** Lines that fail `JSON.parse()` are silently skipped. No self-healing rebuild needed — the format is inherently corruption-tolerant.
 
 ### AST Parser Cache
@@ -64,18 +67,31 @@ All paths resolve through the state module constants in `packages/core/src/state
 
 ### Content Hashing
 
-Both learnings deduplication and event deduplication share the same hashing approach:
+Hashing utilities live in `packages/core/src/state/learnings-content.ts` (split out of `learnings.ts` to keep the blast radius small). Two distinct hash schemes coexist by design — both are slices of SHA-256:
 
 ```typescript
-// packages/core/src/state/learnings.ts
-export function normalizeLearningContent(text: string): string;
-// Strips date prefixes, skill/outcome tags, list markers; lowercases; collapses whitespace
+// packages/core/src/state/learnings-content.ts
 
+// 16-char hex hash of NORMALIZED content. Used for cross-entry dedup
+// (learnings: in content-hashes.json; events: in the in-memory cache).
 export function computeContentHash(text: string): string;
-// SHA-256 of normalized text, returned as hex string
+
+// 8-char hex hash of RAW entry text. Used only for the per-entry
+// `<!-- hash:XXX -->` frontmatter comment in learnings.md.
+export function computeEntryHash(text: string): string;
+
+export function normalizeLearningContent(text: string): string;
+// Strips date prefixes, skill/outcome/root_cause/tried tags, list/bold markers;
+// lowercases; collapses whitespace. Applied only to learnings dedup, not events.
 ```
 
-Events compute their hash from a concatenated `{skill}:{type}:{summary}:{session}` string, passed through the same `computeContentHash()` function.
+| Use site                              | Function             | Input                                                               | Width  |
+| ------------------------------------- | -------------------- | ------------------------------------------------------------------- | ------ |
+| Learnings dedup (cross-entry)         | `computeContentHash` | normalized learning text                                            | 16 hex |
+| Events dedup (cross-entry)            | `computeContentHash` | `${skill}\|${type}\|${summary}\|${session}` (raw, no normalization) | 16 hex |
+| Learnings frontmatter (per-entry tag) | `computeEntryHash`   | full bullet line, as-emitted                                        | 8 hex  |
+
+Both dedup paths funnel into `computeContentHash`, so the _function_ is shared — but the _persistence story_ is not (learnings persists hashes to `content-hashes.json`; events caches them in-memory and re-derives from JSONL on cold start).
 
 ### Token Estimation
 
@@ -104,10 +120,12 @@ interface LearningEntry {
 }
 
 interface LearningsIndexEntry {
-  hash: string;
-  tags: string[];
-  summary: string;
-  line: number;
+  hash: string; // 8-char entry hash (computeEntryHash on full bullet)
+  tags: string[]; // skill + outcome tags extracted from [skill:X]/[outcome:Y]
+  summary: string; // first line of the entry
+  fullText: string; // full entry text — needed by the relevance scorer
+  rootCause?: string; // optional [root_cause:X] tag
+  triedAndFailed?: string[]; // optional [tried:a,b,c] tag, split on comma
 }
 
 interface StorageBackend {
@@ -157,11 +175,11 @@ interface StorageBackend {
 
 ### Table Mappings
 
-| Flat File             | SQLite Table              | Schema                                                                                                                                                                          | Notes                                                                                                        |
-| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `learnings.md`        | `learnings`               | `id INTEGER PRIMARY KEY, content TEXT NOT NULL, hash TEXT UNIQUE NOT NULL, tags TEXT, skill TEXT, outcome TEXT, timestamp TEXT NOT NULL`                                        | FTS5 virtual table on `content` for full-text search. `hash` column replaces `content-hashes.json` entirely. |
-| `content-hashes.json` | (merged into `learnings`) | —                                                                                                                                                                               | The `hash` UNIQUE constraint on `learnings` table handles dedup. No separate table needed.                   |
-| `events.jsonl`        | `events`                  | `id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, skill TEXT NOT NULL, session TEXT, type TEXT NOT NULL, summary TEXT NOT NULL, data TEXT, refs TEXT, content_hash TEXT UNIQUE` | Index on `(session, timestamp)`. `data` and `refs` stored as JSON strings.                                   |
+| Flat File             | SQLite Table              | Schema                                                                                                                                                                                                             | Notes                                                                                                                                                                                                                                                        |
+| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `learnings.md`        | `learnings`               | `id INTEGER PRIMARY KEY, content TEXT NOT NULL, content_hash TEXT UNIQUE NOT NULL, entry_hash TEXT NOT NULL, tags TEXT, skill TEXT, outcome TEXT, root_cause TEXT, tried_and_failed TEXT, timestamp TEXT NOT NULL` | FTS5 virtual table on `content` for full-text search. `content_hash` (16-hex, normalized) replaces `content-hashes.json`. `entry_hash` (8-hex, raw) preserves the frontmatter tag for migration round-trips. `tried_and_failed` stored as JSON array string. |
+| `content-hashes.json` | (merged into `learnings`) | —                                                                                                                                                                                                                  | The `content_hash` UNIQUE constraint on `learnings` table handles learnings dedup. No separate table needed.                                                                                                                                                 |
+| `events.jsonl`        | `events`                  | `id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, skill TEXT NOT NULL, session TEXT, type TEXT NOT NULL, summary TEXT NOT NULL, data TEXT, refs TEXT, content_hash TEXT UNIQUE`                                    | Index on `(session, timestamp)`. `data` and `refs` stored as JSON strings. The `content_hash UNIQUE` constraint replaces the in-memory `knownHashesCache` and the JSONL cold-load scan.                                                                      |
 
 ### Migration Steps
 

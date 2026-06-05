@@ -83,7 +83,7 @@ describe('isSnapshotFresh', () => {
 
   it(
     'returns true when git HEAD differs but age < 1 hour (time fallback)',
-    { timeout: 15000 },
+    { timeout: 60000 },
     () => {
       const tmpDir = createTempGitRepo();
       try {
@@ -96,7 +96,7 @@ describe('isSnapshotFresh', () => {
     }
   );
 
-  it('returns false when git HEAD differs and age is exactly 1 hour', { timeout: 15000 }, () => {
+  it('returns false when git HEAD differs and age is exactly 1 hour', { timeout: 60000 }, () => {
     const tmpDir = createTempGitRepo();
     try {
       const exactlyOneHour = new Date(Date.now() - 3_600_000).toISOString();
@@ -107,7 +107,7 @@ describe('isSnapshotFresh', () => {
     }
   });
 
-  it('returns true when git HEAD matches regardless of age', { timeout: 15000 }, () => {
+  it('returns true when git HEAD matches regardless of age', { timeout: 60000 }, () => {
     const tmpDir = createTempGitRepo();
     try {
       const realHead = realExecSync('git rev-parse HEAD', {

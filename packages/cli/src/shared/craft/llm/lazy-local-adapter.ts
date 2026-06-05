@@ -102,6 +102,7 @@ export class LazyLocalAdapter implements LlmProvider {
         apiKey: this.opts.apiKey,
         baseUrl: this.opts.endpoint,
         defaultModel: match,
+        ...(this.opts.llmTimeoutMs !== undefined ? { timeoutMs: this.opts.llmTimeoutMs } : {}),
       });
       const provider = new AnalysisProviderAdapter({
         providerId: this.providerId,
