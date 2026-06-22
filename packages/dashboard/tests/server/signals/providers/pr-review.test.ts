@@ -100,4 +100,16 @@ describe('prReviewProvider', () => {
     expect(r.status).toBe('error');
     expect(r.value).toBeNull();
   });
+
+  it('excludes PRs merged outside the 30-day window', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const runner: CommandRunner = async () =>
+      JSON.stringify([
+        { number: 9, mergedAt: '2026-04-01T10:00:00Z', reviews: [] }, // outside window
+        { number: 2, mergedAt: '2026-06-19T10:00:00Z', reviews: [{ body: 'lgtm' }] },
+      ]);
+    const r = await prReviewProvider.compute(ctx(root, now, runner));
+    expect(r.value).toBe(1);
+    expect(r.history.some((p) => p.date === '2026-04-01')).toBe(false);
+  });
 });

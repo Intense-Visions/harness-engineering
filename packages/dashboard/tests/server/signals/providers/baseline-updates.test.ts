@@ -116,4 +116,16 @@ describe('baselineUpdatesProvider', () => {
     expect(r.value).toBeNull();
     expect(r.history).toEqual([]);
   });
+
+  it('requests git log scoped to a 30-day window over *-baselines.json', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    let capturedArgs: string[] = [];
+    const runner: CommandRunner = async (_cmd, args) => {
+      capturedArgs = args;
+      return '';
+    };
+    await baselineUpdatesProvider.compute(ctx(root, now, runner));
+    expect(capturedArgs).toContain('--since=30.days');
+    expect(capturedArgs).toContain('*-baselines.json');
+  });
 });
