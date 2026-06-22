@@ -4,6 +4,8 @@ import type { AnalysisProvider } from '../analysis-provider/interface.js';
 import type { OutcomeEvalInput, OutcomeVerdict, JudgedAgainst } from './types.js';
 import { deriveAuthority } from './authority.js';
 import { resolveSection } from './section-resolver.js';
+import { OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt, verdictSchema } from './prompts.js';
+import type { LlmVerdict } from './prompts.js';
 
 export interface OutcomeEvaluatorOptions {
   /** Override model for the outcome-eval LLM call. */
@@ -46,8 +48,25 @@ export class OutcomeEvaluator {
       return verdict;
     }
 
-    // Provider path added in Task 3.
-    const verdict = this.buildVerdict('INCONCLUSIVE', 'low', 'pending', resolved.judgedAgainst, []);
+    const response = await this.provider.analyze<LlmVerdict>({
+      prompt: buildUserPrompt(resolved.body, input.diff, input.testOutput),
+      systemPrompt: OUTCOME_EVAL_SYSTEM_PROMPT,
+      responseSchema: verdictSchema,
+      ...(this.options.model !== undefined && { model: this.options.model }),
+    });
+
+    // Defensive strict re-parse: rejects any extra key (e.g. an injected
+    // `authority`) even if the provider did not enforce strict mode. This is
+    // the false-positive-critical seam — authority is derived in TS below.
+    const llm = verdictSchema.parse(response.result);
+
+    const verdict = this.buildVerdict(
+      llm.verdict,
+      llm.confidence,
+      llm.rationale,
+      resolved.judgedAgainst,
+      llm.unmetCriteria
+    );
     await this.persistOutcome(verdict, input);
     return verdict;
   }
@@ -84,11 +103,8 @@ export class OutcomeEvaluator {
    * Intentionally a no-op in Phase 3 — Phase 4 fills the body using `this.store`.
    */
   private async persistOutcome(_verdict: OutcomeVerdict, _input: OutcomeEvalInput): Promise<void> {
-    // No-op until Phase 4. `this.store` is held for that write.
-    // `this.provider`/`this.options` are consumed by the provider path (Task 3).
+    // No-op until Phase 4. `this.store` is held for the execution_outcome write.
     void this.store;
-    void this.options;
-    void this.provider;
     return;
   }
 }
