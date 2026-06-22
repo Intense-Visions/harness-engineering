@@ -114,41 +114,43 @@ async function emptyGraphStore(): Promise<unknown> {
   return new GraphStore();
 }
 
-export async function handleOutcomeEval(input: OutcomeEvalToolInput): Promise<ToolResponse> {
+/** Validate the required string inputs. Returns an error message or null. */
+function validateInput(input: OutcomeEvalToolInput): string | null {
   if (typeof input?.specPath !== 'string' || input.specPath.length === 0) {
-    return errorResponse('outcome_eval: `specPath` is required');
+    return 'outcome_eval: `specPath` is required';
   }
-  if (typeof input?.diff !== 'string') {
-    return errorResponse('outcome_eval: `diff` is required');
-  }
-  if (typeof input?.testOutput !== 'string') {
-    return errorResponse('outcome_eval: `testOutput` is required');
-  }
+  if (typeof input?.diff !== 'string') return 'outcome_eval: `diff` is required';
+  if (typeof input?.testOutput !== 'string') return 'outcome_eval: `testOutput` is required';
+  return null;
+}
+
+/**
+ * Construct the evaluator. The provider may be null when no key is configured;
+ * we pass a guaranteed-rejecting stub so the evaluator's degrade-safe judge()
+ * produces INCONCLUSIVE/advisory and authority stays TS-derived.
+ */
+async function buildEvaluator(input: OutcomeEvalToolInput): Promise<{
+  evaluate: (i: { specPath: string; diff: string; testOutput: string }) => Promise<unknown>;
+}> {
+  const projectRoot = sanitizePath(input.path ?? process.cwd());
+  const { OutcomeEvaluator } = await import('@harness-engineering/intelligence');
+  const provider = await resolveAnalysisProvider(input.model);
+  const store = (await loadGraphStore(projectRoot)) ?? (await emptyGraphStore());
+  return new OutcomeEvaluator(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (provider ?? unconfiguredProvider()) as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store as any,
+    input.model !== undefined ? { model: input.model } : {}
+  );
+}
+
+export async function handleOutcomeEval(input: OutcomeEvalToolInput): Promise<ToolResponse> {
+  const validationError = validateInput(input);
+  if (validationError !== null) return errorResponse(validationError);
 
   try {
-    const projectRoot = sanitizePath(input.path ?? process.cwd());
-    const { OutcomeEvaluator } = await import('@harness-engineering/intelligence');
-
-    // Real AnalysisProvider (.analyze<T>()) — the evaluator calls it directly.
-    // When unconfigured, fall through with an unusable provider; evaluate()
-    // degrades to INCONCLUSIVE/advisory (never blocking) on provider failure.
-    const provider = await resolveAnalysisProvider(input.model);
-
-    // GraphStore for the Phase 4 execution_outcome write. Prefer the project
-    // graph; fall back to an empty store so persistence is a degrade-safe no-op.
-    const store = (await loadGraphStore(projectRoot)) ?? (await emptyGraphStore());
-
-    const evaluator = new OutcomeEvaluator(
-      // The provider may be null when no key is configured; the evaluator's
-      // judge() is degrade-safe and will produce INCONCLUSIVE/advisory. We pass
-      // a guaranteed-rejecting stub in that case so authority stays TS-derived.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (provider ?? unconfiguredProvider()) as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      store as any,
-      input.model !== undefined ? { model: input.model } : {}
-    );
-
+    const evaluator = await buildEvaluator(input);
     const verdict = await evaluator.evaluate({
       specPath: input.specPath,
       diff: input.diff,
