@@ -6,6 +6,8 @@ import { deriveAuthority } from './authority.js';
 import { resolveSection } from './section-resolver.js';
 import { OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt, verdictSchema } from './prompts.js';
 import type { LlmVerdict } from './prompts.js';
+import { ExecutionOutcomeConnector } from '../outcome/connector.js';
+import type { ExecutionOutcome } from '../outcome/types.js';
 
 export interface OutcomeEvaluatorOptions {
   /** Override model for the outcome-eval LLM call. */
@@ -151,12 +153,52 @@ export class OutcomeEvaluator {
   }
 
   /**
-   * Phase 4 seam: writes the execution_outcome node via ExecutionOutcomeConnector.
-   * Intentionally a no-op in Phase 3 — Phase 4 fills the body using `this.store`.
+   * Map an OutcomeVerdict + OutcomeEvalInput to the connector's ExecutionOutcome.
+   * - result: SATISFIED -> 'success'; otherwise 'failure'. INCONCLUSIVE is
+   *   'failure' for type-validity but omits agentPersona/affected systems so
+   *   the effectiveness scorer ignores it (plan D2).
+   * - linkedSpecId: input.specPath (metadata only; no spec edge — plan D1).
+   * - affectedSystemNodeIds: [] in v1 (not available from OutcomeEvalInput — D4).
+   * - metadata: verdict-specific signal carried through the connector's
+   *   additive pass-through (verdict/confidence/judgedAgainst/source) so the
+   *   true 3-valued verdict is durable on the node (Truth 3).
    */
-  private async persistOutcome(_verdict: OutcomeVerdict, _input: OutcomeEvalInput): Promise<void> {
-    // No-op until Phase 4. `this.store` is held for the execution_outcome write.
-    void this.store;
-    return;
+  private toExecutionOutcome(verdict: OutcomeVerdict, input: OutcomeEvalInput): ExecutionOutcome {
+    const timestamp = new Date().toISOString();
+    return {
+      id: `outcome:outcome-eval:${timestamp}`,
+      issueId: 'outcome-eval',
+      identifier: `outcome-eval:${input.specPath}`,
+      result: verdict.verdict === 'SATISFIED' ? 'success' : 'failure',
+      retryCount: 0,
+      failureReasons: verdict.unmetCriteria,
+      durationMs: 0,
+      linkedSpecId: input.specPath,
+      affectedSystemNodeIds: [],
+      timestamp,
+      taskType: 'feature',
+      metadata: {
+        verdict: verdict.verdict,
+        confidence: verdict.confidence,
+        judgedAgainst: verdict.judgedAgainst,
+        source: 'outcome-eval',
+      },
+    };
+  }
+
+  /**
+   * Phase 4: writes exactly one execution_outcome node via
+   * ExecutionOutcomeConnector. Degrade-safe (plan D3): a graph-write failure is
+   * swallowed-and-logged, never thrown — the verdict is already computed before
+   * this runs, so swallowing keeps evaluate() total. No secrets/stack frames in
+   * the log message.
+   */
+  private async persistOutcome(verdict: OutcomeVerdict, input: OutcomeEvalInput): Promise<void> {
+    try {
+      const connector = new ExecutionOutcomeConnector(this.store);
+      connector.ingest(this.toExecutionOutcome(verdict, input));
+    } catch {
+      console.warn('[outcome-eval] execution_outcome persistence failed; verdict unaffected.');
+    }
   }
 }
