@@ -36,6 +36,30 @@ each PR. outcome-eval makes it explicit, load-bearing, and durable.
 - Judging against arbitrary spec sections beyond the defined fallback chain.
 - Auto-remediation of failures. outcome-eval judges; it does not fix.
 
+### Known limitations (v1)
+
+- **INCONCLUSIVE persistence (PRE-P5-INCONCLUSIVE):** the persisted
+  `execution_outcome` node maps `INCONCLUSIVE -> result: 'failure'` for
+  type-validity, but it OMITS `agentPersona` and writes
+  `affectedSystemNodeIds: []`. The effectiveness scorer's `gatherOutcomes`
+  ignores any node missing `agentPersona` or `outcome_of` edges, so
+  outcome-eval nodes are **scorer-non-counting** — the INCONCLUSIVE-as-failure
+  mapping is therefore harmless in v1 and punishes no persona. Any future change
+  that attaches persona/affected-system attribution MUST first change
+  INCONCLUSIVE modeling (do not persist INCONCLUSIVE, or use a distinct result
+  value the scorer excludes) before the node becomes scorer-counted.
+- **openai-compatible strict mode:** `zodToJsonSchema`
+  (`packages/intelligence/src/analysis-provider/schema.ts`) does not emit
+  `additionalProperties: false`, which OpenAI strict structured output requires;
+  the openai-compatible strict path could therefore reject `verdictSchema`. The
+  v1 supported provider path is claude-cli / anthropic (no flag needed; plus the
+  evaluator's defensive `.strict()` re-parse seam). Follow-up if outcome-eval is
+  wired through the openai-compatible strict path — out of this phase's surface
+  because `schema.ts` is shared by all intelligence providers (SEL, PESL,
+  security).
+- **CI required-check wiring:** deferred to roadmap #540 (unbuilt CI workflow
+  template).
+
 ## Decisions made
 
 1. **Tiered confidence→authority** (not a hard gate, not advisory-only):
