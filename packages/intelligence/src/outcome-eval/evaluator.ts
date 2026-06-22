@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import type { GraphStore } from '@harness-engineering/graph';
 import type { AnalysisProvider } from '../analysis-provider/interface.js';
 import type { OutcomeEvalInput, OutcomeVerdict, JudgedAgainst } from './types.js';
@@ -159,6 +160,12 @@ export class OutcomeEvaluator {
    *   the effectiveness scorer ignores it (plan D2).
    * - linkedSpecId: input.specPath (metadata only; no spec edge — plan D1).
    * - affectedSystemNodeIds: [] in v1 (not available from OutcomeEvalInput — D4).
+   * - id: one node per EVALUATION. GraphStore.addNode upserts by id, so the id
+   *   carries a collision-free randomUUID() — two evaluate() calls in the same
+   *   millisecond can never overwrite each other (data-loss fix). specPath is
+   *   included for human readability only.
+   * - taskType: OMITTED. The outcome-eval judge has no task categorization, and
+   *   asserting a false 'feature' would mislead specialization analytics (SUG-2).
    * - metadata: verdict-specific signal carried through the connector's
    *   additive pass-through (verdict/confidence/judgedAgainst/source) so the
    *   true 3-valued verdict is durable on the node (Truth 3).
@@ -166,17 +173,17 @@ export class OutcomeEvaluator {
   private toExecutionOutcome(verdict: OutcomeVerdict, input: OutcomeEvalInput): ExecutionOutcome {
     const timestamp = new Date().toISOString();
     return {
-      id: `outcome:outcome-eval:${timestamp}`,
+      id: `outcome:outcome-eval:${input.specPath}:${randomUUID()}`,
       issueId: 'outcome-eval',
       identifier: `outcome-eval:${input.specPath}`,
       result: verdict.verdict === 'SATISFIED' ? 'success' : 'failure',
       retryCount: 0,
       failureReasons: verdict.unmetCriteria,
+      // 0 means "not applicable to outcome-eval" — the judge does not time work.
       durationMs: 0,
       linkedSpecId: input.specPath,
       affectedSystemNodeIds: [],
       timestamp,
-      taskType: 'feature',
       metadata: {
         verdict: verdict.verdict,
         confidence: verdict.confidence,

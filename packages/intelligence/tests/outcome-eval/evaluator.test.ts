@@ -289,6 +289,25 @@ describe('OutcomeEvaluator — persistence (Criterion 6)', () => {
     expect(nodes[0].metadata.linkedSpecId).toBe(p);
   });
 
+  it('OMITS taskType on the evaluator node (no fabricated "feature") — SUG-2', async () => {
+    const p = writeSpec(SPEC_WITH_CRITERIA);
+    const store = new GraphStore();
+    const { provider } = makeProvider({
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'unmet',
+      unmetCriteria: ['returns 200'],
+    } satisfies LlmVerdict);
+    await new OutcomeEvaluator(provider, store).evaluate({
+      specPath: p,
+      diff: 'd',
+      testOutput: 't',
+    });
+    const node = store.findNodes({ type: 'execution_outcome' })[0];
+    expect(node.metadata.taskType).toBeUndefined();
+    expect('taskType' in node.metadata).toBe(false);
+  });
+
   it('maps SATISFIED -> success', async () => {
     const p = writeSpec(SPEC_WITH_CRITERIA);
     const store = new GraphStore();
@@ -335,6 +354,25 @@ describe('OutcomeEvaluator — persistence (Criterion 6)', () => {
     expect(store.findNodes({ type: 'execution_outcome' })).toHaveLength(1);
   });
 
+  it('writes TWO distinct nodes for two evaluate() calls against the SAME store (no upsert collision)', async () => {
+    const p = writeSpec(SPEC_WITH_CRITERIA);
+    const store = new GraphStore();
+    const { provider } = makeProvider({
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'unmet',
+      unmetCriteria: ['returns 200'],
+    } satisfies LlmVerdict);
+    const evaluator = new OutcomeEvaluator(provider, store);
+    // Two evaluate() calls that could land in the same millisecond must NOT
+    // collide via GraphStore.addNode's upsert-by-id — one node per evaluate().
+    await evaluator.evaluate({ specPath: p, diff: 'd', testOutput: 't' });
+    await evaluator.evaluate({ specPath: p, diff: 'd', testOutput: 't' });
+    const nodes = store.findNodes({ type: 'execution_outcome' });
+    expect(nodes).toHaveLength(2);
+    expect(new Set(nodes.map((n) => n.id)).size).toBe(2);
+  });
+
   it('swallows a graph-write failure; verdict is returned unchanged (D3)', async () => {
     const p = writeSpec(SPEC_WITH_CRITERIA);
     const throwingStore = new GraphStore();
@@ -356,6 +394,76 @@ describe('OutcomeEvaluator — persistence (Criterion 6)', () => {
     expect(v.verdict).toBe('NOT_SATISFIED');
     expect(v.authority).toBe('blocking');
     expect(throwingStore.findNodes({ type: 'execution_outcome' })).toHaveLength(0);
+  });
+});
+
+describe('OutcomeEvaluator — persistence log hygiene (no-secret-leak guarantee)', () => {
+  it('does NOT warn on the provider-success persistence path', async () => {
+    const p = writeSpec(SPEC_WITH_CRITERIA);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { provider } = makeProvider({
+        verdict: 'SATISFIED',
+        confidence: 'medium',
+        rationale: 'ok',
+        unmetCriteria: [],
+      } satisfies LlmVerdict);
+      await new OutcomeEvaluator(provider, new GraphStore()).evaluate({
+        specPath: p,
+        diff: 'd',
+        testOutput: 't',
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('does NOT warn on the degrade-without-store-error path (provider rejection)', async () => {
+    const p = writeSpec(SPEC_WITH_CRITERIA);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { provider } = makeRejectingProvider('429 rate limited: sk-secret-token');
+      await new OutcomeEvaluator(provider, new GraphStore()).evaluate({
+        specPath: p,
+        diff: 'd',
+        testOutput: 't',
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('warns exactly once with a static no-secret message on the throwing-store path', async () => {
+    const p = writeSpec(SPEC_WITH_CRITERIA);
+    const throwingStore = new GraphStore();
+    vi.spyOn(throwingStore, 'addNode').mockImplementation(() => {
+      throw new Error('disk full: s3://bucket/secret-key sk-leak-12345');
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { provider } = makeProvider({
+        verdict: 'NOT_SATISFIED',
+        confidence: 'high',
+        rationale: 'unmet',
+        unmetCriteria: ['returns 200'],
+      } satisfies LlmVerdict);
+      await new OutcomeEvaluator(provider, throwingStore).evaluate({
+        specPath: p,
+        diff: 'd',
+        testOutput: 't',
+      });
+      expect(warnSpy).toHaveBeenCalledOnce();
+      const msg = String(warnSpy.mock.calls[0]?.[0]);
+      // Static message — no secret, stack frame, or thrown-error text leaks.
+      expect(msg).not.toContain('sk-leak-12345');
+      expect(msg).not.toContain('s3://');
+      expect(msg).not.toContain('disk full');
+      expect(msg).toMatch(/persistence failed/i);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
 
