@@ -59,6 +59,7 @@ export type {
   Verdict,
   Confidence,
   JudgedAgainst,
+  Authority,
   OutcomeEvalInput,
   OutcomeVerdict,
   LlmVerdict,

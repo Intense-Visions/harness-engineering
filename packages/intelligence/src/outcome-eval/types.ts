@@ -12,6 +12,9 @@ export type Confidence = 'low' | 'medium' | 'high';
 
 export type JudgedAgainst = 'success-criteria' | 'user-visible-behavior' | 'overview';
 
+/** Ship authority DERIVED in TS from (verdict, confidence); never from the LLM. */
+export type Authority = 'blocking' | 'advisory';
+
 export interface OutcomeEvalInput {
   /** Absolute or repo-relative path to the spec markdown. */
   specPath: string;
@@ -32,5 +35,5 @@ export interface OutcomeVerdict {
   /** Empty when SATISFIED. */
   unmetCriteria: string[];
   /** DERIVED in TS from (verdict, confidence); never from the LLM. */
-  authority: 'blocking' | 'advisory';
+  authority: Authority;
 }

@@ -1,4 +1,4 @@
-import type { Verdict, Confidence } from './types.js';
+import type { Verdict, Confidence, Authority } from './types.js';
 
 /**
  * Pure mapping from (verdict, confidence) to ship authority.
@@ -10,6 +10,6 @@ import type { Verdict, Confidence } from './types.js';
  * This function is the false-positive-critical seam. Authority is computed
  * here in TypeScript and is NEVER trusted from the LLM response.
  */
-export function deriveAuthority(verdict: Verdict, confidence: Confidence): 'blocking' | 'advisory' {
+export function deriveAuthority(verdict: Verdict, confidence: Confidence): Authority {
   return verdict === 'NOT_SATISFIED' && confidence === 'high' ? 'blocking' : 'advisory';
 }

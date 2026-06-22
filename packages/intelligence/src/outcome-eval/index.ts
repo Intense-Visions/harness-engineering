@@ -3,6 +3,7 @@ export type {
   Verdict,
   Confidence,
   JudgedAgainst,
+  Authority,
   OutcomeEvalInput,
   OutcomeVerdict,
 } from './types.js';
