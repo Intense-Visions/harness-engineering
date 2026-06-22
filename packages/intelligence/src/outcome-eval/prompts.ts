@@ -48,9 +48,34 @@ Rules:
 Return your judgment using the structured_output tool.`;
 
 /**
+ * Per-field character cap for the diff and test-output blocks in the user
+ * prompt. Large diffs/logs blow the token budget and rarely add judgment
+ * signal beyond this point; bodies past the cap are truncated with a marker.
+ */
+export const PROMPT_FIELD_MAX_CHARS = 12_000;
+
+/** Outer fence uses 4 backticks so an inner ``` cannot close it early. */
+const FENCE = '````';
+
+/**
+ * Clamp a free-text body to PROMPT_FIELD_MAX_CHARS, appending a marker noting
+ * how many characters were dropped so the model knows the input is partial.
+ */
+function clampField(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= PROMPT_FIELD_MAX_CHARS) return trimmed;
+  const dropped = trimmed.length - PROMPT_FIELD_MAX_CHARS;
+  return `${trimmed.slice(0, PROMPT_FIELD_MAX_CHARS)}\n… [truncated ${dropped} chars]`;
+}
+
+/**
  * Build the user prompt from the resolved spec section body, the change diff,
  * and the captured test output. Mirrors the labeled-section structure of
  * sel/pesl prompts.
+ *
+ * The diff and test output are clamped to PROMPT_FIELD_MAX_CHARS and wrapped in
+ * a 4-backtick fence so a triple-backtick sequence inside the diff cannot close
+ * the fence early.
  */
 export function buildUserPrompt(section: string, diff: string, testOutput: string): string {
   return [
@@ -58,14 +83,14 @@ export function buildUserPrompt(section: string, diff: string, testOutput: strin
     section.trim() || '(empty — treat as inconclusive)',
     '',
     '## Change Diff',
-    '```diff',
-    diff.trim() || '(empty diff)',
-    '```',
+    `${FENCE}diff`,
+    clampField(diff) || '(empty diff)',
+    FENCE,
     '',
     '## Test Output',
-    '```',
-    testOutput.trim() || '(no test output captured)',
-    '```',
+    FENCE,
+    clampField(testOutput) || '(no test output captured)',
+    FENCE,
     '',
     '## Instructions',
     'Judge whether the diff satisfies the acceptance criteria above. Calibrate confidence conservatively per your system instructions. Cite specific criteria in the rationale.',
