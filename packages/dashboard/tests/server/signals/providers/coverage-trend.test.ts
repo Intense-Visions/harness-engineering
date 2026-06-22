@@ -120,4 +120,56 @@ describe('coverageTrendProvider', () => {
     expect(ok.status).toBe('ok');
     expect(ok.trend).toBe('flat');
   });
+
+  it('degrades to error (no throw) when git is unavailable', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const boom: CommandRunner = async () => {
+      throw new Error('git not found');
+    };
+    const r = await coverageTrendProvider.compute(ctx(root, now, boom));
+    expect(r.status).toBe('error');
+    expect(r.value).toBeNull();
+    expect(r.history).toEqual([]);
+    expect(r.detail).toMatch(/coverage/i);
+  });
+
+  it('degrades to error when coverage-baselines.json was never tracked (empty git log)', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const runner = gitRunner(gitLog([]), {});
+    const r = await coverageTrendProvider.compute(ctx(root, now, runner));
+    expect(r.status).toBe('error');
+    expect(r.value).toBeNull();
+    expect(r.detail).toMatch(/coverage-ratchet/);
+  });
+
+  it('skips commits whose snapshot is unparseable and still degrades gracefully when none parse', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const runner = gitRunner(gitLog([['s1', '2026-06-10']]), { s1: 'not json' });
+    const r = await coverageTrendProvider.compute(ctx(root, now, runner));
+    expect(r.status).toBe('error');
+    expect(r.value).toBeNull();
+  });
+
+  it('requests git log scoped to a 30-day window over coverage-baselines.json', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    let capturedArgs: string[] = [];
+    const runner = gitRunner(gitLog([]), {}, { capture: (a) => (capturedArgs = a) });
+    await coverageTrendProvider.compute(ctx(root, now, runner));
+    expect(capturedArgs).toContain('--since=30.days');
+    expect(capturedArgs).toContain('coverage-baselines.json');
+  });
+
+  it('backfills daily buckets and mirrors the current day into the timeline store', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const store = new SignalTimelineStore(root);
+    const runner = gitRunner(gitLog([['s1', '2026-06-10']]), { s1: 88 });
+    await coverageTrendProvider.compute({
+      projectPath: root,
+      now,
+      timeline: store,
+      runCommand: runner,
+    });
+    expect(store.has('coverage-trend-down-30d', '2026-06-10')).toBe(true); // backfilled bucket
+    expect(store.has('coverage-trend-down-30d', '2026-06-22')).toBe(true); // current-day mirror
+  });
 });
