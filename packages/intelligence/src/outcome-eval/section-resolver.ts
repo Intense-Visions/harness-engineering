@@ -29,6 +29,27 @@ const FENCE_RE = /^\s*(```|~~~)/;
 const normalizeHeading = (text: string): string =>
   text.toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 
+interface HeadingEntry {
+  index: number;
+  level: number;
+  tag: JudgedAgainst | null;
+}
+
+/**
+ * Parse a single line into a HeadingEntry, or null when it is not an ATX
+ * heading. Kept separate from the fence-tracking loop so resolveSection stays
+ * within complexity limits.
+ */
+const parseHeading = (line: string, index: number): HeadingEntry | null => {
+  const m = HEADING_RE.exec(line);
+  // Both capture groups are guaranteed present when exec returns non-null;
+  // the explicit guard satisfies noUncheckedIndexedAccess.
+  if (!m || m[1] === undefined || m[2] === undefined) return null;
+  const normalized = normalizeHeading(m[2]);
+  const entry = CHAIN.find((c) => c.matches(normalized));
+  return { index, level: m[1].length, tag: entry ? entry.tag : null };
+};
+
 /**
  * Resolve the judgment input from a spec's markdown via the fallback chain
  * Success Criteria -> User-Visible Behavior -> Overview, returning the matched
@@ -44,10 +65,10 @@ const normalizeHeading = (text: string): string =>
 export function resolveSection(markdown: string): ResolvedSection | null {
   const lines = markdown.split(/\r?\n/);
 
-  // Index every heading once: { lineIndex, level, tag|null }. Headings inside
-  // fenced code blocks (``` / ~~~) are skipped — they are example content, not
-  // document structure. `inFence` toggles on each fence delimiter line.
-  const headings: Array<{ index: number; level: number; tag: JudgedAgainst | null }> = [];
+  // Index every heading once. Headings inside fenced code blocks (``` / ~~~)
+  // are skipped — they are example content, not document structure. `inFence`
+  // toggles on each fence delimiter line.
+  const headings: HeadingEntry[] = [];
   let inFence = false;
   lines.forEach((line, index) => {
     if (FENCE_RE.test(line)) {
@@ -55,14 +76,8 @@ export function resolveSection(markdown: string): ResolvedSection | null {
       return;
     }
     if (inFence) return;
-    const m = HEADING_RE.exec(line);
-    // Both capture groups are guaranteed present when exec returns non-null;
-    // the explicit guard satisfies noUncheckedIndexedAccess.
-    if (!m || m[1] === undefined || m[2] === undefined) return;
-    const level = m[1].length;
-    const normalized = normalizeHeading(m[2]);
-    const entry = CHAIN.find((c) => c.matches(normalized));
-    headings.push({ index, level, tag: entry ? entry.tag : null });
+    const heading = parseHeading(line, index);
+    if (heading) headings.push(heading);
   });
 
   for (const { tag } of CHAIN) {
