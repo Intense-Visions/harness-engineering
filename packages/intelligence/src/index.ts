@@ -54,7 +54,7 @@ export type { ExecutionOutcome } from './outcome/types.js';
 export type { OutcomeIngestResult } from './outcome/connector.js';
 
 // Outcome-Eval — post-execution spec-satisfaction verdict (Phase 1: types & contract)
-export { deriveAuthority, verdictSchema } from './outcome-eval/index.js';
+export { deriveAuthority, verdictSchema, resolveSection } from './outcome-eval/index.js';
 export type {
   Verdict,
   Confidence,
@@ -63,6 +63,7 @@ export type {
   OutcomeEvalInput,
   OutcomeVerdict,
   LlmVerdict,
+  ResolvedSection,
 } from './outcome-eval/index.js';
 
 // CML Historical

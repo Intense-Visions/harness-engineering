@@ -44,7 +44,9 @@ export function resolveSection(markdown: string): ResolvedSection | null {
   const headings = lines
     .map((line, index) => {
       const m = HEADING_RE.exec(line);
-      if (!m) return null;
+      // Both capture groups are guaranteed present when exec returns non-null;
+      // the explicit guard satisfies noUncheckedIndexedAccess.
+      if (!m || m[1] === undefined || m[2] === undefined) return null;
       const level = m[1].length;
       const normalized = normalizeHeading(m[2]);
       const entry = CHAIN.find((c) => c.matches(normalized));

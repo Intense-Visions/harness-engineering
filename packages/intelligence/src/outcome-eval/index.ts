@@ -10,3 +10,5 @@ export type {
 export { deriveAuthority } from './authority.js';
 export { verdictSchema } from './prompts.js';
 export type { LlmVerdict } from './prompts.js';
+export { resolveSection } from './section-resolver.js';
+export type { ResolvedSection } from './section-resolver.js';
