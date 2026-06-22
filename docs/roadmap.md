@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-06-04
 last_synced: 2026-06-04T23:42:12.128Z
-last_manual_edit: 2026-06-05T02:45:19.209Z
+last_manual_edit: 2026-06-11T11:17:32.537Z
 ---
 
 # Roadmap
@@ -2209,6 +2209,72 @@ last_manual_edit: 2026-06-05T02:45:19.209Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#385
+
+### Skill Regression Evaluator
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Golden-fixture evaluation framework for skills: canonical inputs per major skill (brainstorming, planning, spec-craft), semantic scoring @k against golden baselines, token/duration tracking, CI gate on prompt/rule PRs. Adapted from AI-DLC's aidlc-evaluator — the one capability where AWS is categorically ahead. Adoption #1 from docs/research/aidlc-comparison-analysis.md [AIDLC-1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#579
+
+### Append-Only Session Audit Trail
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Session-scoped append-only audit log capturing raw user input verbatim plus every approval prompt/response with ISO timestamps, written at the emit_interaction/state-write level. Compliance-grade provenance complementing .harness/state.json machine state. Session-scoped per the handoff-deprecation lesson. Adapted from AI-DLC's audit.md mandate. Adoption #2 from docs/research/aidlc-comparison-analysis.md [AIDLC-2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#580
+
+### NFR Elicitation in Planning
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Explicit NFR-requirements step in harness-planning eliciting performance, security, scalability, and resilience targets whose outputs become verifiable plan tasks wired to existing perf baselines and security scan machinery — NFRs as proactive design inputs rather than reactive review findings. Adapted from AI-DLC's per-unit NFR requirements/design stages. Adoption #3 from docs/research/aidlc-comparison-analysis.md [AIDLC-3]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#581
+
+### Question-File Interview Mode
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** File-based question/answer mode for strategy, pulse, and brainstorming interviews — durable, team-reviewable, async-friendly decision capture — plus a cross-answer contradiction-detection pass added to existing pushback rules. Adapted from AI-DLC's [Answer]: tag question-file ritual and mandatory ambiguity analysis. Adoption #4 from docs/research/aidlc-comparison-analysis.md [AIDLC-4]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#582
+
+### Opt-In Constraint Packs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Opt-in gating for blocking constraint rule packs: lightweight opt-in prompt loaded up front, full rules lazy-loaded only on user consent, then enforced as blocking constraints with per-stage compliance summaries (compliant / non-compliant / N/A). Mapped onto harness security/resiliency rule sets. Adapted from AI-DLC's \*.opt-in.md extension pattern. Adoption #5 from docs/research/aidlc-comparison-analysis.md [AIDLC-5]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#583
+
+### Strategy Writing-Inputs Guides
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** "Here's what a good input looks like" guides for the STRATEGY interview with full and minimal examples, greenfield and brownfield variants — lowering the quality bar's entry cost for new users. Adapted from AI-DLC's docs/writing-inputs vision and tech-env document guides. Adoption #6 from docs/research/aidlc-comparison-analysis.md [AIDLC-6]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#584
 
 ## v4.0 Business Knowledge System
 
