@@ -101,6 +101,32 @@ describe('prReviewProvider', () => {
     expect(r.value).toBeNull();
   });
 
+  it('annotates detail as a lower bound when gh returns the full fetch cap (possible truncation)', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const FETCH_LIMIT = 500; // mirrors the provider cap
+    // Exactly FETCH_LIMIT rows -> window may be clipped by gh.
+    const runner: CommandRunner = async () =>
+      ghPayload(
+        Array.from({ length: FETCH_LIMIT }, (_, i) => ({
+          number: i + 1,
+          mergedAt: '2026-06-19T10:00:00Z',
+          reviews: [],
+        }))
+      );
+    const r = await prReviewProvider.compute(ctx(root, now, runner));
+    expect(r.value).toBe(FETCH_LIMIT);
+    expect(r.detail.toLowerCase()).toContain('lower bound');
+    expect(r.detail).toContain(String(FETCH_LIMIT));
+  });
+
+  it('does not annotate truncation when gh returns fewer than the fetch cap', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const runner: CommandRunner = async () =>
+      ghPayload([{ number: 2, mergedAt: '2026-06-19T10:00:00Z', reviews: [PLAIN] }]);
+    const r = await prReviewProvider.compute(ctx(root, now, runner));
+    expect(r.detail.toLowerCase()).not.toContain('lower bound');
+  });
+
   it('excludes PRs merged outside the 30-day window', async () => {
     const now = new Date('2026-06-22T00:00:00.000Z');
     const runner: CommandRunner = async () =>

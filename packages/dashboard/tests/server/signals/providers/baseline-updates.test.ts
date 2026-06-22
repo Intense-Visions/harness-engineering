@@ -5,14 +5,15 @@ import { baselineUpdatesProvider } from '../../../../src/server/signals/provider
 import { SignalTimelineStore } from '../../../../src/server/signals/timeline-store';
 import type { SignalContext, CommandRunner } from '../../../../src/server/signals/types';
 
-const RS = '\x1e'; // record separator
-const US = '\x1f'; // unit separator
+const US = '\x1f'; // unit (field) separator within a record
 function logRecord(hash: string, author: string, subject: string, date: string) {
   // provider asks git for hash, author, subject, and committer date (YYYY-MM-DD)
   return [hash, author, subject, date].join(US);
 }
+// Mirror git's REAL wire format: `--pretty=format:` separates records with a
+// NEWLINE and emits NO trailing terminator after the final record.
 function gitLog(records: string[]): string {
-  return records.join(RS) + (records.length ? RS : '');
+  return records.join('\n');
 }
 function tmpDir() {
   return path.join(__dirname, '__test-tmp-baseline-updates__');
@@ -62,6 +63,46 @@ describe('baselineUpdatesProvider', () => {
     expect(r.betterDirection).toBe('down');
     expect(r.threshold).toEqual({ warn: 1, alert: 5 });
     expect(r.status).toBe('warn'); // 2 >= warn(1), < alert(5)
+  });
+
+  it('counts multiple commits across different days with clean YYYY-MM-DD bucket keys', async () => {
+    // Regression for C1: with git's real newline-separated wire format the parser
+    // must count EVERY qualifying commit (not collapse them into one record) and
+    // each bucket key must be a clean date with no embedded newline/hash from the
+    // following record. The OLD parser split on RS only, so it saw a single record
+    // whose date field was `2026-06-20\n<next-hash>` — value 1, contaminated key.
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const runner: CommandRunner = async () =>
+      gitLog([
+        logRecord(
+          'a1',
+          'github-actions[bot]',
+          'chore: refresh baselines after merge [skip ci] (PR 578)',
+          '2026-06-20'
+        ),
+        logRecord(
+          'a2',
+          'github-actions[bot]',
+          'chore: refresh baselines after merge [skip ci]',
+          '2026-06-18'
+        ),
+        logRecord(
+          'a3',
+          'github-actions[bot]',
+          'chore: refresh baselines after merge [skip ci]',
+          '2026-06-18'
+        ),
+      ]);
+    const r = await baselineUpdatesProvider.compute(ctx(root, now, runner));
+    expect(r.value).toBe(3); // all three qualifying commits counted
+    // Bucket keys are clean dates (no embedded newline/hash) and bucketed per day.
+    expect(r.history).toEqual([
+      { date: '2026-06-18', value: 2 },
+      { date: '2026-06-20', value: 1 },
+    ]);
+    for (const point of r.history) {
+      expect(point.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
   it('returns ok at zero and alert at >=5', async () => {

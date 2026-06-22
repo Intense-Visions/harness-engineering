@@ -9,8 +9,7 @@ const THRESHOLD = { warn: 1, alert: 5 } as const;
 const WINDOW_DAYS = 30;
 const BOT_AUTHOR = 'github-actions[bot]';
 const MSG_PREFIX = 'chore: refresh baselines';
-const RS = '\x1e'; // record separator
-const US = '\x1f'; // unit separator
+const US = '\x1f'; // unit (field) separator within a record
 
 /** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
 function toDate(iso: string): string {
@@ -67,8 +66,11 @@ export const baselineUpdatesProvider: SignalProvider = {
         '*-baselines.json',
       ]);
 
+      // `git log --pretty=format:` separates records with a NEWLINE (no trailing
+      // terminator on the final record). Each record's fields are joined by the US
+      // separator we requested. Split on newlines first, then on US per line.
       const records = stdout
-        .split(RS)
+        .split('\n')
         .map((r) => r.trim())
         .filter((r) => r.length > 0);
 
@@ -78,7 +80,7 @@ export const baselineUpdatesProvider: SignalProvider = {
         const [, author, subject, date] = record.split(US);
         if (author === undefined || subject === undefined || date === undefined) continue;
         if (author !== BOT_AUTHOR || !subject.startsWith(MSG_PREFIX)) continue;
-        buckets.set(date, (buckets.get(date) ?? 0) + 1);
+        buckets.set(date.trim(), (buckets.get(date.trim()) ?? 0) + 1);
       }
 
       const history: SignalPoint[] = [...buckets.entries()]

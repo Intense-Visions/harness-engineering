@@ -8,6 +8,13 @@ const SOURCE = 'gh pr list (merged, 30d)';
 const UNIT = 'count';
 const THRESHOLD = { warn: 1, alert: 3 } as const;
 const WINDOW_DAYS = 30;
+/**
+ * Upper bound on PRs fetched in a single `gh pr list` call. `gh` caps `--limit` and
+ * returns at most this many rows. If a 30-day window ever exceeds this, the tail is
+ * silently dropped by `gh` — so when the returned row count equals the limit we treat
+ * the window as possibly-truncated and annotate `detail` rather than undercount silently.
+ */
+const FETCH_LIMIT = 500;
 
 /**
  * Marker emitted in the GitHub PR review summary body by the multi-persona review
@@ -56,7 +63,10 @@ const PrListSchema = z.array(PrSchema);
  * than reporting a misleading zero.
  *
  * Uses a single `gh pr list --json number,mergedAt,reviews` call (reviews inline) to avoid
- * an N+1 per-PR fetch. Counts are bucketed by merge date, backfilled into the shared
+ * an N+1 per-PR fetch, bounded by `--limit FETCH_LIMIT` (the `gh` row cap). If the call
+ * returns exactly that many rows the window may be truncated; the result is then a lower
+ * bound and `detail` is annotated accordingly rather than silently undercounting. Counts
+ * are bucketed by merge date, backfilled into the shared
  * `SignalTimelineStore`, and the current day is mirrored for steady-state continuity. A
  * high count means review coverage is slipping (healthier is `down`). Any runner rejection,
  * non-array, or parse failure degrades to `status: 'error'` — never throws.
@@ -80,7 +90,7 @@ export const prReviewProvider: SignalProvider = {
           '--state',
           'merged',
           '--limit',
-          '200',
+          String(FETCH_LIMIT),
           '--search',
           `merged:>=${cutoffDate}`,
           '--json',
@@ -120,6 +130,10 @@ export const prReviewProvider: SignalProvider = {
 
       const value = history.reduce((sum, p) => sum + p.value, 0);
 
+      // Truncation guard: if gh returned exactly FETCH_LIMIT rows, the window may have
+      // been clipped and the count is a lower bound rather than exact.
+      const truncated = parsed.data.length >= FETCH_LIMIT;
+
       ctx.timeline.backfill(SIGNAL_ID, history);
       ctx.timeline.appendPoint(SIGNAL_ID, toDate(ctx.now.toISOString()), value);
 
@@ -135,10 +149,13 @@ export const prReviewProvider: SignalProvider = {
               ? 'down'
               : 'flat';
 
-      const detail =
+      const baseDetail =
         value === 0
           ? `All PRs merged in the last ${WINDOW_DAYS} days had a multi-persona review.`
           : `${value} PR${value === 1 ? '' : 's'} merged without multi-persona review in the last ${WINDOW_DAYS} days.`;
+      const detail = truncated
+        ? `${baseDetail} (Lower bound: gh returned the ${FETCH_LIMIT}-PR fetch cap, so the window may be truncated.)`
+        : baseDetail;
 
       return {
         id: SIGNAL_ID,
