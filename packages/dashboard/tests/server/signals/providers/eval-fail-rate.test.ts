@@ -105,4 +105,68 @@ describe('evalFailRateProvider', () => {
     expect(warn.value).toBe(8);
     expect(warn.status).toBe('warn');
   });
+
+  it('returns pending with null value when zero execution_outcome nodes exist', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const r = await evalFailRateProvider.compute(ctx(new GraphStore(), now));
+    expect(r.status).toBe('pending');
+    expect(r.value).toBeNull();
+    expect(r.history).toEqual([]);
+    expect(r.detail).toMatch(/outcome-eval/);
+  });
+
+  it('returns pending when nodes exist but none fall in the 30-day window', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    // single outcome dated 60 days before now => out of window
+    const g = buildGraph([
+      outcomeNode('outcome:issue-old:0', 'failure', '2026-04-23T10:00:00.000Z'),
+    ]);
+    const r = await evalFailRateProvider.compute(ctx(g, now));
+    expect(r.status).toBe('pending');
+    expect(r.value).toBeNull();
+  });
+
+  it('returns error when graphStore is absent', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const r = await evalFailRateProvider.compute(ctx(undefined, now));
+    expect(r.status).toBe('error');
+    expect(r.value).toBeNull();
+  });
+
+  it('returns error (no throw) when findNodes throws', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const corrupt = {
+      findNodes() {
+        throw new Error('graph corrupt');
+      },
+    } as unknown as GraphStore;
+    const r = await evalFailRateProvider.compute(ctx(corrupt, now));
+    expect(r.status).toBe('error');
+    expect(r.value).toBeNull();
+  });
+
+  it('ignores nodes with malformed result or timestamp', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const g = buildGraph([
+      outcomeNode('outcome:issue-good-fail:0', 'failure', '2026-06-15T10:00:00.000Z'),
+      outcomeNode('outcome:issue-good-ok:0', 'success', '2026-06-15T11:00:00.000Z'),
+      outcomeNode('outcome:issue-bad-result:0', 'unknown', '2026-06-15T12:00:00.000Z'),
+      outcomeNode('outcome:issue-bad-ts:0', 'failure', 'not-a-date'),
+    ]);
+    const r = await evalFailRateProvider.compute(ctx(g, now));
+    // Only the 2 valid nodes count: 1 failure of 2 => 50%
+    expect(r.value).toBe(50);
+  });
+
+  it('excludes outcomes older than 30 days from the window', async () => {
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const g = buildGraph([
+      outcomeNode('outcome:issue-in:0', 'failure', '2026-06-15T10:00:00.000Z'),
+      outcomeNode('outcome:issue-out:0', 'failure', '2026-04-23T10:00:00.000Z'), // 60d ago
+    ]);
+    const r = await evalFailRateProvider.compute(ctx(g, now));
+    // Only the in-window failure counts: 1 of 1 => 100%
+    expect(r.value).toBe(100);
+    expect(r.detail).toMatch(/1 post-merge eval failed/);
+  });
 });
