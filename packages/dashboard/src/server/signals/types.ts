@@ -1,4 +1,5 @@
 import type { GraphStore } from '@harness-engineering/graph';
+import type { CommandRunner } from './command-runner';
 
 export type SignalId =
   | 'pr-merged-without-multi-persona-review'
@@ -40,7 +41,11 @@ export interface SignalContext {
   now: Date;
   timeline: import('./timeline-store').SignalTimelineStore;
   graphStore?: GraphStore;
+  /** Injectable git/gh runner. Defaults to `defaultCommandRunner` per-provider when absent. */
+  runCommand?: CommandRunner;
 }
+
+export type { CommandRunner } from './command-runner';
 
 export interface SignalProvider {
   id: SignalId;
