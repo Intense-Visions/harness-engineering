@@ -1,4 +1,4 @@
-// outcome-eval — post-execution spec-satisfaction judgment (Phase 1: types & contract)
+// outcome-eval — post-execution spec-satisfaction judgment (Phase 3: evaluator & prompts)
 export type {
   Verdict,
   Confidence,
@@ -8,7 +8,9 @@ export type {
   OutcomeVerdict,
 } from './types.js';
 export { deriveAuthority } from './authority.js';
-export { verdictSchema } from './prompts.js';
+export { verdictSchema, OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt } from './prompts.js';
 export type { LlmVerdict } from './prompts.js';
 export { resolveSection } from './section-resolver.js';
 export type { ResolvedSection } from './section-resolver.js';
+export { OutcomeEvaluator } from './evaluator.js';
+export type { OutcomeEvaluatorOptions } from './evaluator.js';
