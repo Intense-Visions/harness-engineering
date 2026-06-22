@@ -23,7 +23,7 @@ The dashboard renders the five backend signals as cards at `/s/signals`, and `/`
 
 - CREATE `packages/dashboard/src/client/types/signals.ts` (client mirror of `SignalResult` / `SignalsResult` shape + `ApiResponse` envelope helper)
 - CREATE `packages/dashboard/src/client/hooks/useSignals.ts` (one-shot fetch hook, mirrors `useRoutingConfig`)
-- CREATE `packages/dashboard/src/client/hooks/useSignals.test.ts` — wait, hook tests live under `tests/client/`; see below
+- CREATE `packages/dashboard/tests/client/hooks/useSignals.test.tsx` (hook test; lives under `tests/client/` per vitest globs — see note below)
 - CREATE `packages/dashboard/src/client/components/Sparkline.tsx` (tiny inline SVG, `currentColor`, no deps, no hex)
 - CREATE `packages/dashboard/src/client/components/SignalCard.tsx` (new component — KpiCard does not fit; see Findings)
 - CREATE `packages/dashboard/src/client/pages/Signals.tsx` (page: useSignals + grid of SignalCards)
