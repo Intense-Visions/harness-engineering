@@ -9,7 +9,7 @@ export interface UseSignalsResult {
 }
 
 /**
- * Spec #534 — fetch the five computed signals once on mount.
+ * Spec 534 — fetch the five computed signals once on mount.
  *
  * No polling: signals are recomputed server-side on a cadence; the
  * dashboard reads the latest snapshot on navigation. Mirrors the

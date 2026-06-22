@@ -53,7 +53,7 @@ export interface Thread {
 }
 
 export const SYSTEM_PAGES = [
-  // Spec #534 — five-signal default landing panel.
+  // Spec 534 — five-signal default landing panel.
   { page: 'signals', label: 'Signals', route: '/s/signals' },
   { page: 'health', label: 'Health', route: '/s/health' },
   { page: 'graph', label: 'Graph', route: '/s/graph' },

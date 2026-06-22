@@ -30,7 +30,7 @@ import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
 const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
-  // Spec #534 — five-signal default landing panel.
+  // Spec 534 — five-signal default landing panel.
   signals: Signals,
   health: Health,
   graph: Graph,

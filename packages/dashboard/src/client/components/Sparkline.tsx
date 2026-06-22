@@ -7,7 +7,7 @@ interface Props {
 }
 
 /**
- * Spec #534 — tiny inline SVG trend line. No runtime dep, no hex:
+ * Spec 534 — tiny inline SVG trend line. No runtime dep, no hex:
  * stroke uses `currentColor` so the parent card's status text-token
  * class drives the line color. Needs >= 2 points to draw a line.
  */

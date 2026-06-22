@@ -54,7 +54,7 @@ if (root) {
           <ChatLayout>
             <Routes>
               {/* Core chat-first routes */}
-              {/* Spec #534 — dashboard opens on the signal layer.
+              {/* Spec 534 — dashboard opens on the signal layer.
                   Chat remains reachable via the sidebar "New Chat" button and /t/:threadId. */}
               <Route path="/" element={<Navigate to="/s/signals" replace />} />
               <Route path="/t/:threadId" element={<ThreadRoute />} />
