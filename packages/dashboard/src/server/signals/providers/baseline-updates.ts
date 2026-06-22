@@ -1,5 +1,12 @@
 import { defaultCommandRunner } from '../command-runner';
-import type { SignalContext, SignalProvider, SignalPoint, SignalResult } from '../types';
+import { bucketsToHistory, deriveEndpointTrend, toDate } from '../shared';
+import type {
+  CommandRunner,
+  SignalContext,
+  SignalProvider,
+  SignalPoint,
+  SignalResult,
+} from '../types';
 
 const SIGNAL_ID = 'baseline-auto-update-count' as const;
 const LABEL = 'Baseline auto-updates (30d)';
@@ -10,11 +17,6 @@ const WINDOW_DAYS = 30;
 const BOT_AUTHOR = 'github-actions[bot]';
 const MSG_PREFIX = 'chore: refresh baselines';
 const US = '\x1f'; // unit (field) separator within a record
-
-/** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
-function toDate(iso: string): string {
-  return iso.slice(0, 10);
-}
 
 /** Build a degraded `error` result that never crashes the panel. */
 function errorResult(detail: string): SignalResult {
@@ -31,6 +33,49 @@ function errorResult(detail: string): SignalResult {
     detail,
     source: SOURCE,
   };
+}
+
+/**
+ * Shell out to `git log --since=30.days -- '*-baselines.json'` and bucket — by commit
+ * date — the commits authored by `github-actions[bot]` whose subject begins
+ * `chore: refresh baselines`. Both conditions are required so human refresh commits are
+ * excluded. The `*-baselines.json` glob covers the arch, coverage, and benchmark files.
+ *
+ * `git log --pretty=format:` separates records with a NEWLINE (no trailing terminator);
+ * each record's fields are joined by the requested US separator. Records missing fields
+ * are skipped defensively.
+ */
+async function loadDailyBuckets(runCommand: CommandRunner): Promise<Map<string, number>> {
+  const stdout = await runCommand('git', [
+    'log',
+    `--since=${WINDOW_DAYS}.days`,
+    '--no-merges',
+    `--pretty=format:%H${US}%an${US}%s${US}%cd`,
+    '--date=short',
+    '--',
+    '*-baselines.json',
+  ]);
+
+  const records = stdout
+    .split('\n')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
+
+  const buckets = new Map<string, number>();
+  for (const record of records) {
+    const [, author, subject, date] = record.split(US);
+    if (author === undefined || subject === undefined || date === undefined) continue;
+    if (author !== BOT_AUTHOR || !subject.startsWith(MSG_PREFIX)) continue;
+    buckets.set(date.trim(), (buckets.get(date.trim()) ?? 0) + 1);
+  }
+  return buckets;
+}
+
+/** Human-readable one-liner for the current count. */
+function buildDetail(value: number): string {
+  return value === 0
+    ? `No baseline auto-updates in the last ${WINDOW_DAYS} days.`
+    : `${value} baseline auto-update${value === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`;
 }
 
 /**
@@ -56,37 +101,9 @@ export const baselineUpdatesProvider: SignalProvider = {
   async compute(ctx: SignalContext): Promise<SignalResult> {
     const runCommand = ctx.runCommand ?? defaultCommandRunner;
     try {
-      const stdout = await runCommand('git', [
-        'log',
-        `--since=${WINDOW_DAYS}.days`,
-        '--no-merges',
-        `--pretty=format:%H${US}%an${US}%s${US}%cd`,
-        '--date=short',
-        '--',
-        '*-baselines.json',
-      ]);
+      const buckets = await loadDailyBuckets(runCommand);
 
-      // `git log --pretty=format:` separates records with a NEWLINE (no trailing
-      // terminator on the final record). Each record's fields are joined by the US
-      // separator we requested. Split on newlines first, then on US per line.
-      const records = stdout
-        .split('\n')
-        .map((r) => r.trim())
-        .filter((r) => r.length > 0);
-
-      // Bucket matching commits by date.
-      const buckets = new Map<string, number>();
-      for (const record of records) {
-        const [, author, subject, date] = record.split(US);
-        if (author === undefined || subject === undefined || date === undefined) continue;
-        if (author !== BOT_AUTHOR || !subject.startsWith(MSG_PREFIX)) continue;
-        buckets.set(date.trim(), (buckets.get(date.trim()) ?? 0) + 1);
-      }
-
-      const history: SignalPoint[] = [...buckets.entries()]
-        .map(([date, value]) => ({ date, value }))
-        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
+      const history: SignalPoint[] = bucketsToHistory(buckets, (v) => v);
       const value = history.reduce((sum, p) => sum + p.value, 0);
 
       // Backfill derived daily buckets (idempotent) and mirror the current day.
@@ -96,31 +113,17 @@ export const baselineUpdatesProvider: SignalProvider = {
       const status: SignalResult['status'] =
         value >= THRESHOLD.alert ? 'alert' : value >= THRESHOLD.warn ? 'warn' : 'ok';
 
-      const trend: SignalResult['trend'] =
-        history.length < 2
-          ? 'flat'
-          : history[history.length - 1]!.value > history[0]!.value
-            ? 'up'
-            : history[history.length - 1]!.value < history[0]!.value
-              ? 'down'
-              : 'flat';
-
-      const detail =
-        value === 0
-          ? `No baseline auto-updates in the last ${WINDOW_DAYS} days.`
-          : `${value} baseline auto-update${value === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`;
-
       return {
         id: SIGNAL_ID,
         label: LABEL,
         value,
         unit: UNIT,
-        trend,
+        trend: deriveEndpointTrend(history),
         betterDirection: 'down',
         status,
         threshold: { ...THRESHOLD },
         history,
-        detail,
+        detail: buildDetail(value),
         source: SOURCE,
       };
     } catch (err) {

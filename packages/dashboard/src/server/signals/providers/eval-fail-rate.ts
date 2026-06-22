@@ -1,3 +1,5 @@
+import type { GraphNode } from '@harness-engineering/graph';
+import { bucketsToHistory, deriveEndpointTrend, round2, toDate } from '../shared';
 import type { SignalContext, SignalProvider, SignalPoint, SignalResult } from '../types';
 
 const SIGNAL_ID = 'eval-fail-rate' as const;
@@ -6,16 +8,6 @@ const SOURCE = 'graph execution_outcome nodes';
 const UNIT = '%';
 const THRESHOLD = { warn: 5, alert: 10 } as const;
 const WINDOW_DAYS = 30;
-
-/** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
-function toDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
-/** Round to 2 decimal places. */
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 /** Build a degraded `error` result that never crashes the panel. */
 function errorResult(detail: string): SignalResult {
@@ -54,6 +46,57 @@ function pendingResult(detail: string): SignalResult {
 interface DayCounts {
   fail: number;
   total: number;
+}
+
+/** A single in-window outcome reduced to the two fields this signal consumes. */
+interface Outcome {
+  day: string;
+  failed: boolean;
+}
+
+/**
+ * Narrow one graph node to an in-window `Outcome`, or `null` if it should be
+ * skipped: `metadata.result` is not exactly `'success'`/`'failure'`, the timestamp
+ * is missing/unparseable, or the timestamp is older than the cutoff. Mirrors the
+ * defensive narrowing in `intelligence/effectiveness/scorer.ts`.
+ */
+function toOutcome(node: GraphNode, cutoffMs: number): Outcome | null {
+  const result = node.metadata.result;
+  if (result !== 'success' && result !== 'failure') return null;
+  const timestamp = node.metadata.timestamp;
+  if (typeof timestamp !== 'string') return null;
+  const ms = Date.parse(timestamp);
+  if (Number.isNaN(ms) || ms < cutoffMs) return null;
+  return { day: toDate(timestamp), failed: result === 'failure' };
+}
+
+interface Aggregated {
+  buckets: Map<string, DayCounts>;
+  totalFail: number;
+  totalAll: number;
+}
+
+/**
+ * Aggregate in-window outcomes into per-day fail/total buckets plus running totals.
+ * Out-of-window / malformed nodes are dropped by `toOutcome`.
+ */
+function aggregateOutcomes(nodes: readonly GraphNode[], cutoffMs: number): Aggregated {
+  const buckets = new Map<string, DayCounts>();
+  let totalFail = 0;
+  let totalAll = 0;
+
+  for (const node of nodes) {
+    const outcome = toOutcome(node, cutoffMs);
+    if (outcome === null) continue;
+    const bucket = buckets.get(outcome.day) ?? { fail: 0, total: 0 };
+    bucket.total += 1;
+    if (outcome.failed) bucket.fail += 1;
+    buckets.set(outcome.day, bucket);
+    totalAll += 1;
+    if (outcome.failed) totalFail += 1;
+  }
+
+  return { buckets, totalFail, totalAll };
 }
 
 /**
@@ -102,67 +145,42 @@ export const evalFailRateProvider: SignalProvider = {
     }
 
     const cutoffMs = ctx.now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const buckets = new Map<string, DayCounts>();
-    let totalFail = 0;
-    let totalAll = 0;
-
-    for (const node of nodes) {
-      const result = node.metadata.result;
-      if (result !== 'success' && result !== 'failure') continue;
-      const timestamp = node.metadata.timestamp;
-      if (typeof timestamp !== 'string') continue;
-      const ms = Date.parse(timestamp);
-      if (Number.isNaN(ms) || ms < cutoffMs) continue;
-
-      const day = toDate(timestamp);
-      const bucket = buckets.get(day) ?? { fail: 0, total: 0 };
-      bucket.total += 1;
-      if (result === 'failure') bucket.fail += 1;
-      buckets.set(day, bucket);
-
-      totalAll += 1;
-      if (result === 'failure') totalFail += 1;
-    }
+    const { buckets, totalFail, totalAll } = aggregateOutcomes(nodes, cutoffMs);
 
     if (totalAll === 0) {
       return pendingResult('No execution_outcome nodes in the last 30 days.');
     }
 
-    const history: SignalPoint[] = [...buckets.entries()]
-      .map(([date, counts]) => ({ date, value: round2((counts.fail / counts.total) * 100) }))
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
+    const history: SignalPoint[] = bucketsToHistory(buckets, (counts) =>
+      round2((counts.fail / counts.total) * 100)
+    );
     const value = round2((totalFail / totalAll) * 100);
-
-    const status: SignalResult['status'] =
-      value > THRESHOLD.alert ? 'alert' : value > THRESHOLD.warn ? 'warn' : 'ok';
-
-    const trend: SignalResult['trend'] =
-      history.length < 2
-        ? 'flat'
-        : history[history.length - 1]!.value > history[0]!.value
-          ? 'up'
-          : history[history.length - 1]!.value < history[0]!.value
-            ? 'down'
-            : 'flat';
 
     ctx.timeline.backfill(SIGNAL_ID, history);
     ctx.timeline.appendPoint(SIGNAL_ID, toDate(ctx.now.toISOString()), value);
 
-    const detail = `${value}% of ${totalAll} post-merge eval${totalAll === 1 ? '' : 's'} failed in the last ${WINDOW_DAYS} days.`;
-
-    return {
-      id: SIGNAL_ID,
-      label: LABEL,
-      value,
-      unit: UNIT,
-      trend,
-      betterDirection: 'down',
-      status,
-      threshold: { ...THRESHOLD },
-      history,
-      detail,
-      source: SOURCE,
-    };
+    return buildResult(value, totalAll, history);
   },
 };
+
+/** Assemble the final `ok`-track result from the computed value and history. */
+function buildResult(value: number, totalAll: number, history: SignalPoint[]): SignalResult {
+  const status: SignalResult['status'] =
+    value > THRESHOLD.alert ? 'alert' : value > THRESHOLD.warn ? 'warn' : 'ok';
+
+  const detail = `${value}% of ${totalAll} post-merge eval${totalAll === 1 ? '' : 's'} failed in the last ${WINDOW_DAYS} days.`;
+
+  return {
+    id: SIGNAL_ID,
+    label: LABEL,
+    value,
+    unit: UNIT,
+    trend: deriveEndpointTrend(history),
+    betterDirection: 'down',
+    status,
+    threshold: { ...THRESHOLD },
+    history,
+    detail,
+    source: SOURCE,
+  };
+}

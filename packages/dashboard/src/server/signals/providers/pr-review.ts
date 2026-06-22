@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { defaultCommandRunner } from '../command-runner';
-import type { SignalContext, SignalProvider, SignalPoint, SignalResult } from '../types';
+import { bucketsToHistory, deriveEndpointTrend, toDate } from '../shared';
+import type {
+  CommandRunner,
+  SignalContext,
+  SignalProvider,
+  SignalPoint,
+  SignalResult,
+} from '../types';
 
 const SIGNAL_ID = 'pr-merged-without-multi-persona-review' as const;
 const LABEL = 'PRs merged without multi-persona review (30d)';
@@ -23,11 +30,6 @@ const FETCH_LIMIT = 500;
  * pipeline ever changes its summary header, this single const is the only thing to update.
  */
 const ASSESSMENT_MARKER = '## Assessment:';
-
-/** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
-function toDate(iso: string): string {
-  return iso.slice(0, 10);
-}
 
 /** Build a degraded `error` result that never crashes the panel. */
 function errorResult(detail: string): SignalResult {
@@ -52,6 +54,87 @@ const PrSchema = z.object({
   reviews: z.array(z.object({ body: z.string() })),
 });
 const PrListSchema = z.array(PrSchema);
+type PrList = z.infer<typeof PrListSchema>;
+
+/** Either parsed PR rows, or a degraded `error` result to return verbatim. */
+type FetchOutcome = { ok: true; prs: PrList } | { ok: false; result: SignalResult };
+
+/**
+ * Fetch merged PRs (with inline reviews) for the window via a single `gh pr list`
+ * call and parse the JSON. A runner rejection or any non-array / non-conforming
+ * payload yields `ok: false` with the matching `errorResult` — never throws.
+ */
+async function fetchPrList(cutoffDate: string, runCommand: CommandRunner): Promise<FetchOutcome> {
+  let stdout: string;
+  try {
+    stdout = await runCommand('gh', [
+      'pr',
+      'list',
+      '--state',
+      'merged',
+      '--limit',
+      String(FETCH_LIMIT),
+      '--search',
+      `merged:>=${cutoffDate}`,
+      '--json',
+      'number,mergedAt,reviews',
+    ]);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, result: errorResult(`gh unavailable or not authenticated: ${message}`) };
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stdout);
+  } catch {
+    return {
+      ok: false,
+      result: errorResult('Could not parse gh PR list output; ensure gh is authenticated.'),
+    };
+  }
+
+  const parsed = PrListSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      result: errorResult('Could not parse gh PR list output; ensure gh is authenticated.'),
+    };
+  }
+  return { ok: true, prs: parsed.data };
+}
+
+/**
+ * Bucket — by merge date — the PRs that fall inside the window AND carry no review
+ * containing the assessment marker. PRs merged before the cutoff or already reviewed
+ * are dropped.
+ */
+function bucketUnreviewed(prs: PrList, cutoffMs: number): Map<string, number> {
+  const buckets = new Map<string, number>();
+  for (const pr of prs) {
+    const mergedMs = Date.parse(pr.mergedAt);
+    if (Number.isNaN(mergedMs) || mergedMs < cutoffMs) continue;
+    const reviewed = pr.reviews.some((rev) => rev.body.includes(ASSESSMENT_MARKER));
+    if (reviewed) continue;
+    const date = toDate(pr.mergedAt);
+    buckets.set(date, (buckets.get(date) ?? 0) + 1);
+  }
+  return buckets;
+}
+
+/**
+ * Build the human-readable detail. When `truncated` (gh hit its row cap) the count
+ * is a lower bound and the line is annotated accordingly.
+ */
+function buildDetail(value: number, truncated: boolean): string {
+  const baseDetail =
+    value === 0
+      ? `All PRs merged in the last ${WINDOW_DAYS} days had a multi-persona review.`
+      : `${value} PR${value === 1 ? '' : 's'} merged without multi-persona review in the last ${WINDOW_DAYS} days.`;
+  return truncated
+    ? `${baseDetail} (Lower bound: gh returned the ${FETCH_LIMIT}-PR fetch cap, so the window may be truncated.)`
+    : baseDetail;
+}
 
 /**
  * `pr-merged-without-multi-persona-review` — counts PRs merged in the last 30 days that
@@ -82,57 +165,16 @@ export const prReviewProvider: SignalProvider = {
       const cutoffMs = ctx.now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000;
       const cutoffDate = toDate(new Date(cutoffMs).toISOString());
 
-      let stdout: string;
-      try {
-        stdout = await runCommand('gh', [
-          'pr',
-          'list',
-          '--state',
-          'merged',
-          '--limit',
-          String(FETCH_LIMIT),
-          '--search',
-          `merged:>=${cutoffDate}`,
-          '--json',
-          'number,mergedAt,reviews',
-        ]);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return errorResult(`gh unavailable or not authenticated: ${message}`);
-      }
+      const fetched = await fetchPrList(cutoffDate, runCommand);
+      if (!fetched.ok) return fetched.result;
 
-      let raw: unknown;
-      try {
-        raw = JSON.parse(stdout);
-      } catch {
-        return errorResult('Could not parse gh PR list output; ensure gh is authenticated.');
-      }
-
-      const parsed = PrListSchema.safeParse(raw);
-      if (!parsed.success) {
-        return errorResult('Could not parse gh PR list output; ensure gh is authenticated.');
-      }
-
-      // Filter to the window, then to PRs lacking a review with the assessment marker.
-      const buckets = new Map<string, number>();
-      for (const pr of parsed.data) {
-        const mergedMs = Date.parse(pr.mergedAt);
-        if (Number.isNaN(mergedMs) || mergedMs < cutoffMs) continue;
-        const reviewed = pr.reviews.some((rev) => rev.body.includes(ASSESSMENT_MARKER));
-        if (reviewed) continue;
-        const date = toDate(pr.mergedAt);
-        buckets.set(date, (buckets.get(date) ?? 0) + 1);
-      }
-
-      const history: SignalPoint[] = [...buckets.entries()]
-        .map(([date, value]) => ({ date, value }))
-        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
+      const buckets = bucketUnreviewed(fetched.prs, cutoffMs);
+      const history: SignalPoint[] = bucketsToHistory(buckets, (v) => v);
       const value = history.reduce((sum, p) => sum + p.value, 0);
 
       // Truncation guard: if gh returned exactly FETCH_LIMIT rows, the window may have
       // been clipped and the count is a lower bound rather than exact.
-      const truncated = parsed.data.length >= FETCH_LIMIT;
+      const truncated = fetched.prs.length >= FETCH_LIMIT;
 
       ctx.timeline.backfill(SIGNAL_ID, history);
       ctx.timeline.appendPoint(SIGNAL_ID, toDate(ctx.now.toISOString()), value);
@@ -140,34 +182,17 @@ export const prReviewProvider: SignalProvider = {
       const status: SignalResult['status'] =
         value >= THRESHOLD.alert ? 'alert' : value >= THRESHOLD.warn ? 'warn' : 'ok';
 
-      const trend: SignalResult['trend'] =
-        history.length < 2
-          ? 'flat'
-          : history[history.length - 1]!.value > history[0]!.value
-            ? 'up'
-            : history[history.length - 1]!.value < history[0]!.value
-              ? 'down'
-              : 'flat';
-
-      const baseDetail =
-        value === 0
-          ? `All PRs merged in the last ${WINDOW_DAYS} days had a multi-persona review.`
-          : `${value} PR${value === 1 ? '' : 's'} merged without multi-persona review in the last ${WINDOW_DAYS} days.`;
-      const detail = truncated
-        ? `${baseDetail} (Lower bound: gh returned the ${FETCH_LIMIT}-PR fetch cap, so the window may be truncated.)`
-        : baseDetail;
-
       return {
         id: SIGNAL_ID,
         label: LABEL,
         value,
         unit: UNIT,
-        trend,
+        trend: deriveEndpointTrend(history),
         betterDirection: 'down',
         status,
         threshold: { ...THRESHOLD },
         history,
-        detail,
+        detail: buildDetail(value, truncated),
         source: SOURCE,
       };
     } catch (err) {
