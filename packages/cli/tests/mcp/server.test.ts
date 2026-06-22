@@ -11,9 +11,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 88 tools', () => {
+  it('registers all 89 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(88);
+    expect(tools).toHaveLength(89);
   });
 
   it('registers all 9 resources', () => {
@@ -31,6 +31,11 @@ describe('MCP Server', () => {
   it('registers new state tools', () => {
     const names = getToolDefinitions().map((t) => t.name);
     expect(names).toContain('manage_state');
+  });
+
+  it('registers the outcome_eval tool', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).toContain('outcome_eval');
   });
 
   it('does not register removed tools', () => {

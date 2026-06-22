@@ -25,9 +25,10 @@ The evaluator resolves the section internally via the fallback chain `## Success
 
 ### Phase 3: JUDGE — Invoke the evaluator
 
-1. Invoke `OutcomeEvaluator.evaluate({ specPath, diff, testOutput })` (via the generated MCP tool `outcome_eval` / CLI `harness outcome-eval`, supported v1 path: the claude-cli / anthropic analysis provider).
-2. The LLM returns ONLY `verdict / confidence / rationale / unmetCriteria`. `authority` is computed in TypeScript from `(verdict, confidence)` and is never read from the LLM — do not attempt to override it.
-3. The call is degrade-safe: provider failure, empty diff, or missing section yields INCONCLUSIVE/low/advisory. It never throws and never blocks.
+1. Invoke the MCP tool `mcp__harness__outcome_eval` with `{ specPath, diff, testOutput }` (optional `model`). The tool constructs `OutcomeEvaluator` cli-side and calls `evaluate({ specPath, diff, testOutput })`; the supported v1 provider is the anthropic analysis provider (`ANTHROPIC_API_KEY`).
+2. **`diff` and `testOutput` are required inputs and the agent MUST supply them** from the session (`git diff` + captured test-runner output). They are the evidence the judge reasons over — passing an empty `diff` or empty `testOutput` is the degradation path, not the normal path: the verdict degrades to INCONCLUSIVE/advisory (never blocking), which defeats the gate. Do not invoke the tool without real diff/test content.
+3. The LLM returns ONLY `verdict / confidence / rationale / unmetCriteria`. `authority` is computed in TypeScript from `(verdict, confidence)` and is never read from the LLM — do not attempt to override it. The tool returns the verdict exactly as the evaluator derives it.
+4. The call is degrade-safe: provider failure (incl. no `ANTHROPIC_API_KEY`), empty diff, empty test output, or missing judgable section yields INCONCLUSIVE/low/advisory. It never throws and never blocks.
 
 ### Phase 4: GATE — Render and (conditionally) halt
 
@@ -38,10 +39,9 @@ The evaluator resolves the section internally via the fallback chain `## Success
 
 ## Harness Integration
 
-- **`harness outcome-eval`** — CLI entry. `--spec-path <path>` selects the spec; resolves to the change's `docs/changes/<feature>/proposal.md` by default.
-- **`mcp__harness__outcome_eval`** — MCP tool. Input `{ specPath }`; the agent supplies diff/test output from the session.
+- **`mcp__harness__outcome_eval`** — MCP tool (the invocation surface). Inputs: `specPath` (required), `diff` (required), `testOutput` (required), `model` (optional), `path` (optional project root for graph persistence). The agent supplies `diff` and `testOutput` from the session; omitting them degrades the verdict to INCONCLUSIVE/advisory (never blocking). The handler builds the cli `AnalysisProvider` + a `GraphStore`, constructs `OutcomeEvaluator`, and returns the `OutcomeVerdict` with authority exactly as derived in TypeScript.
 - **Evaluator surface:** `OutcomeEvaluator`, `deriveAuthority`, `verdictSchema`, `OutcomeVerdict` are exported from `@harness-engineering/intelligence`.
-- **Provider path (v1 supported):** the claude-cli / anthropic analysis provider. The openai-compatible _strict_ structured-output path is a known follow-up (see Known Limitations).
+- **Provider path (v1 supported):** the anthropic analysis provider (`ANTHROPIC_API_KEY`). When no provider is configured the call degrades to INCONCLUSIVE/advisory. The openai-compatible _strict_ structured-output path is a known follow-up (see Known Limitations).
 - **Orchestrator:** runs as step 6.5 between Code Review and Ship in `harness.orchestrator.md`.
 - **Persistence:** each `evaluate()` writes one `execution_outcome` node via `ExecutionOutcomeConnector`, consumable by `effectiveness/scorer.ts`.
 
@@ -53,7 +53,7 @@ The evaluator resolves the section internally via the fallback chain `## Success
 
 ## Success Criteria
 
-See `docs/changes/outcome-eval/proposal.md` for the full 9 criteria. This skill satisfies SC8 (orchestrator step 6.5 + blocking halt) and SC9 (`harness validate` passes; layer rules respected).
+See `docs/changes/outcome-eval/proposal.md` for the full 9 criteria. This skill satisfies SC8 (orchestrator step 6.5 + blocking halt) and SC9 (introduces no new `harness validate` findings; layer rules respected).
 
 ## Examples
 

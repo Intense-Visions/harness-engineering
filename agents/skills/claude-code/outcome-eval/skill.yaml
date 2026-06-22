@@ -21,19 +21,17 @@ tools:
   - Read
   - Glob
   - Grep
-cli:
-  command: harness outcome-eval
-  args:
-    - name: spec-path
-      description: Path to the spec markdown to judge against
-      required: false
-    - name: path
-      description: Project root path
-      required: false
 mcp:
   tool: outcome_eval
+  # specPath, diff, and testOutput are ALL required. diff/testOutput are the
+  # evidence the judge reasons over: omitting them degrades the verdict to
+  # INCONCLUSIVE/advisory (never blocking), so the agent MUST supply them.
   input:
-    specPath: string
+    specPath: 'string (required) — absolute or repo-relative path to the spec markdown to judge against'
+    diff: 'string (required) — unified diff of the change under judgment (git diff); omission degrades the verdict to INCONCLUSIVE/advisory'
+    testOutput: 'string (required) — captured test-runner stdout+stderr; omission degrades the verdict to INCONCLUSIVE/advisory'
+    model: 'string (optional) — model override for the outcome-eval LLM call'
+    path: 'string (optional) — project root used to resolve the knowledge graph (default cwd)'
 type: rigid
 tier: 2
 phases:

@@ -1,7 +1,6 @@
 ---
 name: harness:outcome-eval
 description: LLM-judgment skill that produces a structured, confidence-rated verdict on whether an implementation satisfied its spec. Reads the spec's acceptance section, the change diff, and test output; emits an OutcomeVerdict (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with confidence, rationale, and unmet criteria. Authority is derived in TypeScript, never from the LLM: a high-confidence NOT_SATISFIED blocks ship; every other verdict is advisory. The verdict persists as an execution_outcome node and feeds skill-effectiveness baselines. The harness's first blocking post-execution spec-satisfaction gate.
-argument-hint: "[--spec-path <spec-path>] [--path <path>]"
 allowed-tools:
   - Bash
   - Read
