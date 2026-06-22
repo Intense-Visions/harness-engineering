@@ -22,6 +22,10 @@ const CHAIN: ReadonlyArray<{ tag: JudgedAgainst; matches: (normalized: string) =
 
 const HEADING_RE = /^(#{1,6})\s+(.*\S)\s*$/;
 
+// Opening or closing of a fenced code block (``` or ~~~), allowing leading
+// whitespace. Headings inside a fence are code, not document structure.
+const FENCE_RE = /^\s*(```|~~~)/;
+
 const normalizeHeading = (text: string): string =>
   text.toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -40,19 +44,26 @@ const normalizeHeading = (text: string): string =>
 export function resolveSection(markdown: string): ResolvedSection | null {
   const lines = markdown.split(/\r?\n/);
 
-  // Index every heading once: { lineIndex, level, tag|null }.
-  const headings = lines
-    .map((line, index) => {
-      const m = HEADING_RE.exec(line);
-      // Both capture groups are guaranteed present when exec returns non-null;
-      // the explicit guard satisfies noUncheckedIndexedAccess.
-      if (!m || m[1] === undefined || m[2] === undefined) return null;
-      const level = m[1].length;
-      const normalized = normalizeHeading(m[2]);
-      const entry = CHAIN.find((c) => c.matches(normalized));
-      return { index, level, tag: entry ? entry.tag : null };
-    })
-    .filter((h): h is { index: number; level: number; tag: JudgedAgainst | null } => h !== null);
+  // Index every heading once: { lineIndex, level, tag|null }. Headings inside
+  // fenced code blocks (``` / ~~~) are skipped — they are example content, not
+  // document structure. `inFence` toggles on each fence delimiter line.
+  const headings: Array<{ index: number; level: number; tag: JudgedAgainst | null }> = [];
+  let inFence = false;
+  lines.forEach((line, index) => {
+    if (FENCE_RE.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
+    const m = HEADING_RE.exec(line);
+    // Both capture groups are guaranteed present when exec returns non-null;
+    // the explicit guard satisfies noUncheckedIndexedAccess.
+    if (!m || m[1] === undefined || m[2] === undefined) return;
+    const level = m[1].length;
+    const normalized = normalizeHeading(m[2]);
+    const entry = CHAIN.find((c) => c.matches(normalized));
+    headings.push({ index, level, tag: entry ? entry.tag : null });
+  });
 
   for (const { tag } of CHAIN) {
     const start = headings.find((h) => h.tag === tag);
