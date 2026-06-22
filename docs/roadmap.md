@@ -2442,11 +2442,11 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 ### Ship the 5-signal dashboard panel and signals.md doc
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/five-signal-dashboard-panel/proposal.md
 - **Summary:** Article gear item #7: "the five or six signals that, if any of them moves, the senior wants to know inside the hour." Today the dashboard surfaces operational data (maintenance, routing) but no curated signal layer. Pick five: PR-merged-without-multi-persona-review, coverage-trend-down-30d, complexity-trend-up-30d, baseline-auto-update-count, eval-fail-rate. Render as the dashboard's default landing view. Document the picked five in new `docs/standard/signals.md`. Source: Pass 1 #5, Pass 2 #4, Pass 3 #11.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@capillarytech.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#534
 
@@ -2847,15 +2847,15 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 - **External-ID:** github:Intense-Visions/harness-engineering#570
 
 ## Assignment History
-
-| Feature                                                          | Assignee | Action   | Date       |
-| ---------------------------------------------------------------- | -------- | -------- | ---------- |
-| Performance Engineering Knowledge Skills                         | @chadjw  | assigned | 2026-04-09 |
-| Phase 2: Code Signal Extractors                                  | @chadjw  | assigned | 2026-04-23 |
-| Phase 3: Connector Enhancement                                   | @chadjw  | assigned | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams                           | @chadjw  | assigned | 2026-04-23 |
-| Hermes Phase 0.1: Reference Slack Bridge                         | @cwarner | assigned | 2026-05-15 |
-| design-pipeline sub-project #2: audit-component-anatomy          | @chadjw  | assigned | 2026-05-23 |
-| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw  | assigned | 2026-05-23 |
-| design-pipeline sub-project #3: audit-brand-compliance           | @chadjw  | assigned | 2026-06-02 |
-| Init design + roadmap polish follow-ups                          | @chadjw  | assigned | 2026-06-03 |
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
+| Performance Engineering Knowledge Skills | @chadjw | assigned | 2026-04-09 |
+| Phase 2: Code Signal Extractors | @chadjw | assigned | 2026-04-23 |
+| Phase 3: Connector Enhancement | @chadjw | assigned | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams | @chadjw | assigned | 2026-04-23 |
+| Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |
+| design-pipeline sub-project #2: audit-component-anatomy | @chadjw | assigned | 2026-05-23 |
+| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw | assigned | 2026-05-23 |
+| design-pipeline sub-project #3: audit-brand-compliance | @chadjw | assigned | 2026-06-02 |
+| Init design + roadmap polish follow-ups | @chadjw | assigned | 2026-06-03 |
+| Ship the 5-signal dashboard panel and signals.md doc | chad.warner@capillarytech.com | assigned | 2026-06-22 |
