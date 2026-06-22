@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { defaultCommandRunner } from '../command-runner';
-import type { SignalContext, SignalProvider, SignalPoint, SignalResult } from '../types';
+import type {
+  CommandRunner,
+  SignalContext,
+  SignalProvider,
+  SignalPoint,
+  SignalResult,
+} from '../types';
 
 const SIGNAL_ID = 'coverage-trend-down-30d' as const;
 const LABEL = 'Coverage trend (30d)';
@@ -54,6 +60,88 @@ function toDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
+/** One `git log` record: a commit sha paired with its `YYYY-MM-DD` commit date. */
+type LogRecord = readonly [sha: string, date: string];
+
+/**
+ * Parse `git log --pretty=format:%H<US>%cd` output into `[sha, date]` records.
+ *
+ * `--pretty=format:` separates records with a NEWLINE (no trailing terminator);
+ * each record's fields are joined by US. Order is preserved: git emits
+ * newest→oldest.
+ */
+function parseLogRecords(logOut: string): LogRecord[] {
+  return logOut
+    .split('\n')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0)
+    .map((r) => r.split(US))
+    .filter((parts): parts is [string, string] => parts[0] !== undefined && parts[1] !== undefined)
+    .map(([sha, date]) => [sha.trim(), date.trim()] as const);
+}
+
+/**
+ * Walk each commit's snapshot and bucket the mean line-coverage by day.
+ *
+ * git log emits newest→oldest, so the FIRST record seen for a given day is the
+ * LATEST commit on that day. We keep that one (`if (!buckets.has(date))`) and
+ * ignore later (older) same-day commits, so each day's value is its latest
+ * commit's coverage (spec truth #2). Unparseable / non-conforming snapshots are
+ * skipped defensively.
+ */
+async function loadDailyBuckets(
+  records: readonly LogRecord[],
+  runCommand: CommandRunner
+): Promise<Map<string, number>> {
+  const buckets = new Map<string, number>();
+  for (const [sha, date] of records) {
+    if (buckets.has(date)) continue; // newest same-day commit already recorded; keep it
+    const raw = await runCommand('git', ['show', `${sha}:${COVERAGE_FILE}`]);
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      continue; // unparseable snapshot for this commit — skip defensively
+    }
+    const parsed = CoverageBaselinesSchema.safeParse(json);
+    if (!parsed.success) continue;
+    if (Object.keys(parsed.data).length === 0) continue; // empty snapshot {} — not 0% coverage; skip
+    buckets.set(date, aggregateCoverage(parsed.data));
+  }
+  return buckets;
+}
+
+/** Trend/status/detail derived purely from the sorted daily history. */
+interface TrendSummary {
+  trend: SignalResult['trend'];
+  status: SignalResult['status'];
+  detail: string;
+}
+
+/**
+ * Derive trend, threshold status, and the human-readable detail from history.
+ * Status is driven by the 30-day delta `latest − earliest` (percentage points):
+ * `<= alert(-5) → 'alert'`, `<= warn(-1) → 'warn'`, else `'ok'`.
+ */
+function deriveTrendStatus(history: readonly SignalPoint[]): TrendSummary {
+  const latest = history[history.length - 1]!.value;
+  const earliest = history[0]!.value;
+  const delta = latest - earliest; // percentage points
+
+  const trend: SignalResult['trend'] =
+    history.length < 2 || latest === earliest ? 'flat' : latest > earliest ? 'up' : 'down';
+
+  const status: SignalResult['status'] =
+    delta <= THRESHOLD.alert ? 'alert' : delta <= THRESHOLD.warn ? 'warn' : 'ok';
+
+  const detail =
+    history.length < 2
+      ? `Coverage is ${latest}%; no prior 30-day snapshot to trend against.`
+      : `Coverage ${latest}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp over ${WINDOW_DAYS}d).`;
+
+  return { trend, status, detail };
+}
+
 /** Build a degraded `error` result that never crashes the panel. */
 function errorResult(detail: string): SignalResult {
   return {
@@ -79,7 +167,8 @@ function errorResult(detail: string): SignalResult {
  * `git log --since=30.days -- coverage-baselines.json` lists `<sha> <YYYY-MM-DD>`
  * over the window, then per commit `git show <sha>:coverage-baselines.json` reads
  * that snapshot. Each commit's scalar is the MEAN `lines%` across all packages
- * (see `aggregateCoverage`). Commits are bucketed by day (last write per day wins),
+ * (see `aggregateCoverage`). Commits are bucketed by day (the latest commit per
+ * day wins — git log is newest→oldest, so the first-seen record for a day is kept),
  * backfilled into the shared `SignalTimelineStore`, and the current day mirrored.
  *
  * The 30-day delta `latest − earliest` (percentage points) drives status:
@@ -106,38 +195,12 @@ export const coverageTrendProvider: SignalProvider = {
         COVERAGE_FILE,
       ]);
 
-      // `git log --pretty=format:` separates records with a NEWLINE (no trailing
-      // terminator). Each record's fields are joined by US.
-      const records = logOut
-        .split('\n')
-        .map((r) => r.trim())
-        .filter((r) => r.length > 0)
-        .map((r) => r.split(US))
-        .filter(
-          (parts): parts is [string, string] => parts[0] !== undefined && parts[1] !== undefined
-        )
-        .map(([sha, date]) => [sha.trim(), date.trim()] as const);
-
+      const records = parseLogRecords(logOut);
       if (records.length === 0) {
         return errorResult(ENABLE_TRACKING_HINT);
       }
 
-      // Bucket by day; last write per day wins.
-      const buckets = new Map<string, number>();
-      for (const [sha, date] of records) {
-        const raw = await runCommand('git', ['show', `${sha}:${COVERAGE_FILE}`]);
-        let json: unknown;
-        try {
-          json = JSON.parse(raw);
-        } catch {
-          continue; // unparseable snapshot for this commit — skip defensively
-        }
-        const parsed = CoverageBaselinesSchema.safeParse(json);
-        if (!parsed.success) continue;
-        const mean = aggregateCoverage(parsed.data);
-        buckets.set(date, mean); // git log is newest→oldest; the FIRST seen per day is the latest commit
-      }
-
+      const buckets = await loadDailyBuckets(records, runCommand);
       if (buckets.size === 0) {
         return errorResult(ENABLE_TRACKING_HINT);
       }
@@ -146,25 +209,11 @@ export const coverageTrendProvider: SignalProvider = {
         .map(([date, value]) => ({ date, value: round2(value) }))
         .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-      const latest = history[history.length - 1]!.value;
-      const earliest = history[0]!.value;
-      const delta = latest - earliest; // percentage points
-
-      const value = round2(latest);
-
-      const trend: SignalResult['trend'] =
-        history.length < 2 || latest === earliest ? 'flat' : latest > earliest ? 'up' : 'down';
-
-      const status: SignalResult['status'] =
-        delta <= THRESHOLD.alert ? 'alert' : delta <= THRESHOLD.warn ? 'warn' : 'ok';
+      const value = round2(history[history.length - 1]!.value);
+      const { trend, status, detail } = deriveTrendStatus(history);
 
       ctx.timeline.backfill(SIGNAL_ID, history);
       ctx.timeline.appendPoint(SIGNAL_ID, toDate(ctx.now.toISOString()), value);
-
-      const detail =
-        history.length < 2
-          ? `Coverage is ${value}%; no prior 30-day snapshot to trend against.`
-          : `Coverage ${value}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp over ${WINDOW_DAYS}d).`;
 
       return {
         id: SIGNAL_ID,

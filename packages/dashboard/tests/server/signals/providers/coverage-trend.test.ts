@@ -91,6 +91,35 @@ describe('coverageTrendProvider', () => {
     ]);
   });
 
+  it('keeps the LATEST commit per day when multiple commits share a date', async () => {
+    // git log emits newest→oldest, so the FIRST record for a day is the latest
+    // commit. `s_new` (94) is newer than `s_old` (80) on the same date; the bucket
+    // must keep 94. The old last-wins `.set` logic would overwrite with 80.
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const log = gitLog([
+      ['s_new', '2026-06-10'], // newest on 06-10
+      ['s_old', '2026-06-10'], // older on 06-10
+    ]);
+    const runner = gitRunner(log, { s_new: 94, s_old: 80 });
+    const r = await coverageTrendProvider.compute(ctx(root, now, runner));
+    expect(r.history).toEqual([{ date: '2026-06-10', value: 94 }]);
+    expect(r.value).toBe(94);
+  });
+
+  it('skips an empty-object snapshot rather than treating it as 0% coverage', async () => {
+    // A committed `{}` snapshot is "no packages recorded", not 0% coverage; the
+    // commit must be skipped so it does not poison the trend with a phantom 0.
+    const now = new Date('2026-06-22T00:00:00.000Z');
+    const log = gitLog([
+      ['s2', '2026-06-22'], // newest: real coverage
+      ['s1', '2026-06-01'], // older: empty snapshot {}
+    ]);
+    const runner = gitRunner(log, { s2: 88, s1: '{}' });
+    const r = await coverageTrendProvider.compute(ctx(root, now, runner));
+    expect(r.history).toEqual([{ date: '2026-06-22', value: 88 }]);
+    expect(r.value).toBe(88);
+  });
+
   it('reports warn at -1..-5 delta and ok above -1', async () => {
     const now = new Date('2026-06-22T00:00:00.000Z');
 
