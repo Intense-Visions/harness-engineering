@@ -25,10 +25,13 @@ import { Webhooks } from '../../pages/Webhooks';
 import { Cache as InsightsCache } from '../../pages/insights/Cache';
 import { Proposals } from '../../pages/Proposals';
 import { Routing } from '../../pages/Routing';
+import { Signals } from '../../pages/Signals';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
 const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
+  // Spec #534 — five-signal default landing panel.
+  signals: Signals,
   health: Health,
   graph: Graph,
   impact: Impact,
