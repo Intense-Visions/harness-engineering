@@ -176,6 +176,45 @@ describe('ExecutionOutcomeConnector', () => {
     expect(node!.metadata.result).toBe('failure');
   });
 
+  it('caller metadata can NEVER shadow reserved/core fields, even conditionally-written ones (SUG-1)', () => {
+    const store = new GraphStore();
+    const connector = new ExecutionOutcomeConnector(store);
+    // No top-level agentPersona/taskType here: if the reserved keys were only
+    // stripped by the conditional spread, metadata.agentPersona would survive
+    // and silently make the node scorer-visible.
+    connector.ingest(
+      makeOutcome({
+        result: 'failure',
+        metadata: {
+          agentPersona: 'spoofed-persona',
+          taskType: 'bugfix',
+          result: 'success',
+          id: 'spoofed-id',
+          identifier: 'SPOOFED',
+          durationMs: 999999,
+          linkedSpecId: 'spoofed-spec',
+          affectedSystemNodeIds: ['spoofed'],
+          edges: ['spoofed'],
+          issueId: 'spoofed-issue',
+          verdict: 'NOT_SATISFIED', // legitimate non-reserved extra survives
+        },
+      })
+    );
+    const node = store.getNode('outcome:issue-1:1');
+    expect(node).not.toBeNull();
+    // No persona attribution leaked in: scorer must ignore this node.
+    expect('agentPersona' in node!.metadata).toBe(false);
+    expect('taskType' in node!.metadata).toBe(false);
+    // The real result stands; spoofed core fields are stripped before merge.
+    expect(node!.metadata.result).toBe('failure');
+    expect(node!.metadata.identifier).toBe('TEST-1');
+    expect(node!.metadata.issueId).toBe('issue-1');
+    expect(node!.metadata.durationMs).toBe(5000);
+    expect(node!.metadata.linkedSpecId).toBe('spec-1');
+    // Legitimate non-reserved extra still passes through.
+    expect(node!.metadata.verdict).toBe('NOT_SATISFIED');
+  });
+
   it('omits extra metadata keys entirely when not provided', () => {
     const store = new GraphStore();
     new ExecutionOutcomeConnector(store).ingest(makeOutcome());
