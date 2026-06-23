@@ -2441,7 +2441,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Stop the pre-commit auto-baseline-update for arch
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/stop-arch-auto-baseline/proposal.md
 - **Summary:** `.husky/pre-commit` lines 4-12 detect arch regressions in module-size/dependency-depth and silently auto-update the baseline + re-stage the change, letting the commit proceed. This is the article's failure pattern #5 verbatim: "A harness that warns but doesn't stop is not a harness. It's a notification." Remove the auto-update branch entirely. If `harness ci check` exits non-zero, the commit must fail. The human (or agent) explicitly runs `harness check-arch --update-baseline` and stages it as a visible change. Source: Pass 1 #1 (CRITICAL — single most damning finding).
 - **Blockers:** —
