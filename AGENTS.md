@@ -432,7 +432,7 @@ Configuration example:
 
 _Project Setup:_ `init`, `install`, `uninstall`, `setup`, `setup-mcp`, `setup-types`, `migrate`, `install-constraints`, `uninstall-constraints`, `generate`
 
-_Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-deps`, `check-design`, `check-docs`, `check-perf`, `check-phase-gate`, `check-security`, `audit-protected`
+_Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-deps`, `check-design`, `check-docs`, `check-harness-strength`, `check-perf`, `check-phase-gate`, `check-security`, `audit-protected`
 
 _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`, `search`, `insights`
 
