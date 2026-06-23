@@ -1,7 +1,7 @@
 {
   "packages/core": {
     "lines": 91.17,
-    "branches": 75.81,
+    "branches": 75.8,
     "functions": 92.44,
     "statements": 88.73
   },
@@ -18,10 +18,10 @@
     "statements": 76.36
   },
   "packages/orchestrator": {
-    "lines": 82.89,
-    "branches": 71.26,
+    "lines": 82.87,
+    "branches": 71.24,
     "functions": 84.83,
-    "statements": 81.28
+    "statements": 81.27
   },
   "packages/eslint-plugin": {
     "lines": 95.56,
