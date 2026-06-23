@@ -120,6 +120,12 @@ import { emitInteractionDefinition, handleEmitInteraction } from './tools/intera
 import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
 import { gatherContextDefinition, handleGatherContext } from './tools/gather-context.js';
 import { assessProjectDefinition, handleAssessProject } from './tools/assess-project.js';
+import {
+  canaryProbeDefinition,
+  handleCanaryProbe,
+  canaryRecommendFrameworkDefinition,
+  handleCanaryRecommendFramework,
+} from './tools/canary.js';
 import { reviewChangesDefinition, handleReviewChanges } from './tools/review-changes.js';
 import {
   checkTaskIndependenceDefinition,
@@ -275,6 +281,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   runCodeReviewDefinition,
   gatherContextDefinition,
   assessProjectDefinition,
+  canaryProbeDefinition,
+  canaryRecommendFrameworkDefinition,
   reviewChangesDefinition,
   detectAnomaliesDefinition,
   askGraphDefinition,
@@ -366,6 +374,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   run_code_review: handleRunCodeReview as ToolHandler,
   gather_context: handleGatherContext as ToolHandler,
   assess_project: handleAssessProject as ToolHandler,
+  canary_probe: handleCanaryProbe as ToolHandler,
+  canary_recommend_framework: handleCanaryRecommendFramework as ToolHandler,
   review_changes: handleReviewChanges as ToolHandler,
   detect_anomalies: handleDetectAnomalies as ToolHandler,
   ask_graph: handleAskGraph as ToolHandler,

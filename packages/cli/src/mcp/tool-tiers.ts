@@ -53,6 +53,8 @@ const STANDARD_EXTRA: readonly string[] = [
   'check_phase_gate',
   'gather_context',
   'assess_project',
+  'canary_probe',
+  'canary_recommend_framework',
   'recommend_skills',
   'search_skills',
   'code_unfold',
