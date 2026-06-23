@@ -84,6 +84,14 @@ describe('CanaryAdapter.recommendFramework', () => {
     const rec = await createCanaryAdapter(execRejects({ code: 'ENOENT' })).recommendFramework('x');
     expect(rec.status).toBe('degraded');
   });
+
+  it('returns a fresh sentinel each call (no shared mutable state)', async () => {
+    const adapter = createCanaryAdapter(execResolves('not json'));
+    const a = await adapter.recommendFramework('x');
+    a.reasoning.push('mutated');
+    const b = await adapter.recommendFramework('y');
+    expect(b.reasoning).toEqual([]); // not corrupted by the mutation above
+  });
 });
 
 describe('CanaryAdapter.reviewTest', () => {
@@ -120,5 +128,15 @@ describe('CanaryAdapter.reviewTest', () => {
 
   it('returns [] when canary is degraded/absent', async () => {
     expect(await createCanaryAdapter(execRejects({ code: 'ENOENT' })).reviewTest('x')).toEqual([]);
+  });
+
+  it('preserves findings with an unmodeled severity instead of dropping the whole array', async () => {
+    const mixed = [
+      { ...REVIEW_FIXTURE[0], severity: 'info' },
+      { ...REVIEW_FIXTURE[0], severity: 'critical' }, // not in the spike's observed set
+    ];
+    const findings = await createCanaryAdapter(execResolves(JSON.stringify(mixed))).reviewTest('x');
+    expect(findings).toHaveLength(2);
+    expect(findings[1].severity).toBe('critical');
   });
 });

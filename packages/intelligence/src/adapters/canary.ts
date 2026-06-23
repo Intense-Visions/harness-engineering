@@ -29,12 +29,15 @@ export const frameworkRecommendationSchema = z.object({
 });
 export type FrameworkRecommendation = z.infer<typeof frameworkRecommendationSchema>;
 
-// canary review-test <path> --json → array
+// canary review-test <path> --json → array.
+// `severity` is kept a permissive string: the spike observed "info", but canary may
+// emit other levels. A strict enum would fail the whole-array parse on a single
+// unmodeled value and silently drop every finding — so we preserve the raw level.
 export const canaryFindingSchema = z.object({
   file: z.string(),
   line: z.number(),
   rule: z.string(),
-  severity: z.enum(['info', 'warning', 'error']),
+  severity: z.string(),
   message: z.string(),
   suggestion: z.string(),
 });
@@ -58,16 +61,27 @@ import { execFile } from 'node:child_process';
  */
 export type CanaryExec = (cmd: string, args: string[]) => Promise<{ stdout: string }>;
 
+/** Bound exec time so a hung CLI degrades instead of blocking the caller forever. */
+const EXEC_TIMEOUT_MS = 30_000;
+/** Allow large `review-test` output (default execFile maxBuffer is only 1 MB). */
+const EXEC_MAX_BUFFER = 16 * 1024 * 1024;
+
 /** Default exec seam: `execFile` with an explicit trailing callback. */
 const defaultExec: CanaryExec = (cmd, args) =>
   new Promise((resolve, reject) => {
-    execFile(cmd, args, { encoding: 'utf8' }, (err: Error | null, stdout) => {
-      if (err) {
-        reject(err);
-        return;
+    execFile(
+      cmd,
+      args,
+      { encoding: 'utf8', timeout: EXEC_TIMEOUT_MS, maxBuffer: EXEC_MAX_BUFFER },
+      (err: Error | null, stdout) => {
+        if (err) {
+          // A timeout kill surfaces here as an error → classified exec-failed upstream.
+          reject(err);
+          return;
+        }
+        resolve({ stdout: stdout as string });
       }
-      resolve({ stdout: stdout as string });
-    });
+    );
   });
 
 interface ExecOk {
@@ -101,15 +115,20 @@ function safeJson(stdout: string): unknown {
   }
 }
 
-/** Sentinel returned by recommendFramework when canary is degraded or its output is unusable. */
-const DEGRADED_RECOMMENDATION: FrameworkRecommendation = {
-  status: 'degraded',
-  test_type: '',
-  framework: '',
-  file_extension: '',
-  reasoning: [],
-  alternatives: [],
-};
+/**
+ * Fresh degraded sentinel for recommendFramework. Returns a new object each call so
+ * a caller mutating `reasoning`/`alternatives` can't corrupt a shared instance.
+ */
+function degradedRecommendation(): FrameworkRecommendation {
+  return {
+    status: 'degraded',
+    test_type: '',
+    framework: '',
+    file_extension: '',
+    reasoning: [],
+    alternatives: [],
+  };
+}
 
 export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
   /**
@@ -149,9 +168,9 @@ export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapt
 
   const recommendFramework = async (prompt: string): Promise<FrameworkRecommendation> => {
     const res = await execCanary(['recommend', prompt, '--json']);
-    if (!res.ok) return DEGRADED_RECOMMENDATION;
+    if (!res.ok) return degradedRecommendation();
     const parsed = frameworkRecommendationSchema.safeParse(safeJson(res.stdout));
-    return parsed.success ? parsed.data : DEGRADED_RECOMMENDATION;
+    return parsed.success ? parsed.data : degradedRecommendation();
   };
 
   const reviewTest = async (path: string, framework?: string): Promise<CanaryFinding[]> => {
