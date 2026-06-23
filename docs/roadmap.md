@@ -2847,15 +2847,16 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 - **External-ID:** github:Intense-Visions/harness-engineering#570
 
 ## Assignment History
-| Feature | Assignee | Action | Date |
-|---------|----------|--------|------|
-| Performance Engineering Knowledge Skills | @chadjw | assigned | 2026-04-09 |
-| Phase 2: Code Signal Extractors | @chadjw | assigned | 2026-04-23 |
-| Phase 3: Connector Enhancement | @chadjw | assigned | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams | @chadjw | assigned | 2026-04-23 |
-| Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |
-| design-pipeline sub-project #2: audit-component-anatomy | @chadjw | assigned | 2026-05-23 |
-| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw | assigned | 2026-05-23 |
-| design-pipeline sub-project #3: audit-brand-compliance | @chadjw | assigned | 2026-06-02 |
-| Init design + roadmap polish follow-ups | @chadjw | assigned | 2026-06-03 |
-| Ship the 5-signal dashboard panel and signals.md doc | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+
+| Feature                                                          | Assignee                      | Action   | Date       |
+| ---------------------------------------------------------------- | ----------------------------- | -------- | ---------- |
+| Performance Engineering Knowledge Skills                         | @chadjw                       | assigned | 2026-04-09 |
+| Phase 2: Code Signal Extractors                                  | @chadjw                       | assigned | 2026-04-23 |
+| Phase 3: Connector Enhancement                                   | @chadjw                       | assigned | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams                           | @chadjw                       | assigned | 2026-04-23 |
+| Hermes Phase 0.1: Reference Slack Bridge                         | @cwarner                      | assigned | 2026-05-15 |
+| design-pipeline sub-project #2: audit-component-anatomy          | @chadjw                       | assigned | 2026-05-23 |
+| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw                       | assigned | 2026-05-23 |
+| design-pipeline sub-project #3: audit-brand-compliance           | @chadjw                       | assigned | 2026-06-02 |
+| Init design + roadmap polish follow-ups                          | @chadjw                       | assigned | 2026-06-03 |
+| Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |

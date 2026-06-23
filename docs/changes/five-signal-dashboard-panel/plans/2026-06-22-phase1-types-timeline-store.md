@@ -345,7 +345,9 @@ _Not produced — task count (5) is below the standard-rigor threshold (8)._
      private load(): TimelineFile {
        if (!existsSync(this.timelinePath)) return emptyFile();
        try {
-         const parsed = TimelineFileSchema.safeParse(JSON.parse(readFileSync(this.timelinePath, 'utf-8')));
+         const parsed = TimelineFileSchema.safeParse(
+           JSON.parse(readFileSync(this.timelinePath, 'utf-8'))
+         );
          return parsed.success ? parsed.data : emptyFile();
        } catch {
          return emptyFile();
@@ -420,15 +422,15 @@ enrichment) all lands in Phases 5–7 and is out of scope here.
 
 ## Traceability (truth → task)
 
-| Observable truth | Delivered by |
-|---|---|
-| 1 (types exported) | Task 1 |
-| 2 (file shape) | Task 3 (`TimelineFileSchema`, `save`) |
-| 3 (append idempotency) | Task 2 test + Task 3 `appendPoint` |
-| 4 (backfill merge, no overwrite) | Task 2 test + Task 3 `backfill` |
-| 5 (read / unknown empty) | Task 2 test + Task 3 `read` |
-| 6 (has) | Task 2 test + Task 3 `has` |
-| 7 (corrupt/missing soft-fail) | Task 2 test + Task 3 `load` |
-| 8 (atomic write + mkdir) | Task 3 `save` |
-| 9 (vitest passes) | Tasks 3, 4 |
-| 10 (harness validate) | Tasks 1, 3, 5 |
+| Observable truth                 | Delivered by                          |
+| -------------------------------- | ------------------------------------- |
+| 1 (types exported)               | Task 1                                |
+| 2 (file shape)                   | Task 3 (`TimelineFileSchema`, `save`) |
+| 3 (append idempotency)           | Task 2 test + Task 3 `appendPoint`    |
+| 4 (backfill merge, no overwrite) | Task 2 test + Task 3 `backfill`       |
+| 5 (read / unknown empty)         | Task 2 test + Task 3 `read`           |
+| 6 (has)                          | Task 2 test + Task 3 `has`            |
+| 7 (corrupt/missing soft-fail)    | Task 2 test + Task 3 `load`           |
+| 8 (atomic write + mkdir)         | Task 3 `save`                         |
+| 9 (vitest passes)                | Tasks 3, 4                            |
+| 10 (harness validate)            | Tasks 1, 3, 5                         |
