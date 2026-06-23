@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-06-04
+updated: 2026-06-23
 last_synced: 2026-06-04T23:42:12.128Z
-last_manual_edit: 2026-06-23T15:38:55.939Z
+last_manual_edit: 2026-06-23T20:30:00.000Z
 ---
 
 # Roadmap
@@ -2446,7 +2446,7 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 - **Summary:** `.husky/pre-commit` lines 4-12 detect arch regressions in module-size/dependency-depth and silently auto-update the baseline + re-stage the change, letting the commit proceed. This is the article's failure pattern #5 verbatim: "A harness that warns but doesn't stop is not a harness. It's a notification." Remove the auto-update branch entirely. If `harness ci check` exits non-zero, the commit must fail. The human (or agent) explicitly runs `harness check-arch --update-baseline` and stages it as a visible change. Source: Pass 1 #1 (CRITICAL — single most damning finding).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#525
 
@@ -2960,3 +2960,4 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 | Init design + roadmap polish follow-ups                          | @chadjw                       | assigned | 2026-06-03 |
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned | 2026-06-23 |
