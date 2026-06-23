@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateCIConfig } from '../../src/commands/ci/init';
+import { generateCIConfig, createInitCommand } from '../../src/commands/ci/init';
 
 describe('generateCIConfig', () => {
   it('generates GitHub Actions workflow content', () => {
@@ -106,6 +106,12 @@ describe('generateCIConfig — language', () => {
     const r = generateCIConfig({ platform: 'github', language: 'cobol' });
     if (!r.ok) return;
     expect(r.value.content).toContain('pnpm test');
+  });
+
+  it('ci init command accepts --language', () => {
+    const cmd = createInitCommand();
+    const opt = cmd.options.find((o) => o.long === '--language');
+    expect(opt).toBeDefined();
   });
 
   it('language option does not affect gitlab/generic output', () => {

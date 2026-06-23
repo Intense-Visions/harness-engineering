@@ -205,7 +205,7 @@ function writeGeneratedConfig(filename: string, content: string, platform: CIPla
 }
 
 async function runInitAction(
-  opts: { platform?: string; checks?: string },
+  opts: { platform?: string; checks?: string; language?: string },
   globalOpts: { json?: boolean }
 ): Promise<void> {
   const platform: CIPlatform =
@@ -217,6 +217,7 @@ async function runInitAction(
 
   const configOpts: Parameters<typeof generateCIConfig>[0] = { platform };
   if (checks) configOpts.checks = checks;
+  if (opts.language) configOpts.language = opts.language;
   const result = generateCIConfig(configOpts);
 
   if (!result.ok) {
@@ -239,6 +240,7 @@ export function createInitCommand(): Command {
   return new Command('init')
     .description('Generate CI configuration for harness checks')
     .option('--platform <platform>', 'CI platform: github, gitlab, or generic')
+    .option('--language <language>', 'Project language for build/lint/test steps')
     .option('--checks <list>', 'Comma-separated list of checks to include')
     .action(async (opts, cmd) => {
       await runInitAction(opts, cmd.optsWithGlobals());
