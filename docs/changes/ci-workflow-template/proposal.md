@@ -17,7 +17,7 @@ through it, so the two paths cannot drift.
 
 **Strategic grounding** (`STRATEGY.md#our-approach`): "constraints fire in real
 time, so agents self-correct mid-stream… Humans own the thinking layer; the harness
-mechanically polices everything below it." A CI workflow that *stops* a merge on
+mechanically polices everything below it." A CI workflow that _stops_ a merge on
 violation is that bet embodied off-repo. The primary persona
 (`STRATEGY.md#who-its-for`) is the adopter 3–6 months in who already has a repo —
 hence the workflow must reach existing projects, not just new scaffolds.
@@ -41,15 +41,15 @@ hence the workflow must reach existing projects, not just new scaffolds.
 
 ## Decisions
 
-| #  | Decision | Rationale |
-| -- | -------- | --------- |
-| D1 | Enrich `generateCIConfig`; both `harness init` and `harness ci init` route through it. No new `templates/ci/` directory. | Single generator, single source. A second generator would drift — the exact entropy STRATEGY exists to prevent. Revised from an initial `templates/ci/` idea on discovering the existing command. |
-| D2 | The harness-gate step is the consolidated `harness ci check` (which runs validate/deps/docs/entropy/security/perf/phase-gate/arch/traceability via `runCIChecks`), not separate `validate`/`check-arch`/`check-deps` invocations. | Already battle-tested with correct blocking exit codes (1 = checks failed, 2 = internal error). Loosely-listed individual commands in the roadmap text are superseded by the better primitive. |
-| D3 | Build/test/lint steps are language-conditional with concrete per-language defaults (TS, Python, Go, Rust, Java). | Reuses the `language` the init flow already knows; ships runnable commands, not `# TODO` placeholders. |
-| D4 | The generated workflow excludes any auto-baseline-update / `git push` step. | Reproducing the dogfood's `refresh-baselines` job would embody the failure pattern roadmap #525 and `STRATEGY.md` condemn: "a harness that warns but doesn't stop is not a harness." |
-| D5 | `harness init` writes the workflow by default for new **and** existing projects, and never overwrites a workflow file that already exists. | Delivers "inherit on init" to the primary (existing-repo) persona; the engine's non-overwrite default (`engine.ts:323`) protects a hand-tuned workflow. |
-| D6 | The enriched GitHub generator writes `.github/workflows/ci.yml`; the gate-only `harness.yml` output is retired in favor of it. | One canonical workflow per project. Avoids an adopter ending up with both `ci.yml` and a divergent `harness.yml`. The gate still runs — inside `ci.yml`. |
-| D7 | Single-job, sequential, fail-fast workflow. | The load-bearing minimum: one clear blocking pipeline an adopter immediately understands. Splitting into separate jobs only pays off once branch protection needs named status checks (YAGNI). |
+| #   | Decision                                                                                                                                                                                                                          | Rationale                                                                                                                                                                                         |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Enrich `generateCIConfig`; both `harness init` and `harness ci init` route through it. No new `templates/ci/` directory.                                                                                                          | Single generator, single source. A second generator would drift — the exact entropy STRATEGY exists to prevent. Revised from an initial `templates/ci/` idea on discovering the existing command. |
+| D2  | The harness-gate step is the consolidated `harness ci check` (which runs validate/deps/docs/entropy/security/perf/phase-gate/arch/traceability via `runCIChecks`), not separate `validate`/`check-arch`/`check-deps` invocations. | Already battle-tested with correct blocking exit codes (1 = checks failed, 2 = internal error). Loosely-listed individual commands in the roadmap text are superseded by the better primitive.    |
+| D3  | Build/test/lint steps are language-conditional with concrete per-language defaults (TS, Python, Go, Rust, Java).                                                                                                                  | Reuses the `language` the init flow already knows; ships runnable commands, not `# TODO` placeholders.                                                                                            |
+| D4  | The generated workflow excludes any auto-baseline-update / `git push` step.                                                                                                                                                       | Reproducing the dogfood's `refresh-baselines` job would embody the failure pattern roadmap #525 and `STRATEGY.md` condemn: "a harness that warns but doesn't stop is not a harness."              |
+| D5  | `harness init` writes the workflow by default for new **and** existing projects, and never overwrites a workflow file that already exists.                                                                                        | Delivers "inherit on init" to the primary (existing-repo) persona; the engine's non-overwrite default (`engine.ts:323`) protects a hand-tuned workflow.                                           |
+| D6  | The enriched GitHub generator writes `.github/workflows/ci.yml`; the gate-only `harness.yml` output is retired in favor of it.                                                                                                    | One canonical workflow per project. Avoids an adopter ending up with both `ci.yml` and a divergent `harness.yml`. The gate still runs — inside `ci.yml`.                                          |
+| D7  | Single-job, sequential, fail-fast workflow.                                                                                                                                                                                       | The load-bearing minimum: one clear blocking pipeline an adopter immediately understands. Splitting into separate jobs only pays off once branch protection needs named status checks (YAGNI).    |
 
 ## Technical Design
 
@@ -80,13 +80,13 @@ gate, so a broken build never reports green.
 
 **Per-language defaults (initial set):**
 
-| Language | install | build | lint | test |
-| -------- | ------- | ----- | ---- | ---- |
-| TypeScript / default | `pnpm i --frozen-lockfile` | `pnpm build` | `pnpm lint` | `pnpm test` |
-| Python | `pip install -e .` | — | `ruff check .` | `pytest` |
-| Go | `go mod download` | `go build ./...` | `golangci-lint run` | `go test ./...` |
-| Rust | `cargo fetch` | `cargo build` | `cargo clippy` | `cargo test` |
-| Java | `mvn -B -q install -DskipTests` | (covered by verify) | — | `mvn -B verify` |
+| Language             | install                         | build               | lint                | test            |
+| -------------------- | ------------------------------- | ------------------- | ------------------- | --------------- |
+| TypeScript / default | `pnpm i --frozen-lockfile`      | `pnpm build`        | `pnpm lint`         | `pnpm test`     |
+| Python               | `pip install -e .`              | —                   | `ruff check .`      | `pytest`        |
+| Go                   | `go mod download`               | `go build ./...`    | `golangci-lint run` | `go test ./...` |
+| Rust                 | `cargo fetch`                   | `cargo build`       | `cargo clippy`      | `cargo test`    |
+| Java                 | `mvn -B -q install -DskipTests` | (covered by verify) | —                   | `mvn -B verify` |
 
 Unknown / unspecified language falls back to the TypeScript defaults (the engine's
 existing behavior for the JS/TS path).

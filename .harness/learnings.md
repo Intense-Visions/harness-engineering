@@ -50,3 +50,9 @@ When implementing directory traversal for code scanning/ingestion, ensure defaul
 - **Git**: `.git` (Crucial to avoid scanning internal git objects)
 - **Tools**: `.vscode`, `.idea`, `.harness`
 - **Test Artifacts**: `coverage`, `.nyc_output`
+
+## CI Workflow Template (#540) — 2026-06-23
+
+- When a generated CI workflow runs `harness ci check`, it MUST first install the CLI (`npm install -g @harness-engineering/cli`). GitHub-hosted ubuntu runners ship Node+npm for any project language, so a global install works universally; omitting it fails the gate with exit 127 (command-not-found), not a real check failure.
+- In generated TS GitHub workflows, `pnpm/action-setup` must precede `actions/setup-node` — `setup-node`'s `cache: 'pnpm'` needs pnpm already on PATH. Mirror the dogfood `.github/workflows/ci.yml` ordering when disseminating it.
+- Single-generator rule (ADR 0037): both `harness init` (scaffold-time) and `harness ci init` (on-demand) route through one `generateCIConfig`; never add a second `templates/ci/` YAML source — it drifts.

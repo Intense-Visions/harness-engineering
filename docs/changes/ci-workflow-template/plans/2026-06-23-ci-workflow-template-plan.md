@@ -69,6 +69,7 @@ _Skeleton approved: pending (presented at sign-off)._
    Note: `generateCIConfig` options type does not yet accept `language` — this also forces the type change.
 2. Run: `nvm use 22 && npx vitest run packages/cli/tests/ci/init.test.ts` — observe failure (type error / missing steps).
 3. In `packages/cli/src/commands/ci/init.ts`, add a language step map above `generateGitHubActions`:
+
    ```ts
    interface LanguageSteps {
      setup: string; // YAML lines for runtime setup step(s), indented for steps list
@@ -121,6 +122,7 @@ _Skeleton approved: pending (presented at sign-off)._
      }
    }
    ```
+
 4. Do NOT yet rewrite `generateGitHubActions` body — that is Task 2. For now, extend the generator option types so the test compiles: change `generateCIConfig` options to `{ platform: CIPlatform; checks?: CICheckName[]; language?: string }`, and thread `language` to a temporary `generateGitHubActions(skipFlag, language)` signature that still returns the old body (steps unused yet) — the TS-default test will still fail on missing `pnpm build` content, which Task 2 fixes. (If preferred, defer the content assertion to Task 2 by marking this test `.skip` — but keep the type wiring here.)
 5. Run: `nvm use 22 && npx vitest run packages/cli/tests/ci/init.test.ts` — the type compiles; content test may remain red until Task 2.
 6. Run: `nvm use 22 && pnpm harness validate`
@@ -143,7 +145,7 @@ _Skeleton approved: pending (presented at sign-off)._
      expect(c).toContain('pnpm build');
      expect(c).toContain('harness ci check --json');
      // gate is the last step
-     expect(c.trimEnd().endsWith("run: harness ci check --json")).toBe(true);
+     expect(c.trimEnd().endsWith('run: harness ci check --json')).toBe(true);
    });
    it('excludes any baseline-refresh or git push step', () => {
      const r = generateCIConfig({ platform: 'github' });
@@ -318,7 +320,9 @@ _Skeleton approved: pending (presented at sign-off)._
      fs.mkdirSync(path.join(tmp, '.github/workflows'), { recursive: true });
      fs.writeFileSync(path.join(tmp, '.github/workflows/ci.yml'), 'name: Hand-tuned\n');
      await runInit({ cwd: tmp, name: 'keep', level: 'basic' });
-     expect(fs.readFileSync(path.join(tmp, '.github/workflows/ci.yml'), 'utf-8')).toBe('name: Hand-tuned\n');
+     expect(fs.readFileSync(path.join(tmp, '.github/workflows/ci.yml'), 'utf-8')).toBe(
+       'name: Hand-tuned\n'
+     );
      fs.rmSync(tmp, { recursive: true });
    });
    it('language drives the generated steps (python)', async () => {
