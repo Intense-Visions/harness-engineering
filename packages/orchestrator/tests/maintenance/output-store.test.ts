@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -29,12 +29,19 @@ describe('TaskOutputStore', () => {
   let store: TaskOutputStore;
 
   beforeEach(async () => {
+    // Freeze the clock to the era of the fixtures below. The default store's
+    // age-based retention (maxAgeDays: 30) prunes entries relative to "now",
+    // so absolute fixture dates would otherwise age out and be deleted on
+    // write once the wall clock drifts > 30 days past them (time-bomb).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T16:00:00.000Z'));
     rootDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'output-store-'));
     store = new TaskOutputStore({ rootDir });
   });
 
   afterEach(async () => {
     await fs.promises.rm(rootDir, { recursive: true, force: true });
+    vi.useRealTimers();
   });
 
   it('writes a run and reads it back via latest()', async () => {

@@ -35,4 +35,12 @@ export interface ExecutionOutcome {
   agentPersona?: string;
   /** Task type categorization (e.g., 'feature', 'bugfix', 'refactor', 'docs'). */
   taskType?: TaskType;
+  /**
+   * Optional caller-supplied metadata merged into the node's metadata.
+   * Used by judgment sources (e.g. outcome-eval) to record verdict-specific
+   * signal -- verdict, confidence, judgedAgainst, source -- without bloating
+   * the core ExecutionOutcome contract. Reserved core keys (id/result/etc.)
+   * always win and are not overridable.
+   */
+  metadata?: Record<string, unknown>;
 }

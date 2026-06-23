@@ -1,0 +1,51 @@
+name: outcome-eval
+version: '0.1.0'
+description: >-
+  LLM-judgment skill that produces a structured, confidence-rated verdict on
+  whether an implementation satisfied its spec. Reads the spec's acceptance
+  section, the change diff, and test output; emits an OutcomeVerdict
+  (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with confidence, rationale, and
+  unmet criteria. Authority is derived in TypeScript, never from the LLM: a
+  high-confidence NOT_SATISFIED blocks ship; every other verdict is advisory.
+  The verdict persists as an execution_outcome node and feeds skill-effectiveness
+  baselines. The harness's first blocking post-execution spec-satisfaction gate.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+mcp:
+  tool: outcome_eval
+  # specPath, diff, and testOutput are ALL required. diff/testOutput are the
+  # evidence the judge reasons over: omitting them degrades the verdict to
+  # INCONCLUSIVE/advisory (never blocking), so the agent MUST supply them.
+  input:
+    specPath: 'string (required) — absolute or repo-relative path to the spec markdown to judge against'
+    diff: 'string (required) — unified diff of the change under judgment (git diff); omission degrades the verdict to INCONCLUSIVE/advisory'
+    testOutput: 'string (required) — captured test-runner stdout+stderr; omission degrades the verdict to INCONCLUSIVE/advisory'
+    model: 'string (optional) — model override for the outcome-eval LLM call'
+    path: 'string (optional) — project root used to resolve the knowledge graph (default cwd)'
+type: rigid
+tier: 2
+phases:
+  - name: gather
+    description: Collect the unified diff (git diff), capture test output, resolve the spec path
+    required: true
+  - name: resolve
+    description: Resolve the judgment section (Success Criteria -> User-Visible Behavior -> Overview)
+    required: true
+  - name: judge
+    description: Invoke OutcomeEvaluator.evaluate(); LLM returns verdict/confidence/rationale/unmetCriteria; authority derived in TS
+    required: true
+  - name: gate
+    description: Render the verdict; on a blocking verdict (NOT_SATISFIED + high confidence) halt before Ship
+    required: true
+state:
+  persistent: false

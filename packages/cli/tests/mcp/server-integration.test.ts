@@ -91,7 +91,8 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('seed_pulse_from_strategy');
     expect(names).toContain('acquire_compound_lock');
     expect(names).toContain('release_compound_lock');
-    expect(tools).toHaveLength(88);
+    expect(names).toContain('outcome_eval');
+    expect(tools).toHaveLength(89);
   });
 
   it('all tool definitions have inputSchema', () => {

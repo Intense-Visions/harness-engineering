@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-755 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+756 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (38 skills)
+## Tier 2 — Maintenance (39 skills)
 
 ### align-design-system
 
@@ -473,6 +473,15 @@ LLM-judgment skill that critiques identifier names (variables, functions, types,
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-design-craft
+
+### outcome-eval
+
+LLM-judgment skill that produces a structured, confidence-rated verdict on whether an implementation satisfied its spec. Reads the spec's acceptance section, the change diff, and test output; emits an OutcomeVerdict (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with confidence, rationale, and unmet criteria. Authority is derived in TypeScript, never from the LLM: a high-confidence NOT_SATISFIED blocks ship; every other verdict is advisory. The verdict persists as an execution_outcome node and feeds skill-effectiveness baselines. The harness's first blocking post-execution spec-satisfaction gate.
+
+- **Triggers:** manual, on_pr
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### security-craft
 
