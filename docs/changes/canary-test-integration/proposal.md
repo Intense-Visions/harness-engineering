@@ -99,7 +99,8 @@ export interface CanaryFinding {
 
 export interface CanaryAdapter {
   probe(): Promise<CanaryProbe>; // `canary version`, cached per run
-  recommend(prompt: string): Promise<FrameworkRecommendation>; // canary recommend <prompt> --json
+  // method named for clarity; CLI verb is `canary recommend`
+  recommendFramework(prompt: string): Promise<FrameworkRecommendation>; // canary recommend <prompt> --json
   reviewTest(path: string, framework?: string): Promise<CanaryFinding[]>; // canary review-test <path> --json
   // NOTE: no writeTest() — test generation has no deterministic CLI; it stays plugin-dispatch (PR #501).
 }
@@ -176,7 +177,7 @@ Ran `canary-test-cli@5.4.0`. Confirmed: (a) `--json` exists on the deterministic
 ## Implementation order
 
 - **Phase 0 — Spike (gate). ✅ DONE 2026-06-23.** Ran `canary-test-cli@5.4.0`: confirmed `--json` on `recommend`/`review-test`, documented the postinstall native-binary runtime model + platform constraints, captured real schemas, and corrected the CLI mapping (no `write-test` CLI; `recommend` = framework rec). Adapter types finalized in the technical design.
-- **Phase 1 — Adapter core.** Implement `packages/intelligence/src/adapters/canary.ts` (`probe` + `recommend` + `reviewTest`, pending the D8 decision), the total degradation contract (incl. `binary-missing`), zod schemas, and barrel export. Unit tests with mocked `execFile` (present / absent / binary-missing / non-zero / bad-JSON). Add the `optionalDependency` (`^5.4.0`).
+- **Phase 1 — Adapter core.** Implement `packages/intelligence/src/adapters/canary.ts` (`probe` + `recommendFramework` + `reviewTest` — D8 resolved: ship both), the total degradation contract (incl. `binary-missing`), zod schemas, and barrel export. Unit tests with mocked `execFile` (present / absent / binary-missing / non-zero / bad-JSON). Add the `optionalDependency` (`^5.4.0`).
 - **Phase 2 — Skill wiring.** Wire the `harness-test-advisor` audit path (and `test-craft` if applicable) to call `probe()` → adapter, with the degrade nudge. Update contract tests if skill behavior text is asserted.
 - **Phase 3 — Docs, ADR, knowledge.** Write the D1 ADR (optional gracefully-degrading cross-ecosystem adapter pattern), update `AGENTS.md`, add the knowledge node. Regenerate barrels/plugin artifacts.
 - **Phase 4 — Validation.** `harness validate`, `check-deps`, typecheck/lint/test green with canary both present and absent; boundary check passes.
