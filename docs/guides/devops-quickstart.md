@@ -242,7 +242,7 @@ harness ci init --platform github
 harness ci check
 
 # Commit the generated config
-git add .github/workflows/harness.yml .harness/ harness.config.json
+git add .github/workflows/ci.yml .harness/ harness.config.json
 git commit -m "ci: add harness engineering checks"
 ```
 

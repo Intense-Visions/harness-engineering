@@ -473,7 +473,7 @@ This scans only changed files, reports only critical findings, and outputs JSON 
 harness ci init --platform github
 ```
 
-Generates a `.github/workflows/harness.yml`. To add a dedicated security gate:
+Generates a `.github/workflows/ci.yml`. To add a dedicated security gate:
 
 ```yaml
 - name: Security Gate

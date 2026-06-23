@@ -716,7 +716,9 @@ describe('Architecture: Layers', () => {
 
 ### Step 4: Set Up CI/CD Validation
 
-Create `.github/workflows/architecture.yml`:
+> **CI ships on init.** `harness init` now writes `.github/workflows/ci.yml` automatically for both new and existing projects — a single fail-fast job that runs build + lint + test (language-appropriate) followed by `harness ci check` as the gate. It never overwrites an existing workflow at that path, so a hand-tuned `ci.yml` is preserved. `harness ci init` remains the on-demand path through the same generator (use `--language` and `--platform` to target Python, Go, Rust, Java, or GitLab/generic). The generated workflow installs the harness CLI (`npm install -g @harness-engineering/cli`) immediately before the gate so it runs on any GitHub-hosted runner regardless of project language, and contains no auto-baseline-update or `git push` step. The retired gate-only `harness.yml` filename is replaced by `ci.yml`.
+
+The architecture-validation workflow below is an illustrative example of an additional, hand-authored gate. Create `.github/workflows/architecture.yml`:
 
 ```yaml
 name: Architecture Validation

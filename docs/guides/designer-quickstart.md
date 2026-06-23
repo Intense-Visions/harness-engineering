@@ -581,7 +581,7 @@ When the design block is configured in `harness.config.json`, these checks autom
 harness ci init --platform github
 ```
 
-Generates a `.github/workflows/harness.yml` that:
+Generates a `.github/workflows/ci.yml` that:
 
 - Runs checks on push to main and on pull requests
 - Posts a summary comment on the PR

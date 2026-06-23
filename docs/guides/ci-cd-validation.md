@@ -159,7 +159,7 @@ The `--json` flag makes output machine-parseable for downstream steps (PR commen
 harness ci init --platform github
 ```
 
-This generates `.github/workflows/harness.yml`. Commit and push.
+This generates `.github/workflows/ci.yml`. Commit and push.
 
 ### Manual Setup
 

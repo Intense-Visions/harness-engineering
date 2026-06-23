@@ -86,7 +86,7 @@ npm install -g @harness-engineering/cli
 harness ci init
 
 # 3. Commit the generated workflow file
-git add .github/workflows/harness.yml
+git add .github/workflows/ci.yml
 git commit -m "ci: add harness checks"
 ```
 

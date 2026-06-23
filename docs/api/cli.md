@@ -237,7 +237,7 @@ harness ci init --checks validate,deps,docs,arch
 
 Generated files:
 
-- **GitHub Actions:** `.github/workflows/harness.yml`
+- **GitHub Actions:** `.github/workflows/ci.yml`
 - **GitLab CI:** `.gitlab-ci-harness.yml`
 - **Generic:** `harness-ci.sh` (executable shell script)
 

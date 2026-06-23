@@ -1,5 +1,5 @@
 # Harness CI Check — GitHub Actions Workflow
-# Copy this file to .github/workflows/harness.yml in your project
+# Copy this file to .github/workflows/ci.yml in your project
 # Or generate it with: harness ci init --platform github
 
 name: Harness Checks

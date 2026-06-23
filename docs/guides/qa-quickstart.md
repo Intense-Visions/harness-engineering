@@ -502,7 +502,7 @@ Runs 9 checks in sequence:
 harness ci init --platform github
 ```
 
-Generates a `.github/workflows/harness.yml` that:
+Generates a `.github/workflows/ci.yml` that:
 
 - Runs checks on push to main and on pull requests
 - Posts a summary comment on the PR
