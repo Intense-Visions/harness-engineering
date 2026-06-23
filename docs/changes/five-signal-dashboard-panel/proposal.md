@@ -4,7 +4,17 @@ status: draft
 milestone: v5.0 Load-Bearing Harness
 roadmap_ref: github:Intense-Visions/harness-engineering#534
 priority: P0
-keywords: [dashboard, signals, signal-provider, timeline-cache, execution-outcome, graph, default-landing, drift-detection]
+keywords:
+  [
+    dashboard,
+    signals,
+    signal-provider,
+    timeline-cache,
+    execution-outcome,
+    graph,
+    default-landing,
+    drift-detection,
+  ]
 ---
 
 # Five-Signal Dashboard Panel
@@ -19,13 +29,16 @@ This feature ships a **Signals** panel as the dashboard's default landing view,
 rendering five curated signals, and documents the chosen five in a new
 `docs/standard/signals.md`. The five:
 
-| Signal | Question it answers | Data source |
-|--------|---------------------|-------------|
-| `pr-merged-without-multi-persona-review` | Are PRs landing without the multi-persona review firing? | git log + gh API (30d), cached |
-| `coverage-trend-down-30d` | Is test coverage eroding? | coverage points (30d), cached |
-| `complexity-trend-up-30d` | Is structural complexity creeping up? | `.harness/arch/timeline.json` |
-| `baseline-auto-update-count` | Are baselines being silently auto-updated? | git log of `*-baselines.json` (30d), cached |
-| `eval-fail-rate` | Are shipped changes failing post-merge eval? | graph `execution_outcome` nodes |
+| Signal                                   | Question it answers                                      | Data source                                            |
+| ---------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
+| `pr-merged-without-multi-persona-review` | Are PRs landing without the multi-persona review firing? | git log + gh API (30d), cached                         |
+| `coverage-trend-down-30d`                | Is test coverage eroding?                                | git history of `coverage-baselines.json` (30d), cached |
+| `complexity-trend-up-30d`                | Is structural complexity creeping up?                    | `.harness/arch/timeline.json`                          |
+| `baseline-auto-update-count`             | Are baselines being silently auto-updated?               | git log of `*-baselines.json` (30d), cached            |
+| `eval-fail-rate`                         | Are shipped changes failing post-merge eval?             | graph `execution_outcome` nodes                        |
+
+_Data sources above reflect the as-built derivations; see `docs/standard/signals.md` for the
+authoritative source list._
 
 **Goals**
 
@@ -101,20 +114,23 @@ export type SignalId =
 
 export type SignalStatus = 'ok' | 'warn' | 'alert' | 'pending' | 'error';
 
-export interface SignalPoint { date: string; value: number; } // date = YYYY-MM-DD
+export interface SignalPoint {
+  date: string;
+  value: number;
+} // date = YYYY-MM-DD
 
 export interface SignalResult {
   id: SignalId;
   label: string;
-  value: number | null;            // current value; null when pending/error
-  unit: string;                    // '%', 'count', ...
+  value: number | null; // current value; null when pending/error
+  unit: string; // '%', 'count', ...
   trend: 'up' | 'down' | 'flat';
-  betterDirection: 'up' | 'down';  // which way is healthy (drives status color)
+  betterDirection: 'up' | 'down'; // which way is healthy (drives status color)
   status: SignalStatus;
   threshold: { warn: number; alert: number };
-  history: SignalPoint[];          // up to 30 daily points
-  detail: string;                  // human-readable one-liner
-  source: string;                  // provenance, e.g. 'arch/timeline.json'
+  history: SignalPoint[]; // up to 30 daily points
+  detail: string; // human-readable one-liner
+  source: string; // provenance, e.g. 'arch/timeline.json'
 }
 
 export interface SignalContext {
@@ -136,7 +152,7 @@ export interface SignalProvider {
 Persists to `.harness/signals/timeline.json`:
 
 ```jsonc
-{ "version": 1, "signals": { "<signalId>": [ { "date": "2026-06-22", "value": 0.81 } ] } }
+{ "version": 1, "signals": { "<signalId>": [{ "date": "2026-06-22", "value": 0.81 }] } }
 ```
 
 - `read(id): SignalPoint[]` — last 30 days for a signal.
@@ -158,9 +174,10 @@ Atomic write (temp file + rename). Tolerates a missing/corrupt file by treating 
   fall back to merge-commit walk); for each, detect whether multi-persona review fired
   (review records / commit trailers). Count those where it did not. Cache daily counts;
   gh calls go through `gather-cache.ts`. Degrades to `error` (not crash) if gh is unavailable.
-- **coverage-trend-down-30d** — read coverage points from the project's coverage output
-  (CI artifact / coverage-summary); compute 30d trend. Cache daily. Degrades to `error`
-  when no coverage source is found, with `detail` explaining how to enable it.
+- **coverage-trend-down-30d** — read the mean `lines` % from each committed
+  `coverage-baselines.json` over the 30-day git history (no native coverage time-series
+  exists); compute 30d trend. Cache daily. Degrades to `error` when no coverage source is
+  found, with `detail` explaining how to enable it.
 - **eval-fail-rate** — `graphStore.findNodes({ type: 'execution_outcome' })`, filter to last
   30d, compute fail fraction. When zero such nodes exist (outcome-eval not yet shipped),
   return `status: 'pending'` with `value: null` and a detail noting the dependency. This is
@@ -188,13 +205,13 @@ Atomic write (temp file + rename). Tolerates a missing/corrupt file by treating 
 
 ### Thresholds (defaults; documented in signals.md)
 
-| Signal | warn | alert | better |
-|--------|------|-------|--------|
-| pr-merged-without-multi-persona-review | ≥1 | ≥3 (30d) | down |
-| coverage-trend-down-30d | −1% | −5% (30d) | up |
-| complexity-trend-up-30d | +5% | +15% (30d) | down |
-| baseline-auto-update-count | ≥1 | ≥5 (30d) | down |
-| eval-fail-rate | >5% | >10% (30d) | down |
+| Signal                                 | warn | alert      | better |
+| -------------------------------------- | ---- | ---------- | ------ |
+| pr-merged-without-multi-persona-review | ≥1   | ≥3 (30d)   | down   |
+| coverage-trend-down-30d                | −1%  | −5% (30d)  | up     |
+| complexity-trend-up-30d                | +5%  | +15% (30d) | down   |
+| baseline-auto-update-count             | ≥1   | ≥5 (30d)   | down   |
+| eval-fail-rate                         | >5%  | >10% (30d) | down   |
 
 ## Integration Points
 
