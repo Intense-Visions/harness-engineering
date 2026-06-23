@@ -49,4 +49,27 @@ describe('SignalCard', () => {
     expect(screen.getByText('No coverage source')).toBeDefined();
     expect(screen.queryByTestId('signal-value')).toBeNull();
   });
+
+  it('rounds a fractional value to 1 decimal place', () => {
+    render(
+      <SignalCard
+        signal={{
+          ...base,
+          id: 'eval-fail-rate',
+          label: 'Eval Fail Rate',
+          unit: '%',
+          value: 7.3456,
+          status: 'warn',
+        }}
+      />
+    );
+    const text = screen.getByTestId('signal-value').textContent ?? '';
+    expect(text).toContain('7.3');
+    expect(text).not.toContain('7.3456');
+  });
+
+  it('renders an em dash when value is null on a non-muted status', () => {
+    render(<SignalCard signal={{ ...base, value: null, status: 'warn' }} />);
+    expect(screen.getByTestId('signal-value').textContent).toContain('—');
+  });
 });
