@@ -2442,11 +2442,11 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 ### Ship the 5-signal dashboard panel and signals.md doc
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/five-signal-dashboard-panel/proposal.md
 - **Summary:** Article gear item #7: "the five or six signals that, if any of them moves, the senior wants to know inside the hour." Today the dashboard surfaces operational data (maintenance, routing) but no curated signal layer. Pick five: PR-merged-without-multi-persona-review, coverage-trend-down-30d, complexity-trend-up-30d, baseline-auto-update-count, eval-fail-rate. Render as the dashboard's default landing view. Document the picked five in new `docs/standard/signals.md`. Source: Pass 1 #5, Pass 2 #4, Pass 3 #11.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@capillarytech.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#534
 
@@ -2860,3 +2860,4 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 | design-pipeline sub-project #3: audit-brand-compliance           | @chadjw                       | assigned | 2026-06-02 |
 | Init design + roadmap polish follow-ups                          | @chadjw                       | assigned | 2026-06-03 |
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |

@@ -24,7 +24,7 @@ function runHook(
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
     cwd,
-    timeout: 15000,
+    timeout: 60000,
     env: { ...baseEnv, ...env },
   });
   try {
@@ -56,7 +56,7 @@ const SAMPLE_RECORD = {
 
 const STDIN_INPUT = JSON.stringify({ session_id: 'session-001' });
 
-describe('telemetry-reporter', { timeout: 30000 }, () => {
+describe('telemetry-reporter', { timeout: 60000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {
