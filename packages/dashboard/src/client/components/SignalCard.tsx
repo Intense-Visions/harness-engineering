@@ -16,6 +16,12 @@ const TREND_ARROW: Record<SignalResult['trend'], string> = {
   flat: '→',
 };
 
+// Render guard: null → em dash; numbers rounded to 1 decimal (drops trailing .0).
+function formatValue(value: number | null): string {
+  if (value == null) return '—';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 export function SignalCard({ signal }: { signal: SignalResult }) {
   const isMuted = signal.status === 'pending' || signal.status === 'error';
   const colorClass = STATUS_CLASS[signal.status];
@@ -38,7 +44,7 @@ export function SignalCard({ signal }: { signal: SignalResult }) {
               data-testid="signal-value"
               className={`text-3xl font-bold tabular-nums ${colorClass}`}
             >
-              {signal.value}
+              {formatValue(signal.value)}
               <span className="ml-0.5 text-base font-medium text-neutral-muted">{signal.unit}</span>
             </span>
             <span
