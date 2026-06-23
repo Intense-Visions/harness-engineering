@@ -248,7 +248,7 @@ Each package has a clear responsibility:
 - **effectiveness** (`packages/intelligence/src/effectiveness/`): Persona effectiveness scoring, blind spot detection, and persona recommendation for agent routing.
 - **specialization** (`packages/intelligence/src/specialization/`): Persistent agent expertise tracking with temporal decay, specialization profiles, and weighted persona recommendation.
 - **analysis-provider** (`packages/intelligence/src/analysis-provider/`): Pluggable LLM analysis backends (Anthropic, OpenAI-compatible, Claude CLI).
-- **adapters** (`packages/intelligence/src/adapters/`): Work item adapters for Jira, GitHub, Linear, and manual input normalization.
+- **adapters** (`packages/intelligence/src/adapters/`): Work item adapters for Jira, GitHub, Linear, and manual input normalization, plus the **canary adapter** (`canary.ts`) — a total, gracefully-degrading boundary around the optional `canary-test-cli` (probe / recommendFramework / reviewTest, zod-validated; never throws when canary is absent). See ADR-0039 and `docs/knowledge/intelligence/canary-adapter.md`. Skills reach it via the `canary_probe` and `canary_recommend_framework` MCP tools, wired into the `harness-test-advisor` Coverage Audit for graceful degradation and deterministic framework recommendations.
 
 ### Additional Core Modules
 

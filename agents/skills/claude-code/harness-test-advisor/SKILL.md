@@ -118,7 +118,24 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 Activates when `--audit` is passed, OR when no diff is available AND the user's
 language matches audit intent ("coverage gaps", "deep dive", "coverage plan",
 "what's untested"). When this mode is selected, skip Phases 1–3 above and run
-the three audit phases below instead.
+the audit phases below instead.
+
+### Audit Phase 0: PROBE — Detect canary CLI availability
+
+Call the `canary_probe` MCP tool once at the start of the audit. It returns
+`{ status: "available" | "degraded", version?, reason? }` and never errors.
+
+- **`available`** — the deterministic canary CLI is usable; use `canary_recommend_framework`
+  for framework selection in Phase 3 (GAP REPORT).
+- **`degraded`** — the CLI is not usable (reason: `not-installed`, `binary-missing`,
+  `exec-failed`, or `bad-output`). Print one line:
+
+  > canary CLI unavailable (`<reason>`) — install `canary-test-cli` for deterministic
+  > framework recommendations. Proceeding; framework picks fall back to the plugin.
+
+  Then skip `canary_recommend_framework` calls for the rest of the run. This does **not**
+  affect the plugin-based Quality Review in Phase 2 (`canary:canary-review-test` is a
+  separate Claude Code plugin, installed independently of the CLI).
 
 ### Audit Phase 1: INVENTORY — Build the Source-to-Test Map
 
@@ -167,7 +184,10 @@ Emit a single report with three sections:
 ### Recommended Next Steps
 - Generate tests for high-priority uncovered files via `canary:canary-write-test`.
 - Resolve high-severity quality gaps via `canary:canary-review-test` follow-ups.
-- For uncovered files spanning domain + UI, run `canary:canary-pick-framework` first.
+- For uncovered files, pick a framework first: when Phase 0 reported `available`, call
+  the `canary_recommend_framework` MCP tool with a prompt describing the file's purpose
+  (deterministic, no LLM round-trip) and put its `framework` in the Suggested Action.
+  When `degraded`, fall back to the `canary:canary-pick-framework` plugin.
 ```
 
 ## Harness Integration

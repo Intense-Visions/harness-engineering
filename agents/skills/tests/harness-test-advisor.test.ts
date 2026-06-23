@@ -75,3 +75,20 @@ describe('harness-test-advisor SKILL.md surfaces Coverage Audit mode', () => {
     }
   });
 });
+
+describe('harness-test-advisor wires the canary MCP tools (deterministic path)', () => {
+  // The audit probes the canary CLI for graceful degradation and uses the
+  // deterministic framework recommender — separate from the generative plugin path.
+  const CANARY_MCP_TOOLS = ['canary_probe', 'canary_recommend_framework'];
+
+  it.each(PLATFORMS)('%s SKILL.md declares an audit PROBE phase', (platform) => {
+    expect(readSkillMd(platform)).toMatch(/Audit Phase 0: PROBE/);
+  });
+
+  it.each(PLATFORMS)('%s SKILL.md references both canary MCP tools', (platform) => {
+    const body = readSkillMd(platform);
+    for (const tool of CANARY_MCP_TOOLS) {
+      expect(body, `missing canary MCP tool "${tool}" in ${platform}`).toContain(tool);
+    }
+  });
+});

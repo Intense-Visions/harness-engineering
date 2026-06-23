@@ -430,6 +430,18 @@ Audit brand-semantics violations: tokens used in forbidden contexts per their $e
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `rules` (object, optional) — Per-rule enable flags.
 
+### `canary_probe`
+
+Probe availability of the optional canary test CLI (canary-test-cli). Returns { status: "available" | "degraded", version?, reason? } where reason is one of not-installed | binary-missing | exec-failed | bad-output. Never errors when canary is absent — call it before surfacing canary-backed steps so the audit can degrade gracefully.
+
+### `canary_recommend_framework`
+
+Classify a test prompt with canary and recommend a framework (deterministic, no API key). Returns { status, test_type, framework, file_extension, reasoning[], alternatives[] }. Degrades to a { status: "degraded" } sentinel when canary is unavailable.
+
+**Parameters:**
+
+- `prompt` (string, required) — Natural-language description of the test to scaffold, e.g. "end-to-end login flow in the browser".
+
 ### `compact`
 
 Compact content, resolve intents into aggregated packed responses, or re-compress prior tool output. Returns a packed envelope with source attribution and reduction metadata.
