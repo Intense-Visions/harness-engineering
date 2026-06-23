@@ -1,0 +1,28 @@
+{
+  "assessment": "request-changes",
+  "findings": [
+    {
+      "id": "bug-src-payment-ts-88",
+      "file": "src/payment.ts",
+      "lineRange": [85, 92],
+      "domain": "bug",
+      "severity": "critical",
+      "title": "Unhandled rejection swallows payment failure",
+      "rationale": "The catch block logs but does not rethrow, so a failed charge resolves as success.",
+      "suggestion": "Rethrow or surface the error to the caller.",
+      "evidence": ["src/payment.ts:88 catch { logger.warn(e) }"],
+      "validatedBy": "heuristic"
+    },
+    {
+      "id": "style-src-payment-ts-12",
+      "file": "src/payment.ts",
+      "lineRange": [12, 12],
+      "domain": "style",
+      "severity": "suggestion",
+      "title": "Prefer const for immutable binding",
+      "rationale": "`let endpoint` is never reassigned.",
+      "evidence": ["src/payment.ts:12 let endpoint = ..."],
+      "validatedBy": "heuristic"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { parseClaudeVerdict } from '../../../src/review/ci/parsers/claude';
 import { parseGeminiVerdict } from '../../../src/review/ci/parsers/gemini';
 import { parseCodexVerdict } from '../../../src/review/ci/parsers/codex';
+import { parseLocalVerdict } from '../../../src/review/ci/parsers/local';
 import { parseCiReviewVerdict } from '../../../src/review/ci/verdict-schema';
 
 const fx = (name: string) => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
@@ -40,5 +41,29 @@ describe('codex verdict parser', () => {
     expect(v.assessment).toBe('approve');
     expect(v.findings).toHaveLength(0);
     expect(v.exitCode).toBe(0);
+  });
+});
+
+describe('local (single-pass endpoint) verdict parser', () => {
+  it('maps an openai-compatible review response to a schema-valid CiReviewVerdict', () => {
+    const v = parseCiReviewVerdict(parseLocalVerdict(fx('local-verdict.json')));
+    expect(v.runner).toBe('local');
+    expect(v.ranLlmTier).toBe(true);
+    expect(v.assessment).toBe('request-changes');
+    expect(v.findings).toHaveLength(2);
+    expect(v.blockingFindings).toHaveLength(1);
+    expect(v.blockingFindings.every((f) => f.severity === 'critical')).toBe(true);
+    expect(v.exitCode).toBe(1);
+  });
+
+  it('defaults to comment with exitCode 0 when the endpoint returns no findings', () => {
+    const v = parseLocalVerdict(JSON.stringify({ assessment: 'approve', findings: [] }));
+    expect(v.assessment).toBe('approve');
+    expect(v.findings).toHaveLength(0);
+    expect(v.exitCode).toBe(0);
+  });
+
+  it('throws on non-JSON input', () => {
+    expect(() => parseLocalVerdict('not json')).toThrow();
   });
 });
