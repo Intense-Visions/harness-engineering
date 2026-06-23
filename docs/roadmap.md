@@ -2573,12 +2573,12 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Add architecture thresholds to basic and intermediate templates
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** —
 - **Summary:** `templates/basic/harness.config.json.hbs` (16 lines) and `templates/intermediate/harness.config.json.hbs` (23 lines) currently ship NO `architecture.thresholds` — no complexity cap, no module-size cap, no dependency-depth cap, no security config, no entropy config, no performance config. Basic-tier adopters get a layer-linter only. Add sensible defaults: complexity ≤ 20 basic / ≤ 15 intermediate, module-size caps, dependency-depth ≤ 8, security/entropy/perf configs. Every adopter gets real gates from minute one. Source: Pass 2 #2 (CRITICAL).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#537
 
@@ -2961,3 +2961,4 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned | 2026-06-23 |
