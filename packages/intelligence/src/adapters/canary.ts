@@ -92,6 +92,25 @@ function parseVersion(stdout: string): string | undefined {
   return stdout.match(/\d+\.\d+\.\d+/)?.[0];
 }
 
+/** Parse JSON without throwing; `undefined` on malformed input. */
+function safeJson(stdout: string): unknown {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Sentinel returned by recommendFramework when canary is degraded or its output is unusable. */
+const DEGRADED_RECOMMENDATION: FrameworkRecommendation = {
+  status: 'degraded',
+  test_type: '',
+  framework: '',
+  file_extension: '',
+  reasoning: [],
+  alternatives: [],
+};
+
 export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
   /**
    * Run a canary subcommand. Never throws — classifies failure into a degrade reason:
@@ -128,8 +147,21 @@ export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapt
       return version ? { status: 'available', version } : { status: 'available' };
     })());
 
-  // recommendFramework + reviewTest land in Tasks 4 & 5 (after the probe checkpoint).
-  // The cast is a deliberate, temporary intermediate; it is removed in Task 5 once
-  // all three methods are present and the object satisfies CanaryAdapter structurally.
-  return { probe } as CanaryAdapter;
+  const recommendFramework = async (prompt: string): Promise<FrameworkRecommendation> => {
+    const res = await execCanary(['recommend', prompt, '--json']);
+    if (!res.ok) return DEGRADED_RECOMMENDATION;
+    const parsed = frameworkRecommendationSchema.safeParse(safeJson(res.stdout));
+    return parsed.success ? parsed.data : DEGRADED_RECOMMENDATION;
+  };
+
+  const reviewTest = async (path: string, framework?: string): Promise<CanaryFinding[]> => {
+    const args = ['review-test', path, '--json'];
+    if (framework) args.push('--framework', framework);
+    const res = await execCanary(args);
+    if (!res.ok) return [];
+    const parsed = canaryFindingsSchema.safeParse(safeJson(res.stdout));
+    return parsed.success ? parsed.data : [];
+  };
+
+  return { probe, recommendFramework, reviewTest };
 }

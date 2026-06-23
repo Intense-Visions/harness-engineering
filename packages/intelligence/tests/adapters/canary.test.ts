@@ -47,3 +47,78 @@ describe('CanaryAdapter.probe', () => {
     expect(probe).toEqual({ status: 'degraded', reason: 'bad-output' });
   });
 });
+
+describe('CanaryAdapter.recommendFramework', () => {
+  // Captured from the Phase 0 spike: `canary recommend "<prompt>" --json`.
+  const RECOMMEND_FIXTURE = {
+    status: 'success',
+    test_type: 'e2e_ui',
+    framework: 'playwright',
+    file_extension: 'spec.ts',
+    reasoning: ['UI flow detected'],
+    alternatives: ['cypress'],
+  };
+
+  it('returns a validated FrameworkRecommendation on success', async () => {
+    const adapter = createCanaryAdapter(execResolves(JSON.stringify(RECOMMEND_FIXTURE)));
+    const rec = await adapter.recommendFramework('login flow');
+    expect(rec.framework).toBe('playwright');
+    expect(rec.test_type).toBe('e2e_ui');
+    expect(rec.reasoning).toEqual(['UI flow detected']);
+  });
+
+  it('returns a degraded sentinel on bad JSON (no throw)', async () => {
+    const rec = await createCanaryAdapter(execResolves('not json')).recommendFramework('x');
+    expect(rec.status).toBe('degraded');
+    expect(rec.alternatives).toEqual([]);
+  });
+
+  it('returns a degraded sentinel on schema mismatch (no throw)', async () => {
+    const rec = await createCanaryAdapter(
+      execResolves(JSON.stringify({ framework: 123 }))
+    ).recommendFramework('x');
+    expect(rec.status).toBe('degraded');
+  });
+
+  it('returns a degraded sentinel when canary is absent', async () => {
+    const rec = await createCanaryAdapter(execRejects({ code: 'ENOENT' })).recommendFramework('x');
+    expect(rec.status).toBe('degraded');
+  });
+});
+
+describe('CanaryAdapter.reviewTest', () => {
+  // Captured from the Phase 0 spike: `canary review-test <path> --json`.
+  const REVIEW_FIXTURE = [
+    {
+      file: 'tests/login.spec.ts',
+      line: 12,
+      rule: 'LINT-005',
+      severity: 'warning',
+      message: 'Hardcoded sleep',
+      suggestion: 'Use a wait condition',
+    },
+  ];
+
+  it('returns validated CanaryFinding[] on success', async () => {
+    const findings = await createCanaryAdapter(
+      execResolves(JSON.stringify(REVIEW_FIXTURE))
+    ).reviewTest('tests/login.spec.ts');
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('LINT-005');
+    expect(findings[0].severity).toBe('warning');
+  });
+
+  it('returns [] on bad JSON (no throw)', async () => {
+    expect(await createCanaryAdapter(execResolves('not json')).reviewTest('x')).toEqual([]);
+  });
+
+  it('returns [] on schema mismatch (no throw)', async () => {
+    expect(
+      await createCanaryAdapter(execResolves(JSON.stringify([{ rule: 1 }]))).reviewTest('x')
+    ).toEqual([]);
+  });
+
+  it('returns [] when canary is degraded/absent', async () => {
+    expect(await createCanaryAdapter(execRejects({ code: 'ENOENT' })).reviewTest('x')).toEqual([]);
+  });
+});
