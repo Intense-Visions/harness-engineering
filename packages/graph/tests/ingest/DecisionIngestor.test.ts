@@ -234,4 +234,180 @@ Made a second decision.
       expect(store.getNode('decision:0001-good')).not.toBeNull();
     });
   });
+
+  // Issue #504 Finding 3 — index `docs/architecture/<topic>/ADR-*.md`
+  // (the storage convention used by harness-architecture-advisor).
+  describe('ingestArchitecture', () => {
+    const ARCH_ADR_TEMPLATE = `# ADR-001: Use AuthService for authentication
+
+**Date:** 2026-04-27
+**Status:** Accepted
+**Deciders:** @cwarner, @arch-team
+
+## Context
+
+The existing approach mixes auth concerns across modules.
+
+## Decision
+
+Centralize on AuthService. Calls to hashPassword route through it.
+
+## Alternatives Considered
+
+### Inline auth in each handler
+
+Rejected because of duplication.
+
+## Consequences
+
+### Positive
+- One place to audit.
+
+### Negative
+- Migration cost.
+
+## Action Items
+
+- [ ] Migrate user-service to AuthService.
+`;
+
+    async function writeArchAdr(topic: string, filename: string, content: string) {
+      const topicDir = path.join(tmpDir, topic);
+      await fs.mkdir(topicDir, { recursive: true });
+      await fs.writeFile(path.join(topicDir, filename), content, 'utf-8');
+    }
+
+    it('creates decision nodes from markdown-style ADRs (no frontmatter required)', async () => {
+      await writeArchAdr('auth', 'ADR-001.md', ARCH_ADR_TEMPLATE);
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(1);
+      expect(result.errors).toHaveLength(0);
+
+      const node = store.getNode('decision:architecture:auth:ADR-001');
+      expect(node).not.toBeNull();
+      expect(node!.type).toBe('decision');
+      expect(node!.name).toBe('Use AuthService for authentication');
+      expect(node!.metadata.number).toBe('001');
+      expect(node!.metadata.date).toBe('2026-04-27');
+      expect(node!.metadata.status).toBe('Accepted');
+      expect(node!.metadata.deciders).toBe('@cwarner, @arch-team');
+      expect(node!.metadata.domain).toBe('auth');
+      expect(node!.metadata.source).toBe('architecture');
+    });
+
+    it('parses Status: Superseded so snapshot drift detection can flag it', async () => {
+      await writeArchAdr(
+        'auth',
+        'ADR-001.md',
+        ARCH_ADR_TEMPLATE.replace('**Status:** Accepted', '**Status:** Superseded')
+      );
+
+      await ingestor.ingestArchitecture(tmpDir);
+      const node = store.getNode('decision:architecture:auth:ADR-001');
+      expect(node!.metadata.status).toBe('Superseded');
+    });
+
+    it('recursively scans nested topic directories', async () => {
+      await writeArchAdr('auth', 'ADR-001.md', ARCH_ADR_TEMPLATE);
+      await writeArchAdr(
+        'data',
+        'ADR-002.md',
+        '# ADR-002: Use Postgres\n\n**Date:** 2026-05-01\n**Status:** Accepted\n\n## Decision\n\nUse Postgres.\n'
+      );
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(2);
+      expect(store.getNode('decision:architecture:auth:ADR-001')).not.toBeNull();
+      expect(store.getNode('decision:architecture:data:ADR-002')).not.toBeNull();
+    });
+
+    it('namespaces node ids by topic so duplicate ADR numbers across topics coexist', async () => {
+      await writeArchAdr('auth', 'ADR-001.md', ARCH_ADR_TEMPLATE);
+      await writeArchAdr(
+        'data',
+        'ADR-001.md',
+        '# ADR-001: Use Postgres\n\n**Date:** 2026-05-01\n**Status:** Accepted\n\n## Decision\n\nUse Postgres.\n'
+      );
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(2);
+      const auth = store.getNode('decision:architecture:auth:ADR-001');
+      const data = store.getNode('decision:architecture:data:ADR-001');
+      expect(auth).not.toBeNull();
+      expect(data).not.toBeNull();
+      expect(auth!.name).toBe('Use AuthService for authentication');
+      expect(data!.name).toBe('Use Postgres');
+    });
+
+    it('skips non-ADR markdown files in the architecture tree', async () => {
+      await writeArchAdr('auth', 'ADR-001.md', ARCH_ADR_TEMPLATE);
+      // proposal.md and analysis.md are common siblings in harness-architecture-advisor topic dirs
+      await writeArchAdr('auth', 'proposal.md', '# Proposal\n\nNot an ADR.\n');
+      await writeArchAdr('auth', 'analysis.md', '# Analysis\n\nNot an ADR.\n');
+      // A README at root
+      await fs.writeFile(path.join(tmpDir, 'README.md'), '# Architecture\n');
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(1);
+      expect(store.getNode('decision:architecture:auth:ADR-001')).not.toBeNull();
+    });
+
+    it('skips files whose H1 does not match the ADR pattern even with ADR- prefix', async () => {
+      await writeArchAdr('auth', 'ADR-bogus.md', '# Not an ADR\n\n**Status:** Accepted\n');
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(0);
+    });
+
+    it('returns empty result when architecture directory is absent', async () => {
+      const result = await ingestor.ingestArchitecture(path.join(tmpDir, 'does-not-exist'));
+
+      expect(result.nodesAdded).toBe(0);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('omits metadata.domain when ADRs live at the architecture root (no topic dir)', async () => {
+      await fs.writeFile(path.join(tmpDir, 'ADR-001.md'), ARCH_ADR_TEMPLATE, 'utf-8');
+
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.nodesAdded).toBe(1);
+      const node = store.getNode('decision:architecture:ADR-001');
+      expect(node).not.toBeNull();
+      expect(node!.metadata.domain).toBeUndefined();
+    });
+
+    it('creates decided edges to code nodes referenced in the body', async () => {
+      store.addNode({
+        id: 'class:AuthService',
+        type: 'class',
+        name: 'AuthService',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'function:hashPassword',
+        type: 'function',
+        name: 'hashPassword',
+        metadata: {},
+      });
+
+      await writeArchAdr('auth', 'ADR-001.md', ARCH_ADR_TEMPLATE);
+      const result = await ingestor.ingestArchitecture(tmpDir);
+
+      expect(result.edgesAdded).toBeGreaterThanOrEqual(2);
+      const edges = store.getEdges({
+        from: 'decision:architecture:auth:ADR-001',
+        type: 'decided',
+      });
+      const targets = edges.map((e) => e.to);
+      expect(targets).toContain('class:AuthService');
+      expect(targets).toContain('function:hashPassword');
+    });
+  });
 });

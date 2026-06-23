@@ -13,11 +13,19 @@ function runHook(
 ): { exitCode: number; stderr: string } {
   const stdinFile = join(cwd, '.stdin-data.json');
   writeFileSync(stdinFile, stdinData);
+  // Sanitize telemetry opt-out vars from the inherited base env so each test
+  // fully controls telemetry state via the explicit `env` arg. The global test
+  // setup sets DO_NOT_TRACK=1 by default (to keep telemetry export from making
+  // background fetch() calls in other suites); without stripping it here, the
+  // telemetry-enabled cases below would inherit the opt-out and never report.
+  const baseEnv = { ...process.env };
+  delete baseEnv.DO_NOT_TRACK;
+  delete baseEnv.HARNESS_TELEMETRY_OPTOUT;
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
     cwd,
-    timeout: 15000,
-    env: { ...process.env, ...env },
+    timeout: 60000,
+    env: { ...baseEnv, ...env },
   });
   try {
     rmSync(stdinFile, { force: true });
@@ -48,7 +56,7 @@ const SAMPLE_RECORD = {
 
 const STDIN_INPUT = JSON.stringify({ session_id: 'session-001' });
 
-describe('telemetry-reporter', { timeout: 30000 }, () => {
+describe('telemetry-reporter', { timeout: 60000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {

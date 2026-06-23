@@ -101,13 +101,33 @@ export function findPossibleMatches(
     .map((m) => m.name);
 }
 
+// Default doc-path prefixes that describe intended future code (ADRs,
+// decisions, proposals). API-signature drift inside these docs is suppressed
+// — symbols there describe the design, not the codebase. Override via
+// DriftConfig.forwardLookingPaths.
+const DEFAULT_FORWARD_LOOKING_PATHS = [
+  'docs/architecture/',
+  'docs/decisions/',
+  'docs/proposals/',
+  'docs/adr/',
+];
+
 const DEFAULT_DRIFT_CONFIG: DriftConfig = {
   docPaths: [],
   checkApiSignatures: true,
   checkExamples: true,
   checkStructure: true,
   ignorePatterns: [],
+  forwardLookingPaths: DEFAULT_FORWARD_LOOKING_PATHS,
 };
+
+// Match either as relative-path prefix (`docs/architecture/foo.md`) or as a
+// substring anywhere in the absolute resolved path. The latter handles cases
+// where the snapshot stores absolute paths.
+function isForwardLookingDoc(docPath: string, forwardLookingPaths: string[]): boolean {
+  const normalized = docPath.replaceAll('\\', '/');
+  return forwardLookingPaths.some((prefix) => normalized.includes(prefix));
+}
 
 /**
  * Check API signature drift - docs reference symbols that don't exist
@@ -121,6 +141,13 @@ function checkApiSignatureDrift(
 
   for (const ref of snapshot.codeReferences) {
     if (config.ignorePatterns.some((p) => ref.reference.match(new RegExp(p)))) {
+      continue;
+    }
+
+    // Forward-looking docs (ADRs, decisions, proposals) describe intended
+    // future code; their referenced symbols are not codebase drift. See
+    // github issue #492.
+    if (isForwardLookingDoc(ref.docFile, config.forwardLookingPaths)) {
       continue;
     }
 
@@ -156,11 +183,24 @@ function checkApiSignatureDrift(
   return drifts;
 }
 
+interface MarkdownLink {
+  /** Raw link as written, including any `#anchor` portion. */
+  raw: string;
+  /** File path portion (no anchor). */
+  path: string;
+  /** Anchor portion without the leading `#`, or undefined when absent. */
+  anchor?: string;
+  line: number;
+}
+
 /**
- * Extract file/directory links from markdown content
+ * Extract file/directory links from markdown content.
+ *
+ * Splits `file.md#anchor` into `path = file.md` and `anchor = anchor` so the
+ * existence check operates on the file path alone (see github issue #492).
  */
-function extractFileLinks(content: string): { link: string; line: number }[] {
-  const links: { link: string; line: number }[] = [];
+function extractFileLinks(content: string): MarkdownLink[] {
+  const links: MarkdownLink[] = [];
   const lines = content.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
@@ -172,15 +212,23 @@ function extractFileLinks(content: string): { link: string; line: number }[] {
     let match;
     while ((match = linkRegex.exec(line)) !== null) {
       const linkPath = match[2];
-      // Only check relative paths to files (not URLs)
-      if (
-        linkPath &&
-        !linkPath.startsWith('http') &&
-        !linkPath.startsWith('#') &&
-        (linkPath.includes('.') || linkPath.startsWith('..'))
-      ) {
-        links.push({ link: linkPath, line: i + 1 });
-      }
+      if (!linkPath) continue;
+      if (linkPath.startsWith('http')) continue;
+      if (linkPath.startsWith('#')) continue;
+      if (!linkPath.includes('.') && !linkPath.startsWith('..')) continue;
+
+      const hashIdx = linkPath.indexOf('#');
+      const filePart = hashIdx === -1 ? linkPath : linkPath.slice(0, hashIdx);
+      const anchorPart = hashIdx === -1 ? undefined : linkPath.slice(hashIdx + 1);
+      // Anchor-only links (`#section`) were already filtered above; here
+      // a leading `#` would mean an empty filePart and we should skip.
+      if (!filePart) continue;
+      links.push({
+        raw: linkPath,
+        path: filePart,
+        ...(anchorPart ? { anchor: anchorPart } : {}),
+        line: i + 1,
+      });
     }
   }
 
@@ -188,7 +236,42 @@ function extractFileLinks(content: string): { link: string; line: number }[] {
 }
 
 /**
- * Check structure drift - docs reference files/directories that don't exist
+ * GFM-style heading slug: lowercase, spaces → hyphens, drop characters that
+ * aren't alphanumeric / hyphens. Mirrors GitHub's behavior well enough for
+ * the common case (no full Unicode normalization, but matches typical
+ * hand-written anchors).
+ */
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+async function extractHeadingSlugs(filePath: string): Promise<Set<string>> {
+  const slugs = new Set<string>();
+  let content: string;
+  try {
+    const fs = await import('node:fs/promises');
+    content = await fs.readFile(filePath, 'utf-8');
+  } catch {
+    return slugs;
+  }
+  const headingRe = /^#{1,6}[ \t]+(.+?)[ \t]*#*\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = headingRe.exec(content)) !== null) {
+    const heading = m[1];
+    if (heading) slugs.add(slugifyHeading(heading));
+  }
+  return slugs;
+}
+
+/**
+ * Check structure drift - docs reference files/directories that don't exist.
+ * When a link targets `file.md#anchor`, the file portion is checked for
+ * existence first; if the file exists, the anchor is validated against the
+ * target file's GFM-slugged headings (see github issue #492).
  */
 async function checkStructureDrift(
   snapshot: CodebaseSnapshot,
@@ -199,22 +282,42 @@ async function checkStructureDrift(
   for (const doc of snapshot.docs) {
     const fileLinks = extractFileLinks(doc.content);
 
-    for (const { link, line } of fileLinks) {
-      const resolvedPath = resolve(dirname(doc.path), link);
+    for (const link of fileLinks) {
+      const resolvedPath = resolve(dirname(doc.path), link.path);
       const exists = await fileExists(resolvedPath);
 
       if (!exists) {
         drifts.push({
           type: 'structure',
           docFile: doc.path,
-          line,
-          reference: link,
+          line: link.line,
+          reference: link.raw,
           context: 'link',
           issue: 'NOT_FOUND',
-          details: `File "${link}" referenced in documentation does not exist`,
+          details: `File "${link.path}" referenced in documentation does not exist`,
           suggestion: 'Update the link or remove the reference',
           confidence: 'high',
         });
+        continue;
+      }
+
+      if (link.anchor && resolvedPath.toLowerCase().endsWith('.md')) {
+        const slugs = await extractHeadingSlugs(resolvedPath);
+        // Only emit when we successfully read headings — empty set on read
+        // failure means we should not pretend the anchor is broken.
+        if (slugs.size > 0 && !slugs.has(link.anchor.toLowerCase())) {
+          drifts.push({
+            type: 'structure',
+            docFile: doc.path,
+            line: link.line,
+            reference: link.raw,
+            context: 'link-anchor',
+            issue: 'NOT_FOUND',
+            details: `Anchor "#${link.anchor}" not found in "${link.path}"`,
+            suggestion: 'Check the target file for the correct heading slug',
+            confidence: 'medium',
+          });
+        }
       }
     }
   }

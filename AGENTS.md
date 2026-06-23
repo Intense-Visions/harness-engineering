@@ -18,6 +18,72 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 **Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
+## Strategic Anchor
+
+This repository ships a **Strategic Anchor system** for projects that adopt
+harness. The anchor lives at `STRATEGY.md` in the repo root (peer of
+`README.md`) and grounds downstream agent skills with product-level context
+that the codebase alone cannot supply.
+
+### What STRATEGY.md is
+
+A short, durable file with five required sections (`Target problem`,
+`Our approach`, `Who it's for`, `Key metrics`, `Tracks`) plus three optional
+sections (`Milestones`, `Not working on`, `Marketing`). Frontmatter carries
+`name`, `last_updated` (ISO date), and `version`. Schema authority lives in
+`packages/types/src/strategy.ts` (cross-layer contract) and
+`packages/core/src/strategy/schema.ts` (Zod runtime validator). `harness validate`
+checks shape when the file exists.
+
+### How agents should read it
+
+1. **Before brainstorming a new feature** — `harness-brainstorming` Phase 1
+   EXPLORE reads `STRATEGY.md` if present and cites it as grounding in the
+   spec's `evidence` section. If a feature contradicts the strategy, surface
+   the contradiction explicitly during EVALUATE rather than auto-resolving.
+
+2. **Before picking the next roadmap item** — `harness-roadmap-pilot` Phase 2
+   RECOMMEND reads `STRATEGY.md` and applies strategy-alignment as a
+   tiebreaker bonus on top of impact × confidence ÷ effort.
+
+3. **Before generating candidate ideas** — `harness-ideate` reads
+   `STRATEGY.md` as grounding before producing ranked ideation under
+   `docs/ideation/<slug>-YYYY-MM-DD.md`.
+
+4. **As graph-queryable facts** — `BusinessKnowledgeIngestor.ingestStrategy`
+   (in `packages/graph/src/ingest/`) emits one `business_fact` node per
+   non-empty section. Nodes are tagged with `metadata.domain === 'strategy'`
+   and `metadata.source === 'STRATEGY.md'`. Query examples:
+   - `findNodes({ type: 'business_fact' })` filtered by `metadata.domain === 'strategy'`
+     returns all strategy sections.
+   - `getNode('bk:strategy:target-problem')` returns the target-problem fact.
+
+### What agents must not do
+
+- **Do not auto-generate `STRATEGY.md` from code, commits, ADRs, or roadmap state.**
+  Strategy is interview-driven only ([ADR-0036](docs/knowledge/decisions/0036-strategy-is-interview-driven.md)).
+  The interview lives in the `harness-strategy` skill and enforces pushback
+  rules (fluff detection, goal-as-strategy rejection,
+  feature-list-as-strategy rejection) capped at 2 rounds per section.
+- **Do not write `STRATEGY.md` section bodies** from any skill other than
+  `harness-strategy`. (Tooling may bump `version` / `last_updated`
+  frontmatter; section bodies are off-limits.)
+- **Do not conflate `STRATEGY.md` with `harness-roadmap.md`.** Strategy is
+  durable product-level anchor; roadmap is tactical phase tracker. See
+  [ADR-0035](docs/knowledge/decisions/0035-strategy-anchor-vs-roadmap-md.md)
+  and [`docs/conventions/strategy-vs-roadmap.md`](docs/conventions/strategy-vs-roadmap.md).
+- **Do not block on absence.** STRATEGY.md is opt-in. Every consumer
+  soft-fails when the file is missing — agents must do the same.
+
+### Adoption surface
+
+- `/harness:strategy` — run interview / update STRATEGY.md.
+- `/harness:ideate` — generate ranked candidate ideas grounded in strategy.
+- `initialize-harness-project` Phase 3 — 3-way yes/no/later question on
+  capturing strategy at project init. Decline persists in
+  `.harness/state.json` as `init.strategy.declined: true` so re-runs
+  respect prior decision.
+
 ## Repository Structure
 
 This is a **monorepo** using pnpm workspaces and Turborepo for orchestration.
@@ -116,7 +182,7 @@ Each package has a clear responsibility:
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
 - **intelligence**: Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation (depends on types, graph)
 - **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues. Modern config surface is `agent.backends` (named-map) + `agent.routing` (per-use-case). Routing supports per-skill + per-cognitive-mode axes with fallback chains; dashboard `/routing` panel and `harness routing {config,trace,decisions}` CLI surface decision telemetry. Legacy `agent.backend` / `agent.localBackend` accepted via in-memory migration shim with deprecation warning. (depends on types, core, intelligence)
-- **dashboard**: Web dashboard — React + Hono full-stack app with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
+- **dashboard**: Web dashboard — React + Hono full-stack app with 13 pages (Signals default-landing panel, Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), SSE-based live updates, and server-side data gathering. `/` redirects to `/s/signals` (Spec 534). (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ### Notable Core Modules
@@ -572,9 +638,9 @@ See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
 
-**Client** (`src/client/`): React SPA with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
+**Client** (`src/client/`): React SPA with 13 pages (Signals, Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), reusable components (SignalCard, KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`). Signals is the default landing panel — `/` redirects to `/s/signals` (Spec 534); chat threads remain reachable at `/t/:threadId`.
 
-**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: actions, actions-claim-file-less, adoption, ci, decay-trends, graph, health, health-check, impact, overview, roadmap, sse, traceability. Data gatherers: adoption, anomalies, arch, blast-radius, ci, decay-trends, entry-points, graph, health, perf, roadmap, security, traceability.
+**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: signals, actions, actions-claim-file-less, adoption, ci, decay-trends, graph, health, health-check, impact, overview, roadmap, sse, traceability. Data gatherers: signals, adoption, anomalies, arch, blast-radius, ci, decay-trends, entry-points, graph, health, perf, roadmap, security, traceability.
 
 ### Orchestrator Intelligence Integration
 

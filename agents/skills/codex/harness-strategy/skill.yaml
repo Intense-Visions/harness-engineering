@@ -1,0 +1,54 @@
+name: harness-strategy
+version: "0.1.0"
+description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+stability: static
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-strategy
+  args: []
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-strategy
+type: rigid
+tier: 2
+phases:
+  - name: route
+    description: Route by STRATEGY.md presence and validity (absent → first-run; valid → update; invalid → repair offer)
+    required: true
+  - name: first-run-interview
+    description: Walk sections in template order with pushback; cap at 2 rounds per section; write via writeStrategyDoc
+    required: true
+  - name: update
+    description: Re-interview a single user-selected section; bump version and last_updated; preserve untouched sections
+    required: false
+  - name: handoff
+    description: Note which downstream skills (harness-brainstorming, harness-ideate, harness-roadmap-pilot, BusinessKnowledgeIngestor) will pick up STRATEGY.md as grounding
+    required: true
+state:
+  persistent: true
+  files:
+    - STRATEGY.md
+    - STRATEGY.md.bak
+depends_on: []
+keywords:
+  - strategy
+  - strategic-anchor
+  - product-anchor
+  - upstream-grounding
+  - compound-engineering
+  - rumelt

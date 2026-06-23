@@ -1,0 +1,66 @@
+name: harness-ideate
+version: "0.1.0"
+description: Pre-brainstorm ideation phase. Generates N candidate ideas grounded in STRATEGY.md (when present), critiques each against its strongest objection, ranks by (impact × confidence) ÷ effort with a bounded strategy-alignment tiebreaker, and writes a single ranked Markdown artifact to docs/ideation/[slug]-YYYY-MM-DD.md. Produces ranked ideation — never specs, plans, or code. harness-brainstorming consumes the output.
+stability: static
+cognitive_mode: divergent-generator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-ideate
+  args:
+    - name: focus
+      description: One-line focus argument that anchors candidate generation (e.g., "onboarding for plugin-only users"). Used as the ideation topic and slug source.
+      required: false
+    - name: count
+      description: Number of candidate ideas to generate (default 10, min 5, max 25).
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-ideate
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: ground
+    description: Read STRATEGY.md if present at repo root (grounding); read the focus argument; confirm the topic with the user.
+    required: true
+  - name: generate
+    description: Produce N candidate ideas with per-idea fields (premise, persona, complexity, key risk, impact, confidence, effort).
+    required: true
+  - name: critique
+    description: For each idea identify the strongest objection; user picks which objections to answer.
+    required: true
+  - name: rank
+    description: Score by (impact × confidence) ÷ effort using a 1/2/3 mapping for low/medium/high; apply strategy-alignment as a bounded tiebreaker bonus when STRATEGY.md is present.
+    required: true
+  - name: write
+    description: Persist the ranked artifact to docs/ideation/[slug]-YYYY-MM-DD.md (kebab-case slug ≤30 chars, 6-char hash suffix on collision).
+    required: true
+state:
+  persistent: true
+  files:
+    - docs/ideation/
+depends_on: []
+related_skills:
+  - harness-strategy
+  - harness-brainstorming
+keywords:
+  - ideation
+  - pre-brainstorm
+  - candidate-generation
+  - impact-confidence-effort
+  - strategic-anchor
+  - compound-engineering

@@ -21,11 +21,14 @@ function emptyResult(diagramType: string = 'unknown'): DiagramParseResult {
   };
 }
 
-/** Detect diagram type from the first non-empty line. */
+/** Detect diagram type from the first non-empty, non-comment line. */
 function detectDiagramType(content: string): string {
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
-    if (!trimmed) continue;
+    // `%%` is Mermaid's comment prefix. Files commonly start with a provenance
+    // line like `%% Source: docs/foo.md` — skip these the same way the Mermaid
+    // grammar does, otherwise the type detection bails on the first comment.
+    if (!trimmed || trimmed.startsWith('%%')) continue;
 
     if (/^(?:graph|flowchart)\b/i.test(trimmed)) return 'flowchart';
     if (/^sequenceDiagram\b/.test(trimmed)) return 'sequence';

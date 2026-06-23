@@ -35,7 +35,26 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 ### Phase 1: EXPLORE -- Gather Context
 
-1. **Load project context.** Call `gather_context({ path: "<project-root>", intent: "<feature description>", skill: "harness-brainstorming", session: "<session-slug-if-known>", include: ["graph", "businessKnowledge", "sessions", "validation"] })`. The `graph` context surfaces `business_fact` nodes relevant to the feature domain. The `businessKnowledge` context loads documented domain knowledge from `docs/knowledge/`. Use both to ground exploration in verified facts rather than assumptions.
+0a. **Read STRATEGY.md if present at repo root (upstream grounding).** Strategy is the durable product anchor that ranks above feature-level context — read it first so the rest of EXPLORE can cross-reference. Call `read_strategy({ path: "<project-root>" })` on the harness MCP server — it returns `{ present, valid, doc?, error? }` and runs validation + parsing inside the server so the project does not need `@harness-engineering/core` installed.
+
+    Fallback for environments without the MCP server (only works when core is resolvable from the project):
+
+    ```bash
+    node -e "import('@harness-engineering/core').then(async m => {
+      const v = await m.validateStrategy(process.cwd());
+      if (!v.ok || !v.value.present) { console.log(JSON.stringify({ grounded: false, reason: 'absent' })); return; }
+      const raw = require('fs').readFileSync('STRATEGY.md', 'utf-8');
+      console.log(JSON.stringify({ grounded: true, doc: m.asStrategyDoc(m.parseStrategyDoc(raw)) }));
+    })"
+    ```
+
+    Three cases:
+
+    - **Absent or invalid:** soft-fail silently. Do not block and do not warn in the spec — the skill works exactly as before when there is no strategic anchor.
+    - **Present and valid:** capture the `Target problem`, `Our approach`, `Who it's for`, and `Tracks` section bodies. Treat them as grounding context alongside `gather_context` outputs. The captured strategy is cited as evidence in step 1's `[evidence]` annotations of the spec output.
+    - **Contradiction with the user's feature description:** do NOT auto-resolve. Carry the contradiction forward as an open question into Phase 2 EVALUATE — surface it explicitly so the human can decide whether to refine the feature or update strategy via `/harness:strategy`.
+
+1. **Load project context.** Call `gather_context({ path: "<project-root>", intent: "<feature description>", skill: "harness-brainstorming", session: "<session-slug-if-known>", include: ["graph", "businessKnowledge", "sessions", "validation"] })`. The `graph` context surfaces `business_fact` nodes relevant to the feature domain. The `businessKnowledge` context loads documented domain knowledge from `docs/knowledge/`. Use both to ground exploration in verified facts rather than assumptions. When `STRATEGY.md` was loaded in step 0a, treat its sections as a higher-tier grounding source than `businessKnowledge` — strategy reflects an explicit human commitment, knowledge is observation.
 2. **Read the existing codebase.** Understand architecture, constraints, and conventions. Check AGENTS.md, existing specs in `docs/`, and relevant source files.
 3. **Identify the problem boundary.** What exactly needs solving? What is out of scope? Write both down. Cross-reference `businessKnowledge` domains — if documented business rules constrain the problem, note them.
 4. **Check for prior art.** Has this been partially solved elsewhere? Are there patterns to follow or deliberately break?
@@ -66,7 +85,8 @@ When no arguments are provided (standalone invocation), the skill operates exact
 2. **Prefer multiple choice over open-ended questions.** Give 2-4 concrete options with brief tradeoff notes.
 3. **Acknowledge answers and build on them.** Do not re-ask clarified points. Track decisions as they accumulate.
 4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration.
-5. **Continue until you have enough clarity** to propose concrete approaches. Typically 3-7 questions suffice. If you need >10, the scope is too large -- decompose.
+5. **Surface strategy contradictions.** If Phase 1 step 0a captured a contradiction between the feature description and `STRATEGY.md`, ask the human about it explicitly as one of the first few EVALUATE questions. Frame it as a choice — refine the feature to align, or refine strategy via `/harness:strategy` — never auto-resolve. Skip this when STRATEGY.md was absent or no contradiction was detected.
+6. **Continue until you have enough clarity** to propose concrete approaches. Typically 3-7 questions suffice. If you need >10, the scope is too large -- decompose.
 
 ### Context Keywords
 
@@ -116,7 +136,7 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    - **Entry Points** -- Which system entry points does this feature touch or create? (e.g., new CLI command, new MCP tool, new skill, new API route, new barrel export)
    - **Registrations Required** -- What registrations are needed for the feature to be discoverable? (e.g., barrel export regeneration, skill tier assignment, route registration)
    - **Documentation Updates** -- What docs need updating to reflect the new capability? (e.g., AGENTS.md section, API docs, README, guides)
-   - **Architectural Decisions** -- What decisions warrant ADRs? List the decision and a one-line rationale. Only for medium/large tier changes -- omit for small changes.
+   - **Architectural Decisions** -- Which decisions from the **Decisions made** section rise to a standalone ADR? Reference each by name with a one-line note on _why_ it warrants an ADR. Do **not** restate the decisions here -- this subsection points back to the canonical **Decisions made** section; duplicating them creates two sources that drift (spec-craft flags this as SPEC-R004). Only for medium/large tier changes -- "None" for small changes.
    - **Knowledge Impact** -- What domain concepts, patterns, or relationships should enter the knowledge graph?
 
    If the feature is a small change (bug fix, config tweak, < 3 files), the section may contain only Entry Points and Registrations Required with "None" for the others. The section must still be present.
@@ -301,7 +321,8 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 1. **File reference:** `file:line` (e.g., `src/services/auth.ts:42` -- "existing JWT middleware")
 2. **Prior art:** `file` with description (e.g., `src/utils/email.ts` -- "reusable for notifications")
 3. **Docs:** `docs/path` (e.g., `docs/changes/user-auth/proposal.md` -- "established OAuth2 standard")
-4. **Session evidence:** Write via `manage_state` `append_entry` to `evidence` section.
+4. **Strategy grounding:** `STRATEGY.md` with section reference (e.g., `STRATEGY.md#tracks` -- "advances the 'pulse-reports' track"). Cite when Phase 1 step 0a loaded a valid strategy AND the decision is informed by it. Mandatory when the spec extends, narrows, or contradicts a strategy section.
+5. **Session evidence:** Write via `manage_state` `append_entry` to `evidence` section.
 
 **When to cite:** Phase 1 (existing code/patterns), Phase 3 (tradeoff justifications), Phase 4 (spec referencing existing implementation).
 
@@ -311,6 +332,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 
 - **`harness validate`** -- Run after writing the spec. Verifies project health and spec placement.
 - **`harness check-docs`** -- Verify spec does not conflict with existing docs.
+- **`STRATEGY.md` grounding (Phase 1 step 0a)** -- When present at repo root and valid, loaded via the `read_strategy` MCP tool (which the harness MCP server backs with `validateStrategy` + `parseStrategyDoc` + `asStrategyDoc` from `@harness-engineering/core` — projects do not need core installed). Soft-fails when absent or invalid; cites strategy sections in the spec's evidence annotations when present. Boundary with `harness-strategy`: brainstorming READS; `harness-strategy` WRITES. Never modify `STRATEGY.md` from this skill.
 - **Spec location** -- `docs/changes/<feature>/proposal.md`.
 - **Handoff** -- Once approved, invoke harness-planning to create the implementation plan.
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.

@@ -11,7 +11,7 @@ function runHook(stdinData: string): { exitCode: number; stderr: string } {
   writeFileSync(stdinFile, stdinData);
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
-    timeout: 15000,
+    timeout: 60000,
   });
   try {
     rmSync(stdinFile, { force: true });

@@ -149,6 +149,20 @@ export const ALL_MCP_TOOLS: string[] = [
   'knowledge_craft',
   // craft-pipeline #10 — security-craft LLM-judgment ceiling skill (AST-driven, conservative-confidence)
   'security_craft',
+  // outcome-eval — post-execution spec-satisfaction verdict (tiered confidence→authority)
+  'outcome_eval',
+  // strategic-anchor — STRATEGY.md read/validate/write so projects can call
+  // these via MCP without needing @harness-engineering/core in node_modules
+  'validate_strategy',
+  'read_strategy',
+  'write_strategy',
+  // strategic-anchor — pulse config writer + STRATEGY.md seed extractor
+  'write_pulse_config',
+  'seed_pulse_from_strategy',
+  // strategic-anchor — compound lock acquire/release (server holds the handle;
+  // skill threads a token between calls)
+  'acquire_compound_lock',
+  'release_compound_lock',
 ];
 
 /**

@@ -3,7 +3,7 @@
 > Add a durable upstream product anchor (`STRATEGY.md`) and a pre-brainstorm ideation phase. Closes the "what should we even be working on, and why?" gap above the existing brainstorm → plan → execute pipeline.
 
 **Date:** 2026-05-05
-**Status:** Proposed
+**Status:** Done
 **Keywords:** strategy-anchor, ideation, grounding, project-init, roadmap-pilot
 
 ## Overview
@@ -270,3 +270,27 @@ Write 2 ADRs (STRATEGY.md vs roadmap.md separation; strategy-is-interview-driven
 - **Risk:** Section sprawl ("we also need a section on...") → **Mitigation:** Schema validation rejects unknown sections; expansion requires a separate ADR
 - **Risk:** Existing projects with no STRATEGY.md are pestered → **Mitigation:** Soft-fail throughout; init step is opt-in; no skill blocks on absence
 - **Risk:** Hard-fail on present-but-invalid STRATEGY.md mid-init blocks scaffolding → **Mitigation:** When init detects invalid existing STRATEGY.md, it surfaces the validation error and offers three paths: (a) fix now via `/harness:strategy` update, (b) move file to `STRATEGY.md.bak` and run first-run interview fresh, (c) ignore for this init and proceed (decline recorded). Init does NOT block
+
+## Verification (2026-06-03)
+
+All eight phases shipped. Close-out verification:
+
+**Phase 7 — BusinessKnowledgeIngestor strategy domain**
+
+- `BusinessKnowledgeIngestor.ingestStrategy` emits `business_fact` nodes per non-placeholder STRATEGY.md section (`packages/graph/src/ingest/BusinessKnowledgeIngestor.ts`).
+- `KnowledgePipelineRunner.extract` invokes `ingestStrategy` with soft-fail try/catch (`packages/graph/src/ingest/KnowledgePipelineRunner.ts:311-317`).
+- Tests: `BusinessKnowledgeIngestor.strategy.test.ts` 8/8 green; `KnowledgePipelineRunner.test.ts` 24/24 green. Satisfies the Phase 7 success criterion.
+- Predicted scope-creep failure did not materialize: reused existing `business_fact` NodeType, no new types or methods beyond `ingestStrategy`.
+
+**Phase 8 — Documentation and ADRs**
+
+- ADR-0035 (`docs/knowledge/decisions/0035-strategy-anchor-vs-roadmap-md.md`) — accepted; covers Decision 1 (STRATEGY.md vs roadmap.md separation).
+- ADR-0036 (`docs/knowledge/decisions/0036-strategy-is-interview-driven.md`) — accepted; covers Decision 2 (interview-driven only).
+- Conventions doc: `docs/conventions/strategy-vs-roadmap.md` present.
+- `AGENTS.md` Strategic Anchor section (lines 21–86) documents the anchor, agent read-paths, anti-patterns, and adoption surface.
+- Consumer SKILL.md audit (every behavior AGENTS.md promises is delivered by the named skill):
+  - `harness-brainstorming/SKILL.md:38,54,88,324` — Phase 1 EXPLORE reads STRATEGY.md, captures sections, cites as evidence, surfaces contradictions in EVALUATE.
+  - `harness-roadmap-pilot/SKILL.md:61,72,82,193` — Phase 2 RECOMMEND applies bounded strategy-alignment tiebreaker (max `+0.75`, fires only when base scores within `0.05`).
+  - `harness-ideate/SKILL.md` — present; grounds candidate generation on STRATEGY.md.
+  - `initialize-harness-project/SKILL.md:143,185,188-193` — Phase 3 step 5c three-way prompt with `init.strategy.declined` state and three repair paths for present-but-invalid case.
+- Predicted "functionally useless docs" failure did not materialize: every cross-reference in AGENTS.md resolves and the named consumer behavior is implemented.

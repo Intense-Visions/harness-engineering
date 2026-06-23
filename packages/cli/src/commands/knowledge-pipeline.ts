@@ -114,6 +114,7 @@ export function createKnowledgePipelineCommand(): Command {
                 iterations: result.iterations,
                 findings: result.findings,
                 extraction: result.extraction,
+                errors: result.errors,
                 gaps: {
                   domains: result.gaps.domains.length,
                   totalEntries: result.gaps.totalEntries,
@@ -162,7 +163,7 @@ export function createKnowledgePipelineCommand(): Command {
             `  Findings: ${result.findings.new} new, ${result.findings.stale} stale, ${result.findings.drifted} drifted, ${result.findings.contradicting} contradicting`
           );
           console.log(
-            `  Extraction: ${result.extraction.codeSignals} code signals, ${result.extraction.diagrams} diagrams, ${result.extraction.linkerFacts} linker facts, ${result.extraction.businessKnowledge} business knowledge, ${result.extraction.images} images`
+            `  Extraction: ${result.extraction.codeSignals} code signals, ${result.extraction.diagrams} diagrams, ${result.extraction.linkerFacts} linker facts, ${result.extraction.businessKnowledge} business knowledge, ${result.extraction.decisions} decisions, ${result.extraction.images} images`
           );
           console.log(
             `  Gaps: ${result.gaps.domains.length} domains — ${result.gaps.totalEntries} documented / ${result.gaps.totalExtracted} extracted / ${result.gaps.totalGaps} undocumented`
@@ -172,6 +173,17 @@ export function createKnowledgePipelineCommand(): Command {
           }
           if (result.remediations.length > 0) {
             console.log(`  Remediations: ${result.remediations.length} applied`);
+          }
+
+          // Ingestion errors — surface frontmatter / parse / read failures
+          // that would otherwise be silently dropped. Routed to stderr so
+          // pipelines parsing the success stream stay unaffected.
+          if (result.errors.length > 0) {
+            console.warn('');
+            console.warn(`  ${result.errors.length} ingestion warning(s):`);
+            for (const err of result.errors) {
+              console.warn(`    - ${err}`);
+            }
           }
 
           if (result.materialization) {

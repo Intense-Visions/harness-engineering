@@ -83,7 +83,16 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('security_craft');
     // naming-craft adds a second tool (naming_craft_finalize) for the in-session two-step flow.
     expect(names).toContain('naming_craft_finalize');
-    expect(tools).toHaveLength(81);
+    // strategic-anchor: STRATEGY.md / pulse / compound writers wrapped as MCP tools.
+    expect(names).toContain('validate_strategy');
+    expect(names).toContain('read_strategy');
+    expect(names).toContain('write_strategy');
+    expect(names).toContain('write_pulse_config');
+    expect(names).toContain('seed_pulse_from_strategy');
+    expect(names).toContain('acquire_compound_lock');
+    expect(names).toContain('release_compound_lock');
+    expect(names).toContain('outcome_eval');
+    expect(tools).toHaveLength(89);
   });
 
   it('all tool definitions have inputSchema', () => {

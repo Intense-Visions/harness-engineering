@@ -83,19 +83,22 @@ Read `docs/solutions/references/schema.yaml` for the authoritative track/categor
 ### Phase 5: WRITE (lock-protected)
 
 1. Compute slug: kebab-case from the title; if a file with that slug already exists in the target directory, append `-2`, `-3`, etc.
-2. **Acquire the per-category lock by shelling out.** Run a Node one-liner that imports `acquireCompoundLock` from `@harness-engineering/core`, holds the handle while you write the doc, then releases it. Example: `node -e "import('@harness-engineering/core').then(({ acquireCompoundLock }) => { const h = acquireCompoundLock('<category>'); /* write the doc here */ h.release(); }).catch(err => { console.error(err.message); process.exit(1); })"`. Lock path: `.harness/locks/compound-<category>.lock`. The MCP tool `acquire_compound_lock` is planned for a later phase — **do not attempt to call it yet**; the shell-out is the only supported path right now.
-   - On `CompoundLockHeldError`: report "compound lock for category `<category>` is held by pid `<N>` — wait for it to release or run `/harness:compound` for a different category" and stop. **Do not retry automatically.** A second invocation on the same problem after release will go through Phase 3 and find the doc the first invocation produced.
+2. **Acquire the per-category lock via the harness MCP server.** Call `acquire_compound_lock({ path: process.cwd(), category: '<category>' })`. On success it returns `{ acquired: true, token, lockPath }` — hold the `token` while you write the doc, then call `release_compound_lock({ token })` when finished. The MCP server holds the file handle and registers process-exit cleanup, so an abandoned agent does not leave a dangling lock-with-stale-PID. Lock path: `.harness/locks/compound-<category>.lock`. Fallback for environments without the MCP server (only works when `@harness-engineering/core` is resolvable from the project): `node -e "import('@harness-engineering/core').then(({ acquireCompoundLock }) => { const h = acquireCompoundLock('<category>'); /* write the doc here */ h.release(); })"`.
+   - On `{ acquired: false, error: 'CompoundLockHeldError', holderPid }` (or `CompoundLockHeldError` when invoked directly): report "compound lock for category `<category>` is held by pid `<holderPid>` — wait for it to release or run `/harness:compound` for a different category" and stop. **Do not retry automatically.** A second invocation on the same problem after release will go through Phase 3 and find the doc the first invocation produced.
 3. Re-run a quick Phase 3 overlap-check inside the lock (defends against TOCTOU when the first overlap-check returned "no overlap" but another invocation completed in the meantime; the re-check is cheap).
 4. Write the file at `docs/solutions/<track>/<category>/<slug>.md`.
 5. Validate frontmatter against `SolutionDocFrontmatterSchema` by running `harness validate` (which runs `validateSolutionsDir`).
-6. Release the lock.
+6. Release the lock via `release_compound_lock({ token })` (or `handle.release()` on the fallback shell-out path).
 7. Surface to chat: file path created (or updated), category, and a one-sentence summary.
 
 ## Harness Integration
 
 - **`harness validate`** — Run after writing the doc; the solutions validator catches frontmatter errors before commit.
 - **`harness check-deps`** — Not required (no new module imports introduced by writing a doc).
-- **`@harness-engineering/core` lock primitive** — `acquireCompoundLock(category, { cwd })` returns a release handle; throws `CompoundLockHeldError` on contention. See `packages/core/src/locks/compound-lock.ts`.
+- **Harness MCP tools consumed by this skill** (canonical execution path — no project-local `@harness-engineering/core` required):
+  - `acquire_compound_lock({ path, category })` — returns `{ acquired: true, token, lockPath }` on success or `{ acquired: false, error: 'CompoundLockHeldError', holderPid, lockPath }` on contention.
+  - `release_compound_lock({ token })` — releases the lock; idempotent on repeat calls with the same token.
+- **`@harness-engineering/core` lock primitive** (only directly relevant when the MCP server is unavailable) — `acquireCompoundLock(category, { cwd })` returns a release handle; throws `CompoundLockHeldError` on contention. See `packages/core/src/locks/compound-lock.ts`.
 - **Schema authority** — `packages/core/src/solutions/schema.ts` is the single source of truth for tracks and categories. `docs/solutions/references/schema.yaml` mirrors it for human reading.
 - **Boundary with `harness-knowledge-pipeline`** — Knowledge-pipeline extracts structural facts FROM CODE. Compound captures post-mortem playbooks WRITTEN AFTER A FIX. Compound's knowledge-track output is a _candidate input_ to the pipeline (Phase 7 of the spec wires this).
 - **Boundary with `.harness/learnings.md`** — The file remains for ephemeral session notes. It is no longer the canonical sink for compounding knowledge — that's `docs/solutions/`.

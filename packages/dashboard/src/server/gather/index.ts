@@ -8,3 +8,4 @@ export { gatherArch } from './arch';
 export { gatherAnomalies } from './anomalies';
 export { gatherBlastRadius } from './blast-radius';
 export { gatherCI } from './ci';
+export { gatherSignals } from './signals';

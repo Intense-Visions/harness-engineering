@@ -30,7 +30,7 @@
 
 Read `references/interview.md` for the SMART pushback rules and the READ-WRITE-DB rejection rule. Both are mandatory.
 
-1. **Seed from STRATEGY.md.** Shell out to a Node one-liner that imports `seedFromStrategy` from `@harness-engineering/core`. Capture `{ name, keyMetrics, warnings }`.
+1. **Seed from STRATEGY.md.** Call `seed_pulse_from_strategy({ path: process.cwd() })` on the harness MCP server. Capture `{ name, keyMetrics, warnings }` — the server does the file read and bullet extraction internally. Fallback when the MCP server is unavailable: `node -e "import('@harness-engineering/core').then(m => console.log(JSON.stringify(m.seedFromStrategy({}))))"` — only works when `@harness-engineering/core` is resolvable from the project.
    - Surface `warnings` to the user verbatim.
    - If `name` is non-null, confirm it as the product name; otherwise prompt.
    - For each `keyMetric`, walk it through the SMART bar in step 4.
@@ -56,13 +56,9 @@ Read `references/interview.md` for the SMART pushback rules and the READ-WRITE-D
 
 9. **Confirm the assembled config.** Show the user the proposed `pulse:` block; ask for confirmation.
 
-10. **Write the config.** Shell out to a Node one-liner that imports `writePulseConfig` from `@harness-engineering/core`. Pipe the JSON through stdin so user-supplied event names, qualityDimension, and pendingMetrics never cross the shell tokenizer (quotes, backticks, `$()`, `$VAR` in user input would otherwise break the command or allow injection):
+10. **Write the config.** Call `write_pulse_config({ path: process.cwd(), config })` on the harness MCP server. The `config` argument is the assembled `PulseConfig` JSON. The MCP tool validates against `PulseConfigSchema` and refuses to touch disk on schema failure; passing the config as a JSON parameter (not through a shell) means user-supplied prose never crosses the shell tokenizer — no quoting, backtick, or `$VAR` hazard. The writer preserves all other config keys and writes `harness.config.json.bak` on first call.
 
-    ```bash
-    echo '<json-blob>' | node -e "import('@harness-engineering/core').then(m => m.writePulseConfig(JSON.parse(require('fs').readFileSync(0, 'utf-8')), { configPath: 'harness.config.json' })).catch(err => { console.error(err.message); process.exit(1); })"
-    ```
-
-    The writer preserves all other config keys and writes a `.bak`.
+    Fallback for environments without the MCP server (only works when `@harness-engineering/core` is resolvable from the project): `echo '<json-blob>' | node -e "import('@harness-engineering/core').then(m => m.writePulseConfig(JSON.parse(require('fs').readFileSync(0, 'utf-8')), { configPath: 'harness.config.json' }))"`.
 
 11. **Offer to register the `product-pulse` maintenance task.** Deferred: Phase 6 of the spec wires it. For now, surface "the daily 8am `product-pulse` task will be registered automatically once Phase 6 of the feedback-loops spec ships; you can also run pulse on demand with `/harness:pulse [window]` once Phase 4 ships."
 
@@ -80,12 +76,12 @@ Stub: when `pulse.enabled === true`, this phase will dispatch analytics/tracing/
 
 ## Harness Integration
 
-- **`harness validate`** — Run after `writePulseConfig`; the existing pulse-schema validator catches malformed blocks.
-- **`@harness-engineering/core`** primitives consumed by this skill:
-  - `writePulseConfig(config, { configPath })` — atomic config update with .bak.
-  - `seedFromStrategy({ cwd })` — defensive STRATEGY.md reader.
-  - `getPulseAdapter(name)` / `listPulseAdapters()` — adapter discovery (Phase 4 populates).
-  - `PulseConfigSchema` / `PII_FIELD_DENYLIST` — schema and PII contracts (already shipped Phase 1).
+- **`harness validate`** — Run after `write_pulse_config`; the existing pulse-schema validator catches malformed blocks.
+- **Harness MCP tools consumed by this skill** (canonical execution path — no project-local `@harness-engineering/core` required):
+  - `seed_pulse_from_strategy({ path })` — defensive STRATEGY.md reader; returns `{ name, keyMetrics, warnings }`.
+  - `write_pulse_config({ path, config })` — atomic config update with .bak. Validates against `PulseConfigSchema`.
+- **`@harness-engineering/core`** primitives the MCP tools wrap (only directly relevant when developing inside the monorepo or when the MCP server is unavailable):
+  - `writePulseConfig(config, { configPath })`, `seedFromStrategy({ cwd })`, `getPulseAdapter(name)` / `listPulseAdapters()` (Phase 4 populates), `PulseConfigSchema` / `PII_FIELD_DENYLIST`.
 - **Boundary with `harness-strategy`** — Strategy writes `STRATEGY.md`; pulse reads it to seed. Pulse never writes to `STRATEGY.md`.
 - **Boundary with `harness-observability`** — Observability designs _what_ to instrument; pulse is the read-side companion that surfaces what was instrumented.
 - **Decision 6 (read-only)** — Pulse refuses read-write DB credentials. Documented in `references/interview.md`.
@@ -106,7 +102,7 @@ Stub: when `pulse.enabled === true`, this phase will dispatch analytics/tracing/
 - Phase 0: route to Phase 1.
 - Phase 1.1: `seedFromStrategy` returns `{ name: null, keyMetrics: [], warnings: ['STRATEGY.md not found'] }`.
 - Phase 1.2-7: prompt user; collect `lookbackDefault: '24h'`, `primaryEvent: 'session_started'`, `valueEvent: 'plan_completed'`, `sources.analytics: 'posthog'` (with adapter-availability warning), `sources.db.enabled: false`.
-- Phase 1.10: `writePulseConfig` writes the block; `.bak` saved.
+- Phase 1.10: `write_pulse_config` writes the block; `.bak` saved.
 - Phase 1.12: `harness validate` passes.
 
 ### Example: STRATEGY.md present with 3 Key metrics
@@ -127,7 +123,7 @@ Stub: when `pulse.enabled === true`, this phase will dispatch analytics/tracing/
 
 - **READ-WRITE-DB rejection is non-negotiable.** No flag, no override, no "I know what I'm doing" path. Refuse and document.
 - **SMART pushback is mandatory on every proposed metric/event.** Silently accepting a vague name pollutes the corpus.
-- **`writePulseConfig` is the only sanctioned write path.** Do not hand-edit `harness.config.json`. The writer is the layer that preserves non-pulse keys and writes the .bak.
+- **`write_pulse_config` (or `writePulseConfig` when invoked directly) is the only sanctioned write path.** Do not hand-edit `harness.config.json`. The writer is the layer that preserves non-pulse keys and writes the .bak.
 - **`harness validate` must pass before exit.** A malformed `pulse:` block silently breaks the daily task once Phase 4 ships.
 
 ## Escalation
@@ -135,4 +131,4 @@ Stub: when `pulse.enabled === true`, this phase will dispatch analytics/tracing/
 - **User insists on read-write DB credentials:** Refuse. Set `sources.db.enabled: false`. Stop.
 - **Adapter not registered for a chosen provider:** Warn, record the choice, continue. The runtime gate (Phase 4) refuses to run until the adapter ships.
 - **STRATEGY.md frontmatter is malformed but H1 is present:** Use H1 as `name` and surface a warning. If neither is parseable, prompt the user.
-- **`writePulseConfig` throws:** Report the validator error verbatim. Do not retry without user fix.
+- **`write_pulse_config` returns `{ written: false, error }` (or `writePulseConfig` throws directly):** Report the validator error verbatim. Do not retry without user fix.

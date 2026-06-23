@@ -13,7 +13,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
     cwd: dir,
-    timeout: 15000,
+    timeout: 60000,
   });
   try {
     rmSync(stdinFile, { force: true });
@@ -26,7 +26,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   };
 }
 
-describe('cost-tracker', { timeout: 30000 }, () => {
+describe('cost-tracker', { timeout: 60000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {

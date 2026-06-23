@@ -102,6 +102,14 @@ high-quality, architecturally sound delivery:
    (b) the fix required more than one commit on the issue branch, or
    (c) execution involved >1 attempt (`Attempt Number` above is greater than 1).
    Otherwise skip silently. The triggers are mechanical — no judgment required.
+   6.5. **Outcome Eval:** Use `/harness:outcome-eval` to judge whether the
+   implementation satisfied its spec. It gathers the diff and test output,
+   resolves the spec's acceptance section, and emits a confidence-rated
+   `OutcomeVerdict`. **Verdict authority (derived in TypeScript, never from the
+   LLM): a high-confidence `NOT_SATISFIED` BLOCKS ship — halt here and fix the
+   implementation or spec before proceeding; every other verdict (all
+   `SATISFIED`, all `INCONCLUSIVE`, and medium/low `NOT_SATISFIED`) is advisory
+   — report it and continue.**
 7. **Ship:** When the review is clean, you are pre-authorized to ship without asking:
    - Create a topic branch if you are still on `main`/`master` (e.g. `feat/{{ issue.identifier }}`).
    - Stage your changes and create a descriptive commit (Conventional Commits style).
@@ -125,5 +133,6 @@ high-quality, architecturally sound delivery:
   `docs/solutions/<track>/<category>/`). The `.harness/learnings.md` file remains
   for ephemeral session notes only and is not preserved as compounding knowledge.
 - Step 7 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
+- Step 6.5 (Outcome Eval) is a gate: a high-confidence `NOT_SATISFIED` verdict blocks Ship. Do not proceed to step 7 until the verdict is non-blocking.
 
 Attempt Number: {{ attempt }}

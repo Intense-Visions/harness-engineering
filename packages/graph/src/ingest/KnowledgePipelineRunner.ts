@@ -91,11 +91,28 @@ export interface KnowledgePipelineResult {
   readonly iterations: number;
   readonly findings: DriftResult['summary'];
   readonly extraction: ExtractionCounts;
+  /**
+   * Aggregated parse/skip errors from every ingestor invoked during phase 1.
+   * Surfaces frontmatter validation, malformed-markdown, and per-file read
+   * failures that would otherwise be silently dropped (issue #504 §1).
+   */
+  readonly errors: readonly string[];
   readonly gaps: GapReport;
   readonly remediations: readonly string[];
   readonly contradictions: ContradictionResult;
   readonly coverage: CoverageReport;
   readonly materialization?: MaterializeResult;
+}
+
+function emptyIngestResult(): IngestResult {
+  return {
+    nodesAdded: 0,
+    nodesUpdated: 0,
+    edgesAdded: 0,
+    edgesUpdated: 0,
+    errors: [],
+    durationMs: 0,
+  };
 }
 
 // ─── Implementation ─────────────────────────────────────────────────────────
@@ -109,10 +126,12 @@ export class KnowledgePipelineRunner {
   async run(options: KnowledgePipelineOptions): Promise<KnowledgePipelineResult> {
     this.inferenceOptions = options.inferenceOptions ?? {};
     const remediations: string[] = [];
+    const ingestErrors: string[] = [];
 
     // Phase 1: Capture pre-extraction snapshot, then extract
     const preSnapshot = this.buildSnapshot(options.domain);
     const extraction = await this.extract(options);
+    ingestErrors.push(...extraction.errors);
 
     // Phase 2: Reconcile pre vs post extraction
     const postSnapshot = this.buildSnapshot(options.domain);
@@ -132,7 +151,8 @@ export class KnowledgePipelineRunner {
         options,
         driftResult,
         gapReport,
-        remediations
+        remediations,
+        ingestErrors
       );
       iterations = loopResult.iterations;
       materialization = loopResult.materialization;
@@ -150,7 +170,8 @@ export class KnowledgePipelineRunner {
     return this.buildResult(
       driftResult,
       iterations,
-      extraction,
+      extraction.counts,
+      ingestErrors,
       gapReport,
       remediations,
       contradictions,
@@ -164,7 +185,8 @@ export class KnowledgePipelineRunner {
     options: KnowledgePipelineOptions,
     driftResult: DriftResult,
     gapReport: GapReport,
-    remediations: string[]
+    remediations: string[],
+    ingestErrors: string[]
   ): Promise<{ iterations: number; materialization?: MaterializeResult }> {
     const maxIterations = options.maxIterations ?? 5;
     let iterations = 1;
@@ -192,7 +214,8 @@ export class KnowledgePipelineRunner {
 
       // Re-run extraction and detection with proper pre/post snapshot separation
       const preSnapshot = this.buildSnapshot(options.domain);
-      await this.extract(options);
+      const reExtract = await this.extract(options);
+      ingestErrors.push(...reExtract.errors);
       const postSnapshot = this.buildSnapshot(options.domain);
       currentDrift = this.reconcile(preSnapshot, postSnapshot);
       currentGapReport = await this.detect(options);
@@ -214,6 +237,7 @@ export class KnowledgePipelineRunner {
     driftResult: DriftResult,
     iterations: number,
     extraction: ExtractionCounts,
+    errors: readonly string[],
     gaps: GapReport,
     remediations: readonly string[],
     contradictions: ContradictionResult,
@@ -226,6 +250,7 @@ export class KnowledgePipelineRunner {
       iterations,
       findings: driftResult.summary,
       extraction,
+      errors: Array.from(new Set(errors)),
       gaps,
       remediations,
       contradictions,
@@ -236,7 +261,9 @@ export class KnowledgePipelineRunner {
 
   // ── Phase 1: EXTRACT ──────────────────────────────────────────────────────
 
-  private async extract(options: KnowledgePipelineOptions): Promise<ExtractionCounts> {
+  private async extract(
+    options: KnowledgePipelineOptions
+  ): Promise<{ counts: ExtractionCounts; errors: string[] }> {
     const extractedDir = path.join(options.projectDir, '.harness', 'knowledge', 'extracted');
     await fs.mkdir(extractedDir, { recursive: true });
 
@@ -266,14 +293,7 @@ export class KnowledgePipelineRunner {
     try {
       bkResult = await bkIngestor.ingest(knowledgeDir);
     } catch {
-      bkResult = {
-        nodesAdded: 0,
-        nodesUpdated: 0,
-        edgesAdded: 0,
-        edgesUpdated: 0,
-        errors: [],
-        durationMs: 0,
-      };
+      bkResult = emptyIngestResult();
     }
 
     // Solutions docs from docs/solutions/ (knowledge-track only — bug-track skipped at ingestor)
@@ -282,51 +302,69 @@ export class KnowledgePipelineRunner {
     try {
       solutionsResult = await bkIngestor.ingestSolutions(solutionsDir);
     } catch {
-      solutionsResult = {
-        nodesAdded: 0,
-        nodesUpdated: 0,
-        edgesAdded: 0,
-        edgesUpdated: 0,
-        errors: [],
-        durationMs: 0,
-      };
+      solutionsResult = emptyIngestResult();
     }
-    // Aggregate solutions ingestion errors alongside the knowledge ingestion
-    // errors so contributors get a unified view of frontmatter / parse failures.
+    // Strategy anchor from repo-root STRATEGY.md (Strategic Anchor phase 7).
+    // Produces business_fact nodes with metadata.domain === 'strategy'. Absent
+    // STRATEGY.md is the common case for existing projects — the ingestor
+    // soft-fails so adoption stays opt-in.
+    const strategyPath = path.join(options.projectDir, 'STRATEGY.md');
+    let strategyResult: IngestResult;
+    try {
+      strategyResult = await bkIngestor.ingestStrategy(strategyPath);
+    } catch {
+      strategyResult = emptyIngestResult();
+    }
+
+    // Aggregate solutions + strategy ingestion errors alongside the knowledge
+    // ingestion errors so contributors get a unified view of frontmatter /
+    // parse failures.
     bkResult = {
       ...bkResult,
-      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded,
-      errors: [...bkResult.errors, ...solutionsResult.errors],
+      nodesAdded: bkResult.nodesAdded + solutionsResult.nodesAdded + strategyResult.nodesAdded,
+      errors: [...bkResult.errors, ...solutionsResult.errors, ...strategyResult.errors],
     };
 
-    // Decision ADRs from docs/knowledge/decisions/
+    // Decision ADRs from docs/knowledge/decisions/ (YAML-frontmatter format)
+    // PLUS architecture-advisor markdown ADRs from docs/architecture/<topic>/ADR-*.md.
+    // Both flow into the same `decision` node type so drift detection +
+    // contradiction detection apply uniformly.
     const decisionsDir = path.join(options.projectDir, 'docs', 'knowledge', 'decisions');
+    const architectureDir = path.join(options.projectDir, 'docs', 'architecture');
     const decisionIngestor = new DecisionIngestor(this.store);
     let decisionResult: IngestResult;
     try {
       decisionResult = await decisionIngestor.ingest(decisionsDir);
     } catch {
-      decisionResult = {
-        nodesAdded: 0,
-        nodesUpdated: 0,
-        edgesAdded: 0,
-        edgesUpdated: 0,
-        errors: [],
-        durationMs: 0,
-      };
+      decisionResult = emptyIngestResult();
     }
+    let architectureResult: IngestResult;
+    try {
+      architectureResult = await decisionIngestor.ingestArchitecture(architectureDir);
+    } catch {
+      architectureResult = emptyIngestResult();
+    }
+    decisionResult = {
+      ...decisionResult,
+      nodesAdded: decisionResult.nodesAdded + architectureResult.nodesAdded,
+      edgesAdded: decisionResult.edgesAdded + architectureResult.edgesAdded,
+      errors: [...decisionResult.errors, ...architectureResult.errors],
+    };
 
     // Knowledge linker (scans connector-ingested nodes for business signals)
     const linker = new KnowledgeLinker(this.store, extractedDir);
     const linkResult = await linker.link();
 
     return {
-      codeSignals: extractionResult.nodesAdded,
-      diagrams: diagramResult.nodesAdded,
-      linkerFacts: linkResult.factsCreated,
-      businessKnowledge: bkResult.nodesAdded,
-      decisions: decisionResult.nodesAdded,
-      images: imageCount,
+      counts: {
+        codeSignals: extractionResult.nodesAdded,
+        diagrams: diagramResult.nodesAdded,
+        linkerFacts: linkResult.factsCreated,
+        businessKnowledge: bkResult.nodesAdded,
+        decisions: decisionResult.nodesAdded,
+        images: imageCount,
+      },
+      errors: [...bkResult.errors, ...decisionResult.errors],
     };
   }
 

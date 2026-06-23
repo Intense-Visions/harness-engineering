@@ -89,6 +89,7 @@ const DriftConfigSchema = z.object({
   checkExamples: z.boolean().optional(),
   checkStructure: z.boolean().optional(),
   ignorePatterns: z.array(z.string()).optional(),
+  forwardLookingPaths: z.array(z.string()).optional(),
 });
 
 // DeadCodeConfig schema

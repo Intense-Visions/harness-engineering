@@ -13,6 +13,8 @@
 
 ## Process
 
+**Prompt the human in plain text** — every choice and destructive confirmation in this skill (worktree location, discard-experiment, etc.) is plain text only. Do not elevate to `AskUserQuestion`: option labels like the A/B/C worktree-location choices and natural headers like "Discard commits" routinely exceed its 4-option / 12-char caps and render as ERR.
+
 ### Part A: Worktree Creation
 
 #### Step 1: Choose Worktree Location

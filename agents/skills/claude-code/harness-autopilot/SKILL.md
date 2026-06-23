@@ -213,6 +213,8 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Process
 
+**Prompt the human in plain text** — every phase-continue and human-decision interaction in this skill is plain text only. Do not elevate to `AskUserQuestion`: natural headers like "Continue phase" exceed its 12-char cap, rendering the call as ERR.
+
 1. **INIT** — Resolve spec, derive session slug, check for existing state, parse phases.
 2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
 3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.

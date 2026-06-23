@@ -116,6 +116,116 @@ describe('KnowledgePipelineRunner', () => {
       const result = await runner.run(makeOptions());
       expect(result.extraction.codeSignals).toBe(0);
     });
+
+    it('ingests STRATEGY.md as business_fact nodes in extraction phase', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'STRATEGY.md'),
+        `---
+name: Sample Product
+last_updated: 2026-06-02
+version: 1
+---
+
+# Sample Product Strategy
+
+## Target problem
+
+A real diagnosis sentence about the problem we address.
+
+## Our approach
+
+A real distinctive bet on how we solve it.
+
+## Who it's for
+
+Specific persona we serve, not "developers" generically.
+
+## Key metrics
+
+- m: a metric
+
+## Tracks
+
+- t: a track
+`,
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // STRATEGY.md ingestion is counted under businessKnowledge.
+      expect(result.extraction.businessKnowledge).toBeGreaterThanOrEqual(5);
+
+      const strategyFacts = store
+        .findNodes({ type: 'business_fact' })
+        .filter((n) => n.metadata?.domain === 'strategy');
+      expect(strategyFacts.length).toBeGreaterThanOrEqual(5);
+      expect(strategyFacts.every((n) => n.metadata?.source === 'STRATEGY.md')).toBe(true);
+    });
+
+    it('survives missing STRATEGY.md without error', async () => {
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // No strategy nodes produced and no error surfaced.
+      const strategyFacts = store
+        .findNodes({ type: 'business_fact' })
+        .filter((n) => n.metadata?.domain === 'strategy');
+      expect(strategyFacts).toHaveLength(0);
+      expect(result.verdict).not.toBe('fail');
+    });
+
+    // Issue #504 Finding 3 — ADRs written by harness-architecture-advisor at
+    // docs/architecture/<topic>/ADR-*.md should flow into the pipeline as
+    // decision nodes so projects whose primary docs are ADRs no longer report
+    // empty extraction.
+    it('ingests docs/architecture/<topic>/ADR-*.md as decision nodes', async () => {
+      const archDir = path.join(tmpDir, 'docs', 'architecture', 'auth');
+      await fs.mkdir(archDir, { recursive: true });
+      await fs.writeFile(
+        path.join(archDir, 'ADR-001.md'),
+        `# ADR-001: Centralize auth in AuthService
+
+**Date:** 2026-04-27
+**Status:** Accepted
+**Deciders:** @cwarner
+
+## Decision
+
+Route all auth through AuthService.
+`,
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      expect(result.extraction.decisions).toBeGreaterThanOrEqual(1);
+      const node = store.getNode('decision:architecture:auth:ADR-001');
+      expect(node).not.toBeNull();
+      expect(node!.metadata.domain).toBe('auth');
+      expect(node!.metadata.source).toBe('architecture');
+    });
+
+    it('surfaces BusinessKnowledgeIngestor frontmatter errors on the result', async () => {
+      // Schema-invalid solutions doc: missing last_updated (required field).
+      const solutionsDir = path.join(tmpDir, 'docs', 'solutions', 'knowledge-track', 'conventions');
+      await fs.mkdir(solutionsDir, { recursive: true });
+      await fs.writeFile(
+        path.join(solutionsDir, 'bad.md'),
+        '---\ntrack: knowledge-track\ncategory: conventions\nmodule: x\ntags: []\nproblem_type: pattern\n---\n\n# Bad\n',
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      // The validation failure must reach the caller via result.errors so the
+      // CLI can render it. Previously these errors were silently discarded.
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.join('\n')).toMatch(/bad\.md/);
+    });
   });
 
   describe('gap report', () => {

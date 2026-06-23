@@ -1,5 +1,26 @@
 # @harness-engineering/graph
 
+## 0.11.0
+
+### Minor Changes
+
+- 7c66168: Index `docs/architecture/<topic>/ADR-*.md` (the `harness-architecture-advisor` storage convention) as `decision` graph nodes via a new `DecisionIngestor.ingestArchitecture()` method, wired into `KnowledgePipelineRunner.extract()`. Projects whose primary docs are ADRs no longer report empty knowledge extraction. Markdown-style ADRs (no YAML frontmatter — H1 + `**Date:** / **Status:** / **Deciders:**` lines) are parsed; node IDs are namespaced by topic so duplicate ADR numbers across topics coexist. Closes the Finding-3 feature request in issue #504.
+
+  `KnowledgePipelineResult` now exposes `errors: readonly string[]` aggregating BK + decision ingestor failures across the convergence loop; `harness knowledge-pipeline` text output surfaces the new `decisions` extraction count (previously silently omitted) and prints ingestion warnings to stderr — same silent-discard pattern PR #511 closed for `harness ingest`. `harness ingest --all` now also runs `BusinessKnowledgeIngestor`, restoring symmetry with `--source knowledge`.
+
+- aaefe1b: Add `BusinessKnowledgeIngestor.ingestStrategy()` for the Strategic Anchor system (phase 7). Reads a repo-root `STRATEGY.md` and emits one `business_fact` node per non-empty section, tagged with `metadata.domain === 'strategy'` and `metadata.source === 'STRATEGY.md'`. Soft-fails on missing file. Wired into `KnowledgePipelineRunner.extract()` alongside the existing business-knowledge and solutions ingestors. Adds `@harness-engineering/types` as a workspace dependency to pull the strategy contract via type-only imports; runtime section-name constants are inlined locally to preserve the graph → types layer boundary.
+
+### Patch Changes
+
+- 99b5cbf: Fix two silent-failure parsers reported in chat-504:
+  - `MermaidParser` no longer drops `.mmd` files whose first non-empty line is a `%%` comment. `detectDiagramType` now skips Mermaid comment lines (matching Mermaid's own grammar) so files starting with provenance headers like `%% Source: docs/foo.md` extract entities normally.
+  - `harness ingest --source knowledge` now also runs `BusinessKnowledgeIngestor` against `docs/knowledge/`, `docs/solutions/`, and `STRATEGY.md`. Previously this command only invoked `KnowledgeIngestor`, leaving the business-knowledge substrate reachable only via `harness knowledge-pipeline` and surfacing as a silent `+0 nodes` for users who probed the natural CLI.
+  - `harness ingest` CLI output now surfaces `IngestResult.errors[]` to stderr when non-empty, so frontmatter / schema validation failures stop being silently discarded. JSON output is unchanged (errors were already serialized there).
+
+- Updated dependencies [5f9ed8c]
+- Updated dependencies [318b878]
+  - @harness-engineering/types@0.16.0
+
 ## 0.10.0
 
 ### Minor Changes

@@ -9,12 +9,10 @@
 // each of the six (design × roadmap) answer combinations. Asserts the
 // in-process runValidate returns ok+valid for every scenario.
 import { describe, it, expect } from 'vitest';
-import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
-import { runInit } from '../../src/commands/init';
 import { runValidate } from '../../src/commands/validate';
-import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
+import { parseRoadmap } from '@harness-engineering/core';
+import { scaffoldInitFixture } from './_helpers/init-fixture';
 
 type DesignAnswer = 'yes' | 'no' | 'not-sure';
 type RoadmapAnswer = 'yes' | 'no';
@@ -79,73 +77,16 @@ const scenarios: MatrixScenario[] = [
   },
 ];
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
 describe('harness init — design × roadmap matrix (6 paths)', () => {
   for (const scenario of scenarios) {
     it(`validates: ${scenario.name}`, async () => {
-      const slug = scenario.name.replace(/[=,\s]/g, '-');
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `harness-matrix-${slug}-`));
+      const fixture = await scaffoldInitFixture({
+        design: scenario.design,
+        roadmap: scenario.roadmap,
+      });
+      const { tmpDir, configPath, roadmapPath, cleanup } = fixture;
 
       try {
-        // Step 1: scaffold base project
-        const initResult = await runInit({ cwd: tmpDir, name: 'matrix-test', level: 'basic' });
-        expect(initResult.ok).toBe(true);
-        if (!initResult.ok) return;
-
-        // Step 2: simulate post-step-5b config mutation
-        const configPath = path.join(tmpDir, 'harness.config.json');
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        if (scenario.design === 'yes') {
-          config.design = { ...(config.design ?? {}), enabled: true, platforms: ['web'] };
-        } else if (scenario.design === 'no') {
-          config.design = { ...(config.design ?? {}), enabled: false };
-        }
-        // not-sure: leave config.design untouched (no `enabled` field).
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-        // Step 3: simulate post-step-4 roadmap creation
-        if (scenario.roadmap === 'yes') {
-          const docsDir = path.join(tmpDir, 'docs');
-          fs.mkdirSync(docsDir, { recursive: true });
-          const features = scenario.expectDesignItemInRoadmap
-            ? [
-                {
-                  name: 'Set up design system',
-                  status: 'planned' as const,
-                  spec: null,
-                  plans: [],
-                  blockedBy: [],
-                  summary:
-                    'Run harness-design-system to define palette, typography, and generate W3C DTCG tokens.',
-                  assignee: null,
-                  priority: null,
-                  externalId: null,
-                  updatedAt: null,
-                },
-              ]
-            : [];
-          const roadmapContent = serializeRoadmap({
-            frontmatter: {
-              project: 'matrix-test',
-              version: 1,
-              lastSynced: nowIso(),
-              lastManualEdit: nowIso(),
-            },
-            milestones: [
-              {
-                name: 'Current Work',
-                isBacklog: false,
-                features,
-              },
-            ],
-            assignmentHistory: [],
-          });
-          fs.writeFileSync(path.join(docsDir, 'roadmap.md'), roadmapContent);
-        }
-
         // Step 4: run in-process validate (use --configPath to anchor to tmpDir)
         const validateResult = await runValidate({ cwd: tmpDir, configPath });
         expect(validateResult.ok).toBe(true);
@@ -162,7 +103,6 @@ describe('harness init — design × roadmap matrix (6 paths)', () => {
         if (scenario.expectedConfig.platforms) {
           expect(reReadConfig.design.platforms).toEqual(scenario.expectedConfig.platforms);
         }
-        const roadmapPath = path.join(tmpDir, 'docs', 'roadmap.md');
         expect(fs.existsSync(roadmapPath)).toBe(scenario.expectRoadmapFile);
 
         // Step 6: roadmap-content assertions (spec #5: linked design item must
@@ -184,7 +124,7 @@ describe('harness init — design × roadmap matrix (6 paths)', () => {
           }
         }
       } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
+        cleanup();
       }
     });
   }

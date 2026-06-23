@@ -40,6 +40,8 @@ Phases:
 
 If the human has not seen and approved the milestone groupings and feature list, do not write the file. Present. Wait. Confirm. Then write.
 
+**Prompt the human in plain text — every `(y/n)`, "which feature?", and similar prompt in this skill is plain text only.** Do not elevate them to `AskUserQuestion`: feature lists routinely exceed its 4-option cap, and natural header choices ("Pick feature", "Remove feature") exceed its 12-char cap, causing the call to render as ERR.
+
 ---
 
 ### Command: `--create` -- Bootstrap Roadmap

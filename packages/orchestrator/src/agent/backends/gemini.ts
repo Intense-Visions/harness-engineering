@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import {
   AgentBackend,
   SessionStartParams,
@@ -68,18 +68,27 @@ export class GeminiBackend implements AgentBackend {
     let cacheReadTokens = 0;
 
     try {
-      const genAI = new GoogleGenerativeAI(this.config.apiKey);
-      const model = genAI.getGenerativeModel({
+      const genAI = new GoogleGenAI({ apiKey: this.config.apiKey });
+      const response = await genAI.models.generateContentStream({
         model: this.config.model,
+        contents: params.prompt,
         ...(geminiSession.systemPrompt !== undefined && {
-          systemInstruction: geminiSession.systemPrompt,
+          config: { systemInstruction: geminiSession.systemPrompt },
         }),
       });
 
-      const result = await model.generateContentStream(params.prompt);
-
-      for await (const chunk of result.stream) {
-        const text = chunk.text();
+      for await (const chunk of response) {
+        // The @google/genai chunk.text getter synthesizes text from
+        // candidates[].content.parts[] and throws when a chunk carries only
+        // non-text parts (function calls, executable code, thought summaries).
+        // Swallow the throw so a single non-text chunk does not abort the
+        // stream and drop accumulated usage counters.
+        let text: string | undefined;
+        try {
+          text = chunk.text;
+        } catch {
+          text = undefined;
+        }
         if (text) {
           const event: AgentEvent = {
             type: 'text',
@@ -110,7 +119,13 @@ export class GeminiBackend implements AgentBackend {
       return {
         success: false,
         sessionId: session.sessionId,
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        usage: {
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          cacheCreationTokens,
+          cacheReadTokens,
+        },
         error: errorMessage,
       };
     }
@@ -145,10 +160,14 @@ export class GeminiBackend implements AgentBackend {
   }
 
   async healthCheck(): Promise<Result<void, AgentError>> {
+    if (!this.config.apiKey) {
+      return Err({
+        category: 'agent_not_found',
+        message: 'GEMINI_API_KEY is not set',
+      });
+    }
     try {
-      const genAI = new GoogleGenerativeAI(this.config.apiKey);
-      // Construct the model as a lightweight connectivity check (SDK has no dedicated ping)
-      genAI.getGenerativeModel({ model: this.config.model });
+      new GoogleGenAI({ apiKey: this.config.apiKey });
       return Ok(undefined);
     } catch (err) {
       return Err({

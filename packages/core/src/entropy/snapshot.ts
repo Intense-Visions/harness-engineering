@@ -77,6 +77,26 @@ function extractCodeBlocks(content: string): CodeBlock[] {
 /**
  * Extract inline backtick references from markdown
  */
+// Reject patterns for inline-ref extraction. These tokens technically match
+// the broad identifier shape but never refer to code symbols, so passing
+// them downstream to drift-detection produces noisy false positives. See
+// github issue #492.
+//
+// - BCP-47 locale codes (`vi`, `pt-BR`, `zh-Hant-CN`) commonly appear in
+//   roadmap docs as i18n targets.
+// - File-name suffixes (`AGENTS.md`, `harness.config.json`) appear in
+//   backticks as filesystem references. The identifier regex treats
+//   `.md` / `.json` as `.method` segments and incorrectly accepts them.
+const BCP47_LOCALE_RE = /^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-[A-Z]{2,4})?$/;
+const FILE_REFERENCE_RE =
+  /\.(md|json|toml|yaml|yml|txt|csv|html|xml|jsonl|env|ini|lock|gitignore|sh|sql)$/i;
+
+function isLikelySymbolReference(reference: string): boolean {
+  if (BCP47_LOCALE_RE.test(reference)) return false;
+  if (FILE_REFERENCE_RE.test(reference)) return false;
+  return /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*(\(.*\))?$/.test(reference);
+}
+
 function extractInlineRefs(content: string): InlineReference[] {
   const refs: InlineReference[] = [];
   const lines = content.split('\n');
@@ -90,8 +110,7 @@ function extractInlineRefs(content: string): InlineReference[] {
     while ((match = regex.exec(line)) !== null) {
       const reference = match[1];
       if (reference === undefined) continue;
-      // Filter out code snippets, keep likely symbol references
-      if (reference.match(/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*(\(.*\))?$/)) {
+      if (isLikelySymbolReference(reference)) {
         refs.push({
           reference: reference.replace(/\(.*\)$/, ''), // Remove function parens
           line: i + 1,

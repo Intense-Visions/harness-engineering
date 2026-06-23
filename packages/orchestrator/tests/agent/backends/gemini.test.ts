@@ -1,48 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GeminiBackend } from '../../../src/agent/backends/gemini';
 
-// Mock @google/generative-ai before importing the backend
-vi.mock('@google/generative-ai', () => {
+// Mock @google/genai before importing the backend
+vi.mock('@google/genai', () => {
   function createMockStream() {
-    return {
-      stream: (async function* () {
-        yield {
-          text: () => 'Hello ',
-          usageMetadata: undefined,
-        };
-        yield {
-          text: () => 'world',
-          usageMetadata: {
-            promptTokenCount: 50,
-            candidatesTokenCount: 10,
-            totalTokenCount: 60,
-            cachedContentTokenCount: 15,
-          },
-        };
-      })(),
-    };
+    return (async function* () {
+      yield {
+        text: 'Hello ',
+        usageMetadata: undefined,
+      };
+      yield {
+        text: 'world',
+        usageMetadata: {
+          promptTokenCount: 50,
+          candidatesTokenCount: 10,
+          totalTokenCount: 60,
+          cachedContentTokenCount: 15,
+        },
+      };
+    })();
   }
 
   const mockGenerateContentStream = vi
     .fn()
     .mockImplementation(() => Promise.resolve(createMockStream()));
 
-  const MockGenerativeModel = vi.fn().mockImplementation(function () {
+  const MockGoogleGenAI = vi.fn().mockImplementation(function () {
     return {
-      generateContentStream: mockGenerateContentStream,
-    };
-  });
-
-  const MockGoogleGenerativeAI = vi.fn().mockImplementation(function () {
-    return {
-      getGenerativeModel: MockGenerativeModel,
+      models: { generateContentStream: mockGenerateContentStream },
     };
   });
 
   return {
-    GoogleGenerativeAI: MockGoogleGenerativeAI,
+    GoogleGenAI: MockGoogleGenAI,
     __mockGenerateContentStream: mockGenerateContentStream,
-    __MockGenerativeModel: MockGenerativeModel,
   };
 });
 
@@ -110,24 +101,32 @@ describe('GeminiBackend', () => {
   });
 
   describe('healthCheck', () => {
-    it('returns Ok when model construction succeeds', async () => {
+    it('returns Ok when SDK construction succeeds', async () => {
       const result = await backend.healthCheck();
       expect(result.ok).toBe(true);
     });
 
     it('returns Err when SDK throws during healthCheck', async () => {
-      const geminiModule = await import('@google/generative-ai');
-      // Force the GoogleGenerativeAI constructor to throw on next call
-      (geminiModule.GoogleGenerativeAI as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        function () {
-          throw new Error('Invalid API key');
-        }
-      );
+      const geminiModule = await import('@google/genai');
+      // Force the GoogleGenAI constructor to throw on next call
+      (geminiModule.GoogleGenAI as ReturnType<typeof vi.fn>).mockImplementationOnce(function () {
+        throw new Error('Invalid API key');
+      });
       const failBackend = new GeminiBackend({ apiKey: 'bad-key' });
       const result = await failBackend.healthCheck();
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.message).toContain('Invalid API key');
+      }
+    });
+
+    it('returns Err when apiKey is empty (parity with startSession)', async () => {
+      const emptyKeyBackend = new GeminiBackend({ apiKey: '' });
+      const result = await emptyKeyBackend.healthCheck();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.category).toBe('agent_not_found');
+        expect(result.error.message).toMatch(/GEMINI_API_KEY/);
       }
     });
   });
@@ -168,11 +167,11 @@ describe('GeminiBackend', () => {
       expect(result!.usage.totalTokens).toBe(60);
     });
 
-    it('passes systemInstruction to generateContentStream when systemPrompt is set', async () => {
-      const geminiModule = await import('@google/generative-ai');
-      const MockGenerativeModel = (
+    it('passes systemInstruction via config when systemPrompt is set', async () => {
+      const geminiModule = await import('@google/genai');
+      const mockGenerateContentStream = (
         geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
-      )['__MockGenerativeModel'];
+      )['__mockGenerateContentStream'];
 
       const sessionResult = await backend.startSession({
         workspacePath: '/tmp/workspace',
@@ -194,9 +193,10 @@ describe('GeminiBackend', () => {
         next = await gen.next();
       }
 
-      // getGenerativeModel should have been called with systemInstruction
-      const modelCallArg = MockGenerativeModel.mock.calls.at(-1)?.[0];
-      expect(modelCallArg?.systemInstruction).toBe('You are a helpful coder.');
+      // generateContentStream should have been called with config.systemInstruction
+      const callArg = mockGenerateContentStream.mock.calls.at(-1)?.[0];
+      expect(callArg?.config?.systemInstruction).toBe('You are a helpful coder.');
+      expect(callArg?.contents).toBe('Help me');
     });
 
     // Regression: usage on TurnResult alone is invisible to the orchestrator's
@@ -256,15 +256,13 @@ describe('GeminiBackend', () => {
     });
 
     it('returns zero usage when stream yields no usageMetadata', async () => {
-      const geminiModule = await import('@google/generative-ai');
+      const geminiModule = await import('@google/genai');
       const mockGenerateContentStream = (
         geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
       )['__mockGenerateContentStream'];
-      const noUsageStream = {
-        stream: (async function* () {
-          yield { text: () => 'Hi', usageMetadata: undefined };
-        })(),
-      };
+      const noUsageStream = (async function* () {
+        yield { text: 'Hi', usageMetadata: undefined };
+      })();
       mockGenerateContentStream.mockResolvedValueOnce(noUsageStream);
 
       const sessionResult = await backend.startSession({
@@ -290,8 +288,120 @@ describe('GeminiBackend', () => {
       expect(next.value.usage.totalTokens).toBe(0);
     });
 
+    it('survives chunk.text getter throwing mid-stream and preserves accumulated usage', async () => {
+      // @google/genai 2.x exposes chunk.text as a getter that throws on
+      // non-text chunks (function calls, executable code, thought summaries).
+      // The backend must not abort the stream on a single throwing chunk.
+      const geminiModule = await import('@google/genai');
+      const mockGenerateContentStream = (
+        geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
+      )['__mockGenerateContentStream'];
+
+      const throwingChunk = {
+        usageMetadata: undefined,
+      };
+      Object.defineProperty(throwingChunk, 'text', {
+        get() {
+          throw new Error('text part unavailable');
+        },
+      });
+
+      const mixedStream = (async function* () {
+        yield { text: 'partial ', usageMetadata: undefined };
+        yield throwingChunk;
+        yield {
+          text: 'recovered',
+          usageMetadata: {
+            promptTokenCount: 42,
+            candidatesTokenCount: 7,
+            totalTokenCount: 49,
+          },
+        };
+      })();
+      mockGenerateContentStream.mockResolvedValueOnce(mixedStream);
+
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      expect(sessionResult.ok).toBe(true);
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const events: import('@harness-engineering/types').AgentEvent[] = [];
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'mixed stream',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        events.push(next.value);
+        next = await gen.next();
+      }
+      const result = next.value;
+
+      const textEvents = events.filter((e) => e.type === 'text');
+      const errorEvents = events.filter((e) => e.type === 'error');
+      expect(textEvents.map((e) => e.content)).toEqual(['partial ', 'recovered']);
+      expect(errorEvents.length).toBe(0);
+      expect(result.success).toBe(true);
+      expect(result.usage.inputTokens).toBe(42);
+      expect(result.usage.outputTokens).toBe(7);
+      expect(result.usage.totalTokens).toBe(49);
+    });
+
+    it('preserves accumulated usage counters in failed TurnResult when SDK throws mid-stream', async () => {
+      // Regression: prior to the fix, the outer catch hardcoded zeros for
+      // usage, dropping tokens billed before the failure from rate-limit
+      // accounting. Tokens from earlier chunks must survive the catch path.
+      const geminiModule = await import('@google/genai');
+      const mockGenerateContentStream = (
+        geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
+      )['__mockGenerateContentStream'];
+
+      const partialThenThrowStream = (async function* () {
+        yield {
+          text: 'hello',
+          usageMetadata: {
+            promptTokenCount: 30,
+            candidatesTokenCount: 5,
+            totalTokenCount: 35,
+            cachedContentTokenCount: 12,
+          },
+        };
+        throw new Error('Stream interrupted');
+      })();
+      mockGenerateContentStream.mockResolvedValueOnce(partialThenThrowStream);
+
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'partial then fail',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+      const result = next.value;
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Stream interrupted');
+      expect(result.usage.inputTokens).toBe(30);
+      expect(result.usage.outputTokens).toBe(5);
+      expect(result.usage.totalTokens).toBe(35);
+      expect(result.usage.cacheReadTokens).toBe(12);
+    });
+
     it('yields error event and returns failed TurnResult when SDK throws', async () => {
-      const geminiModule = await import('@google/generative-ai');
+      const geminiModule = await import('@google/genai');
       const mockGenerateContentStream = (
         geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
       )['__mockGenerateContentStream'];

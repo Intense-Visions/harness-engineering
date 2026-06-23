@@ -53,6 +53,27 @@ export { ExecutionOutcomeConnector } from './outcome/connector.js';
 export type { ExecutionOutcome } from './outcome/types.js';
 export type { OutcomeIngestResult } from './outcome/connector.js';
 
+// Outcome-Eval — post-execution spec-satisfaction verdict (Phase 3: evaluator & prompts)
+export {
+  deriveAuthority,
+  verdictSchema,
+  resolveSection,
+  OutcomeEvaluator,
+  OUTCOME_EVAL_SYSTEM_PROMPT,
+  buildUserPrompt,
+} from './outcome-eval/index.js';
+export type {
+  Verdict,
+  Confidence,
+  JudgedAgainst,
+  Authority,
+  OutcomeEvalInput,
+  OutcomeVerdict,
+  LlmVerdict,
+  ResolvedSection,
+  OutcomeEvaluatorOptions,
+} from './outcome-eval/index.js';
+
 // CML Historical
 export { computeHistoricalComplexity } from './cml/historical.js';
 
