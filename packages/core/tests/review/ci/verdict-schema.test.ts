@@ -3,6 +3,7 @@ import {
   CiReviewVerdictSchema,
   parseCiReviewVerdict,
   CI_REVIEW_VERDICT_SCHEMA_VERSION,
+  CI_RUNNERS,
 } from '../../../src/review/ci/verdict-schema';
 import type { ReviewFinding } from '../../../src/review/types';
 
@@ -53,6 +54,19 @@ describe('CiReviewVerdictSchema', () => {
 
   it('rejects a malformed finding (missing required ReviewFinding fields)', () => {
     expect(() => parseCiReviewVerdict(makeVerdict({ findings: [{ id: 'x' }] }))).toThrow();
+  });
+
+  it('includes the local endpoint runner in the CI_RUNNERS enum', () => {
+    expect(CI_RUNNERS).toContain('local');
+    expect(CI_RUNNERS).toEqual(['claude', 'gemini', 'codex', 'cursor', 'local', 'floor-only']);
+  });
+
+  it('parses a local endpoint verdict (ranLlmTier true, single-pass)', () => {
+    const v = parseCiReviewVerdict(
+      makeVerdict({ runner: 'local', ranLlmTier: true, assessment: 'approve' })
+    );
+    expect(v.runner).toBe('local');
+    expect(v.ranLlmTier).toBe(true);
   });
 
   it('allows floor-only runner with ranLlmTier false and skipped reason', () => {
