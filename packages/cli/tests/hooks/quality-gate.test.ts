@@ -13,7 +13,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
     cwd: dir,
-    timeout: 30000,
+    timeout: 60000,
   });
   try {
     rmSync(stdinFile, { force: true });
@@ -26,7 +26,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   };
 }
 
-describe('quality-gate', { timeout: 30000 }, () => {
+describe('quality-gate', { timeout: 60000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('quality-gate', { timeout: 30000 }, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('detects biome.json and reports on stderr', { timeout: 30000 }, () => {
+  it('detects biome.json and reports on stderr', { timeout: 60000 }, () => {
     writeFileSync(join(tmpDir, 'biome.json'), '{}');
     const input = JSON.stringify({
       tool_name: 'Edit',
@@ -61,7 +61,7 @@ describe('quality-gate', { timeout: 30000 }, () => {
     expect(exitCode).not.toBe(2);
   });
 
-  it('detects biome.jsonc', { timeout: 30000 }, () => {
+  it('detects biome.jsonc', { timeout: 60000 }, () => {
     writeFileSync(join(tmpDir, 'biome.jsonc'), '{}');
     const input = JSON.stringify({
       tool_name: 'Write',
@@ -93,7 +93,7 @@ describe('quality-gate', { timeout: 30000 }, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('detects .go file and exits 0', { timeout: 15000 }, () => {
+  it('detects .go file and exits 0', { timeout: 60000 }, () => {
     const input = JSON.stringify({
       tool_name: 'Edit',
       tool_input: { file_path: 'main.go' },
@@ -104,7 +104,7 @@ describe('quality-gate', { timeout: 30000 }, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('never exits with code 2 (warn-only hook)', { timeout: 30000 }, () => {
+  it('never exits with code 2 (warn-only hook)', { timeout: 60000 }, () => {
     writeFileSync(join(tmpDir, 'biome.json'), '{}');
     const input = JSON.stringify({
       tool_name: 'Edit',

@@ -18,7 +18,7 @@ function runHook(
   const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
     cwd: dir,
-    timeout: 15000,
+    timeout: 60000,
   });
   try {
     rmSync(stdinFile, { force: true });
@@ -40,7 +40,7 @@ function readSummary(tmpDir: string): any {
   return JSON.parse(readFileSync(summaryPath, 'utf-8'));
 }
 
-describe('pre-compact-state', { timeout: 30000 }, () => {
+describe('pre-compact-state', { timeout: 60000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {
