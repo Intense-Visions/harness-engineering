@@ -20,6 +20,11 @@ Phases:
 - score_report: Surface the 0-100 score, tier label, and per-pattern remediation
   </objective>
 
+<execution_context>
+@agents/skills/claude-code/harness-audit-harness-strength/SKILL.md
+@agents/skills/claude-code/harness-audit-harness-strength/skill.yaml
+</execution_context>
+
 <process>
 1. Try: invoke mcp__harness__run_skill with skill: "harness-audit-harness-strength"
 2. If MCP unavailable: read SKILL.md and follow its workflow directly
