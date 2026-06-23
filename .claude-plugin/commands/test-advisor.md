@@ -1,7 +1,7 @@
 ---
 name: harness:test-advisor
-description: Graph-based test selection — answers "what tests should I run?"
-argument-hint: '[--path <path>] [--files <files>]'
+description: Graph-based test selection and project-wide coverage audit — answers "what tests should I run?" or "what's untested?"
+argument-hint: '[--path <path>] [--files <files>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read
@@ -17,7 +17,7 @@ Type: flexible
 </context>
 
 <objective>
-Graph-based test selection — answers "what tests should I run?"
+Graph-based test selection and project-wide coverage audit — answers "what tests should I run?" or "what's untested?"
 
 Phases:
 

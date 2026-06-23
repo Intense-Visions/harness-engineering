@@ -8,8 +8,9 @@
 - In CI — optimize test suite execution order
 - When a test fails — understand which changes could have caused it
 - When `on_pr` triggers fire
-- NOT for writing tests (use harness-tdd)
-- NOT for test quality analysis (out of scope)
+- **Coverage Audit mode** — when no diff is available and the user asks for "coverage gaps", "deep dive", "coverage plan", or "what's untested", run project-wide gap analysis instead of test selection
+- NOT for writing tests (use harness-tdd, or `canary:canary-write-test` for uncovered files surfaced by Coverage Audit)
+- NOT for test quality analysis at the test-selection level (Coverage Audit mode does include a capped quality review via `canary:canary-review-test`)
 
 ## Prerequisites
 
@@ -110,6 +111,63 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 
 ### Full Run Command (all tiers)
 npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes/login.test.ts tests/middleware/verify.test.ts tests/integration/auth-flow.test.ts
+```
+
+## Coverage Audit Mode
+
+Activates when `--audit` is passed, OR when no diff is available AND the user's
+language matches audit intent ("coverage gaps", "deep dive", "coverage plan",
+"what's untested"). When this mode is selected, skip Phases 1–3 above and run
+the three audit phases below instead.
+
+### Audit Phase 1: INVENTORY — Build the Source-to-Test Map
+
+1. **Enumerate source files**: glob for `.ts`, `.tsx`, `.js`, `.jsx` under the
+   project's source roots (e.g., `src/`, `packages/*/src/`). Skip `node_modules`,
+   `dist`, build outputs, and fixtures.
+2. **Enumerate test files**: glob for `*.test.*`, `*.spec.*`, and files under
+   `__tests__/` and parallel `tests/` directories.
+3. **Map source → test**: for each source file, find its test file using the
+   Tier 1 / Tier 2 / Tier 3 strategies described in `Phase 2: DISCOVER`. With a
+   graph, prefer `get_impact`; without one, use naming conventions and import
+   parsing.
+4. **Split**: produce two lists — `covered` (source files with at least one
+   matching test) and `uncovered` (source files with no matching test).
+
+### Audit Phase 2: QUALITY REVIEW — Critique Covered Test Files
+
+1. **Cap at 10 files per run**: a deep quality review is expensive. Pick the
+   top 10 covered files prioritized by size (lines of code) and criticality
+   (depth in the graph / co-change frequency). The remaining covered files are
+   accepted as-is for this run.
+2. **For each of the 10**: dispatch `canary:canary-review-test` against the
+   test file. Collect its findings (missing edge cases, anti-patterns,
+   brittleness, oracle gaps).
+3. **Aggregate**: bin findings by severity (high / medium / low) and by file.
+
+### Audit Phase 3: GAP REPORT — Synthesize a Unified Coverage Plan
+
+Emit a single report with three sections:
+
+```
+## Coverage Audit Report
+
+### Uncovered Files (no test found)
+| File | Lines | Priority | Suggested Action |
+|------|-------|----------|------------------|
+| src/services/billing.ts | 412 | high | canary:canary-write-test |
+| src/utils/format.ts     | 38  | low  | canary:canary-write-test |
+
+### Quality Gaps (from Quality Review, capped at 10 reviewed)
+| Test File | Severity | Top Gap |
+|-----------|----------|---------|
+| tests/services/auth.test.ts | high | no failure-path assertions |
+| tests/utils/date.test.ts    | med  | mock leaks across cases |
+
+### Recommended Next Steps
+- Generate tests for high-priority uncovered files via `canary:canary-write-test`.
+- Resolve high-severity quality gaps via `canary:canary-review-test` follow-ups.
+- For uncovered files spanning domain + UI, run `canary:canary-pick-framework` first.
 ```
 
 ## Harness Integration
