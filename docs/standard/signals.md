@@ -17,7 +17,7 @@ view; opening the dashboard opens on this layer.
   keyed by `capturedAt`, projected onto a 30-day window. Source const: `arch/timeline.json`.
   Only one arch snapshot exists today, so the trend is **cosmetic until arch snapshots
   accrue** over successive runs; the current value is real, the slope is not yet meaningful.
-- **Threshold:** warn at +5 / alert at +15 (delta over 30 days); unit `count`;
+- **Threshold:** warn at +5% / alert at +15% (percentage rise over 30 days); unit `count`;
   betterDirection **down** (lower complexity is healthier).
 - **Rationale:** Complexity creep is the slow leak that turns a maintainable module into a
   hotspot. Catching a sudden jump inside the hour lets a senior pin it to the merge that

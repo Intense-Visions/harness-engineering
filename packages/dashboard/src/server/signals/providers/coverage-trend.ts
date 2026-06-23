@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defaultCommandRunner } from '../command-runner';
+import { round2, toDate } from '../shared';
 import type {
   CommandRunner,
   SignalContext,
@@ -48,16 +49,6 @@ function aggregateCoverage(parsed: CoverageBaselines): number {
   const lines = Object.values(parsed).map((m) => m.lines);
   if (lines.length === 0) return 0;
   return lines.reduce((sum, v) => sum + v, 0) / lines.length;
-}
-
-/** Round to 2 decimal places. */
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
-function toDate(iso: string): string {
-  return iso.slice(0, 10);
 }
 
 /** One `git log` record: a commit sha paired with its `YYYY-MM-DD` commit date. */
