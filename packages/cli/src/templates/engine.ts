@@ -67,7 +67,12 @@ const NON_JSON_PACKAGE_CONFIGS = new Set([
 ]);
 
 /** Files that are part of harness infrastructure, not project scaffolding. */
-const HARNESS_CONFIG_FILES = new Set(['harness.config.json', 'AGENTS.md', '.harness/.gitignore']);
+const HARNESS_CONFIG_FILES = new Set([
+  'harness.config.json',
+  'AGENTS.md',
+  '.harness/.gitignore',
+  '.github/workflows/ci.yml',
+]);
 
 /** OS-generated files that may exist on a contributor's machine but are not part of any template. */
 const IGNORED_TEMPLATE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);

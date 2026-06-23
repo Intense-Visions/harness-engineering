@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { runInit } from '../../src/commands/init';
+import { TemplateEngine } from '../../src/templates/engine';
+import { resolveTemplatesDir } from '../../src/utils/paths';
 
 describe('harness init integration', () => {
   const levels = ['basic', 'intermediate', 'advanced'] as const;
@@ -319,5 +321,21 @@ describe('harness init integration', () => {
 
       fs.rmSync(tmpDir, { recursive: true });
     });
+  });
+});
+
+describe('harness init — CI workflow', () => {
+  it('writes ci.yml in existing-project mode', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-ci-existing-'));
+    fs.writeFileSync(path.join(tmp, 'package.json'), '{"name":"x"}'); // existing-project marker
+    const engine = new TemplateEngine(resolveTemplatesDir());
+    const res = engine.write(
+      { files: [{ relativePath: '.github/workflows/ci.yml', content: 'name: CI\n' }] },
+      tmp,
+      { overwrite: false, existingProject: true }
+    );
+    expect(res.ok).toBe(true);
+    expect(fs.existsSync(path.join(tmp, '.github/workflows/ci.yml'))).toBe(true);
+    fs.rmSync(tmp, { recursive: true });
   });
 });
