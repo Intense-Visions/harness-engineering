@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseClaudeVerdict } from '../../../src/review/ci/parsers/claude';
 import { parseGeminiVerdict } from '../../../src/review/ci/parsers/gemini';
+import { parseCodexVerdict } from '../../../src/review/ci/parsers/codex';
 import { parseCiReviewVerdict } from '../../../src/review/ci/verdict-schema';
 
 const fx = (name: string) => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
@@ -28,6 +29,16 @@ describe('gemini verdict parser', () => {
     expect(v.runner).toBe('gemini');
     expect(v.assessment).toBe('comment');
     expect(v.blockingFindings).toHaveLength(0);
+    expect(v.exitCode).toBe(0);
+  });
+});
+
+describe('codex verdict parser', () => {
+  it('maps codex clean result to an approve verdict with exitCode 0', () => {
+    const v = parseCiReviewVerdict(parseCodexVerdict(fx('codex-verdict.json')));
+    expect(v.runner).toBe('codex');
+    expect(v.assessment).toBe('approve');
+    expect(v.findings).toHaveLength(0);
     expect(v.exitCode).toBe(0);
   });
 });
