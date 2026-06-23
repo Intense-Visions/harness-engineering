@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-06-04
 last_synced: 2026-06-04T23:42:12.128Z
-last_manual_edit: 2026-06-11T11:17:32.537Z
+last_manual_edit: 2026-06-23T15:38:55.939Z
 ---
 
 # Roadmap
@@ -1208,6 +1208,17 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#574
+
+### Optional canary Integration for harness Test Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/canary-test-integration/proposal.md
+- **Summary:** Add canary as an optional, gracefully-degrading dependency on the test surface via a single CanaryAdapter that execs canary-test-cli and parses JSON; gated by a Phase 0 verification spike.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#590
 
 ## Hermes Adoption
 
@@ -2424,7 +2435,7 @@ last_manual_edit: 2026-06-11T11:17:32.537Z
 - **Summary:** The article's named #1 industry gap and the project's largest single missing piece. LLM-judgment skill that reads the spec's user-visible-behavior section + the diff + test outputs and produces a structured "did this satisfy the spec" verdict. Wire into `harness.orchestrator.md` as step 6.5 between code-review and ship. Wire into CI workflow template (item below) as required check. Uses existing primitives in `packages/intelligence` (PESL simulator, effectiveness scorer with graph-attributed execution_outcome nodes, SEL spec enrichment). Confidence calibration similar to `harness:security-craft` to manage false-positive risk. Source: Pass 1 #3, Pass 2 #3 (CRITICAL).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chad.warner@capillarytech.com
+- **Assignee:** —
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#532
 
