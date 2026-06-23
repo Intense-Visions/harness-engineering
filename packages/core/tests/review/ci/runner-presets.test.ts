@@ -6,8 +6,7 @@ describe('RUNNER_PRESETS registry shape', () => {
     expect(Object.keys(RUNNER_PRESETS).sort()).toEqual(['claude', 'codex', 'cursor', 'gemini']);
   });
 
-  // Re-enabled in Task 9 once claude/gemini/codex parsers are wired and marked supported.
-  it.skip('marks claude/gemini/codex supported with a secretEnvVar and headlessInvocation', () => {
+  it('marks claude/gemini/codex supported with a secretEnvVar and headlessInvocation', () => {
     for (const id of ['claude', 'gemini', 'codex'] as const) {
       const p = RUNNER_PRESETS[id];
       expect(p.supported).toBe(true);
@@ -16,6 +15,22 @@ describe('RUNNER_PRESETS registry shape', () => {
       expect(typeof p.headlessInvocation).toBe('function');
       expect(typeof p.verdictParser).toBe('function');
     }
+  });
+
+  it('builds a headless invocation argv per supported runner', () => {
+    for (const id of ['claude', 'gemini', 'codex'] as const) {
+      const preset = RUNNER_PRESETS[id];
+      if (!preset.supported) throw new Error(`${id} should be supported`);
+      const inv = preset.headlessInvocation({ instruction: 'review', diffPath: '/tmp/d.diff' });
+      expect(inv.command).toMatch(/.+/);
+      expect(Array.isArray(inv.args)).toBe(true);
+    }
+  });
+
+  it('reports claude/gemini/codex as supported runners via isSupportedRunner', () => {
+    expect(isSupportedRunner('claude')).toBe(true);
+    expect(isSupportedRunner('gemini')).toBe(true);
+    expect(isSupportedRunner('codex')).toBe(true);
   });
 
   it('marks cursor unsupported with a reason and no usable parser path', () => {
