@@ -46,6 +46,16 @@ describe('STRENGTH-003 oversized --skip list', () => {
     ).toEqual([]);
   });
 
+  it('flags when the only `#` is inside a token, not a real comment boundary', () => {
+    // A `#` that is part of an argument value (e.g. `--tag "#release"`) is NOT a
+    // shell comment and must not count as inline justification.
+    const findings = strength003SkipList.detect(
+      ctx({ preCommit: 'harness ci check --skip a,b,c,d --tag "#release"\n' })
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.id).toBe('STRENGTH-003');
+  });
+
   it('passes (evaluable) when there is no --skip at all', () => {
     const c = ctx({ preCommit: 'harness ci check\nnpx lint-staged\n' });
     expect(strength003SkipList.evaluable?.(c)).toBe(true);

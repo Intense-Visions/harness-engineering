@@ -31,9 +31,12 @@ export const strength003SkipList: StrengthRule = {
       if (!m) continue;
       const categories = m[1]!.split(',').filter(Boolean);
       if (categories.length <= 2) continue;
-      // Inline justification: a `#` comment appearing after the --skip value.
+      // Inline justification: a `#` SHELL COMMENT appearing after the --skip
+      // value. The `#` must sit at a comment boundary (start-of-segment or
+      // preceded by whitespace) so a `#` inside a token (e.g. `--tag "#release"`)
+      // does not count as justification.
       const afterSkip = line.slice(m.index + m[0].length);
-      if (afterSkip.includes('#')) continue;
+      if (/(^|\s)#/.test(afterSkip)) continue;
       findings.push({
         id: 'STRENGTH-003',
         gearPiece: 'skip-discipline',
