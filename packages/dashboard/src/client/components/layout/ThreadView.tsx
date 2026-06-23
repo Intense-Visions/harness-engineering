@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router';
+import { useParams } from 'react-router';
 import { useEffect } from 'react';
 import { useThreadStore } from '../../stores/threadStore';
 import { EmptyState } from './EmptyState';
@@ -133,24 +133,4 @@ export function SystemRoute() {
       </div>
     </div>
   );
-}
-
-/** Route: / */
-export function HomeRoute() {
-  const lastThreadId = useThreadStore((s) => s.lastThreadId);
-  const thread = useThreadStore((s) => (lastThreadId ? s.threads.get(lastThreadId) : undefined));
-  const navigate = useNavigate();
-
-  // If we have a last thread that still exists, redirect to it
-  useEffect(() => {
-    if (thread && lastThreadId) {
-      navigate(`/t/${lastThreadId}`, { replace: true });
-    }
-  }, [thread, lastThreadId, navigate]);
-
-  // Otherwise show the empty state
-  if (!thread) return <EmptyState />;
-
-  // Render nothing briefly while the redirect happens
-  return null;
 }
