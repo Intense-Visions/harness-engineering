@@ -1211,11 +1211,11 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 
 ### Optional canary Integration for harness Test Skills
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/canary-test-integration/proposal.md
-- **Summary:** Add canary as an optional, gracefully-degrading dependency on the test surface via a single CanaryAdapter that execs canary-test-cli and parses JSON; gated by a Phase 0 verification spike.
-- **Blockers:** —
-- **Plan:** —
+- **Summary:** Add canary as an optional, gracefully-degrading dependency on the test surface via a single CanaryAdapter that execs canary-test-cli and parses JSON; gated by a Phase 0 verification spike. Phase 1 (adapter core) complete; Phases 2-4 pending.
+- **Blockers:** Phase 2 (skill wiring) blocked by PR #501
+- **Plan:** docs/changes/canary-test-integration/plans/2026-06-23-canary-adapter-core-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#590
