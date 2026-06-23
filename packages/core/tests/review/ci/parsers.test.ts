@@ -244,4 +244,32 @@ describe('local (single-pass endpoint) verdict parser', () => {
   it('throws on non-JSON input', () => {
     expect(() => parseLocalVerdict('not json')).toThrow();
   });
+
+  it('rejects malformed findings at the schema boundary (highest-risk producer)', () => {
+    // findings are schema-validated FIRST: an invalid domain ('style') and a
+    // missing required field must be rejected rather than cast through.
+    const badDomain = JSON.stringify({
+      assessment: 'comment',
+      findings: [
+        {
+          id: 'x-1',
+          file: 'src/x.ts',
+          lineRange: [1, 1],
+          domain: 'style',
+          severity: 'suggestion',
+          title: 't',
+          rationale: 'r',
+          evidence: [],
+          validatedBy: 'heuristic',
+        },
+      ],
+    });
+    expect(() => parseLocalVerdict(badDomain)).toThrow();
+
+    const missingField = JSON.stringify({
+      assessment: 'comment',
+      findings: [{ id: 'x-1' }],
+    });
+    expect(() => parseLocalVerdict(missingField)).toThrow();
+  });
 });

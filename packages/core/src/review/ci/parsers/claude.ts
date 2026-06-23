@@ -1,8 +1,4 @@
-import {
-  CI_REVIEW_VERDICT_SCHEMA_VERSION,
-  parseCiReviewVerdict,
-  type CiReviewVerdict,
-} from '../verdict-schema';
+import { buildCiReviewVerdict, type CiReviewVerdict } from '../verdict-schema';
 
 /**
  * The outer transcript envelope `claude -p <instruction> --output-format json`
@@ -51,16 +47,12 @@ export function parseClaudeVerdict(raw: string): CiReviewVerdict {
   // Stage 2: the verdict is a JSON string nested in `.result`. Throws on bad JSON.
   const inner = JSON.parse(envelope.result) as ClaudeInnerVerdict;
 
-  const findings = (inner.findings ?? []) as CiReviewVerdict['findings'];
-  const blockingFindings = findings.filter((f) => f.severity === 'critical');
-  return parseCiReviewVerdict({
-    schemaVersion: CI_REVIEW_VERDICT_SCHEMA_VERSION,
+  // findings are still UNVALIDATED here; buildCiReviewVerdict schema-validates
+  // them FIRST and then derives blockingFindings/exitCode from validated data.
+  return buildCiReviewVerdict({
     runner: 'claude',
     ranLlmTier: true,
     assessment: inner.assessment,
-    findings,
-    blockingFindings,
-    exitCode: blockingFindings.length > 0 || inner.assessment === 'request-changes' ? 1 : 0,
-    skipped: false,
+    findings: inner.findings,
   });
 }

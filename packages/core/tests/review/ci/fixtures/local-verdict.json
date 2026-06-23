@@ -14,10 +14,10 @@
       "validatedBy": "heuristic"
     },
     {
-      "id": "style-src-payment-ts-12",
+      "id": "bug-src-payment-ts-12",
       "file": "src/payment.ts",
       "lineRange": [12, 12],
-      "domain": "style",
+      "domain": "bug",
       "severity": "suggestion",
       "title": "Prefer const for immutable binding",
       "rationale": "`let endpoint` is never reassigned.",
