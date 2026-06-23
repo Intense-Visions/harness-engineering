@@ -8,6 +8,31 @@ export interface UseSignalsResult {
   error: string | null;
 }
 
+interface SignalsSetters {
+  setData: (d: SignalsResult | null) => void;
+  setLoading: (l: boolean) => void;
+  setError: (e: string | null) => void;
+}
+
+/** Fetch the signals snapshot and route the outcome to the hook's setters. */
+async function loadSignals(controller: AbortController, setters: SignalsSetters): Promise<void> {
+  try {
+    const res = await fetch('/api/signals', { signal: controller.signal });
+    if (!res.ok) {
+      setters.setError(`HTTP ${res.status}`);
+      setters.setLoading(false);
+      return;
+    }
+    const json = (await res.json()) as ApiResponse<SignalsResult>;
+    setters.setData(json.data);
+    setters.setLoading(false);
+  } catch (err) {
+    if (controller.signal.aborted) return;
+    setters.setError(err instanceof Error ? err.message : 'Network error');
+    setters.setLoading(false);
+  }
+}
+
 /**
  * Spec 534 — fetch the five computed signals once on mount.
  *
@@ -22,23 +47,7 @@ export function useSignals(): UseSignalsResult {
 
   useEffect(() => {
     const controller = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch('/api/signals', { signal: controller.signal });
-        if (!res.ok) {
-          setError(`HTTP ${res.status}`);
-          setLoading(false);
-          return;
-        }
-        const json = (await res.json()) as ApiResponse<SignalsResult>;
-        setData(json.data);
-        setLoading(false);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : 'Network error');
-        setLoading(false);
-      }
-    })();
+    void loadSignals(controller, { setData, setLoading, setError });
     return () => controller.abort();
   }, []);
 
