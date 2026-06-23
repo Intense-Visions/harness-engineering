@@ -1,0 +1,54 @@
+name: harness-audit-harness-strength
+version: '0.1.0'
+description: Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Grep
+  - Glob
+cli:
+  command: harness skill run harness-audit-harness-strength
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: 'adopter (default) or toolkit (auto-detected in a harness-distribution repo)'
+      required: false
+    - name: severity
+      description: Minimum severity threshold (error, warning, info)
+      required: false
+    - name: report-only
+      description: Soften exit to 0 even when error-severity findings exist
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-audit-harness-strength
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: scan
+    description: Resolve mode and run harness check-harness-strength against the target repo
+    required: true
+  - name: detect
+    description: Interpret the 7 STRENGTH pattern findings with file-line evidence
+    required: true
+  - name: score_report
+    description: Surface the 0-100 score, tier label, and per-pattern remediation
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
