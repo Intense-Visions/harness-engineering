@@ -7,13 +7,11 @@ pnpm run check:changesets
 # Format check catches files missed by lint-staged (e.g., from merges).
 pnpm run format:check
 pnpm run typecheck
-# Run test:coverage one package at a time. The filesystem/sqlite/HTTP-heavy tests
-# (search index, hooks, gateway/deliveries, lazy-local-adapter probe) flake under the
-# compound load of multiple packages running test:coverage in parallel, each with its own
-# vitest worker pool — concurrency=2 still flaked on busier dev machines (e.g. with a
-# second worktree session running). concurrency=1 matches the per-package standalone runs,
-# which pass reliably. CI uses `pnpm test:ci` directly without the cap because GitHub
+# Cap turbo concurrency to 2 packages-at-a-time. Without this, filesystem/sqlite/HTTP-heavy
+# tests (search index, hooks, gateway/deliveries, lazy-local-adapter probe) flake under
+# the compound load of ~21 packages running test:coverage in parallel, each with its own
+# vitest worker pool. CI uses `pnpm test:ci` directly without the cap because GitHub
 # Actions runners have far fewer competing processes.
-pnpm exec turbo run test:coverage --concurrency=1
+pnpm exec turbo run test:coverage --concurrency=2
 node scripts/coverage-ratchet.mjs
 pnpm run generate-docs --check
