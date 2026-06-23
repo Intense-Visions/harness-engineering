@@ -575,6 +575,18 @@ Finalize a naming_craft in-session run by submitting the calling agent's respons
 - `runId` (string, required) — runId returned by the naming_craft collect call
 - `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
+### `outcome_eval`
+
+Post-execution LLM-judgment: did the implementation actually satisfy its spec? Reads the spec's acceptance section, the change diff, and test output, and emits a confidence-rated OutcomeVerdict (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with a rationale and unmetCriteria. Ship authority is DERIVED in TypeScript, never trusted from the LLM: a high-confidence NOT_SATISFIED is blocking; every other verdict is advisory. The harness's first blocking post-execution spec-satisfaction gate. IMPORTANT: diff and testOutput are required — omitting them degrades the verdict to INCONCLUSIVE/advisory (never blocking), so the calling agent MUST supply them from the session (git diff + test-runner output). Each verdict persists as an execution_outcome node.
+
+**Parameters:**
+
+- `specPath` (string, required) — Absolute or repo-relative path to the spec markdown to judge against
+- `diff` (string, required) — Unified diff of the change under judgment (e.g. `git diff` / `git diff &lt;base>...HEAD`). Required: an empty diff degrades the verdict to INCONCLUSIVE/advisory.
+- `testOutput` (string, required) — Captured test-runner stdout+stderr. Required: empty/unparseable output is tolerated but degrades the verdict toward INCONCLUSIVE/advisory.
+- `model` (string, optional) — Optional model override for the outcome-eval LLM call
+- `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
+
 ### `read_strategy`
 
 Read and parse STRATEGY.md at the project root. Returns { present, valid, doc?, error? } where doc is the parsed StrategyDoc when present and valid. Combines validate_strategy + parseStrategyDoc + asStrategyDoc in one call.
