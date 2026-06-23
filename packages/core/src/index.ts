@@ -51,12 +51,6 @@ export { WHATWG_BAD_PORTS, isBadPort, assertPortUsable } from './shared/port';
 export * from './validation';
 
 /**
- * Branch name validation.
- */
-export { validateBranchName } from './validation/branch';
-export type { BranchingConfig, BranchValidationResult } from './validation/branch';
-
-/**
  * Context module for managing AI agent context and knowledge maps.
  */
 export * from './context';
@@ -75,11 +69,6 @@ export * from './annotations';
  * Entropy module for detecting and remediating codebase drift, dead code, and complexity.
  */
 export * from './entropy';
-
-/**
- * Insights aggregator — composite report of health, entropy, decay, attention, impact (Hermes Phase 1).
- */
-export * from './insights';
 
 /**
  * Performance module for benchmarking and regression detection.
@@ -150,7 +139,6 @@ export {
   isUpdateCheckEnabled,
   shouldRunCheck,
   readCheckState,
-  invalidateCheckState,
   spawnBackgroundCheck,
   getUpdateNotification,
 } from './update-checker';
@@ -183,12 +171,6 @@ export {
 } from './adoption';
 
 /**
- * Notifications module — loader for the `notifications.sinks[]` section
- * of harness.config.json. Hermes Phase 3.
- */
-export { loadNotificationsConfig } from './notifications';
-
-/**
  * Compaction module for reducing MCP tool response token consumption.
  */
 export * from './compaction';
@@ -207,21 +189,32 @@ export {
   getOrCreateInstallId,
   collectEvents,
   send,
-  CacheMetricsRecorder,
-  OTLPExporter,
-  SpanKind,
 } from './telemetry';
-export type {
-  CacheMetricsRecorderOptions,
-  OTLPExporterOptions,
-  TraceSpan,
-  SpanAttributes,
-} from './telemetry';
+
+/**
+ * Harness-strength module.
+ */
+export * from './harness-strength';
+
+/**
+ * Insights module.
+ */
+export * from './insights';
 
 /**
  * Locks module.
  */
 export * from './locks';
+
+/**
+ * Notifications module.
+ */
+export * from './notifications';
+
+/**
+ * Proposals module.
+ */
+export * from './proposals';
 
 /**
  * Pulse module.
@@ -234,15 +227,9 @@ export * from './pulse';
 export * from './solutions';
 
 /**
- * Strategy module — STRATEGY.md schema, parser, and exports.
+ * Strategy module.
  */
 export * from './strategy';
-
-/**
- * Skill proposals module (Hermes Phase 4) — `.harness/proposals/` storage,
- * usage derivation, and `emit_skill_proposal` payload helpers.
- */
-export * from './proposals';
 
 /**
  * The current version of the Harness Engineering core library.
