@@ -47,6 +47,37 @@ describe('STRENGTH-002 auto-baseline on regression', () => {
     expect(strength002Autobaseline.detect(ctx({ preCommit: PASSING_PRECOMMIT }))).toEqual([]);
   });
 
+  it('flags a baseline rewrite even when a nested non-failure if/fi closes first', () => {
+    // Regression: failureDepth decremented on the inner `fi`, dropping the
+    // enclosing failure branch and missing the rewrite. The rewrite is still
+    // inside the outer `if ! ...` failure branch and must FLAG.
+    const NESTED = `if ! a; then
+  if b; then echo x; fi
+  x --update-baseline
+fi
+`;
+    const findings = strength002Autobaseline.detect(ctx({ preCommit: NESTED }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.id).toBe('STRENGTH-002');
+  });
+
+  it('flags an uppercase --UPDATE-BASELINE inside a failure branch (case-insensitive)', () => {
+    const UPPER = `if ! a; then
+  x --UPDATE-BASELINE
+fi
+`;
+    const findings = strength002Autobaseline.detect(ctx({ preCommit: UPPER }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.id).toBe('STRENGTH-002');
+  });
+
+  it('does not flag a baseline rewrite outside any failure branch', () => {
+    const SAFE = `if ok; then echo good; fi
+x --update-baseline
+`;
+    expect(strength002Autobaseline.detect(ctx({ preCommit: SAFE }))).toEqual([]);
+  });
+
   it('is not evaluable when preCommit is null', () => {
     const c = ctx({ preCommit: null });
     expect(strength002Autobaseline.evaluable?.(c)).toBe(false);

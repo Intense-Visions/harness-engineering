@@ -16,7 +16,38 @@ import type { ProjectContext, StrengthFinding, StrengthRule } from '../types';
  */
 
 const BASELINE_REWRITE =
-  /--update-baseline|(?:check-arch|baselines?\.json).*(?:--update-baseline|>\s*\S*baselines?\.json)/;
+  /--update-baseline|(?:check-arch|baselines?\.json).*(?:--update-baseline|>\s*\S*baselines?\.json)/i;
+
+/**
+ * Scan pre-commit lines and return the 0-based index of the first baseline
+ * rewrite that sits inside a failure branch, or -1 if none.
+ *
+ * Tracks ALL if/fi nesting with a boolean stack so failure-branch membership
+ * stays correct under nesting. Each `if` pushes whether it opened a failure
+ * branch (`if !` / negated condition); each `fi` pops the matching frame. A
+ * line is "inside a failure branch" iff ANY enclosing `if` on the stack is one
+ * — so a nested non-failure `if...fi` closing first cannot drop the outer
+ * failure branch.
+ */
+function findRewriteInFailureBranch(lines: string[]): number {
+  const ifStack: boolean[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    // `if` may appear with its `then` on the same line (e.g. `if b; then x; fi`),
+    // and a one-liner can open and close on the same line.
+    const ifCount = (l.match(/\bif\b/g) ?? []).length;
+    const fiCount = (l.match(/\bfi\b/g) ?? []).length;
+    const opensFailure = /\bif\s+!/.test(l);
+    for (let k = 0; k < ifCount; k++) ifStack.push(opensFailure);
+    // Evaluate membership AFTER opening this line's `if`s but BEFORE popping its
+    // `fi`s: a rewrite on a one-liner failure branch
+    // (`if ! a; then x --update-baseline; fi`) is still inside that branch.
+    const inFailureBranch = ifStack.includes(true);
+    for (let k = 0; k < fiCount; k++) ifStack.pop();
+    if (inFailureBranch && BASELINE_REWRITE.test(l)) return i;
+  }
+  return -1;
+}
 
 export const strength002Autobaseline: StrengthRule = {
   id: 'STRENGTH-002',
@@ -26,36 +57,19 @@ export const strength002Autobaseline: StrengthRule = {
   evaluable: (ctx) => ctx.preCommit !== null,
   detect(ctx: ProjectContext): Omit<StrengthFinding, 'severity'>[] {
     if (ctx.preCommit === null) return [];
-    const lines = ctx.preCommit.split('\n');
-    // Track failure-branch depth: `if ! ... then` opens one; `fi` closes one.
-    let failureDepth = 0;
-    let inFailureBlock = false; // becomes true once any `if ! ... then` is open
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i]!;
-      if (/\bif\s+!/.test(l)) {
-        // Opens a failure branch; the matching `then` may be same line or later.
-        failureDepth++;
-        inFailureBlock = true;
-      }
-      if (/\bfi\b/.test(l)) {
-        failureDepth = Math.max(0, failureDepth - 1);
-        if (failureDepth === 0) inFailureBlock = false;
-      }
-      if (inFailureBlock && failureDepth > 0 && BASELINE_REWRITE.test(l)) {
-        return [
-          {
-            id: 'STRENGTH-002',
-            gearPiece: 'regression-baseline',
-            file: '.husky/pre-commit',
-            line: i + 1,
-            message:
-              'pre-commit auto-rewrites the baseline inside a failure branch — regressions are silently absorbed instead of blocking the commit.',
-            remediation:
-              'Remove the auto `--update-baseline` from the failure path; let the hook fail and update baselines deliberately in a separate, reviewed step.',
-          },
-        ];
-      }
-    }
-    return [];
+    const idx = findRewriteInFailureBranch(ctx.preCommit.split('\n'));
+    if (idx < 0) return [];
+    return [
+      {
+        id: 'STRENGTH-002',
+        gearPiece: 'regression-baseline',
+        file: '.husky/pre-commit',
+        line: idx + 1,
+        message:
+          'pre-commit auto-rewrites the baseline inside a failure branch — regressions are silently absorbed instead of blocking the commit.',
+        remediation:
+          'Remove the auto `--update-baseline` from the failure path; let the hook fail and update baselines deliberately in a separate, reviewed step.',
+      },
+    ];
   },
 };
