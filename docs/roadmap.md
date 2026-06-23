@@ -2618,11 +2618,11 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 ### Ship a required-review GitHub Action template
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/required-review-ci/proposal.md
 - **Summary:** New `templates/ci/required-review.yml.hbs`. GitHub Action that runs `/harness:code-review` (the 7-phase multi-persona pipeline) on every PR, posts findings as PR review, and **fails the check if review wasn't run successfully**. Branch protection wires this as a required check. Without this wrapper, the multi-persona review (the project's strongest single piece of gear) is optional — the adopter has to remember to invoke it. Source: Pass 2 #6.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#541
 
@@ -2960,3 +2960,4 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 | Init design + roadmap polish follow-ups                          | @chadjw                       | assigned | 2026-06-03 |
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned | 2026-06-23 |
