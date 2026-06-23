@@ -6,7 +6,7 @@ describe('generateCIConfig', () => {
     const result = generateCIConfig({ platform: 'github' });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.filename).toBe('.github/workflows/harness.yml');
+    expect(result.value.filename).toBe('.github/workflows/ci.yml');
     expect(result.value.content).toContain('harness ci check');
     expect(result.value.content).toContain('on:');
   });

@@ -170,7 +170,7 @@ export function generateCIConfig(options: {
 
   const generators: Record<CIPlatform, { filename: string; generate: (skip: string) => string }> = {
     github: {
-      filename: '.github/workflows/harness.yml',
+      filename: '.github/workflows/ci.yml',
       generate: (skip: string) => generateGitHubActions(skip, language),
     },
     gitlab: { filename: '.gitlab-ci-harness.yml', generate: generateGitLabCI },
