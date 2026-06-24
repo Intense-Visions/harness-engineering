@@ -29,3 +29,7 @@ export { parseGeminiVerdict } from './parsers/gemini';
 export { parseCodexVerdict } from './parsers/codex';
 export { parseAntigravityVerdict } from './parsers/antigravity';
 export { parseLocalVerdict } from './parsers/local';
+
+// Phase 2: CI review orchestrator (floor + secret-gated LLM tier + block-on threshold).
+export { runCiReview } from './orchestrator';
+export type { RunCiReviewOptions, CiReviewResult, CiBlockOn, ExecFileLike } from './orchestrator';

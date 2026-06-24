@@ -202,14 +202,32 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
   };
 }
 
-// --- threshold + summary stubs (fleshed out in Task 4) ---
+/**
+ * Final exit code. Non-zero iff:
+ *  - the verdict assessment meets/exceeds blockOn (assessment gate), OR
+ *  - a runner was explicitly required but its LLM tier failed to execute.
+ * blockOn 'none' disables the assessment gate, but a required-runner execution
+ * FAILURE still blocks (a required review that errored is not a green check).
+ */
 function applyThreshold(
   v: CiReviewVerdict,
-  _blockOn: CiBlockOn,
-  _requiredRunnerFailed: boolean
+  blockOn: CiBlockOn,
+  requiredRunnerFailed: boolean
 ): number {
-  return v.exitCode;
+  if (requiredRunnerFailed) return 1;
+  if (blockOn === 'none') return 0;
+  const rank = (a: string): number => CI_ASSESSMENTS.indexOf(a as CiReviewVerdict['assessment']);
+  return rank(v.assessment) >= rank(blockOn) ? 1 : 0;
 }
+
 function summarize(v: CiReviewVerdict): string {
-  return `runner=${v.runner} ran-llm=${v.ranLlmTier} assessment=${v.assessment} exit=${v.exitCode}`;
+  const lines = [
+    `runner: ${v.runner}`,
+    `ranLlmTier: ${v.ranLlmTier}`,
+    `assessment: ${v.assessment}`,
+    `findings: ${v.findings.length} (blocking: ${v.blockingFindings.length})`,
+    `exitCode: ${v.exitCode}`,
+  ];
+  if (v.skipReason) lines.push(`note: ${v.skipReason}`);
+  return lines.join('\n');
 }
