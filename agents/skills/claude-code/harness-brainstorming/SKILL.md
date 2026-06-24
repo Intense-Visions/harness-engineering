@@ -186,21 +186,36 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
    The human must explicitly approve before this skill is complete.
 
-7. **Commit spec artifacts.** After approval, commit the spec and skill recommendations so the paper trail enters git history at sign-off rather than retroactively:
+7. **Promote the roadmap row.** If `docs/roadmap.md` exists, transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists.
+   - Derive the lookup key from the slash-command `ARGUMENTS` string (D1). Derive the summary from the spec title (the H1 heading).
+   - Call `manage_roadmap` with action `promote`, `feature: "<ARGUMENTS>"`, `spec: "docs/changes/<feature>/proposal.md"`, and `summary: "<H1>"`.
+   - Branch on the returned `PromoteResult` envelope:
+
+     | Envelope                                    | Skill behavior                                                                                                                                                     |
+     | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+     | `ok: true, transitioned: 'backlog→planned'` | Log "Promoted `<feature>`: backlog → planned". Continue to step 8.                                                                                                 |
+     | `ok: true, transitioned: 'spec-updated'`    | Log "Updated spec link for `<feature>` (status preserved)". Continue to step 8.                                                                                    |
+     | `ok: true, transitioned: 'created'`         | Log "Created new roadmap row for `<feature>` as planned". Continue to step 8.                                                                                      |
+     | `ok: true, transitioned: 'noop'`            | Log "No change — `<feature>` already promoted with this spec". Continue to step 8.                                                                                 |
+     | `ok: false, reason: 'in-progress'`          | **STOP.** Surface: "Refused to promote `<feature>`: an agent is currently dispatched against this row. Stop the agent or use a different feature name."            |
+     | `ok: false, reason: 'done'`                 | **STOP.** Surface: "Refused to promote `<feature>`: row is already 'done'. To revise a shipped feature, use a new name."                                           |
+     | `ok: false, reason: 'not-found'`            | If no row was expected to exist, fall through to a `created` outcome. Otherwise surface `closestMatches` as a typo hint and **STOP**.                              |
+     | `ok: false, reason: 'ambiguous'`            | **STOP.** Surface: "Refused to promote `<feature>`: matches multiple rows across milestones. Re-invoke with one of: `<matches>`." Matches are milestone-qualified. |
+     | `ok: false, reason: 'write-failed'`         | **STOP.** Surface `detail` verbatim. The brainstorm is not considered complete.                                                                                    |
+
+   - The `not-found` create path: when the row genuinely does not exist yet, call `manage_roadmap` action `add` with `status: "planned"`, `milestone: "Current Work"`, the spec path, and the H1 summary (unchanged from the legacy behavior), then continue to step 8.
+   - "STOP" cases skip step 8 (no commit) and step 9 (no handoff/transition). The spec file written in step 3 stays on disk; the user re-runs the skill after resolving the conflict.
+   - If `manage_roadmap` is unavailable, fall back to `parseRoadmap`/`promoteFeature`/`serializeRoadmap` from core. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."
+   - If no roadmap exists, skip silently (no envelope) and continue to step 8; the commit then contains only the spec files.
+
+8. **Commit spec artifacts and roadmap promotion.** After a successful promote (or a silent skip when no roadmap exists), commit the spec, skill recommendations, and the roadmap mutation together so the promotion ships atomically with the spec:
 
    ```bash
-   git add docs/changes/<feature>/proposal.md docs/changes/<feature>/SKILLS.md
-   git commit -m "docs(<feature>): add spec"
+   git add docs/changes/<feature>/proposal.md docs/changes/<feature>/SKILLS.md docs/roadmap.md
+   git commit -m "docs(<feature>): add spec and promote to planned"
    ```
 
-   Do not skip this step. `harness-execution` commits only implementation files, so a spec uncommitted here stays untracked until someone notices. If a pre-commit hook reformats either file, re-add and re-commit.
-
-8. **Add feature to roadmap.** If `docs/roadmap.md` exists:
-   - Derive feature name from the spec title (the H1 heading).
-   - Call `manage_roadmap` with action `add`, `status: "planned"`, `milestone: "Current Work"`, and the spec path.
-   - If the feature already exists, skip silently.
-   - If `manage_roadmap` is unavailable, fall back to `parseRoadmap`/`serializeRoadmap` from core. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."
-   - If no roadmap exists, skip silently.
+   Include `docs/roadmap.md` in `git add` only when it exists; omit it when the project has no roadmap. Do not skip this step — `harness-execution` commits only implementation files, so a spec uncommitted here stays untracked until someone notices. If a pre-commit hook reformats a file, re-add and re-commit.
 
 9. **Write handoff and suggest transition.** After approval:
 
@@ -336,8 +351,8 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **Spec location** -- `docs/changes/<feature>/proposal.md`.
 - **Handoff** -- Once approved, invoke harness-planning to create the implementation plan.
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
-- **Spec commit** -- After sign-off (Phase 4 Step 7), commit `docs/changes/<feature>/proposal.md` and `docs/changes/<feature>/SKILLS.md` so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these — see issue #487.
-- **Roadmap sync** -- After approval, call `manage_roadmap` action `add` to register as `planned`. Skip silently if no roadmap. Duplicates ignored.
+- **Spec commit** -- After sign-off, the Phase 4 step 8 commit captures `docs/changes/<feature>/proposal.md`, `docs/changes/<feature>/SKILLS.md`, and the promoted `docs/roadmap.md` together so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these — see issue #487.
+- **Roadmap promotion** -- After approval (Phase 4 step 7), call `manage_roadmap` action `promote` to transition the named row to `planned` and link the spec atomically with the spec commit. Falls back to `add` (create new row) when the row does not exist; refuses on `in-progress`/`done`/`ambiguous`. Skip silently if no roadmap.
 - **`emit_interaction`** -- End of Phase 4 to suggest transition to harness-planning (confirmed transition).
 
 #### Requirement Phrasing
