@@ -3,6 +3,7 @@ import type { DiffInfo } from '../types/context';
 import type { ReviewFinding } from '../types';
 import type { CiReviewVerdict } from './verdict-schema';
 import type { RunnerId, LocalEndpointInvoke } from './runner-presets';
+import { RUNNER_PRESETS } from './runner-presets';
 import { CI_ASSESSMENTS, buildCiReviewVerdict } from './verdict-schema';
 import { runReviewPipeline } from '../pipeline-orchestrator';
 
@@ -70,7 +71,9 @@ function diffToStdin(diff: DiffInfo): string {
 }
 
 /** Derive the assessment implied by a finding set (mirrors buildCiReviewVerdict's severity logic). */
-function deriveAssessment(findings: ReviewFinding[]): CiReviewVerdict['assessment'] {
+function deriveAssessment(
+  findings: ReadonlyArray<{ severity: string }>
+): CiReviewVerdict['assessment'] {
   if (findings.some((f) => f.severity === 'critical')) return 'request-changes';
   if (findings.some((f) => f.severity === 'important')) return 'comment';
   return 'approve';
@@ -121,18 +124,81 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
     };
   }
 
-  // LLM TIER + MERGE + THRESHOLD added in Task 3. Temporary floor-only return:
+  // --- LLM TIER (secret-gated; injected seams; graceful skip) ---
+  const env = options.env ?? process.env;
+  const execFile = options.execFile ?? defaultExecFile;
+
+  // verdictParser output findings (the schema-validated shape, which differs from the
+  // core ReviewFinding type only by optional-property variance under exactOptionalPropertyTypes).
+  let llmFindings: CiReviewVerdict['findings'] = [];
+  let ranLlmTier = false;
+  let requiredRunnerFailed = false;
+  let llmSkipReason: string | undefined;
+
+  if (runner) {
+    const preset = RUNNER_PRESETS[runner];
+    if (preset.supported !== true) {
+      llmSkipReason = `LLM tier skipped — runner '${runner}' is unsupported`;
+    } else if (preset.kind === 'agent-cli') {
+      if (!env[preset.secretEnvVar]) {
+        llmSkipReason = `LLM tier skipped — secret ${preset.secretEnvVar} not set (floor-only)`;
+      } else {
+        try {
+          const instruction =
+            'Run the harness code-review skill on the unified diff piped via STDIN. ' +
+            'Emit ONLY the CiReviewVerdict JSON ({assessment, findings}).';
+          const { command, args } = preset.headlessInvocation({ instruction });
+          const { stdout } = await execFile(command, args, {
+            stdin: diffToStdin(diff),
+            env,
+          });
+          llmFindings = preset.verdictParser(stdout).findings;
+          ranLlmTier = true;
+        } catch (err) {
+          requiredRunnerFailed = true;
+          llmSkipReason = `LLM tier failed — ${(err as Error).message}`;
+        }
+      }
+    } else {
+      // endpoint runner ('local')
+      const invoke = options.localInvoke ?? preset.invoke;
+      const endpoint = env[preset.endpointEnvVar];
+      const model = env[preset.modelEnvVar];
+      if (!invoke || !endpoint || !model) {
+        llmSkipReason =
+          'LLM tier skipped — local endpoint not configured (no invoke seam or missing endpoint/model env)';
+      } else {
+        try {
+          const instruction =
+            'Review the unified diff and emit ONLY the CiReviewVerdict JSON ({assessment, findings}).';
+          const raw = await invoke({ endpoint, model, instruction, diff: diffToStdin(diff) });
+          llmFindings = preset.verdictParser(raw).findings;
+          ranLlmTier = true;
+        } catch (err) {
+          requiredRunnerFailed = true;
+          llmSkipReason = `LLM tier failed — ${(err as Error).message}`;
+        }
+      }
+    }
+  }
+
+  // --- MERGE --- floor + LLM findings into one verdict (Phase 1 invariants enforced).
+  const mergedFindings = [...floorFindings, ...llmFindings];
+  const mergedAssessment = maxAssessment(floorAssessment, deriveAssessment(mergedFindings));
   const verdict = buildCiReviewVerdict({
-    runner: runner ?? 'floor-only',
-    ranLlmTier: false,
-    assessment: floorAssessment,
-    findings: floorFindings,
+    runner: ranLlmTier ? (runner as RunnerId) : 'floor-only',
+    ranLlmTier,
+    assessment: mergedAssessment,
+    findings: mergedFindings,
+    ...(llmSkipReason ? { skipReason: llmSkipReason } : {}),
   });
+
   return {
     verdict,
-    exitCode: applyThreshold(verdict, blockOn, false),
+    exitCode: applyThreshold(verdict, blockOn, requiredRunnerFailed),
     terminalOutput: summarize(verdict),
-    ranLlmTier: false,
+    ...(llmSkipReason ? { llmSkipReason } : {}),
+    ranLlmTier,
   };
 }
 
@@ -147,7 +213,3 @@ function applyThreshold(
 function summarize(v: CiReviewVerdict): string {
   return `runner=${v.runner} ran-llm=${v.ranLlmTier} assessment=${v.assessment} exit=${v.exitCode}`;
 }
-
-// Keep the default seam + diff helper referenced until Task 3 wires the LLM tier.
-void defaultExecFile;
-void diffToStdin;
