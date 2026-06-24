@@ -2617,11 +2617,12 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Ship a required-review GitHub Action template
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/required-review-ci/proposal.md
 - **Summary:** New `templates/ci/required-review.yml.hbs`. GitHub Action that runs `/harness:code-review` (the 7-phase multi-persona pipeline) on every PR, posts findings as PR review, and **fails the check if review wasn't run successfully**. Branch protection wires this as a required check. Without this wrapper, the multi-persona review (the project's strongest single piece of gear) is optional — the adopter has to remember to invoke it. Source: Pass 2 #6.
+- **Implementation:** Phases 1–5 built on branch `docs/required-review-ci-spec` (pending PR): `CiReviewVerdict` contract + two-kind runner-preset registry (claude/codex/antigravity verified; gemini superseded, cursor/local-live deferred), the `runCiReview` core orchestrator, the `harness review-ci` CLI command, the `templates/ci/` adopter artifacts (workflow + ruleset + README), and dogfood + docs/ADRs. Deferred to follow-up: ruleset gh-apply + promote-to-required (SC8), cursor/gemini/local LIVE verification, full-agentic-local spike, `--comment` PR posting.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/required-review-ci/plans/ (phases 1–4; phase 5 done inline)
 - **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#541
