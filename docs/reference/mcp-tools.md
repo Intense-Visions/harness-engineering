@@ -1038,17 +1038,17 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, sync features, or query by filter. Reads and writes docs/roadmap.md.
+Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically, returning a structured PromoteResult envelope.
 
 **Parameters:**
 
 - `path` (string, required) — Path to project root
 - `action` (string, required) — Action to perform
-- `feature` (string, optional) — Feature name (required for add, update, remove)
+- `feature` (string, optional) — Feature name (required for add, update, remove, promote)
 - `milestone` (string, optional) — Milestone name (required for add; optional filter for show)
 - `status` (string, optional) — Feature status (required for add; optional for update; optional filter for show)
 - `summary` (string, optional) — Feature summary (required for add; optional for update)
-- `spec` (string, optional) — Spec file path (optional for add/update)
+- `spec` (string, optional) — Spec file path (optional for add/update; required for promote)
 - `plans` (array, optional) — Plan file paths (optional for add/update)
 - `blocked_by` (array, optional) — Blocking feature names (optional for add/update)
 - `assignee` (string, optional) — Assignee username/email (optional for update). Tracks assignment history.
