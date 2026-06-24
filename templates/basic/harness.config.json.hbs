@@ -7,8 +7,42 @@
     { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
     { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
   ],
+  "architecture": {
+    "enabled": true,
+    "baselinePath": ".harness/arch/baselines.json",
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "complexity": { "max": 20 },
+      "module-size": { "maxFiles": 50, "maxLoc": 5000 },
+      "dependency-depth": { "max": 8 }
+    }
+  },
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"]
+  },
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"],
+    "autoFix": false
+  },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 20, "warn": 15 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 15 }
+      }
+    }
+  },
   "template": {
     "level": "basic",
     "version": 1

@@ -182,7 +182,7 @@ Each package has a clear responsibility:
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
 - **intelligence**: Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation (depends on types, graph)
 - **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues. Modern config surface is `agent.backends` (named-map) + `agent.routing` (per-use-case). Routing supports per-skill + per-cognitive-mode axes with fallback chains; dashboard `/routing` panel and `harness routing {config,trace,decisions}` CLI surface decision telemetry. Legacy `agent.backend` / `agent.localBackend` accepted via in-memory migration shim with deprecation warning. (depends on types, core, intelligence)
-- **dashboard**: Web dashboard — React + Hono full-stack app with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
+- **dashboard**: Web dashboard — React + Hono full-stack app with 13 pages (Signals default-landing panel, Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), SSE-based live updates, and server-side data gathering. `/` redirects to `/s/signals` (Spec 534). (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ### Notable Core Modules
@@ -248,7 +248,7 @@ Each package has a clear responsibility:
 - **effectiveness** (`packages/intelligence/src/effectiveness/`): Persona effectiveness scoring, blind spot detection, and persona recommendation for agent routing.
 - **specialization** (`packages/intelligence/src/specialization/`): Persistent agent expertise tracking with temporal decay, specialization profiles, and weighted persona recommendation.
 - **analysis-provider** (`packages/intelligence/src/analysis-provider/`): Pluggable LLM analysis backends (Anthropic, OpenAI-compatible, Claude CLI).
-- **adapters** (`packages/intelligence/src/adapters/`): Work item adapters for Jira, GitHub, Linear, and manual input normalization.
+- **adapters** (`packages/intelligence/src/adapters/`): Work item adapters for Jira, GitHub, Linear, and manual input normalization, plus the **canary adapter** (`canary.ts`) — a total, gracefully-degrading boundary around the optional `canary-test-cli` (probe / recommendFramework / reviewTest, zod-validated; never throws when canary is absent). See ADR-0039 and `docs/knowledge/intelligence/canary-adapter.md`. Skills reach it via the `canary_probe` and `canary_recommend_framework` MCP tools, wired into the `harness-test-advisor` Coverage Audit for graceful degradation and deterministic framework recommendations.
 
 ### Additional Core Modules
 
@@ -638,9 +638,9 @@ See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
 
-**Client** (`src/client/`): React SPA with 12 pages (Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
+**Client** (`src/client/`): React SPA with 13 pages (Signals, Adoption, Analyze, Attention, DecayTrends, Graph, Health, Impact, Maintenance, Orchestrator, Roadmap, Streams, Traceability), reusable components (SignalCard, KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`). Signals is the default landing panel — `/` redirects to `/s/signals` (Spec 534); chat threads remain reachable at `/t/:threadId`.
 
-**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: actions, actions-claim-file-less, adoption, ci, decay-trends, graph, health, health-check, impact, overview, roadmap, sse, traceability. Data gatherers: adoption, anomalies, arch, blast-radius, ci, decay-trends, entry-points, graph, health, perf, roadmap, security, traceability.
+**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: signals, actions, actions-claim-file-less, adoption, ci, decay-trends, graph, health, health-check, impact, overview, roadmap, sse, traceability. Data gatherers: signals, adoption, anomalies, arch, blast-radius, ci, decay-trends, entry-points, graph, health, perf, roadmap, security, traceability.
 
 ### Orchestrator Intelligence Integration
 

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router';
+import { useParams } from 'react-router';
 import { useEffect } from 'react';
 import { useThreadStore } from '../../stores/threadStore';
 import { EmptyState } from './EmptyState';
@@ -25,10 +25,13 @@ import { Webhooks } from '../../pages/Webhooks';
 import { Cache as InsightsCache } from '../../pages/insights/Cache';
 import { Proposals } from '../../pages/Proposals';
 import { Routing } from '../../pages/Routing';
+import { Signals } from '../../pages/Signals';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
 const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
+  // Spec 534 — five-signal default landing panel.
+  signals: Signals,
   health: Health,
   graph: Graph,
   impact: Impact,
@@ -130,24 +133,4 @@ export function SystemRoute() {
       </div>
     </div>
   );
-}
-
-/** Route: / */
-export function HomeRoute() {
-  const lastThreadId = useThreadStore((s) => s.lastThreadId);
-  const thread = useThreadStore((s) => (lastThreadId ? s.threads.get(lastThreadId) : undefined));
-  const navigate = useNavigate();
-
-  // If we have a last thread that still exists, redirect to it
-  useEffect(() => {
-    if (thread && lastThreadId) {
-      navigate(`/t/${lastThreadId}`, { replace: true });
-    }
-  }, [thread, lastThreadId, navigate]);
-
-  // Otherwise show the empty state
-  if (!thread) return <EmptyState />;
-
-  // Render nothing briefly while the redirect happens
-  return null;
 }

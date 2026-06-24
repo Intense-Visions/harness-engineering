@@ -92,7 +92,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('acquire_compound_lock');
     expect(names).toContain('release_compound_lock');
     expect(names).toContain('outcome_eval');
-    expect(tools).toHaveLength(89);
+    expect(names).toContain('canary_probe');
+    expect(names).toContain('canary_recommend_framework');
+    expect(tools).toHaveLength(91);
   });
 
   it('all tool definitions have inputSchema', () => {
