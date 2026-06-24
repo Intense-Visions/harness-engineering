@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-06-23
 last_synced: 2026-06-23T18:05:08.357Z
-last_manual_edit: 2026-06-23T20:30:00.000Z
+last_manual_edit: 2026-06-24T12:26:21.993Z
 ---
 
 # Roadmap
@@ -2529,7 +2529,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Build harness:rollback automated-revert primitive
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** When a shipped PR fails post-merge eval (harness:outcome-eval) or triggers a defined signal threshold, automatically open a revert PR with full context. The article's "circuit breaker / automated rollback — a mechanism that physically stops the fall before it hits the ground." Currently the project has no automated rollback primitive — only human-mediated PR review. Needs a "revert ready" classification system and a trust model for auto-merging reverts. Source: Pass 2 #7.
 - **Blockers:** Build harness:outcome-eval skill
@@ -2551,11 +2551,11 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Build harness:audit-harness-strength self-audit skill
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/audit-harness-strength/proposal.md
-- **Summary:** Inspects the adopter's own harness.config.json, pre-commit hooks, CI workflows, branch protection, hook profile, and skill catalog usage against the seven gear pieces from the article AND the seven mechanical failure patterns the dogfood audit surfaced. Reports per-piece score and concrete remediation steps. **Must enumerate these seven patterns as mechanical checks (not generic prose):** (1) any hook documented "never blocks" or "always exits 0"; (2) any pre-commit branch that auto-updates baselines or thresholds on regression; (3) any `--skip` list longer than two categories without justification annotations; (4) any template with `layers` defined but `architecture.thresholds` empty; (5) any init flow that recommends the lowest adoption tier by default; (6) any baseline-update PR auto-approved without independent review; (7) any `passed: true` in a health snapshot whose `signals[]` array contains the corresponding signal name. The distinction between self-audit-as-marketing and self-audit-as-mechanical-check is whether the skill enumerates concrete detectable patterns. Source: Pass 2 #7, Pass 3 #5, Pass 7-D (recursion).
+- **Summary:** Inspects the adopter's own harness.config.json, pre-commit hooks, CI workflows, branch protection, hook profile, and skill catalog usage against the seven gear pieces from the article AND the seven mechanical failure patterns the dogfood audit surfaced. Reports per-piece score and concrete remediation steps. **Must enumerate these seven patterns as mechanical checks (not generic prose):** (1) any hook documented "never blocks" or "always exits 0"; (2) any pre-commit branch that auto-updates baselines or thresholds on regression; (3) any `--skip` list longer than two categories without justification annotations; (4) any template with `layers` defined but `architecture.thresholds` empty; (5) any init flow that recommends the lowest adoption tier by default; (6) any baseline-update PR auto-approved without independent review; (7) any `passed: true` in a health snapshot whose `signals[]` array contains the corresponding signal name. The distinction between self-audit-as-marketing and self-audit-as-mechanical-check is whether the skill enumerates concrete detectable patterns. Source: Pass 2 #7, Pass 3 #5, Pass 7-D (recursion). Implemented across 5 phases via autopilot (core engine + 7-rule registry STRENGTH-001..007, CLI `check-harness-strength`, rigid skill + ADR 0039, dogfood/fixture tests); shipped in PR #615 (merged).
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/audit-harness-strength/plans/2026-06-23-phase1-core-types-and-context.md, docs/changes/audit-harness-strength/plans/2026-06-23-phase2-rule-registry.md, docs/changes/audit-harness-strength/plans/2026-06-23-phase3-cli-command.md, docs/changes/audit-harness-strength/plans/2026-06-23-phase4-skill-and-wiring.md, docs/changes/audit-harness-strength/plans/2026-06-23-phase5-dogfood-verification.md
 - **Assignee:** chad.warner@capillarytech.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#535
@@ -2606,9 +2606,9 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Ship a CI workflow template
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** New `templates/ci/github-actions.yml.hbs` that adopters inherit on init. Runs `harness validate && check-deps && check-arch`, runs the multi-persona review pipeline as a required check on every PR, ratchets coverage, refuses to merge if signals trigger. Today adopters write their own CI from scratch, inheriting none of the dogfood's hard-won wisdom — the dogfood's `.github/workflows/ci.yml` is in this repo, not in templates. The single largest "ships assembled vs ships in pieces" gap. Source: Pass 2 #1 (CRITICAL).
+- **Summary:** New `templates/ci/github-actions.yml.hbs` that adopters inherit on init. Runs `harness validate && check-deps && check-arch`, runs the multi-persona review pipeline as a required check on every PR, ratchets coverage, refuses to merge if signals trigger. Today adopters write their own CI from scratch, inheriting none of the dogfood's hard-won wisdom — the dogfood's `.github/workflows/ci.yml` is in this repo, not in templates. The single largest "ships assembled vs ships in pieces" gap. Source: Pass 2 #1 (CRITICAL). Shipped in PR #616 (#540).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -2738,7 +2738,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Add Holiday Confidence KPI to STRATEGY.md
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `STRATEGY.md:23-29` defines 5 KPIs (Agent Autonomy, Harness Coverage, Context Density, Drift Floor, External Adoption) — all measure inputs to the harness, none measures what the harness is FOR. Add KPI #6: "Holiday Confidence" — % of merged PRs in the last 30 days where (a) multi-persona review fired, (b) outcome-eval passed, (c) no auto-baseline-update occurred, (d) no signal exceeded threshold. The article's binary "if the senior disappears for two weeks, what holds?" made measurable. Source: Pass 1 #9.
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
@@ -2771,7 +2771,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Document the article's failure-pattern checklist
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New `docs/standard/article-failure-patterns.md`. Name the article's five failure modes (theatre, gaps stopped naming, happy-path-only, no eval, no safe failure mode). For each, point at how `harness:audit-harness-strength` (new skill above) detects it in the adopter's own project. Provides the conceptual scaffolding for the self-audit tool. Source: Pass 1 #10.
 - **Blockers:** Build harness:audit-harness-strength self-audit skill
@@ -2892,7 +2892,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Build harness-pm persona for eval suite and acceptance criteria ownership
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The companion article "AI Ate My Role" defines three surviving Project Manager lanes: Taste PM (product thesis), **Harness PM (eval suite design + acceptance criteria)**, Boundary PM (compliance). The project ships 15 personas — all engineering-shaped (code-reviewer, architecture-enforcer, security-reviewer, performance-guardian, planner, task-executor, etc.). **Zero PM-shaped personas exist.** Build `harness-pm` persona that owns: (a) reviewing every spec's acceptance criteria for observability/testability/completeness, (b) ensuring eval suite coverage matches the spec's user-visible behavior section, (c) catching specs that ship without measurable success criteria. Pairs with `harness:outcome-eval` (which produces the eval verdicts) to give that eval an organizational owner. The article: "Quality became something that happened _to_ the work, not something that lived _inside_ the work. The new role sits at parity with engineering, not downstream." Source: Pass 8 (AI Ate My Role + Anatomy companion articles).
 - **Blockers:** Build harness:outcome-eval skill
@@ -2903,7 +2903,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Ship golden-build reference-state primitive
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The "Anatomy of an AI-Native Org" companion article lists four required gear pieces: "specifications, evaluation suites, golden builds, and agent-review patterns." The project has the first, partial second, fourth — but no golden build primitive. The existing baselines (`coverage-baselines.json`, `benchmark-baselines.json`, arch baselines) are **metric baselines, not build baselines**. A golden build is the canonical known-good reference state (last passing main with a full eval pass) that all proposed changes are validated against — closer to an immutable release-tag concept than a metric snapshot. Ship: (a) `harness golden-build promote` command that snapshots a verified-passing state to `.harness/golden/`, (b) `harness golden-build verify` that compares the working tree against the most recent golden, (c) CI integration that auto-promotes a golden build on every green main merge, (d) `harness golden-build diff` for reviewing what's drifted since the last golden. Closes the gap between "metrics didn't regress" and "the project as a whole is still the project we trust." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** Build harness:outcome-eval skill
@@ -2925,7 +2925,7 @@ last_manual_edit: 2026-06-23T20:30:00.000Z
 
 ### Build senior-engineer accountability surface for PR push
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** "The Tests We Skipped" companion article: _"the person who writes the code is the person who pushes it to production. Full stop."_ In the agent-shipping flow, the agent writes; the senior engineer pushes (merges). The accountability does not transfer to the agent — it stays with the human who clicks merge. The project today does not produce a senior-facing "you are pushing X; here's what you should look at before approving" surface. Build: (a) `harness:pre-merge-brief` skill that produces a senior-facing digest on every PR with the diff summary, multi-persona review verdict, outcome-eval result (when available), signal-deltas, and a "things specifically worth your eyes" section, (b) GitHub Action that posts this as a PR comment, (c) optional gating that the merge button requires the senior to acknowledge the brief. Closes the "harness for the human too" mandate Ajey states explicitly. The same gear that protects the agent also protects the senior who's accountable. Source: Pass 8 (The Tests We Skipped companion article).
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
