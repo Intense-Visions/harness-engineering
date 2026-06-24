@@ -14,11 +14,15 @@ import type { ProjectContext, StrengthFinding, StrengthRule } from '../types';
  */
 
 const AUTO_PATTERN = /auto-?approve|auto-?merge|--auto\b|enable-pull-request-automerge/i;
-// Only treat a line as an auto-approve/merge STEP when the auto pattern appears
-// on an actual step directive (`uses:` / `run:` / `with:`), not in a free-text
-// job/step NAME, so a workflow merely titled "auto-approve baseline" is not
-// matched on its name alone.
-const STEP_DIRECTIVE = /^\s*(?:-\s*)?(?:uses|run|with)\s*:/i;
+// Lines that are NOT real auto-approve/merge steps even when they match
+// AUTO_PATTERN. We must still catch auto commands living inside a `run: |` shell
+// block (each on its own shell line, e.g. `gh pr merge --auto`), so we do NOT
+// require the match to sit on a `uses:`/`run:`/`with:` directive. Instead we
+// exclude the two original false-positive sources:
+//   - a YAML/shell comment line (e.g. `# once auto-merge is wired up`)
+//   - a job/step `name:` value (e.g. `name: auto-approve baseline`)
+const COMMENT_LINE = /^\s*#/;
+const NAME_VALUE_LINE = /^\s*(?:-\s*)?name\s*:/i;
 // A PAT/token reference, EXCLUDING the default `GITHUB_TOKEN` (which is scoped
 // to the workflow and is not a personal access token).
 const PAT_GATING = /secrets\.(?!GITHUB_TOKEN\b)\w*(?:PAT|TOKEN)\w*/;
@@ -31,11 +35,21 @@ const REVIEW_SIGNAL =
   /required_reviewers|approvals?\s*:\s*[1-9]|CODEOWNERS|github\.event\.review\.state\s*==\s*['"]approved['"]/i;
 
 /**
- * True when the auto-approve/merge pattern appears on an actual step directive
- * (`uses:`/`run:`/`with:`) rather than only in free text such as a job name.
+ * True when a line carries an actual auto-approve/merge command: it matches
+ * AUTO_PATTERN and is neither a comment line nor a YAML `name:` value (the two
+ * known false-positive sources). This catches auto commands both on step
+ * directives (`run: gh pr merge --auto`) and on shell lines inside a `run: |`
+ * block.
+ */
+function isAutoLine(line: string): boolean {
+  return AUTO_PATTERN.test(line) && !COMMENT_LINE.test(line) && !NAME_VALUE_LINE.test(line);
+}
+
+/**
+ * True when any line in the workflow carries a real auto-approve/merge command.
  */
 function hasAutoStep(text: string): boolean {
-  return text.split('\n').some((l) => STEP_DIRECTIVE.test(l) && AUTO_PATTERN.test(l));
+  return text.split('\n').some(isAutoLine);
 }
 
 export const strength006AutoapproveBaseline: StrengthRule = {
@@ -52,7 +66,7 @@ export const strength006AutoapproveBaseline: StrengthRule = {
       const hasReview = REVIEW_SIGNAL.test(wf.text);
       if (hasAuto && hasPat && !hasReview) {
         const lines = wf.text.split('\n');
-        const idx = lines.findIndex((l) => STEP_DIRECTIVE.test(l) && AUTO_PATTERN.test(l));
+        const idx = lines.findIndex(isAutoLine);
         findings.push({
           id: 'STRENGTH-006',
           gearPiece: 'review-gate',

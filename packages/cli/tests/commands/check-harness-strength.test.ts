@@ -97,5 +97,12 @@ describe('runCheckHarnessStrength live-repo dogfood (loose smoke)', () => {
     // Durable anchors: both fire on .husky/pre-commit (002 auto-baseline, 003 skip-list).
     expect(ids).toContain('STRENGTH-002');
     expect(ids).toContain('STRENGTH-003');
+    // STRENGTH-006 must fire on .github/workflows/ci.yml: the refresh-baselines job
+    // auto-approves + auto-merges a baseline PR with a PAT and no review gate
+    // (roadmap #531). The auto commands live inside a `run: |` block, which an
+    // earlier FP-guard regression failed to detect; this locks the canonical case.
+    expect(ids).toContain('STRENGTH-006');
+    const f006 = r.value.audit.findings.find((f) => f.id === 'STRENGTH-006');
+    expect(f006?.file).toBe('.github/workflows/ci.yml');
   });
 });
