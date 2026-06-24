@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-06-04
+updated: 2026-06-23
 last_synced: 2026-06-04T23:42:12.128Z
-last_manual_edit: 2026-06-23T15:38:55.939Z
+last_manual_edit: 2026-06-23T20:30:00.000Z
 ---
 
 # Roadmap
@@ -2441,12 +2441,12 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 
 ### Stop the pre-commit auto-baseline-update for arch
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/stop-arch-auto-baseline/proposal.md
 - **Summary:** `.husky/pre-commit` lines 4-12 detect arch regressions in module-size/dependency-depth and silently auto-update the baseline + re-stage the change, letting the commit proceed. This is the article's failure pattern #5 verbatim: "A harness that warns but doesn't stop is not a harness. It's a notification." Remove the auto-update branch entirely. If `harness ci check` exits non-zero, the commit must fail. The human (or agent) explicitly runs `harness check-arch --update-baseline` and stages it as a visible change. Source: Pass 1 #1 (CRITICAL — single most damning finding).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#525
 
@@ -2518,7 +2518,7 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 
 ### Build harness:outcome-eval skill
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/outcome-eval/proposal.md
 - **Summary:** The article's named #1 industry gap and the project's largest single missing piece. LLM-judgment skill that reads the spec's user-visible-behavior section + the diff + test outputs and produces a structured "did this satisfy the spec" verdict. Wire into `harness.orchestrator.md` as step 6.5 between code-review and ship. Wire into CI workflow template (item below) as required check. Uses existing primitives in `packages/intelligence` (PESL simulator, effectiveness scorer with graph-attributed execution_outcome nodes, SEL spec enrichment). Confidence calibration similar to `harness:security-craft` to manage false-positive risk. Source: Pass 1 #3, Pass 2 #3 (CRITICAL).
 - **Blockers:** —
@@ -2540,7 +2540,7 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 
 ### Ship the 5-signal dashboard panel and signals.md doc
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/five-signal-dashboard-panel/proposal.md
 - **Summary:** Article gear item #7: "the five or six signals that, if any of them moves, the senior wants to know inside the hour." Today the dashboard surfaces operational data (maintenance, routing) but no curated signal layer. Pick five: PR-merged-without-multi-persona-review, coverage-trend-down-30d, complexity-trend-up-30d, baseline-auto-update-count, eval-fail-rate. Render as the dashboard's default landing view. Document the picked five in new `docs/standard/signals.md`. Source: Pass 1 #5, Pass 2 #4, Pass 3 #11.
 - **Blockers:** —
@@ -2573,12 +2573,12 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 
 ### Add architecture thresholds to basic and intermediate templates
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** —
 - **Summary:** `templates/basic/harness.config.json.hbs` (16 lines) and `templates/intermediate/harness.config.json.hbs` (23 lines) currently ship NO `architecture.thresholds` — no complexity cap, no module-size cap, no dependency-depth cap, no security config, no entropy config, no performance config. Basic-tier adopters get a layer-linter only. Add sensible defaults: complexity ≤ 20 basic / ≤ 15 intermediate, module-size caps, dependency-depth ≤ 8, security/entropy/perf configs. Every adopter gets real gates from minute one. Source: Pass 2 #2 (CRITICAL).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#537
 
@@ -2961,3 +2961,5 @@ last_manual_edit: 2026-06-23T15:38:55.939Z
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned | 2026-06-23 |
+| Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned | 2026-06-23 |

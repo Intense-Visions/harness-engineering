@@ -13,8 +13,44 @@
   "boundaries": {
     "requireSchema": ["src/api/**"]
   },
+  "architecture": {
+    "enabled": true,
+    "baselinePath": ".harness/arch/baselines.json",
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "forbidden-imports": { "max": 0 },
+      "complexity": { "max": 15 },
+      "coupling": { "maxFanIn": 15, "maxFanOut": 12 },
+      "module-size": { "maxFiles": 40, "maxLoc": 4000 },
+      "dependency-depth": { "max": 8 }
+    }
+  },
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"]
+  },
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"],
+    "autoFix": false
+  },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 15, "warn": 10 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 12 }
+      }
+    }
+  },
   "template": {
     "level": "intermediate",
     "version": 1
