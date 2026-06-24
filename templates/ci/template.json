@@ -1,0 +1,5 @@
+{
+  "name": "ci-required-review",
+  "description": "Opt-in GitHub Actions required-review gate: renders a workflow that runs `harness review-ci` plus a matching branch-protection ruleset.",
+  "version": 1
+}
