@@ -31,5 +31,10 @@ export { parseAntigravityVerdict } from './parsers/antigravity';
 export { parseLocalVerdict } from './parsers/local';
 
 // Phase 2: CI review orchestrator (floor + secret-gated LLM tier + block-on threshold).
-export { runCiReview } from './orchestrator';
+export {
+  runCiReview,
+  defaultExecFile,
+  DEFAULT_EXEC_TIMEOUT_MS,
+  DEFAULT_EXEC_MAX_STDOUT_BYTES,
+} from './orchestrator';
 export type { RunCiReviewOptions, CiReviewResult, CiBlockOn, ExecFileLike } from './orchestrator';

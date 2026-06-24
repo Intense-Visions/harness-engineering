@@ -98,6 +98,38 @@ describe('runCiReview — SC1 (floor-only gating)', () => {
     expect(r.llmSkipReason).toMatch(/mechanical-stop/);
   });
 
+  it('floor skipped (PR ineligible) → fails closed: exitCode 1, ranLlmTier false, seam NEVER called', async () => {
+    // SUG-5: a skipped floor must NOT be treated as a clean (green) gate. A future
+    // caller wiring prMetadata could make runReviewPipeline return skipped:true; the
+    // CI orchestrator owns no eligibility semantics, so it blocks rather than approve.
+    runReviewPipeline.mockResolvedValue({
+      skipped: true,
+      skipReason: 'draft PR',
+      stoppedByMechanical: false,
+      assessment: 'approve' as const,
+      findings: [],
+      strengths: [],
+      terminalOutput: '',
+      githubComments: [],
+      exitCode: 0,
+    });
+    const execFile = vi.fn();
+    const r = await runCiReview({
+      projectRoot: '/p',
+      diff,
+      runner: 'claude',
+      env: { ANTHROPIC_API_KEY: 'x' },
+      execFile,
+    });
+    expect(execFile).not.toHaveBeenCalled();
+    expect(r.exitCode).toBe(1);
+    expect(r.ranLlmTier).toBe(false);
+    expect(r.verdict.runner).toBe('floor-only');
+    expect(r.verdict.skipped).toBe(true);
+    expect(r.llmSkipReason).toMatch(/skipped/);
+    expect(r.llmSkipReason).toMatch(/draft PR/);
+  });
+
   it('floor with a critical heuristic finding → exitCode 1', async () => {
     runReviewPipeline.mockResolvedValue({
       ...floorClean,
