@@ -152,3 +152,6 @@ export type { Rubric, RubricItem, ReviewStage } from './types';
 
 // Two-stage isolation
 export { splitBundlesByStage, stageDomains } from './two-stage';
+
+// Phase 1 (required-review-ci): CI review contract
+export * from './ci';

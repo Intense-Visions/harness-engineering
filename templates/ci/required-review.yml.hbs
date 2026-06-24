@@ -1,0 +1,57 @@
+# Rendered by `harness init` (ci-required-review template).
+# The job name below ("required-review") is the check name bound as REQUIRED
+# by required-review.ruleset.json. Keep them identical.
+#
+# NOTE ON ESCAPING: GitHub Actions expressions ($\{{ ... }}) collide with the
+# Handlebars template engine under its strict compile mode, which provides no
+# raw/literal block helper. Each GH expression below therefore escapes the
+# opening braces per-line (a backslash before the mustache: $\{{ ... }}) so
+# Handlebars emits them verbatim (the rendered output is the literal
+# dollar-double-brace form GitHub Actions evaluates at runtime). A future editor
+# must NOT "fix" these by removing the backslash — that breaks the render.
+# Only the runner and blockOn mustaches are real template vars (substituted);
+# baseBranch is real too, but the diff range uses the RUNTIME github.base_ref.
+name: Required Review
+
+on:
+  pull_request:
+    branches: ['{{baseBranch}}']
+
+# Least privilege: review-ci only reads the diff today. --comment PR posting is
+# not yet wired, so no write scope is requested. Re-add `pull-requests: write`
+# when --comment PR review posting is actually implemented and rendered.
+permissions:
+  contents: read
+
+jobs:
+  required-review:
+    name: required-review
+    runs-on: ubuntu-latest
+    env:
+      # The heuristic floor runs regardless of runner. The LLM tier only
+      # activates when its secret is present, degrading gracefully otherwise.
+      ANTHROPIC_API_KEY: $\{{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: $\{{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: $\{{ secrets.OPENAI_API_KEY }}
+      HARNESS_LOCAL_ENDPOINT: $\{{ secrets.HARNESS_LOCAL_ENDPOINT }}
+      HARNESS_LOCAL_MODEL: $\{{ secrets.HARNESS_LOCAL_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the PR base branch is reachable for the diff range.
+          fetch-depth: 0
+      - name: Fetch PR base branch
+        # actions/checkout leaves origin/HEAD unresolved on pull_request events,
+        # which would make review-ci fall back to origin/main...HEAD (wrong/empty
+        # diff if the PR base is not main). Fetch the real base so the explicit
+        # origin/$\{{ github.base_ref }}...HEAD range below resolves.
+        run: git fetch origin $\{{ github.base_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @harness-engineering/cli@2.8.0
+      - name: Run required review gate
+        # Diff against the PR's real base (runtime github.base_ref), not the CLI's
+        # origin/HEAD fallback. The runner/block-on values are substituted; the GH
+        # expression is preserved verbatim (see escaping note at top of file).
+        run: harness review-ci --runner {{runner}} --block-on {{blockOn}} --diff "origin/$\{{ github.base_ref }}...HEAD"

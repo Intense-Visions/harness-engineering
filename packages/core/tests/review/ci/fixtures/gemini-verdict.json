@@ -1,0 +1,18 @@
+{
+  "review": {
+    "verdict": "comment",
+    "issues": [
+      {
+        "id": "arch-src-db-ts-10",
+        "file": "src/db.ts",
+        "lineRange": [10, 12],
+        "domain": "architecture",
+        "severity": "suggestion",
+        "title": "Connection not pooled",
+        "rationale": "Opens a new connection per request.",
+        "evidence": ["src/db.ts:10"],
+        "validatedBy": "heuristic"
+      }
+    ]
+  }
+}

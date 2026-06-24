@@ -1,0 +1,55 @@
+# Required Review — DOGFOOD (non-blocking)
+#
+# Runs the required-review gate (#541) on this repo's own PRs, so the harness
+# runs the gear it ships. WIRED NON-BLOCKING FIRST (spec SC8): `continue-on-error`
+# lets the gate report findings without failing the PR, and it is intentionally
+# NOT wired into branch protection (no ruleset applied). Promote it to a required
+# check — by applying templates/ci/required-review.ruleset.json — only after it
+# proves stable on real PRs.
+#
+# Unlike the adopter template (templates/ci/required-review.yml.hbs, which installs
+# the published @harness-engineering/cli), this dogfood builds and runs the
+# workspace `harness` bin directly — this monorepo IS the source of that CLI.
+#
+# Runner: claude. The secret-gated LLM tier activates only when ANTHROPIC_API_KEY
+# is configured; otherwise the orchestrator degrades gracefully to the heuristic
+# floor (orchestrator.ts:250 — an absent/empty secret env is treated as "not set").
+
+name: Required Review (dogfood)
+
+on:
+  pull_request:
+    branches: [main]
+
+# Least privilege: the gate only reads the diff today (--comment PR posting is a
+# stub). Add `pull-requests: write` when comment posting is wired.
+permissions:
+  contents: read
+
+jobs:
+  required-review:
+    name: required-review
+    runs-on: ubuntu-latest
+    # Non-blocking during the dogfood bake-in. Remove once promoted to required.
+    continue-on-error: true
+    env:
+      # Floor runs regardless; LLM tier activates only if this secret is set.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so the PR base branch is reachable for the diff range.
+          fetch-depth: 0
+      - name: Fetch PR base branch
+        run: git fetch origin ${{ github.base_ref }}
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Run required-review gate
+        # Diff against the PR's real base (runtime github.base_ref). --runner claude
+        # degrades to floor-only if ANTHROPIC_API_KEY is unset.
+        run: node packages/cli/dist/bin/harness.js review-ci --runner claude --block-on request-changes --diff "origin/${{ github.base_ref }}...HEAD"

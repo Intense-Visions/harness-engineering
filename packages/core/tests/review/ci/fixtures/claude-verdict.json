@@ -1,0 +1,16 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "result": "{\"assessment\":\"request-changes\",\"findings\":[{\"id\":\"bug-src-auth-ts-42\",\"file\":\"src/auth.ts\",\"lineRange\":[40,45],\"domain\":\"bug\",\"severity\":\"critical\",\"title\":\"Unvalidated redirect\",\"rationale\":\"User-controlled URL flows into res.redirect without allowlist.\",\"evidence\":[\"src/auth.ts:42\"],\"validatedBy\":\"heuristic\"}]}",
+  "usage": {
+    "input_tokens": 1234,
+    "output_tokens": 87
+  },
+  "modelUsage": {
+    "claude-opus-4": {
+      "inputTokens": 1234,
+      "outputTokens": 87
+    }
+  }
+}

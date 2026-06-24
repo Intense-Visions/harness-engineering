@@ -2617,12 +2617,13 @@ last_manual_edit: 2026-06-24T12:26:21.993Z
 
 ### Ship a required-review GitHub Action template
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/required-review-ci/proposal.md
 - **Summary:** New `templates/ci/required-review.yml.hbs`. GitHub Action that runs `/harness:code-review` (the 7-phase multi-persona pipeline) on every PR, posts findings as PR review, and **fails the check if review wasn't run successfully**. Branch protection wires this as a required check. Without this wrapper, the multi-persona review (the project's strongest single piece of gear) is optional — the adopter has to remember to invoke it. Source: Pass 2 #6.
+- **Implementation:** Phases 1–5 built on branch `docs/required-review-ci-spec` (pending PR): `CiReviewVerdict` contract + two-kind runner-preset registry (claude/codex/antigravity verified; gemini superseded, cursor/local-live deferred), the `runCiReview` core orchestrator, the `harness review-ci` CLI command, the `templates/ci/` adopter artifacts (workflow + ruleset + README), and dogfood + docs/ADRs. Deferred to follow-up: ruleset gh-apply + promote-to-required (SC8), cursor/gemini/local LIVE verification, full-agentic-local spike, `--comment` PR posting.
 - **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/changes/required-review-ci/plans/ (phases 1–4; phase 5 done inline)
+- **Assignee:** chad.warner@gmail.com
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#541
 
@@ -2972,5 +2973,6 @@ last_manual_edit: 2026-06-24T12:26:21.993Z
 | Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
 | Build harness:audit-harness-strength self-audit skill            | chad.warner@capillarytech.com | assigned | 2026-06-23 |
 | Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned | 2026-06-23 |
 | Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned | 2026-06-23 |
 | Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned | 2026-06-23 |
