@@ -24,4 +24,56 @@ describe('ci-required-review template', () => {
     expect(jobName).toBe('required-review');
     expect(contexts).toContain(jobName);
   });
+
+  it('renders the workflow with substituted runner/blockOn/baseBranch into valid YAML (SC7)', () => {
+    const engine = new TemplateEngine(TEMPLATES);
+    const resolved = {
+      metadata: {
+        name: 'ci-required-review',
+        description: 'x',
+        version: 1 as const,
+        mergeStrategy: { json: 'deep-merge' as const, files: 'overlay-wins' as const },
+      },
+      files: [
+        {
+          relativePath: 'required-review.yml.hbs',
+          absolutePath: path.join(CI_DIR, 'required-review.yml.hbs'),
+          isHandlebars: true,
+          sourceTemplate: 'ci',
+        },
+      ],
+    };
+    // TemplateContext does not declare runner/blockOn/baseBranch, but Handlebars
+    // renders by key regardless of the TS interface — cast the extra keys in.
+    const result = engine.render(resolved, {
+      projectName: 'demo',
+      runner: 'claude',
+      blockOn: 'request-changes',
+      baseBranch: 'main',
+    } as unknown as TemplateContext);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // The engine strips `.hbs`, so the rendered file is `required-review.yml`.
+    const wf = result.value.files.find((f) => f.relativePath === 'required-review.yml');
+    expect(wf).toBeDefined();
+
+    const parsed = yaml.parse(wf!.content); // throws if invalid YAML
+    expect(parsed.jobs['required-review'].name).toBe('required-review');
+
+    const runStep = parsed.jobs['required-review'].steps.find(
+      (s: { run?: string }) => typeof s.run === 'string' && s.run.includes('review-ci')
+    );
+    expect(runStep.run).toContain('--runner claude');
+    expect(runStep.run).toContain('--block-on request-changes');
+    expect(parsed.on.pull_request.branches).toContain('main');
+
+    // GitHub `${{ secrets.X }}` expressions survived Handlebars verbatim:
+    expect(wf!.content).toContain('${{ secrets.ANTHROPIC_API_KEY }}');
+    expect(parsed.jobs['required-review'].env.ANTHROPIC_API_KEY).toBe(
+      '${{ secrets.ANTHROPIC_API_KEY }}'
+    );
+    // No stray escaping artifact leaked into the output:
+    expect(wf!.content).not.toContain('\\{{');
+  });
 });
