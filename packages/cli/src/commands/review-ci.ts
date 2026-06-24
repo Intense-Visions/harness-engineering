@@ -122,6 +122,18 @@ export interface ReviewCiOptions {
  * Returns the orchestrator's {@link CiReviewResult} unchanged (incl. exitCode).
  * Contains NO `process.exit` so it stays unit-testable.
  */
+/** Assemble the core `runCiReview` options, selecting the runner-specific seams. */
+function buildCallOpts(opts: ReviewCiOptions, cwd: string, diff: DiffInfo): RunCiReviewOptions {
+  const runner = opts.runner as RunCiReviewOptions['runner'] | undefined;
+  return {
+    projectRoot: cwd,
+    diff,
+    ...(runner ? { runner } : {}),
+    ...(opts.blockOn ? { blockOn: opts.blockOn } : {}),
+    ...(runner === 'local' ? { localInvoke: opts.localInvoke ?? createLocalInvoke() } : {}),
+  };
+}
+
 export async function runReviewCi(opts: ReviewCiOptions): Promise<CiReviewResult> {
   const cwd = opts.cwd ?? process.cwd();
   const runGit = opts.runGit ?? defaultRunGit;
@@ -132,14 +144,7 @@ export async function runReviewCi(opts: ReviewCiOptions): Promise<CiReviewResult
   });
   const rawDiff = (opts.resolveRaw ?? defaultResolveRaw)(range, cwd, runGit);
   const diff = buildDiffInfo(rawDiff);
-  const runner = opts.runner as RunCiReviewOptions['runner'] | undefined;
-  const callOpts: RunCiReviewOptions = {
-    projectRoot: cwd,
-    diff,
-    ...(runner ? { runner } : {}),
-    ...(opts.blockOn ? { blockOn: opts.blockOn } : {}),
-    ...(runner === 'local' ? { localInvoke: opts.localInvoke ?? createLocalInvoke() } : {}),
-  };
+  const callOpts = buildCallOpts(opts, cwd, diff);
   return (opts.runCiReviewImpl ?? runCiReview)(callOpts);
 }
 
