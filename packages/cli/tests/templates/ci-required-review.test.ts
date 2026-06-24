@@ -76,4 +76,15 @@ describe('ci-required-review template', () => {
     // No stray escaping artifact leaked into the output:
     expect(wf!.content).not.toContain('\\{{');
   });
+
+  it('is discoverable as a named template (not a level scaffold)', () => {
+    const engine = new TemplateEngine(TEMPLATES);
+    const list = engine.listTemplates();
+    expect(list.ok).toBe(true);
+    if (!list.ok) return;
+    const ci = list.value.find((t) => t.name === 'ci-required-review');
+    expect(ci).toBeDefined();
+    expect(ci!.level).toBeUndefined();
+    expect(ci!.framework).toBeUndefined();
+  });
 });
