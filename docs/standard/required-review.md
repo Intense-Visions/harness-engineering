@@ -16,8 +16,9 @@ secret, the exact `gh api` apply), see [`templates/ci/README.md`](../../template
 - `.github/workflows/required-review.yml` — the gate workflow (runs on `pull_request`).
 - `required-review.ruleset.json` — the config-as-code binding that makes the check required.
 
-The workflow diffs the PR's real base (`origin/${{ github.base_ref }}...HEAD`, with
-`fetch-depth: 0` + a base fetch) so it always reviews the actual change set.
+The workflow diffs the PR's real base — `origin/<base-ref>...HEAD` resolved from the
+runtime base branch, with `fetch-depth: 0` plus a base fetch — so it always reviews
+the actual change set. (See `templates/ci/README.md` for the exact range expression.)
 
 ## 2. Pick a runner (and its secret)
 
