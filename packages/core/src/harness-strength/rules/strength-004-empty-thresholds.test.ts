@@ -52,14 +52,14 @@ describe('STRENGTH-004 empty architecture.thresholds', () => {
         config: null,
         templates: [
           {
-            path: '/r/templates/basic/harness.config.json.hbs',
+            path: 'templates/basic/harness.config.json.hbs',
             text: '{"layers":[{}],"architecture":{"thresholds":{}}}',
           },
         ],
       })
     );
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.file).toBe('/r/templates/basic/harness.config.json.hbs');
+    expect(findings[0]!.file).toBe('templates/basic/harness.config.json.hbs');
   });
 
   it('skips a toolkit template that does not parse as JSON', () => {
@@ -69,7 +69,7 @@ describe('STRENGTH-004 empty architecture.thresholds', () => {
         config: null,
         templates: [
           {
-            path: '/r/templates/basic/harness.config.json.hbs',
+            path: 'templates/basic/harness.config.json.hbs',
             text: '{"layers":[{{#each x}}{}{{/each}}],"architecture":{"thresholds":{}}}',
           },
         ],

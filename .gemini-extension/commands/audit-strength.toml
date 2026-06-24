@@ -102,7 +102,7 @@ This skill ORCHESTRATES `harness check-harness-strength`. It never re-greps conf
 ## Escalation
 
 - **Disputed finding / false positive:** Do not suppress by editing files or skipping the rule in the skill. Adjust severity via config — `audit.harnessStrength.severities` in `harness.config.json` (e.g., downgrade STRENGTH-003 to `info` for a justified wide `--skip`). Document the rationale alongside the override.
-- **Engine misses a known weakness:** This skill cannot add detection. A missing pattern is engine work — file a new `StrengthRule` (`{ id, gearPiece, defaultSeverity, appliesIn(mode), detect(ctx) }`) in `packages/core/src/harness-strength/`. Out of scope for the skill.
+- **Engine misses a known weakness:** This skill cannot add detection. A missing pattern is engine work — file a new `StrengthRule` (`{ id, gearPiece, defaultSeverity, appliesIn(mode), evaluable?(ctx), detect(ctx) }`) in `packages/core/src/harness-strength/`. Out of scope for the skill.
 - **Mode mis-detected:** If auto-detection picks the wrong mode (e.g., a repo with `templates/` that is not a distribution), pass `--mode adopter` (or `--toolkit`) explicitly. Do not work around it by hand-editing detection.
 - **Engine throws or the build is stale:** If `harness check-harness-strength` errors (command not found / not in the built CLI), the dist may be stale. Rebuild the CLI and re-run. Do not substitute a manual config read for the engine.
 

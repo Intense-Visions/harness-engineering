@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { resolveMode, buildProjectContext } from './context';
 
 let root: string;
@@ -64,6 +64,10 @@ describe('buildProjectContext (present inputs)', () => {
     expect(ctx.config?.template?.level).toBe('basic');
     expect(ctx.preCommit).toContain('exit 0');
     expect(ctx.hookFiles.some((h) => h.name === 'pre-commit')).toBe(true);
+    // Invariant: hook paths are stored ROOT-RELATIVE (no absolute/home-dir leak).
+    const preCommit = ctx.hookFiles.find((h) => h.name === 'pre-commit');
+    expect(preCommit?.path).toBe('.husky/pre-commit');
+    expect(ctx.hookFiles.every((h) => !isAbsolute(h.path))).toBe(true);
   });
 
   it('returns null config when harness.config.json is malformed JSON', () => {
@@ -77,6 +81,9 @@ describe('buildProjectContext (present inputs)', () => {
     const ctx = buildProjectContext(root, 'adopter');
     expect(ctx.workflows).toHaveLength(1);
     expect(ctx.workflows[0]?.text).toContain('name: ci');
+    // Invariant: workflow paths are stored ROOT-RELATIVE.
+    expect(ctx.workflows[0]?.path).toBe('.github/workflows/ci.yml');
+    expect(ctx.workflows.every((w) => !isAbsolute(w.path))).toBe(true);
   });
 
   it('parses health-snapshot.json into healthSnapshot', () => {
@@ -142,5 +149,10 @@ describe('buildProjectContext (present inputs)', () => {
     const ctx = buildProjectContext(root, 'toolkit');
     expect(ctx.templates?.some((t) => t.path.endsWith('.hbs'))).toBe(true);
     expect(ctx.initSkill).toContain('init');
+    // Invariant: template paths are stored ROOT-RELATIVE.
+    expect(ctx.templates?.some((t) => t.path === 'templates/basic/harness.config.json.hbs')).toBe(
+      true
+    );
+    expect(ctx.templates?.every((t) => !isAbsolute(t.path))).toBe(true);
   });
 });

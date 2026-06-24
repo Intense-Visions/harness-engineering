@@ -22,7 +22,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
         hookFiles: [
           {
             name: 'pre-commit',
-            path: '/r/.husky/pre-commit',
+            path: '.husky/pre-commit',
             text: '#!/bin/sh\n# this hook never blocks\nexit 0\n',
           },
         ],
@@ -31,7 +31,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
     expect(findings).toHaveLength(1);
     const f = findings[0]!;
     expect(f.id).toBe('STRENGTH-001');
-    expect(f.file).toBe('/r/.husky/pre-commit');
+    expect(f.file).toBe('.husky/pre-commit');
     expect(f.line).toBeGreaterThan(0);
     expect(f.message.length).toBeGreaterThan(0);
     expect(f.remediation.length).toBeGreaterThan(0);
@@ -44,7 +44,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
         hookFiles: [
           {
             name: 'pre-commit',
-            path: '/r/.husky/pre-commit',
+            path: '.husky/pre-commit',
             text: '#!/bin/sh\nnode check.js || exit 1\n',
           },
         ],
@@ -59,7 +59,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
         hookFiles: [
           {
             name: 'pre-commit',
-            path: '/r/.husky/pre-commit',
+            path: '.husky/pre-commit',
             text: '#!/bin/sh\nset -e\nnpm test\nexit 0\n',
           },
         ],
@@ -74,7 +74,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
         hookFiles: [
           {
             name: 'pre-commit',
-            path: '/r/.husky/pre-commit',
+            path: '.husky/pre-commit',
             text: '#!/bin/sh\nset -o errexit\nnpm test\nexit 0\n',
           },
         ],
@@ -91,7 +91,7 @@ describe('STRENGTH-001 non-blocking hooks', () => {
         hookFiles: [
           {
             name: 'pre-commit',
-            path: '/r/.husky/pre-commit',
+            path: '.husky/pre-commit',
             text: '#!/bin/sh\n# run checks then exit, even if they fail\nnpm test\nexit 0\n',
           },
         ],

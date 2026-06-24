@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { HarnessStrengthAuditor } from './auditor';
 import { isOk } from '../shared/result';
 
@@ -149,6 +149,64 @@ npx lint-staged
       const run1 = auditor.audit(dir, {});
       const run2 = auditor.audit(dir, {});
       expect(run1).toEqual(run2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('HarnessStrengthAuditor root-relative file invariant', () => {
+  // Fixture triggers the three rules that source their file from directory
+  // scans: STRENGTH-001 (non-blocking hook), STRENGTH-004 (layers + empty
+  // thresholds), STRENGTH-006 (PAT-gated auto-approve workflow, no review).
+  const AUTOAPPROVE_WF = `name: auto-approve baseline
+on: pull_request
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hmarr/auto-approve-action@v3
+        with:
+          token: \${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
+      - run: gh pr merge --auto
+`;
+  const CONFIG = JSON.stringify({
+    layers: [{ name: 'a' }],
+    architecture: { thresholds: {} },
+  });
+
+  function buildFixture(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'hs-relpath-'));
+    mkdirSync(join(dir, '.husky'), { recursive: true });
+    writeFileSync(join(dir, '.husky', 'pre-commit'), '#!/bin/sh\n# never blocks\nexit 0\n');
+    mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
+    writeFileSync(join(dir, '.github', 'workflows', 'auto.yml'), AUTOAPPROVE_WF);
+    writeFileSync(join(dir, 'harness.config.json'), CONFIG);
+    return dir;
+  }
+
+  it('emits only root-relative finding.file paths (no absolute / home-dir leak)', () => {
+    const dir = buildFixture();
+    try {
+      const result = new HarnessStrengthAuditor().audit(dir, {});
+      expect(isOk(result)).toBe(true);
+      if (!isOk(result)) return;
+      const v = result.value;
+      const ids = v.findings.map((f) => f.id).sort();
+      // The three directory-scan-sourced rules all fired on this fixture.
+      expect(ids).toContain('STRENGTH-001');
+      expect(ids).toContain('STRENGTH-004');
+      expect(ids).toContain('STRENGTH-006');
+      // Invariant: every finding.file is root-relative.
+      for (const f of v.findings) {
+        expect(isAbsolute(f.file)).toBe(false);
+        expect(f.file.startsWith(dir)).toBe(false);
+      }
+      // Spot-check the exact relative paths.
+      expect(v.findings.find((f) => f.id === 'STRENGTH-001')?.file).toBe('.husky/pre-commit');
+      expect(v.findings.find((f) => f.id === 'STRENGTH-006')?.file).toBe(
+        '.github/workflows/auto.yml'
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

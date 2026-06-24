@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, basename, resolve } from 'node:path';
+import { join, basename, resolve, relative } from 'node:path';
 import { HarnessConfigSubsetSchema } from './types';
 import type { HarnessConfigSubset, HookFile, Mode, ProjectContext } from './types';
 
@@ -33,6 +33,15 @@ function readJsonOrNull(path: string): unknown {
   }
 }
 
+/**
+ * Convert an absolute path to a ROOT-RELATIVE, forward-slash-normalized path.
+ * This is the single boundary that keeps every StrengthFinding.file root-relative
+ * (no leading slash, no home-dir leak) regardless of where the file was scanned.
+ */
+function toRootRelative(root: string, abs: string): string {
+  return relative(root, abs).replaceAll('\\', '/');
+}
+
 function readConfig(root: string): HarnessConfigSubset | null {
   const raw = readJsonOrNull(join(root, 'harness.config.json'));
   if (raw === null) return null;
@@ -40,8 +49,11 @@ function readConfig(root: string): HarnessConfigSubset | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** Collect script files directly under a directory (non-recursive), as HookFiles. */
-function readHookDir(dir: string): HookFile[] {
+/**
+ * Collect script files directly under a directory (non-recursive), as HookFiles
+ * with ROOT-RELATIVE paths.
+ */
+function readHookDir(root: string, dir: string): HookFile[] {
   if (!existsSync(dir)) return [];
   try {
     return readdirSync(dir)
@@ -55,7 +67,7 @@ function readHookDir(dir: string): HookFile[] {
       })
       .map(({ name, full }) => ({
         name,
-        path: full,
+        path: toRootRelative(root, full),
         text: readTextOrNull(full) ?? '',
       }));
   } catch {
@@ -69,13 +81,14 @@ function readHookDir(dir: string): HookFile[] {
  * registrations. Deduplicated by absolute path. Profile mapping is Phase 2.
  */
 function resolveHookFiles(root: string): HookFile[] {
+  // Dedup keyed on ABSOLUTE path; the stored HookFile.path is ROOT-RELATIVE.
   const collected = new Map<string, HookFile>();
   for (const h of [
-    ...readHookDir(join(root, '.husky')),
-    ...readHookDir(join(root, '.claude', 'hooks')),
-    ...readHookDir(join(root, '.harness', 'hooks')),
+    ...readHookDir(root, join(root, '.husky')),
+    ...readHookDir(root, join(root, '.claude', 'hooks')),
+    ...readHookDir(root, join(root, '.harness', 'hooks')),
   ]) {
-    collected.set(resolve(h.path), h);
+    collected.set(resolve(root, h.path), h);
   }
 
   // Scripts referenced from .claude/settings.json hook registrations.
@@ -85,7 +98,7 @@ function resolveHookFiles(root: string): HookFile[] {
     if (collected.has(abs)) continue;
     const text = readTextOrNull(abs);
     if (text !== null) {
-      collected.set(abs, { name: basename(abs), path: abs, text });
+      collected.set(abs, { name: basename(abs), path: toRootRelative(root, abs), text });
     }
   }
   return [...collected.values()];
@@ -147,7 +160,7 @@ function readWorkflows(root: string): { path: string; text: string }[] {
           return false;
         }
       })
-      .map((p) => ({ path: p, text: readTextOrNull(p) ?? '' }));
+      .map((p) => ({ path: toRootRelative(root, p), text: readTextOrNull(p) ?? '' }));
   } catch {
     return [];
   }
@@ -174,7 +187,8 @@ function readTemplates(root: string): { path: string; text: string }[] {
         continue;
       }
       if (st.isDirectory()) walk(full);
-      else if (name.endsWith('.hbs')) out.push({ path: full, text: readTextOrNull(full) ?? '' });
+      else if (name.endsWith('.hbs'))
+        out.push({ path: toRootRelative(root, full), text: readTextOrNull(full) ?? '' });
     }
   };
   walk(dir);
