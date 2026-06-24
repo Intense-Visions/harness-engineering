@@ -650,6 +650,7 @@ Generate CI configuration for harness checks
 **Options:**
 
 - `--platform` — CI platform: github, gitlab, or generic
+- `--language` — Project language for build/lint/test steps
 - `--checks` — Comma-separated list of checks to include
 
 ### `harness ci notify <report>`
