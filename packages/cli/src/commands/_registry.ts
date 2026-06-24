@@ -14,6 +14,7 @@ import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
 import { createCheckDocsCommand } from './check-docs';
+import { createCheckHarnessStrengthCommand } from './check-harness-strength';
 import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
@@ -103,6 +104,7 @@ export const commandCreators: Array<() => Command> = [
   createCheckDepsCommand,
   createCheckDesignCommand,
   createCheckDocsCommand,
+  createCheckHarnessStrengthCommand,
   createCheckPerfCommand,
   createCheckPhaseGateCommand,
   createCheckSecurityCommand,

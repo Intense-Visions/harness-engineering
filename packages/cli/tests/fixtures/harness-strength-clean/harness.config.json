@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "clean-harness-fixture",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] }
+  ],
+  "architecture": {
+    "thresholds": {
+      "maxFanIn": 12,
+      "maxFanOut": 8,
+      "maxCycles": 0
+    }
+  }
+}

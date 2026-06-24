@@ -92,6 +92,18 @@ Check documentation coverage
 
 - `--min-coverage` — Minimum coverage percentage (default: "80")
 
+### `harness check-harness-strength`
+
+Mechanically audit this project's harness setup against the 7 strength patterns
+
+**Options:**
+
+- `--severity` — Minimum severity threshold to display and gate on (default: "warning")
+- `--mode` — Audit mode: adopter | toolkit (default: auto-detect)
+- `--toolkit` — Force toolkit mode
+- `--adopter` — Force adopter mode
+- `--report-only` — Always exit 0 regardless of findings
+
 ### `harness check-perf`
 
 Run performance checks: structural complexity, coupling, and size budgets

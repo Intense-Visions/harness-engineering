@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-756 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+757 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (39 skills)
+## Tier 2 — Maintenance (40 skills)
 
 ### align-design-system
 
@@ -228,6 +228,15 @@ Interactive architecture advisor that surfaces trade-offs and helps humans choos
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** advisory-guide
+
+### harness-audit-harness-strength
+
+Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### harness-code-review
 

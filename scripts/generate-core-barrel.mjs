@@ -60,11 +60,21 @@ const SELECTIVE_EXPORTS = {
     },
   ],
 
+  'validation/branch': [
+    {
+      comment: 'Branch name validation.',
+      lines: [
+        "export { validateBranchName } from './validation/branch';",
+        "export type { BranchingConfig, BranchValidationResult } from './validation/branch';",
+      ],
+    },
+  ],
+
   'update-checker': [
     {
       comment: 'Update checker utilities for checking for new versions of the toolkit.',
       lines: [
-        "export {\n  isUpdateCheckEnabled,\n  shouldRunCheck,\n  readCheckState,\n  spawnBackgroundCheck,\n  getUpdateNotification,\n} from './update-checker';",
+        "export {\n  isUpdateCheckEnabled,\n  shouldRunCheck,\n  readCheckState,\n  invalidateCheckState,\n  spawnBackgroundCheck,\n  getUpdateNotification,\n} from './update-checker';",
         "export type { UpdateCheckState } from './update-checker';",
       ],
     },
@@ -83,7 +93,8 @@ const SELECTIVE_EXPORTS = {
     {
       comment: 'Telemetry module for consent resolution and install identity.',
       lines: [
-        "export {\n  resolveConsent,\n  readIdentity,\n  getOrCreateInstallId,\n  collectEvents,\n  send,\n} from './telemetry';",
+        "export {\n  resolveConsent,\n  readIdentity,\n  getOrCreateInstallId,\n  collectEvents,\n  send,\n  CacheMetricsRecorder,\n  OTLPExporter,\n  SpanKind,\n} from './telemetry';",
+        "export type {\n  CacheMetricsRecorderOptions,\n  OTLPExporterOptions,\n  TraceSpan,\n  SpanAttributes,\n} from './telemetry';",
       ],
     },
   ],
@@ -100,6 +111,7 @@ const SKIP_DIRS = new Set(Object.keys(SELECTIVE_EXPORTS));
 /** Canonical ordering and JSDoc descriptions for all modules. */
 const DIR_COMMENTS = {
   validation: 'Validation module for verifying project structure, configuration, and conventions.',
+  'validation/branch': 'Branch name validation.',
   context: 'Context module for managing AI agent context and knowledge maps.',
   constraints: 'Constraints module for enforcing architectural boundaries and dependency rules.',
   annotations: 'Annotations module for protected code regions and harness-ignore directives.',

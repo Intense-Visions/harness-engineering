@@ -77,11 +77,6 @@ export * from './annotations';
 export * from './entropy';
 
 /**
- * Insights aggregator — composite report of health, entropy, decay, attention, impact (Hermes Phase 1).
- */
-export * from './insights';
-
-/**
  * Performance module for benchmarking and regression detection.
  */
 export * from './performance';
@@ -183,12 +178,6 @@ export {
 } from './adoption';
 
 /**
- * Notifications module — loader for the `notifications.sinks[]` section
- * of harness.config.json. Hermes Phase 3.
- */
-export { loadNotificationsConfig } from './notifications';
-
-/**
  * Compaction module for reducing MCP tool response token consumption.
  */
 export * from './compaction';
@@ -219,9 +208,29 @@ export type {
 } from './telemetry';
 
 /**
+ * Harness-strength module.
+ */
+export * from './harness-strength';
+
+/**
+ * Insights module.
+ */
+export * from './insights';
+
+/**
  * Locks module.
  */
 export * from './locks';
+
+/**
+ * Notifications module.
+ */
+export * from './notifications';
+
+/**
+ * Proposals module.
+ */
+export * from './proposals';
 
 /**
  * Pulse module.
@@ -234,15 +243,9 @@ export * from './pulse';
 export * from './solutions';
 
 /**
- * Strategy module — STRATEGY.md schema, parser, and exports.
+ * Strategy module.
  */
 export * from './strategy';
-
-/**
- * Skill proposals module (Hermes Phase 4) — `.harness/proposals/` storage,
- * usage derivation, and `emit_skill_proposal` payload helpers.
- */
-export * from './proposals';
 
 /**
  * The current version of the Harness Engineering core library.
