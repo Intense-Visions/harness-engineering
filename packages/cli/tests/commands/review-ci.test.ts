@@ -6,8 +6,15 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
   return { ...actual, parseDiff: parseDiffMock };
 });
 
-import { resolveDiffRange, buildDiffInfo, runReviewCi } from '../../src/commands/review-ci';
+import {
+  resolveDiffRange,
+  buildDiffInfo,
+  runReviewCi,
+  emitReviewCi,
+  createReviewCiCommand,
+} from '../../src/commands/review-ci';
 import type { CiReviewResult, RunCiReviewOptions } from '@harness-engineering/core';
+import { logger } from '../../src/output/logger';
 
 describe('resolveDiffRange', () => {
   it('uses provided range verbatim', () => {
@@ -149,5 +156,67 @@ describe('runReviewCi', () => {
       diffRange: 'a...b',
     });
     expect(captured.opts!.blockOn).toBe('critical');
+  });
+});
+
+describe('emitReviewCi', () => {
+  const result = {
+    verdict: { assessment: 'request-changes', findings: [] },
+    exitCode: 1,
+    terminalOutput: 'TERMINAL_SUMMARY',
+    ranLlmTier: false,
+  } as unknown as CiReviewResult;
+
+  it('prints terminalOutput to the log seam', () => {
+    const log = vi.fn();
+    emitReviewCi(result, {}, vi.fn(), log);
+    expect(log).toHaveBeenCalledWith('TERMINAL_SUMMARY');
+  });
+
+  it('writes JSON.stringify(verdict) to jsonPath when given', () => {
+    const writeFile = vi.fn();
+    emitReviewCi(result, { jsonPath: '/tmp/v.json' }, writeFile, vi.fn());
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    const [path, data] = writeFile.mock.calls[0]!;
+    expect(path).toBe('/tmp/v.json');
+    expect(JSON.parse(data as string)).toMatchObject({ assessment: 'request-changes' });
+  });
+
+  it('does not write a file when jsonPath is omitted', () => {
+    const writeFile = vi.fn();
+    emitReviewCi(result, {}, writeFile, vi.fn());
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('warns the documented stub when --comment is set', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    emitReviewCi(result, { comment: true }, vi.fn(), vi.fn());
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('comment posting is not yet wired');
+    warn.mockRestore();
+  });
+
+  it('does not warn when --comment is absent', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    emitReviewCi(result, {}, vi.fn(), vi.fn());
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('createReviewCiCommand', () => {
+  it('is named review-ci and exposes all five options', () => {
+    const cmd = createReviewCiCommand();
+    expect(cmd.name()).toBe('review-ci');
+    const flags = cmd.options.map((o) => o.long);
+    expect(flags).toEqual(
+      expect.arrayContaining(['--runner', '--block-on', '--diff', '--comment', '--json'])
+    );
+  });
+
+  it('defaults --block-on to request-changes', () => {
+    const cmd = createReviewCiCommand();
+    const blockOn = cmd.options.find((o) => o.long === '--block-on');
+    expect(blockOn?.defaultValue).toBe('request-changes');
   });
 });

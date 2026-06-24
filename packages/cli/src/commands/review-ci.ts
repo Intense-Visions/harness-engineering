@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { Command } from 'commander';
 import { parseDiff, runCiReview } from '@harness-engineering/core';
 import type {
   DiffInfo,
@@ -7,6 +9,7 @@ import type {
   CiBlockOn,
 } from '@harness-engineering/core';
 import { createLocalInvoke } from './review-ci-local-adapter';
+import { logger } from '../output/logger';
 
 /**
  * Injectable git seam. Returns trimmed stdout of `git <args>`.
@@ -96,10 +99,10 @@ function defaultResolveRaw(range: string, _cwd: string, runGit: RunGit): string 
 }
 
 export interface ReviewCiOptions {
-  cwd?: string;
-  runner?: string;
-  blockOn?: CiBlockOn;
-  diffRange?: string;
+  cwd?: string | undefined;
+  runner?: string | undefined;
+  blockOn?: CiBlockOn | undefined;
+  diffRange?: string | undefined;
   // Injected seams for tests (default to the real implementations):
   runCiReviewImpl?: (o: RunCiReviewOptions) => Promise<CiReviewResult>;
   localInvoke?: RunCiReviewOptions['localInvoke'];
@@ -138,4 +141,56 @@ export async function runReviewCi(opts: ReviewCiOptions): Promise<CiReviewResult
     ...(runner === 'local' ? { localInvoke: opts.localInvoke ?? createLocalInvoke() } : {}),
   };
   return (opts.runCiReviewImpl ?? runCiReview)(callOpts);
+}
+
+/**
+ * Emit the review result: print the terminal summary, optionally write the
+ * verdict artifact, and (in this phase) warn that `--comment` is stubbed.
+ *
+ * Pure aside from the injected `writeFile`/`log` seams — contains NO
+ * `process.exit`, so it stays unit-testable.
+ */
+export function emitReviewCi(
+  result: CiReviewResult,
+  opts: { jsonPath?: string | undefined; comment?: boolean | undefined },
+  writeFile: (p: string, d: string) => void = (p, d) => writeFileSync(p, d),
+  log: (m: string) => void = (m) => process.stdout.write(m + '\n')
+): void {
+  log(result.terminalOutput);
+  if (opts.jsonPath) writeFile(opts.jsonPath, JSON.stringify(result.verdict, null, 2));
+  if (opts.comment) {
+    logger.warn(
+      'review-ci: --comment posting is not yet wired (no gh PR poster; Phase 3 stub). ' +
+        'The verdict above is authoritative; use --json to capture the artifact. ' +
+        'PR-review posting lands in a later phase.'
+    );
+  }
+}
+
+/** Build the top-level `harness review-ci` command. */
+export function createReviewCiCommand(): Command {
+  return new Command('review-ci')
+    .description('Run the tiered code-review gate (floor + optional LLM runner) for CI')
+    .option(
+      '--runner <runner>',
+      'claude | gemini | codex | cursor | antigravity | local (omit = floor-only)'
+    )
+    .option('--block-on <level>', 'critical | request-changes | none', 'request-changes')
+    .option('--diff <range>', 'git range (default: origin/<base>...HEAD)')
+    .option('--comment', 'post verdict as a PR review (stubbed in this phase)')
+    .option('--json <path>', 'write the verdict artifact to this path')
+    .action(async (opts: Record<string, unknown>) => {
+      const result = await runReviewCi({
+        runner: opts.runner as string | undefined,
+        blockOn: opts.blockOn as CiBlockOn | undefined,
+        diffRange: opts.diff as string | undefined,
+      });
+      emitReviewCi(result, {
+        jsonPath: opts.json as string | undefined,
+        comment: opts.comment as boolean | undefined,
+      });
+      // process.exit is confined to the commander action so the pure functions
+      // above remain testable; propagate the orchestrator's exit code verbatim.
+      process.exit(result.exitCode);
+    });
 }
