@@ -78,7 +78,15 @@ describe('manage_roadmap tool definition', () => {
       type: string;
       enum: string[];
     };
-    expect(actionProp.enum).toEqual(['show', 'add', 'update', 'remove', 'query', 'sync']);
+    expect(actionProp.enum).toEqual([
+      'show',
+      'add',
+      'update',
+      'remove',
+      'promote',
+      'query',
+      'sync',
+    ]);
   });
 
   it('has feature, milestone, status, summary, spec, plans, blocked_by, filter properties', () => {
@@ -710,5 +718,88 @@ describe('manage_roadmap external sync trigger', () => {
       status: 'done',
     });
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('triggers external sync after successful promote', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Mobile App',
+      spec: 'docs/changes/mobile-app/proposal.md',
+    });
+    expect(syncSpy).toHaveBeenCalledOnce();
+  });
+
+  it('does NOT trigger external sync on refused promote', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Auth System', // in-progress → refused
+      spec: 'docs/changes/auth/proposal.md',
+    });
+    expect(syncSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('manage_roadmap promote action', () => {
+  const SPEC = 'docs/changes/mobile-app/proposal.md';
+
+  function readRoadmap(): string {
+    return fs.readFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), 'utf-8');
+  }
+
+  it('promotes a backlog row to planned and links the spec', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Mobile App',
+      spec: SPEC,
+    });
+    expect(response.isError).toBeFalsy();
+    const envelope = JSON.parse(response.content[0].text);
+    expect(envelope).toMatchObject({ ok: true, transitioned: 'backlog→planned' });
+
+    const after = readRoadmap();
+    expect(after).toContain(SPEC);
+    // The Mobile App row is now planned.
+    const mobileBlock = after.slice(after.indexOf('Mobile App'));
+    expect(mobileBlock).toMatch(/\*\*Status:\*\* planned/);
+  });
+
+  it('refuses to promote an in-progress row and leaves the file unchanged', async () => {
+    const before = readRoadmap();
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Auth System',
+      spec: SPEC,
+    });
+    expect(response.isError).toBe(true);
+    const envelope = JSON.parse(response.content[0].text);
+    expect(envelope).toMatchObject({ ok: false, reason: 'in-progress' });
+    expect(readRoadmap()).toBe(before);
+  });
+
+  it('returns not-found with closestMatches on a typo', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Mobile Ap', // typo for "Mobile App"
+      spec: SPEC,
+    });
+    expect(response.isError).toBe(true);
+    const envelope = JSON.parse(response.content[0].text);
+    expect(envelope.reason).toBe('not-found');
+    expect(envelope.closestMatches).toContain('Mobile App');
+  });
+
+  it('errors when spec is missing', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Mobile App',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toMatch(/spec is required/);
   });
 });

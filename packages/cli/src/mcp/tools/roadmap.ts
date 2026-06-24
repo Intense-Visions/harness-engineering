@@ -13,17 +13,20 @@ import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove, sync features, or query by filter. Reads and writes docs/roadmap.md.',
+    'Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically, returning a structured PromoteResult envelope.',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       action: {
         type: 'string',
-        enum: ['show', 'add', 'update', 'remove', 'query', 'sync'],
+        enum: ['show', 'add', 'update', 'remove', 'promote', 'query', 'sync'],
         description: 'Action to perform',
       },
-      feature: { type: 'string', description: 'Feature name (required for add, update, remove)' },
+      feature: {
+        type: 'string',
+        description: 'Feature name (required for add, update, remove, promote)',
+      },
       milestone: {
         type: 'string',
         description: 'Milestone name (required for add; optional filter for show)',
@@ -38,7 +41,10 @@ export const manageRoadmapDefinition = {
         type: 'string',
         description: 'Feature summary (required for add; optional for update)',
       },
-      spec: { type: 'string', description: 'Spec file path (optional for add/update)' },
+      spec: {
+        type: 'string',
+        description: 'Spec file path (optional for add/update; required for promote)',
+      },
       plans: {
         type: 'array',
         items: { type: 'string' },
@@ -73,7 +79,7 @@ export const manageRoadmapDefinition = {
 
 interface ManageRoadmapInput {
   path: string;
-  action: 'show' | 'add' | 'update' | 'remove' | 'query' | 'sync';
+  action: 'show' | 'add' | 'update' | 'remove' | 'promote' | 'query' | 'sync';
   feature?: string;
   milestone?: string;
   status?: 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
@@ -115,6 +121,7 @@ interface RoadmapDeps {
   syncRoadmap: Awaited<typeof import('@harness-engineering/core')>['syncRoadmap'];
   applySyncChanges: Awaited<typeof import('@harness-engineering/core')>['applySyncChanges'];
   assignFeature: Awaited<typeof import('@harness-engineering/core')>['assignFeature'];
+  promoteFeature: Awaited<typeof import('@harness-engineering/core')>['promoteFeature'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
 }
 
@@ -342,6 +349,78 @@ function handleRemove(
   return resultToMcpResponse(Ok(roadmap));
 }
 
+function promoteEnvelopeResponse(
+  envelope: import('@harness-engineering/core').RoadmapPromoteResult
+): McpResponse {
+  // The structured envelope is the contract (consumed by the brainstorming
+  // skill, dashboard, and autopilot). Refusals/failures are marked isError so
+  // the auto-sync trigger skips them and no mirror push fires on an unchanged
+  // roadmap; the full envelope JSON is still carried in the text either way.
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(envelope) }],
+    isError: envelope.ok === false,
+  };
+}
+
+function handlePromote(
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): McpResponse {
+  const { parseRoadmap, serializeRoadmap, promoteFeature } = deps;
+
+  if (!input.feature) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: feature is required for promote action' }],
+      isError: true,
+    };
+  }
+  if (!input.spec) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: spec is required for promote action' }],
+      isError: true,
+    };
+  }
+
+  const raw = readRoadmapFile(projectPath);
+  if (raw === null) return roadmapNotFoundError();
+
+  const parsed = parseRoadmap(raw);
+  if (!parsed.ok) {
+    // D4: a malformed roadmap cannot be promoted against — surface a
+    // write-failed envelope so the human repairs the file before re-running.
+    return promoteEnvelopeResponse({
+      ok: false,
+      reason: 'write-failed',
+      detail: `Could not parse docs/roadmap.md: ${parsed.error.message}`,
+      feature: input.feature,
+    });
+  }
+
+  const { result, nextRoadmap } = promoteFeature(parsed.value, {
+    feature: input.feature,
+    spec: input.spec,
+    ...(input.summary !== undefined ? { summary: input.summary } : {}),
+  });
+
+  if (result.ok && result.transitioned !== 'noop') {
+    try {
+      writeRoadmapFile(projectPath, serializeRoadmap(nextRoadmap));
+    } catch (error) {
+      return promoteEnvelopeResponse({
+        ok: false,
+        reason: 'write-failed',
+        detail: `Failed to write docs/roadmap.md: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        feature: input.feature,
+      });
+    }
+  }
+
+  return promoteEnvelopeResponse(result);
+}
+
 function handleQuery(
   projectPath: string,
   input: ManageRoadmapInput,
@@ -434,6 +513,8 @@ function dispatchAction(
       return handleUpdate(projectPath, input, deps);
     case 'remove':
       return handleRemove(projectPath, input, deps);
+    case 'promote':
+      return handlePromote(projectPath, input, deps);
     case 'query':
       return handleQuery(projectPath, input, deps);
     case 'sync':
@@ -478,8 +559,14 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
   }
 
   try {
-    const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, assignFeature } =
-      await import('@harness-engineering/core');
+    const {
+      parseRoadmap,
+      serializeRoadmap,
+      syncRoadmap,
+      applySyncChanges,
+      assignFeature,
+      promoteFeature,
+    } = await import('@harness-engineering/core');
     const { Ok } = await import('@harness-engineering/types');
 
     const projectPath = projectPathPre;
@@ -489,6 +576,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       syncRoadmap,
       applySyncChanges,
       assignFeature,
+      promoteFeature,
       Ok,
     };
     const response = dispatchAction(input.action, projectPath, input, deps);

@@ -20,12 +20,15 @@ import type {
   TrackedFeature,
   NewFeatureInput,
   FeaturePatch,
+  Roadmap,
+  RoadmapFeature,
+  RoadmapPromoteResult,
 } from '@harness-engineering/core';
-import { ConflictError } from '@harness-engineering/core';
+import { ConflictError, promoteFeature } from '@harness-engineering/core';
 
 export interface ManageRoadmapFileLessInput {
   path: string;
-  action: 'show' | 'add' | 'update' | 'remove' | 'query' | 'sync';
+  action: 'show' | 'add' | 'update' | 'remove' | 'promote' | 'query' | 'sync';
   feature?: string;
   milestone?: string;
   status?: 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
@@ -66,6 +69,8 @@ export async function handleManageRoadmapFileLess(
       return handleUpdate(input, client);
     case 'remove':
       return handleRemove(input, client);
+    case 'promote':
+      return handlePromote(input, client);
     case 'sync':
       return handleSync();
     default:
@@ -188,6 +193,108 @@ async function handleRemove(
     })
     .catch(() => {});
   return ok(`Removed feature: ${found.value.name} (translated to status:done in file-less mode)`);
+}
+
+/** Render a PromoteResult envelope; refusals/failures are marked isError. */
+function promoteEnvelope(envelope: RoadmapPromoteResult): McpResponse {
+  return { content: [{ type: 'text', text: JSON.stringify(envelope) }], isError: !envelope.ok };
+}
+
+/** Map a tracker feature into the in-memory RoadmapFeature shape. */
+function toRoadmapFeature(f: TrackedFeature): RoadmapFeature {
+  return {
+    name: f.name,
+    status: f.status,
+    spec: f.spec,
+    plans: f.plans,
+    blockedBy: f.blockedBy,
+    summary: f.summary,
+    assignee: f.assignee,
+    priority: f.priority,
+    externalId: f.externalId,
+    updatedAt: f.updatedAt,
+  };
+}
+
+/** Group tracker features into a Roadmap so promoteFeature can decide D2/D1. */
+function buildRoadmap(features: TrackedFeature[]): Roadmap {
+  const byMilestone = new Map<string, RoadmapFeature[]>();
+  for (const f of features) {
+    const key = f.milestone ?? 'Current Work';
+    const list = byMilestone.get(key) ?? [];
+    list.push(toRoadmapFeature(f));
+    byMilestone.set(key, list);
+  }
+  return {
+    frontmatter: {
+      project: '',
+      version: 1,
+      lastSynced: '',
+      lastManualEdit: '',
+    },
+    milestones: Array.from(byMilestone, ([name, fs]) => ({
+      name,
+      isBacklog: name.toLowerCase() === 'backlog',
+      features: fs,
+    })),
+    assignmentHistory: [],
+  };
+}
+
+async function handlePromote(
+  input: ManageRoadmapFileLessInput,
+  client: RoadmapTrackerClient
+): Promise<McpResponse> {
+  if (!input.feature) return err('Error: promote requires feature name');
+  if (!input.spec) return err('Error: promote requires spec path');
+
+  const all = await client.fetchAll();
+  if (!all.ok) return err(`Error: ${all.error.message}`);
+
+  // Reuse the core state-transition rules (D6) so file-less and file mode
+  // share one source of truth. promoteFeature decides; we translate the single
+  // changed row back into a tracker patch.
+  const roadmap = buildRoadmap(all.value.features);
+  const { result, nextRoadmap } = promoteFeature(roadmap, {
+    feature: input.feature,
+    spec: input.spec,
+    ...(input.summary !== undefined ? { summary: input.summary } : {}),
+  });
+
+  if (!result.ok || result.transitioned === 'noop') {
+    return promoteEnvelope(result);
+  }
+
+  const key = input.feature.trim().toLowerCase();
+  const target = nextRoadmap.milestones
+    .flatMap((m) => m.features)
+    .find((f) => f.name.trim().toLowerCase() === key);
+  if (!target || !target.externalId) {
+    return promoteEnvelope({
+      ok: false,
+      reason: 'write-failed',
+      detail: `Promoted row "${input.feature}" has no externalId to update.`,
+      feature: input.feature,
+    });
+  }
+
+  const patch: FeaturePatch = { status: target.status, spec: target.spec };
+  if (target.summary) patch.summary = target.summary;
+  const upd = await client.update(target.externalId, patch);
+  if (!upd.ok) {
+    const detail =
+      upd.error instanceof ConflictError
+        ? `conflict on ${upd.error.externalId}: ${JSON.stringify(upd.error.diff)}`
+        : upd.error.message;
+    return promoteEnvelope({
+      ok: false,
+      reason: 'write-failed',
+      detail,
+      feature: input.feature,
+    });
+  }
+
+  return promoteEnvelope(result);
 }
 
 function handleSync(): McpResponse {

@@ -305,3 +305,59 @@ describe('handleManageRoadmapFileLess — writes (Task 10)', () => {
     expect(r.content[0]?.text).toMatch(/file-less mode/i);
   });
 });
+
+describe('handleManageRoadmapFileLess — promote', () => {
+  const SPEC = 'docs/changes/x/proposal.md';
+
+  it('promote: backlog row → update(status:planned, spec)', async () => {
+    const update = vi.fn(async (id: string, _patch: FeaturePatch) =>
+      Ok(tf({ externalId: id, name: 'Alpha', status: 'planned', spec: SPEC }))
+    );
+    const client = makeClient({
+      fetchAll: async () =>
+        Ok({
+          features: [tf({ externalId: 'github:o/r#7', name: 'Alpha', status: 'backlog' })],
+          etag: null,
+        }),
+      update,
+    });
+    const r = await handleManageRoadmapFileLess(
+      { path: '/tmp', action: 'promote', feature: 'Alpha', spec: SPEC },
+      client
+    );
+    expect(r.isError).toBe(false);
+    const envelope = JSON.parse(r.content[0]?.text ?? '{}');
+    expect(envelope).toMatchObject({ ok: true, transitioned: 'backlog→planned' });
+    expect(update).toHaveBeenCalledWith(
+      'github:o/r#7',
+      expect.objectContaining({ status: 'planned', spec: SPEC })
+    );
+  });
+
+  it('promote: in-progress row → refusal, no update call', async () => {
+    const update = vi.fn(async () => Ok(tf()));
+    const client = makeClient({
+      fetchAll: async () =>
+        Ok({ features: [tf({ name: 'Alpha', status: 'in-progress' })], etag: null }),
+      update,
+    });
+    const r = await handleManageRoadmapFileLess(
+      { path: '/tmp', action: 'promote', feature: 'Alpha', spec: SPEC },
+      client
+    );
+    expect(r.isError).toBe(true);
+    const envelope = JSON.parse(r.content[0]?.text ?? '{}');
+    expect(envelope).toMatchObject({ ok: false, reason: 'in-progress' });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('promote: missing spec → error', async () => {
+    const client = makeClient();
+    const r = await handleManageRoadmapFileLess(
+      { path: '/tmp', action: 'promote', feature: 'Alpha' },
+      client
+    );
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/spec/i);
+  });
+});
