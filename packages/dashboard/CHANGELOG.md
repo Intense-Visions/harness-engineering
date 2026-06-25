@@ -1,5 +1,23 @@
 # @harness-engineering/dashboard
 
+## 0.9.0
+
+### Minor Changes
+
+- 43f7333: Add a curated five-signal dashboard panel as the default landing view. A new `/s/signals` page (with `/` redirecting to it) renders five signals — `pr-merged-without-multi-persona-review`, `coverage-trend-down-30d`, `complexity-trend-up-30d`, `baseline-auto-update-count`, and `eval-fail-rate` — each with current value, 30-day trend, threshold status, and a sparkline. Backed by a `SignalProvider` registry, a shared `SignalTimelineStore` (hybrid derive-now + cache to `.harness/signals/timeline.json`), and a `GET /api/signals` route that isolates per-signal failures via `Promise.allSettled`. `eval-fail-rate` consumes `harness:outcome-eval` verdicts through the knowledge graph's `execution_outcome` nodes with zero code coupling (documented in ADR 0037). Implements roadmap #534; signals documented in `docs/standard/signals.md`.
+
+### Patch Changes
+
+- 0ca37f4: Upgrade `@hono/node-server` from `^1.19.13` to `^2.0.4`. v2 is a perf-only major (up to 2.3× throughput on body-parsing) with the same public API. The pnpm.overrides floor for `@hono/node-server` is also bumped to `>=2.0.4`. v2 drops Node 18 support (we already require Node ≥22) and removes the Vercel adapter (not used).
+- Updated dependencies [8128981]
+- Updated dependencies [d11e2e6]
+- Updated dependencies [07c399b]
+- Updated dependencies [4b2f910]
+- Updated dependencies [a6f7cd3]
+- Updated dependencies [ca706f5]
+  - @harness-engineering/core@0.30.0
+  - @harness-engineering/orchestrator@0.8.2
+
 ## 0.8.2
 
 ### Patch Changes

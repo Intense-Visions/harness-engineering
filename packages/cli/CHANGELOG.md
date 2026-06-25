@@ -1,5 +1,87 @@
 # @harness-engineering/cli
 
+## 3.0.0
+
+### Minor Changes
+
+- 8128981: Add `harness:audit-harness-strength` — a self-audit skill + `harness check-harness-strength` command that mechanically audits a project's own harness setup against the seven v5.0 failure patterns and reports a 0–100 strength score, a tier (`solid`/`at-risk`/`theatre`), and per-pattern remediation.
+  - New `packages/core/src/harness-strength/` module: `HarnessStrengthAuditor` over a 7-rule registry (`StrengthRule` with an optional `evaluable?()` so absent input is never a false pass), a once-built `ProjectContext` (config, hooks resolved from `.husky/`/`.claude/hooks/`/`.harness/hooks/` + settings.json, workflows, health snapshot, and toolkit-mode templates/init-skill), and a pure deterministic `rollupScore`. Findings carry severity applied by the auditor (config-overridable via `audit.harnessStrength.severities`); `finding.file` is always root-relative.
+  - Detects STRENGTH-001..007: non-blocking hooks, pre-commit auto-baseline-on-regression, oversized `--skip` lists, empty `architecture.thresholds`, lowest-tier defaults, PAT-gated auto-approve without independent review (incl. commands inside `run:` blocks), and `passed:true` health-snapshot entries that contradict active signals.
+  - New `harness check-harness-strength` command (`@harness-engineering/cli`) mirroring `check-security`: `--mode adopter|toolkit` (auto-detects toolkit), `--severity`, `--report-only`, and `--json` (raw `AuditResult` for downstream dashboard/health-snapshot consumers). Gates non-zero on surviving error-severity findings unless `--report-only`.
+  - Ships the rigid `harness:audit-harness-strength` skill (4 platforms) that orchestrates the command rather than re-grepping configs. ADR 0039 documents the decision that self-audit skills must be mechanically enforced, not prose.
+
+- 2896a14: Add `canary_probe` and `canary_recommend_framework` MCP tools wrapping the canary adapter, and wire them into the `harness-test-advisor` Coverage Audit. The audit now probes canary availability (Audit Phase 0) and degrades gracefully with an install nudge when the CLI is absent, and uses deterministic framework recommendations for uncovered files (falling back to the `canary:canary-pick-framework` plugin when degraded). The generative plugin Quality Review path is unchanged. Phase 2 of the canary-test-integration spec.
+- db4e2a4: Ship a complete CI workflow on `harness init`. Projects now inherit
+  `.github/workflows/ci.yml` automatically — a single fail-fast GitHub Actions job
+  that builds, lints, and tests (language-appropriate for TypeScript, Python, Go,
+  Rust, and Java) and runs the consolidated `harness ci check` gate on every pull
+  request and push to `main`. The workflow is written for both new and existing
+  projects and never overwrites an existing workflow file.
+
+  `harness ci init` and `harness init` now route through a single CI generator
+  (ADR 0037), so the two paths cannot drift; the enriched GitHub output replaces the
+  gate-only `harness.yml` with `ci.yml`. The generated workflow installs the harness
+  CLI before the gate and deliberately contains no auto-baseline-update / `git push`
+  step (roadmap #525). `harness ci init` also gains a `--language` option.
+
+- d11e2e6: Add roadmap maintenance: health checks, grooming, an `Intake` lane, and a split archive.
+
+  Encodes one principle in code — **a milestone is a theme, a status is a lifecycle stage** — so the roadmap stays tidy over time instead of decaying into an undifferentiated backlog dump.
+  - **`@harness-engineering/core`** gains `packages/core/src/roadmap/health.ts`: `checkRoadmapHealth` (read-only diagnostics — RMH001 done-outside-archive, RMH002 unactionable `planned` rows with no spec & no plan, RMH003 lifecycle catch-all milestones `[error]`, RMH004 oversized active milestones) and `groomRoadmap` (pure transform: demote unactionable `planned` to `backlog`, lift `done` features out for archival). The not-found create path in `promoteFeature` now lands new rows in an **`Intake`** lane instead of recreating a `Current Work` catch-all.
+  - **`@harness-engineering/cli`** wires `checkRoadmapHealth` into `harness validate` as a `roadmapHealth` check (RMH003 fails validation; others are warnings), and adds a `groom` action to the `manage_roadmap` MCP tool that demotes unactionable `planned` rows and moves completed features into `docs/roadmap-archive.md` under a `Shipped` milestone, keeping the orchestrator's parsed `docs/roadmap.md` lean.
+  - The `harness-roadmap` skill documents a `--groom` mode.
+  - The `initialize-harness-project` skill now seeds the deferred "Set up design system" entry under the `Intake` lane instead of a `Current Work` catch-all, so freshly-initialized projects start tidy and pass the `roadmapHealth` guard.
+
+- 07c399b: Add `manage_roadmap` action `promote` and the `promoteFeature` core function for the brainstorm-driven roadmap loop (sub-project 1 of 4).
+
+  `promoteFeature` (exported from `@harness-engineering/core`) is a pure, IO-free state-transition over `(Roadmap, { feature, spec, summary? }) → { result, nextRoadmap }`. It advances an existing backlog row to `planned` and links its spec in place — instead of appending a duplicate `planned` row — applying a state-conditional rule set: `backlog → planned`; `planned`/`blocked`/`needs-human` update the spec link while preserving status; `in-progress` and `done` refuse; a genuine lookup miss creates a new `planned` row under "Current Work" (`transitioned: 'created'`, matching the legacy `add` behavior the action replaced), while a probable typo of an existing heading instead returns `not-found` with Levenshtein-ranked `closestMatches`; same-name rows across milestones return `ambiguous` with milestone-qualified matches. A non-`backlog` row already linked to the same spec is an idempotent `noop`. A human-authored summary and the `Plan`/`Assignee`/`Priority`/`External-ID`/`Blockers`/`Milestone` fields are never overwritten. The per-row decision is exposed as `decidePromotionForRow` so the file-less handler shares the same rules.
+
+  The `manage_roadmap` MCP tool (`@harness-engineering/cli`) gains `action: 'promote'` (inputs `feature`, `spec`, optional `summary`), wired in both file-backed and file-less modes, returning the structured `RoadmapPromoteResult` envelope. `harness-brainstorming` Phase 4 now calls `promote` instead of `add` and commits `proposal.md`, `SKILLS.md`, and `roadmap.md` together so the promotion is atomic with the spec. See ADRs 0042 (structured envelopes) and 0043 (rules-in-core).
+
+- f5ec94d: Add `harness:outcome-eval` — an LLM-judgment skill that produces a structured, confidence-rated verdict on whether an implementation satisfied its spec.
+  - New `packages/intelligence/src/outcome-eval/` module: `OutcomeEvaluator` (mirrors `PeslSimulator`), a `.strict()` `verdictSchema`, a fence-aware spec-section resolver (Success Criteria → user-visible-behavior → Overview), a conservative-confidence prompt, and the false-positive-critical `deriveAuthority` mapping — authority is always derived in TypeScript and never read from the LLM. `evaluate()` is degrade-safe: provider/parse/missing-spec failures resolve to INCONCLUSIVE/advisory and never throw at the blocking gate.
+  - Each `evaluate()` persists exactly one `execution_outcome` node via `ExecutionOutcomeConnector` (additive, backward-compatible `metadata` pass-through), consumable by the effectiveness scorer.
+  - New `outcome_eval` MCP tool (`@harness-engineering/cli`) makes the skill genuinely invocable, constructing a real `AnalysisProvider` + `GraphStore` and returning the TS-derived verdict.
+  - Wired into the orchestrator as step 6.5 (between Code Review and Ship): a high-confidence `NOT_SATISFIED` blocks ship; every other verdict is advisory. ADRs 0037 (tiered confidence→authority) and 0038 (execution_outcome provenance) document the decisions.
+
+- ca706f5: feat(review-ci): multi-client required-review CI gate (#541)
+
+  Adds `harness review-ci` and its contract. Core gains a versioned `CiReviewVerdict`
+  schema, a two-kind runner-preset registry (`agent-cli` + `endpoint`), per-runner
+  verdict parsers, and the `runCiReview` orchestrator — a tiered gate (client-agnostic
+  heuristic floor always runs; a secret-gated LLM multi-persona tier runs per runner
+  and degrades gracefully) with an anti-theatre `block-on` threshold where a required
+  runner that fails to execute blocks even under `block-on none`. The CLI gains the
+  `harness review-ci` command wiring it, including the local openai-compatible adapter.
+
+  Runners verified against the real CLIs: claude, codex, antigravity (`agy`). `gemini`
+  is superseded by antigravity; `cursor`, `local` live verification, and the
+  full-agentic-local path are deferred. Adopter templates ship under `templates/ci/`
+  (workflow + config-as-code ruleset). See docs/changes/required-review-ci/proposal.md.
+
+### Patch Changes
+
+- 7a118bf: fix(hooks): cost-tracker no longer drops cost entries on a stdin pipe race
+
+  The Stop hook read stdin via `readFileSync(0)`, which throws `EAGAIN` when fd 0 is a non-blocking pipe whose data has not been delivered yet (observed under CI v8 coverage instrumentation). The hook caught the error and fail-opened, silently dropping the cost entry. The read now retries on `EAGAIN` with a bounded backoff; a genuinely empty stdin still returns immediately, so the fail-open paths stay fast.
+
+- 0beffc7: Fix `runDeepReview` in `review-changes` MCP tool emitting the full unpaginated `findings` array via the embedded `pipeline` payload. After passing `_skipPagination: true` to the inner review call, the wrapper was re-emitting `pipeline: parsed` which still carried the full list, silently defeating the intent of the 22dd345f9 "double pagination" fix for any client reading `pipeline.findings`. Now strips `findings` and `findingCount` out of `pipeline` before re-emitting, keeping the paginated top-level fields as the canonical response shape. Surfaced by cross-phase review of the paged-mcp-tool-responses spec.
+- 1cbb786: Wire the previously-dead `LazyLocalAdapterOptions.llmTimeoutMs` through to the inner `OpenAICompatibleAnalysisProvider`. Without this, callers pointing at an unreachable local endpoint (LM Studio not running, Ollama not started) blocked for ~7s per call as the OpenAI SDK ran its default 90s timeout + `maxRetries: 2` exponential backoff before throwing. Now `llmTimeoutMs` actually applies — fail-fast on unreachable endpoints when configured.
+- Updated dependencies [8128981]
+- Updated dependencies [9bbf0a3]
+- Updated dependencies [43f7333]
+- Updated dependencies [d11e2e6]
+- Updated dependencies [07c399b]
+- Updated dependencies [4b2f910]
+- Updated dependencies [0ca37f4]
+- Updated dependencies [a6f7cd3]
+- Updated dependencies [f5ec94d]
+- Updated dependencies [ca706f5]
+  - @harness-engineering/core@0.30.0
+  - @harness-engineering/intelligence@0.3.0
+  - @harness-engineering/dashboard@0.9.0
+  - @harness-engineering/orchestrator@0.8.2
+
 ## 2.8.0
 
 ### Minor Changes
