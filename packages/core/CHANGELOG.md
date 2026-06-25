@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.30.0
+
+### Minor Changes
+
+- 8128981: Add `harness:audit-harness-strength` — a self-audit skill + `harness check-harness-strength` command that mechanically audits a project's own harness setup against the seven v5.0 failure patterns and reports a 0–100 strength score, a tier (`solid`/`at-risk`/`theatre`), and per-pattern remediation.
+  - New `packages/core/src/harness-strength/` module: `HarnessStrengthAuditor` over a 7-rule registry (`StrengthRule` with an optional `evaluable?()` so absent input is never a false pass), a once-built `ProjectContext` (config, hooks resolved from `.husky/`/`.claude/hooks/`/`.harness/hooks/` + settings.json, workflows, health snapshot, and toolkit-mode templates/init-skill), and a pure deterministic `rollupScore`. Findings carry severity applied by the auditor (config-overridable via `audit.harnessStrength.severities`); `finding.file` is always root-relative.
+  - Detects STRENGTH-001..007: non-blocking hooks, pre-commit auto-baseline-on-regression, oversized `--skip` lists, empty `architecture.thresholds`, lowest-tier defaults, PAT-gated auto-approve without independent review (incl. commands inside `run:` blocks), and `passed:true` health-snapshot entries that contradict active signals.
+  - New `harness check-harness-strength` command (`@harness-engineering/cli`) mirroring `check-security`: `--mode adopter|toolkit` (auto-detects toolkit), `--severity`, `--report-only`, and `--json` (raw `AuditResult` for downstream dashboard/health-snapshot consumers). Gates non-zero on surviving error-severity findings unless `--report-only`.
+  - Ships the rigid `harness:audit-harness-strength` skill (4 platforms) that orchestrates the command rather than re-grepping configs. ADR 0039 documents the decision that self-audit skills must be mechanically enforced, not prose.
+
+- d11e2e6: Add roadmap maintenance: health checks, grooming, an `Intake` lane, and a split archive.
+
+  Encodes one principle in code — **a milestone is a theme, a status is a lifecycle stage** — so the roadmap stays tidy over time instead of decaying into an undifferentiated backlog dump.
+  - **`@harness-engineering/core`** gains `packages/core/src/roadmap/health.ts`: `checkRoadmapHealth` (read-only diagnostics — RMH001 done-outside-archive, RMH002 unactionable `planned` rows with no spec & no plan, RMH003 lifecycle catch-all milestones `[error]`, RMH004 oversized active milestones) and `groomRoadmap` (pure transform: demote unactionable `planned` to `backlog`, lift `done` features out for archival). The not-found create path in `promoteFeature` now lands new rows in an **`Intake`** lane instead of recreating a `Current Work` catch-all.
+  - **`@harness-engineering/cli`** wires `checkRoadmapHealth` into `harness validate` as a `roadmapHealth` check (RMH003 fails validation; others are warnings), and adds a `groom` action to the `manage_roadmap` MCP tool that demotes unactionable `planned` rows and moves completed features into `docs/roadmap-archive.md` under a `Shipped` milestone, keeping the orchestrator's parsed `docs/roadmap.md` lean.
+  - The `harness-roadmap` skill documents a `--groom` mode.
+  - The `initialize-harness-project` skill now seeds the deferred "Set up design system" entry under the `Intake` lane instead of a `Current Work` catch-all, so freshly-initialized projects start tidy and pass the `roadmapHealth` guard.
+
+- 07c399b: Add `manage_roadmap` action `promote` and the `promoteFeature` core function for the brainstorm-driven roadmap loop (sub-project 1 of 4).
+
+  `promoteFeature` (exported from `@harness-engineering/core`) is a pure, IO-free state-transition over `(Roadmap, { feature, spec, summary? }) → { result, nextRoadmap }`. It advances an existing backlog row to `planned` and links its spec in place — instead of appending a duplicate `planned` row — applying a state-conditional rule set: `backlog → planned`; `planned`/`blocked`/`needs-human` update the spec link while preserving status; `in-progress` and `done` refuse; a genuine lookup miss creates a new `planned` row under "Current Work" (`transitioned: 'created'`, matching the legacy `add` behavior the action replaced), while a probable typo of an existing heading instead returns `not-found` with Levenshtein-ranked `closestMatches`; same-name rows across milestones return `ambiguous` with milestone-qualified matches. A non-`backlog` row already linked to the same spec is an idempotent `noop`. A human-authored summary and the `Plan`/`Assignee`/`Priority`/`External-ID`/`Blockers`/`Milestone` fields are never overwritten. The per-row decision is exposed as `decidePromotionForRow` so the file-less handler shares the same rules.
+
+  The `manage_roadmap` MCP tool (`@harness-engineering/cli`) gains `action: 'promote'` (inputs `feature`, `spec`, optional `summary`), wired in both file-backed and file-less modes, returning the structured `RoadmapPromoteResult` envelope. `harness-brainstorming` Phase 4 now calls `promote` instead of `add` and commits `proposal.md`, `SKILLS.md`, and `roadmap.md` together so the promotion is atomic with the spec. See ADRs 0042 (structured envelopes) and 0043 (rules-in-core).
+
+- ca706f5: feat(review-ci): multi-client required-review CI gate (#541)
+
+  Adds `harness review-ci` and its contract. Core gains a versioned `CiReviewVerdict`
+  schema, a two-kind runner-preset registry (`agent-cli` + `endpoint`), per-runner
+  verdict parsers, and the `runCiReview` orchestrator — a tiered gate (client-agnostic
+  heuristic floor always runs; a secret-gated LLM multi-persona tier runs per runner
+  and degrades gracefully) with an anti-theatre `block-on` threshold where a required
+  runner that fails to execute blocks even under `block-on none`. The CLI gains the
+  `harness review-ci` command wiring it, including the local openai-compatible adapter.
+
+  Runners verified against the real CLIs: claude, codex, antigravity (`agy`). `gemini`
+  is superseded by antigravity; `cursor`, `local` live verification, and the
+  full-agentic-local path are deferred. Adopter templates ship under `templates/ci/`
+  (workflow + config-as-code ruleset). See docs/changes/required-review-ci/proposal.md.
+
+### Patch Changes
+
+- 4b2f910: Harden the CI review verdict trust boundary (Phase 1 code-review fixes, ahead of the live local provider in Phase 2).
+  - **Validate-then-derive:** all five verdict parsers (claude, codex, antigravity, gemini, local) now schema-validate raw findings FIRST via a shared `buildCiReviewVerdict` helper, then DERIVE `blockingFindings` (severity `critical`) and `exitCode` from the validated findings — instead of computing them from an unchecked `as CiReviewVerdict['findings']` cast before validation.
+  - **Schema invariants:** `CiReviewVerdictSchema` gained a `superRefine` enforcing (a) every `blockingFindings` entry is present in `findings` (by id, else deep-equal) and equals exactly the critical-severity findings, (b) every blocking finding is `critical`, and (c) assessment/exitCode/blockingFindings consistency (non-empty blockers => `request-changes` + non-zero exit; `request-changes` => non-zero exit; otherwise exit 0).
+  - **Domain contract:** the finding `domain` is tightened from `z.string().min(1)` to a zod enum mirroring the core `ReviewDomain` union, pinned with a compile-time sync assertion. Producers must emit valid `ReviewDomain` values at the CI boundary.
+
 ## 0.29.0
 
 ### Minor Changes

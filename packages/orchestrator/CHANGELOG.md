@@ -1,5 +1,20 @@
 # @harness-engineering/orchestrator
 
+## 0.8.2
+
+### Patch Changes
+
+- a6f7cd3: Migrate Gemini backend from the deprecated `@google/generative-ai@0.24.1` to `@google/genai@^2.0.4`. Upstream stopped publishing the old package. Public API of `GeminiBackend` is unchanged. Wraps the new `chunk.text` getter in a per-chunk try (the new SDK throws on non-text chunks like function calls), preserves accumulated token counters in the error path, and adds an empty-key guard to `healthCheck` to match `startSession`.
+- Updated dependencies [8128981]
+- Updated dependencies [9bbf0a3]
+- Updated dependencies [d11e2e6]
+- Updated dependencies [07c399b]
+- Updated dependencies [4b2f910]
+- Updated dependencies [f5ec94d]
+- Updated dependencies [ca706f5]
+  - @harness-engineering/core@0.30.0
+  - @harness-engineering/intelligence@0.3.0
+
 ## 0.8.1
 
 ### Patch Changes
