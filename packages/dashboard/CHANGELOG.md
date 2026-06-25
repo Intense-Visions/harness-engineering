@@ -1,5 +1,21 @@
 # @harness-engineering/dashboard
 
+## 0.10.0
+
+### Minor Changes
+
+- a4a1d8a: Add a **Work in Flight** kanban board (`/s/kanban`) that surfaces live orchestrator/parallel-coordinator state as kanban lanes — Queued, In Progress, Blocked, and Done. Each in-flight task renders as a card showing its owning agent (backend), worktree path, run-attempt phase, elapsed time, blocker reason, and `blockedBy` dependency chips (cross-highlighted when the blocker is also on the board).
+
+  The board is **read-only and reuses the existing `useOrchestratorSocket` WebSocket snapshot stream — there are zero orchestrator/server changes.** Lane assignment is a pure, unit-tested `deriveLanes(snapshot)` function (`src/client/utils/kanban-lanes.ts`): `running` agents route to In Progress, or to Blocked when their phase is `RateLimitSleeping`/`Stalled`/`Failed`/`TimedOut`; `retryAttempts` carry their error into Blocked; `claimed`-but-not-running ids sit in Queued; and `completed` ids appear as compact Done chips. The client `RunningAgent`/`OrchestratorSnapshot` types were widened with `workspacePath`, `attempt`, `issue.identifier`, `issue.blockedBy`, and `completed` to match the payload `Orchestrator.getSnapshot()` already serializes. Phase coloring and elapsed-time formatting are extracted into a shared `phase-presentation.ts` helper. Complements the retrospective health surfaces and the existing Orchestrator feed view. Adoption #2 (SPECKITTY-2) from the Spec Kitty comparison analysis.
+
+### Patch Changes
+
+- Updated dependencies [8e8e7c1]
+  - @harness-engineering/orchestrator@0.8.3
+  - @harness-engineering/types@0.16.1
+  - @harness-engineering/core@0.30.1
+  - @harness-engineering/graph@0.11.1
+
 ## 0.9.0
 
 ### Minor Changes

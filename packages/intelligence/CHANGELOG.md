@@ -1,5 +1,13 @@
 # @harness-engineering/intelligence
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [8e8e7c1]
+  - @harness-engineering/types@0.16.1
+  - @harness-engineering/graph@0.11.1
+
 ## 0.3.0
 
 ### Minor Changes
