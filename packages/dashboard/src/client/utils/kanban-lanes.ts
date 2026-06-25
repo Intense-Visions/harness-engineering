@@ -118,6 +118,7 @@ export function deriveLanes(snapshot: OrchestratorSnapshot): KanbanLane[] {
   const done: KanbanCard[] = [];
 
   const runningIds = new Set(snapshot.running.map(([id]) => id));
+  const retryIds = new Set(snapshot.retryAttempts.map(([id]) => id));
 
   for (const [, agent] of snapshot.running) {
     // Unknown / transient terminal phases (e.g. CanceledByReconciliation) fall
@@ -131,7 +132,11 @@ export function deriveLanes(snapshot: OrchestratorSnapshot): KanbanLane[] {
   }
 
   for (const id of snapshot.claimed) {
-    if (!runningIds.has(id)) queued.push(idOnlyCard(id, null, null));
+    // The orchestrator keeps a failed issue's claim while a retry is pending
+    // (state-machine.ts:240), so an id can be in both `claimed` and
+    // `retryAttempts`. Exclude retrying ids here or the same task appears in
+    // both Queued and Blocked.
+    if (!runningIds.has(id) && !retryIds.has(id)) queued.push(idOnlyCard(id, null, null));
   }
 
   for (const id of snapshot.completed ?? []) {

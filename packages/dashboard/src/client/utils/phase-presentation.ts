@@ -1,8 +1,9 @@
 /**
  * Shared presentation helpers for orchestrator run-attempt phases.
  *
- * Extracted so the Orchestrator monitor and the Work-in-Flight kanban render
- * phases consistently rather than each maintaining its own color map.
+ * Intended as the single source of phase colors so surfaces render phases
+ * consistently. The Work-in-Flight kanban consumes these; the Orchestrator
+ * monitor still has its own inline map and is a candidate to migrate here.
  */
 
 /** Tailwind class pairs (background + text) per run-attempt phase. */

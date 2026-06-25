@@ -109,6 +109,25 @@ describe('deriveLanes', () => {
     expect(card.blockerReason).toBe('agent crashed');
   });
 
+  it('does not duplicate a retrying issue into the queued lane', () => {
+    // The orchestrator keeps the claim while a retry is pending, so the id is
+    // in both `claimed` and `retryAttempts`. It must show only in Blocked.
+    const retry: RetryEntry = {
+      issueId: 'i-both',
+      identifier: 'ISSUE-BOTH',
+      attempt: 1,
+      dueAtMs: 0,
+      error: 'transient failure',
+    };
+    const lanes = deriveLanes(
+      makeSnapshot({ claimed: ['i-both'], retryAttempts: [['i-both', retry]] })
+    );
+    const queued = lanes.find((l) => l.id === 'queued')!;
+    const blocked = lanes.find((l) => l.id === 'blocked')!;
+    expect(queued.cards.map((c) => c.issueId)).not.toContain('i-both');
+    expect(blocked.cards.map((c) => c.issueId)).toContain('i-both');
+  });
+
   it('places a completed id in the done lane', () => {
     const lanes = deriveLanes(makeSnapshot({ completed: ['i-done'] }));
     const done = lanes.find((l) => l.id === 'done')!;
