@@ -1,23 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { resolve, join } from 'node:path';
-import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/block-no-verify.js');
 
 function runHook(stdinData: string): { exitCode: number; stderr: string } {
-  const stdinFile = join(mkdtempSync(join(tmpdir(), 'bnv-')), 'stdin.json');
-  writeFileSync(stdinFile, stdinData);
-  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
+  // Pass stdin directly via spawnSync's `input` option (issue 619): the previous
+  // `cat <file> | node` pipe intermittently delivered empty/partial stdin under
+  // v8 coverage, tripping the hooks' fail-open path. macOS CI is the gate.
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: stdinData,
     encoding: 'utf-8',
     timeout: 60000,
   });
-  try {
-    rmSync(stdinFile, { force: true });
-  } catch {
-    /* ignore */
-  }
   return {
     exitCode: result.status ?? 1,
     stderr: result.stderr ?? '',

@@ -11,8 +11,6 @@ function runHook(
   cwd: string,
   env?: Record<string, string>
 ): { exitCode: number; stderr: string } {
-  const stdinFile = join(cwd, '.stdin-data.json');
-  writeFileSync(stdinFile, stdinData);
   // Sanitize telemetry opt-out vars from the inherited base env so each test
   // fully controls telemetry state via the explicit `env` arg. The global test
   // setup sets DO_NOT_TRACK=1 by default (to keep telemetry export from making
@@ -21,17 +19,16 @@ function runHook(
   const baseEnv = { ...process.env };
   delete baseEnv.DO_NOT_TRACK;
   delete baseEnv.HARNESS_TELEMETRY_OPTOUT;
-  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
+  // Pass stdin directly via spawnSync's `input` option (issue 619): the previous
+  // `cat <file> | node` pipe intermittently delivered empty/partial stdin under
+  // v8 coverage, tripping the hooks' fail-open path. macOS CI is the gate.
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: stdinData,
     encoding: 'utf-8',
     cwd,
     timeout: 60000,
     env: { ...baseEnv, ...env },
   });
-  try {
-    rmSync(stdinFile, { force: true });
-  } catch {
-    /* ignore */
-  }
   return {
     exitCode: result.status ?? (result.signal ? 0 : 1),
     stderr: result.stderr ?? '',

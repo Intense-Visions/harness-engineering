@@ -7,18 +7,15 @@ import { tmpdir } from 'node:os';
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/adoption-tracker.js');
 
 function runHook(stdinData: string, cwd: string): { exitCode: number; stderr: string } {
-  const stdinFile = join(cwd, '.stdin-data.json');
-  writeFileSync(stdinFile, stdinData);
-  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
+  // Pass stdin directly via spawnSync's `input` option (issue 619): the previous
+  // `cat <file> | node` pipe intermittently delivered empty/partial stdin under
+  // v8 coverage, tripping the hooks' fail-open path. macOS CI is the gate.
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: stdinData,
     encoding: 'utf-8',
     cwd,
     timeout: 60000,
   });
-  try {
-    rmSync(stdinFile, { force: true });
-  } catch {
-    /* ignore */
-  }
   return {
     exitCode: result.status ?? (result.signal ? 0 : 1),
     stderr: result.stderr ?? '',
