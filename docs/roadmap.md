@@ -15,12 +15,12 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Rename quality-gate hook and ship a strict variant that blocks
 
-- **Status:** backlog
-- **Spec:** —
+- **Status:** planned
+- **Spec:** docs/changes/quality-warner-strict-gate/proposal.md
 - **Summary:** `packages/cli/src/hooks/quality-gate.js:4-6` is literally documented as "Never blocks (always exits 0). Warnings go to stderr." This hook ships in the default **standard** profile. The hook NAMED "quality-gate" gates nothing. Rename to `quality-warner` or `format-checker`. Add a `strict-quality-gate` hook variant for strict-profile adopters that exits 2 on lint/format failure. Source: Pass 5 #1.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** @chadjw
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#526
 
@@ -116,12 +116,12 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Add architecture thresholds to basic and intermediate templates
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** —
-- **Summary:** `templates/basic/harness.config.json.hbs` (16 lines) and `templates/intermediate/harness.config.json.hbs` (23 lines) currently ship NO `architecture.thresholds` — no complexity cap, no module-size cap, no dependency-depth cap, no security config, no entropy config, no performance config. Basic-tier adopters get a layer-linter only. Add sensible defaults: complexity ≤ 20 basic / ≤ 15 intermediate, module-size caps, dependency-depth ≤ 8, security/entropy/perf configs. Every adopter gets real gates from minute one. Source: Pass 2 #2 (CRITICAL).
+- **Summary:** Shipped in commit `0f8c6ef3` (2026-06-23, merged to main): `templates/basic` and `templates/intermediate` now ship full `architecture.thresholds` (complexity ≤ 20 basic / ≤ 15 intermediate), module-size caps, dependency-depth ≤ 8, plus security/entropy/performance blocks. Every adopter gets real gates from minute one. Source: Pass 2 #2 (CRITICAL).
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** chad.warner@gmail.com
+- **Assignee:** —
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#537
 
@@ -555,14 +555,15 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Live Work-in-Flight Kanban for Parallel/Autopilot Runs
 
-- **Status:** planned
-- **Spec:** docs/changes/live-work-in-flight-kanban/proposal.md
+- **Status:** done
+- **Spec:** docs/changes/work-in-flight-kanban/proposal.md
 - **Summary:** Add a live work-in-flight kanban to the harness dashboard fed by orchestrator/parallel-coordinator state: per-task lane, owning agent, worktree, blockers, and dependency edges — surfacing in-flight agent work rather than only retrospective health signals. Reuses the existing dashboard package and orchestrator state machine. Complements Dashboard v3: Team & Stakeholder Views (#124). Adapted from Spec Kitty's local kanban control plane. Adoption #2 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** orchestrator-5c895000
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#599
+- **Updated-At:** 2026-06-25T22:03:47.094Z
 
 ### Smart-Merge Engine for Parallel-Coordinator Integration
 
@@ -1925,20 +1926,22 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ## Assignment History
 
-| Feature                                                          | Assignee                      | Action   | Date       |
-| ---------------------------------------------------------------- | ----------------------------- | -------- | ---------- |
-| Performance Engineering Knowledge Skills                         | @chadjw                       | assigned | 2026-04-09 |
-| Phase 2: Code Signal Extractors                                  | @chadjw                       | assigned | 2026-04-23 |
-| Phase 3: Connector Enhancement                                   | @chadjw                       | assigned | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams                           | @chadjw                       | assigned | 2026-04-23 |
-| Hermes Phase 0.1: Reference Slack Bridge                         | @cwarner                      | assigned | 2026-05-15 |
-| design-pipeline sub-project #2: audit-component-anatomy          | @chadjw                       | assigned | 2026-05-23 |
-| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw                       | assigned | 2026-05-23 |
-| design-pipeline sub-project #3: audit-brand-compliance           | @chadjw                       | assigned | 2026-06-02 |
-| Init design + roadmap polish follow-ups                          | @chadjw                       | assigned | 2026-06-03 |
-| Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned | 2026-06-22 |
-| Build harness:audit-harness-strength self-audit skill            | chad.warner@capillarytech.com | assigned | 2026-06-23 |
-| Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned | 2026-06-22 |
-| Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned | 2026-06-23 |
-| Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned | 2026-06-23 |
-| Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned | 2026-06-23 |
+| Feature                                                          | Assignee                      | Action     | Date       |
+| ---------------------------------------------------------------- | ----------------------------- | ---------- | ---------- |
+| Performance Engineering Knowledge Skills                         | @chadjw                       | assigned   | 2026-04-09 |
+| Phase 2: Code Signal Extractors                                  | @chadjw                       | assigned   | 2026-04-23 |
+| Phase 3: Connector Enhancement                                   | @chadjw                       | assigned   | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams                           | @chadjw                       | assigned   | 2026-04-23 |
+| Hermes Phase 0.1: Reference Slack Bridge                         | @cwarner                      | assigned   | 2026-05-15 |
+| design-pipeline sub-project #2: audit-component-anatomy          | @chadjw                       | assigned   | 2026-05-23 |
+| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw                       | assigned   | 2026-05-23 |
+| design-pipeline sub-project #3: audit-brand-compliance           | @chadjw                       | assigned   | 2026-06-02 |
+| Init design + roadmap polish follow-ups                          | @chadjw                       | assigned   | 2026-06-03 |
+| Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned   | 2026-06-22 |
+| Build harness:audit-harness-strength self-audit skill            | chad.warner@capillarytech.com | assigned   | 2026-06-23 |
+| Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned   | 2026-06-22 |
+| Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned   | 2026-06-23 |
+| Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned   | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned   | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates  | @chadjw                       | assigned   | 2026-06-25 |
+| Add architecture thresholds to basic and intermediate templates  | @chadjw                       | unassigned | 2026-06-25 |
