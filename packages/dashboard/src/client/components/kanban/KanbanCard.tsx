@@ -47,7 +47,9 @@ export function KanbanCard({ card, onBoardIdentifiers, nowMs }: Props) {
         {card.startedAt && (
           <>
             <span className="text-gray-700">|</span>
-            <span className="tabular-nums text-gray-400">{formatElapsed(card.startedAt, nowMs)}</span>
+            <span className="tabular-nums text-gray-400">
+              {formatElapsed(card.startedAt, nowMs)}
+            </span>
           </>
         )}
         {card.attempt !== null && (
@@ -59,13 +61,18 @@ export function KanbanCard({ card, onBoardIdentifiers, nowMs }: Props) {
       </div>
 
       {card.workspacePath && (
-        <div className="mt-1 truncate font-mono text-[11px] text-gray-600" title={card.workspacePath}>
+        <div
+          className="mt-1 truncate font-mono text-[11px] text-gray-600"
+          title={card.workspacePath}
+        >
           ⌥ {basename(card.workspacePath)}
         </div>
       )}
 
       {card.blockerReason && (
-        <div className="mt-1 text-[11px] font-medium text-red-400">Blocked: {card.blockerReason}</div>
+        <div className="mt-1 text-[11px] font-medium text-red-400">
+          Blocked: {card.blockerReason}
+        </div>
       )}
 
       {card.blockedBy.length > 0 && (
@@ -73,7 +80,8 @@ export function KanbanCard({ card, onBoardIdentifiers, nowMs }: Props) {
           <span className="text-[10px] uppercase tracking-wide text-gray-600">blocked by</span>
           {card.blockedBy.map((blocker, i) => {
             const label = blocker.identifier ?? blocker.id ?? 'unknown';
-            const onBoard = blocker.identifier !== null && onBoardIdentifiers.has(blocker.identifier);
+            const onBoard =
+              blocker.identifier !== null && onBoardIdentifiers.has(blocker.identifier);
             return (
               <span
                 key={`${label}-${i}`}
