@@ -14,15 +14,21 @@ export { serializeRoadmap } from './serialize';
 export { syncRoadmap, applySyncChanges } from './sync';
 
 /**
- * Roadmap promotion: backlog → planned state transition (brainstorm-auto-promote).
- */
-export { promoteFeature } from './promote';
-export type { RoadmapPromoteArgs, RoadmapPromoteCoreResult, RoadmapPromoteResult } from './promote';
-
-/**
  * Type definitions for roadmap synchronization and changes.
  */
 export type { SyncChange, SyncOptions } from './sync';
+
+/**
+ * Promotes a brainstormed backlog row to planned, atomically linking its spec.
+ */
+export { promoteFeature, decidePromotionForRow } from './promote';
+export type {
+  RoadmapPromoteArgs,
+  RoadmapPromoteResult,
+  RoadmapPromoteCoreResult,
+  RoadmapPromoteTransition,
+  RoadmapPromoteRowDecision,
+} from './promote';
 
 /**
  * Tracker sync adapter interface and shared utilities for external issue trackers.

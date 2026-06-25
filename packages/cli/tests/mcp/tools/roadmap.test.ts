@@ -766,6 +766,32 @@ describe('manage_roadmap promote action', () => {
     expect(mobileBlock).toMatch(/\*\*Status:\*\* planned/);
   });
 
+  it('creates a new planned row under "Current Work" when the feature does not exist', async () => {
+    const NEW_SPEC = 'docs/changes/telemetry-overhaul/proposal.md';
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Telemetry Overhaul', // not a typo of any existing row
+      spec: NEW_SPEC,
+    });
+    expect(response.isError).toBeFalsy();
+    const envelope = JSON.parse(response.content[0].text);
+    expect(envelope).toMatchObject({
+      ok: true,
+      transitioned: 'created',
+      feature: 'Telemetry Overhaul',
+    });
+
+    const parsed = JSON.parse(
+      (await handleManageRoadmap({ path: tmpDir, action: 'show' })).content[0].text
+    );
+    const current = parsed.milestones.find((m: { name: string }) => m.name === 'Current Work');
+    expect(current).toBeTruthy();
+    const created = current.features.find((f: { name: string }) => f.name === 'Telemetry Overhaul');
+    expect(created.status).toBe('planned');
+    expect(created.spec).toBe(NEW_SPEC);
+  });
+
   it('refuses to promote an in-progress row and leaves the file unchanged', async () => {
     const before = readRoadmap();
     const response = await handleManageRoadmap({

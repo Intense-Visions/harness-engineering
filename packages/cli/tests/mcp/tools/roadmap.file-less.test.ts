@@ -334,6 +334,31 @@ describe('handleManageRoadmapFileLess — promote', () => {
     );
   });
 
+  it('promote: not-found row → create(status:planned, spec)', async () => {
+    const create = vi.fn(async (f: NewFeatureInput) =>
+      Ok(tf({ name: f.name, status: f.status ?? 'planned', spec: f.spec ?? null }))
+    );
+    const client = makeClient({
+      fetchAll: async () =>
+        Ok({ features: [tf({ name: 'Alpha', status: 'backlog' })], etag: null }),
+      create,
+    });
+    const r = await handleManageRoadmapFileLess(
+      { path: '/tmp', action: 'promote', feature: 'Telemetry Overhaul', spec: SPEC },
+      client
+    );
+    expect(r.isError).toBe(false);
+    const envelope = JSON.parse(r.content[0]?.text ?? '{}');
+    expect(envelope).toMatchObject({
+      ok: true,
+      transitioned: 'created',
+      feature: 'Telemetry Overhaul',
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Telemetry Overhaul', status: 'planned', spec: SPEC })
+    );
+  });
+
   it('promote: blocked row → patches spec only, preserves status and human summary', async () => {
     const captured: { id?: string; patch?: FeaturePatch } = {};
     const update = vi.fn(async (id: string, patch: FeaturePatch) => {

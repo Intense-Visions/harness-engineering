@@ -32,7 +32,11 @@ text, so the brainstorming skill, the dashboard, and autopilot all branch on sta
 
 ```ts
 type RoadmapPromoteCoreResult =
-  | { ok: true; transitioned: 'backlog→planned' | 'spec-updated' | 'noop'; feature: string }
+  | {
+      ok: true;
+      transitioned: 'backlog→planned' | 'spec-updated' | 'created' | 'noop';
+      feature: string;
+    }
   | { ok: false; reason: 'in-progress' | 'done'; detail: string; feature: string }
   | { ok: false; reason: 'not-found'; detail: string; feature: string; closestMatches: string[] }
   | { ok: false; reason: 'ambiguous'; detail: string; feature: string; matches: string[] };
@@ -56,19 +60,20 @@ envelope-as-convention decision.
 The lookup key is the brainstorming `ARGUMENTS` string — trimmed, case-insensitive, exact
 heading match. Behavior is conditional on the matched row's current state:
 
-| Current state | Action                               | Rationale                                                                       |
-| ------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
-| `backlog`     | Promote → `planned`, set `Spec`      | The happy path; the feature exists for this case.                               |
-| not found     | Caller creates a new `planned` row   | Unchanged from the legacy `add` behavior.                                       |
-| `planned`     | Update `Spec` only, preserve status  | Re-brainstorm of an already-planned item; refining the spec.                    |
-| `blocked`     | Update `Spec` only, preserve status  | The blocker remains the gating concern; brainstorming the unblock is valid.     |
-| `needs-human` | Update `Spec` only, preserve status  | Non-active, non-terminal — re-brainstorming is legitimate (treated like above). |
-| `in-progress` | **Refuse** (`reason: 'in-progress'`) | An agent may be dispatched; yanking the spec mid-flight is undefined behavior.  |
-| `done`        | **Refuse** (`reason: 'done'`)        | Already shipped; a revision must use a new feature name.                        |
+| Current state | Action                                                                      | Rationale                                                                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backlog`     | Promote → `planned`, set `Spec`                                             | The happy path; the feature exists for this case.                                                                                                                                       |
+| not found     | Create a new `planned` row under "Current Work" (`transitioned: 'created'`) | `promoteFeature` creates the row itself, replacing the legacy `add` call. A query that is a _probable typo_ of an existing heading refuses with `not-found` + `closestMatches` instead. |
+| `planned`     | Update `Spec` only, preserve status                                         | Re-brainstorm of an already-planned item; refining the spec.                                                                                                                            |
+| `blocked`     | Update `Spec` only, preserve status                                         | The blocker remains the gating concern; brainstorming the unblock is valid.                                                                                                             |
+| `needs-human` | Update `Spec` only, preserve status                                         | Non-active, non-terminal — re-brainstorming is legitimate (treated like above).                                                                                                         |
+| `in-progress` | **Refuse** (`reason: 'in-progress'`)                                        | An agent may be dispatched; yanking the spec mid-flight is undefined behavior.                                                                                                          |
+| `done`        | **Refuse** (`reason: 'done'`)                                               | Already shipped; a revision must use a new feature name.                                                                                                                                |
 
-Lookup edge cases: zero matches → `not-found` with `closestMatches`; two or more matches
-across milestones → `ambiguous` with milestone-qualified `matches` (no silent
-earliest-row preference).
+Lookup edge cases: zero matches → create a new `planned` row (`created`), unless the
+query is a probable typo of an existing heading (length-aware Levenshtein), in which case
+`not-found` with `closestMatches`; two or more matches across milestones → `ambiguous`
+with milestone-qualified `matches` (no silent earliest-row preference).
 
 ## Idempotency and field-write policy
 
@@ -95,9 +100,10 @@ event-bus publisher.
 ## Where the rules live
 
 The state-transition rules live in `@harness-engineering/core`, not in skill markdown, so
-every caller shares one tested source of truth. The file-mode MCP handler and the file-less
-handler both call `promoteFeature` and translate its result to their respective store
-(roadmap file write vs. `RoadmapTrackerClient.update`). See
+every caller shares one tested source of truth. The file-mode MCP handler calls
+`promoteFeature` (the whole-roadmap transition) and writes the roadmap file; the file-less
+handler shares the same per-row decision via the exported `decidePromotionForRow` and
+translates it to `RoadmapTrackerClient.create`/`update` calls. See
 [ADR 0043](../decisions/0043-roadmap-rules-in-core.md).
 
 ## Callers

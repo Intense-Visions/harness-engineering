@@ -20,11 +20,9 @@ import type {
   TrackedFeature,
   NewFeatureInput,
   FeaturePatch,
-  Roadmap,
-  RoadmapFeature,
-  RoadmapPromoteResult,
+  RoadmapPromoteCoreResult,
 } from '@harness-engineering/core';
-import { ConflictError, promoteFeature } from '@harness-engineering/core';
+import { ConflictError, decidePromotionForRow } from '@harness-engineering/core';
 
 export interface ManageRoadmapFileLessInput {
   path: string;
@@ -195,52 +193,34 @@ async function handleRemove(
   return ok(`Removed feature: ${found.value.name} (translated to status:done in file-less mode)`);
 }
 
-/** Render a PromoteResult envelope; refusals/failures are marked isError. */
-function promoteEnvelope(envelope: RoadmapPromoteResult): McpResponse {
-  return { content: [{ type: 'text', text: JSON.stringify(envelope) }], isError: !envelope.ok };
+const EM_DASH = '—';
+
+/** Mirror of promote.ts isEmptySummary — a row with no real summary may receive the spec H1 (D5). */
+function isEmptySummaryFileLess(summary: string): boolean {
+  const trimmed = summary.trim();
+  return trimmed === '' || trimmed === EM_DASH;
 }
 
-/** Map a tracker feature into the in-memory RoadmapFeature shape. */
-function toRoadmapFeature(f: TrackedFeature): RoadmapFeature {
+/**
+ * Return the structured RoadmapPromoteResult envelope as JSON text, matching file-backed
+ * mode. Refusals are marked `isError` so the caller (and the auto-sync trigger) can skip
+ * them without re-parsing the JSON; the full envelope rides in the text either way.
+ */
+function envelope(result: RoadmapPromoteCoreResult): McpResponse {
   return {
-    name: f.name,
-    status: f.status,
-    spec: f.spec,
-    plans: f.plans,
-    blockedBy: f.blockedBy,
-    summary: f.summary,
-    assignee: f.assignee,
-    priority: f.priority,
-    externalId: f.externalId,
-    updatedAt: f.updatedAt,
+    content: [{ type: 'text', text: JSON.stringify(result) }],
+    isError: result.ok === false,
   };
 }
 
-/** Group tracker features into a Roadmap so promoteFeature can decide D2/D1. */
-function buildRoadmap(features: TrackedFeature[]): Roadmap {
-  const byMilestone = new Map<string, RoadmapFeature[]>();
-  for (const f of features) {
-    const key = f.milestone ?? 'Current Work';
-    const list = byMilestone.get(key) ?? [];
-    list.push(toRoadmapFeature(f));
-    byMilestone.set(key, list);
-  }
-  return {
-    frontmatter: {
-      project: '',
-      version: 1,
-      lastSynced: '',
-      lastManualEdit: '',
-    },
-    milestones: Array.from(byMilestone, ([name, fs]) => ({
-      name,
-      isBacklog: name.toLowerCase() === 'backlog',
-      features: fs,
-    })),
-    assignmentHistory: [],
-  };
-}
-
+/**
+ * Promote a feature in file-less mode. The per-row state-transition decision is
+ * shared with file-backed mode via `decidePromotionForRow` (rules live in core,
+ * per ADR — D6), then translated to tracker `create`/`update` calls. Typo-hint
+ * refusal (file-backed D1) is intentionally not reproduced here: the tracker has
+ * no local Levenshtein corpus and file-less write refinement is out of scope for
+ * this sub-project (see proposal non-goals). A missing row creates a new one.
+ */
 async function handlePromote(
   input: ManageRoadmapFileLessInput,
   client: RoadmapTrackerClient
@@ -248,60 +228,83 @@ async function handlePromote(
   if (!input.feature) return err('Error: promote requires feature name');
   if (!input.spec) return err('Error: promote requires spec path');
 
-  const all = await client.fetchAll();
-  if (!all.ok) return err(`Error: ${all.error.message}`);
+  const fetched = await client.fetchAll();
+  if (!fetched.ok) return err(`Error: ${fetched.error.message}`);
 
-  // Reuse the core state-transition rules (D6) so file-less and file mode
-  // share one source of truth. promoteFeature decides; we translate the single
-  // changed row back into a tracker patch.
-  const roadmap = buildRoadmap(all.value.features);
-  const { result, nextRoadmap } = promoteFeature(roadmap, {
-    feature: input.feature,
+  const query = input.feature.trim();
+  const queryLower = query.toLowerCase();
+  const matches = fetched.value.features.filter((f) => f.name.trim().toLowerCase() === queryLower);
+
+  // Ambiguous: same heading across milestones (D1 / S3-001).
+  if (matches.length > 1) {
+    const qualified = matches.map((f) => `${f.milestone ?? '(no milestone)'} > ${f.name}`);
+    return envelope({
+      ok: false,
+      reason: 'ambiguous',
+      feature: query,
+      detail: `"${query}" matches ${qualified.length} rows. Re-invoke milestone-qualified: ${qualified.join(', ')}.`,
+      matches: qualified,
+    });
+  }
+
+  // Not found → create a new planned row (D2 not-found → create).
+  if (matches.length === 0) {
+    const created: NewFeatureInput = {
+      name: query,
+      summary: input.summary ?? query,
+      status: 'planned',
+      spec: input.spec,
+    };
+    if (input.milestone !== undefined) created.milestone = input.milestone;
+    const c = await client.create(created);
+    if (!c.ok) return err(`Error: ${c.error.message}`);
+    return envelope({ ok: true, transitioned: 'created', feature: query });
+  }
+
+  const target = matches[0]!;
+  const decision = decidePromotionForRow(target.status, target.spec, target.summary, {
+    feature: query,
     spec: input.spec,
     ...(input.summary !== undefined ? { summary: input.summary } : {}),
   });
 
-  if (!result.ok || result.transitioned === 'noop') {
-    return promoteEnvelope(result);
-  }
-
-  const key = input.feature.trim().toLowerCase();
-  const target = nextRoadmap.milestones
-    .flatMap((m) => m.features)
-    .find((f) => f.name.trim().toLowerCase() === key);
-  if (!target || !target.externalId) {
-    return promoteEnvelope({
-      ok: false,
-      reason: 'write-failed',
-      detail: `Promoted row "${input.feature}" has no externalId to update.`,
-      feature: input.feature,
-    });
-  }
-
-  // Patch only the fields core actually changed, mirroring the file-mode path:
-  // D2 preserves status (except backlog→planned) and D5 preserves a human
-  // summary. Re-writing unchanged "preserve" fields would bump the tracker's
-  // updatedAt / audit history and risk tripping directional-sync guards.
-  const original = all.value.features.find((f) => f.name.trim().toLowerCase() === key);
-  const patch: FeaturePatch = {};
-  if (!original || target.spec !== original.spec) patch.spec = target.spec;
-  if (!original || target.status !== original.status) patch.status = target.status;
-  if (!original || target.summary !== original.summary) patch.summary = target.summary;
-  const upd = await client.update(target.externalId, patch);
-  if (!upd.ok) {
+  if (decision.action === 'refuse') {
     const detail =
-      upd.error instanceof ConflictError
-        ? `conflict on ${upd.error.externalId}: ${JSON.stringify(upd.error.diff)}`
-        : upd.error.message;
-    return promoteEnvelope({
-      ok: false,
-      reason: 'write-failed',
-      detail,
-      feature: input.feature,
-    });
+      decision.reason === 'in-progress'
+        ? `"${query}" is in-progress: an agent is dispatched against this row.`
+        : `"${query}" is already 'done'. To revise a shipped feature, use a new name.`;
+    return envelope({ ok: false, reason: decision.reason, feature: query, detail });
   }
 
-  return promoteEnvelope(result);
+  if (decision.action === 'noop') {
+    return envelope({ ok: true, transitioned: 'noop', feature: query });
+  }
+
+  const patch: FeaturePatch = { spec: input.spec };
+  if (decision.action === 'set-planned') patch.status = 'planned';
+  if (
+    input.summary !== undefined &&
+    input.summary !== '' &&
+    isEmptySummaryFileLess(target.summary)
+  ) {
+    patch.summary = input.summary;
+  }
+
+  const updated = await client.update(target.externalId, patch);
+  if (!updated.ok) {
+    if (updated.error instanceof ConflictError) {
+      return err(
+        `Error: conflict on ${updated.error.externalId}: ${JSON.stringify(updated.error.diff)}`
+      );
+    }
+    return err(`Error: ${updated.error.message}`);
+  }
+
+  return envelope({
+    ok: true,
+    transitioned: decision.action === 'set-planned' ? 'backlog→planned' : 'spec-updated',
+    feature: query,
+  });
 }
 
 function handleSync(): McpResponse {

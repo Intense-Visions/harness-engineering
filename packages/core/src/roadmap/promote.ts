@@ -1,203 +1,295 @@
+import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
+
 /**
- * Roadmap promotion: the brainstorm-complete → planned state transition.
+ * Promote a brainstormed feature from `backlog` to `planned` and link its spec.
  *
- * Pure function over `(Roadmap, args) → (PromoteCoreResult, Roadmap)`. No IO.
- * State-transition business rules live here (not in skill markdown) so every
- * caller — brainstorming today, autopilot and the dashboard later — shares one
- * source of truth. See docs/changes/brainstorm-auto-promote/proposal.md (D6).
+ * Pure state-transition logic shared by every caller (the brainstorming skill
+ * today; dashboard and autopilot later). Per ADR "Roadmap state-transition
+ * rules live in core, not skill markdown": the business rules below (D2 state
+ * matrix, D4 idempotency, D5 field-write policy from
+ * `docs/changes/brainstorm-auto-promote/proposal.md`) hold across all callers,
+ * so they belong here rather than in any one consumer.
  *
- * The MCP handler owns parse/serialize/write and adds the `write-failed`
- * envelope variant if its IO throws; that variant is part of the public
- * `PromoteResult` consumed by callers, not this function's contract.
+ * @see docs/knowledge/roadmap/roadmap-promotion.md
  */
-import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 
 const EM_DASH = '—';
 
+/** "Current Work" milestone hosts rows created by the not-found create path (D5/S3-002). */
+const DEFAULT_MILESTONE = 'Current Work';
+
+/** Max nearest-neighbour suggestions returned on a not-found refusal (D1). */
+const MAX_CLOSEST_MATCHES = 3;
+
 export interface RoadmapPromoteArgs {
-  /** ARGUMENTS string (D1); trimmed, case-insensitive lookup against headings. */
+  /** ARGUMENTS lookup key (D1); trimmed, case-insensitive exact match. */
   feature: string;
-  /** Path to docs/changes/<feature>/proposal.md. */
+  /** Path to the spec, e.g. `docs/changes/<feature>/proposal.md`. */
   spec: string;
-  /** H1 from the spec; applied only when the row's summary is empty (D5). */
+  /** Spec H1; applied only when the row's summary is empty (D5). */
   summary?: string;
 }
 
+/** Successful transitions the core function can produce. */
+export type RoadmapPromoteTransition = 'backlog→planned' | 'spec-updated' | 'created' | 'noop';
+
 /**
- * Results the pure core can produce. IO failures (`write-failed`) are added by
- * the MCP handler — see `RoadmapPromoteResult`.
+ * Result the pure core can produce. IO failures (`write-failed`) are added by
+ * the MCP handler in `RoadmapPromoteResult`, since the core does no IO.
  */
 export type RoadmapPromoteCoreResult =
-  | {
-      ok: true;
-      transitioned: 'backlog→planned' | 'spec-updated' | 'noop';
-      feature: string;
-    }
+  | { ok: true; transitioned: RoadmapPromoteTransition; feature: string }
   | { ok: false; reason: 'in-progress' | 'done'; detail: string; feature: string }
-  | {
-      ok: false;
-      reason: 'not-found';
-      detail: string;
-      feature: string;
-      closestMatches: string[];
-    }
+  | { ok: false; reason: 'not-found'; detail: string; feature: string; closestMatches: string[] }
   | { ok: false; reason: 'ambiguous'; detail: string; feature: string; matches: string[] };
 
-/** Public envelope: core results plus the handler-level IO failure variant. */
+/** Public envelope consumed by callers (skill, dashboard, autopilot). */
 export type RoadmapPromoteResult =
   | RoadmapPromoteCoreResult
   | { ok: false; reason: 'write-failed'; detail: string; feature: string };
 
-interface FeatureLocation {
-  milestoneName: string;
-  feature: RoadmapFeature;
-}
+/**
+ * Per-row promotion decision, derived purely from the current row state and the
+ * requested spec/summary. Shared between the file-backed `promoteFeature` below
+ * and the file-less handler so the D2/D4 rules have a single source of truth.
+ */
+export type RoadmapPromoteRowDecision =
+  | { action: 'set-planned' } // backlog → planned (D2 happy path)
+  | { action: 'update-spec' } // planned/blocked/needs-human: spec link refreshed, status preserved
+  | { action: 'noop' } // already promoted with this spec + summary (D4)
+  | { action: 'refuse'; reason: 'in-progress' | 'done' }; // dispatched or shipped (D2)
 
-/** True when a summary carries no human content (empty, whitespace, or em-dash). */
-function isEmptySummary(summary: string | null | undefined): boolean {
-  if (!summary) return true;
+/** A row whose summary field is empty may receive the spec H1 (D5). */
+function isEmptySummary(summary: string): boolean {
   const trimmed = summary.trim();
   return trimmed === '' || trimmed === EM_DASH;
 }
 
-/** Case-insensitive Levenshtein edit distance. Local to keep roadmap cohesive. */
-function editDistance(a: string, b: string): number {
-  const s = a.toLowerCase();
-  const t = b.toLowerCase();
-  const m = s.length;
-  const n = t.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  let prev = Array.from({ length: n + 1 }, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    const curr = [i, ...new Array<number>(n).fill(0)];
-    for (let j = 1; j <= n; j++) {
-      const cost = s.charAt(i - 1) === t.charAt(j - 1) ? 0 : 1;
-      curr[j] = Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
-    }
-    prev = curr;
-  }
-  return prev[n] ?? 0;
-}
-
-/** Up to `k` nearest feature names to `name`, closest first. */
-function closestMatches(name: string, all: string[], k = 3): string[] {
-  return all
-    .map((candidate) => ({ candidate, distance: editDistance(name, candidate) }))
-    .sort((a, b) => a.distance - b.distance || a.candidate.localeCompare(b.candidate))
-    .slice(0, k)
-    .map((entry) => entry.candidate);
-}
-
-/** Every milestone+feature whose heading exactly matches the lookup key. */
-function findMatches(roadmap: Roadmap, key: string): FeatureLocation[] {
-  const matches: FeatureLocation[] = [];
-  for (const milestone of roadmap.milestones) {
-    for (const feature of milestone.features) {
-      if (feature.name.trim().toLowerCase() === key) {
-        matches.push({ milestoneName: milestone.name, feature });
-      }
-    }
-  }
-  return matches;
+/** Would applying `args` actually change this row's spec or summary? */
+function rowWouldChange(
+  currentSpec: string | null,
+  currentSummary: string,
+  args: RoadmapPromoteArgs
+): boolean {
+  const specChanges = currentSpec !== args.spec;
+  const summaryChanges =
+    args.summary !== undefined && args.summary !== '' && isEmptySummary(currentSummary);
+  return specChanges || summaryChanges;
 }
 
 /**
- * Transition a roadmap row toward `planned`, applying the D2 state machine,
- * D4 idempotency, and D5 field-write policy. Returns the structured result and
- * a new roadmap (the input is never mutated).
+ * Decide what to do with an existing row given its current state. Pure: no
+ * mutation, no IO. Encodes the D2 transition matrix and D4 idempotency rule.
+ */
+export function decidePromotionForRow(
+  status: FeatureStatus,
+  currentSpec: string | null,
+  currentSummary: string,
+  args: RoadmapPromoteArgs
+): RoadmapPromoteRowDecision {
+  switch (status) {
+    case 'in-progress':
+      return { action: 'refuse', reason: 'in-progress' };
+    case 'done':
+      return { action: 'refuse', reason: 'done' };
+    case 'backlog':
+      return { action: 'set-planned' };
+    // planned, blocked, needs-human — lateral states (see status-rank.ts).
+    // Refresh the spec link but preserve status; warn upstream.
+    default:
+      return rowWouldChange(currentSpec, currentSummary, args)
+        ? { action: 'update-spec' }
+        : { action: 'noop' };
+  }
+}
+
+/** Apply the spec/summary writes permitted by D5 to a (cloned) row, in place. */
+function applySpecAndSummary(feature: RoadmapFeature, args: RoadmapPromoteArgs): void {
+  feature.spec = args.spec;
+  if (args.summary !== undefined && args.summary !== '' && isEmptySummary(feature.summary)) {
+    feature.summary = args.summary;
+  }
+}
+
+/** Iterative Levenshtein distance for not-found typo hints (D1). */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const row = new Array<number>(n + 1);
+  for (let j = 0; j <= n; j++) row[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prevDiag = row[0]!;
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const above = row[j]!;
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(row[j]! + 1, row[j - 1]! + 1, prevDiag + cost);
+      prevDiag = above;
+    }
+  }
+  return row[n]!;
+}
+
+/**
+ * Is `distance` close enough to read as a typo rather than a genuinely new
+ * feature name? Length-aware so short queries don't trip on unrelated rows.
+ * A probable typo refuses with hints (D1); anything further falls through to
+ * the create-new path (criterion #2).
+ */
+function isProbableTypo(distance: number, queryLen: number): boolean {
+  if (distance === 0) return false; // exact match is handled before this point
+  return distance <= Math.max(2, Math.floor(queryLen / 4));
+}
+
+interface LocatedRow {
+  milestoneIndex: number;
+  featureIndex: number;
+  milestoneName: string;
+  feature: RoadmapFeature;
+}
+
+function locateRows(roadmap: Roadmap): LocatedRow[] {
+  const rows: LocatedRow[] = [];
+  roadmap.milestones.forEach((milestone, milestoneIndex) => {
+    milestone.features.forEach((feature, featureIndex) => {
+      rows.push({ milestoneIndex, featureIndex, milestoneName: milestone.name, feature });
+    });
+  });
+  return rows;
+}
+
+function cloneRoadmap(roadmap: Roadmap): Roadmap {
+  return structuredClone(roadmap);
+}
+
+function makeCreatedFeature(args: RoadmapPromoteArgs): RoadmapFeature {
+  return {
+    name: args.feature.trim(),
+    status: 'planned',
+    spec: args.spec,
+    plans: [],
+    blockedBy: [],
+    summary: args.summary ?? '',
+    assignee: null,
+    priority: null,
+    externalId: null,
+    updatedAt: null,
+  };
+}
+
+/** Append a brand-new planned row under "Current Work", creating it if absent (D5/S3-002). */
+function appendCreatedRow(roadmap: Roadmap, args: RoadmapPromoteArgs): Roadmap {
+  const next = cloneRoadmap(roadmap);
+  let milestone = next.milestones.find(
+    (m) => m.name.toLowerCase() === DEFAULT_MILESTONE.toLowerCase()
+  );
+  if (!milestone) {
+    milestone = { name: DEFAULT_MILESTONE, isBacklog: false, features: [] };
+    next.milestones.push(milestone);
+  }
+  milestone.features.push(makeCreatedFeature(args));
+  return next;
+}
+
+/**
+ * Promote `args.feature` within `roadmap`, returning the resulting envelope and
+ * the next roadmap. Pure over `(Roadmap, RoadmapPromoteArgs) → (RoadmapPromoteCoreResult,
+ * Roadmap)`. On any non-mutating outcome (refusal, not-found, ambiguous, noop)
+ * the original `roadmap` is returned unchanged so callers can skip the write.
  */
 export function promoteFeature(
   roadmap: Roadmap,
   args: RoadmapPromoteArgs
 ): { result: RoadmapPromoteCoreResult; nextRoadmap: Roadmap } {
-  const key = args.feature.trim().toLowerCase();
-  const matches = findMatches(roadmap, key);
+  const query = args.feature.trim();
+  const queryLower = query.toLowerCase();
+  const rows = locateRows(roadmap);
+  const exact = rows.filter((r) => r.feature.name.trim().toLowerCase() === queryLower);
 
-  // 0 matches — not found, offer the nearest names as a typo hint (D1).
-  if (matches.length === 0) {
-    const allNames = roadmap.milestones.flatMap((m) => m.features.map((f) => f.name));
-    return {
-      result: {
-        ok: false,
-        reason: 'not-found',
-        detail: `No roadmap row matches "${args.feature}".`,
-        feature: args.feature,
-        closestMatches: closestMatches(args.feature, allNames),
-      },
-      nextRoadmap: roadmap,
-    };
-  }
-
-  // 2+ matches — refuse and require milestone-qualified disambiguation (D1, S3-001).
-  if (matches.length > 1) {
-    const qualified = matches.map((m) => `${m.milestoneName} > ${m.feature.name}`);
+  // Ambiguous: same heading hosted by multiple milestones (D1 / S3-001).
+  if (exact.length > 1) {
+    const matches = exact.map((r) => `${r.milestoneName} > ${r.feature.name}`);
     return {
       result: {
         ok: false,
         reason: 'ambiguous',
-        detail: `"${args.feature}" matches multiple rows across milestones.`,
-        feature: args.feature,
-        matches: qualified,
+        feature: query,
+        detail: `"${query}" matches ${matches.length} rows across milestones. Re-invoke milestone-qualified: ${matches.join(', ')}.`,
+        matches,
       },
       nextRoadmap: roadmap,
     };
   }
 
-  const current = matches[0]!.feature;
+  if (exact.length === 1) {
+    const located = exact[0]!;
+    const decision = decidePromotionForRow(
+      located.feature.status,
+      located.feature.spec,
+      located.feature.summary,
+      args
+    );
 
-  // Terminal / active states refuse without mutation (D2).
-  if (current.status === 'in-progress') {
+    if (decision.action === 'refuse') {
+      const detail =
+        decision.reason === 'in-progress'
+          ? `"${query}" is in-progress: an agent is dispatched against this row. Stop the agent or use a different feature name.`
+          : `"${query}" is already 'done'. To revise a shipped feature, use a new name.`;
+      return {
+        result: { ok: false, reason: decision.reason, detail, feature: query },
+        nextRoadmap: roadmap,
+      };
+    }
+
+    if (decision.action === 'noop') {
+      return { result: { ok: true, transitioned: 'noop', feature: query }, nextRoadmap: roadmap };
+    }
+
+    const next = cloneRoadmap(roadmap);
+    const target = next.milestones[located.milestoneIndex]!.features[located.featureIndex]!;
+    if (decision.action === 'set-planned') {
+      target.status = 'planned';
+      applySpecAndSummary(target, args);
+      return {
+        result: { ok: true, transitioned: 'backlog→planned', feature: query },
+        nextRoadmap: next,
+      };
+    }
+    // update-spec: preserve status, refresh spec link (and summary if empty).
+    applySpecAndSummary(target, args);
+    return {
+      result: { ok: true, transitioned: 'spec-updated', feature: query },
+      nextRoadmap: next,
+    };
+  }
+
+  // Zero exact matches: refuse with typo hints if a near-neighbour exists,
+  // otherwise create a brand-new planned row (D2 not-found → create).
+  const ranked = rows
+    .map((r) => ({
+      name: r.feature.name,
+      distance: levenshtein(queryLower, r.feature.name.toLowerCase()),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+  const nearest = ranked[0];
+  if (nearest && isProbableTypo(nearest.distance, queryLower.length)) {
+    const closestMatches = ranked.slice(0, MAX_CLOSEST_MATCHES).map((r) => r.name);
     return {
       result: {
         ok: false,
-        reason: 'in-progress',
-        detail: `"${current.name}" is in-progress; an agent may be dispatched against this row.`,
-        feature: current.name,
-      },
-      nextRoadmap: roadmap,
-    };
-  }
-  if (current.status === 'done') {
-    return {
-      result: {
-        ok: false,
-        reason: 'done',
-        detail: `"${current.name}" is already done; use a new name to revise a shipped feature.`,
-        feature: current.name,
+        reason: 'not-found',
+        feature: query,
+        detail: `"${query}" not found. Did you mean: ${closestMatches.join(', ')}?`,
+        closestMatches,
       },
       nextRoadmap: roadmap,
     };
   }
 
-  // Idempotent no-op: already promoted with the same spec (D4).
-  if (current.status !== 'backlog' && current.spec === args.spec) {
-    return {
-      result: { ok: true, transitioned: 'noop', feature: current.name },
-      nextRoadmap: roadmap,
-    };
-  }
-
-  // Mutating transitions operate on a clone so the input stays untouched.
-  const nextRoadmap = structuredClone(roadmap);
-  const target = findMatches(nextRoadmap, key)[0]!.feature;
-
-  target.spec = args.spec;
-  if (args.summary !== undefined && isEmptySummary(target.summary)) {
-    target.summary = args.summary;
-  }
-
-  if (current.status === 'backlog') {
-    target.status = 'planned';
-    return {
-      result: { ok: true, transitioned: 'backlog→planned', feature: current.name },
-      nextRoadmap,
-    };
-  }
-
-  // planned / blocked / needs-human: spec link updated, status preserved (D2).
   return {
-    result: { ok: true, transitioned: 'spec-updated', feature: current.name },
-    nextRoadmap,
+    result: { ok: true, transitioned: 'created', feature: query },
+    nextRoadmap: appendCreatedRow(roadmap, args),
   };
 }

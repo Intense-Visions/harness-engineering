@@ -1038,7 +1038,7 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically, returning a structured PromoteResult envelope.
+Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under "Current Work" if the feature does not exist — returning a structured RoadmapPromoteResult envelope.
 
 **Parameters:**
 

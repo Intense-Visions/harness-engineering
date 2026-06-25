@@ -13,7 +13,7 @@ import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically, returning a structured PromoteResult envelope.',
+    'Manage the project roadmap: show, add, update, remove, promote, sync features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under "Current Work" if the feature does not exist — returning a structured RoadmapPromoteResult envelope.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -349,13 +349,13 @@ function handleRemove(
   return resultToMcpResponse(Ok(roadmap));
 }
 
+// The structured envelope is the contract (consumed by the brainstorming skill, dashboard,
+// and autopilot). Refusals/failures are marked isError so the auto-sync trigger skips them
+// and no mirror push fires on an unchanged roadmap; the full envelope JSON is carried in the
+// text either way.
 function promoteEnvelopeResponse(
   envelope: import('@harness-engineering/core').RoadmapPromoteResult
 ): McpResponse {
-  // The structured envelope is the contract (consumed by the brainstorming
-  // skill, dashboard, and autopilot). Refusals/failures are marked isError so
-  // the auto-sync trigger skips them and no mirror push fires on an unchanged
-  // roadmap; the full envelope JSON is still carried in the text either way.
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(envelope) }],
     isError: envelope.ok === false,
@@ -383,42 +383,44 @@ function handlePromote(
   }
 
   const raw = readRoadmapFile(projectPath);
+  // D4: no roadmap → silent skip. The skill still commits the spec; no envelope.
   if (raw === null) return roadmapNotFoundError();
 
-  const parsed = parseRoadmap(raw);
-  if (!parsed.ok) {
-    // D4: a malformed roadmap cannot be promoted against — surface a
-    // write-failed envelope so the human repairs the file before re-running.
+  const result = parseRoadmap(raw);
+  // A malformed roadmap surfaces as a write-failed envelope (D4): promotion
+  // cannot proceed against a broken file and the human must repair it.
+  if (!result.ok) {
     return promoteEnvelopeResponse({
       ok: false,
       reason: 'write-failed',
-      detail: `Could not parse docs/roadmap.md: ${parsed.error.message}`,
       feature: input.feature,
+      detail: result.error.message,
     });
   }
 
-  const { result, nextRoadmap } = promoteFeature(parsed.value, {
+  const { result: envelope, nextRoadmap } = promoteFeature(result.value, {
     feature: input.feature,
     spec: input.spec,
     ...(input.summary !== undefined ? { summary: input.summary } : {}),
   });
 
-  if (result.ok && result.transitioned !== 'noop') {
+  // Only a mutating success touches the file; noop and refusals leave it byte-identical.
+  if (envelope.ok && envelope.transitioned !== 'noop') {
+    nextRoadmap.frontmatter.lastManualEdit = new Date().toISOString();
     try {
       writeRoadmapFile(projectPath, serializeRoadmap(nextRoadmap));
     } catch (error) {
       return promoteEnvelopeResponse({
         ok: false,
         reason: 'write-failed',
-        detail: `Failed to write docs/roadmap.md: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
         feature: input.feature,
+        detail: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
-  return promoteEnvelopeResponse(result);
+  // The structured envelope is returned verbatim for callers to branch on.
+  return promoteEnvelopeResponse(envelope);
 }
 
 function handleQuery(
