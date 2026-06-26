@@ -121,6 +121,9 @@ interface RoadmapDeps {
   syncRoadmap: Awaited<typeof import('@harness-engineering/core')>['syncRoadmap'];
   applySyncChanges: Awaited<typeof import('@harness-engineering/core')>['applySyncChanges'];
   assignFeature: Awaited<typeof import('@harness-engineering/core')>['assignFeature'];
+  setStatus: Awaited<typeof import('@harness-engineering/core')>['setStatus'];
+  claim: Awaited<typeof import('@harness-engineering/core')>['claim'];
+  release: Awaited<typeof import('@harness-engineering/core')>['release'];
   promoteFeature: Awaited<typeof import('@harness-engineering/core')>['promoteFeature'];
   groomRoadmap: Awaited<typeof import('@harness-engineering/core')>['groomRoadmap'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
@@ -321,13 +324,24 @@ function handleUpdate(
   for (const m of roadmap.milestones) {
     const feature = m.features.find((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
     if (feature) {
-      if (input.status) feature.status = input.status;
+      const date = new Date().toISOString().slice(0, 10);
+      // Route status/assignee through the assignee-lifecycle authority so the
+      // `assignee ≠ null ⟺ in-progress` invariant holds on every write:
+      // - setStatus auto-clears the assignee on any move away from in-progress
+      //   (e.g. mark-done releases the executor);
+      // - a non-empty assignee is a claim (forces in-progress, first-claim-wins);
+      // - an empty assignee releases the claim.
+      if (input.status) deps.setStatus(roadmap, feature, input.status, date);
       if (input.summary !== undefined) feature.summary = input.summary;
       if (input.spec !== undefined) feature.spec = input.spec || null;
       if (input.plans !== undefined) feature.plans = input.plans;
       if (input.blocked_by !== undefined) feature.blockedBy = input.blocked_by;
       if (input.assignee !== undefined) {
-        deps.assignFeature(roadmap, feature, input.assignee, new Date().toISOString().slice(0, 10));
+        if (input.assignee) {
+          deps.claim(roadmap, feature, input.assignee, date);
+        } else {
+          deps.release(roadmap, feature, date);
+        }
       }
       found = true;
       break;
@@ -657,6 +671,9 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       syncRoadmap,
       applySyncChanges,
       assignFeature,
+      setStatus,
+      claim,
+      release,
       promoteFeature,
       groomRoadmap,
     } = await import('@harness-engineering/core');
@@ -669,6 +686,9 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       syncRoadmap,
       applySyncChanges,
       assignFeature,
+      setStatus,
+      claim,
+      release,
       promoteFeature,
       groomRoadmap,
       Ok,

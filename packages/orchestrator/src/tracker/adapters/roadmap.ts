@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import {
   parseRoadmap,
   serializeRoadmap,
+  // The assignee-lifecycle authority owns the claim transition + invariant.
+  claim as claimFeature,
   // Phase 1 of the file-less roadmap proposal: tracker types have their
   // canonical home in core/roadmap/tracker/ (source path); re-exported
   // from the @harness-engineering/core package root for consumers.
@@ -144,9 +146,13 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Ok(undefined);
       }
 
-      target.status = 'in-progress' as FeatureStatus;
-      target.assignee = orchestratorId;
-      target.updatedAt = new Date().toISOString();
+      // Route the status+assignee write through the lifecycle authority so the
+      // `assignee ≠ null ⟺ in-progress` invariant (and its history record) is
+      // owned in one place. The compare-and-set guards above already preserve
+      // the rejected/idempotent semantics ClaimManager relies on.
+      const now = new Date().toISOString();
+      claimFeature(roadmap, target, orchestratorId, now.slice(0, 10));
+      target.updatedAt = now;
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
