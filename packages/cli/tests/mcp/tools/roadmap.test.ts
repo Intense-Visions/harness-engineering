@@ -369,6 +369,13 @@ describe('manage_roadmap update action', () => {
       .features.find((f: { name: string }) => f.name === 'Dark Mode');
     expect(dark.assignee).toBe('@alice');
     expect(dark.status).toBe('in-progress');
+    // The lost race is signaled explicitly, not as a silent success: structured
+    // `claimed: false` flag, an informative message naming the holder, and
+    // isError so the auto-sync trigger skips the no-op write.
+    expect(refused.isError).toBe(true);
+    expect(parsed.claimed).toBe(false);
+    expect(parsed.message).toContain('Claim refused');
+    expect(parsed.message).toContain('@alice');
 
     // To hand off, release first (clear assignee, return to planned)...
     await handleManageRoadmap({

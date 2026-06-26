@@ -299,6 +299,36 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
   return resultToMcpResponse(Ok(roadmap));
 }
 
+/**
+ * Build the response for a refused claim (first-claim-wins lost race).
+ *
+ * The roadmap is unchanged, so the persisted file is NOT rewritten. The response
+ * stays backward-compatible — it still serializes the roadmap object (callers
+ * that read `.milestones` / `.assignmentHistory` keep working) — but adds an
+ * explicit `claimed: false` flag plus a human-readable `message`, and is marked
+ * `isError` so the auto-sync trigger skips the no-op (matching the promote
+ * envelope convention).
+ */
+function claimRefusedResponse(
+  featureName: string,
+  roadmap: import('@harness-engineering/core').Roadmap,
+  currentAssignee: string | null
+): McpResponse {
+  const message =
+    `Claim refused: "${featureName}" is already in-progress under ` +
+    `${currentAssignee ?? 'another owner'} (first-claim-wins). ` +
+    `Release it first to hand off.`;
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({ ...roadmap, claimed: false, message }),
+      },
+    ],
+    isError: true,
+  };
+}
+
 function handleUpdate(
   projectPath: string,
   input: ManageRoadmapInput,
@@ -339,6 +369,12 @@ function handleUpdate(
       if (input.assignee !== undefined) {
         if (input.assignee) {
           deps.claim(roadmap, feature, input.assignee, date);
+          // First-claim-wins: claim() no-ops when the row is already in-progress
+          // under a different owner. Without an explicit signal the caller would
+          // see a "success" with an unchanged assignee and silently lose the race.
+          if (feature.assignee !== input.assignee) {
+            return claimRefusedResponse(input.feature!, roadmap, feature.assignee);
+          }
         } else {
           deps.release(roadmap, feature, date);
         }
