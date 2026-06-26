@@ -361,6 +361,10 @@ function handleUpdate(
       //   (e.g. mark-done releases the executor);
       // - a non-empty assignee is a claim (forces in-progress, first-claim-wins);
       // - an empty assignee releases the claim.
+      // Deliberate deviation from the spec's "reject a bare assignee write on a
+      // non-in-progress row": we coerce to in-progress instead (an assignee *is*
+      // the claim). Rationale + accepted trade-off in ADR-0045. Either way the
+      // invariant cannot be violated by this path.
       if (input.status) deps.setStatus(roadmap, feature, input.status, date);
       if (input.summary !== undefined) feature.summary = input.summary;
       if (input.spec !== undefined) feature.spec = input.spec || null;

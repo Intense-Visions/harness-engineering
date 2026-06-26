@@ -67,6 +67,26 @@ mechanically enforced.**
 - The MCP `update` path now forces `in-progress` when an assignee is supplied, so a
   "bare" assignee write is no longer a selection-time annotation.
 
+### Deviation from the spec: coerce, not reject
+
+The proposal's wiring note for the `manage_roadmap update` path said to **reject** a
+bare assignee write on a non-`in-progress` status (an invariant guard at the write
+path). The implementation instead **coerces**: supplying an assignee _is_ the claim, so
+`update` routes it through `claim()`, which sets `status = in-progress` (subject to
+first-claim-wins). This was a deliberate choice, accepted in review:
+
+- It is the same mental model as the invariant itself — "an assignee means someone is
+  executing" — so the one way to set an assignee (`update … assignee=X`) also makes the
+  row `in-progress`, with no second "remember to also set the status" step that could be
+  forgotten and trip RMH005.
+- It cannot violate the invariant: there is no reachable state where the write succeeds
+  and leaves `assignee ≠ null` on a non-`in-progress` row.
+- Rejecting would force callers into a two-call dance (`status=in-progress`, then
+  `assignee=X`) for the common "claim this" intent, with no safety gain.
+
+Reject-semantics were therefore not implemented; the coerce behavior is the contract,
+covered by the MCP roadmap tests.
+
 ## Alternatives considered
 
 - **Per-layer guards** (fix each of pilot, sync, and the adapters independently):
