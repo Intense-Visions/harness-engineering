@@ -9,24 +9,24 @@ source: docs/changes/assignee-execution-lifecycle/proposal.md
 
 ## Context
 
-The roadmap `assignee` field was overloaded. roadmap-pilot wrote it at *selection*
+The roadmap `assignee` field was overloaded. roadmap-pilot wrote it at _selection_
 time (its Phase 4 "ASSIGN" step), while the row stayed `planned`. But the
 orchestrator's pickup gate (`candidate-selection.ts` → `isEligible`) reads any
-non-self assignee as a claim and silently skips the item — so merely *recommending*
+non-self assignee as a claim and silently skips the item — so merely _recommending_
 an item made it invisible to autonomous pickup.
 
 A compounding defect lived in the roadmap↔GitHub sync. A machine claim
 (`orchestrator-5c895000`) is not a valid GitHub login, so the sync adapter laundered
-it to the authenticated *human* via `getAuthenticatedUser`. Inbound "external wins"
+it to the authenticated _human_ via `getAuthenticatedUser`. Inbound "external wins"
 then overwrote the local `orchestrator-*` claim with that human handle, making the
 orchestrator drop its own claim on the next tick.
 
 Both bugs shared one root cause: there was no single authority for what `assignee`
-*means*, and two GitHub adapters disagreed about how to treat machine ids.
+_means_, and two GitHub adapters disagreed about how to treat machine ids.
 
 ## Decision
 
-**The `assignee` field is an execution claim: it names who is *currently executing*
+**The `assignee` field is an execution claim: it names who is _currently executing_
 a feature, set at execution start and cleared otherwise. The invariant is
 `assignee ≠ null ⟺ status == in-progress`, owned by one core authority and
 mechanically enforced.**
@@ -61,7 +61,7 @@ mechanically enforced.**
 
 **Negative / trade-offs:**
 
-- Direct reassignment of a *live* claim via `manage_roadmap update` is refused
+- Direct reassignment of a _live_ claim via `manage_roadmap update` is refused
   (first-claim-wins); handing off requires an explicit release first. This is
   intentional — it prevents claim-stealing races.
 - The MCP `update` path now forces `in-progress` when an assignee is supplied, so a

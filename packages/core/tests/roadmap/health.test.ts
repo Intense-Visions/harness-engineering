@@ -184,9 +184,7 @@ describe('groomRoadmap()', () => {
 describe('RMH005 — assignee invariant', () => {
   it('flags an assignee on a non-in-progress row (the pilot bug)', () => {
     const rm = roadmap([
-      milestone('Craft Pipeline', [
-        feature({ name: 'a', status: 'planned', assignee: '@chadjw' }),
-      ]),
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'planned', assignee: '@chadjw' })]),
     ]);
     const findings = checkRoadmapHealth(rm).filter((f) => f.ruleId === 'RMH005');
     expect(findings).toHaveLength(1);
@@ -196,9 +194,7 @@ describe('RMH005 — assignee invariant', () => {
 
   it('flags an in-progress row with no assignee (orphan)', () => {
     const rm = roadmap([
-      milestone('Craft Pipeline', [
-        feature({ name: 'a', status: 'in-progress', assignee: null }),
-      ]),
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'in-progress', assignee: null })]),
     ]);
     const findings = checkRoadmapHealth(rm).filter((f) => f.ruleId === 'RMH005');
     expect(findings).toHaveLength(1);
@@ -238,9 +234,7 @@ describe('groomRoadmap — assignee invariant migration', () => {
 
   it('demotes an orphaned in-progress row to planned', () => {
     const rm = roadmap([
-      milestone('Craft Pipeline', [
-        feature({ name: 'a', status: 'in-progress', assignee: null }),
-      ]),
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'in-progress', assignee: null })]),
     ]);
     const { roadmap: out, changes } = groomRoadmap(rm);
     const groomed = out.milestones[0]!.features[0]!;

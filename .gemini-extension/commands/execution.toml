@@ -149,6 +149,7 @@ RMH005 (`harness validate`).
      This routes through the assignee-lifecycle `claim()` chokepoint
      (first-claim-wins: if the row is already `in-progress` under a different
      owner, the claim is a no-op and you should treat the item as taken).
+
    - If no roadmap row matches this plan (e.g. ad-hoc execution), skip the claim.
 
 For each task, starting from current position:

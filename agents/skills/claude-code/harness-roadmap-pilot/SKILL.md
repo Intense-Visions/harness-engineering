@@ -1,6 +1,6 @@
 # Harness Roadmap Pilot
 
-> AI-assisted selection of the next highest-impact unblocked roadmap item. Scores candidates, recommends one, and transitions to the appropriate next skill. Selection does NOT assign — the `assignee` field names who is *executing*, and is written at execution start (harness-execution), not at selection.
+> AI-assisted selection of the next highest-impact unblocked roadmap item. Scores candidates, recommends one, and transitions to the appropriate next skill. Selection does NOT assign — the `assignee` field names who is _executing_, and is written at execution start (harness-execution), not at selection.
 
 ## When to Use
 
@@ -16,7 +16,7 @@
 
 **Never transition without the human confirming the recommendation first. Selection never writes `assignee`.**
 
-Present the ranked candidates, the AI reasoning, and the recommended pick. Wait for explicit confirmation before transitioning. The `assignee` field means *who is executing* and is claimed at execution start by harness-execution — picking an item must NOT mark it assigned (an early assignee makes the item look human-claimed and the orchestrator silently skips it).
+Present the ranked candidates, the AI reasoning, and the recommended pick. Wait for explicit confirmation before transitioning. The `assignee` field means _who is executing_ and is claimed at execution start by harness-execution — picking an item must NOT mark it assigned (an early assignee makes the item look human-claimed and the orchestrator silently skips it).
 
 ---
 
@@ -201,13 +201,13 @@ The item stays `planned`/`backlog` with `Assignee: —` and remains orchestrator
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                                         | Reality                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The top-scored candidate is obviously correct, so I can transition without asking the human"                           | The Iron Law: never transition without the human confirming the recommendation first.                                                                                            |
-| "I'll write the assignee now so the pick is recorded / the user is credited"                                            | Selection never writes `assignee`. An assignee means *in-progress* (set by harness-execution at execution start). Writing it at selection makes the orchestrator silently skip the item — the exact bug this skill must not reintroduce. |
-| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings.                                          |
-| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                                                                      |
-| "STRATEGY.md exists, so I should let it override the top-scored candidate when alignment is clear"                      | The alignment bonus is bounded (max `+0.75`) and only fires when base scores are within `0.05`. It is a tiebreaker, not a hard filter — a clearly higher-scored item still wins. |
+| Rationalization                                                                                                         | Reality                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-scored candidate is obviously correct, so I can transition without asking the human"                           | The Iron Law: never transition without the human confirming the recommendation first.                                                                                                                                                    |
+| "I'll write the assignee now so the pick is recorded / the user is credited"                                            | Selection never writes `assignee`. An assignee means _in-progress_ (set by harness-execution at execution start). Writing it at selection makes the orchestrator silently skip the item — the exact bug this skill must not reintroduce. |
+| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings.                                                                                                  |
+| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                                                                                                                              |
+| "STRATEGY.md exists, so I should let it override the top-scored candidate when alignment is clear"                      | The alignment bonus is bounded (max `+0.75`) and only fires when base scores are within `0.05`. It is a tiebreaker, not a hard filter — a clearly higher-scored item still wins.                                                         |
 
 ## Examples
 
@@ -255,11 +255,11 @@ Transitioning to harness:autopilot (spec exists)...
 ## Gates
 
 - **No transition without human confirmation.** The CONFIRM phase must complete with explicit approval before transitioning.
-- **No assignment at selection.** This skill never writes the `assignee` field — that field means *who is executing* and is claimed at execution start by harness-execution. Writing it here would make the orchestrator silently skip the item.
+- **No assignment at selection.** This skill never writes the `assignee` field — that field means _who is executing_ and is claimed at execution start by harness-execution. Writing it here would make the orchestrator silently skip the item.
 - **No scoring without a parsed roadmap.** If `docs/roadmap.md` does not exist or fails to parse, stop with an error.
 
 ## Escalation
 
 - **When no unblocked candidates exist:** Inform the human. Suggest reviewing blocked items to see if blockers can be resolved, or adding new features via `harness-roadmap --add`.
 - **When affinity data is unavailable:** Proceed without affinity scoring (weight falls to 0 for all candidates). Note this in the output.
-- **When the human asks you to assign the item to them at selection:** Explain that the `assignee` field means *who is executing* and is claimed at execution start by harness-execution; assigning at selection makes the orchestrator silently skip the item (enforced by RMH005). Proceed with the transition instead.
+- **When the human asks you to assign the item to them at selection:** Explain that the `assignee` field means _who is executing_ and is claimed at execution start by harness-execution; assigning at selection makes the orchestrator silently skip the item (enforced by RMH005). Proceed with the transition instead.
