@@ -64,7 +64,6 @@ import { createRecommendCommand } from './recommend';
 import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRoutingCommand } from './routing';
-import { createScanCommand } from './graph/scan';
 import { createScanConfigCommand } from './scan-config';
 import { createSearchCommand } from './search';
 import { createSecurityCraftCommand } from './security-craft';
@@ -155,7 +154,6 @@ export const commandCreators: Array<() => Command> = [
   createReviewCiCommand,
   createRoadmapCommand,
   createRoutingCommand,
-  createScanCommand,
   createScanConfigCommand,
   createSearchCommand,
   createSecurityCraftCommand,

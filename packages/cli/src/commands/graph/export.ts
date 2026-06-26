@@ -5,7 +5,7 @@ export async function runGraphExport(projectPath: string, format: string): Promi
   const graphDir = path.join(projectPath, '.harness', 'graph');
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
-  if (!loaded) throw new Error('No graph found. Run `harness scan` first.');
+  if (!loaded) throw new Error('No graph found. Run `harness graph scan` first.');
 
   if (format === 'json') {
     const nodes = store.findNodes({});

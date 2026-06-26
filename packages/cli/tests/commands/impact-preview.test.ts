@@ -47,7 +47,7 @@ describe('runImpactPreview', () => {
     mockedExecSync.mockReturnValue('src/foo.ts\n');
     mockedExistsSync.mockReturnValue(false);
     const output = await runImpactPreview({});
-    expect(output).toBe('Impact Preview: skipped (no graph — run `harness scan` to enable)');
+    expect(output).toBe('Impact Preview: skipped (no graph — run `harness graph scan` to enable)');
   });
 
   it('exits 0 in all cases (verified by no thrown errors)', async () => {

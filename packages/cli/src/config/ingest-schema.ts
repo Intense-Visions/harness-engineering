@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Schema for source-file ingestion controls (used by `harness scan` and `harness ingest --source code`).
+ * Schema for source-file ingestion controls (used by `harness graph scan` and `harness ingest --source code`).
  *
  * Lives in its own file (separate from {@link HarnessConfigSchema}) so that the
  * scan/ingest command path can validate the `ingest` block without dragging in

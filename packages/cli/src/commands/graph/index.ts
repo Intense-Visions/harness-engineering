@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
+import { createScanCommand } from './scan.js';
 import * as path from 'path';
 
 function resolveProjectPath(globalOpts: { config?: string }): string {
@@ -60,6 +61,7 @@ async function runExportAction(opts: { format: string }, cmd: Command): Promise<
  */
 export function createGraphCommand(): Command {
   const graph = new Command('graph').description('Knowledge graph management');
+  graph.addCommand(createScanCommand());
   graph.command('status').description('Show graph statistics').action(runStatusAction);
   graph
     .command('export')

@@ -177,7 +177,7 @@ increase the `schedule` interval to spread load over time.
 
 **No edges created** -- Edges are only created when ingested text contains
 keywords or file paths matching existing code nodes in the graph. Run a code
-ingest first (`harness scan`) before syncing external connectors.
+ingest first (`harness graph scan`) before syncing external connectors.
 
 **Stale sync-metadata.json** -- The file is safe to delete. The SyncManager
 will recreate it on the next sync run.

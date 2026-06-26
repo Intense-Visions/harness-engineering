@@ -16,7 +16,7 @@ export async function runQuery(
   const store = new GraphStore();
   const graphDir = path.join(projectPath, '.harness', 'graph');
   const loaded = await store.load(graphDir);
-  if (!loaded) throw new Error('No graph found. Run `harness scan` first.');
+  if (!loaded) throw new Error('No graph found. Run `harness graph scan` first.');
 
   const params: ContextQLParams = {
     rootNodeIds: [rootNodeId],

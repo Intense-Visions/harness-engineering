@@ -125,7 +125,7 @@ Graph-based impact analysis with two sections:
 - **Anomalies** -- articulation points (nodes whose removal disconnects the graph) and outlier nodes (unusually high connectivity). Click any anomaly to see its blast radius.
 - **Blast radius** -- interactive visualization showing the cascade of dependencies from a selected node. Adjust depth (1-5 levels) to control how far the analysis reaches.
 
-**When to use:** Before refactoring critical modules, to understand how changes will propagate. Requires a knowledge graph (run `harness scan` first).
+**When to use:** Before refactoring critical modules, to understand how changes will propagate. Requires a knowledge graph (run `harness graph scan` first).
 
 ### Graph
 

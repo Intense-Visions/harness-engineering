@@ -31,7 +31,6 @@ const HEADER = '// AUTO-GENERATED — do not edit. Run `pnpm run generate-barrel
  * Format: relative path from commands/ → file to scan.
  */
 const EXTRA_TOP_LEVEL_COMMANDS = [
-  'graph/scan.ts',
   'graph/ingest.ts',
   'graph/query.ts',
 ];
