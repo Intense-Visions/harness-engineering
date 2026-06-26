@@ -1,113 +1,5 @@
 {
   "profiles": {
-    "primary": {
-      "persona": "primary",
-      "entries": [
-        {
-          "persona": "primary",
-          "systemNodeId": "module:templates/gin",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.7500000000000001,
-            "consistencyScore": 1,
-            "volumeBonus": 0.31992323303744613,
-            "composite": 0.747988484955617
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 2,
-          "lastOutcome": "2026-06-02T16:05:45.383Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "module:templates/nextjs/src/app",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666667,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T16:05:45.383Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "file:packages/core/src/ci/report-formatter.ts",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666666,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "module:templates/nextjs/src/app",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666666,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T16:05:45.383Z"
-        }
-      ],
-      "strengths": [
-        {
-          "persona": "primary",
-          "systemNodeId": "module:templates/gin",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.7500000000000001,
-            "consistencyScore": 1,
-            "volumeBonus": 0.31992323303744613,
-            "composite": 0.747988484955617
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 2,
-          "lastOutcome": "2026-06-02T16:05:45.383Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "module:templates/nextjs/src/app",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666667,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.680277362987315
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T16:05:45.383Z"
-        },
-        {
-          "persona": "primary",
-          "systemNodeId": "module:packages/orchestrator/tests/core",
-          "taskType": "*",
-          "score": {
-            "temporalSuccessRate": 0.6666666666666666,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
-          },
-          "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-02T13:47:08.182Z"
-        }
-      ],
-      "weaknesses": [],
-      "overallLevel": "novice",
-      "computedAt": "2026-06-03T02:04:50.051Z"
-    },
     "default": {
       "persona": "default",
       "entries": [
@@ -116,18 +8,18 @@
           "systemNodeId": "module:templates/nextjs/src/app",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.75,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
-            "volumeBonus": 0.31992323303744613,
-            "composite": 0.7479884849556169
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
-          "sampleSize": 2,
-          "lastOutcome": "2026-06-03T00:01:58.685Z"
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "module:packages/core/tests/review",
+          "systemNodeId": "module:packages/core/src/harness-strength",
           "taskType": "*",
           "score": {
             "temporalSuccessRate": 0.6666666666666667,
@@ -137,11 +29,25 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T14:26:37.227Z"
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "systemNodeId": "file:packages/types/src/orchestrator.ts",
+          "taskType": "*",
+          "score": {
+            "temporalSuccessRate": 0.6666666666666667,
+            "consistencyScore": 1,
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
+          },
+          "expertiseLevel": "novice",
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
+        },
+        {
+          "persona": "default",
+          "systemNodeId": "module:packages/dashboard/tests/client/hooks",
           "taskType": "*",
           "score": {
             "temporalSuccessRate": 0.6666666666666666,
@@ -151,11 +57,11 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T16:51:13.973Z"
+          "lastOutcome": "2026-06-26T00:11:33.003Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "module:templates/gin",
+          "systemNodeId": "file:packages/cli/src/hooks/quality-gate.js",
           "taskType": "*",
           "score": {
             "temporalSuccessRate": 0.6666666666666666,
@@ -165,35 +71,35 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-03T00:01:58.685Z"
+          "lastOutcome": "2026-06-26T00:11:33.003Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "file:packages/core/src/context/knowledge-map.ts",
+          "systemNodeId": "module:packages/dashboard",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "temporalSuccessRate": 0.5000478042572188,
+            "consistencyScore": 0.5,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.4730171675099482
           },
           "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-03T00:01:58.685Z"
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-25T22:39:56.618Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "file:packages/core/src/security/rules/deserialization.ts",
+          "systemNodeId": "module:packages/core/tests/state",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
-            "consistencyScore": 1,
-            "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "temporalSuccessRate": 0.5000478042572188,
+            "consistencyScore": 0.5,
+            "volumeBonus": 0.31992323303744613,
+            "composite": 0.4730171675099482
           },
           "expertiseLevel": "novice",
-          "sampleSize": 1,
-          "lastOutcome": "2026-06-03T00:01:58.685Z"
+          "sampleSize": 2,
+          "lastOutcome": "2026-06-25T22:39:56.618Z"
         }
       ],
       "strengths": [
@@ -202,18 +108,18 @@
           "systemNodeId": "module:templates/nextjs/src/app",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.75,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
-            "volumeBonus": 0.31992323303744613,
-            "composite": 0.7479884849556169
+            "volumeBonus": 0.20184908658209985,
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
-          "sampleSize": 2,
-          "lastOutcome": "2026-06-03T00:01:58.685Z"
+          "sampleSize": 1,
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "module:packages/core/tests/review",
+          "systemNodeId": "module:packages/core/src/harness-strength",
           "taskType": "*",
           "score": {
             "temporalSuccessRate": 0.6666666666666667,
@@ -223,28 +129,28 @@
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T14:26:37.227Z"
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
         },
         {
           "persona": "default",
-          "systemNodeId": "module:packages/orchestrator/src/gateway/telemetry",
+          "systemNodeId": "file:packages/types/src/orchestrator.ts",
           "taskType": "*",
           "score": {
-            "temporalSuccessRate": 0.6666666666666666,
+            "temporalSuccessRate": 0.6666666666666667,
             "consistencyScore": 1,
             "volumeBonus": 0.20184908658209985,
-            "composite": 0.6802773629873149
+            "composite": 0.680277362987315
           },
           "expertiseLevel": "novice",
           "sampleSize": 1,
-          "lastOutcome": "2026-06-02T16:51:13.973Z"
+          "lastOutcome": "2026-06-26T12:35:49.776Z"
         }
       ],
       "weaknesses": [],
       "overallLevel": "novice",
-      "computedAt": "2026-06-03T02:04:50.051Z"
+      "computedAt": "2026-06-26T12:40:32.759Z"
     }
   },
-  "computedAt": "2026-06-03T02:04:50.051Z",
+  "computedAt": "2026-06-26T12:40:32.759Z",
   "version": 1
 }

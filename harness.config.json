@@ -321,5 +321,36 @@
   },
   "adoption": {
     "enabled": true
+  },
+  "pulse": {
+    "enabled": true,
+    "lookbackDefault": "30d",
+    "primaryEvent": "skill_invoked",
+    "valueEvent": "plan_completed",
+    "completionEvents": [
+      "validate_passed",
+      "phase_completed",
+      "task_completed",
+      "review_completed"
+    ],
+    "qualityScoring": true,
+    "qualityDimension": "output_correctness",
+    "sources": {
+      "analytics": "posthog",
+      "tracing": null,
+      "payments": null,
+      "db": {
+        "enabled": false
+      }
+    },
+    "metricSourceOverrides": {},
+    "pendingMetrics": [
+      "Agent Autonomy",
+      "Harness Coverage",
+      "Context Density",
+      "Drift Floor",
+      "External Adoption"
+    ],
+    "excludedMetrics": []
   }
 }
