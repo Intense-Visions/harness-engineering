@@ -66,10 +66,7 @@ export const HEALTH_SIGNAL_NAMES: readonly SignalName[] = SIGNAL_REGISTRY.map((s
  * with no signals (e.g. `lint`) maps to `[]`.
  */
 export const CHECK_SIGNAL_MAP: Record<CheckKey, SignalName[]> = Object.fromEntries(
-  CHECK_KEYS.map((key) => [
-    key,
-    SIGNAL_REGISTRY.filter((s) => s.check === key).map((s) => s.name),
-  ])
+  CHECK_KEYS.map((key) => [key, SIGNAL_REGISTRY.filter((s) => s.check === key).map((s) => s.name)])
 ) as Record<CheckKey, SignalName[]>;
 
 /**

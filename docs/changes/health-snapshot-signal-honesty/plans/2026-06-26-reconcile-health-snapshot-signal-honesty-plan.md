@@ -56,11 +56,7 @@ Traceable to the spec's 7 success criteria:
 
    ```ts
    import { describe, it, expect } from 'vitest';
-   import {
-     SIGNAL_REGISTRY,
-     CHECK_SIGNAL_MAP,
-     reconcilePassed,
-   } from './index';
+   import { SIGNAL_REGISTRY, CHECK_SIGNAL_MAP, reconcilePassed } from './index';
 
    describe('SIGNAL_REGISTRY', () => {
      it('declares the real signal vocabulary with check mappings', () => {
@@ -86,7 +82,13 @@ Traceable to the spec's 7 success criteria:
      it('marks metrics-only signals with check: null', () => {
        const metricsOnly = SIGNAL_REGISTRY.filter((s) => s.check === null).map((s) => s.name);
        expect(metricsOnly.sort()).toEqual(
-         ['anomaly-outlier', 'articulation-point', 'high-complexity', 'high-coupling', 'low-coverage'].sort()
+         [
+           'anomaly-outlier',
+           'articulation-point',
+           'high-complexity',
+           'high-coupling',
+           'low-coverage',
+         ].sort()
        );
      });
    });
@@ -106,7 +108,13 @@ Traceable to the spec's 7 success criteria:
 
      it('never includes a metrics-only signal in any check bucket (SC3)', () => {
        const all = Object.values(CHECK_SIGNAL_MAP).flat();
-       for (const s of ['anomaly-outlier', 'articulation-point', 'high-coupling', 'high-complexity', 'low-coverage']) {
+       for (const s of [
+         'anomaly-outlier',
+         'articulation-point',
+         'high-coupling',
+         'high-complexity',
+         'low-coverage',
+       ]) {
          expect(all).not.toContain(s);
        }
      });
@@ -114,17 +122,20 @@ Traceable to the spec's 7 success criteria:
 
    describe('reconcilePassed (conjunction, monotonic toward fail)', () => {
      it('demotes a dishonest pass when a contradicting signal is present (SC1)', () => {
-       const out = reconcilePassed(
-         { security: { passed: true, issueCount: 0 } },
-         ['security-findings']
-       );
+       const out = reconcilePassed({ security: { passed: true, issueCount: 0 } }, [
+         'security-findings',
+       ]);
        expect(out.security.passed).toBe(false);
        expect(out.security.issueCount).toBe(0); // other fields preserved
      });
 
      it('demotes deps on any of its many signals (SC1, many-to-one)', () => {
-       expect(reconcilePassed({ deps: { passed: true } }, ['layer-violations']).deps.passed).toBe(false);
-       expect(reconcilePassed({ deps: { passed: true } }, ['circular-deps']).deps.passed).toBe(false);
+       expect(reconcilePassed({ deps: { passed: true } }, ['layer-violations']).deps.passed).toBe(
+         false
+       );
+       expect(reconcilePassed({ deps: { passed: true } }, ['circular-deps']).deps.passed).toBe(
+         false
+       );
      });
 
      it('preserves an assess failure that has no signal — lint conjunction (SC2)', () => {
@@ -140,10 +151,11 @@ Traceable to the spec's 7 success criteria:
      });
 
      it('ignores metrics-only signals — they change nothing (SC3)', () => {
-       const out = reconcilePassed(
-         { deps: { passed: true }, entropy: { passed: true } },
-         ['high-coupling', 'low-coverage', 'anomaly-outlier']
-       );
+       const out = reconcilePassed({ deps: { passed: true }, entropy: { passed: true } }, [
+         'high-coupling',
+         'low-coverage',
+         'anomaly-outlier',
+       ]);
        expect(out.deps.passed).toBe(true);
        expect(out.entropy.passed).toBe(true);
      });
@@ -286,6 +298,7 @@ Traceable to the spec's 7 success criteria:
    ```
 
    Leave every rule entry and predicate exactly as-is. `deriveSignals` and its `string[]` return type stay unchanged.
+
 3. Run: `pnpm --filter @harness-engineering/cli typecheck` — observe pass. If any literal in `SIGNAL_RULES` is not a member of `SignalName`, this fails closed (proves cli emits exactly the registry's names, SC4).
 4. Run: `pnpm --filter @harness-engineering/cli test -- tests/skill/health-snapshot.test.ts` — observe the existing `deriveSignals` tests still pass unchanged (SC6).
 5. Run: `harness validate`
@@ -397,7 +410,12 @@ Note: independent of Tasks 4-5 (different package path) — depends only on the 
    describe('STRENGTH-007 snapshot/signal mismatch detect', () => {
      it('flags a passing security check while security-findings is present', () => {
        const findings = strength007SnapshotSignalMismatch.detect(
-         ctx({ healthSnapshot: { checks: { security: { passed: true } }, signals: ['security-findings'] } })
+         ctx({
+           healthSnapshot: {
+             checks: { security: { passed: true } },
+             signals: ['security-findings'],
+           },
+         })
        );
        expect(findings).toHaveLength(1);
        expect(findings[0]!.id).toBe('STRENGTH-007');
@@ -441,7 +459,9 @@ Note: independent of Tasks 4-5 (different package path) — depends only on the 
      it('ignores metrics-only signals (no check maps to them, SC3)', () => {
        expect(
          strength007SnapshotSignalMismatch.detect(
-           ctx({ healthSnapshot: { checks: { deps: { passed: true } }, signals: ['high-coupling'] } })
+           ctx({
+             healthSnapshot: { checks: { deps: { passed: true } }, signals: ['high-coupling'] },
+           })
          )
        ).toEqual([]);
      });

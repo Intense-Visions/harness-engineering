@@ -138,10 +138,9 @@ describe('HEALTH_SIGNAL_NAMES (derived, SC4 — single source for cli HEALTH_SIG
 
 describe('reconcilePassed (conjunction, monotonic toward fail)', () => {
   it('demotes a dishonest pass when a contradicting signal is present (SC1)', () => {
-    const out = reconcilePassed(
-      { security: { passed: true, issueCount: 0 } },
-      ['security-findings']
-    );
+    const out = reconcilePassed({ security: { passed: true, issueCount: 0 } }, [
+      'security-findings',
+    ]);
     expect(out.security.passed).toBe(false);
     expect(out.security.issueCount).toBe(0); // other fields preserved
   });
@@ -166,10 +165,11 @@ describe('reconcilePassed (conjunction, monotonic toward fail)', () => {
   });
 
   it('ignores metrics-only signals — they change nothing (SC3)', () => {
-    const out = reconcilePassed(
-      { deps: { passed: true }, entropy: { passed: true } },
-      ['high-coupling', 'low-coverage', 'anomaly-outlier']
-    );
+    const out = reconcilePassed({ deps: { passed: true }, entropy: { passed: true } }, [
+      'high-coupling',
+      'low-coverage',
+      'anomaly-outlier',
+    ]);
     expect(out.deps.passed).toBe(true);
     expect(out.entropy.passed).toBe(true);
   });
