@@ -12,6 +12,7 @@ import { serializeRoadmap } from './serialize';
 import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
 import { resolveReverseStatus } from './tracker-sync';
 import { isRegression } from './status-rank';
+import { isMachineAssignee } from './assignee-lifecycle';
 // Known adapters: adapters/github-issues.ts (GitHubIssuesSyncAdapter).
 // This module consumes adapters via the TrackerSyncAdapter interface.
 // Changes to the interface contract require updating both this file and all adapters.
@@ -125,8 +126,11 @@ function applyTicketToFeature(
   forceSync: boolean,
   result: SyncResult
 ): void {
-  // Assignee: external wins
-  if (ticketState.assignee !== feature.assignee) {
+  // Assignee: external wins — EXCEPT a live machine claim, which is local
+  // truth. A machine assignee (orchestrator id) is never pushed to the external
+  // assignee field, so inbound state can only ever lag or contradict it; never
+  // let it clobber the running claim (that was the silent-skip bug).
+  if (!isMachineAssignee(feature.assignee) && ticketState.assignee !== feature.assignee) {
     result.assignmentChanges.push({
       feature: feature.name,
       from: feature.assignee,
