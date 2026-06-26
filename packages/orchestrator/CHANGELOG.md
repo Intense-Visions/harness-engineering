@@ -1,5 +1,52 @@
 # @harness-engineering/orchestrator
 
+## 0.8.4
+
+### Patch Changes
+
+- 32bc061: feat(roadmap): assignee means "who is executing" — set at execution, not selection
+
+  Establish the invariant **`assignee ≠ null ⟺ status == in-progress`**, owned by a
+  single core authority (`packages/core/src/roadmap/assignee-lifecycle.ts`), so the
+  roadmap assignee always names the _current executor_ (human or machine) and never a
+  future-intended owner.
+  - **New core authority** exports `isMachineAssignee`, `assigneeInvariantHolds`,
+    `isClaimableBy`, `claim` (compare-and-set, first-claim-wins), `release`, and
+    `setStatus` (auto-clears the assignee on any transition away from in-progress).
+  - **roadmap-pilot** no longer writes the assignee at selection; **harness-execution**
+    claims at execution start (stopping cleanly when identity is unresolvable). This fixes
+    the orchestrator silently skipping pilot-touched items.
+  - **Machine claims never use the GitHub assignee field**: outbound sync drops the
+    authenticated-user launder, inbound sync never clobbers a live `orchestrator-*` claim.
+    The dead `getAuthenticatedUser` path is removed.
+  - **Enforcement:** new health rule **RMH005** fails `harness validate` on any
+    non-in-progress row carrying an assignee; `groom` auto-clears such rows.
+  - The orchestrator completion path and inbound status sync now route status changes
+    through `setStatus()`, so a completed/synced row releases its machine claim instead of
+    leaving an invariant-violating `done`+`orchestrator-*` row. `manage_roadmap update`
+    surfaces a refused claim explicitly (`claimed: false`, `isError`) under first-claim-wins.
+
+  See ADR-0045 (`docs/knowledge/decisions/0045-assignee-is-an-execution-claim.md`).
+
+- e16d5fa: fix(orchestrator): batch open-PR checks to avoid exhausting GitHub's API rate limit
+
+  `filterCandidatesWithOpenPRs` issued one `gh pr list --search "closes #N"` query
+  per candidate on every tick. Every `gh pr list` form is served by GitHub's GraphQL
+  API and draws from the shared ~5000/hr budget, so the per-issue fan-out exhausted
+  the limit on busy boards. Once exhausted, every check threw, the fail-open path
+  passed all candidates through, and PR-guarded issues were redispatched (duplicate
+  work).
+
+  Checks are now batched: one `gh pr list --repo X --state open --json body` call
+  per distinct repo (via `fetchOpenPRClosures`), with closing-issue references parsed
+  locally — collapsing N requests/tick into one per repo. Identifier-only candidates
+  keep the per-candidate `--head` lookup; non-GitHub externalId candidates now
+  correctly fall back to branch lookup instead of always passing through. Fail-open
+  behavior is preserved.
+
+- Updated dependencies [32bc061]
+  - @harness-engineering/core@0.31.0
+
 ## 0.8.3
 
 ### Patch Changes

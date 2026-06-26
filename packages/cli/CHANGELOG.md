@@ -1,5 +1,56 @@
 # @harness-engineering/cli
 
+## 3.1.0
+
+### Minor Changes
+
+- 32bc061: feat(roadmap): assignee means "who is executing" — set at execution, not selection
+
+  Establish the invariant **`assignee ≠ null ⟺ status == in-progress`**, owned by a
+  single core authority (`packages/core/src/roadmap/assignee-lifecycle.ts`), so the
+  roadmap assignee always names the _current executor_ (human or machine) and never a
+  future-intended owner.
+  - **New core authority** exports `isMachineAssignee`, `assigneeInvariantHolds`,
+    `isClaimableBy`, `claim` (compare-and-set, first-claim-wins), `release`, and
+    `setStatus` (auto-clears the assignee on any transition away from in-progress).
+  - **roadmap-pilot** no longer writes the assignee at selection; **harness-execution**
+    claims at execution start (stopping cleanly when identity is unresolvable). This fixes
+    the orchestrator silently skipping pilot-touched items.
+  - **Machine claims never use the GitHub assignee field**: outbound sync drops the
+    authenticated-user launder, inbound sync never clobbers a live `orchestrator-*` claim.
+    The dead `getAuthenticatedUser` path is removed.
+  - **Enforcement:** new health rule **RMH005** fails `harness validate` on any
+    non-in-progress row carrying an assignee; `groom` auto-clears such rows.
+  - The orchestrator completion path and inbound status sync now route status changes
+    through `setStatus()`, so a completed/synced row releases its machine claim instead of
+    leaving an invariant-violating `done`+`orchestrator-*` row. `manage_roadmap update`
+    surfaces a refused claim explicitly (`claimed: false`, `isError`) under first-claim-wins.
+
+  See ADR-0045 (`docs/knowledge/decisions/0045-assignee-is-an-execution-claim.md`).
+
+- 1997504: Rename the `quality-gate` hook to `quality-warner` and add a blocking `strict-quality-gate` variant.
+
+  The standard-profile hook formerly named `quality-gate` never blocked (it warns on
+  stderr and always exits 0), so the name implied enforcement it did not provide. It is
+  now `quality-warner`, matching its behavior. A new strict-profile hook,
+  `strict-quality-gate`, **exits 2 on genuine format/lint violations** (surfacing them to
+  the agent as a must-fix) and fails open — warning and exiting 0 — when the formatter is
+  absent, times out, or its output is unparseable. Both hooks share detection through a new
+  support module, `format-check.js`, which the installer ships alongside whichever quality
+  hook is active.
+
+  **Action required:** re-run `harness hooks init` (or update via plugin) to replace the
+  old `quality-gate.js` with `quality-warner.js` + `format-check.js`. There is no
+  back-compat alias; the installer self-heals on re-init.
+
+### Patch Changes
+
+- Updated dependencies [32bc061]
+- Updated dependencies [e16d5fa]
+  - @harness-engineering/core@0.31.0
+  - @harness-engineering/orchestrator@0.8.4
+  - @harness-engineering/dashboard@0.10.1
+
 ## 3.0.1
 
 ### Patch Changes
