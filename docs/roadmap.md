@@ -50,7 +50,7 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 ### Reconcile health-snapshot.json passed flags with active signals
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/health-snapshot-signal-honesty/proposal.md
 - **Summary:** `.harness/health-snapshot.json` reports `entropy.passed: true` while listing "dead-code" in `signals[]`; same for docs (`passed: true`, `undocumentedCount: 27481`) and security (`passed: true`, `findingCount: 16`). The harness's own dogfooded output says all checks "passed" while listing seven active drift signals. Make `checks.X.passed` return `false` when `signals[]` includes the corresponding signal name. Source: Pass 1 #2.
 - **Blockers:** —
 - **Plan:** —
