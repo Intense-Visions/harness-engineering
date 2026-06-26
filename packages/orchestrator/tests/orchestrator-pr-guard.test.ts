@@ -347,15 +347,11 @@ describe('filterCandidatesWithOpenPRs', () => {
     });
   });
 
-  it('uses externalId check when candidate has externalId', async () => {
+  it('uses a batched repo-list check (not per-issue --search) for externalId candidates', async () => {
     mockExecFile.mockImplementation(
-      (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-        // externalId-based search finds an open PR
-        if (args.includes('closes #42')) {
-          cb(null, { stdout: '1\n', stderr: '' });
-        } else {
-          cb(null, { stdout: '0\n', stderr: '' });
-        }
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        // Repo-wide open-PR list; one open PR closes #42.
+        cb(null, { stdout: JSON.stringify([{ body: 'Closes #42' }]), stderr: '' });
       }
     );
 
@@ -370,13 +366,40 @@ describe('filterCandidatesWithOpenPRs', () => {
 
     const result = await detector.filterCandidatesWithOpenPRs(candidates);
     expect(result).toHaveLength(0);
-    // Should use --search "closes #42", not --head "feat/..."
-    expect(mockExecFile).toHaveBeenCalledWith(
-      'gh',
-      expect.arrayContaining(['--search', 'closes #42']),
-      expect.any(Object),
-      expect.any(Function)
+    // Batched: a single `gh pr list --repo ... --state open`, never the
+    // rate-limit-prone GraphQL `--search` form.
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
+    const args = mockExecFile.mock.calls[0]![1] as string[];
+    expect(args).not.toContain('--search');
+    expect(args).toEqual(
+      expect.arrayContaining(['pr', 'list', '--repo', 'acme/repo', '--state', 'open'])
     );
+  });
+
+  it('issues exactly one gh call for many issues in the same repo (no N+1)', async () => {
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(null, { stdout: JSON.stringify([{ body: 'Closes #527' }]), stderr: '' });
+      }
+    );
+
+    const candidates = [527, 640, 528].map((n) =>
+      makeIssue({
+        id: `id-${n}`,
+        identifier: `issue-${n}`,
+        title: `Issue ${n}`,
+        externalId: `github:Intense-Visions/harness-engineering#${n}`,
+      })
+    );
+
+    const result = await detector.filterCandidatesWithOpenPRs(candidates);
+    // One repo => one gh call regardless of candidate count.
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
+    // Only #527 has an open PR; the other two pass through.
+    expect(result.map((c: Issue) => c.externalId)).toEqual([
+      'github:Intense-Visions/harness-engineering#640',
+      'github:Intense-Visions/harness-engineering#528',
+    ]);
   });
 
   it('falls back to identifier check when candidate has no externalId', async () => {
@@ -454,20 +477,22 @@ describe('filterCandidatesWithOpenPRs', () => {
     expect(result[0].id).toBe('1');
   });
 
-  it('handles mixed candidates: externalId, no externalId, and API failure', async () => {
+  it('handles mixed candidates: batched externalId, identifier, and a failing repo (fail-open)', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-        // externalId candidate with open PR
-        if (args.includes('closes #42')) {
-          cb(null, { stdout: '1\n', stderr: '' });
+        // Batched repo list for acme/repo: one open PR closes #42.
+        if (args.includes('--repo') && args.includes('acme/repo')) {
+          cb(null, { stdout: JSON.stringify([{ body: 'Closes #42' }]), stderr: '' });
         }
-        // identifier candidate without open PR
+        // Batched repo list for other/repo fails (rate limited).
+        else if (args.includes('--repo') && args.includes('other/repo')) {
+          cb(new Error('rate limited'), { stdout: '', stderr: '' });
+        }
+        // Identifier candidate without an open PR.
         else if (args.includes('feat/no-pr-ddd44444')) {
           cb(null, { stdout: '0\n', stderr: '' });
-        }
-        // API failure for third candidate
-        else {
-          cb(new Error('rate limited'), { stdout: '', stderr: '' });
+        } else {
+          cb(null, { stdout: '0\n', stderr: '' });
         }
       }
     );
@@ -489,14 +514,14 @@ describe('filterCandidatesWithOpenPRs', () => {
         id: '3',
         identifier: 'api-fail-fff66666',
         title: 'API failure candidate',
-        externalId: 'github:acme/repo#99',
+        externalId: 'github:other/repo#99',
       }),
     ];
 
     const result = await detector.filterCandidatesWithOpenPRs(candidates);
-    // Candidate 1: excluded (open PR via externalId)
+    // Candidate 1: excluded (open PR closes #42)
     // Candidate 2: included (no open PR via identifier)
-    // Candidate 3: included (fail-open on API error)
+    // Candidate 3: included (fail-open: other/repo list call errored)
     expect(result).toHaveLength(2);
     expect(result.map((c: Issue) => c.id)).toEqual(['2', '3']);
   });
@@ -521,11 +546,11 @@ describe('filterCandidatesWithOpenPRs', () => {
       }),
     ];
 
-    // parseExternalId returns null for non-GitHub, so hasOpenPRForExternalId returns false
-    // But the candidate still has a non-null externalId, so it uses externalId path
-    // which returns false (non-GitHub format), meaning candidate passes through
+    // A non-GitHub externalId is not parseable as a GitHub issue, so the
+    // candidate falls back to the feat/<identifier> branch lookup. That branch
+    // has an open PR, so the candidate is correctly excluded (no redispatch).
     const result = await detector.filterCandidatesWithOpenPRs(candidates);
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(0);
   });
 });
 
@@ -603,8 +628,9 @@ describe('asyncTick PR filtering', () => {
 
     mockExecFile.mockImplementation(
       (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-        if (args.includes('closes #42')) {
-          cb(null, { stdout: '1\n', stderr: '' });
+        // Batched repo list: one open PR closes #42.
+        if (args.includes('--repo')) {
+          cb(null, { stdout: JSON.stringify([{ body: 'Closes #42' }]), stderr: '' });
         } else {
           cb(null, { stdout: '0\n', stderr: '' });
         }
@@ -616,7 +642,7 @@ describe('asyncTick PR filtering', () => {
     const snapshot = orchestrator.getSnapshot();
     const claimedIds = snapshot.claimed as string[];
 
-    // Should be excluded via externalId check
+    // Should be excluded via batched externalId check
     expect(claimedIds).not.toContain('ext-id-pr');
   });
 
