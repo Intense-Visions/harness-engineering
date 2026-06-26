@@ -1,3 +1,9 @@
+---
+type: business_concept
+domain: core
+tags: [health-signals, signal-registry, reconcile, health-snapshot, contract]
+---
+
 # Health-signal contract
 
 **Concept:** `health-signal-contract` — a single registry from which the
