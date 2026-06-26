@@ -168,5 +168,17 @@ describe('graph commands', () => {
       expect(subcommands).toContain('status');
       expect(subcommands).toContain('export');
     });
+
+    // Regression for #644: `harness graph scan` must exist. The update hook
+    // (runLocalGraphScan) and its fallback message invoke `harness graph scan`,
+    // and graph operations should be reachable under the `graph` group — not
+    // only as top-level commands.
+    it('exposes scan, query, and ingest as graph subcommands', () => {
+      const cmd = createGraphCommand();
+      const subcommands = cmd.commands.map((c) => c.name());
+      expect(subcommands).toContain('scan');
+      expect(subcommands).toContain('query');
+      expect(subcommands).toContain('ingest');
+    });
   });
 });
