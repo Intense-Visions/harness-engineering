@@ -14,8 +14,9 @@ monotonically-toward-fail against active signals.
 
 `packages/core/src/health-signals/index.ts` owns the canonical health-signal
 vocabulary. `SIGNAL_REGISTRY` is the single source of truth: an array of
-`{ name, check }` where `check` is a `CheckKey` or `null` (metrics-only). From it
-are derived:
+`{ name, check, category }` where `check` is a `CheckKey` or `null` (metrics-only)
+and `category` single-sources `SIGNAL_CATEGORY_MAP` (the parallel-safety bucket,
+`null` when the signal belongs to no bucket). From it are derived:
 
 - `SignalName` — the union of all signal names.
 - `CHECK_SIGNAL_MAP` — `CheckKey -> SignalName[]` (many-to-one), built by grouping
