@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { SignalName } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 
 /** Granular check results from assess_project and related tools. */
@@ -101,7 +102,7 @@ export function saveCachedSnapshot(snapshot: HealthSnapshot, projectPath: string
 // ---------------------------------------------------------------------------
 
 /** Signal derivation rules: [signalName, predicate]. */
-const SIGNAL_RULES: Array<[string, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
+const SIGNAL_RULES: Array<[SignalName, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
   ['circular-deps', (c) => c.deps.circularDeps > 0],
   ['layer-violations', (c) => c.deps.layerViolations > 0],
   ['dead-code', (c) => c.entropy.deadExports > 0 || c.entropy.deadFiles > 0],
