@@ -25,13 +25,24 @@ false-negatives.
 contract owned by `@harness-engineering/core`, in `packages/core/src/health-signals/`.**
 
 - One `SIGNAL_REGISTRY` list is the only literal declaration of signal names.
-  `CHECK_SIGNAL_MAP` (check -> contradicting signals, many-to-one) and the
-  `SignalName` union are DERIVED from it. A metrics-only signal is marked
-  `check: null` and never maps to a check.
+  Each entry carries `check` (the contradicting check, `null` for metrics-only)
+  and `category` (the parallel-safety bucket, `null` for uncategorized). The
+  `CHECK_SIGNAL_MAP` (check -> contradicting signals, many-to-one), the `SignalName`
+  union, `SIGNAL_CATEGORY_MAP` (signal -> category, null categories omitted), and
+  `HEALTH_SIGNAL_NAMES` (ordered health-name list) are all DERIVED from it.
+- The registry is the single source for THREE formerly-overlapping lists (SC4
+  unification): the cli's `SIGNAL_CATEGORIES` (`dispatch-engine.ts`) re-exports
+  `SIGNAL_CATEGORY_MAP`, and the health portion of the cli's `HEALTH_SIGNALS`
+  (`recommendation-types.ts`) is spread from `HEALTH_SIGNAL_NAMES`. The cli-local
+  `CHANGE_SIGNALS` and `DOMAIN_SIGNALS` (change-type + domain identifiers) stay in
+  the cli: they are a dispatch concern, not health vocabulary, and the layer rule
+  forbids core importing them. Behavior is preserved exactly — `SIGNAL_CATEGORIES`
+  keeps its 9 keys/values and `HEALTH_SIGNALS` its 28 names in order.
 - Both consumers import the contract: the cli capture path (`SIGNAL_RULES` typing +
-  `reconcilePassed`) and the core `strength-007` detector. Neither re-declares a
-  local map. This respects the cli->core layer direction: the contract lives in
-  core; the cli imports it; core must not import cli.
+  `reconcilePassed`), the cli dispatch/recommendation modules (categories + health
+  names), and the core `strength-007` detector. Neither re-declares a local map.
+  This respects the cli->core layer direction: the contract lives in core; the cli
+  imports it; core must not import cli.
 - `reconcilePassed` is a conjunction (`passed && !contradictingSignalPresent`),
   monotonic toward fail — it can demote a dishonest pass but never promote a real
   failure to green, and preserves assess failures with no signal (e.g. lint).
@@ -41,9 +52,10 @@ contract owned by `@harness-engineering/core`, in `packages/core/src/health-sign
 ## Consequences
 
 - Adding a signal is a single registry entry that flows to the name union, the check
-  map, and the cli's `SIGNAL_RULES` typing automatically — the drift class is removed,
-  not just the current symptom.
-- A future contributor must not re-introduce a local signal<->check map in cli or
-  core; extend `SIGNAL_REGISTRY` instead.
+  map, the category map, the ordered health-name list, and the cli's `SIGNAL_RULES`
+  typing automatically — the drift class is removed, not just the current symptom.
+- A future contributor must not re-introduce a local signal<->check map, signal
+  category literal, or health-name list in cli or core; extend `SIGNAL_REGISTRY`
+  instead. (change-type/domain signals remain legitimately cli-local.)
 - Read-path stale caches are out of scope; they self-heal on regeneration and
   `strength-007` flags any that persist.

@@ -44,29 +44,44 @@ The single source of truth for the health-signal vocabulary and its mapping to c
 
 ```ts
 export type CheckKey = 'deps' | 'entropy' | 'security' | 'perf' | 'docs' | 'lint';
+export type SignalCategory = 'structure' | 'quality' | 'security' | 'performance' | 'coverage';
 
 // THE single source of truth. `check: null` marks a metrics-only signal that
-// maps to no check (it must never affect any `passed` flag).
+// maps to no check (it must never affect any `passed` flag). `category` is the
+// independent parallel-safety bucket (null = uncategorized). Declaration order
+// is significant: HEALTH_SIGNAL_NAMES is derived from it.
 export const SIGNAL_REGISTRY = [
-  { name: 'circular-deps',      check: 'deps' },
-  { name: 'layer-violations',   check: 'deps' },
-  { name: 'dead-code',          check: 'entropy' },
-  { name: 'drift',              check: 'entropy' },
-  { name: 'security-findings',  check: 'security' },
-  { name: 'doc-gaps',           check: 'docs' },
-  { name: 'perf-regression',    check: 'perf' },
-  { name: 'anomaly-outlier',    check: null },
-  { name: 'articulation-point', check: null },
-  { name: 'high-coupling',      check: null },
-  { name: 'high-complexity',    check: null },
-  { name: 'low-coverage',       check: null },
-] as const satisfies ReadonlyArray<{ name: string; check: CheckKey | null }>;
+  { name: 'circular-deps',      check: 'deps',     category: 'structure'   },
+  { name: 'layer-violations',   check: 'deps',     category: 'structure'   },
+  { name: 'high-coupling',      check: null,       category: 'structure'   },
+  { name: 'high-complexity',    check: null,       category: null          },
+  { name: 'low-coverage',       check: null,       category: 'coverage'    },
+  { name: 'dead-code',          check: 'entropy',  category: 'quality'     },
+  { name: 'drift',              check: 'entropy',  category: 'quality'     },
+  { name: 'security-findings',  check: 'security', category: 'security'    },
+  { name: 'doc-gaps',           check: 'docs',     category: 'quality'     },
+  { name: 'perf-regression',    check: 'perf',     category: 'performance' },
+  { name: 'anomaly-outlier',    check: null,       category: null          },
+  { name: 'articulation-point', check: null,       category: null          },
+] as const satisfies ReadonlyArray<{
+  name: string;
+  check: CheckKey | null;
+  category: SignalCategory | null;
+}>;
 
 export type SignalName = (typeof SIGNAL_REGISTRY)[number]['name'];
 
 // Derived: check -> contradicting signal names (many-to-one). Built by grouping
 // SIGNAL_REGISTRY on `check`, skipping null. No second hand-maintained list.
 export const CHECK_SIGNAL_MAP: Record<CheckKey, SignalName[]> = /* derived */;
+
+// Derived: signal name -> parallel-safety category, EXCLUDING null categories.
+// Re-exported by the cli as SIGNAL_CATEGORIES (was a separate 9-entry literal).
+export const SIGNAL_CATEGORY_MAP: Record<string, SignalCategory> = /* derived */;
+
+// Derived: ordered list of the 12 health-signal names. The cli spreads this
+// into its HEALTH_SIGNALS const ahead of the cli-local change/domain signals.
+export const HEALTH_SIGNAL_NAMES: readonly SignalName[] = /* derived */;
 
 // Pure reconciliation: for each check, passed stays true only if assess passed
 // AND no contradicting signal is present. Never flips false -> true.
@@ -77,6 +92,8 @@ export function reconcilePassed<C extends Record<string, { passed: boolean }>>(
 ```
 
 `lint` intentionally has no registry entry (no lint signal is derived today); its `passed` is therefore governed solely by `assess`, which the conjunction preserves.
+
+The registry single-sources three previously-overlapping lists (SC4 unification): the cli's `SIGNAL_CATEGORIES` (`dispatch-engine.ts`) is now `= SIGNAL_CATEGORY_MAP`, and the health portion of the cli's `HEALTH_SIGNALS` (`recommendation-types.ts`) is spread from `HEALTH_SIGNAL_NAMES`. The cli-local `CHANGE_SIGNALS` (4) and `DOMAIN_SIGNALS` (12) stay in the cli — they are a dispatch concern, not health vocabulary, and the layer rule forbids core importing them. `HEALTH_SIGNALS` remains the same 28 names in the same order (12 health, 4 change, 12 domain); `SIGNAL_CATEGORIES` keeps the same 9 keys/values; the metrics-only signals (`high-complexity`, `anomaly-outlier`, `articulation-point`) stay uncategorized (`getSignalCategory` returns null).
 
 ### cli: `packages/cli/src/skill/health-snapshot.ts`
 
@@ -109,7 +126,7 @@ const reconciledChecks = reconcilePassed(checks, signals);
 1. A snapshot returned by `captureHealthSnapshot` never has `checks[k].passed === true` while any signal in `CHECK_SIGNAL_MAP[k]` is present in `signals[]` (test: inject contradicting counts, assert demotion).
 2. Reconciliation is a conjunction: a check that `assess` reports as failing with no corresponding signal stays `passed: false` (regression test, exercised via `lint`).
 3. Metrics-only signals (`check: null`, e.g. `high-coupling`) never change any `passed` flag.
-4. `SIGNAL_REGISTRY` is the only literal declaration of signal names; `CHECK_SIGNAL_MAP` and `SignalName` are derived from it (no second name list anywhere in cli or core).
+4. `SIGNAL_REGISTRY` is the only literal declaration of health-signal names and their parallel-safety categories; `CHECK_SIGNAL_MAP`, `SignalName`, `SIGNAL_CATEGORY_MAP`, and `HEALTH_SIGNAL_NAMES` are derived from it. The cli's `SIGNAL_CATEGORIES` re-exports `SIGNAL_CATEGORY_MAP` (no second category literal) and `HEALTH_SIGNALS` spreads `HEALTH_SIGNAL_NAMES` for its health portion (no second health-name list); only the cli-local change/domain signals remain cli-owned. Equivalence preserved: `SIGNAL_CATEGORIES` has the same 9 keys/values and `HEALTH_SIGNALS` the same 28 names in the same order as before.
 5. `strength-007` consumes the derived map and fires on entropy/deps/docs mismatches — a regression test reproduces the prior silent false-negative and proves it now fails closed.
 6. `deriveSignals` output is unchanged for given `(checks, metrics)` inputs (no signal-vocabulary regression).
 7. `harness validate`, typecheck, lint, and the full test suite pass.
