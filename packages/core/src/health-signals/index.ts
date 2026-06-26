@@ -54,7 +54,7 @@ export const CHECK_SIGNAL_MAP: Record<CheckKey, SignalName[]> = Object.fromEntri
  * AND no contradicting signal is present. Conjunction, monotonic toward fail —
  * never flips false -> true. Returns a new object; does not mutate `checks`.
  */
-export function reconcilePassed<C extends Record<string, { passed: boolean }>>(
+export function reconcilePassed<C extends Record<keyof C, { passed: boolean }>>(
   checks: C,
   signals: readonly string[]
 ): C {
