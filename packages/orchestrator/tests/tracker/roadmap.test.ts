@@ -388,6 +388,9 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       // Assignee cleared to null; with Priority and External-ID also null,
       // the serializer omits the entire extended-fields group.
       expect(written).not.toContain('**Assignee:**');
+      // Release is routed through the lifecycle authority, so it logs an
+      // `unassigned` history record (audit symmetry with claim/complete).
+      expect(written).toContain('| Task 1 | orch-abc123 | unassigned |');
     });
 
     it('is a no-op when the feature is not found', async () => {

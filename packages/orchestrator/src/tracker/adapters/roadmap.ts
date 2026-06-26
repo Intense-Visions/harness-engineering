@@ -200,8 +200,13 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Ok(undefined);
       }
 
-      target.status = activeState as FeatureStatus;
-      target.assignee = null;
+      // Route the release through the lifecycle authority so the assignee is
+      // cleared with an `unassigned` history record (audit symmetry with
+      // claimIssue/markIssueComplete), rather than a bare field mutation that
+      // skips the history. activeStates[0] is a non-in-progress state, so
+      // setStatus clears the assignee.
+      const now = new Date().toISOString();
+      setFeatureStatus(roadmap, target, activeState as FeatureStatus, now.slice(0, 10));
       target.updatedAt = null;
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
