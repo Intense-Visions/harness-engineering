@@ -5,6 +5,9 @@ import {
   serializeRoadmap,
   // The assignee-lifecycle authority owns the claim transition + invariant.
   claim as claimFeature,
+  // setStatus is the status-change chokepoint: moving away from in-progress
+  // auto-clears the assignee, preserving `assignee ≠ null ⟺ in-progress` (RMH005).
+  setStatus as setFeatureStatus,
   // Phase 1 of the file-less roadmap proposal: tracker types have their
   // canonical home in core/roadmap/tracker/ (source path); re-exported
   // from the @harness-engineering/core package root for consumers.
@@ -108,7 +111,12 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       const normalizedTerminal = this.config.terminalStates.map((s) => s.toLowerCase());
       if (normalizedTerminal.includes(target.status.toLowerCase())) return Ok(undefined);
 
-      target.status = terminal as FeatureStatus;
+      // Route the terminal transition through the lifecycle authority so the
+      // assignee auto-clears (and an `unassigned` history record is logged).
+      // A bare `target.status = terminal` would leave a `done` row still
+      // carrying `assignee = orchestrator-*`, violating RMH005.
+      const now = new Date().toISOString();
+      setFeatureStatus(roadmap, target, terminal as FeatureStatus, now.slice(0, 10));
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
