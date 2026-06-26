@@ -67,6 +67,20 @@ export {
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
 
 /**
+ * Assignee lifecycle authority — the `assignee ≠ null ⟺ in-progress` invariant,
+ * the single machine-id predicate, and the claim/release/setStatus transitions.
+ * @see ./assignee-lifecycle.ts
+ */
+export {
+  isMachineAssignee,
+  assigneeInvariantHolds,
+  pushAssigneeToExternal,
+  claim,
+  release,
+  setStatus,
+} from './assignee-lifecycle';
+
+/**
  * File-less pilot scoring (D4: priority + createdAt ascending).
  */
 export { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
