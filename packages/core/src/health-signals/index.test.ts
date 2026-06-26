@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { SIGNAL_REGISTRY, CHECK_SIGNAL_MAP, reconcilePassed } from './index';
+import {
+  SIGNAL_REGISTRY,
+  CHECK_SIGNAL_MAP,
+  SIGNAL_CATEGORY_MAP,
+  HEALTH_SIGNAL_NAMES,
+  reconcilePassed,
+} from './index';
 
 describe('SIGNAL_REGISTRY', () => {
   it('declares the real signal vocabulary with check mappings', () => {
@@ -60,6 +66,73 @@ describe('CHECK_SIGNAL_MAP (derived, SC4)', () => {
     ]) {
       expect(all).not.toContain(s);
     }
+  });
+});
+
+describe('SIGNAL_CATEGORY_MAP (derived, SC4 — single-sources parallel-safety categories)', () => {
+  it('maps exactly the categorized signals to their category, omitting null', () => {
+    expect(SIGNAL_CATEGORY_MAP).toEqual({
+      'circular-deps': 'structure',
+      'layer-violations': 'structure',
+      'high-coupling': 'structure',
+      'low-coverage': 'coverage',
+      'dead-code': 'quality',
+      drift: 'quality',
+      'security-findings': 'security',
+      'doc-gaps': 'quality',
+      'perf-regression': 'performance',
+    });
+  });
+
+  it('reproduces the legacy structure/quality/security/performance/coverage grouping exactly', () => {
+    const byCategory = (cat: string) =>
+      Object.entries(SIGNAL_CATEGORY_MAP)
+        .filter(([, c]) => c === cat)
+        .map(([name]) => name)
+        .sort();
+    expect(byCategory('structure')).toEqual(
+      ['circular-deps', 'layer-violations', 'high-coupling'].sort()
+    );
+    expect(byCategory('quality')).toEqual(['dead-code', 'drift', 'doc-gaps'].sort());
+    expect(byCategory('security')).toEqual(['security-findings']);
+    expect(byCategory('performance')).toEqual(['perf-regression']);
+    expect(byCategory('coverage')).toEqual(['low-coverage']);
+  });
+
+  it('excludes every uncategorized (category: null) signal — metrics-only stay null', () => {
+    for (const name of ['high-complexity', 'anomaly-outlier', 'articulation-point']) {
+      expect(SIGNAL_CATEGORY_MAP).not.toHaveProperty(name);
+    }
+  });
+
+  it('only ever contains the five known categories as values', () => {
+    const valid = new Set(['structure', 'quality', 'security', 'performance', 'coverage']);
+    for (const c of Object.values(SIGNAL_CATEGORY_MAP)) {
+      expect(valid.has(c)).toBe(true);
+    }
+  });
+});
+
+describe('HEALTH_SIGNAL_NAMES (derived, SC4 — single source for cli HEALTH_SIGNALS)', () => {
+  it('lists all 12 registry signal names in registry order', () => {
+    expect([...HEALTH_SIGNAL_NAMES]).toEqual([
+      'circular-deps',
+      'layer-violations',
+      'high-coupling',
+      'high-complexity',
+      'low-coverage',
+      'dead-code',
+      'drift',
+      'security-findings',
+      'doc-gaps',
+      'perf-regression',
+      'anomaly-outlier',
+      'articulation-point',
+    ]);
+  });
+
+  it('is exactly the registry name list (no drift between the two)', () => {
+    expect([...HEALTH_SIGNAL_NAMES]).toEqual(SIGNAL_REGISTRY.map((s) => s.name));
   });
 });
 

@@ -17,25 +17,48 @@ export type CheckKey = 'deps' | 'entropy' | 'security' | 'perf' | 'docs' | 'lint
 const CHECK_KEYS: readonly CheckKey[] = ['deps', 'entropy', 'security', 'perf', 'docs', 'lint'];
 
 /**
+ * Parallel-safety category for a health signal. A `null` category marks a
+ * signal that the dispatch engine never groups for parallel safety (metrics-only
+ * or otherwise uncategorized). See SC4: this is single-sourced here in core; the
+ * cli derives `SIGNAL_CATEGORIES` from `SIGNAL_CATEGORY_MAP`.
+ */
+export type SignalCategory = 'structure' | 'quality' | 'security' | 'performance' | 'coverage';
+
+/**
  * THE single source of truth. `check: null` marks a metrics-only signal that
- * maps to no check (it must never affect any `passed` flag).
+ * maps to no check (it must never affect any `passed` flag). `category` is the
+ * parallel-safety bucket (null = uncategorized); it is INDEPENDENT of `check`.
+ *
+ * Order matters: `HEALTH_SIGNAL_NAMES` (and therefore the cli's `HEALTH_SIGNALS`
+ * health portion) is derived from this array in declaration order.
  */
 export const SIGNAL_REGISTRY = [
-  { name: 'circular-deps', check: 'deps' },
-  { name: 'layer-violations', check: 'deps' },
-  { name: 'dead-code', check: 'entropy' },
-  { name: 'drift', check: 'entropy' },
-  { name: 'security-findings', check: 'security' },
-  { name: 'doc-gaps', check: 'docs' },
-  { name: 'perf-regression', check: 'perf' },
-  { name: 'anomaly-outlier', check: null },
-  { name: 'articulation-point', check: null },
-  { name: 'high-coupling', check: null },
-  { name: 'high-complexity', check: null },
-  { name: 'low-coverage', check: null },
-] as const satisfies ReadonlyArray<{ name: string; check: CheckKey | null }>;
+  { name: 'circular-deps', check: 'deps', category: 'structure' },
+  { name: 'layer-violations', check: 'deps', category: 'structure' },
+  { name: 'high-coupling', check: null, category: 'structure' },
+  { name: 'high-complexity', check: null, category: null },
+  { name: 'low-coverage', check: null, category: 'coverage' },
+  { name: 'dead-code', check: 'entropy', category: 'quality' },
+  { name: 'drift', check: 'entropy', category: 'quality' },
+  { name: 'security-findings', check: 'security', category: 'security' },
+  { name: 'doc-gaps', check: 'docs', category: 'quality' },
+  { name: 'perf-regression', check: 'perf', category: 'performance' },
+  { name: 'anomaly-outlier', check: null, category: null },
+  { name: 'articulation-point', check: null, category: null },
+] as const satisfies ReadonlyArray<{
+  name: string;
+  check: CheckKey | null;
+  category: SignalCategory | null;
+}>;
 
 export type SignalName = (typeof SIGNAL_REGISTRY)[number]['name'];
+
+/**
+ * Derived: the ordered list of all health-signal names. The cli spreads this
+ * into its `HEALTH_SIGNALS` const (followed by its cli-local change/domain
+ * signals) so the health vocabulary is never hand-maintained twice.
+ */
+export const HEALTH_SIGNAL_NAMES: readonly SignalName[] = SIGNAL_REGISTRY.map((s) => s.name);
 
 /**
  * Derived: check -> contradicting signal names (many-to-one). Built by grouping
@@ -48,6 +71,19 @@ export const CHECK_SIGNAL_MAP: Record<CheckKey, SignalName[]> = Object.fromEntri
     SIGNAL_REGISTRY.filter((s) => s.check === key).map((s) => s.name),
   ])
 ) as Record<CheckKey, SignalName[]>;
+
+/**
+ * Derived: signal name -> parallel-safety category, EXCLUDING signals whose
+ * `category` is null. Built by filtering SIGNAL_REGISTRY on a non-null category.
+ * This is the single source the cli re-exports as `SIGNAL_CATEGORIES`; a signal
+ * absent here (e.g. high-complexity, anomaly-outlier, articulation-point, or any
+ * change/domain signal) is uncategorized and `getSignalCategory` returns null.
+ */
+export const SIGNAL_CATEGORY_MAP: Record<string, SignalCategory> = Object.fromEntries(
+  SIGNAL_REGISTRY.filter(
+    (s): s is typeof s & { category: SignalCategory } => s.category !== null
+  ).map((s) => [s.name, s.category])
+);
 
 /**
  * Pure reconciliation: for each check, `passed` stays true only if assess passed
