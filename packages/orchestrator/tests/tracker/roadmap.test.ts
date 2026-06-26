@@ -205,6 +205,56 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
         expect(result.error.message).toMatch(/terminalStates/);
       }
     });
+
+    it('clears the orchestrator assignee when marking complete (RMH005 invariant)', async () => {
+      // The completed row must NOT carry a stale machine claim — a `done` row
+      // with `assignee = orchestrator-*` is exactly the RMH005 violation the
+      // assignee-execution-lifecycle feature forbids.
+      const inProgressClaimed = writableRoadmap
+        .replace('**Status:** in-progress', '**Status:** in-progress')
+        .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orchestrator-5c895000');
+      vi.mocked(fs.readFile).mockResolvedValue(inProgressClaimed);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.markIssueComplete(idFor('Task 1'));
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
+      // setStatus auto-cleared the assignee on the move away from in-progress.
+      // The field is either omitted or rendered as the null em-dash, but it
+      // must no longer name the orchestrator (the RMH005 violation).
+      expect(written).not.toContain('**Assignee:** orchestrator-5c895000');
+      // The release is recorded as an `unassigned` history entry.
+      expect(written).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
+    });
+
+    it('leaves no assignee after a full claim → complete round-trip', async () => {
+      // Round-trip through the real adapter methods so the fix is exercised
+      // end-to-end: claim writes orchestrator-* assignee, complete clears it.
+      const planned = writableRoadmap.replace('**Status:** in-progress', '**Status:** planned');
+
+      // 1. Claim: planned -> in-progress + assignee.
+      vi.mocked(fs.readFile).mockResolvedValue(planned);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const claimResult = await adapter.claimIssue(idFor('Task 1'), 'orchestrator-5c895000');
+      expect(claimResult.ok).toBe(true);
+      const claimed = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(claimed).toContain('**Assignee:** orchestrator-5c895000');
+
+      // 2. Complete: feed the claimed roadmap back in; expect no assignee.
+      vi.mocked(fs.writeFile).mockClear();
+      vi.mocked(fs.readFile).mockResolvedValue(claimed);
+      const completeResult = await adapter.markIssueComplete(idFor('Task 1'));
+      expect(completeResult.ok).toBe(true);
+      const completed = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(completed).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
+      expect(completed).not.toContain('**Assignee:** orchestrator-5c895000');
+      expect(completed).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
+    });
   });
 
   describe('claimIssue', () => {
@@ -338,6 +388,9 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       // Assignee cleared to null; with Priority and External-ID also null,
       // the serializer omits the entire extended-fields group.
       expect(written).not.toContain('**Assignee:**');
+      // Release is routed through the lifecycle authority, so it logs an
+      // `unassigned` history record (audit symmetry with claim/complete).
+      expect(written).toContain('| Task 1 | orch-abc123 | unassigned |');
     });
 
     it('is a no-op when the feature is not found', async () => {

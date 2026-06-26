@@ -227,7 +227,9 @@ describe('WorkspaceManager', () => {
       // .git / stale-dir checks reject (worktree is new); seed sources under the
       // repo root resolve so they are carried over.
       vi.mocked(fs.access).mockImplementation(async (p) => {
-        const s = String(p);
+        // Normalize separators so the POSIX-style fixtures match on Windows,
+        // where the source builds seed paths with `\` via path.join.
+        const s = String(p).replaceAll('\\', '/');
         if (s.endsWith('.git')) throw new Error('ENOENT');
         if (s.startsWith('/repo/')) return undefined;
         throw new Error('ENOENT');
@@ -294,7 +296,9 @@ describe('WorkspaceManager', () => {
         seedPaths: ['docs/specs'],
       });
       vi.mocked(fs.access).mockImplementation(async (p) => {
-        const s = String(p);
+        // Normalize separators so the POSIX-style fixtures match on Windows,
+        // where the source builds seed paths with `\` via path.join.
+        const s = String(p).replaceAll('\\', '/');
         if (s.endsWith('.git')) throw new Error('ENOENT');
         if (s.startsWith('/repo/')) return undefined;
         throw new Error('ENOENT');
@@ -330,7 +334,9 @@ describe('WorkspaceManager', () => {
         seedPaths: ['/repo/docs/roadmap.md'],
       });
       vi.mocked(fs.access).mockImplementation(async (p) => {
-        const s = String(p);
+        // Normalize separators so the POSIX-style fixtures match on Windows,
+        // where the source builds seed paths with `\` via path.join.
+        const s = String(p).replaceAll('\\', '/');
         if (s.endsWith('.git')) throw new Error('ENOENT');
         if (s.startsWith('/repo/')) return undefined;
         throw new Error('ENOENT');

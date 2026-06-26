@@ -8,6 +8,7 @@ import type {
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
+import { pushAssigneeToExternal } from '../assignee-lifecycle';
 
 /**
  * Parse "github:owner/repo#42" into { owner, repo, number }.
@@ -121,8 +122,6 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   private readonly retryOpts: { maxRetries: number; baseDelayMs: number };
   /** Cached GitHub milestone name -> ID mapping */
   private milestoneCache: Map<string, number> | null = null;
-  /** Cached authenticated user login (e.g., "@octocat") */
-  private authenticatedUserCache: string | null = null;
 
   constructor(options: GitHubAdapterOptions) {
     this.token = options.token;
@@ -182,46 +181,20 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     return data.number;
   }
 
-  async getAuthenticatedUser(): Promise<Result<string>> {
-    if (this.authenticatedUserCache) return Ok(this.authenticatedUserCache);
-
-    try {
-      const response = await fetchWithRetry(
-        this.fetchFn,
-        `${this.apiBase}/user`,
-        { method: 'GET', headers: this.headers() },
-        this.retryOpts
-      );
-
-      if (!response.ok) {
-        const text = await response.text();
-        return Err(new Error(`GitHub API error ${response.status}: ${text}`));
-      }
-
-      const data = (await response.json()) as { login: string };
-      this.authenticatedUserCache = `@${data.login}`;
-      return Ok(this.authenticatedUserCache);
-    } catch (error) {
-      return Err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
   /**
-   * Resolve an assignee value to a GitHub login.
+   * Resolve a *human* assignee value to a GitHub login.
    * - "@username" → "username"
    * - "username" (no @) → "username"
-   * - Orchestrator IDs (hostname-hash like "chads-macbook-pro-8565381d") →
-   *   resolved via authenticated user, since they're not valid GitHub logins.
-   * Returns null if the assignee cannot be resolved.
+   *
+   * Machine (orchestrator) ids are NOT GitHub logins and must never reach the
+   * issue `assignee` field — callers gate on `pushAssigneeToExternal` before
+   * calling this, so a machine id should not arrive here. As defense in depth
+   * this returns `null` for one (rather than laundering it to the authenticated
+   * user, the original bug that made machine claims look human-owned).
    */
-  private async resolveAssigneeLogin(assignee: string): Promise<string | null> {
+  private resolveAssigneeLogin(assignee: string): string | null {
+    if (!pushAssigneeToExternal(assignee)) return null;
     if (assignee.startsWith('@')) return assignee.slice(1);
-    // Orchestrator IDs: "orchestrator-{8hexchars}" or legacy "hostname-{8hexchars}"
-    if (/^orchestrator-[0-9a-f]{8}$/.test(assignee) || /^[\w-]+-[0-9a-f]{8}$/.test(assignee)) {
-      const userResult = await this.getAuthenticatedUser();
-      if (userResult.ok) return userResult.value.replace(/^@/, '');
-      return null;
-    }
     return assignee;
   }
 
@@ -265,8 +238,8 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         type: 'Feature',
       };
       if (milestoneId) issuePayload.milestone = milestoneId;
-      if (feature.assignee) {
-        const login = await this.resolveAssigneeLogin(feature.assignee);
+      if (feature.assignee && pushAssigneeToExternal(feature.assignee)) {
+        const login = this.resolveAssigneeLogin(feature.assignee);
         if (login) {
           issuePayload.assignees = [login];
         }
@@ -318,11 +291,15 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       }
       if (changes.assignee !== undefined) {
         if (changes.assignee) {
-          const login = await this.resolveAssigneeLogin(changes.assignee);
-          if (login) {
-            patch.assignees = [login];
+          // Only push real (human) assignees. A machine claim stays local-only:
+          // it is never written to the GitHub assignee field, and it must not
+          // clear an existing one either — so omit `assignees` from the patch.
+          if (pushAssigneeToExternal(changes.assignee)) {
+            const login = this.resolveAssigneeLogin(changes.assignee);
+            if (login) {
+              patch.assignees = [login];
+            }
           }
-          // If login is null (unresolvable orchestrator ID), skip assignee update
         } else {
           patch.assignees = [];
         }

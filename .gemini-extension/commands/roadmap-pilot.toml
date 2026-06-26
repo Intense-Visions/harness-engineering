@@ -20,7 +20,7 @@ Phases:
 --- SKILL.md (agents/skills/claude-code/harness-roadmap-pilot/SKILL.md) ---
 # Harness Roadmap Pilot
 
-> AI-assisted selection of the next highest-impact unblocked roadmap item. Scores candidates, recommends one, assigns it, and transitions to the appropriate next skill.
+> AI-assisted selection of the next highest-impact unblocked roadmap item. Scores candidates, recommends one, and transitions to the appropriate next skill. Selection does NOT assign — the `assignee` field names who is _executing_, and is written at execution start (harness-execution), not at selection.
 
 ## When to Use
 
@@ -34,9 +34,9 @@ Phases:
 
 ### Iron Law
 
-**Never assign or transition without the human confirming the recommendation first.**
+**Never transition without the human confirming the recommendation first. Selection never writes `assignee`.**
 
-Present the ranked candidates, the AI reasoning, and the recommended pick. Wait for explicit confirmation before making any changes.
+Present the ranked candidates, the AI reasoning, and the recommended pick. Wait for explicit confirmation before transitioning. The `assignee` field means _who is executing_ and is claimed at execution start by harness-execution — picking an item must NOT mark it assigned (an early assignee makes the item look human-claimed and the orchestrator silently skips it).
 
 ---
 
@@ -153,28 +153,19 @@ Ask the human in plain text (matching the `y/n/pick another` example above). Do 
    - If **pick another**: ask which candidate number, then proceed with that pick.
    - If **no**: stop. No changes made.
 
-### Phase 4: ASSIGN -- Execute Assignment and Transition
+### Phase 4: TRANSITION -- Hand Off to the Next Skill
 
-1. Call `manage_roadmap` with action `update` to assign the feature:
+**Do NOT write the `assignee` field here.** Selection picks the item; it does not
+claim it. harness-execution claims the item (`status=in-progress` + `assignee`) at
+execution start. Writing an assignee at selection makes the orchestrator treat the
+item as already-claimed and silently skip it (the bug this skill must not reintroduce).
+The item stays `planned`/`backlog` with `Assignee: —` and remains orchestrator-eligible.
 
-   ```json
-   manage_roadmap({
-     path: "<project-root>",
-     action: "update",
-     feature: "<feature-name>",
-     assignee: "<currentUser>"
-   })
-   ```
-
-   - This updates the feature's `Assignee` field with assignment history tracking
-   - Automatically triggers external sync (GitHub Issues) if tracker config exists in `harness.config.json`
-   - External sync is fire-and-forget — errors are logged but do not block the assignment
-
-2. Determine the transition target:
+1. Determine the transition target:
    - If the feature has a `spec` field (non-null): transition to `harness:autopilot`
    - If the feature has no `spec`: transition to `harness:brainstorming`
 
-3. Present the transition to the human via `emit_interaction`:
+2. Present the transition to the human via `emit_interaction`:
 
    ```json
    emit_interaction({
@@ -183,16 +174,16 @@ Ask the human in plain text (matching the `y/n/pick another` example above). Do 
      transition: {
        completedPhase: "roadmap-pilot",
        suggestedNext: "<brainstorming|autopilot>",
-       reason: "Feature '<name>' assigned and ready for <brainstorming|execution>",
+       reason: "Feature '<name>' selected and ready for <brainstorming|execution>",
        artifacts: ["docs/roadmap.md"],
        requiresConfirmation: true,
-       summary: "Assigned '<name>' to <user>. <Spec exists -- ready for autopilot|No spec -- needs brainstorming first>.",
+       summary: "Selected '<name>'. <Spec exists -- ready for autopilot|No spec -- needs brainstorming first>. (Not assigned — harness-execution claims it at execution start.)",
        qualityGate: {
          checks: [
            { "name": "roadmap-parsed", "passed": true },
            { "name": "candidate-scored", "passed": true },
            { "name": "human-confirmed", "passed": true },
-           { "name": "assignment-written", "passed": true }
+           { "name": "no-assignment-at-selection", "passed": true }
          ],
          allPassed: true
        }
@@ -200,7 +191,7 @@ Ask the human in plain text (matching the `y/n/pick another` example above). Do 
    })
    ```
 
-4. Run `harness validate`.
+3. Run `harness validate`.
 
 ---
 
@@ -210,19 +201,18 @@ Ask the human in plain text (matching the `y/n/pick another` example above). Do 
 - **`loadProjectRoadmapMode` / `loadTrackerClientConfigFromProject` / `createTrackerClient`** -- Resolve `roadmap.mode` and obtain a `RoadmapTrackerClient` for file-less mode. Import from `@harness-engineering/core`.
 - **`scoreRoadmapCandidatesForMode`** -- Mode-aware scoring entry point. Import from `@harness-engineering/core`. In file-backed mode delegates to `scoreRoadmapCandidates`; in file-less mode routes through `scoreRoadmapCandidatesFileLess` (priority + createdAt sort, FR-S3).
 - **`scoreRoadmapCandidates`** -- Underlying file-backed scoring algorithm. Prefer `scoreRoadmapCandidatesForMode` from the skill; direct callers in file-backed-only code paths can still use this.
-- **`manage_roadmap update`** -- Used for assignment. Supports `assignee` field which delegates to `assignFeature` internally, handles history tracking, and automatically triggers external sync (GitHub Issues). In file-less mode, `manage_roadmap` dispatches through the tracker; the skill flow is unchanged.
-- **`emit_interaction`** -- Used for the skill transition at the end. Transitions to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists).
+- **`emit_interaction`** -- Used for the skill transition at the end. Transitions to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists). This skill does NOT call `manage_roadmap update` to assign — the `assignee` field is owned by harness-execution (claim at execution start), enforced by RMH005 (`assignee ≠ null ⟺ in-progress`).
 - **`STRATEGY.md` alignment (Phase 2 step 1a)** -- When present at repo root and valid, loaded via `validateStrategy` + `parseStrategyDoc` + `asStrategyDoc` from `@harness-engineering/core`. Applied as a bounded tiebreaker bonus (max `+0.75`) only when candidates score within `0.05` on the base formula. Boundary: roadmap-pilot READS; `harness-strategy` WRITES. Never modify `STRATEGY.md` from this skill.
-- **`harness validate`** -- Run after assignment is written.
+- **`harness validate`** -- Run after the transition is presented.
 
 ## Success Criteria
 
 1. Roadmap is parsed and unblocked planned/backlog items are scored
 2. Scoring uses two-tier sort: explicit priority first, then weighted score
 3. AI reads top candidates' specs and provides recommendation with reasoning
-4. Human confirms before any changes are made
-5. Assignment updates feature field, appends history records, and syncs externally
-6. Reassignment produces two history records (unassigned + assigned)
+4. Human confirms before the transition is made
+5. Selection does NOT write the `assignee` field (no assignment, no history record, no external assignee sync) — the pick stays `planned`/`backlog` and orchestrator-eligible
+6. The `assignee` field is owned by harness-execution, which claims at execution start; RMH005 enforces `assignee ≠ null ⟺ in-progress`
 7. Transition routes to brainstorming (no spec) or autopilot (spec exists)
 8. When a pulse report exists, the recommendation rationale cites pulse signal for any top-3 candidate whose area is referenced in the pulse Headlines or Followups.
 9. When `STRATEGY.md` is present and valid AND two candidates score within `0.05` on the base formula, the recommendation rationale cites strategy-alignment as the tiebreaker. The bonus never overrides a meaningful base-score difference.
@@ -231,12 +221,13 @@ Ask the human in plain text (matching the `y/n/pick another` example above). Do 
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                                         | Reality                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The top-scored candidate is obviously correct, so I can assign it without asking the human"                            | The Iron Law: never assign or transition without the human confirming the recommendation first.                                                                                  |
-| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings.                                          |
-| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                                                                      |
-| "STRATEGY.md exists, so I should let it override the top-scored candidate when alignment is clear"                      | The alignment bonus is bounded (max `+0.75`) and only fires when base scores are within `0.05`. It is a tiebreaker, not a hard filter — a clearly higher-scored item still wins. |
+| Rationalization                                                                                                         | Reality                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-scored candidate is obviously correct, so I can transition without asking the human"                           | The Iron Law: never transition without the human confirming the recommendation first.                                                                                                                                                    |
+| "I'll write the assignee now so the pick is recorded / the user is credited"                                            | Selection never writes `assignee`. An assignee means _in-progress_ (set by harness-execution at execution start). Writing it at selection makes the orchestrator silently skip the item — the exact bug this skill must not reintroduce. |
+| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings.                                                                                                  |
+| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                                                                                                                              |
+| "STRATEGY.md exists, so I should let it override the top-scored candidate when alignment is clear"                      | The alignment bonus is bounded (max `+0.75`) and only fires when base scores are within `0.05`. It is a tiebreaker, not a hard filter — a clearly higher-scored item still wins.                                                         |
 
 ## Examples
 
@@ -272,28 +263,26 @@ Proceed? (y/n/pick another)
 
 Human confirms **y**.
 
-**Phase 4: ASSIGN**
+**Phase 4: TRANSITION**
 
 ```
-manage_roadmap update: Graph Connector assignee -> @cwarner
-History: +1 record (assigned, 2026-04-02)
-Roadmap updated: docs/roadmap.md
-External sync: github:harness-eng/harness#43 assigned (automatic)
+Graph Connector stays planned, Assignee: — (not assigned at selection).
+harness-execution will claim it (status=in-progress + assignee) at execution start.
 
 Transitioning to harness:autopilot (spec exists)...
 ```
 
 ## Gates
 
-- **No assignment without human confirmation.** The CONFIRM phase must complete with explicit approval. Never auto-assign.
-- **No transition without assignment.** The skill must write the assignment before transitioning to the next skill.
+- **No transition without human confirmation.** The CONFIRM phase must complete with explicit approval before transitioning.
+- **No assignment at selection.** This skill never writes the `assignee` field — that field means _who is executing_ and is claimed at execution start by harness-execution. Writing it here would make the orchestrator silently skip the item.
 - **No scoring without a parsed roadmap.** If `docs/roadmap.md` does not exist or fails to parse, stop with an error.
 
 ## Escalation
 
 - **When no unblocked candidates exist:** Inform the human. Suggest reviewing blocked items to see if blockers can be resolved, or adding new features via `harness-roadmap --add`.
 - **When affinity data is unavailable:** Proceed without affinity scoring (weight falls to 0 for all candidates). Note this in the output.
-- **When external sync fails:** Log the error, complete the local assignment, and note that external sync can be retried with `harness-roadmap --sync`.
+- **When the human asks you to assign the item to them at selection:** Explain that the `assignee` field means _who is executing_ and is claimed at execution start by harness-execution; assigning at selection makes the orchestrator silently skip the item (enforced by RMH005). Proceed with the transition instead.
 
 
 --- skill.yaml (agents/skills/claude-code/harness-roadmap-pilot/skill.yaml) ---

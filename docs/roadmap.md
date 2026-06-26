@@ -4,29 +4,41 @@ version: 1
 created: 2026-03-21
 updated: 2026-06-25
 last_synced: 2026-06-23T18:05:08.357Z
-last_manual_edit: 2026-06-25T18:09:53.192Z
+last_manual_edit: 2026-06-26T01:25:24.050Z
 ---
 
 # Roadmap
 
 ## Intake
 
+### Assignee means who is executing — set at execution, not selection
+
+- **Status:** planned
+- **Spec:** docs/changes/assignee-execution-lifecycle/proposal.md
+- **Summary:** Establish the invariant assignee ≠ null ⟺ in-progress via a centralized core authority: roadmap-pilot stops assigning at selection, harness-execution claims at execution start, machine claims never use the GitHub assignee field, inbound sync never clobbers a live machine claim, and RMH005 + groom enforce/migrate. Fixes the orchestrator silently skipping pilot-touched items.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#640
+
 ## v5.0 — Enforcement Hardening
 
 ### Rename quality-gate hook and ship a strict variant that blocks
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/quality-warner-strict-gate/proposal.md
 - **Summary:** `packages/cli/src/hooks/quality-gate.js:4-6` is literally documented as "Never blocks (always exits 0). Warnings go to stderr." This hook ships in the default **standard** profile. The hook NAMED "quality-gate" gates nothing. Rename to `quality-warner` or `format-checker`. Add a `strict-quality-gate` hook variant for strict-profile adopters that exits 2 on lint/format failure. Source: Pass 5 #1.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#526
+- **Updated-At:** 2026-06-25T23:56:30.691Z
 
 ### Make protect-config fail-closed in ambiguous cases
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/cli/src/hooks/protect-config.js:36,41,49` — three branches currently fail-open (parse error → allow, empty stdin → allow, missing `file_path` → allow). The security-flavored hook that protects config silently yields whenever its input is malformed. Change to fail-closed with a clear error message. Defense-in-depth. Source: Pass 5 #2.
 - **Blockers:** —
@@ -37,7 +49,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Reconcile health-snapshot.json passed flags with active signals
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `.harness/health-snapshot.json` reports `entropy.passed: true` while listing "dead-code" in `signals[]`; same for docs (`passed: true`, `undocumentedCount: 27481`) and security (`passed: true`, `findingCount: 16`). The harness's own dogfooded output says all checks "passed" while listing seven active drift signals. Make `checks.X.passed` return `false` when `signals[]` includes the corresponding signal name. Source: Pass 1 #2.
 - **Blockers:** —
@@ -48,7 +60,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Audit and cap the pre-commit --skip list
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `.husky/pre-commit:4` silently skips `entropy,docs,perf,security,deps,phase-gate` — six categories disabled at commit time. The skips may be justified individually, but the cumulative silence is the article's failure pattern #2: "every gap was once a known issue. Then it became background noise. Then it became invisible." Either move slow checks to pre-push with no auto-skip, or emit a one-line stderr warning per skipped category so the gaps remain visibly named. Source: Pass 1 #4.
 - **Blockers:** —
@@ -59,7 +71,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Require --allow-regress flag on check-arch --update-baseline worsen
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/cli/src/commands/check-arch.ts:109-126` — today `--update-baseline` silently accepts regressions. Change semantics so updating a baseline that worsens any metric requires `--allow-regress --reason "..."`. The reason is logged to `.harness/audit.log`. Forces the regression-acceptance decision into the open. Source: Pass 1 #5.
 - **Blockers:** —
@@ -70,7 +82,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Harden BASELINE_AUTOAPPROVE_PAT self-approval scope
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `.github/workflows/ci.yml:158-176` — the refresh-baselines job opens a PR and self-approves using `BASELINE_AUTOAPPROVE_PAT` when branch protection blocks the direct push. Today the auto-approval fires regardless of what's in the PR. Constrain auto-approval to PRs whose diff is _exactly_ `*-baselines.json` and nothing else. Add a defensive check that fails if the PR diff touches anything outside baselines. Source: Pass 1 #8.
 - **Blockers:** —
@@ -81,7 +93,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build harness:rollback automated-revert primitive
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** When a shipped PR fails post-merge eval (harness:outcome-eval) or triggers a defined signal threshold, automatically open a revert PR with full context. The article's "circuit breaker / automated rollback — a mechanism that physically stops the fall before it hits the ground." Currently the project has no automated rollback primitive — only human-mediated PR review. Needs a "revert ready" classification system and a trust model for auto-merging reverts. Source: Pass 2 #7.
 - **Blockers:** Build harness:outcome-eval skill
@@ -92,7 +104,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Lift packages/cli branch coverage above the article's bar
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `coverage-baselines.json:14-19` — packages/cli currently 64.42% branches and 77.73% lines on the user-facing surface. The article: "if the team can't honestly say a green build is enough to push to production, the test suite isn't a harness — it's a comfort blanket." 64% branches on the CLI entry point doesn't pass that bar. Target ≥80% branches over the next quarter. Tighten the V8 variance tolerance for cli specifically (0.1% not 0.5%). Source: Pass 1 #6.
 - **Blockers:** —
@@ -103,7 +115,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Make pre-push test:coverage gate deterministic — isolate parallel-unsafe tests
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The husky pre-push gate runs `turbo run test:coverage --concurrency=2` across all packages; several heavy IO/git tests are parallel-unsafe and flake non-deterministically under contention — the failing test/package moves run-to-run (observed: `cli#test:coverage`, then `orchestrator#test:coverage`, then cli again). All pass in isolation; CI (clean runner) tolerates them. Known offenders: `packages/cli/tests/hooks/adoption-tracker.test.ts` (writes shared project-root `.harness/metrics/adoption.jsonl` not its tmpdir), `packages/cli/tests/copy-craft/extract-commits.test.ts`, `packages/cli/tests/integration/cli.test.ts` (spawns the CLI; 30s timeout under load). A flaky gate that blocks good pushes is itself an anti-harness pattern — it erodes trust like the "warns but doesn't stop" hooks this milestone targets, inverted (stops, for the wrong reason); on 2026-06-24 it flaked 3+ consecutive times on docs-only changes, forcing API-side landing. Fix: make the heavy tests concurrency-safe (per-test tmpdir + `chdir`, never touch repo-root shared files), or pool-isolate via vitest `poolOptions`/`--no-file-parallelism`; also investigate the turbo-cache miss where `packages/cli/.harness/arch/baselines.json` (auto-mutated by the commit/push arch check) busts cli's `test:coverage` input hash and forces a full re-run. Source: dogfood 2026-06-24 (audit-harness-strength + roadmap-sync pushes).
 - **Blockers:** —
@@ -160,7 +172,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Promote harness:strategy to gateway position in init
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `initialize-harness-project/SKILL.md` currently asks the strategy question as Phase 3, step 5c — buried after scaffolding and configuration. The article's gear item #1 is "specs operated FROM," and strategy is the foundational spec. Move the strategy prompt to the FIRST question init asks, not the fifth. Adopters who skip it end up with no strategic anchor, which means brainstorming/ideate/roadmap-pilot start cold. Source: Pass 3 #13.
 - **Blockers:** —
@@ -182,7 +194,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Merge fragmented concept clusters in the catalog
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2.
 - **Blockers:** —
@@ -193,7 +205,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Promote 5 domain skills from advisory to load-bearing checks
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Five domain skills have genuine domain-specific assertions but are currently prose-only advisories. Wire them as load-bearing checks invoked by their parent harness skill: `api-idempotency-keys` → `harness-api-design`; `owasp-injection-prevention`, `owasp-csrf-protection`, `owasp-rate-limiting` → `harness-security-scan`; `a11y-aria-patterns` → `harness-accessibility`. Each is roughly one week of work to convert from advisory prose to a mechanical check. Source: Pass 4 action 3.
 - **Blockers:** —
@@ -215,7 +227,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Tier the catalog with first-class metadata and fix discovery
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Catalog has 755 skills with no tier markers in the user-facing surface. Mark Tier-0 (load-bearing gear, ~12 skills: initialize-project, strategy, brainstorming, planning, execution, verification, code-review, tdd, outcome-eval, audit-harness-strength, debugging, compound), Tier-1 (library, on-demand reference), Tier-2 (deprecated/candidate for retire). Surface tier prominently in the dashboard catalog view and the README. Fix the naming inconsistency: rename `initialize-harness-project` skill to `harness-initialize-project` so it sorts with the workflow gear (slash command stays `/harness:initialize-project`). A senior engineer can hold 12 skills in their head; they cannot hold 755. Source: Pass 2 #9, Pass 3 #6, Pass 3 #7.
 - **Blockers:** —
@@ -228,7 +240,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build harness:catalog-retrospective skill
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Monthly retrospective that reads `.harness/metrics/adoption.jsonl` (1319 records in dogfood across 80+ days, captures skill+session+startedAt+duration+outcome+phasesReached) and produces a structured report: top-10-most-invoked, top-10-failing, top-10-abandoned-mid-workflow, skills inactive 90+ days. Compounding-via-learning at the catalog grain — the loop the article calls Honnold's "internal harness" applied to the skill catalog. Feeds into catalog cleanup items below. Source: Pass 5 #6.
 - **Blockers:** —
@@ -250,7 +262,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Activate the skill-proposal pipeline in dogfood
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The skill-proposal infrastructure exists in full (`packages/orchestrator/src/proposals/`, `packages/core/src/proposals/`, `packages/cli/src/commands/proposals.ts`, ADR 0016 defining the workflow). The README markets it: "agents emit skill candidates that route through soundness gate." But `.harness/proposals/` is EMPTY in the dogfood repo — the loop the project advertises isn't observably running. Investigate why (emission disabled? soundness gate filtering all? proposals deleted?) and either fix or document. Without active proposals, the "learning catalog" claim is theoretical. Source: Pass 5 #5.
 - **Blockers:** —
@@ -261,7 +273,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Add Holiday Confidence KPI to STRATEGY.md
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `STRATEGY.md:23-29` defines 5 KPIs (Agent Autonomy, Harness Coverage, Context Density, Drift Floor, External Adoption) — all measure inputs to the harness, none measures what the harness is FOR. Add KPI #6: "Holiday Confidence" — % of merged PRs in the last 30 days where (a) multi-persona review fired, (b) outcome-eval passed, (c) no auto-baseline-update occurred, (d) no signal exceeded threshold. The article's binary "if the senior disappears for two weeks, what holds?" made measurable. Source: Pass 1 #9.
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
@@ -272,7 +284,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Ship aggregate-telemetry synthesis surface
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/cli/src/hooks/telemetry-reporter.js` collects rich payload (skillName, duration, outcome, phasesReached, project, team, os, harnessVersion, installId) and streams to PostHog. **No public surface synthesizes this data back.** `core-library-design/proposal.md:1338` planned "Case studies and testimonials" but never delivered. Adopters cannot validate "is this working for teams like mine?" Ship: (a) public adoption dashboard at a known URL aggregating skillName/outcome/phasesReached across the adopter base (anonymized), (b) `docs/case-studies/` directory with quarterly updates derived from telemetry + opt-in interviews, (c) README "Adopters" section with logo wall and headline stats updated by a `harness telemetry publish` script. For a tool that markets compounding-via-learning, the synthesis loop must close. Source: Pass 7-C.
 - **Blockers:** —
@@ -296,7 +308,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Move sentinel-pre/post to standard hook profile
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/cli/src/hooks/profiles.ts:31-32` — `sentinel-pre` and `sentinel-post` (prompt-injection defense covering zero-width chars, RTL/LTR overrides, role-reassignment, permission-escalation, base64 exfiltration, destructive-bash in tainted sessions) currently ship at STRICT profile only. Default-profile adopters get NONE of this defense. Move to standard. Cost-tracker can remain strict-only as a separate concern. Source: Pass 6 #1.
 - **Blockers:** —
@@ -307,7 +319,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Pin MCP server version in plugin install + document trust model
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `.claude-plugin/plugin.json:14-16` — `mcpServers.harness.command: "npx -y -p @harness-engineering/cli@latest harness-mcp"`. Every Claude Code session pulls the latest npm publish (subject to npx's ~24h cache). No version pinning by default. A compromised publish propagates to every active adopter within a day. Pin to a specific version; update via plugin update flow. Add `docs/security/trust-model.md` explaining what an adopter trusts when installing each marketplace plugin and how to verify integrity. Source: Pass 6 #4 + #6.
 - **Blockers:** —
@@ -318,7 +330,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Add per-skill capability declarations
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Skills are markdown files; the agent reads them and may take any action the user permitted Claude Code. No skill manifest declares "this skill needs Bash + Edit + WebFetch and nothing else." Add a `capabilities:` manifest field to skill.yaml declaring tool/network/file requirements. The orchestrator/agent enforces it as bounds. Closes the article's gear #4 ("bounded, observable, reversible") at the skill grain — currently it only applies at the orchestrator-workspace grain, and only when the daemon is running. Source: Pass 6 #5.
 - **Blockers:** —
@@ -329,7 +341,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Strengthen telemetry consent surface
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/cli/src/hooks/telemetry-reporter.js` prints first-run privacy notice to stderr. In IDE sessions stderr is often invisible — adopters technically opted in by installing the plugin but the consent surface is weak. Move the notice to stdout. Optionally add a `harness.config.json` `telemetry.consented: true` field that the adopter must set before first batch send. The PostHog ingest is real (1319 dogfood records over 80 days); the consent surface should match the data flow. Source: Pass 5 #3.
 - **Blockers:** —
@@ -340,7 +352,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Add harness mcp list-capabilities CLI for adopter audit
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
@@ -351,7 +363,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Require ADR for operational policy changes
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** ADRs in `docs/knowledge/decisions/` capture architectural decisions. Changes to hook profiles, threshold values, `--skip` lists, and baseline-update policies are also load-bearing — and they accumulate silently in commits without ADR-grade artifacts. Add a `harness:check-operational-drift` check (or extend the existing `harness:enforce-architecture`) that flags PRs touching `.husky/`, `harness.config.json` thresholds, the pre-commit `--skip` list, or `packages/cli/src/hooks/profiles.ts` without a corresponding ADR. Forces the "we silently softened a gate" decision to surface as a deliberate ADR-grade record. Closes the surface where Pass 1 #1 (pre-commit auto-baseline) entered the codebase without a documented decision in the first place. Source: Pass 7 final-pass synthesis.
 - **Blockers:** —
@@ -364,7 +376,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Invert README lede to lead with the article's binary question
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `README.md:7-19` opens with feature copy: "Mechanical constraints for AI agents. Ship faster without the chaos." Compare against what an article-aligned adopter weighs hardest. Rewrite the top 20% to lead with: "If your senior engineer goes on holiday for two weeks and your agents keep shipping — do you trust what comes out the other side? This tool is the gear list that makes the answer yes." Then walk through the 7 pieces and what the tool ships for each. Today the README sells features; article-readers buy outcomes. Source: Pass 2 #8, Pass 3 #9.
 - **Blockers:** —
@@ -375,7 +387,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Adopt the article's framing in docs/standard/principles.md
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction, not a binary test. The article's framing question ("if the senior disappears for two weeks, what holds?") appears nowhere in public-facing docs. Add a Principle #0 (or lift it to the top): "The harness is load-bearing. It catches when no human is watching." Use the article's vocabulary (load-bearing, gear, holiday test) in principles so adopters get the framing they came for. Source: Pass 3 #3.
 - **Blockers:** —
@@ -386,7 +398,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Document the article's failure-pattern checklist
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New `docs/standard/article-failure-patterns.md`. Name the article's five failure modes (theatre, gaps stopped naming, happy-path-only, no eval, no safe failure mode). For each, point at how `harness:audit-harness-strength` (new skill above) detects it in the adopter's own project. Provides the conceptual scaffolding for the self-audit tool. Source: Pass 1 #10.
 - **Blockers:** Build harness:audit-harness-strength self-audit skill
@@ -397,7 +409,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Ship agent-rehearsal fixtures and harness:rehearse skill
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The article's deepest insight: Honnold rehearsed the crux moves on a rope until his body knew them, THEN soloed. The project has no analog. `examples/` (hello-world, multi-tenant-api, slack-echo-bridge, task-api) are showcase scaffolds, not failure-scenario fixtures. Ship `templates/rehearsal-fixtures/` containing deliberately-broken scaffolds across common failure modes (race condition, partial migration, edge-case data corruption, dependency cycle, layer violation, leaked secret). Build `harness:rehearse` skill that runs an agent against a chosen fixture and scores recovery. Used to (a) train agent personas before production trust, (b) regression-test the harness's own gates against known failure shapes, (c) give adopters a way to verify their gates fire before betting the climb on them. Source: Pass 7-A.
 - **Blockers:** —
@@ -408,7 +420,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build harness:offboarding skill symmetric to onboarding
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `harness:onboarding` exists for arrivals. There is no symmetric `harness:offboarding` for departures. Article framing is the team-shrinkage scenario; the transition is the load test. Without an extraction flow, the social knowledge the departing engineer enforced informally is lost the day they leave. Build `harness:offboarding` that conducts a structured debrief (recent decisions made, undocumented gotchas, conventions held in head, areas of expertise, known fragile components), generates ADR drafts and knowledge graph entries from the answers, and reviews the AGENTS.md / STRATEGY.md / learnings.md surfaces against the answers to identify gaps. Output: a structured `docs/knowledge/handoff-{person}-{date}.md` file plus graph ingestion. Source: Pass 7-B.
 - **Blockers:** —
@@ -419,7 +431,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build harness-pm persona for eval suite and acceptance criteria ownership
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The companion article "AI Ate My Role" defines three surviving Project Manager lanes: Taste PM (product thesis), **Harness PM (eval suite design + acceptance criteria)**, Boundary PM (compliance). The project ships 15 personas — all engineering-shaped (code-reviewer, architecture-enforcer, security-reviewer, performance-guardian, planner, task-executor, etc.). **Zero PM-shaped personas exist.** Build `harness-pm` persona that owns: (a) reviewing every spec's acceptance criteria for observability/testability/completeness, (b) ensuring eval suite coverage matches the spec's user-visible behavior section, (c) catching specs that ship without measurable success criteria. Pairs with `harness:outcome-eval` (which produces the eval verdicts) to give that eval an organizational owner. The article: "Quality became something that happened _to_ the work, not something that lived _inside_ the work. The new role sits at parity with engineering, not downstream." Source: Pass 8 (AI Ate My Role + Anatomy companion articles).
 - **Blockers:** Build harness:outcome-eval skill
@@ -430,7 +442,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Ship golden-build reference-state primitive
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** The "Anatomy of an AI-Native Org" companion article lists four required gear pieces: "specifications, evaluation suites, golden builds, and agent-review patterns." The project has the first, partial second, fourth — but no golden build primitive. The existing baselines (`coverage-baselines.json`, `benchmark-baselines.json`, arch baselines) are **metric baselines, not build baselines**. A golden build is the canonical known-good reference state (last passing main with a full eval pass) that all proposed changes are validated against — closer to an immutable release-tag concept than a metric snapshot. Ship: (a) `harness golden-build promote` command that snapshots a verified-passing state to `.harness/golden/`, (b) `harness golden-build verify` that compares the working tree against the most recent golden, (c) CI integration that auto-promotes a golden build on every green main merge, (d) `harness golden-build diff` for reviewing what's drifted since the last golden. Closes the gap between "metrics didn't regress" and "the project as a whole is still the project we trust." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** Build harness:outcome-eval skill
@@ -441,7 +453,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Reframe principles.md around Why/What/How three-layer model
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** "The Anatomy of an AI-Native Org" companion article structures AI-native orgs as three enduring layers: Why (strategic conviction, small), What (taste/judgement, growing — the "dominant middle"), How (architecture/trust-systems/harnesses, shrinking). The project's artifacts already map cleanly: STRATEGY.md = Why, specs in docs/changes/ + ADRs = What, code + skills + ESLint plugin = How. But `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction — and the Why/What/How vocabulary appears nowhere in public-facing docs (only coincidental matches in developer-quickstart table headers). Reframe `principles.md` so principle #0 names the three layers, maps the project's artifacts onto them, and explains that the harness is what makes each layer reliable. Adopters reading the article series land on this doc and immediately see "I know this framework." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** —
@@ -452,7 +464,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build senior-engineer accountability surface for PR push
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** "The Tests We Skipped" companion article: _"the person who writes the code is the person who pushes it to production. Full stop."_ In the agent-shipping flow, the agent writes; the senior engineer pushes (merges). The accountability does not transfer to the agent — it stays with the human who clicks merge. The project today does not produce a senior-facing "you are pushing X; here's what you should look at before approving" surface. Build: (a) `harness:pre-merge-brief` skill that produces a senior-facing digest on every PR with the diff summary, multi-persona review verdict, outcome-eval result (when available), signal-deltas, and a "things specifically worth your eyes" section, (b) GitHub Action that posts this as a PR comment, (c) optional gating that the merge button requires the senior to acknowledge the brief. Closes the "harness for the human too" mandate Ajey states explicitly. The same gear that protects the agent also protects the senior who's accountable. Source: Pass 8 (The Tests We Skipped companion article).
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
@@ -463,7 +475,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Build harness:apprenticeship for the new junior-engineer pathway
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** "AI Ate My Role" companion article on Junior Engineers: _"We're going to lose a generation if we don't think harder about this."_ The apprenticeship pipeline — code-writing as the learning mechanism — is broken. The new path is reading-and-judging muscle, outcome ownership, mentorship on _why_ not syntax. The project has `harness:onboarding` (technical orientation: read AGENTS.md, harness.config.json, learnings.md, state.json) but it serves arrivals at any skill level. There is no skill specifically designed to develop the _new_ junior-engineer capability: judging agent-generated code, reviewing for taste and architectural fit, articulating _why_ a change is right or wrong without writing the replacement themselves. Build `harness:apprenticeship` that (a) presents agent-generated PRs as judgment exercises, (b) scores the junior's review against the multi-persona review verdict, (c) compounds learning into a personalized judgment-skills graph, (d) flags judgment patterns that need mentor input. Strategic bet: the projects that ship this pathway will be where the next generation of senior engineers actually develops. Source: Pass 8 (AI Ate My Role companion article).
 - **Blockers:** —
@@ -487,7 +499,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### craft-pipeline sub-project #2: docs-craft
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** LLM-judgment skill for documentation quality — the ceiling counterpart to harness-detect-doc-drift / harness-check-docs / harness-docs-pipeline (which enforce existence, link freshness, coverage). Ceiling questions: does this doc teach? does the order match the reader's mental model? are examples earning their place? is prose alive or bureaucratic? does the API doc predict the response shape? would a stranger walk away with the same understanding? Direct structural twin of design-craft-elevator — same B' progressive upgrade to a docs intent skill if no doc style guide exists, same 3-axis findings, same growth catalog. Exemplars include Stripe Docs, Vercel Academy, MDN, Linear docs, Tailwind docs. Follows ADRs 0018-0021. ~3-4 week build (catalog-heavy).
 - **Blockers:** —
@@ -498,7 +510,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### craft-pipeline sub-project #4: code-craft
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** LLM-judgment skill for code quality / readability — the ceiling counterpart to harness-entropy-cleaner (dead code, drift), harness-architecture-enforcer (boundaries, deps), complexity thresholds (cyclomatic, cognitive). Ceiling questions: is this code as simple as it could be? does this function tell a story? is this abstraction earned or premature? are these conditionals load-bearing or accidental? is there an obvious-in-retrospect simplification? does the code reveal intent? Possibly the largest-scope craft skill — touches every PR. Follows ADRs 0018-0021. Has overlap with #1 naming-craft (defers naming-specific findings) and #2 docs-craft (defers doc-comment findings). Exemplars: well-cited "good code" from notable codebases (Linear's, Stripe's open work, Vercel's, Anthropic's SDK code).
 - **Blockers:** —
@@ -509,7 +521,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### craft-pipeline sub-project #7: api-craft
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** LLM-judgment skill for API quality — the ceiling counterpart to harness-api-openapi-design and harness-api-webhook-design (knowledge skills, rule-based about format / OpenAPI compliance). Ceiling questions: is this endpoint at the right abstraction? is this HTTP verb honest? does the resource name belong in the URL or should it be a query param? would a stranger predict this response shape from the request? does this error code tell the consumer what to do? is this idempotency-honest? does the API shape match the domain or leak implementation details? Follows ADRs 0018-0021. Exemplars: Stripe API, Linear GraphQL API, GitHub REST v3, Resend API, Anthropic SDK.
 - **Blockers:** —
@@ -520,7 +532,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### craft-pipeline sub-project #8: cli-ergonomics
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** LLM-judgment skill for CLI quality — for projects that ship CLIs (including harness itself). NO rule-based floor counterpart. Ceiling questions: does this CLI discover itself? are flag names consistent across subcommands? is help text earning its space or just listing flags? does the output respect the user's terminal (width, color, structure)? does the error path teach what to do next? would a power-user pipe this output to grep/awk and get useful results? would a beginner not piping anywhere understand what happened? Follows ADRs 0018-0021. Exemplars: gh, fly, rg, eza, fd, bun, Linear CLI, the Stripe CLI, mise.
 - **Blockers:** —
@@ -533,7 +545,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Append-Only Session Audit Trail
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Session-scoped append-only audit log capturing raw user input verbatim plus every approval prompt/response with ISO timestamps, written at the emit_interaction/state-write level. Compliance-grade provenance complementing .harness/state.json machine state. Session-scoped per the handoff-deprecation lesson. Adapted from AI-DLC's audit.md mandate. Adoption #2 from docs/research/aidlc-comparison-analysis.md [AIDLC-2]
 - **Blockers:** —
@@ -544,7 +556,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Event-Sourced State Model with Deterministic Reducer
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Replace harness's mutated .harness/state.json with an append-only event log + pure deterministic reducer + materialized snapshot, plus an explicit guarded state machine for autopilot/orchestrator task lanes (forced-transition rules, dependency guards, mandatory evidence to reach terminal states). Highest-leverage hardening of harness's weakest subsystem (state/provenance); subsumes and complements the Append-Only Session Audit Trail (#580). Modeled on Spec Kitty's status/{emit,store,reducer,transitions}.py. Adoption #1 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-1]
 - **Blockers:** —
@@ -560,14 +572,14 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Add a live work-in-flight kanban to the harness dashboard fed by orchestrator/parallel-coordinator state: per-task lane, owning agent, worktree, blockers, and dependency edges — surfacing in-flight agent work rather than only retrospective health signals. Reuses the existing dashboard package and orchestrator state machine. Complements Dashboard v3: Team & Stakeholder Views (#124). Adapted from Spec Kitty's local kanban control plane. Adoption #2 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** orchestrator-5c895000
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#599
 - **Updated-At:** 2026-06-25T22:03:47.094Z
 
 ### Smart-Merge Engine for Parallel-Coordinator Integration
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Port a preflight -> conflict-forecast -> classify -> resolve -> resumable-merge-state pipeline into harness's worktree integration path, replacing the current basic git 3-way + cherry-pick. Predicts conflicts before merging and persists resumable state so an interrupted multi-agent integration can recover. Closes the integration bottleneck for parallel-coordinator execution. Adapted from Spec Kitty's merge/ smart-merge engine. Adoption #3 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-3]
 - **Blockers:** —
@@ -578,7 +590,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Owned-Files Declaration in Plans/Tasks
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Add an owns:[paths] field to harness plan tasks declaring the source files each task owns, enabling cheap deterministic pre-execution conflict forecasting alongside the heavier graph-based independence check (check_task_independence). A near-free parallel-safety guardrail. Adapted from Spec Kitty's per-work-package owned-files frontmatter. Adoption #4 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-4]
 - **Blockers:** —
@@ -589,7 +601,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### ULID Identity for Sessions and Worktrees
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Adopt collision-free immutable ULID identity for harness sessions and worktree-isolated tasks, with human-friendly numbering assigned only at completion — fixing the worktree/branch/dashboard disambiguation problem that slug-prefix schemes collide on. Adapted from Spec Kitty's ULID mission identity (mission_id immutable, mission_number at merge). Adoption #6 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-6]
 - **Blockers:** —
@@ -600,7 +612,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Add a per-call PolicyMetadata envelope (approval mode, sandbox mode, network mode, dangerous-flags, agent family/version) and a zero-import subprocess boundary to the harness orchestrator gateway API (ADR 0011), validated on both ends for safe agent isolation and a full governance audit trail. Complements MCP server version pinning + trust model (#557). Adapted from Spec Kitty's orchestrator-api subprocess air-gap. Adoption #7 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-7]
 - **Blockers:** —
@@ -618,13 +630,13 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Carry-forward polish from init-design-roadmap-config: (S2) refresh proposal.md:146 stale Registrations bullet to reflect harness-roadmap skill invocation, (S3) add harness-roadmap to initialize-harness-project skill.yaml depends_on for symmetry with harness-design-system, plus FINAL-S1 helper extraction, FINAL-S2 'not sure' vocabulary homogenization, FINAL-S3 catalog-consistency test docstring clarification.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#257
 
 ### Diagnose pipeline node-path loss for domain inference
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Phase 6 verification of knowledge-domain-classifier showed SC#15 missed: real-repo unknown bucket went 7500 → 7553 instead of dropping to <100. Helper + wiring + config + integration test all pass; the gap is somewhere between KnowledgePipelineRunner.extract and KnowledgeStagingAggregator.generateGapReport — likely BusinessKnowledgeIngestor / DiagramParser / KnowledgeLinker creating business\_\* nodes without setting node.path. A 30-line diagnostic sampling business nodes post-extraction will localize it in minutes.
 - **Blockers:** —
@@ -635,7 +647,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Skill Regression Evaluator
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Golden-fixture evaluation framework for skills: canonical inputs per major skill (brainstorming, planning, spec-craft), semantic scoring @k against golden baselines, token/duration tracking, CI gate on prompt/rule PRs. Adapted from AI-DLC's aidlc-evaluator — the one capability where AWS is categorically ahead. Adoption #1 from docs/research/aidlc-comparison-analysis.md [AIDLC-1]
 - **Blockers:** —
@@ -646,7 +658,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### NFR Elicitation in Planning
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Explicit NFR-requirements step in harness-planning eliciting performance, security, scalability, and resilience targets whose outputs become verifiable plan tasks wired to existing perf baselines and security scan machinery — NFRs as proactive design inputs rather than reactive review findings. Adapted from AI-DLC's per-unit NFR requirements/design stages. Adoption #3 from docs/research/aidlc-comparison-analysis.md [AIDLC-3]
 - **Blockers:** —
@@ -657,7 +669,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Question-File Interview Mode
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** File-based question/answer mode for strategy, pulse, and brainstorming interviews — durable, team-reviewable, async-friendly decision capture — plus a cross-answer contradiction-detection pass added to existing pushback rules. Adapted from AI-DLC's [Answer]: tag question-file ritual and mandatory ambiguity analysis. Adoption #4 from docs/research/aidlc-comparison-analysis.md [AIDLC-4]
 - **Blockers:** —
@@ -668,7 +680,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Opt-In Constraint Packs
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Opt-in gating for blocking constraint rule packs: lightweight opt-in prompt loaded up front, full rules lazy-loaded only on user consent, then enforced as blocking constraints with per-stage compliance summaries (compliant / non-compliant / N/A). Mapped onto harness security/resiliency rule sets. Adapted from AI-DLC's \*.opt-in.md extension pattern. Adoption #5 from docs/research/aidlc-comparison-analysis.md [AIDLC-5]
 - **Blockers:** —
@@ -679,7 +691,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Strategy Writing-Inputs Guides
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** "Here's what a good input looks like" guides for the STRATEGY interview with full and minimal examples, greenfield and brownfield variants — lowering the quality bar's entry cost for new users. Adapted from AI-DLC's docs/writing-inputs vision and tech-env document guides. Adoption #6 from docs/research/aidlc-comparison-analysis.md [AIDLC-6]
 - **Blockers:** —
@@ -690,7 +702,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Auto-Triggered Retrospection with Applyable Proposals
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Fire harness:compound automatically at the session/phase terminus (rather than only on human invocation) and emit applyable synthesis proposals that can propagate to the knowledge graph or other in-flight work, not just written to docs/solutions/. Complements the harness:compound skill, harness:outcome-eval (#532), and harness:catalog-retrospective (#536). Adapted from Spec Kitty's retrospective_hook auto-trigger + applyable-proposal shape. Adoption #5 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-5]
 - **Blockers:** —
@@ -701,7 +713,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Semantic-Vocabulary CI Gate
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
@@ -714,7 +726,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Dashboard v3: Team & Stakeholder Views
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Persistent hosting option, multi-project aggregation, and presentation polish for the harness dashboard targeting team reviews and stakeholder visibility
 - **Blockers:** —
@@ -725,7 +737,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Dashboard graph chart
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Implement a scalable visual charting component on the graph dashboard to derive and display insights from the underlying core graph structure.
 - **Blockers:** —
@@ -738,7 +750,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### ESLint Rule: no-spread-in-variadic
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New ESLint rule to flag Math.min(...arr) and Math.max(...arr) patterns that throw RangeError when arrays exceed the JS engine call stack argument limit (~65K). 10 instances in codebase. Suggest reduce-based alternatives.
 - **Blockers:** —
@@ -749,7 +761,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### ESLint Rule: prefer-execfile-over-exec
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
 - **Blockers:** —
@@ -760,7 +772,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### ESLint Rule: no-undefined-optional-assignment
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New ESLint rule to flag `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`. 5 recurring gotchas in learnings. Suggest conditional spread `...(val !== undefined && { field: val })` instead.
 - **Blockers:** —
@@ -771,7 +783,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### ESLint Rule: no-hardcoded-test-count
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** New ESLint rule to flag magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size. Fragile to additions — 2 recurring gotchas in learnings where tool count assertions broke on every new tool. Suggest dynamic `TOOL_DEFINITIONS.length` references.
 - **Blockers:** —
@@ -782,7 +794,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Migrate to @google/genai SDK
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Migrate from deprecated @google/generative-ai@0.24.1 to @google/genai@2.x in packages/orchestrator and packages/intelligence; upstream has stopped publishing the old package
 - **Blockers:** —
@@ -793,7 +805,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 
 ### Upgrade @hono/node-server to v2
 
-- **Status:** backlog
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Major version bump from @hono/node-server@1.19.x to v2.x in packages/dashboard; audit breaking changes and relax pnpm.overrides "@hono/node-server" pin
 - **Blockers:** —
@@ -1406,7 +1418,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** External test consumer `examples/slack-echo-bridge/` — ~150 LOC Node bridge that subscribes to `maintenance.completed` webhooks, verifies HMAC SHA-256 signatures, posts to Slack. Validates the Phase 0 API contract is usable from an external bridge author's perspective (anti-success #4). Deferred from Phase 0 to ship Phase 0 surface promptly.
 - **Blockers:** —
 - **Plan:** docs/changes/hermes-phase-0-gateway-api/plans/2026-05-15-phase-6-reference-slack-bridge-plan.md
-- **Assignee:** @cwarner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** —
 
@@ -1461,7 +1473,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#314
 - **Updated-At:** 2026-05-18T11:28:52.297Z
@@ -1642,7 +1654,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
 - **Blockers:** —
 - **Plan:** docs/changes/skill-recommendation-engine/plans/2026-04-04-skill-recommendation-engine-phase1-types-plan.md
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#82
 
@@ -1664,7 +1676,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#84
 - **Updated-At:** 2026-04-18T00:44:19.169Z
@@ -1733,7 +1745,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Explicit confidence model per review finding: validation method (mechanical > graph > heuristic) x evidence quality x cross-agent agreement x historical accuracy. Every finding shows a visible confidence percentage for human triage. [E6]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#90
 - **Updated-At:** 2026-04-19T22:15:02.628Z
@@ -1800,7 +1812,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#96
 - **Updated-At:** 2026-04-18T11:43:48.349Z
@@ -1858,7 +1870,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** VS Code extension with sidebar and skill launcher, multi-CI recipes (GitLab, Jenkins, CircleCI, Azure DevOps), per-package config overrides for monorepos, and config inheritance chain (global to org to project to package). [B3/B7-B9]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#101
 
@@ -1871,7 +1883,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Graph schema extensions (5 node types, 2 edge types), BusinessKnowledgeIngestor reading from docs/knowledge/, harness://business-knowledge MCP resource, gather_context integration, pilot authoring for 1-2 domains
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#225
 - **Updated-At:** 2026-04-21T14:12:28.459Z
@@ -1883,7 +1895,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Test description extractor, enum/constant extractor, validation rule extractor, API path extractor writing to .harness/knowledge/extracted/
 - **Blockers:** Phase 1: Knowledge Foundation
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#226
 - **Updated-At:** 2026-04-23T02:04:58.806Z
@@ -1895,7 +1907,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Configurable truncation limits with tiered LLM summarization, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
 - **Blockers:** Phase 1: Knowledge Foundation
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#227
 - **Updated-At:** 2026-04-23T17:38:57.275Z
@@ -1907,7 +1919,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
 - **Blockers:** —
 - **Plan:** docs/changes/business-knowledge-foundation/plans/2026-04-23-phase-4-knowledge-pipeline-diagrams-plan.md
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#228
 - **Updated-At:** 2026-04-24T02:10:03.701Z
@@ -1919,7 +1931,7 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Summary:** Vision model analysis of image attachments, design tool API connectors (Figma, Miro), cross-source contradiction detection, knowledge coverage scoring per domain
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** @chadjw
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#229
 - **Updated-At:** 2026-04-24T11:23:48.933Z

@@ -228,6 +228,42 @@ describe('GitHubIssuesSyncAdapter', () => {
       const result = await adapter.updateTicket('invalid', { summary: 'x' });
       expect(result.ok).toBe(false);
     });
+
+    it('never pushes a machine (orchestrator) assignee to the issue', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.updateTicket('github:owner/repo#42', {
+        assignee: 'orchestrator-5c895000',
+      });
+      expect(result.ok).toBe(true);
+
+      const [, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      const body = JSON.parse(opts.body as string);
+      // Machine claim stays local-only: no `assignees` key in the patch, and no
+      // /user lookup to launder it to the authenticated human.
+      expect(body).not.toHaveProperty('assignees');
+      expect((fetchFn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    });
+
+    it('pushes a human assignee as a GitHub login', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      await adapter.updateTicket('github:owner/repo#42', { assignee: '@cwarner' });
+
+      const [, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      const body = JSON.parse(opts.body as string);
+      expect(body.assignees).toEqual(['cwarner']);
+    });
   });
 
   describe('fetchTicketState', () => {
@@ -304,51 +340,6 @@ describe('GitHubIssuesSyncAdapter', () => {
       expect(result.value).toHaveLength(2); // PR filtered out
       expect(result.value[0]!.externalId).toBe('github:owner/repo#1');
       expect(result.value[1]!.externalId).toBe('github:owner/repo#3');
-    });
-  });
-
-  describe('getAuthenticatedUser', () => {
-    it('returns @login from GET /user', async () => {
-      const fetchFn = mockFetch(200, { login: 'cwarner' });
-      const adapter = new GitHubIssuesSyncAdapter({
-        token: 'tok',
-        config: DEFAULT_CONFIG,
-        fetchFn,
-      });
-
-      const result = await adapter.getAuthenticatedUser();
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.value).toBe('@cwarner');
-
-      const [url] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
-      expect(url).toBe('https://api.github.com/user');
-    });
-
-    it('caches result after first call', async () => {
-      const fetchFn = mockFetch(200, { login: 'cwarner' });
-      const adapter = new GitHubIssuesSyncAdapter({
-        token: 'tok',
-        config: DEFAULT_CONFIG,
-        fetchFn,
-      });
-
-      await adapter.getAuthenticatedUser();
-      await adapter.getAuthenticatedUser();
-      expect(fetchFn).toHaveBeenCalledTimes(1);
-    });
-
-    it('returns Err on API failure', async () => {
-      const fetchFn = mockFetch(401, { message: 'Bad credentials' });
-      const adapter = new GitHubIssuesSyncAdapter({
-        token: 'bad',
-        config: DEFAULT_CONFIG,
-        fetchFn,
-        maxRetries: 0,
-      });
-
-      const result = await adapter.getAuthenticatedUser();
-      expect(result.ok).toBe(false);
     });
   });
 

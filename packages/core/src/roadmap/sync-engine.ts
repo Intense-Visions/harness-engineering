@@ -12,6 +12,7 @@ import { serializeRoadmap } from './serialize';
 import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
 import { resolveReverseStatus } from './tracker-sync';
 import { isRegression } from './status-rank';
+import { isMachineAssignee, setStatus } from './assignee-lifecycle';
 // Known adapters: adapters/github-issues.ts (GitHubIssuesSyncAdapter).
 // This module consumes adapters via the TrackerSyncAdapter interface.
 // Changes to the interface contract require updating both this file and all adapters.
@@ -119,14 +120,24 @@ export async function syncToExternal(
  * Apply a single external ticket's assignee and status to a roadmap feature in-place.
  */
 function applyTicketToFeature(
+  roadmap: Roadmap,
   ticketState: ExternalTicketState,
   feature: RoadmapFeature,
   config: TrackerSyncConfig,
   forceSync: boolean,
   result: SyncResult
 ): void {
-  // Assignee: external wins
-  if (ticketState.assignee !== feature.assignee) {
+  // A live machine claim is local truth. Remember it before any status change:
+  // if inbound sync drives status away from in-progress, the assignee must be
+  // released through the lifecycle authority (not orphaned), or we recreate the
+  // RMH005 violation in reverse — a non-in-progress row still carrying a claim.
+  const localMachineClaim = isMachineAssignee(feature.assignee);
+
+  // Assignee: external wins — EXCEPT a live machine claim, which is local
+  // truth. A machine assignee (orchestrator id) is never pushed to the external
+  // assignee field, so inbound state can only ever lag or contradict it; never
+  // let it clobber the running claim (that was the silent-skip bug).
+  if (!localMachineClaim && ticketState.assignee !== feature.assignee) {
     result.assignmentChanges.push({
       feature: feature.name,
       from: feature.assignee,
@@ -143,6 +154,17 @@ function applyTicketToFeature(
   if (!forceSync && isRegression(feature.status, newStatus)) return;
   // Guard: external "open" → "planned" must not override manually-set "blocked".
   if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') return;
+
+  // When inbound sync moves a machine-claimed row away from in-progress, route
+  // through setStatus() so the assignee auto-clears and an `unassigned` history
+  // entry is recorded — keeping `assignee ≠ null ⟺ in-progress` (RMH005). For a
+  // human/null assignee the bare status write is fine (the assignee block above
+  // already reconciled the assignee from external).
+  const date = new Date().toISOString().slice(0, 10);
+  if (localMachineClaim && newStatus !== 'in-progress') {
+    setStatus(roadmap, feature, newStatus, date);
+    return;
+  }
   feature.status = newStatus;
 }
 
@@ -192,7 +214,7 @@ export async function syncFromExternal(
   for (const ticketState of tickets) {
     const feature = featureByExternalId.get(ticketState.externalId);
     if (!feature) continue;
-    applyTicketToFeature(ticketState, feature, config, forceSync, result);
+    applyTicketToFeature(roadmap, ticketState, feature, config, forceSync, result);
   }
 
   return result;

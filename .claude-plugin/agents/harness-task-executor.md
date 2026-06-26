@@ -125,6 +125,39 @@ Do not improvise past unknowns. An assumption that turns out wrong is cheaper th
 
 Report progress with: `**[Phase N/M]** Task N — <description>`
 
+#### Step 0: Claim the roadmap item (execution-start claim)
+
+Execution start is the one true "who is working on this now" moment — so this is
+where the `assignee` is written, **not** at selection (roadmap-pilot no longer
+assigns). The invariant is `assignee ≠ null ⟺ status == in-progress`, enforced by
+RMH005 (`harness validate`).
+
+1. **Resolve `currentUser`** the same way roadmap-pilot does: the `--user` argument
+   if provided, else `git config user.name` (fall back to `git config user.email`).
+2. **If `docs/roadmap.md` exists and a row matches this plan** (match by the row's
+   `Spec`/`Plan` path or the feature name from the handoff/spec):
+   - **If `currentUser` cannot be resolved, STOP** with an actionable message —
+     "Set your identity via `git config user.name`/`user.email` (or pass `--user`)
+     before starting execution" — rather than claiming with a null owner (S4-002).
+     Leave the row `planned` and unassigned.
+   - Otherwise claim it:
+
+     ```json
+     manage_roadmap({
+       path: "<project-root>",
+       action: "update",
+       feature: "<feature-name>",
+       status: "in-progress",
+       assignee: "<currentUser>"
+     })
+     ```
+
+     This routes through the assignee-lifecycle `claim()` chokepoint
+     (first-claim-wins: if the row is already `in-progress` under a different
+     owner, the claim is a no-op and you should treat the item as taken).
+
+   - If no roadmap row matches this plan (e.g. ad-hoc execution), skip the claim.
+
 For each task, starting from current position:
 
 1. **Read task instructions completely** before writing any code.
@@ -371,11 +404,13 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - **`harness state show`** — View current position and progress.
 - **`harness state learn "<message>"`** — Append a learning from CLI.
 - **State/Learnings files** — Session-scoped when session known, otherwise `.harness/`. State updated after every task; learnings append-only.
+- **Roadmap claim** — Phase 2 Step 0: `manage_roadmap update` with `status: in-progress` + `assignee: <currentUser>` claims the item at execution start (the assignee = "who is executing" invariant). Stop if `currentUser` is unresolvable. Marking the row `done` later auto-clears the assignee via the lifecycle `setStatus` chokepoint — never leave a non-in-progress row assigned (RMH005).
 - **Roadmap sync** — After plan completion, `manage_roadmap sync` with `apply: true`. Mandatory when roadmap exists. No `force_sync: true`.
 - **`emit_interaction`** — Auto-transition to harness-verification at plan completion.
 
 ## Success Criteria
 
+- The roadmap item is claimed at execution start (`status=in-progress` + `assignee=<currentUser>`) when a matching row exists; execution stops with an actionable message if `currentUser` is unresolvable
 - Every task executed in order, atomically, one commit per task
 - `.harness/state.json` accurately reflects position and progress
 - `.harness/learnings.md` has entries for sessions with non-trivial discoveries

@@ -19,7 +19,6 @@ function makeAdapter(overrides: Partial<TrackerSyncAdapter> = {}): TrackerSyncAd
       ),
     fetchAllTickets: vi.fn().mockResolvedValue(Ok([])),
     assignTicket: vi.fn().mockResolvedValue(Ok(undefined)),
-    getAuthenticatedUser: vi.fn().mockResolvedValue(Ok('@bot')),
     addComment: vi.fn().mockResolvedValue(Ok(undefined)),
     fetchComments: vi.fn().mockResolvedValue(Ok([])),
     ...overrides,

@@ -3,6 +3,14 @@ import { createHash } from 'node:crypto';
 import {
   parseRoadmap,
   serializeRoadmap,
+  // The assignee-lifecycle authority owns the claim transition + invariant.
+  claim as claimFeature,
+  // setStatus is the status-change chokepoint: moving away from in-progress
+  // auto-clears the assignee, preserving `assignee ≠ null ⟺ in-progress` (RMH005).
+  setStatus as setFeatureStatus,
+  // The single, status-agnostic first-claim-wins guard — owned by core so the
+  // adapter does not re-derive its own divergent compare-and-set (D4).
+  isClaimableBy,
   // Phase 1 of the file-less roadmap proposal: tracker types have their
   // canonical home in core/roadmap/tracker/ (source path); re-exported
   // from the @harness-engineering/core package root for consumers.
@@ -106,7 +114,12 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       const normalizedTerminal = this.config.terminalStates.map((s) => s.toLowerCase());
       if (normalizedTerminal.includes(target.status.toLowerCase())) return Ok(undefined);
 
-      target.status = terminal as FeatureStatus;
+      // Route the terminal transition through the lifecycle authority so the
+      // assignee auto-clears (and an `unassigned` history record is logged).
+      // A bare `target.status = terminal` would leave a `done` row still
+      // carrying `assignee = orchestrator-*`, violating RMH005.
+      const now = new Date().toISOString();
+      setFeatureStatus(roadmap, target, terminal as FeatureStatus, now.slice(0, 10));
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
@@ -134,8 +147,11 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       // Compare-and-set: never overwrite an assignment held by a third
       // party (another orchestrator OR a human). The no-op write lets the
       // post-claim verify in ClaimManager.claimAndVerify read back the
-      // unchanged file and return 'rejected'.
-      if (target.assignee != null && target.assignee !== orchestratorId) {
+      // unchanged file and return 'rejected'. The rule lives in core
+      // (isClaimableBy) so there is exactly one definition of it (D4); it is
+      // intentionally stricter than core claim()'s reassign-on-non-in-progress
+      // path, which the human-driven manage_roadmap update uses.
+      if (!isClaimableBy(target, orchestratorId)) {
         return Ok(undefined);
       }
 
@@ -144,9 +160,13 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Ok(undefined);
       }
 
-      target.status = 'in-progress' as FeatureStatus;
-      target.assignee = orchestratorId;
-      target.updatedAt = new Date().toISOString();
+      // Route the status+assignee write through the lifecycle authority so the
+      // `assignee ≠ null ⟺ in-progress` invariant (and its history record) is
+      // owned in one place. The compare-and-set guards above already preserve
+      // the rejected/idempotent semantics ClaimManager relies on.
+      const now = new Date().toISOString();
+      claimFeature(roadmap, target, orchestratorId, now.slice(0, 10));
+      target.updatedAt = now;
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
@@ -180,8 +200,13 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Ok(undefined);
       }
 
-      target.status = activeState as FeatureStatus;
-      target.assignee = null;
+      // Route the release through the lifecycle authority so the assignee is
+      // cleared with an `unassigned` history record (audit symmetry with
+      // claimIssue/markIssueComplete), rather than a bare field mutation that
+      // skips the history. activeStates[0] is a non-in-progress state, so
+      // setStatus clears the assignee.
+      const now = new Date().toISOString();
+      setFeatureStatus(roadmap, target, activeState as FeatureStatus, now.slice(0, 10));
       target.updatedAt = null;
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);

@@ -121,6 +121,9 @@ interface RoadmapDeps {
   syncRoadmap: Awaited<typeof import('@harness-engineering/core')>['syncRoadmap'];
   applySyncChanges: Awaited<typeof import('@harness-engineering/core')>['applySyncChanges'];
   assignFeature: Awaited<typeof import('@harness-engineering/core')>['assignFeature'];
+  setStatus: Awaited<typeof import('@harness-engineering/core')>['setStatus'];
+  claim: Awaited<typeof import('@harness-engineering/core')>['claim'];
+  release: Awaited<typeof import('@harness-engineering/core')>['release'];
   promoteFeature: Awaited<typeof import('@harness-engineering/core')>['promoteFeature'];
   groomRoadmap: Awaited<typeof import('@harness-engineering/core')>['groomRoadmap'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
@@ -296,6 +299,36 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
   return resultToMcpResponse(Ok(roadmap));
 }
 
+/**
+ * Build the response for a refused claim (first-claim-wins lost race).
+ *
+ * The roadmap is unchanged, so the persisted file is NOT rewritten. The response
+ * stays backward-compatible — it still serializes the roadmap object (callers
+ * that read `.milestones` / `.assignmentHistory` keep working) — but adds an
+ * explicit `claimed: false` flag plus a human-readable `message`, and is marked
+ * `isError` so the auto-sync trigger skips the no-op (matching the promote
+ * envelope convention).
+ */
+function claimRefusedResponse(
+  featureName: string,
+  roadmap: import('@harness-engineering/core').Roadmap,
+  currentAssignee: string | null
+): McpResponse {
+  const message =
+    `Claim refused: "${featureName}" is already in-progress under ` +
+    `${currentAssignee ?? 'another owner'} (first-claim-wins). ` +
+    `Release it first to hand off.`;
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({ ...roadmap, claimed: false, message }),
+      },
+    ],
+    isError: true,
+  };
+}
+
 function handleUpdate(
   projectPath: string,
   input: ManageRoadmapInput,
@@ -321,13 +354,34 @@ function handleUpdate(
   for (const m of roadmap.milestones) {
     const feature = m.features.find((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
     if (feature) {
-      if (input.status) feature.status = input.status;
+      const date = new Date().toISOString().slice(0, 10);
+      // Route status/assignee through the assignee-lifecycle authority so the
+      // `assignee ≠ null ⟺ in-progress` invariant holds on every write:
+      // - setStatus auto-clears the assignee on any move away from in-progress
+      //   (e.g. mark-done releases the executor);
+      // - a non-empty assignee is a claim (forces in-progress, first-claim-wins);
+      // - an empty assignee releases the claim.
+      // Deliberate deviation from the spec's "reject a bare assignee write on a
+      // non-in-progress row": we coerce to in-progress instead (an assignee *is*
+      // the claim). Rationale + accepted trade-off in ADR-0045. Either way the
+      // invariant cannot be violated by this path.
+      if (input.status) deps.setStatus(roadmap, feature, input.status, date);
       if (input.summary !== undefined) feature.summary = input.summary;
       if (input.spec !== undefined) feature.spec = input.spec || null;
       if (input.plans !== undefined) feature.plans = input.plans;
       if (input.blocked_by !== undefined) feature.blockedBy = input.blocked_by;
       if (input.assignee !== undefined) {
-        deps.assignFeature(roadmap, feature, input.assignee, new Date().toISOString().slice(0, 10));
+        if (input.assignee) {
+          deps.claim(roadmap, feature, input.assignee, date);
+          // First-claim-wins: claim() no-ops when the row is already in-progress
+          // under a different owner. Without an explicit signal the caller would
+          // see a "success" with an unchanged assignee and silently lose the race.
+          if (feature.assignee !== input.assignee) {
+            return claimRefusedResponse(input.feature!, roadmap, feature.assignee);
+          }
+        } else {
+          deps.release(roadmap, feature, date);
+        }
       }
       found = true;
       break;
@@ -657,6 +711,9 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       syncRoadmap,
       applySyncChanges,
       assignFeature,
+      setStatus,
+      claim,
+      release,
       promoteFeature,
       groomRoadmap,
     } = await import('@harness-engineering/core');
@@ -669,6 +726,9 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       syncRoadmap,
       applySyncChanges,
       assignFeature,
+      setStatus,
+      claim,
+      release,
       promoteFeature,
       groomRoadmap,
       Ok,

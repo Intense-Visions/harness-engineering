@@ -180,3 +180,81 @@ describe('groomRoadmap()', () => {
     expect(archived).toHaveLength(0);
   });
 });
+
+describe('RMH005 — assignee invariant', () => {
+  it('flags an assignee on a non-in-progress row (the pilot bug)', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'planned', assignee: '@chadjw' })]),
+    ]);
+    const findings = checkRoadmapHealth(rm).filter((f) => f.ruleId === 'RMH005');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.severity).toBe('error');
+    expect(findings[0]!.feature).toBe('a');
+  });
+
+  it('flags an in-progress row with no assignee (orphan)', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'in-progress', assignee: null })]),
+    ]);
+    const findings = checkRoadmapHealth(rm).filter((f) => f.ruleId === 'RMH005');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('no assignee');
+  });
+
+  it('does not flag rows where the invariant holds', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [
+        feature({ name: 'a', status: 'planned', assignee: null }),
+        feature({ name: 'b', status: 'in-progress', assignee: 'orchestrator-5c895000' }),
+        feature({ name: 'c', status: 'done', assignee: null }),
+      ]),
+    ]);
+    expect(checkRoadmapHealth(rm).filter((f) => f.ruleId === 'RMH005')).toHaveLength(0);
+  });
+});
+
+describe('groomRoadmap — assignee invariant migration', () => {
+  it('clears the assignee on a non-in-progress row and records an unassigned change', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [
+        feature({ name: 'a', status: 'planned', spec: 'x.md', assignee: '@chadjw' }),
+      ]),
+    ]);
+    const { roadmap: out, changes } = groomRoadmap(rm);
+    const groomed = out.milestones[0]!.features[0]!;
+    expect(groomed.assignee).toBeNull();
+    expect(changes).toContainEqual({
+      kind: 'unassigned',
+      feature: 'a',
+      from: 'Craft Pipeline',
+      to: '@chadjw',
+    });
+    expect(checkRoadmapHealth(out).filter((f) => f.ruleId === 'RMH005')).toHaveLength(0);
+  });
+
+  it('demotes an orphaned in-progress row to planned', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [feature({ name: 'a', status: 'in-progress', assignee: null })]),
+    ]);
+    const { roadmap: out, changes } = groomRoadmap(rm);
+    const groomed = out.milestones[0]!.features[0]!;
+    expect(groomed.status).toBe('planned');
+    expect(changes).toContainEqual({
+      kind: 'demoted',
+      feature: 'a',
+      from: 'Craft Pipeline',
+      to: 'planned',
+    });
+  });
+
+  it('leaves a valid machine claim intact', () => {
+    const rm = roadmap([
+      milestone('Craft Pipeline', [
+        feature({ name: 'a', status: 'in-progress', assignee: 'orchestrator-5c895000' }),
+      ]),
+    ]);
+    const { roadmap: out, changes } = groomRoadmap(rm);
+    expect(out.milestones[0]!.features[0]!.assignee).toBe('orchestrator-5c895000');
+    expect(changes.filter((c) => c.feature === 'a')).toHaveLength(0);
+  });
+});

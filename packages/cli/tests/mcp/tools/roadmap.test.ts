@@ -347,15 +347,44 @@ describe('manage_roadmap update action', () => {
     );
   });
 
-  it('tracks reassignment history when assignee changes', async () => {
-    // First assignment
+  it('claims first-claim-wins, then reassigns after an explicit release', async () => {
+    // First assignment claims the row: forces in-progress + @alice.
     await handleManageRoadmap({
       path: tmpDir,
       action: 'update',
       feature: 'Dark Mode',
       assignee: '@alice',
     });
-    // Reassignment
+    // A direct reassignment of a LIVE claim is refused (first-claim-wins): the
+    // assignee field means "who is executing now", not a free admin handle.
+    const refused = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '@bob',
+    });
+    let parsed = JSON.parse(refused.content[0].text);
+    let dark = parsed.milestones
+      .find((m: { name: string }) => m.name === 'Q2 Polish')
+      .features.find((f: { name: string }) => f.name === 'Dark Mode');
+    expect(dark.assignee).toBe('@alice');
+    expect(dark.status).toBe('in-progress');
+    // The lost race is signaled explicitly, not as a silent success: structured
+    // `claimed: false` flag, an informative message naming the holder, and
+    // isError so the auto-sync trigger skips the no-op write.
+    expect(refused.isError).toBe(true);
+    expect(parsed.claimed).toBe(false);
+    expect(parsed.message).toContain('Claim refused');
+    expect(parsed.message).toContain('@alice');
+
+    // To hand off, release first (clear assignee, return to planned)...
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '',
+    });
+    // ...then the new owner can claim.
     const response = await handleManageRoadmap({
       path: tmpDir,
       action: 'update',
@@ -363,19 +392,21 @@ describe('manage_roadmap update action', () => {
       assignee: '@bob',
     });
     expect(response.isError).toBeFalsy();
-    const parsed = JSON.parse(response.content[0].text);
-    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
-    const dark = q2.features.find((f: { name: string }) => f.name === 'Dark Mode');
+    parsed = JSON.parse(response.content[0].text);
+    dark = parsed.milestones
+      .find((m: { name: string }) => m.name === 'Q2 Polish')
+      .features.find((f: { name: string }) => f.name === 'Dark Mode');
     expect(dark.assignee).toBe('@bob');
-    // Should have: assigned @alice, unassigned @alice, assigned @bob
+    expect(dark.status).toBe('in-progress');
+    // History: assigned @alice, (refused → none), unassigned @alice, assigned @bob.
     const darkHistory = parsed.assignmentHistory.filter(
       (h: { feature: string }) => h.feature === 'Dark Mode'
     );
-    expect(darkHistory).toHaveLength(3);
-    expect(darkHistory[1].action).toBe('unassigned');
-    expect(darkHistory[1].assignee).toBe('@alice');
-    expect(darkHistory[2].action).toBe('assigned');
-    expect(darkHistory[2].assignee).toBe('@bob');
+    expect(darkHistory.map((h: { action: string; assignee: string }) => h)).toEqual([
+      expect.objectContaining({ action: 'assigned', assignee: '@alice' }),
+      expect.objectContaining({ action: 'unassigned', assignee: '@alice' }),
+      expect.objectContaining({ action: 'assigned', assignee: '@bob' }),
+    ]);
   });
 });
 

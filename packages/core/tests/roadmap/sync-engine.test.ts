@@ -84,7 +84,6 @@ function mockAdapter(overrides?: Partial<TrackerSyncAdapter>): TrackerSyncAdapte
     ),
     fetchAllTickets: vi.fn(async () => Ok([])),
     assignTicket: vi.fn(async () => Ok(undefined)),
-    getAuthenticatedUser: vi.fn(async () => Ok('@testuser')),
     ...overrides,
   };
 }
@@ -314,6 +313,106 @@ describe('syncFromExternal()', () => {
       from: null,
       to: '@cwarner',
     });
+  });
+
+  it('never clobbers a live machine claim with an external/human assignee', async () => {
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'in-progress',
+      assignee: 'orchestrator-5c895000',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'open',
+            labels: ['in-progress'],
+            assignee: '@cwarner',
+          },
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBe('orchestrator-5c895000');
+    expect(result.assignmentChanges).toHaveLength(0);
+  });
+
+  it('clears a machine claim when inbound status moves to done (RMH005)', async () => {
+    // External closed the issue → roadmap moves in-progress → done. The local
+    // assignee is a machine claim; the status block must release it through
+    // setStatus(), or the row ends up `done` with `assignee = orchestrator-*`
+    // (the RMH005 violation in reverse).
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'in-progress',
+      assignee: 'orchestrator-5c895000',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'closed',
+            labels: [],
+            assignee: null,
+          },
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done');
+    expect(feature.assignee).toBeNull();
+    // The release is auditable in assignment history.
+    expect(roadmap.assignmentHistory).toContainEqual(
+      expect.objectContaining({
+        feature: 'Test Feature',
+        assignee: 'orchestrator-5c895000',
+        action: 'unassigned',
+      })
+    );
+  });
+
+  it('clears a machine claim when forceSync regresses in-progress to planned (RMH005)', async () => {
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'in-progress',
+      assignee: 'orchestrator-5c895000',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'open',
+            labels: ['planned'],
+            assignee: null,
+          },
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG, { forceSync: true });
+
+    expect(feature.status).toBe('planned');
+    expect(feature.assignee).toBeNull();
+    expect(roadmap.assignmentHistory).toContainEqual(
+      expect.objectContaining({
+        feature: 'Test Feature',
+        assignee: 'orchestrator-5c895000',
+        action: 'unassigned',
+      })
+    );
   });
 
   it('does not regress status without forceSync', async () => {

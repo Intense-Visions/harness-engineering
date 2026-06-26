@@ -1,4 +1,5 @@
 import type { Roadmap, RoadmapFeature, RoadmapMilestone } from '@harness-engineering/types';
+import { assigneeInvariantHolds } from './assignee-lifecycle';
 
 /**
  * Roadmap maintenance: health checks (read-only diagnostics) and grooming
@@ -19,7 +20,7 @@ import type { Roadmap, RoadmapFeature, RoadmapMilestone } from '@harness-enginee
 
 export type RoadmapHealthSeverity = 'error' | 'warning';
 
-export type RoadmapHealthRuleId = 'RMH001' | 'RMH002' | 'RMH003' | 'RMH004';
+export type RoadmapHealthRuleId = 'RMH001' | 'RMH002' | 'RMH003' | 'RMH004' | 'RMH005';
 
 export interface RoadmapHealthFinding {
   ruleId: RoadmapHealthRuleId;
@@ -77,6 +78,8 @@ function resolveOptions(options?: RoadmapHealthOptions): Required<RoadmapHealthO
  *  - RMH002 (warning): a `planned` feature has neither spec nor plan (orchestrator-invisible).
  *  - RMH003 (error):   a lifecycle catch-all milestone ("Backlog"/"Current Work") exists.
  *  - RMH004 (warning): an active milestone exceeds the size cap (itself a mini-dump).
+ *  - RMH005 (error):   the assignee invariant is broken — a feature has an assignee
+ *                      but is not `in-progress`, or is `in-progress` with no assignee.
  */
 export function checkRoadmapHealth(
   roadmap: Roadmap,
@@ -135,20 +138,40 @@ export function checkRoadmapHealth(
           suggestion: `Link a spec/plan to make it actionable, or demote it to "backlog".`,
         });
       }
+
+      // RMH005 — the assignee invariant: assignee ≠ null ⟺ in-progress.
+      if (!assigneeInvariantHolds(feature)) {
+        const orphaned = feature.status === 'in-progress' && feature.assignee === null;
+        findings.push({
+          ruleId: 'RMH005',
+          severity: 'error',
+          milestone: milestone.name,
+          feature: feature.name,
+          message: orphaned
+            ? `"${feature.name}" is "in-progress" with no assignee; an in-progress row must name who is executing it.`
+            : `"${feature.name}" has assignee "${feature.assignee}" but status "${feature.status}"; an assignee means in-progress (set at execution start, cleared otherwise).`,
+          suggestion: orphaned
+            ? `Demote it to "planned" (or claim it) — run the roadmap skill's --groom mode.`
+            : `Clear the assignee (or move it to "in-progress") — run the roadmap skill's --groom mode.`,
+        });
+      }
     }
   }
 
   return findings;
 }
 
-export type RoadmapGroomChangeKind = 'archived' | 'demoted';
+export type RoadmapGroomChangeKind = 'archived' | 'demoted' | 'unassigned';
 
 export interface RoadmapGroomChange {
   kind: RoadmapGroomChangeKind;
   feature: string;
   /** Milestone the feature was in before grooming. */
   from: string;
-  /** For 'demoted': the new status. For 'archived': the archive milestone name. */
+  /**
+   * For 'demoted': the new status. For 'archived': the archive milestone name.
+   * For 'unassigned': the assignee that was cleared.
+   */
   to: string;
 }
 
@@ -173,10 +196,13 @@ export interface RoadmapGroomResult {
 /**
  * Groom the active roadmap. Pure: clones input, never mutates it.
  *
- * Two mechanical, safe transforms:
+ * Three mechanical, safe transforms:
  *  1. Demote every unactionable `planned` row (no spec & no plan) to `backlog`,
  *     so the orchestrator stops bouncing it.
- *  2. Lift every `done` feature out of an active milestone into `archived`
+ *  2. Restore the assignee invariant (`assignee ≠ null ⟺ in-progress`): clear the
+ *     assignee on any non-in-progress row, and demote an orphaned `in-progress`
+ *     row (no assignee) back to `planned`.
+ *  3. Lift every `done` feature out of an active milestone into `archived`
  *     (caller persists to the archive file).
  *
  * Draining the Intake lane into themed milestones is intentionally NOT automated
@@ -206,7 +232,26 @@ export function groomRoadmap(roadmap: Roadmap, options?: RoadmapGroomOptions): R
         });
       }
 
-      // 2. Archive done work that sits in an active milestone.
+      // 2. Restore the assignee invariant (assignee ≠ null ⟺ in-progress).
+      if (feature.status !== 'in-progress' && feature.assignee !== null) {
+        changes.push({
+          kind: 'unassigned',
+          feature: feature.name,
+          from: milestone.name,
+          to: feature.assignee,
+        });
+        feature.assignee = null;
+      } else if (feature.status === 'in-progress' && feature.assignee === null) {
+        feature.status = 'planned';
+        changes.push({
+          kind: 'demoted',
+          feature: feature.name,
+          from: milestone.name,
+          to: 'planned',
+        });
+      }
+
+      // 3. Archive done work that sits in an active milestone.
       if (archiveDone && feature.status === 'done' && !archive && !isIntake) {
         archived.push(feature);
         changes.push({
