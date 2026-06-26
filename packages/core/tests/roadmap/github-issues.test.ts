@@ -228,6 +228,42 @@ describe('GitHubIssuesSyncAdapter', () => {
       const result = await adapter.updateTicket('invalid', { summary: 'x' });
       expect(result.ok).toBe(false);
     });
+
+    it('never pushes a machine (orchestrator) assignee to the issue', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.updateTicket('github:owner/repo#42', {
+        assignee: 'orchestrator-5c895000',
+      });
+      expect(result.ok).toBe(true);
+
+      const [, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      const body = JSON.parse(opts.body as string);
+      // Machine claim stays local-only: no `assignees` key in the patch, and no
+      // /user lookup to launder it to the authenticated human.
+      expect(body).not.toHaveProperty('assignees');
+      expect((fetchFn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    });
+
+    it('pushes a human assignee as a GitHub login', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      await adapter.updateTicket('github:owner/repo#42', { assignee: '@cwarner' });
+
+      const [, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      const body = JSON.parse(opts.body as string);
+      expect(body.assignees).toEqual(['cwarner']);
+    });
   });
 
   describe('fetchTicketState', () => {

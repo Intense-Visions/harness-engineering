@@ -316,6 +316,33 @@ describe('syncFromExternal()', () => {
     });
   });
 
+  it('never clobbers a live machine claim with an external/human assignee', async () => {
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'in-progress',
+      assignee: 'orchestrator-5c895000',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'open',
+            labels: ['in-progress'],
+            assignee: '@cwarner',
+          },
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBe('orchestrator-5c895000');
+    expect(result.assignmentChanges).toHaveLength(0);
+  });
+
   it('does not regress status without forceSync', async () => {
     const feature = makeFeature({ externalId: 'github:owner/repo#1', status: 'done' });
     const roadmap = makeRoadmap([feature]);
