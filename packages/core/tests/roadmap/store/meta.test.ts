@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { RoadmapMeta } from '../../../src/roadmap/store/roadmap-store';
 import { parseMeta, serializeMeta } from '../../../src/roadmap/store/meta';
 import { META, META_MD, META_MD_MISSING_REQUIRED } from './fixtures';
 
@@ -34,5 +35,26 @@ describe('serializeMeta()', () => {
     const r = parseMeta(md);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value).toEqual(META);
+  });
+
+  // B1 regression: milestone list items must be safely quoted so colon /
+  // boolean-looking / number-looking names reparse as strings (not nested maps
+  // or coerced scalars), and quotes/backslashes are escaped.
+  it('B1: round-trips milestone names with colons, booleans, numbers, and escapes', () => {
+    const meta: RoadmapMeta = {
+      frontmatter: META.frontmatter,
+      milestones: ['Maintenance: Lint & Deps', 'true', '123', 'He said "hi" \\ bye'],
+    };
+    const md = serializeMeta(meta);
+    const r = parseMeta(md);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.milestones).toEqual([
+        'Maintenance: Lint & Deps',
+        'true',
+        '123',
+        'He said "hi" \\ bye',
+      ]);
+    }
   });
 });

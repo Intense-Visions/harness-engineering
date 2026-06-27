@@ -3,6 +3,7 @@ import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import { parseFeatureBlock } from '../parse';
 import { serializeFeature } from '../serialize';
+import { quoteYamlScalar } from './yaml-scalar';
 import type { Shard } from './roadmap-store';
 
 const H3_NAME = /^###\s+(?:Feature:\s+)?(.+)$/m;
@@ -59,15 +60,17 @@ export function parseShard(md: string): Result<Shard> {
 /**
  * Serialize a `Shard` back to markdown. Frontmatter is hand-emitted in fixed key
  * order (slug, milestone, order) for byte-determinism — `matter.stringify` is NOT
- * used because its key ordering/quoting is not stable. The row body is emitted by
- * the shared `serializeFeature` (which includes the `### name` heading), so the
- * output is byte-stable with `parseShard`.
+ * used because its key ordering/quoting is not stable. Free-form string scalars
+ * (`slug`, `milestone`) are double-quoted via `quoteYamlScalar` so values with
+ * colons or boolean/number shapes round-trip; `order` is a number and emitted
+ * raw. The row body is emitted by the shared `serializeFeature` (which includes
+ * the `### name` heading), so the output is byte-stable with `parseShard`.
  */
 export function serializeShard(shard: Shard): string {
   const frontmatter = [
     '---',
-    `slug: ${shard.slug}`,
-    `milestone: ${shard.milestone}`,
+    `slug: ${quoteYamlScalar(shard.slug)}`,
+    `milestone: ${quoteYamlScalar(shard.milestone)}`,
     `order: ${shard.order}`,
     '---',
     '',

@@ -36,8 +36,8 @@ export function feat(
 // --- Task 3: a single canonical shard -------------------------------------
 
 export const SHARD_MD = `---
-slug: shard-store-core
-milestone: MVP Release
+slug: "shard-store-core"
+milestone: "MVP Release"
 order: 10
 ---
 
@@ -108,16 +108,16 @@ order: 1
 // --- Task 4: the _meta.md file (frontmatter-only) -------------------------
 
 export const META_MD = `---
-project: harness-engineering
+project: "harness-engineering"
 version: 1
-created: 2026-06-01
-updated: 2026-06-27
-last_synced: 2026-06-27T12:00:00.000Z
-last_manual_edit: 2026-06-27T11:00:00.000Z
+created: "2026-06-01"
+updated: "2026-06-27"
+last_synced: "2026-06-27T12:00:00.000Z"
+last_manual_edit: "2026-06-27T11:00:00.000Z"
 milestones:
-  - MVP Release
-  - v5.0 Hardening
-  - Backlog
+  - "MVP Release"
+  - "v5.0 Hardening"
+  - "Backlog"
 ---
 `;
 

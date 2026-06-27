@@ -1,6 +1,7 @@
 import { parse as parseYaml } from 'yaml';
 import type { RoadmapFrontmatter, Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
+import { quoteYamlScalar } from './yaml-scalar';
 import type { RoadmapMeta } from './roadmap-store';
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\s*$/;
@@ -67,18 +68,21 @@ export function parseMeta(md: string): Result<RoadmapMeta> {
  * Serialize `RoadmapMeta` to a byte-stable `_meta.md`. Frontmatter is hand-emitted
  * in fixed key order (project, version, created?, updated?, last_synced,
  * last_manual_edit) followed by the `milestones:` block sequence — deterministic,
- * no YAML stringifier (whose quoting/ordering is not guaranteed stable).
+ * no YAML stringifier (whose quoting/ordering is not guaranteed stable). Free-form
+ * string scalars (project, the ISO timestamps, and every milestone name) are
+ * double-quoted via `quoteYamlScalar` so values with colons (`Maintenance: Lint &
+ * Deps`) or boolean/number shapes round-trip; `version` is a number, emitted raw.
  */
 export function serializeMeta(meta: RoadmapMeta): string {
   const { frontmatter: fm, milestones } = meta;
-  const lines = ['---', `project: ${fm.project}`, `version: ${fm.version}`];
-  if (fm.created) lines.push(`created: ${fm.created}`);
-  if (fm.updated) lines.push(`updated: ${fm.updated}`);
-  lines.push(`last_synced: ${fm.lastSynced}`);
-  lines.push(`last_manual_edit: ${fm.lastManualEdit}`);
+  const lines = ['---', `project: ${quoteYamlScalar(fm.project)}`, `version: ${fm.version}`];
+  if (fm.created) lines.push(`created: ${quoteYamlScalar(fm.created)}`);
+  if (fm.updated) lines.push(`updated: ${quoteYamlScalar(fm.updated)}`);
+  lines.push(`last_synced: ${quoteYamlScalar(fm.lastSynced)}`);
+  lines.push(`last_manual_edit: ${quoteYamlScalar(fm.lastManualEdit)}`);
   lines.push('milestones:');
   for (const name of milestones) {
-    lines.push(`  - ${name}`);
+    lines.push(`  - ${quoteYamlScalar(name)}`);
   }
   lines.push('---');
   return lines.join('\n') + '\n';
