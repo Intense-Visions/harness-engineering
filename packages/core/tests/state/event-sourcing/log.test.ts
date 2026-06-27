@@ -294,17 +294,42 @@ describe('blob spill', () => {
     }
   });
 
-  it('writes the blob before the log line (crash leaves orphan blob, never dangling ref)', async () => {
-    // White-box: a small payload never spills; an oversized one always produces a blob
-    // file whose existence does not depend on the line. Assert blob+line both present and
-    // the line references the existing blob hash.
-    const big = 'y'.repeat(MAX_LINE_BYTES * 2);
-    const r = await emitEvent(dir, { type: 'state_imported', payload: { legacyState: big } });
-    expect(r.ok).toBe(true);
+  it('emitted spilled event degrades to a dropped event (never a fatal load) when its blob is later lost (crash-resilience, I4)', async () => {
+    // Real end-to-end resilience assertion (replaces the prior tautological "both files
+    // exist on the happy path" check). Drive the actual emit->spill->append path, then
+    // remove the spilled blob to simulate the orphan-vs-dangling crash window / GC. The
+    // dangling reference must skip ONLY that event, with a valid sibling still loading and
+    // the loss surfaced — proving the documented "tolerated on read, not data loss" contract.
+    const small = await emitEvent(dir, { type: 'position_set', payload: { position: 'KEEP' } });
+    expect(small.ok).toBe(true);
+
+    const big = 'z'.repeat(MAX_LINE_BYTES * 2);
+    const spilled = await emitEvent(dir, { type: 'state_imported', payload: { legacyState: big } });
+    expect(spilled.ok).toBe(true);
+
     const { logPath, blobsDir } = await eventLogPaths(dir);
-    const stored = JSON.parse(fs.readFileSync(logPath, 'utf-8').trim());
-    const hash = stored.payload.$blob as string;
+    // Confirm the second event really spilled (the property under test depends on it).
+    const lines = fs.readFileSync(logPath, 'utf-8').trim().split('\n');
+    const spilledLine = JSON.parse(lines[1] as string) as { payload?: { $blob?: string } };
+    const hash = spilledLine.payload?.$blob;
+    expect(hash).toBeDefined();
     expect(fs.existsSync(path.join(blobsDir, `${hash}.json`))).toBe(true);
+
+    // Simulate the blob being lost AFTER its line was appended (dangling reference).
+    fs.rmSync(path.join(blobsDir, `${hash}.json`));
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const r = await loadEvents(dir);
+      expect(r.ok).toBe(true); // NOT fatal for the whole scope
+      if (!r.ok) return;
+      expect(r.value.length).toBe(1); // the valid sibling survives
+      expect(r.value[0]?.seq).toBe(1);
+      // The dangling reference is surfaced, not silently swallowed.
+      expect(String(warn.mock.calls[0]?.[0])).toContain('blob-unreadable=1');
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
