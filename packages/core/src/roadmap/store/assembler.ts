@@ -61,5 +61,9 @@ export function assembleRoadmap(shards: Shard[], meta: RoadmapMeta): Roadmap {
     };
   });
 
-  return { frontmatter: meta.frontmatter, milestones, assignmentHistory: [] };
+  return {
+    frontmatter: meta.frontmatter,
+    milestones,
+    assignmentHistory: meta.assignmentHistory ?? [],
+  };
 }

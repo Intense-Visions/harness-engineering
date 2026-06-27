@@ -3,7 +3,14 @@ import type { RoadmapMeta, Shard } from '../../../src/roadmap/store/roadmap-stor
 import { assembleRoadmap } from '../../../src/roadmap/store/assembler';
 import { serializeRoadmap } from '../../../src/roadmap/serialize';
 import { parseRoadmap } from '../../../src/roadmap/parse';
-import { ASSEMBLER_SHARDS, ASSEMBLER_META, EXPECTED_ROADMAP, META, feat } from './fixtures';
+import {
+  ASSEMBLER_SHARDS,
+  ASSEMBLER_META,
+  EXPECTED_ROADMAP,
+  META,
+  META_WITH_HISTORY,
+  feat,
+} from './fixtures';
 
 describe('assembleRoadmap()', () => {
   it('orders milestones per meta and features by order/status/slug', () => {
@@ -22,6 +29,11 @@ describe('assembleRoadmap()', () => {
     const result = assembleRoadmap(ASSEMBLER_SHARDS, ASSEMBLER_META);
     expect(result.frontmatter).toEqual(ASSEMBLER_META.frontmatter);
     expect(result.assignmentHistory).toEqual([]);
+  });
+
+  it('threads meta.assignmentHistory into the assembled Roadmap (in order)', () => {
+    const result = assembleRoadmap(ASSEMBLER_SHARDS, META_WITH_HISTORY);
+    expect(result.assignmentHistory).toEqual(META_WITH_HISTORY.assignmentHistory);
   });
 
   it('appends a milestone absent from meta.milestones after the ordered ones', () => {
