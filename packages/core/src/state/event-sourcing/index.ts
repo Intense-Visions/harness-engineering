@@ -16,7 +16,7 @@ export { reduce, materialize, readSnapshot, isStale, MATERIALIZE_DEBOUNCE_MS } f
 // LanesProjection now lives in ./projections/lanes and AuditProjection in
 // ./projections/audit (both exported below); keep Snapshot here.
 export type { Snapshot } from './snapshot';
-// Phase 5: audit projection (the append-only session audit trail, subsumes #580).
+// Phase 5: audit projection (the append-only session audit trail, subsumes GH-580).
 export { projectAudit, formatAuditTimeline } from './projections/audit';
 export type { AuditProjection, AuditEntry, AuditKind } from './projections/audit';
 // Phase 3: genesis migration (idempotent, crash-safe import of the legacy state.json) +

@@ -6,7 +6,7 @@
 //
 // The event-sourcing primitives are published under the `eventSourcing` namespace of
 // `@harness-engineering/core`. The legacy top-level skill-event log (`events.jsonl`) was retired
-// in Phase 5 (#580): its audit/timeline role is subsumed by this store's audit projection, and
+// in Phase 5 (GH-580): its audit/timeline role is subsumed by this store's audit projection, and
 // its skill-telemetry role was relocated CLI-side (metrics/skill-events.jsonl).
 import { eventSourcing, Ok, type HarnessState, type Result } from '@harness-engineering/core';
 
@@ -55,7 +55,7 @@ export async function emitCoreEvent(
   return emitEvent(projectPath, event, scope);
 }
 
-// --- Phase 5: audit-trail emit + read helpers (subsumes #580) ---
+// --- Phase 5: audit-trail emit + read helpers (subsumes GH-580) ---
 // These ride the same authoritative log as core-state; the audit subdocument is folded
 // additively by projectAudit. emitCoreEvent's genesis-import-then-append keeps legacy state intact.
 

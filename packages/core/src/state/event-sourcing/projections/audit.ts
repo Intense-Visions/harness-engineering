@@ -1,7 +1,7 @@
 // packages/core/src/state/event-sourcing/projections/audit.ts
 //
 // Phase 5: pure fold of audit events (user_input_captured + approval_requested +
-// approval_resolved) into the append-only session audit trail (subsumes #580).
+// approval_resolved) into the append-only session audit trail (subsumes GH-580).
 // Mirrors lanes.ts: defensively copies + sorts by (seq, writerId), no IO, order-independent.
 import type { Event } from '../events';
 

@@ -67,7 +67,7 @@ describe('gather_context tool', () => {
       expect(parsed.meta).toHaveProperty('errors');
     });
 
-    it('derives the events timeline from the audit projection, not events.jsonl (#580 SC6)', async () => {
+    it('derives the events timeline from the audit projection, not events.jsonl (GH-580 SC6)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-audit-'));
       try {
         // Seed audit activity through the authoritative log (no events.jsonl involved).

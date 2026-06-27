@@ -27,7 +27,7 @@ function collectSourceFiles(dir: string): string[] {
   return out;
 }
 
-describe('events.jsonl retirement guard (#580 SC6 / D5)', () => {
+describe('events.jsonl retirement guard (GH-580 SC6 / D5)', () => {
   const tmpDirs: string[] = [];
   afterEach(() => {
     for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });

@@ -70,7 +70,7 @@ const LaneTransitionedPayload = z.object({
 /** Inferred input shape for a lane_transitioned payload (used by the transitionLane writer). */
 export type LaneTransitionedInput = z.infer<typeof LaneTransitionedPayload>;
 
-// --- Phase 5: audit-trail vocabulary (subsumes #580), additive ---
+// --- Phase 5: audit-trail vocabulary (subsumes GH-580), additive ---
 const UserInputCapturedPayload = z.object({
   text: z.string(),
   interactionId: z.string().optional(),

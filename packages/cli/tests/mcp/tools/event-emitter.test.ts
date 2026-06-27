@@ -7,7 +7,7 @@ import { emitSkillEvent } from '../../../src/mcp/tools/event-emitter';
 describe('emitSkillEvent', () => {
   let tmpDir: string;
 
-  // #580 D5: emitSkillEvent now writes to the relocated .harness/metrics/skill-events.jsonl.
+  // GH-580 D5: emitSkillEvent now writes to the relocated .harness/metrics/skill-events.jsonl.
   const eventsFilePath = (cwd: string): string =>
     path.join(cwd, '.harness', 'metrics', 'skill-events.jsonl');
 

@@ -22,7 +22,7 @@ function runHook(stdinData: string, cwd: string): { exitCode: number; stderr: st
   };
 }
 
-// #580 D5: the skill-telemetry stream was relocated to .harness/metrics/skill-events.jsonl.
+// GH-580 D5: the skill-telemetry stream was relocated to .harness/metrics/skill-events.jsonl.
 function skillEventsPath(cwd: string): string {
   return join(cwd, '.harness', 'metrics', 'skill-events.jsonl');
 }
@@ -200,7 +200,7 @@ describe('adoption-tracker', { timeout: 60000 }, () => {
     expect(readAdoptionRecords(tmpDir)).toHaveLength(0);
   });
 
-  it('reads the relocated metrics path, not the legacy events.jsonl (#580 D5)', () => {
+  it('reads the relocated metrics path, not the legacy events.jsonl (GH-580 D5)', () => {
     // A legacy events.jsonl must be ignored; only the relocated metrics file is read.
     mkdirSync(join(tmpDir, '.harness'), { recursive: true });
     writeFileSync(

@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { handleManageState } from '../../../src/mcp/tools/state';
 
-/** Read all skill-telemetry events from the relocated metrics log (#580 D5). */
+/** Read all skill-telemetry events from the relocated metrics log (GH-580 D5). */
 function readEvents(tmpDir: string) {
   const eventsPath = path.join(tmpDir, '.harness', 'metrics', 'skill-events.jsonl');
   if (!fs.existsSync(eventsPath)) return [];

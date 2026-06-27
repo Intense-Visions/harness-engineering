@@ -14,7 +14,7 @@ import { projectCoreState, type CoreStateProjection } from './projections/core-s
 import { projectLanes, type LanesProjection } from './projections/lanes';
 export type { LanesProjection };
 // Phase 5: audit is now a real projection (the append-only session audit trail,
-// subsuming #580), folded by projectAudit. Re-exported so the barrel surface keeps working.
+// subsuming GH-580), folded by projectAudit. Re-exported so the barrel surface keeps working.
 import { projectAudit, type AuditProjection } from './projections/audit';
 export type { AuditProjection };
 
@@ -28,7 +28,7 @@ export interface Snapshot {
   schemaVersion: 2;
   coreState: CoreStateProjection;
   lanes: LanesProjection; // Phase 4 — lane machine
-  audit: AuditProjection; // Phase 5 — session audit trail (#580)
+  audit: AuditProjection; // Phase 5 — session audit trail (GH-580)
   meta: { lastSeq: number };
 }
 
@@ -42,7 +42,7 @@ export function reduce(events: Event[]): Snapshot {
     schemaVersion: 2,
     coreState: projectCoreState(events),
     lanes: projectLanes(events), // Phase 4 — lane machine
-    audit: projectAudit(events), // Phase 5 — session audit trail (#580)
+    audit: projectAudit(events), // Phase 5 — session audit trail (GH-580)
     meta: { lastSeq: events.reduce((m, e) => Math.max(m, e.seq), 0) },
   };
 }

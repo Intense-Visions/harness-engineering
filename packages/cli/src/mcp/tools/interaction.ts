@@ -378,7 +378,7 @@ async function recordInteraction(
       },
       { stream }
     );
-    // #580 audit round-trip (prompt side): capture the verbatim prompt + the approval request.
+    // GH-580 audit round-trip (prompt side): capture the verbatim prompt + the approval request.
     // The response side (approval_resolved) is emitted at the manage_state decision-resolution
     // path (Task 8 disposition A). Non-fatal — telemetry must never break the interaction.
     await emitUserInputCaptured(projectPath, decision, id, { stream });

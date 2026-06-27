@@ -542,7 +542,7 @@ describe('emit_interaction — W2 recordInteraction parity', () => {
   });
 });
 
-describe('emit_interaction — SC5 #580 audit round-trip subsumption proof', () => {
+describe('emit_interaction — SC5 GH-580 audit round-trip subsumption proof', () => {
   const tmpDirs: string[] = [];
   afterEach(() => {
     for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
@@ -583,7 +583,7 @@ describe('emit_interaction — SC5 #580 audit round-trip subsumption proof', () 
     expect(requested).toBeDefined();
     expect(resolved).toBeDefined();
 
-    // Verbatim capture (#580): the prompt and the response survive byte-for-byte.
+    // Verbatim capture (GH-580): the prompt and the response survive byte-for-byte.
     expect(requested!.text).toBe('Continue to Task 17?');
     expect(resolved!.text).toBe('yes, proceed');
 

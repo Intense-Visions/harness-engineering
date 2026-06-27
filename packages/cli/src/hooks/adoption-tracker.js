@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // adoption-tracker.js — Stop:* hook
-// Reads .harness/metrics/skill-events.jsonl (the relocated skill-telemetry stream — #580 D5),
+// Reads .harness/metrics/skill-events.jsonl (the relocated skill-telemetry stream — GH-580 D5),
 // reconstructs skill invocations, appends SkillInvocationRecord entries to
 // .harness/metrics/adoption.jsonl.
 // Exit codes: 0 = allow (always, log-only hook)
@@ -141,7 +141,7 @@ function main() {
       process.exit(0);
     }
 
-    // Read the relocated skill-telemetry stream (#580 D5)
+    // Read the relocated skill-telemetry stream (GH-580 D5)
     const eventsPath = join(cwd, '.harness', 'metrics', 'skill-events.jsonl');
     if (!existsSync(eventsPath)) {
       process.stderr.write('[adoption-tracker] No skill-events.jsonl found — skipping\n');

@@ -1,5 +1,5 @@
 /**
- * Skill-lifecycle telemetry writer (relocated off the retired core `events.jsonl` — #580 D5).
+ * Skill-lifecycle telemetry writer (relocated off the retired core `events.jsonl` — GH-580 D5).
  *
  * Phase 5 retires `.harness/events.jsonl` as the audit/timeline source. The skill-lifecycle
  * telemetry stream (phase_transition / gate_result / handoff / error / skill-invoked) that the

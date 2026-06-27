@@ -143,6 +143,6 @@ export type { ArchiveHooks, ArchiveSessionOptions } from './session-archive';
  * Event-sourced state log. The authoritative append-only log + materialized snapshot
  * (core-state, lanes, and the Phase 5 audit trail). This subsumes the retired legacy
  * `events.ts` skill-event log; the namespace no longer collides with anything, and the
- * skill-lifecycle telemetry stream now lives CLI-side (metrics/skill-events.jsonl, #580 D5).
+ * skill-lifecycle telemetry stream now lives CLI-side (metrics/skill-events.jsonl, GH-580 D5).
  */
 export * as eventSourcing from './event-sourcing';

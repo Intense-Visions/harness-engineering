@@ -167,7 +167,7 @@ describe('lane events', () => {
   });
 });
 
-describe('audit events (Phase 5 — #580 subsumption)', () => {
+describe('audit events (Phase 5 — GH-580 subsumption)', () => {
   it('validates a well-formed user_input_captured event', () => {
     const e = {
       ...envelope,

@@ -15,7 +15,7 @@ function tmp(): string {
   return d;
 }
 
-describe('skill-telemetry (relocated off events.jsonl — #580 D5)', () => {
+describe('skill-telemetry (relocated off events.jsonl — GH-580 D5)', () => {
   it('writes to .harness/metrics/skill-events.jsonl, not .harness/events.jsonl', () => {
     expect(SKILL_EVENTS_FILE).toContain('metrics');
     expect(SKILL_EVENTS_FILE).toContain('skill-events.jsonl');

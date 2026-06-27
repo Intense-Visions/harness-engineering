@@ -315,7 +315,7 @@ export async function handleGatherContext(input: {
       ? input.includeEvents
       : includeSet.has('events') || (!!input.session && !input.include);
 
-  // #580 SC6: the observability timeline is derived from the audit projection of the
+  // GH-580 SC6: the observability timeline is derived from the audit projection of the
   // authoritative event log (readSnapshot → formatAuditTimeline), never from events.jsonl.
   const eventsPromise = shouldIncludeEvents
     ? import('../../shared/state-events.js').then((m) =>

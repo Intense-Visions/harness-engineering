@@ -290,7 +290,7 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
 
 /**
  * Update a session section entry's status. When a `decisions` entry is moved to `resolved`,
- * this is the in-tool moment the #580 approval round-trip closes, so it additionally emits an
+ * this is the in-tool moment the GH-580 approval round-trip closes, so it additionally emits an
  * `approval_resolved` audit event keyed by the entry/interaction id (Task 8 disposition A).
  */
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
@@ -307,7 +307,7 @@ async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
     input.entryId,
     input.newStatus as import('@harness-engineering/types').SessionEntryStatus
   );
-  // #580 audit round-trip (response side, Task 8 disposition A): resolving a decision entry
+  // GH-580 audit round-trip (response side, Task 8 disposition A): resolving a decision entry
   // is the in-tool moment the approval round-trip closes. Emit approval_resolved keyed by the
   // entry/interaction id onto the authoritative log so projectAudit recovers the full trip.
   // Non-fatal — audit telemetry must never break the status update.
