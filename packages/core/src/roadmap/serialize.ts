@@ -79,7 +79,13 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
   return lines;
 }
 
-function serializeFeature(feature: RoadmapFeature): string[] {
+/**
+ * Serialize a single feature to its markdown lines: the `### name` heading, a
+ * blank line, then the `- **Field:** value` bullet block. Exported so the shard
+ * file format can reuse the exact same row emission (spec: reuse, do not
+ * reimplement).
+ */
+export function serializeFeature(feature: RoadmapFeature): string[] {
   const lines = [
     `### ${feature.name}`,
     '',

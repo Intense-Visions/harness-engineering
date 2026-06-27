@@ -139,7 +139,7 @@ function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
     const nextStart = i + 1 < h3Matches.length ? h3Matches[i + 1]!.startIndex : sectionBody.length;
     const featureBody = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
 
-    const featureResult = parseFeatureFields(h3.name, featureBody);
+    const featureResult = parseFeatureBlock(h3.name, featureBody);
     if (!featureResult.ok) return featureResult;
     features.push(featureResult.value);
   }
@@ -205,7 +205,14 @@ function optionalField(fieldMap: Map<string, string>, key: string): string | nul
   return raw === EM_DASH ? null : raw;
 }
 
-function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> {
+/**
+ * Parse a single per-row bullet block (the `- **Field:** value` lines) into a
+ * RoadmapFeature, given the feature `name` (from the H3 heading). Exported so the
+ * shard file format can reuse the exact same field parsing (spec: reuse, do not
+ * reimplement). The `body` may include the `### name` heading line — it is ignored
+ * (only `- **...:**` bullets are read).
+ */
+export function parseFeatureBlock(name: string, body: string): Result<RoadmapFeature> {
   const fieldMap = extractFieldMap(body);
 
   const statusResult = validateStatus(name, fieldMap);
