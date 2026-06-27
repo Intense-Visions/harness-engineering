@@ -42,6 +42,36 @@ describe('manage_state tool', () => {
     expect(parsed.blockers).toEqual([]);
   });
 
+  it('show returns the populated legacy state via the snapshot projection (R1 parity)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-show-'));
+    try {
+      const harnessDir = path.join(tmpDir, '.harness');
+      fs.mkdirSync(harnessDir, { recursive: true });
+      const legacy = {
+        schemaVersion: 1,
+        position: { phase: 'execute', task: 'Task 12' },
+        decisions: [
+          { date: '2026-06-27', decision: 'cut over reads', context: 'harness-execution' },
+        ],
+        blockers: [],
+        progress: { 'Task 11': 'complete' },
+      };
+      fs.writeFileSync(path.join(harnessDir, 'state.json'), JSON.stringify(legacy));
+
+      const response = await handleManageState({ path: tmpDir, action: 'show' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      // Parity: same HarnessState shape the legacy loadState path returned for this file.
+      expect(parsed.schemaVersion).toBe(1);
+      expect(parsed.position).toEqual({ phase: 'execute', task: 'Task 12' });
+      expect(parsed.decisions).toEqual(legacy.decisions);
+      expect(parsed.progress).toEqual({ 'Task 11': 'complete' });
+      expect(parsed.blockers).toEqual([]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('learn action returns error when learning is missing', async () => {
     const response = await handleManageState({ path: '/nonexistent/project', action: 'learn' });
     expect(response.isError).toBe(true);

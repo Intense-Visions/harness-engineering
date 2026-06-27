@@ -102,8 +102,10 @@ type StateInput = {
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
-  const { loadState } = await import('@harness-engineering/core');
-  return resultToMcpResponse(await loadState(projectPath, input.stream, input.session));
+  const { readHarnessState } = await import('../../shared/state-events.js');
+  return resultToMcpResponse(
+    await readHarnessState(projectPath, { stream: input.stream, session: input.session })
+  );
 }
 
 async function handleLearn(projectPath: string, input: StateInput) {
