@@ -230,8 +230,8 @@ export async function handleGatherContext(input: {
 
   // Build constituent promises
   const statePromise = includeSet.has('state')
-    ? import('@harness-engineering/core').then((core) =>
-        core.loadState(projectPath, undefined, input.session)
+    ? import('../../shared/state-events.js').then((m) =>
+        m.readHarnessState(projectPath, { session: input.session })
       )
     : Promise.resolve(null);
 

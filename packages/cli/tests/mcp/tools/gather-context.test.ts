@@ -155,6 +155,29 @@ describe('gather_context tool', () => {
       expect(compositeData.state).toEqual(directState);
     });
 
+    it('state field reflects populated legacy state via snapshot projection (R2 parity)', async () => {
+      const legacy = {
+        schemaVersion: 1,
+        position: { phase: 'execute', task: 'Task 13' },
+        decisions: [
+          { date: '2026-06-27', decision: 'gather-context reads', context: 'harness-execution' },
+        ],
+        blockers: [],
+        progress: { 'Task 12': 'complete' },
+      };
+      fs.writeFileSync(path.join(tmpDir, '.harness', 'state.json'), JSON.stringify(legacy));
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['state'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      // Parity: same HarnessState slice the legacy loadState path produced for this file.
+      expect(compositeData.state).toEqual(legacy);
+    });
+
     it('learnings field matches loadRelevantLearnings output', async () => {
       const { loadRelevantLearnings } = await import('@harness-engineering/core');
 
