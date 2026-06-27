@@ -16,11 +16,6 @@ export {
 export type { HarnessState, FailureEntry, Handoff, GateResult, GateConfig } from './types';
 
 /**
- * State persistence for loading and saving project health.
- */
-export { loadState, saveState } from './state-persistence';
-
-/**
  * Learning content parsing and deduplication.
  */
 export {
