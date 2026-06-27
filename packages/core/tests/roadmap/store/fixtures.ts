@@ -1,5 +1,6 @@
 import type { FeatureStatus, RoadmapFeature, Roadmap } from '@harness-engineering/types';
 import type { Shard, RoadmapMeta } from '../../../src/roadmap/store/roadmap-store';
+import { serializeRoadmap } from '../../../src/roadmap/serialize';
 
 /** Compact factory for a fully-specified RoadmapFeature (all optionals null/empty). */
 export function feat(
@@ -185,3 +186,20 @@ export const EXPECTED_ROADMAP: Roadmap = {
   ],
   assignmentHistory: [],
 };
+
+// --- Task 6: monolith store -----------------------------------------------
+
+export const MONOLITH_ROADMAP: Roadmap = {
+  frontmatter: META.frontmatter,
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [feat('A feature', 'planned'), feat('B feature', 'planned')],
+    },
+    { name: 'Backlog', isBacklog: true, features: [feat('Backlog item', 'backlog')] },
+  ],
+  assignmentHistory: [],
+};
+
+export const MONOLITH_ROADMAP_MD = serializeRoadmap(MONOLITH_ROADMAP);
