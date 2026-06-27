@@ -419,6 +419,16 @@ git commit -m "feat: initialize harness project at basic level"
 
 ### Example: New TypeScript Web App with Design and Roadmap
 
+**GROUND (Phase 0 — asked first, before ASSESS/SCAFFOLD):**
+
+```
+Phase 0 (strategy): "Capture strategic anchor (STRATEGY.md) now?"
+  Human: "Yes."
+  Delegate to harness-strategy → first-run interview → STRATEGY.md written.
+  Result: STRATEGY.md exists at repo root, doc-validated via validate_strategy (StrategyDocSchema);
+  no project-level harness validate runs in Phase 0.
+```
+
 **ASSESS:**
 
 ```
@@ -436,6 +446,8 @@ harness init --level basic --framework nextjs
 **CONFIGURE (Phase 3):**
 
 ```
+Step 0 (persist grounding): user answered "Yes" in Phase 0 → STRATEGY.md already written; nothing to persist.
+
 Step 5 (i18n): "Will this project support multiple languages?"
   Human: "No, English only."
   Result: i18n.enabled = false in harness.config.json.
@@ -447,11 +459,6 @@ Step 5b (design): "Will this project have a UI requiring a design system?"
   Result: design.enabled = true, design.platforms = ["web"] in harness.config.json.
   Inform: "Design tokens will be generated when you start your first design-touching
   feature — harness-design-system fires automatically via on_new_feature."
-
-Phase 0 (strategy, asked before SCAFFOLD): "Capture strategic anchor (STRATEGY.md) now?"
-  Human: "Yes."
-  Delegate to harness-strategy → first-run interview → STRATEGY.md written.
-  Result: STRATEGY.md exists at repo root, doc-validated via validate_strategy (StrategyDocSchema); no project-level harness validate runs in Phase 0.
 
 Step 6 (test-suite dispatch): skipped (not a test suite).
 ```
@@ -533,6 +540,14 @@ git commit -m "feat: migrate harness project to intermediate level with layers"
 
 The user installed `harness-claude` from the marketplace. They have an existing TypeScript repo with no `.harness/` directory. Goal: get them to a working harness install without asking them to `npm install -g`.
 
+**GROUND (Phase 0 — asked first, before ASSESS/SCAFFOLD):**
+
+```
+Phase 0 (strategy): "Capture strategic anchor (STRATEGY.md) now?"
+  Human: "Not sure."
+  Result: no STRATEGY.md written, no init.strategy.declined flag; /harness:strategy stays available later.
+```
+
 **ASSESS:**
 
 ```
@@ -555,10 +570,10 @@ npx @harness-engineering/cli init  # auto-detects framework
 **CONFIGURE:**
 
 ```
+Phase 3 step 0 (persist grounding): user was "Not sure" in Phase 0 → nothing to persist.
 Customize AGENTS.md with project-specific content.
 Phase 3 step 5 (i18n): "No, English only." → i18n.enabled = false.
 Phase 3 step 5b (design): "No, this is a backend service." → design.enabled = false.
-Phase 0 (strategy): "not sure." → no STRATEGY.md, no init.strategy.declined flag; user can run /harness:strategy later.
 Phase 3 step 6 (test-suite dispatch): not a test suite, skipped.
 ```
 
