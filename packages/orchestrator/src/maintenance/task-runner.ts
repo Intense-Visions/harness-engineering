@@ -1,5 +1,5 @@
 import type { MaintenanceConfig } from '@harness-engineering/types';
-import type { TaskDefinition, RunResult, RunOrigin } from './types';
+import type { TaskDefinition, RunResult, RunOrigin, RunMode } from './types';
 import type { CheckScriptRunner, CheckScriptResult } from './check-script-runner';
 import type { ContextResolver } from './context-resolver';
 import type { TaskOutputStore, PersistedOutputEntry } from './output-store';
@@ -170,14 +170,18 @@ export class TaskRunner {
    * @param origin - Hermes Phase 2 trigger-source tag; defaults to `'cron'`
    *                 when called from the scheduler path.
    */
-  async run(task: TaskDefinition, origin: RunOrigin = 'cron'): Promise<RunResult> {
+  async run(
+    task: TaskDefinition,
+    origin: RunOrigin = 'cron',
+    mode: RunMode = 'fix'
+  ): Promise<RunResult> {
     const startedAt = new Date().toISOString();
     let result: RunResult;
     let captured: CapturedCheck | undefined;
     try {
       switch (task.type) {
         case 'mechanical-ai': {
-          const out = await this.runMechanicalAI(task, startedAt);
+          const out = await this.runMechanicalAI(task, startedAt, mode);
           result = out.result;
           captured = out.captured;
           break;
@@ -304,7 +308,11 @@ export class TaskRunner {
    * only if fixable findings exist; persist captured stdout/stderr/context
    * via the output store on the way out.
    */
-  private async runMechanicalAI(task: TaskDefinition, startedAt: string): Promise<RunOutcome> {
+  private async runMechanicalAI(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunOutcome> {
     if (!task.fixSkill) {
       return wrap(this.failureResult(task.id, startedAt, 'mechanical-ai task missing fixSkill'));
     }
@@ -344,7 +352,7 @@ export class TaskRunner {
       check.structured !== null &&
       typeof check.structured === 'object' &&
       (check.structured as { wakeAgent?: unknown }).wakeAgent === false;
-    if (check.findings === 0 || wakeAgentExplicitlyFalse) {
+    if (check.findings === 0 || wakeAgentExplicitlyFalse || mode === 'report') {
       return {
         result: {
           taskId: task.id,

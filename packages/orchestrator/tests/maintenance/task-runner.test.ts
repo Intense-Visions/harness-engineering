@@ -717,3 +717,42 @@ describe('TaskRunner', () => {
     });
   });
 });
+
+describe('TaskRunner run mode (D4)', () => {
+  const MECH_TASK: TaskDefinition = {
+    id: 'arch-violations',
+    type: 'mechanical-ai',
+    description: 'Detect and fix architecture violations',
+    schedule: '0 2 * * *',
+    branch: 'harness-maint/arch-fixes',
+    checkCommand: ['check-arch'],
+    fixSkill: 'harness-arch-fix',
+  };
+
+  it('mechanical-ai: report mode records findings but never dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 5, passed: false });
+    const agentDispatcher = createMockAgentDispatcher();
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher, prManager }));
+
+    const result = await runner.run(MECH_TASK, 'cli', 'report');
+
+    expect(result.findings).toBe(5);
+    expect(result.status).toBe('no-issues');
+    expect(result.prUrl).toBeNull();
+    expect(checkRunner.run).toHaveBeenCalledWith(['check-arch'], '/test/project');
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+  });
+
+  it('mechanical-ai: omitting mode defaults to fix and still dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 5, passed: false });
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 3 });
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher }));
+
+    const result = await runner.run(MECH_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(agentDispatcher.dispatch).toHaveBeenCalled();
+  });
+});
