@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   importLegacyState,
+  resetEventLog,
   __resetGenesisMemoForTests,
 } from '../../../src/state/event-sourcing/migrate';
 import {
@@ -12,13 +13,15 @@ import {
   eventLogPaths,
   resetLocalCountersForTests,
 } from '../../../src/state/event-sourcing/log';
+import { materialize } from '../../../src/state/event-sourcing/snapshot';
 import { __resetWriterIdForTests } from '../../../src/state/event-sourcing/writer-id';
 import {
   projectCoreState,
   toHarnessState,
 } from '../../../src/state/event-sourcing/projections/core-state';
+import { SNAPSHOT_FILE, EVENT_BLOBS_DIR } from '../../../src/state/event-sourcing/constants';
 import { STATE_FILE } from '../../../src/state/state-shared';
-import type { HarnessState } from '../../../src/state/types';
+import { DEFAULT_STATE, type HarnessState } from '../../../src/state/types';
 
 let dir: string;
 beforeEach(() => {
@@ -164,5 +167,57 @@ describe('importLegacyState — D6 genesis migration', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.imported).toBe(false);
     expect((await unwrap(loadEvents(dir))).length).toBe(0);
+  });
+});
+
+describe('resetEventLog — truncate + re-genesis (legacy saveState({...DEFAULT_STATE}) equivalent)', () => {
+  it('leaves a DEFAULT_STATE projection, clears snapshot + blobs, and keeps genesis present', async () => {
+    // Seed several events + a big (spilled) payload so a blob exists, then materialize a snapshot.
+    await emitEvent(dir, { type: 'position_set', payload: { phase: 'execute', task: 'Task 3' } });
+    await emitEvent(dir, { type: 'decision_recorded', payload: { id: 'd1', text: 'keep me?' } });
+    await emitEvent(dir, {
+      type: 'state_imported',
+      payload: { legacyState: { schemaVersion: 1, filler: 'x'.repeat(5000) } },
+    });
+    await unwrap(materialize(dir));
+
+    const { dir: stateDir } = await eventLogPaths(dir);
+    expect(fs.existsSync(path.join(stateDir, SNAPSHOT_FILE))).toBe(true);
+    expect(fs.existsSync(path.join(stateDir, EVENT_BLOBS_DIR))).toBe(true);
+
+    const reset = await resetEventLog(dir);
+    expect(reset.ok).toBe(true);
+
+    // (1) projection deep-equals DEFAULT_STATE
+    const events = await unwrap(loadEvents(dir));
+    expect(toHarnessState(projectCoreState(events))).toEqual(DEFAULT_STATE);
+    // exactly one event remains — the fresh genesis
+    expect(events.length).toBe(1);
+    expect(events[0]?.type).toBe('state_imported');
+
+    // (2) snapshot file + blobs dir cleared
+    expect(fs.existsSync(path.join(stateDir, SNAPSHOT_FILE))).toBe(false);
+    expect(fs.existsSync(path.join(stateDir, EVENT_BLOBS_DIR))).toBe(false);
+  });
+
+  it('a subsequent importLegacyState is a no-op even if a stale legacy state.json lingers', async () => {
+    await emitEvent(dir, { type: 'decision_recorded', payload: { id: 'd1', text: 'pre-reset' } });
+    await resetEventLog(dir);
+
+    // A stale legacy file lingers after reset; genesis-present must block re-import.
+    const { dir: stateDir } = await eventLogPaths(dir);
+    fs.writeFileSync(
+      path.join(stateDir, STATE_FILE),
+      JSON.stringify({ schemaVersion: 1, position: { phase: 'STALE' } })
+    );
+    __resetGenesisMemoForTests();
+
+    const imp = await importLegacyState(dir);
+    expect(imp.ok).toBe(true);
+    if (imp.ok) expect(imp.value.imported).toBe(false);
+
+    const events = await unwrap(loadEvents(dir));
+    expect(events.filter((e) => e.type === 'state_imported').length).toBe(1);
+    expect(toHarnessState(projectCoreState(events))).toEqual(DEFAULT_STATE);
   });
 });

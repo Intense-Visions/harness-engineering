@@ -14,5 +14,6 @@ export type { CoreStateProjection } from './projections/core-state';
 // intentionally NOT exported (module-internal debounce + test-only hooks).
 export { reduce, materialize, readSnapshot, isStale, MATERIALIZE_DEBOUNCE_MS } from './snapshot';
 export type { Snapshot, LanesProjection, AuditProjection } from './snapshot';
-// Phase 3: genesis migration (idempotent, crash-safe import of the legacy state.json).
-export { importLegacyState } from './migrate';
+// Phase 3: genesis migration (idempotent, crash-safe import of the legacy state.json) +
+// reset primitive (truncate log + clear snapshot/blobs + re-genesis DEFAULT_STATE).
+export { importLegacyState, resetEventLog } from './migrate';

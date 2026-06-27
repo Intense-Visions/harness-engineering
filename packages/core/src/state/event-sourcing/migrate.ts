@@ -4,8 +4,9 @@ import * as path from 'path';
 import type { Result } from '../../shared/result';
 import { Ok, Err } from '../../shared/result';
 import { STATE_FILE } from '../state-shared';
-import { HarnessStateSchema } from '../types';
+import { HarnessStateSchema, DEFAULT_STATE } from '../types';
 import { eventLogPaths, loadEvents, emitEvent, type EventLogOptions } from './log';
+import { SNAPSHOT_FILE, EVENT_LOG_FILE, EVENT_BLOBS_DIR } from './constants';
 
 /** Process-level memo: at most one genesis check per resolved log path per process. */
 const ensured = new Set<string>();
@@ -77,6 +78,41 @@ export async function importLegacyState(
     return Err(
       new Error(
         `Failed to import legacy state: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+}
+
+/**
+ * Event-sourced equivalent of the legacy `saveState({...DEFAULT_STATE})` wipe: truncate the
+ * authoritative log, drop the derived snapshot + blobs, then emit a fresh genesis carrying
+ * DEFAULT_STATE so (a) the next read projects to an empty HarnessState and (b) the
+ * genesis-present invariant holds (a stale legacy state.json is not re-imported). Destructive
+ * by design — `reset` discards history, matching the legacy wholesale overwrite.
+ */
+export async function resetEventLog(
+  projectPath: string,
+  options?: EventLogOptions
+): Promise<Result<void, Error>> {
+  try {
+    const { dir } = await eventLogPaths(projectPath, options);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.rmSync(path.join(dir, EVENT_LOG_FILE), { force: true });
+    fs.rmSync(path.join(dir, SNAPSHOT_FILE), { force: true });
+    fs.rmSync(path.join(dir, EVENT_BLOBS_DIR), { recursive: true, force: true });
+    ensured.delete(dir); // allow genesis bookkeeping to re-run for this scope
+    const emit = await emitEvent(
+      projectPath,
+      { type: 'state_imported', payload: { legacyState: { ...DEFAULT_STATE } } },
+      options
+    );
+    if (!emit.ok) return emit;
+    ensured.add(dir); // genesis now present
+    return Ok(undefined);
+  } catch (error) {
+    return Err(
+      new Error(
+        `Failed to reset event log: ${error instanceof Error ? error.message : String(error)}`
       )
     );
   }
