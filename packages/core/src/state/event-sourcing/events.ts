@@ -41,6 +41,35 @@ const SessionSummarizedPayload = z.object({
   pendingTasks: z.array(z.string()).optional(),
 });
 
+// --- Phase 4: lane state-machine vocabulary + lane event payloads (additive) ---
+export const LANES = [
+  'planned',
+  'claimed',
+  'in_progress',
+  'in_review',
+  'done',
+  'blocked',
+  'canceled',
+] as const;
+export const LaneSchema = z.enum(LANES);
+export type Lane = z.infer<typeof LaneSchema>;
+
+const TaskRegisteredPayload = z.object({
+  taskId: z.string().min(1),
+  dependsOn: z.array(z.string()).default([]),
+});
+const LaneTransitionedPayload = z.object({
+  taskId: z.string().min(1),
+  from: LaneSchema,
+  to: LaneSchema,
+  force: z.boolean().optional(),
+  actor: z.string().optional(),
+  reason: z.string().optional(),
+  evidence: z.array(z.string()).optional(),
+});
+/** Inferred input shape for a lane_transitioned payload (used by the transitionLane writer). */
+export type LaneTransitionedInput = z.infer<typeof LaneTransitionedPayload>;
+
 /** Strict in-memory event union (payload fully present). */
 export const EventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -66,6 +95,16 @@ export const EventSchema = z.discriminatedUnion('type', [
     type: z.literal('session_summarized'),
     payload: SessionSummarizedPayload,
   }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('task_registered'),
+    payload: TaskRegisteredPayload,
+  }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('lane_transitioned'),
+    payload: LaneTransitionedPayload,
+  }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 export type EventType = Event['type'];
@@ -89,6 +128,8 @@ export const StoredEventSchema = z.object({
     'blocker_resolved',
     'progress_set',
     'session_summarized',
+    'task_registered',
+    'lane_transitioned',
   ]),
   payload: z.union([z.record(z.unknown()), BlobRefSchema]),
 });
@@ -102,7 +143,9 @@ export type EventInput =
   | { type: 'blocker_opened'; payload: z.infer<typeof BlockerOpenedPayload> }
   | { type: 'blocker_resolved'; payload: z.infer<typeof BlockerResolvedPayload> }
   | { type: 'progress_set'; payload: z.infer<typeof ProgressSetPayload> }
-  | { type: 'session_summarized'; payload: z.infer<typeof SessionSummarizedPayload> };
+  | { type: 'session_summarized'; payload: z.infer<typeof SessionSummarizedPayload> }
+  | { type: 'task_registered'; payload: z.input<typeof TaskRegisteredPayload> }
+  | { type: 'lane_transitioned'; payload: z.infer<typeof LaneTransitionedPayload> };
 
 /** True when a stored payload is a blob reference rather than an inline payload. */
 export function isBlobRef(payload: unknown): payload is BlobRef {

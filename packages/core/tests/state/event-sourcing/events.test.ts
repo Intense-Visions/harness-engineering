@@ -107,6 +107,66 @@ describe('phase-2 core-state variants', () => {
   });
 });
 
+describe('lane events', () => {
+  it('round-trips a task_registered event through EventSchema', () => {
+    const e = {
+      ...envelope,
+      type: 'task_registered',
+      payload: { taskId: 't1', dependsOn: ['t0'] },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('defaults task_registered.dependsOn to [] when absent', () => {
+    const e = { ...envelope, type: 'task_registered', payload: { taskId: 't1' } };
+    const parsed = EventSchema.safeParse(e);
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === 'task_registered')
+      expect(parsed.data.payload.dependsOn).toEqual([]);
+  });
+  it('rejects task_registered missing taskId', () => {
+    const e = { ...envelope, type: 'task_registered', payload: { dependsOn: ['t0'] } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts a minimal lane_transitioned event', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: { taskId: 't1', from: 'planned', to: 'claimed' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts a lane_transitioned event with force/actor/reason/evidence', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: {
+        taskId: 't1',
+        from: 'planned',
+        to: 'done',
+        force: true,
+        actor: 'a',
+        reason: 'r',
+        evidence: ['pr#1'],
+      },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects a lane_transitioned with a bogus lane', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: { taskId: 't1', from: 'planned', to: 'bogus' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('StoredEventSchema accepts both lane event types', () => {
+    for (const type of ['task_registered', 'lane_transitioned']) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
+  });
+});
+
 describe('StoredEventSchema (on-disk, may carry a blob ref)', () => {
   it('accepts a payload replaced by a blob marker', () => {
     const e = { ...envelope, type: 'state_imported', payload: { $blob: 'abc123' } };
