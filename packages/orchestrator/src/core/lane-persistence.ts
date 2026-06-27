@@ -55,3 +55,24 @@ export async function persistLane(
     return Err(err instanceof Error ? err : new Error(String(err)));
   }
 }
+
+/**
+ * The lanes projection shape, re-exported so the orchestrator can hold a
+ * read-back snapshot without importing the core `eventSourcing` namespace
+ * directly — keeping this module the single orchestrator<->core lane coupling.
+ */
+export type PersistedLanes = eventSourcing.LanesProjection;
+
+/**
+ * Read the persisted lanes projection back from the durable snapshot/log.
+ * NEVER throws — returns an empty projection on any failure. Read-only: this is
+ * a startup observability diagnostic, never fed into reconciliation.
+ */
+export async function readPersistedLanes(projectPath: string): Promise<PersistedLanes> {
+  try {
+    const snap = await eventSourcing.readSnapshot(projectPath);
+    return snap.ok ? snap.value.lanes : { tasks: {} };
+  } catch {
+    return { tasks: {} };
+  }
+}
