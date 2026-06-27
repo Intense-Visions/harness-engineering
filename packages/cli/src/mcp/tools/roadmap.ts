@@ -397,9 +397,19 @@ function handleUpdate(
 
   // Cascade: when this update marks a feature done (or otherwise resolves a
   // blocker), flip dependents from blocked → planned in the same write.
+  //
+  // This is an unblock-only cascade. syncRoadmap also re-derives `blocked` for
+  // any planned feature with an unfinished blocker (sync.ts inferStatus); since
+  // planned/blocked are lateral in STATUS_RANK that move is not a regression, so
+  // applying it verbatim re-blocks unrelated bystanders on every single update
+  // (#610). Drop any transition *into* blocked here — re-blocking is the explicit
+  // `sync` action's job, not a side-effect of editing one feature.
   const cascade = syncRoadmap({ projectPath, roadmap });
-  if (cascade.ok && cascade.value.length > 0) {
-    applySyncChanges(roadmap, cascade.value);
+  if (cascade.ok) {
+    const unblocking = cascade.value.filter((change) => change.to !== 'blocked');
+    if (unblocking.length > 0) {
+      applySyncChanges(roadmap, unblocking);
+    }
   }
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();

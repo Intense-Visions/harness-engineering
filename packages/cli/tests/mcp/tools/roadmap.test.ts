@@ -262,6 +262,23 @@ describe('manage_roadmap update action', () => {
     expect(auth.status).toBe('done');
   });
 
+  it('does not re-block unrelated features when updating one feature (#610)', async () => {
+    // User Dashboard is `planned` and blocked by Auth System (in-progress, not done).
+    // Updating an UNRELATED feature must not flip it `planned` -> `blocked`: the
+    // post-update cascade is for unblocking dependents, not re-blocking bystanders.
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      summary: 'unrelated edit',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const mvp = parsed.milestones.find((m: { name: string }) => m.name === 'MVP Release');
+    const dash = mvp.features.find((f: { name: string }) => f.name === 'User Dashboard');
+    expect(dash.status).toBe('planned');
+  });
+
   it('updates feature summary and spec', async () => {
     const response = await handleManageRoadmap({
       path: tmpDir,
