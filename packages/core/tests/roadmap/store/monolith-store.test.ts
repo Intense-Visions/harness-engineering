@@ -84,4 +84,30 @@ describe('MonolithStore', () => {
     const mvp = written.value.milestones.find((m) => m.name === 'MVP Release');
     expect(mvp?.features.map((f) => f.name)).toContain('C feature');
   });
+
+  // Guard: addFeature must not silently overwrite/duplicate an existing row when
+  // its slug already resolves to a feature (Phase 4 data loss).
+  it('addFeature() returns Err when the slug already resolves to a feature', async () => {
+    const { io, writes } = makeIO();
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.addFeature({
+      slug: 'a-feature', // slugifyFeatureName('A feature') -> already present
+      milestone: 'MVP Release',
+      order: 1,
+      feature: {
+        name: 'A feature',
+        status: 'planned',
+        spec: null,
+        plans: [],
+        blockedBy: [],
+        summary: 'Should not duplicate',
+        assignee: null,
+        priority: null,
+        externalId: null,
+        updatedAt: null,
+      },
+    });
+    expect(r.ok).toBe(false);
+    expect(writes).toHaveLength(0);
+  });
 });

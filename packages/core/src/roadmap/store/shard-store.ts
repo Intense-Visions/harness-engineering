@@ -45,6 +45,7 @@ export async function readShardDir(
   const shardFiles = entries.filter((n) => n.endsWith('.md') && n !== META_FILE).sort();
 
   const shards: Shard[] = [];
+  const seenSlugs = new Set<string>();
   for (const name of shardFiles) {
     let content: string;
     try {
@@ -54,6 +55,25 @@ export async function readShardDir(
     }
     const parsed = parseShard(content);
     if (!parsed.ok) return parsed;
+
+    // Integrity guards (prevent silent data loss): the filename must match the
+    // frontmatter slug (the slug is the file's identity), and no two shards may
+    // declare the same slug.
+    const slug = parsed.value.slug;
+    if (seenSlugs.has(slug)) {
+      return Err(new Error(`Duplicate shard slug "${slug}" across files in ${shardDir}`));
+    }
+    seenSlugs.add(slug);
+
+    const base = name.slice(0, -'.md'.length);
+    if (base !== slug) {
+      return Err(
+        new Error(
+          `Shard file "${name}" has mismatched frontmatter slug "${slug}" (expected "${base}")`
+        )
+      );
+    }
+
     shards.push(parsed.value);
   }
 
@@ -107,6 +127,16 @@ export class ShardStore implements RoadmapStore {
 
   async addFeature(input: AddFeatureInput): Promise<Result<void>> {
     const path = joinPath(this.shardDir, `${input.slug}.md`);
+
+    // Collision guard (prevent silent overwrite / data loss): refuse to add when a
+    // shard already exists for this slug. A successful read means the file exists.
+    try {
+      await this.io.readFile(path);
+      return Err(new Error(`addFeature: shard "${input.slug}" already exists`));
+    } catch {
+      // Not found -> safe to create.
+    }
+
     const shard: Shard = {
       slug: input.slug,
       milestone: input.milestone,

@@ -84,6 +84,16 @@ export class MonolithStore implements RoadmapStore {
     if (!loaded.ok) return loaded;
     const roadmap = loaded.value;
 
+    // Collision guard (prevent silent overwrite / data loss): refuse to add when an
+    // existing feature already resolves to this slug.
+    for (const milestone of roadmap.milestones) {
+      for (const feature of milestone.features) {
+        if (this.matchSlug(input.slug, feature)) {
+          return Err(new Error(`addFeature: a feature already resolves to slug "${input.slug}"`));
+        }
+      }
+    }
+
     const target = roadmap.milestones.find((m) => m.name === input.milestone);
     if (target) {
       target.features.push(input.feature);
