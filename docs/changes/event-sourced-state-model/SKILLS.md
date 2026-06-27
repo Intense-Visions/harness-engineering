@@ -4,18 +4,19 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-zod-integration` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.56 |
-| `ts-testing-types` | Stack: typescript; Domain: api, data, design, security, testing | Testing | 0.54 |
-| `ts-type-guards` | Stack: typescript; Domain: api, data, design, security, testing | During implementation | 0.54 |
-| `gof-memento-pattern` | Stack: typescript; Domain: api, data, design, security, testing | Testing | 0.53 |
-| `ts-utility-types` | Stack: typescript; Domain: api, data, design, security, testing | During implementation | 0.53 |
-| `ts-performance-patterns` | Stack: typescript; Domain: api, data, design, security, testing | During implementation | 0.51 |
-| `ts-template-literal-types` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.51 |
-| `gof-chain-of-responsibility` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.47 |
-| `gof-facade-pattern` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.46 |
-| `gof-composite-pattern` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.45 |
+| Skill                         | Purpose                                                         | When                   | Relevance |
+| ----------------------------- | --------------------------------------------------------------- | ---------------------- | --------- |
+| `ts-zod-integration`          | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.56      |
+| `ts-testing-types`            | Stack: typescript; Domain: api, data, design, security, testing | Testing                | 0.54      |
+| `ts-type-guards`              | Stack: typescript; Domain: api, data, design, security, testing | During implementation  | 0.54      |
+| `gof-memento-pattern`         | Stack: typescript; Domain: api, data, design, security, testing | Testing                | 0.53      |
+| `ts-utility-types`            | Stack: typescript; Domain: api, data, design, security, testing | During implementation  | 0.53      |
+| `ts-performance-patterns`     | Stack: typescript; Domain: api, data, design, security, testing | During implementation  | 0.51      |
+| `ts-template-literal-types`   | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.51      |
+| `gof-chain-of-responsibility` | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.47      |
+| `gof-facade-pattern`          | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.46      |
+| `gof-composite-pattern`       | Stack: typescript; Domain: api, data, design, security, testing | Architecture decisions | 0.45      |
 
 ---
-*Scanned 751 skills in 279ms. Signals: 0 keywords, 2 stack markers, 5 domains.*
+
+_Scanned 751 skills in 279ms. Signals: 0 keywords, 2 stack markers, 5 domains._

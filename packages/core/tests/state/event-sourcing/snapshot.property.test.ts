@@ -54,42 +54,45 @@ function pick<T>(rng: () => number, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+// One small builder per event type; randomEventInput just dispatches. Keeps each
+// builder (and the dispatcher) well under the cyclomatic-complexity threshold.
+const BUILDERS: Record<(typeof TYPES)[number], (rng: () => number) => EventInput> = {
+  position_set: (rng) => {
+    const payload: { phase?: string; task?: string } = {};
+    if (rng() < 0.8) payload.phase = pick(rng, ['plan', 'execute', 'verify']);
+    if (rng() < 0.6) payload.task = pick(rng, TASK_POOL);
+    return { type: 'position_set', payload };
+  },
+  decision_recorded: (rng) => {
+    const payload: { id: string; text: string; context?: string } = {
+      id: pick(rng, ID_POOL),
+      text: `decision-${Math.floor(rng() * 1000)}`,
+    };
+    if (rng() < 0.5) payload.context = `ctx-${Math.floor(rng() * 1000)}`;
+    return { type: 'decision_recorded', payload };
+  },
+  blocker_opened: (rng) => ({
+    type: 'blocker_opened',
+    payload: { id: pick(rng, ID_POOL), description: `desc-${Math.floor(rng() * 1000)}` },
+  }),
+  blocker_resolved: (rng) => ({ type: 'blocker_resolved', payload: { id: pick(rng, ID_POOL) } }),
+  progress_set: (rng) => ({
+    type: 'progress_set',
+    payload: { task: pick(rng, TASK_POOL), status: pick(rng, STATUSES) },
+  }),
+  session_summarized: (rng) => {
+    const payload: { summary: string; lastSkill?: string; pendingTasks?: string[] } = {
+      summary: `summary-${Math.floor(rng() * 1000)}`,
+    };
+    if (rng() < 0.5) payload.lastSkill = pick(rng, ['exec', 'plan']);
+    if (rng() < 0.5)
+      payload.pendingTasks = TASK_POOL.slice(0, Math.floor(rng() * TASK_POOL.length));
+    return { type: 'session_summarized', payload };
+  },
+};
+
 function randomEventInput(rng: () => number): EventInput {
-  const type = pick(rng, TYPES);
-  switch (type) {
-    case 'position_set': {
-      const p: { phase?: string; task?: string } = {};
-      if (rng() < 0.8) p.phase = pick(rng, ['plan', 'execute', 'verify']);
-      if (rng() < 0.6) p.task = pick(rng, TASK_POOL);
-      return { type, payload: p };
-    }
-    case 'decision_recorded': {
-      const payload: { id: string; text: string; context?: string } = {
-        id: pick(rng, ID_POOL),
-        text: `decision-${Math.floor(rng() * 1000)}`,
-      };
-      if (rng() < 0.5) payload.context = `ctx-${Math.floor(rng() * 1000)}`;
-      return { type, payload };
-    }
-    case 'blocker_opened':
-      return {
-        type,
-        payload: { id: pick(rng, ID_POOL), description: `desc-${Math.floor(rng() * 1000)}` },
-      };
-    case 'blocker_resolved':
-      return { type, payload: { id: pick(rng, ID_POOL) } };
-    case 'progress_set':
-      return { type, payload: { task: pick(rng, TASK_POOL), status: pick(rng, STATUSES) } };
-    case 'session_summarized': {
-      const payload: { summary: string; lastSkill?: string; pendingTasks?: string[] } = {
-        summary: `summary-${Math.floor(rng() * 1000)}`,
-      };
-      if (rng() < 0.5) payload.lastSkill = pick(rng, ['exec', 'plan']);
-      if (rng() < 0.5)
-        payload.pendingTasks = TASK_POOL.slice(0, Math.floor(rng() * TASK_POOL.length));
-      return { type, payload };
-    }
-  }
+  return BUILDERS[pick(rng, TYPES)](rng);
 }
 
 const tmpDirs: string[] = [];

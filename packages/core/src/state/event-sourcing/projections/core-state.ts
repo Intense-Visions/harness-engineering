@@ -25,6 +25,108 @@ function bySeqThenWriter(a: Event, b: Event): number {
   return a.seq - b.seq || (a.writerId < b.writerId ? -1 : a.writerId > b.writerId ? 1 : 0);
 }
 
+/** Narrow {@link Event} to one variant by its discriminant. */
+type EventOf<T extends Event['type']> = Extract<Event, { type: T }>;
+
+/** Mutable fold accumulator. Keyed maps give union semantics + insertion-order iteration. */
+interface CoreAcc {
+  position: { phase?: string; task?: string };
+  decisions: Map<string, { date: string; decision: string; context: string }>;
+  blockers: Map<string, { id: string; description: string; status: 'open' | 'resolved' }>;
+  progress: Record<string, 'pending' | 'in_progress' | 'complete'>;
+  lastSession?: CoreStateProjection['lastSession'];
+}
+
+/** Build a `lastSession` value, copying only defined optionals (exactOptionalPropertyTypes). */
+function makeLastSession(src: {
+  date: string;
+  summary: string;
+  lastSkill?: string | undefined;
+  pendingTasks?: string[] | undefined;
+}): NonNullable<CoreStateProjection['lastSession']> {
+  const out: NonNullable<CoreStateProjection['lastSession']> = {
+    date: src.date,
+    summary: src.summary,
+  };
+  if (src.lastSkill !== undefined) out.lastSkill = src.lastSkill;
+  if (src.pendingTasks !== undefined) out.pendingTasks = src.pendingTasks;
+  return out;
+}
+
+/** Seed the baseline from a `state_imported` genesis event; ignore an unparseable legacyState. */
+function applyStateImported(acc: CoreAcc, event: EventOf<'state_imported'>): void {
+  const parsed = HarnessStateSchema.safeParse(event.payload.legacyState);
+  if (!parsed.success) return;
+  const legacy = parsed.data;
+  const position: { phase?: string; task?: string } = {};
+  if (legacy.position.phase !== undefined) position.phase = legacy.position.phase;
+  if (legacy.position.task !== undefined) position.task = legacy.position.task;
+  acc.position = position;
+  // Legacy decisions carry no id; key them by a stable synthetic seed index.
+  legacy.decisions.forEach((d, i) => acc.decisions.set(`__seed__${i}`, { ...d }));
+  legacy.blockers.forEach((b) => acc.blockers.set(b.id, { ...b }));
+  Object.assign(acc.progress, legacy.progress);
+  if (legacy.lastSession) acc.lastSession = makeLastSession(legacy.lastSession);
+}
+
+function applyPositionSet(acc: CoreAcc, event: EventOf<'position_set'>): void {
+  const next: { phase?: string; task?: string } = {};
+  if (event.payload.phase !== undefined) next.phase = event.payload.phase;
+  if (event.payload.task !== undefined) next.task = event.payload.task;
+  acc.position = next; // last-event-wins overwrite
+}
+
+function applyBlockerResolved(acc: CoreAcc, id: string): void {
+  const existing = acc.blockers.get(id);
+  if (existing) existing.status = 'resolved';
+  else acc.blockers.set(id, { id, description: '', status: 'resolved' });
+}
+
+function applyDecisionRecorded(acc: CoreAcc, event: EventOf<'decision_recorded'>): void {
+  acc.decisions.set(event.payload.id, {
+    date: event.timestamp,
+    decision: event.payload.text,
+    context: event.payload.context ?? '',
+  });
+}
+
+function applyBlockerOpened(acc: CoreAcc, event: EventOf<'blocker_opened'>): void {
+  acc.blockers.set(event.payload.id, {
+    id: event.payload.id,
+    description: event.payload.description,
+    status: 'open',
+  });
+}
+
+function applyProgressSet(acc: CoreAcc, event: EventOf<'progress_set'>): void {
+  acc.progress[event.payload.task] = event.payload.status;
+}
+
+function applySessionSummarized(acc: CoreAcc, event: EventOf<'session_summarized'>): void {
+  acc.lastSession = makeLastSession({
+    ...event.payload,
+    date: event.payload.date ?? event.timestamp,
+  });
+}
+
+// Dispatch table keyed by event type — each handler receives the narrowed event, so the
+// per-type branching lives in small handlers rather than one high-complexity fold function.
+const CORE_HANDLERS: { [K in Event['type']]?: (acc: CoreAcc, event: EventOf<K>) => void } = {
+  state_imported: applyStateImported,
+  position_set: applyPositionSet,
+  decision_recorded: applyDecisionRecorded,
+  blocker_opened: applyBlockerOpened,
+  blocker_resolved: (acc, event) => applyBlockerResolved(acc, event.payload.id),
+  progress_set: applyProgressSet,
+  session_summarized: applySessionSummarized,
+};
+
+/** Apply one ordered event to the accumulator (mutating); ignores non-core event types. */
+function applyCoreEvent(acc: CoreAcc, event: Event): void {
+  const handler = CORE_HANDLERS[event.type] as ((acc: CoreAcc, event: Event) => void) | undefined;
+  handler?.(acc, event);
+}
+
 /**
  * PURE reducer: folds a core-state event sequence into the legacy projection.
  * Performs no IO. Defensively copies + sorts its input (never mutates it), seeds
@@ -33,107 +135,20 @@ function bySeqThenWriter(a: Event, b: Event): number {
  * each scalar field while `decisions`/`blockers` union by id (no append is lost).
  */
 export function projectCoreState(events: Event[]): CoreStateProjection {
-  const sorted = [...events].sort(bySeqThenWriter);
-
-  let position: { phase?: string; task?: string } = {};
-  // Keyed maps preserve union semantics (decisions/blockers keyed by id) and
-  // deterministic iteration order (insertion order).
-  const decisions = new Map<string, { date: string; decision: string; context: string }>();
-  const blockers = new Map<
-    string,
-    { id: string; description: string; status: 'open' | 'resolved' }
-  >();
-  const progress: Record<string, 'pending' | 'in_progress' | 'complete'> = {};
-  let lastSession: CoreStateProjection['lastSession'];
-
-  for (const event of sorted) {
-    switch (event.type) {
-      case 'state_imported': {
-        // Forward-compatible genesis seed (the event itself is emitted in Phase 3).
-        // Loosely validate; ignore an unparseable legacyState rather than throwing.
-        const parsed = HarnessStateSchema.safeParse(event.payload.legacyState);
-        if (!parsed.success) break;
-        const legacy = parsed.data;
-        // Construct field-by-field (not spread) to satisfy exactOptionalPropertyTypes.
-        position = {};
-        if (legacy.position.phase !== undefined) position.phase = legacy.position.phase;
-        if (legacy.position.task !== undefined) position.task = legacy.position.task;
-        // Legacy decisions carry no id; key them by a stable synthetic seed index.
-        legacy.decisions.forEach((d, i) => decisions.set(`__seed__${i}`, { ...d }));
-        legacy.blockers.forEach((b) => blockers.set(b.id, { ...b }));
-        Object.assign(progress, legacy.progress);
-        if (legacy.lastSession) {
-          const seed: NonNullable<CoreStateProjection['lastSession']> = {
-            date: legacy.lastSession.date,
-            summary: legacy.lastSession.summary,
-          };
-          if (legacy.lastSession.lastSkill !== undefined)
-            seed.lastSkill = legacy.lastSession.lastSkill;
-          if (legacy.lastSession.pendingTasks !== undefined)
-            seed.pendingTasks = legacy.lastSession.pendingTasks;
-          lastSession = seed;
-        }
-        break;
-      }
-      case 'position_set': {
-        // Overwrite (last-event-wins) with the structured { phase, task }.
-        const next: { phase?: string; task?: string } = {};
-        if (event.payload.phase !== undefined) next.phase = event.payload.phase;
-        if (event.payload.task !== undefined) next.task = event.payload.task;
-        position = next;
-        break;
-      }
-      case 'decision_recorded': {
-        decisions.set(event.payload.id, {
-          date: event.timestamp,
-          decision: event.payload.text,
-          context: event.payload.context ?? '',
-        });
-        break;
-      }
-      case 'blocker_opened': {
-        blockers.set(event.payload.id, {
-          id: event.payload.id,
-          description: event.payload.description,
-          status: 'open',
-        });
-        break;
-      }
-      case 'blocker_resolved': {
-        const existing = blockers.get(event.payload.id);
-        if (existing) existing.status = 'resolved';
-        else
-          blockers.set(event.payload.id, {
-            id: event.payload.id,
-            description: '',
-            status: 'resolved',
-          });
-        break;
-      }
-      case 'progress_set': {
-        progress[event.payload.task] = event.payload.status;
-        break;
-      }
-      case 'session_summarized': {
-        const next: NonNullable<CoreStateProjection['lastSession']> = {
-          date: event.payload.date ?? event.timestamp,
-          summary: event.payload.summary,
-        };
-        if (event.payload.lastSkill !== undefined) next.lastSkill = event.payload.lastSkill;
-        if (event.payload.pendingTasks !== undefined)
-          next.pendingTasks = event.payload.pendingTasks;
-        lastSession = next;
-        break;
-      }
-    }
-  }
+  const acc: CoreAcc = {
+    position: {},
+    decisions: new Map(),
+    blockers: new Map(),
+    progress: {},
+  };
+  for (const event of [...events].sort(bySeqThenWriter)) applyCoreEvent(acc, event);
 
   return {
-    position,
-    decisions: Array.from(decisions.values()),
-    blockers: Array.from(blockers.values()),
-    progress,
-    ...(lastSession ? { lastSession } : {}),
+    position: acc.position,
+    decisions: Array.from(acc.decisions.values()),
+    blockers: Array.from(acc.blockers.values()),
+    progress: acc.progress,
+    ...(acc.lastSession ? { lastSession: acc.lastSession } : {}),
   };
 }
 
