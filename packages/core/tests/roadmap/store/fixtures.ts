@@ -50,7 +50,7 @@ order: 10
 - **Plan:** docs/changes/roadmap-shard-store/plans/2026-06-27-phase1.md
 - **Assignee:** Chad Warner
 - **Priority:** P1
-- **External-ID:** github:Intense-Visions/harness-engineering#566
+- **External-ID:** github:Intense-Visions/harness-engineering#56
 - **Updated-At:** 2026-06-27T12:00:00.000Z
 `;
 
@@ -63,7 +63,7 @@ export const SHARD_FEATURE: RoadmapFeature = {
   summary: 'Self-contained shard parse/serialize, stores, assembler, regenerator.',
   assignee: 'Chad Warner',
   priority: 'P1',
-  externalId: 'github:Intense-Visions/harness-engineering#566',
+  externalId: 'github:Intense-Visions/harness-engineering#56',
   updatedAt: '2026-06-27T12:00:00.000Z',
 };
 
@@ -218,7 +218,7 @@ const MIG_CORE: RoadmapFeature = feat('Core foundation', 'in-progress', {
   summary: 'Self-contained shard store core modules.',
   assignee: 'Chad Warner',
   priority: 'P1',
-  externalId: 'github:Intense-Visions/harness-engineering#566',
+  externalId: 'github:Intense-Visions/harness-engineering#56',
   updatedAt: '2026-06-27T12:00:00.000Z',
 });
 
@@ -231,7 +231,7 @@ const MIG_MIGRATION: RoadmapFeature = feat('Migration CLI', 'planned', {
 
 const MIG_FAILCLOSED: RoadmapFeature = feat('Fail-closed protect-config', 'done', {
   summary: 'protect-config fails closed.',
-  externalId: 'github:Intense-Visions/harness-engineering#619',
+  externalId: 'github:Intense-Visions/harness-engineering#61',
 });
 
 const MIG_TOKEN: RoadmapFeature = feat('Token bypass guard', 'planned', {
@@ -281,7 +281,7 @@ This narrative line and the comment above are dropped by the lossy serializer.
 - **Plan:** docs/changes/roadmap-shard-store/plans/phase1.md
 - **Assignee:** Chad Warner
 - **Priority:** P1
-- **External-ID:** github:Intense-Visions/harness-engineering#566
+- **External-ID:** github:Intense-Visions/harness-engineering#56
 - **Updated-At:** 2026-06-27T12:00:00.000Z
 
 ### Migration CLI
@@ -302,7 +302,7 @@ This narrative line and the comment above are dropped by the lossy serializer.
 - **Summary:** protect-config fails closed.
 - **Blockers:** —
 - **Plan:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#619
+- **External-ID:** github:Intense-Visions/harness-engineering#61
 
 ### Token bypass guard
 
