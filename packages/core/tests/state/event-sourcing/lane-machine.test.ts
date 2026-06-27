@@ -4,6 +4,7 @@ import {
   isTerminal,
   dependencyGuard,
   evidenceGuard,
+  forceGuard,
 } from '../../../src/state/event-sourcing/lane-machine';
 import type { Lane } from '../../../src/state/event-sourcing/lane-machine';
 
@@ -74,6 +75,24 @@ describe('evidenceGuard', () => {
   });
   it('only requires evidence for done (in_review passes without it)', () => {
     expect(evidenceGuard('in_review', undefined).ok).toBe(true);
+  });
+});
+
+describe('forceGuard', () => {
+  it('allows an on-table transition with no force', () => {
+    expect(forceGuard('planned', 'claimed', {}).ok).toBe(true);
+  });
+  it('rejects an off-table transition without force', () => {
+    expect(forceGuard('planned', 'done', {}).ok).toBe(false);
+  });
+  it('rejects a forced off-table transition missing actor', () => {
+    expect(forceGuard('planned', 'done', { force: true, reason: 'r' }).ok).toBe(false);
+  });
+  it('rejects a forced off-table transition missing reason', () => {
+    expect(forceGuard('planned', 'done', { force: true, actor: 'a' }).ok).toBe(false);
+  });
+  it('allows a forced off-table transition with actor and reason', () => {
+    expect(forceGuard('planned', 'done', { force: true, actor: 'a', reason: 'r' }).ok).toBe(true);
   });
 });
 

@@ -62,3 +62,25 @@ export function evidenceGuard(to: Lane, evidence?: string[]): Result<void, Error
     return Err(new Error('evidenceGuard: entering done requires non-empty evidence'));
   return Ok(undefined);
 }
+
+export interface ForceOpts {
+  force?: boolean;
+  actor?: string;
+  reason?: string;
+}
+
+/**
+ * Guard: an off-table transition is permitted only when `force: true` is set
+ * together with both `actor` and `reason` (audit completeness). On-table
+ * transitions pass without force. Pure.
+ */
+export function forceGuard(from: Lane, to: Lane, opts: ForceOpts): Result<void, Error> {
+  if (isAllowedTransition(from, to)) return Ok(undefined);
+  if (!opts.force)
+    return Err(
+      new Error(`forceGuard: ${from}→${to} not allowed; set force:true with actor+reason`)
+    );
+  if (!opts.actor || !opts.reason)
+    return Err(new Error('forceGuard: force requires both actor and reason'));
+  return Ok(undefined);
+}
