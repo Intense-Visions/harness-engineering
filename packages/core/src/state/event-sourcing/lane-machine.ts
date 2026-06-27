@@ -84,3 +84,26 @@ export function forceGuard(from: Lane, to: Lane, opts: ForceOpts): Result<void, 
     return Err(new Error('forceGuard: force requires both actor and reason'));
   return Ok(undefined);
 }
+
+export interface TransitionOpts extends ForceOpts {
+  evidence?: string[];
+}
+
+/**
+ * Compose the three pure guards in order: forceGuard (is the move legal at all?),
+ * then dependencyGuard (are deps satisfied for in_progress?), then evidenceGuard
+ * (does done carry evidence?). Returns the first `Err`, or `Ok` when all pass.
+ */
+export function checkTransition(
+  from: Lane,
+  to: Lane,
+  dependsOn: string[],
+  laneOf: (taskId: string) => Lane | undefined,
+  opts: TransitionOpts
+): Result<void, Error> {
+  const f = forceGuard(from, to, opts);
+  if (!f.ok) return f;
+  const d = dependencyGuard(to, dependsOn, laneOf);
+  if (!d.ok) return d;
+  return evidenceGuard(to, opts.evidence);
+}

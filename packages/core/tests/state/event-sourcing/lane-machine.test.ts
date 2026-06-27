@@ -5,6 +5,7 @@ import {
   dependencyGuard,
   evidenceGuard,
   forceGuard,
+  checkTransition,
 } from '../../../src/state/event-sourcing/lane-machine';
 import type { Lane } from '../../../src/state/event-sourcing/lane-machine';
 
@@ -93,6 +94,28 @@ describe('forceGuard', () => {
   });
   it('allows a forced off-table transition with actor and reason', () => {
     expect(forceGuard('planned', 'done', { force: true, actor: 'a', reason: 'r' }).ok).toBe(true);
+  });
+});
+
+describe('checkTransition', () => {
+  const noDeps = laneFrom({});
+  it('rejects an off-table transition without force', () => {
+    expect(checkTransition('planned', 'done', [], noDeps, {}).ok).toBe(false);
+  });
+  it('rejects a forced transition missing actor+reason', () => {
+    expect(checkTransition('planned', 'done', [], noDeps, { force: true }).ok).toBe(false);
+  });
+  it('rejects entering done without evidence', () => {
+    // in_review→done is on-table; the evidence guard still rejects.
+    expect(checkTransition('in_review', 'done', [], noDeps, {}).ok).toBe(false);
+  });
+  it('rejects entering in_progress with unmet dependencies', () => {
+    const r = checkTransition('claimed', 'in_progress', ['a'], laneFrom({ a: 'in_review' }), {});
+    expect(r.ok).toBe(false);
+  });
+  it('allows a clean claimed→in_progress with met dependencies', () => {
+    const r = checkTransition('claimed', 'in_progress', ['a'], laneFrom({ a: 'done' }), {});
+    expect(r.ok).toBe(true);
   });
 });
 
