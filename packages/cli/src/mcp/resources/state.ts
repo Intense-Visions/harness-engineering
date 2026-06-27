@@ -1,8 +1,9 @@
 export async function getStateResource(projectRoot: string): Promise<string> {
   try {
-    const { loadState, migrateToStreams } = await import('@harness-engineering/core');
+    const { migrateToStreams } = await import('@harness-engineering/core');
+    const { readHarnessState } = await import('../../shared/state-events.js');
     await migrateToStreams(projectRoot);
-    const result = await loadState(projectRoot);
+    const result = await readHarnessState(projectRoot);
     if (result.ok) {
       return JSON.stringify(result.value, null, 2);
     }
