@@ -809,4 +809,36 @@ describe('TaskRunner run mode (D4)', () => {
     expect(result.status).toBe('success');
     expect(agentDispatcher.dispatch).toHaveBeenCalled();
   });
+
+  const HOUSEKEEPING_MUTATING_TASK: TaskDefinition = {
+    id: 'main-sync',
+    type: 'housekeeping',
+    description: 'Sync the maintenance worktree with main',
+    schedule: '0 1 * * *',
+    branch: null,
+    checkCommand: ['sync-main', '--json'],
+  };
+
+  it('housekeeping: report mode skips the command and never mutates', async () => {
+    const commandExecutor = createMockCommandExecutor('{"status":"updated"}\n');
+    const runner = new TaskRunner(createRunnerOptions({ commandExecutor }));
+
+    const result = await runner.run(HOUSEKEEPING_MUTATING_TASK, 'cli', 'report');
+
+    // Finding 2 (defense-in-depth): a git-mutating housekeeping task must NOT
+    // exec under report mode — skipped with a clear reason, executor untouched.
+    expect(result.status).toBe('skipped');
+    expect(result.error).toContain('report mode');
+    expect(commandExecutor.exec).not.toHaveBeenCalled();
+  });
+
+  it('housekeeping: omitting mode defaults to fix and still execs the command', async () => {
+    const commandExecutor = createMockCommandExecutor('{"status":"updated"}\n');
+    const runner = new TaskRunner(createRunnerOptions({ commandExecutor }));
+
+    const result = await runner.run(HOUSEKEEPING_MUTATING_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(commandExecutor.exec).toHaveBeenCalledWith(['sync-main', '--json'], '/test/project');
+  });
 });

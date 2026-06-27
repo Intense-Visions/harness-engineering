@@ -196,7 +196,7 @@ export class TaskRunner {
           break;
         }
         case 'housekeeping': {
-          const out = await this.runHousekeeping(task, startedAt);
+          const out = await this.runHousekeeping(task, startedAt, mode);
           result = out.result;
           captured = out.captured;
           break;
@@ -599,7 +599,30 @@ export class TaskRunner {
    * Hermes Phase 2: a `checkScript` may replace `checkCommand` for housekeeping
    * tasks; the runner falls through to the same JSON-status parsing path.
    */
-  private async runHousekeeping(task: TaskDefinition, startedAt: string): Promise<RunOutcome> {
+  private async runHousekeeping(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunOutcome> {
+    // Defense-in-depth for report mode (D4). Housekeeping execs its command
+    // directly and may mutate git (e.g. `main-sync`), so a read-only report
+    // sweep must never run it. The Phase 2 `excludeFromHumanSweep` selection
+    // layer is the primary guard; this executor-level skip ensures a
+    // misrouted housekeeping task still cannot mutate under mode === 'report'.
+    if (mode === 'report') {
+      return wrap({
+        taskId: task.id,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: 'skipped',
+        findings: 0,
+        fixed: 0,
+        prUrl: null,
+        prUpdated: false,
+        error: 'skipped in report mode: housekeeping may mutate and report runs are read-only',
+      });
+    }
+
     if (!task.checkCommand && !task.checkScript) {
       return wrap(
         this.failureResult(
