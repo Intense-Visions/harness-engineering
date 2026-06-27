@@ -41,7 +41,7 @@ describe('loadEvents (ordered read)', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P2' },
+        payload: { phase: 'P2' },
       },
       {
         seq: 1,
@@ -49,7 +49,7 @@ describe('loadEvents (ordered read)', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P1' },
+        payload: { phase: 'P1' },
       },
       {
         seq: 2,
@@ -57,7 +57,7 @@ describe('loadEvents (ordered read)', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P2a' },
+        payload: { phase: 'P2a' },
       },
     ]);
     const r = await loadEvents(dir);
@@ -80,7 +80,7 @@ describe('loadEvents (ordered read)', () => {
       timestamp: 't',
       scope: {},
       type: 'position_set',
-      payload: { position: 'GOOD' },
+      payload: { phase: 'GOOD' },
     });
     const blobLine = JSON.stringify({
       seq: 2,
@@ -100,7 +100,7 @@ describe('loadEvents (ordered read)', () => {
     expect(r.value.length).toBe(1);
     expect(r.value[0]?.seq).toBe(1);
     if (r.value[0]?.type === 'position_set') {
-      expect(r.value[0].payload.position).toBe('GOOD');
+      expect(r.value[0].payload.phase).toBe('GOOD');
     }
   });
 
@@ -113,7 +113,7 @@ describe('loadEvents (ordered read)', () => {
       timestamp: 't',
       scope: {},
       type: 'position_set',
-      payload: { position: 'GOOD' },
+      payload: { phase: 'GOOD' },
     });
     const blobLine = JSON.stringify({
       seq: 2,
@@ -142,7 +142,7 @@ describe('loadEvents (ordered read)', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P' },
+        payload: { phase: 'P' },
       }) + '\n{ not json\n'
     );
     const r = await loadEvents(dir);
@@ -158,7 +158,7 @@ describe('loadEvents (ordered read)', () => {
       timestamp: 't',
       scope: {},
       type: 'position_set',
-      payload: { position: 'P' },
+      payload: { phase: 'P' },
     });
     // One torn line + one valid-JSON-but-schema-invalid line (missing required fields).
     const schemaInvalid = JSON.stringify({ seq: 2, not: 'an envelope' });
@@ -188,7 +188,7 @@ describe('loadEvents (ordered read)', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P' },
+        payload: { phase: 'P' },
       },
     ]);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -215,7 +215,7 @@ describe('readTailSeq', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P' },
+        payload: { phase: 'P' },
       },
       {
         seq: 3,
@@ -223,7 +223,7 @@ describe('readTailSeq', () => {
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'P' },
+        payload: { phase: 'P' },
       },
     ]);
     expect(readTailSeq(logPath)).toBe(5);
@@ -241,7 +241,7 @@ describe('emitEvent (append, INV-2)', () => {
   });
 
   it('appends one JSONL line per event and round-trips via loadEvents', async () => {
-    const r1 = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    const r1 = await emitEvent(dir, { type: 'position_set', payload: { phase: 'A' } });
     const r2 = await emitEvent(dir, {
       type: 'decision_recorded',
       payload: { id: 'd1', text: 'x' },
@@ -253,7 +253,7 @@ describe('emitEvent (append, INV-2)', () => {
   });
 
   it('stamps writerId and a monotonically increasing seq (max(tailSeq, local)+1)', async () => {
-    const r = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    const r = await emitEvent(dir, { type: 'position_set', payload: { phase: 'A' } });
     expect(r.ok && r.value.writerId).toBe('w-test');
     expect(r.ok && r.value.seq).toBe(1);
   });
@@ -300,7 +300,7 @@ describe('blob spill', () => {
     // remove the spilled blob to simulate the orphan-vs-dangling crash window / GC. The
     // dangling reference must skip ONLY that event, with a valid sibling still loading and
     // the loss surfaced — proving the documented "tolerated on read, not data loss" contract.
-    const small = await emitEvent(dir, { type: 'position_set', payload: { position: 'KEEP' } });
+    const small = await emitEvent(dir, { type: 'position_set', payload: { phase: 'KEEP' } });
     expect(small.ok).toBe(true);
 
     const big = 'z'.repeat(MAX_LINE_BYTES * 2);
@@ -355,7 +355,7 @@ describe('MAX_LINE_BYTES spill boundary (exact)', () => {
       timestamp: '2026-06-26T21:38:03.123Z',
       scope: {},
       type: 'position_set',
-      payload: { position: 'a'.repeat(positionLen) },
+      payload: { phase: 'a'.repeat(positionLen) },
     };
     return Buffer.byteLength(JSON.stringify(obj) + '\n', 'utf-8');
   }
@@ -374,7 +374,7 @@ describe('MAX_LINE_BYTES spill boundary (exact)', () => {
     try {
       const r = await emitEvent(d, {
         type: 'position_set',
-        payload: { position: 'a'.repeat(inlineLen) },
+        payload: { phase: 'a'.repeat(inlineLen) },
       });
       expect(r.ok).toBe(true);
       const { logPath, blobsDir } = await eventLogPaths(d);
@@ -394,7 +394,7 @@ describe('MAX_LINE_BYTES spill boundary (exact)', () => {
     try {
       const r = await emitEvent(d, {
         type: 'position_set',
-        payload: { position: 'a'.repeat(spillLen) },
+        payload: { phase: 'a'.repeat(spillLen) },
       });
       expect(r.ok).toBe(true);
       const { logPath, blobsDir } = await eventLogPaths(d);
@@ -405,7 +405,7 @@ describe('MAX_LINE_BYTES spill boundary (exact)', () => {
       const loaded = await loadEvents(d);
       expect(loaded.ok).toBe(true);
       if (loaded.ok && loaded.value[0]?.type === 'position_set') {
-        expect(loaded.value[0].payload.position).toBe('a'.repeat(spillLen)); // rehydrates exactly
+        expect(loaded.value[0].payload.phase).toBe('a'.repeat(spillLen)); // rehydrates exactly
       } else {
         throw new Error('expected rehydrated position_set event');
       }
@@ -420,7 +420,7 @@ describe('MAX_LINE_BYTES spill boundary (exact)', () => {
     try {
       const r = await emitEvent(d, {
         type: 'position_set',
-        payload: { position: 'a'.repeat(spillLen + 1) },
+        payload: { phase: 'a'.repeat(spillLen + 1) },
       });
       expect(r.ok).toBe(true);
       const { logPath } = await eventLogPaths(d);
@@ -442,7 +442,7 @@ describe('INV-2: seq re-derived from live tail, never a stale local max', () => 
   });
 
   it('jumps ahead of an externally-bumped tail rather than reusing a cached max', async () => {
-    const first = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    const first = await emitEvent(dir, { type: 'position_set', payload: { phase: 'A' } });
     expect(first.ok && first.value.seq).toBe(1);
 
     // Simulate a *different* writer appending a higher seq directly to the live log.
@@ -455,12 +455,12 @@ describe('INV-2: seq re-derived from live tail, never a stale local max', () => 
         timestamp: 't',
         scope: {},
         type: 'position_set',
-        payload: { position: 'Z' },
+        payload: { phase: 'Z' },
       }) + '\n'
     );
 
     // Our next append must read the live tail (50) and emit 51, NOT 2 from a cached max.
-    const next = await emitEvent(dir, { type: 'position_set', payload: { position: 'B' } });
+    const next = await emitEvent(dir, { type: 'position_set', payload: { phase: 'B' } });
     expect(next.ok && next.value.seq).toBe(51);
   });
 });

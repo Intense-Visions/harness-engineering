@@ -31,7 +31,7 @@ async function main() {
                 ? { legacyState: { shared: true, filler: FILLER } }
                 : { legacyState: { writer: writerId, i, filler: FILLER } },
           })
-        : ({ type: 'position_set' as const, payload: { position: `p${i}` } });
+        : ({ type: 'position_set' as const, payload: { phase: `p${i}` } });
     const r = await emitEvent(projectDir, input);
     if (!r.ok) {
       console.error(String(r.error));
