@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { parseRoadmap, ShardStore } from '@harness-engineering/core';
+import { Err, parseRoadmap, ShardStore } from '@harness-engineering/core';
 import { runRoadmapShard } from '../../../src/commands/roadmap/shard';
 import { runRoadmapRegen } from '../../../src/commands/roadmap/regen';
 import { createNodeShardIO } from '../../../src/commands/roadmap/shard-io';
@@ -123,5 +123,65 @@ describe('runRoadmapShard() — happy path', () => {
     // A follow-up regen leaves roadmap.md byte-identical.
     await runRoadmapRegen({ cwd });
     expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(afterShard);
+  });
+});
+
+describe('runRoadmapShard() — safety, refusal, dry-run, json', () => {
+  it('aborts before writing when the round-trip fails, leaving the monolith byte-identical', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const r = await runRoadmapShard({
+      cwd,
+      // Inject a failing round-trip to prove the assert-before-write ordering.
+      assertRoundTrip: () => Err(new Error('round-trip: forced mismatch for test')),
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/round-trip/i);
+    // No shard dir created, monolith untouched.
+    expect(fs.existsSync(shardDir)).toBe(false);
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
+  });
+
+  it('refuses when already sharded unless --force is passed', async () => {
+    await runRoadmapShard({ cwd }); // first shard succeeds
+    const r = await runRoadmapShard({ cwd });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/already sharded|--force|roadmap\.d/i);
+
+    // --force proceeds.
+    const forced = await runRoadmapShard({ cwd, force: true });
+    expect(forced.ok).toBe(true);
+  });
+
+  it('dry-run returns a populated report and writes nothing', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const r = await runRoadmapShard({ cwd, dryRun: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.shardCount).toBe(4);
+      expect(r.value.milestoneCount).toBe(3);
+      expect(r.value.disambiguated).toContain('fix-login-2');
+      expect(r.value.roundTrip).toBe(true);
+    }
+    expect(fs.existsSync(shardDir)).toBe(false);
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
+  });
+
+  it('emits a single stable JSON object when format is json', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const r = await runRoadmapShard({ cwd, format: 'json' });
+      expect(r.ok).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(spy.mock.calls[0]![0] as string);
+      expect(payload).toMatchObject({
+        ok: true,
+        shardCount: 4,
+        milestoneCount: 3,
+        roundTrip: true,
+      });
+      expect(payload.disambiguated).toContain('fix-login-2');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
