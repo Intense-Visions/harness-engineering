@@ -13,9 +13,12 @@ export type { CoreStateProjection } from './projections/core-state';
 // scheduleMaterialize / __resetMaterializeTimersForTests / __flushMaterializeForTests are
 // intentionally NOT exported (module-internal debounce + test-only hooks).
 export { reduce, materialize, readSnapshot, isStale, MATERIALIZE_DEBOUNCE_MS } from './snapshot';
-// LanesProjection now lives in ./projections/lanes (exported below); keep Snapshot + the
-// Phase 5 AuditProjection placeholder here.
-export type { Snapshot, AuditProjection } from './snapshot';
+// LanesProjection now lives in ./projections/lanes and AuditProjection in
+// ./projections/audit (both exported below); keep Snapshot here.
+export type { Snapshot } from './snapshot';
+// Phase 5: audit projection (the append-only session audit trail, subsumes #580).
+export { projectAudit, formatAuditTimeline } from './projections/audit';
+export type { AuditProjection, AuditEntry, AuditKind } from './projections/audit';
 // Phase 3: genesis migration (idempotent, crash-safe import of the legacy state.json) +
 // reset primitive (truncate log + clear snapshot/blobs + re-genesis DEFAULT_STATE).
 export { importLegacyState, resetEventLog } from './migrate';
