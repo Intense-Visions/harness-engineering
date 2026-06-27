@@ -126,6 +126,58 @@ describe('runRoadmapShard() — happy path', () => {
   });
 });
 
+describe('runRoadmapShard() — disk-level re-assert (H2)', () => {
+  it('aborts when the on-disk shards do not regenerate the original, leaving the monolith byte-identical and cleaning up the shard dir', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const baseIo = createNodeShardIO();
+    // Corrupt one shard's body AS IT IS WRITTEN to disk. The in-memory round-trip
+    // (assertSemanticRoundTrip over the assembled shards) still passes — the
+    // discrepancy only exists in the bytes that hit disk, exactly the layer the
+    // disk-level re-assert must exercise before the monolith is overwritten.
+    const corruptIo = {
+      ...baseIo,
+      writeFile: async (p: string, data: string) => {
+        const next = p.endsWith('/fix-login.md')
+          ? data.replace('Repair the login flow.', 'Repair the login flow CORRUPTED.')
+          : data;
+        return baseIo.writeFile(p, next);
+      },
+    };
+
+    const r = await runRoadmapShard({ cwd, io: corruptIo });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/round-trip/i);
+    // Monolith protected: never overwritten when the disk re-assert fails.
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
+    // Just-written (corrupt) shard dir is cleaned up.
+    expect(fs.existsSync(shardDir)).toBe(false);
+  });
+
+  it('on the happy path writes the monolith only after the disk re-assert passes', async () => {
+    const baseIo = createNodeShardIO();
+    let monolithWrittenAfterMeta = false;
+    let metaWritten = false;
+    const observingIo = {
+      ...baseIo,
+      writeFile: async (p: string, data: string) => {
+        if (p.endsWith('/_meta.md')) metaWritten = true;
+        // roadmap.md is the monolith; it must only be (re)written after _meta and
+        // all shards are on disk (i.e. after the disk-level re-assert has run).
+        if (p === roadmapPath && metaWritten) monolithWrittenAfterMeta = true;
+        return baseIo.writeFile(p, data);
+      },
+    };
+    const r = await runRoadmapShard({ cwd, io: observingIo });
+    expect(r.ok).toBe(true);
+    expect(monolithWrittenAfterMeta).toBe(true);
+    // And the regenerated monolith re-parses equal to the original.
+    const reparsed = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
+    const original = parseRoadmap(ROADMAP_MD);
+    expect(reparsed.ok && original.ok).toBe(true);
+    if (reparsed.ok && original.ok) expect(reparsed.value).toEqual(original.value);
+  });
+});
+
 describe('runRoadmapShard() — safety, refusal, dry-run, json', () => {
   it('aborts before writing when the round-trip fails, leaving the monolith byte-identical', async () => {
     const before = fs.readFileSync(roadmapPath, 'utf-8');

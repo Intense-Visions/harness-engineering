@@ -62,8 +62,24 @@ export function assertSemanticRoundTrip(
   shards: Shard[],
   meta: RoadmapMeta
 ): Result<void> {
-  const regenMd = serializeRoadmap(assembleRoadmap(shards, meta));
-  const regenParsed = parseRoadmap(regenMd);
+  return assertRegeneratedRoundTrip(original, serializeRoadmap(assembleRoadmap(shards, meta)));
+}
+
+/**
+ * The disk-level twin of {@link assertSemanticRoundTrip}: assert that an ALREADY
+ * SERIALIZED regenerated roadmap (`regeneratedMd`) re-parses deep-equal to the
+ * original. Whereas `assertSemanticRoundTrip` serializes the in-memory assembled
+ * shards itself, this variant takes the regenerated markdown verbatim — so the
+ * `shard` CLI can feed it the bytes produced by `serializeShard`/`serializeMeta`
+ * → `parseShard`/`parseMeta` → `assembleRoadmap` → `serializeRoadmap` ON DISK,
+ * exercising the exact layer whose output replaces the monolith. Both the
+ * original and the regenerated form are canonicalized via `parse(serialize(...))`
+ * before comparison (neutralizing the serializer's prose/comment lossiness), and
+ * the check is `node:util.isDeepStrictEqual` to honor the spec's "deep-equals".
+ * Returns `Err` (never throws) so the caller can abort and protect the monolith.
+ */
+export function assertRegeneratedRoundTrip(original: Roadmap, regeneratedMd: string): Result<void> {
+  const regenParsed = parseRoadmap(regeneratedMd);
   if (!regenParsed.ok)
     return Err(
       new Error(`round-trip: regenerated roadmap failed to parse: ${regenParsed.error.message}`)

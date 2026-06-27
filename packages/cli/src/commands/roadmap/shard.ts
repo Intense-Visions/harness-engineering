@@ -6,6 +6,8 @@ import {
   parseRoadmap,
   roadmapToShards,
   assertSemanticRoundTrip,
+  assertRegeneratedRoundTrip,
+  regenerate,
   serializeShard,
   serializeMeta,
   writeRegeneratedRoadmap,
@@ -42,10 +44,16 @@ export interface ShardReport {
  * Migrate a monolith `docs/roadmap.md` to per-row shards under `docs/roadmap.d/`
  * plus a `_meta.md`, then regenerate the monolith from those shards.
  *
- * Safety: the semantic round-trip is asserted BEFORE any destructive write. If
- * it fails, the command aborts and leaves `docs/roadmap.md` byte-unchanged with
- * no shard files written (proven in shard.test.ts). The monolith is rewritten
- * ONLY via `writeRegeneratedRoadmap`, never hand-edited (read-source invariant R).
+ * Safety (two layers): the semantic round-trip is asserted BEFORE any
+ * destructive write; on failure the command aborts leaving `docs/roadmap.md`
+ * byte-unchanged with no shard files written. Then, AFTER the shards + `_meta`
+ * are on disk but BEFORE the monolith is overwritten, the roadmap is regenerated
+ * from the shard dir on disk and re-asserted to deep-equal the original — this
+ * exercises serializeShard/parseShard + serializeMeta/parseMeta, the exact layer
+ * whose output replaces the monolith. If the disk re-assert fails the monolith is
+ * left untouched and the just-written shard dir is cleaned up. The monolith is
+ * rewritten ONLY via `writeRegeneratedRoadmap`, last and never hand-edited
+ * (read-source invariant R).
  */
 export async function runRoadmapShard(
   opts: RoadmapShardOptions = {}
@@ -107,6 +115,24 @@ export async function runRoadmapShard(
     }
     await io.writeFile(path.join(shardDir, '_meta.md'), serializeMeta(meta));
 
+    // H2: re-assert the round-trip against the bytes ON DISK before overwriting
+    // the monolith. The in-memory assert never exercised serializeShard/parseShard
+    // + serializeMeta/parseMeta — the exact layer whose output replaces the
+    // monolith. Regenerate from the shard dir on disk and require it to deep-equal
+    // the original. On failure: leave roadmap.md untouched, clean up the
+    // just-written shard dir, and abort.
+    const diskRegen = await regenerate(shardDir, io);
+    if (!diskRegen.ok) {
+      await io.rmrf(shardDir);
+      return Err(new CLIError(diskRegen.error.message, ExitCode.ERROR));
+    }
+    const diskAssert = assertRegeneratedRoundTrip(parsed.value, diskRegen.value);
+    if (!diskAssert.ok) {
+      await io.rmrf(shardDir);
+      return Err(new CLIError(diskAssert.error.message, ExitCode.ERROR));
+    }
+
+    // Monolith is overwritten LAST, only after the disk re-assert has passed.
     const regen = await writeRegeneratedRoadmap(shardDir, roadmapPath, io);
     if (!regen.ok) {
       return Err(new CLIError(regen.error.message, ExitCode.ERROR));
