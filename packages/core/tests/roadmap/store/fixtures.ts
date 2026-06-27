@@ -203,3 +203,123 @@ export const MONOLITH_ROADMAP: Roadmap = {
 };
 
 export const MONOLITH_ROADMAP_MD = serializeRoadmap(MONOLITH_ROADMAP);
+
+// --- Task 9: migration round-trip + store-parity proof --------------------
+//
+// A hand-authored monolith `roadmap.md` and an independently hand-authored
+// equivalent shard set + `_meta`. The proof: parse(OLD_ROADMAP_MD) deep-equals
+// parse(regenerate(MIGRATION_SHARDS)). Equality is SEMANTIC, not byte-equal vs
+// the old file — serialize is lossy (drops prose/comments), which is exactly why
+// OLD_ROADMAP_MD carries extra prose the regenerated file will not reproduce.
+
+const MIG_CORE: RoadmapFeature = feat('Core foundation', 'in-progress', {
+  spec: 'docs/changes/roadmap-shard-store/proposal.md',
+  plans: ['docs/changes/roadmap-shard-store/plans/phase1.md'],
+  summary: 'Self-contained shard store core modules.',
+  assignee: 'Chad Warner',
+  priority: 'P1',
+  externalId: 'github:Intense-Visions/harness-engineering#566',
+  updatedAt: '2026-06-27T12:00:00.000Z',
+});
+
+const MIG_MIGRATION: RoadmapFeature = feat('Migration CLI', 'planned', {
+  spec: 'docs/changes/roadmap-shard-store/proposal.md',
+  blockedBy: ['Core foundation'],
+  summary: 'Derive shards from the monolith.',
+  priority: 'P2',
+});
+
+const MIG_FAILCLOSED: RoadmapFeature = feat('Fail-closed protect-config', 'done', {
+  summary: 'protect-config fails closed.',
+  externalId: 'github:Intense-Visions/harness-engineering#619',
+});
+
+const MIG_TOKEN: RoadmapFeature = feat('Token bypass guard', 'planned', {
+  summary: 'Guard against token bypass.',
+  priority: 'P3',
+});
+
+const MIG_FUTURE: RoadmapFeature = feat('Future idea', 'backlog', {
+  summary: 'Something for later.',
+});
+
+export const MIGRATION_META: RoadmapMeta = {
+  frontmatter: META.frontmatter,
+  milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
+};
+
+export const MIGRATION_SHARDS: Shard[] = [
+  { slug: 'core-foundation', milestone: 'MVP Release', order: 10, feature: MIG_CORE },
+  { slug: 'migration-cli', milestone: 'MVP Release', order: 20, feature: MIG_MIGRATION },
+  { slug: 'fail-closed', milestone: 'v5.0 Hardening', order: 10, feature: MIG_FAILCLOSED },
+  { slug: 'token-bypass', milestone: 'v5.0 Hardening', order: 20, feature: MIG_TOKEN },
+  { slug: 'future-idea', milestone: 'Backlog', order: 10, feature: MIG_FUTURE },
+];
+
+export const OLD_ROADMAP_MD = `---
+project: harness-engineering
+version: 1
+created: 2026-06-01
+updated: 2026-06-27
+last_synced: 2026-06-27T12:00:00.000Z
+last_manual_edit: 2026-06-27T11:00:00.000Z
+---
+
+# Roadmap
+
+<!-- Hand-authored monolith with extra prose, to prove SEMANTIC (not byte) equivalence. -->
+This narrative line and the comment above are dropped by the lossy serializer.
+
+## MVP Release
+
+### Core foundation
+
+- **Status:** in-progress
+- **Spec:** docs/changes/roadmap-shard-store/proposal.md
+- **Summary:** Self-contained shard store core modules.
+- **Blockers:** —
+- **Plan:** docs/changes/roadmap-shard-store/plans/phase1.md
+- **Assignee:** Chad Warner
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#566
+- **Updated-At:** 2026-06-27T12:00:00.000Z
+
+### Migration CLI
+
+- **Status:** planned
+- **Spec:** docs/changes/roadmap-shard-store/proposal.md
+- **Summary:** Derive shards from the monolith.
+- **Blockers:** Core foundation
+- **Plan:** —
+- **Priority:** P2
+
+## v5.0 Hardening
+
+### Fail-closed protect-config
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** protect-config fails closed.
+- **Blockers:** —
+- **Plan:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#619
+
+### Token bypass guard
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Guard against token bypass.
+- **Blockers:** —
+- **Plan:** —
+- **Priority:** P3
+
+## Backlog
+
+### Future idea
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Something for later.
+- **Blockers:** —
+- **Plan:** —
+`;
