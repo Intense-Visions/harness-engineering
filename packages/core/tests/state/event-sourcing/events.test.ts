@@ -167,6 +167,55 @@ describe('lane events', () => {
   });
 });
 
+describe('audit events (Phase 5 — #580 subsumption)', () => {
+  it('validates a well-formed user_input_captured event', () => {
+    const e = {
+      ...envelope,
+      type: 'user_input_captured',
+      payload: { text: 'hi', interactionId: 'i1' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a user_input_captured event without interactionId', () => {
+    const e = { ...envelope, type: 'user_input_captured', payload: { text: 'hi' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a well-formed approval_requested event', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_requested',
+      payload: { interactionId: 'i1', kind: 'confirmation', prompt: 'continue?' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a well-formed approval_resolved event', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_resolved',
+      payload: { interactionId: 'i1', response: 'yes' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects approval_requested missing prompt', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_requested',
+      payload: { interactionId: 'i1', kind: 'confirmation' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('rejects user_input_captured with a non-string text', () => {
+    const e = { ...envelope, type: 'user_input_captured', payload: { text: 42 } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('StoredEventSchema accepts the new audit stored types', () => {
+    for (const type of ['user_input_captured', 'approval_requested', 'approval_resolved']) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
+  });
+});
+
 describe('StoredEventSchema (on-disk, may carry a blob ref)', () => {
   it('accepts a payload replaced by a blob marker', () => {
     const e = { ...envelope, type: 'state_imported', payload: { $blob: 'abc123' } };

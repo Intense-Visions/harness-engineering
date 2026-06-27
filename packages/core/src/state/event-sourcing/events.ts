@@ -70,6 +70,21 @@ const LaneTransitionedPayload = z.object({
 /** Inferred input shape for a lane_transitioned payload (used by the transitionLane writer). */
 export type LaneTransitionedInput = z.infer<typeof LaneTransitionedPayload>;
 
+// --- Phase 5: audit-trail vocabulary (subsumes #580), additive ---
+const UserInputCapturedPayload = z.object({
+  text: z.string(),
+  interactionId: z.string().optional(),
+});
+const ApprovalRequestedPayload = z.object({
+  interactionId: z.string().min(1),
+  kind: z.string().min(1),
+  prompt: z.string(),
+});
+const ApprovalResolvedPayload = z.object({
+  interactionId: z.string().min(1),
+  response: z.string(),
+});
+
 /** Strict in-memory event union (payload fully present). */
 export const EventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -105,6 +120,21 @@ export const EventSchema = z.discriminatedUnion('type', [
     type: z.literal('lane_transitioned'),
     payload: LaneTransitionedPayload,
   }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('user_input_captured'),
+    payload: UserInputCapturedPayload,
+  }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('approval_requested'),
+    payload: ApprovalRequestedPayload,
+  }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('approval_resolved'),
+    payload: ApprovalResolvedPayload,
+  }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 export type EventType = Event['type'];
@@ -130,6 +160,9 @@ export const StoredEventSchema = z.object({
     'session_summarized',
     'task_registered',
     'lane_transitioned',
+    'user_input_captured',
+    'approval_requested',
+    'approval_resolved',
   ]),
   payload: z.union([z.record(z.unknown()), BlobRefSchema]),
 });
@@ -145,7 +178,10 @@ export type EventInput =
   | { type: 'progress_set'; payload: z.infer<typeof ProgressSetPayload> }
   | { type: 'session_summarized'; payload: z.infer<typeof SessionSummarizedPayload> }
   | { type: 'task_registered'; payload: z.input<typeof TaskRegisteredPayload> }
-  | { type: 'lane_transitioned'; payload: z.infer<typeof LaneTransitionedPayload> };
+  | { type: 'lane_transitioned'; payload: z.infer<typeof LaneTransitionedPayload> }
+  | { type: 'user_input_captured'; payload: z.infer<typeof UserInputCapturedPayload> }
+  | { type: 'approval_requested'; payload: z.infer<typeof ApprovalRequestedPayload> }
+  | { type: 'approval_resolved'; payload: z.infer<typeof ApprovalResolvedPayload> };
 
 /** True when a stored payload is a blob reference rather than an inline payload. */
 export function isBlobRef(payload: unknown): payload is BlobRef {
