@@ -1,5 +1,26 @@
-import type { RoadmapFeature } from '@harness-engineering/types';
+import type { FeatureStatus, RoadmapFeature, Roadmap } from '@harness-engineering/types';
 import type { Shard, RoadmapMeta } from '../../../src/roadmap/store/roadmap-store';
+
+/** Compact factory for a fully-specified RoadmapFeature (all optionals null/empty). */
+export function feat(
+  name: string,
+  status: FeatureStatus,
+  extra: Partial<RoadmapFeature> = {}
+): RoadmapFeature {
+  return {
+    name,
+    status,
+    spec: null,
+    plans: [],
+    blockedBy: [],
+    summary: `Summary for ${name}`,
+    assignee: null,
+    priority: null,
+    externalId: null,
+    updatedAt: null,
+    ...extra,
+  };
+}
 
 /**
  * Shared fixtures for the roadmap shard store tests.
@@ -119,3 +140,48 @@ milestones:
   - Backlog
 ---
 `;
+
+// --- Task 5: assembler ordering across milestones -------------------------
+
+export const ASSEMBLER_META: RoadmapMeta = {
+  frontmatter: META.frontmatter,
+  milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
+};
+
+// Named features so they can be referenced from both shards and the expected roadmap.
+const A_FEATURE = feat('A feature', 'in-progress'); // MVP, order 10
+const TIE_A = feat('Tie A', 'planned'); // MVP, order 10 (status/slug tiebreak)
+const TIE_Z = feat('Tie Z', 'planned'); // MVP, order 10 (slug tiebreak)
+const B_FEATURE = feat('B feature', 'planned'); // MVP, order 20
+const HARDENING_X = feat('Hardening X', 'done'); // v5.0 Hardening, order 15
+const BACKLOG_ITEM = feat('Backlog item', 'backlog'); // Backlog, order 5
+const ORPHAN = feat('Orphan feature', 'planned'); // milestone NOT in meta.milestones
+
+/** Intentionally out of milestone- and order-sequence to exercise sorting. */
+export const ASSEMBLER_SHARDS: Shard[] = [
+  { slug: 'b-feature', milestone: 'MVP Release', order: 20, feature: B_FEATURE },
+  { slug: 'backlog-item', milestone: 'Backlog', order: 5, feature: BACKLOG_ITEM },
+  { slug: 'tie-z', milestone: 'MVP Release', order: 10, feature: TIE_Z },
+  { slug: 'orphan', milestone: 'Unlisted Milestone', order: 1, feature: ORPHAN },
+  { slug: 'a-feature', milestone: 'MVP Release', order: 10, feature: A_FEATURE },
+  { slug: 'hardening-x', milestone: 'v5.0 Hardening', order: 15, feature: HARDENING_X },
+  { slug: 'tie-a', milestone: 'MVP Release', order: 10, feature: TIE_A },
+];
+
+export const EXPECTED_ROADMAP: Roadmap = {
+  frontmatter: ASSEMBLER_META.frontmatter,
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      // order 10 group: A_FEATURE (in-progress, rank 2) before the planned ties;
+      // ties broken by slug asc: tie-a (Tie A) before tie-z (Tie Z); then order 20.
+      features: [A_FEATURE, TIE_A, TIE_Z, B_FEATURE],
+    },
+    { name: 'v5.0 Hardening', isBacklog: false, features: [HARDENING_X] },
+    { name: 'Backlog', isBacklog: true, features: [BACKLOG_ITEM] },
+    // Unlisted milestone appended after ordered milestones (documented fallback).
+    { name: 'Unlisted Milestone', isBacklog: false, features: [ORPHAN] },
+  ],
+  assignmentHistory: [],
+};
