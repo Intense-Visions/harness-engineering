@@ -24,3 +24,4 @@ export type { FileIO, MonolithStoreOptions } from './monolith-store';
 export { ShardStore, readShardDir } from './shard-store';
 export type { ShardIO } from './shard-store';
 export { regenerate, writeRegeneratedRoadmap } from './regenerator';
+export { roadmapToShards, assertSemanticRoundTrip } from './migration';

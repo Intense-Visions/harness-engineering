@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { roadmapToShards, assertSemanticRoundTrip } from '../../../src/roadmap/store/migration';
+import * as core from '@harness-engineering/core';
 import { MIGRATION_ROADMAP } from './fixtures';
+
+describe('migration barrel export', () => {
+  it('re-exports roadmapToShards and assertSemanticRoundTrip from @harness-engineering/core', () => {
+    expect(typeof core.roadmapToShards).toBe('function');
+    expect(typeof core.assertSemanticRoundTrip).toBe('function');
+  });
+});
 
 describe('roadmapToShards()', () => {
   it('decomposes a Roadmap into per-row shards + roadmap-level meta', () => {
