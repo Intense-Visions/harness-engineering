@@ -27,6 +27,22 @@ export async function readHarnessState(
   return Ok(toHarnessState(snap.value.coreState));
 }
 
+/**
+ * True when a projected state carries no meaningful content. Used by readers that historically
+ * gated on `fs.existsSync(state.json)` — after the cutover the file is gone, so "is there state
+ * worth showing?" becomes "is the projection non-empty?" rather than "does a file exist?".
+ */
+export function isEmptyHarnessState(s: HarnessState): boolean {
+  return (
+    s.decisions.length === 0 &&
+    s.blockers.length === 0 &&
+    Object.keys(s.progress).length === 0 &&
+    !s.position.phase &&
+    !s.position.task &&
+    !s.lastSession
+  );
+}
+
 /** Authoritative write: genesis-import first (so appends union onto legacy) → emit one event. */
 export async function emitCoreEvent(
   projectPath: string,

@@ -49,12 +49,19 @@ export async function importLegacyState(
       raw = JSON.parse(fs.readFileSync(legacyPath, 'utf-8'));
     } catch {
       // Corrupt/unparseable legacy file: do not fabricate. Leave it; reads fall back to empty.
+      // Surface it so a silent empty-state start is diagnosable (matches the loadEvents drop style).
+      console.warn(
+        `[event-log] legacy ${STATE_FILE} is not valid JSON; skipping genesis import (state starts empty): ${legacyPath}`
+      );
       ensured.add(memoKey);
       return Ok({ imported: false });
     }
     const parsed = HarnessStateSchema.safeParse(raw);
     if (!parsed.success) {
       // Schema-invalid legacy file: do not fabricate. Leave it; reads fall back to empty.
+      console.warn(
+        `[event-log] legacy ${STATE_FILE} failed schema validation; skipping genesis import (state starts empty): ${legacyPath}`
+      );
       ensured.add(memoKey);
       return Ok({ imported: false });
     }

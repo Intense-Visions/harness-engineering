@@ -276,7 +276,13 @@ phases:
       fs.mkdirSync(path.join(projectDir, '.harness'), { recursive: true });
       fs.writeFileSync(
         path.join(projectDir, '.harness', 'state.json'),
-        JSON.stringify({ phase: 'plan', done: true })
+        JSON.stringify({
+          schemaVersion: 1,
+          position: { phase: 'plan' },
+          progress: { setup: 'complete' },
+          decisions: [],
+          blockers: [],
+        })
       );
 
       const program = makeProgram();
