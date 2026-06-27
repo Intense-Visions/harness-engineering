@@ -80,9 +80,10 @@ checks shape when the file exists.
 - `/harness:strategy` — run interview / update STRATEGY.md.
 - `/harness:ideate` — generate ranked candidate ideas grounded in strategy.
 - `initialize-harness-project` Phase 3 — 3-way yes/no/later question on
-  capturing strategy at project init. Decline persists in
-  `.harness/state.json` as `init.strategy.declined: true` so re-runs
-  respect prior decision.
+  capturing strategy at project init. Decline persists to the event-sourced
+  `.harness` state (recorded as an event, read back via the snapshot
+  projection) as `init.strategy.declined: true` so re-runs respect the prior
+  decision.
 
 ## Repository Structure
 
@@ -218,11 +219,21 @@ Each package has a clear responsibility:
   - `aggregator.ts` — Aggregates records by skill (`aggregateBySkill`) and by day (`aggregateByDay`); exports `DailyAdoption` type
 
 - **state** (`packages/core/src/state/`): Session state and learnings lifecycle management.
+  - `event-sourcing/` — **Event-sourced core state.** An authoritative append-only log (`state.events.jsonl`) is the single source of truth; a deterministic reducer composes three pure projections — `projectCoreState`, `projectLanes`, `projectAudit` — into a materialized snapshot (`state.snapshot.json`, derived cache). Includes the guarded lane state machine (`lane-machine.ts`) and `transitionLane`. The `toHarnessState` adapter bridges `coreState` back to the legacy `HarnessState` shape so readers migrate by swapping `loadState(...)` for `toHarnessState(readSnapshot(...).coreState)`. See [`docs/knowledge/core/event-sourced-state.md`](docs/knowledge/core/event-sourced-state.md) and ADRs [0048](docs/knowledge/decisions/0048-event-log-authoritative-snapshot-derived.md) / [0049](docs/knowledge/decisions/0049-guarded-lane-state-machine.md).
   - `session-sections.ts` — Loader for session-state.json managing accumulative sections (terminology, decisions, constraints, risks, openQuestions, evidence)
   - `session-archive.ts` — Archives completed sessions by moving directory to `.harness/archive/sessions/<slug>-<date>`
   - `learnings-loader.ts` — Mtime-based cache loader for learnings files; leaf module preventing circular dependencies
   - `learnings-lifecycle.ts` — Archive/prune/promotion/counting operations on learnings with pattern analysis
   - `learnings-content.ts` — Content deduplication via normalization, content hashing, and hash index management
+
+  **On-disk layout** (resolved per `getStateDir` scope — global / stream / session):
+  - `state.events.jsonl` — authoritative append-only event log.
+  - `state.events.blobs/<hash>.json` — spilled oversized event payloads (kept out of the log line so each line stays within one atomic append).
+  - `state.snapshot.json` — derived materialized snapshot (`schemaVersion: 2`, `{ coreState, lanes, audit, meta.lastSeq }`); never authoritative, recomputed on staleness.
+  - `metrics/skill-events.jsonl` — relocated skill-lifecycle telemetry.
+  - The legacy `events.jsonl` is **retired** — it was born-deduplicated and observability-only; its entries are discarded (not imported), and the timeline is now derived from the `audit` projection.
+
+  **`manage_state` MCP tool** (`packages/cli/src/mcp/tools/state.ts`): mutating actions **append events** to the log; read actions read the **snapshot/projection** (`toHarnessState(readSnapshot(...).coreState)`). The `task-transition` action wraps `transitionLane` (`taskId`, `toLane`, `dependsOn?`, `evidence?`, and `force?` + `actor?` + `reason?` for off-table moves), applying the dependency / evidence-for-terminal / forced-transition guards.
 
 - **code-nav** (`packages/core/src/code-nav/`): Tree-sitter-based code navigation and symbol extraction.
   - `outline.ts` — Extracts top-level code symbols (functions, classes, interfaces, types) with locations
