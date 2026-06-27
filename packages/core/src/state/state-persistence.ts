@@ -6,6 +6,12 @@ import { Ok, Err } from '../shared/result';
 import { HarnessStateSchema, DEFAULT_STATE, type HarnessState } from './types';
 import { getStateDir, STATE_FILE } from './state-shared';
 
+/**
+ * @deprecated Dead post-Phase-3 (event-sourced state model). No production callers remain — all
+ * readers now derive state via `eventSourcing.readSnapshot` + `toHarnessState` (CLI facade
+ * `readHarnessState`). Retained, unexported-from-call-sites, to keep the change reversible;
+ * physical removal is deferred to Phase 6. Do not introduce new callers (guarded by the SC1 test).
+ */
 export async function loadState(
   projectPath: string,
   stream?: string,
@@ -37,6 +43,13 @@ export async function loadState(
   }
 }
 
+/**
+ * @deprecated Dead post-Phase-3 (event-sourced state model). No production callers remain — every
+ * mutation now appends to the authoritative event log (`eventSourcing.emitEvent` via the CLI
+ * facade `emitCoreEvent`; `reset` via `eventSourcing.resetEventLog`). Retained to keep the change
+ * reversible; physical removal is deferred to Phase 6. Do not introduce new callers — SC1 (the
+ * zero-`saveState`-mutation guard test) will fail.
+ */
 export async function saveState(
   projectPath: string,
   state: HarnessState,

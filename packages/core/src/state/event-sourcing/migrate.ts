@@ -84,7 +84,7 @@ export async function importLegacyState(
 }
 
 /**
- * Event-sourced equivalent of the legacy `saveState({...DEFAULT_STATE})` wipe: truncate the
+ * Event-sourced equivalent of the legacy wholesale DEFAULT_STATE overwrite: truncate the
  * authoritative log, drop the derived snapshot + blobs, then emit a fresh genesis carrying
  * DEFAULT_STATE so (a) the next read projects to an empty HarnessState and (b) the
  * genesis-present invariant holds (a stale legacy state.json is not re-imported). Destructive
