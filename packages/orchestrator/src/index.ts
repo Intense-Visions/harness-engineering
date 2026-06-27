@@ -64,7 +64,7 @@ export { TaskOutputStore } from './maintenance/output-store';
 export type { PersistedOutputEntry } from './maintenance/output-store';
 export { validateCustomTasks } from './maintenance/custom-task-validator';
 export type { CustomTaskValidationError } from './maintenance/custom-task-validator';
-export type { TaskDefinition, TaskType, RunOrigin } from './maintenance/types';
+export type { TaskDefinition, TaskType, RunOrigin, RunMode } from './maintenance/types';
 
 // Hermes Phase 0 / Phase 1: re-export TokenStore so the CLI (`harness gateway token`)
 // and the dashboard tokens router can construct it via the package root without

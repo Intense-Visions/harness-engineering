@@ -32,6 +32,16 @@ export type RunOrigin =
   | { kind: 'chain'; upstreamTaskId: string };
 
 /**
+ * Run mode for a maintenance task (on-demand pipeline, D4).
+ *
+ * - 'fix'    — current cron behavior: mechanical-ai dispatches on findings,
+ *              pure-ai always dispatches, PRs may be opened. Default.
+ * - 'report' — read-only sweep: run the check step, record findings, and take
+ *              the no-dispatch branch — never dispatch a fix agent or open a PR.
+ */
+export type RunMode = 'report' | 'fix';
+
+/**
  * Per-task cost ceiling (Hermes Phase 5).
  *
  * When set, the orchestrator's `CostCeilingMonitor` tracks cumulative
