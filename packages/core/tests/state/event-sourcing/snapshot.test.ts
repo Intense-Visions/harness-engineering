@@ -262,6 +262,31 @@ describe('readStoredSnapshot — structural validation (carry-forward, truth #6)
     if (!result.ok) return;
     expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
   });
+
+  // S2 (final-review): a partial schemaVersion-2 envelope missing lanes/audit must also be a
+  // cache miss — otherwise a downstream reader (orchestrator readBackPersistedLanes →
+  // Object.keys(lanes.tasks)) could throw on a structurally-incomplete hit.
+  it('recomputes when the lanes subdocument is missing', async () => {
+    await tamperFreshSnapshot((s) => {
+      delete s.lanes;
+    });
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+    expect(result.value.lanes).toBeDefined();
+  });
+
+  it('recomputes when the audit subdocument is missing', async () => {
+    await tamperFreshSnapshot((s) => {
+      delete s.audit;
+    });
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+    expect(result.value.audit).toBeDefined();
+  });
 });
 
 describe('readSnapshot — debounced schedule eventually materializes', () => {

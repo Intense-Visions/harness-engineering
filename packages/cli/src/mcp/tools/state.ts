@@ -270,7 +270,8 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
     return resultToMcpResponse(result);
   }
 
-  // Fallback: append to global state.json decisions when no session
+  // Fallback: emit a decision_recorded event to the global event log when no session
+  // (the legacy global state.json was retired in the event-sourcing cutover).
   if (input.section !== 'decisions') {
     return mcpError('Error: session is required for non-decisions sections');
   }

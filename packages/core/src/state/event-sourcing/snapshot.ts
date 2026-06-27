@@ -129,15 +129,21 @@ export async function __flushMaterializeForTests(): Promise<void> {
 function readStoredSnapshot(snapPath: string): Snapshot | null {
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(snapPath, 'utf-8'));
+    const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object';
+    // Require the FULL schemaVersion-2 envelope (coreState + lanes + audit), not just coreState:
+    // a partial snapshot missing lanes/audit must degrade to a recompute, otherwise a downstream
+    // reader (e.g. the orchestrator's readBackPersistedLanes → Object.keys(lanes.tasks)) could
+    // throw on a structurally-incomplete cache hit, breaking the "corruption = cache miss" invariant.
     if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      (parsed as { schemaVersion?: unknown }).schemaVersion === 2 &&
-      typeof (parsed as { meta?: { lastSeq?: unknown } }).meta?.lastSeq === 'number' &&
-      (parsed as { coreState?: unknown }).coreState !== null &&
-      typeof (parsed as { coreState?: unknown }).coreState === 'object'
+      isObj(parsed) &&
+      parsed.schemaVersion === 2 &&
+      isObj(parsed.meta) &&
+      typeof parsed.meta.lastSeq === 'number' &&
+      isObj(parsed.coreState) &&
+      isObj(parsed.lanes) &&
+      isObj(parsed.audit)
     ) {
-      return parsed as Snapshot;
+      return parsed as unknown as Snapshot;
     }
     return null; // version-skewed / structurally invalid → cache miss → recompute
   } catch {
