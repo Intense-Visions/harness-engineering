@@ -1,0 +1,33 @@
+version: 2
+name: Harness PM
+description: Owns acceptance-criteria and eval-coverage quality for specs
+role: >
+  Owns acceptance-criteria and eval-coverage quality. Reviews every spec for
+  measurable, testable, complete success criteria; flags user-visible behaviors
+  with no covering test; blocks specs that ship with no measurable criteria.
+  The upstream twin of the outcome-eval ship gate.
+skills:
+  - acceptance-eval
+steps:
+  - command: validate
+    when: always
+  - skill: acceptance-eval
+    when: on_pr
+    output: auto
+  - skill: acceptance-eval
+    when: manual
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - 'docs/changes/**'
+  - event: manual
+config:
+  severity: error
+  autoFix: false
+  timeout: 600000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true
