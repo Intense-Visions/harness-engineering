@@ -1,8 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { reduce, materialize } from '../../../src/state/event-sourcing/snapshot';
+import {
+  reduce,
+  materialize,
+  readSnapshot,
+  isStale,
+  __resetMaterializeTimersForTests,
+  __flushMaterializeForTests,
+} from '../../../src/state/event-sourcing/snapshot';
 import {
   emitEvent,
   loadEvents,
@@ -18,8 +25,10 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'essnap-'));
   resetLocalCountersForTests();
   __resetWriterIdForTests();
+  __resetMaterializeTimersForTests();
 });
 afterEach(() => {
+  __resetMaterializeTimersForTests();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -74,5 +83,117 @@ describe('materialize', () => {
     const onDisk = JSON.parse(fs.readFileSync(path.join(stateDir, SNAPSHOT_FILE), 'utf-8'));
     expect(onDisk.meta.lastSeq).toBe(0);
     expect(onDisk.coreState).toEqual({ position: {}, decisions: [], blockers: [], progress: {} });
+  });
+});
+
+describe('isStale', () => {
+  it('is stale when the snapshot is absent', () => {
+    expect(isStale(null, 0)).toBe(true);
+  });
+  it('is stale when the tail has advanced past lastSeq', () => {
+    expect(isStale(reduce([]), 1)).toBe(true);
+  });
+  it('is fresh when lastSeq covers the tail', () => {
+    const snap = reduce([]);
+    snap.meta.lastSeq = 5;
+    expect(isStale(snap, 5)).toBe(false);
+  });
+});
+
+describe('readSnapshot — fresh hit (does not recompute)', () => {
+  it('returns the stored snapshot verbatim when up to date', async () => {
+    await seedEvents();
+    await unwrap(materialize(dir));
+    const { dir: stateDir, logPath } = await eventLogPaths(dir);
+    const snapPath = path.join(stateDir, SNAPSHOT_FILE);
+    // Tamper the stored coreState to a sentinel, keeping meta.lastSeq === tailSeq.
+    const stored = JSON.parse(fs.readFileSync(snapPath, 'utf-8'));
+    stored.coreState = { sentinel: 'STORED-NOT-RECOMPUTED' };
+    const { readTailSeq } = await import('../../../src/state/event-sourcing/log');
+    stored.meta.lastSeq = readTailSeq(logPath);
+    fs.writeFileSync(snapPath, JSON.stringify(stored, null, 2));
+
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Proves the read path returned the stored value, not a fresh reduce().
+    expect((result.value.coreState as unknown as { sentinel: string }).sentinel).toBe(
+      'STORED-NOT-RECOMPUTED'
+    );
+  });
+});
+
+describe('readSnapshot — staleness recompute, never writes on the read path (truth #6)', () => {
+  it('returns a fresh reduce() and leaves the on-disk file unchanged immediately after the read', async () => {
+    await seedEvents();
+    await unwrap(materialize(dir));
+    const { dir: stateDir } = await eventLogPaths(dir);
+    const snapPath = path.join(stateDir, SNAPSHOT_FILE);
+    const before = fs.readFileSync(snapPath, 'utf-8');
+
+    // Advance the tail so the snapshot is now stale.
+    await emitEvent(dir, { type: 'progress_set', payload: { task: 'Task 2', status: 'complete' } });
+
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const fresh = reduce(await unwrap(loadEvents(dir)));
+    expect(result.value).toEqual(fresh);
+    // The read path must NOT have mutated the file synchronously.
+    expect(fs.readFileSync(snapPath, 'utf-8')).toBe(before);
+  });
+});
+
+describe('readSnapshot — fallbacks (never throws)', () => {
+  it('falls back to reduce() on a corrupt snapshot file', async () => {
+    await seedEvents();
+    const { dir: stateDir } = await eventLogPaths(dir);
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(path.join(stateDir, SNAPSHOT_FILE), '{ not json');
+
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+  });
+
+  it('falls back to reduce() when no snapshot file exists', async () => {
+    await seedEvents();
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+  });
+});
+
+describe('readSnapshot — debounced schedule eventually materializes', () => {
+  it('does not write during the read, but a flushed timer materializes the fresh snapshot', async () => {
+    vi.useFakeTimers();
+    try {
+      await seedEvents();
+      await unwrap(materialize(dir));
+      const { dir: stateDir } = await eventLogPaths(dir);
+      const snapPath = path.join(stateDir, SNAPSHOT_FILE);
+
+      // Make the snapshot stale.
+      await emitEvent(dir, {
+        type: 'progress_set',
+        payload: { task: 'Task 9', status: 'complete' },
+      });
+      const stale = fs.readFileSync(snapPath, 'utf-8');
+
+      await readSnapshot(dir);
+      // Immediately after the read, the file is still the stale one (read never writes).
+      expect(fs.readFileSync(snapPath, 'utf-8')).toBe(stale);
+
+      // Fire the debounced timer and await the flushed materialize.
+      vi.runAllTimers();
+      await __flushMaterializeForTests();
+
+      const onDisk = JSON.parse(fs.readFileSync(snapPath, 'utf-8'));
+      expect(onDisk).toEqual(reduce(await unwrap(loadEvents(dir))));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
