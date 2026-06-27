@@ -51,3 +51,14 @@ export function dependencyGuard(
     return Err(new Error(`dependencyGuard: tasks not done: ${unmet.join(', ')}`));
   return Ok(undefined);
 }
+
+/**
+ * Guard: entering `done` requires non-empty `evidence` (PR/commit/test refs).
+ * All other target lanes pass vacuously. Pure.
+ */
+export function evidenceGuard(to: Lane, evidence?: string[]): Result<void, Error> {
+  if (to !== 'done') return Ok(undefined);
+  if (!evidence || evidence.length === 0)
+    return Err(new Error('evidenceGuard: entering done requires non-empty evidence'));
+  return Ok(undefined);
+}

@@ -3,6 +3,7 @@ import {
   isAllowedTransition,
   isTerminal,
   dependencyGuard,
+  evidenceGuard,
 } from '../../../src/state/event-sourcing/lane-machine';
 import type { Lane } from '../../../src/state/event-sourcing/lane-machine';
 
@@ -60,6 +61,19 @@ describe('dependencyGuard', () => {
   it('only applies to in_progress (claimed with unmet deps is allowed)', () => {
     const r = dependencyGuard('claimed', ['a'], laneFrom({ a: 'planned' }));
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('evidenceGuard', () => {
+  it('rejects entering done without evidence', () => {
+    expect(evidenceGuard('done', undefined).ok).toBe(false);
+    expect(evidenceGuard('done', []).ok).toBe(false);
+  });
+  it('allows entering done with non-empty evidence', () => {
+    expect(evidenceGuard('done', ['pr#1']).ok).toBe(true);
+  });
+  it('only requires evidence for done (in_review passes without it)', () => {
+    expect(evidenceGuard('in_review', undefined).ok).toBe(true);
   });
 });
 
