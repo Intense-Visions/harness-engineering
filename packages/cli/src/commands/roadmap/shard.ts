@@ -109,6 +109,18 @@ export async function runRoadmapShard(
 
   // Dry-run: report the plan, write nothing.
   if (!dryRun) {
+    // H1: under --force, an existing shard dir may hold ORPHAN shards (slugs no
+    // longer in the roadmap). `mkdirp` is a no-op on an existing dir and we only
+    // write new-slug shards, so an orphan would survive and `readShardDir` would
+    // later merge it as a phantom row. Remove the dir first — the in-memory
+    // round-trip above has already passed — so the new shard set is authoritative.
+    // The monolith remains the source of truth and is untouched until the very end
+    // (after the disk re-assert), so a crash here leaves the repo re-shardable,
+    // never worse than before.
+    if (force && (await io.exists(shardDir))) {
+      await io.rmrf(shardDir);
+    }
+
     await io.mkdirp(shardDir);
     for (const shard of shards) {
       await io.writeFile(path.join(shardDir, `${shard.slug}.md`), serializeShard(shard));

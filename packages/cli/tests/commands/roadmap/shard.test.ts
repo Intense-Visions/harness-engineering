@@ -178,6 +178,50 @@ describe('runRoadmapShard() — disk-level re-assert (H2)', () => {
   });
 });
 
+describe('runRoadmapShard() — --force clears orphan shards (H1)', () => {
+  it('removes a pre-existing orphan shard so the regenerated monolith has no phantom row', async () => {
+    // Establish a valid shard dir, then plant an ORPHAN: a shard whose slug is not
+    // a feature in roadmap.md. Under a naive --force (mkdirp no-op + write only
+    // new-slug shards) this orphan survives and readShardDir merges it as a
+    // phantom row.
+    await runRoadmapShard({ cwd });
+    const orphanPath = path.join(shardDir, 'phantom-row.md');
+    fs.writeFileSync(
+      orphanPath,
+      `---
+slug: "phantom-row"
+milestone: "MVP Release"
+order: 5
+---
+
+### Phantom Row
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Orphan not present in the monolith.
+- **Blockers:** —
+- **Plan:** —
+`
+    );
+
+    const r = await runRoadmapShard({ cwd, force: true });
+    expect(r.ok).toBe(true);
+
+    // The orphan shard is gone and the real shard set remains.
+    expect(fs.existsSync(orphanPath)).toBe(false);
+    expect(fs.existsSync(path.join(shardDir, 'fix-login.md'))).toBe(true);
+    expect(fs.existsSync(path.join(shardDir, '_meta.md'))).toBe(true);
+
+    // The regenerated monolith has no phantom row.
+    const after = fs.readFileSync(roadmapPath, 'utf-8');
+    expect(after).not.toMatch(/Phantom Row/);
+    const reparsed = parseRoadmap(after);
+    const original = parseRoadmap(ROADMAP_MD);
+    expect(reparsed.ok && original.ok).toBe(true);
+    if (reparsed.ok && original.ok) expect(reparsed.value).toEqual(original.value);
+  });
+});
+
 describe('runRoadmapShard() — safety, refusal, dry-run, json', () => {
   it('aborts before writing when the round-trip fails, leaving the monolith byte-identical', async () => {
     const before = fs.readFileSync(roadmapPath, 'utf-8');
