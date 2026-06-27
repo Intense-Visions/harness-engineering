@@ -103,6 +103,15 @@ export interface TaskDefinition {
   outputRetention?: OutputRetentionConfig;
   /** Hermes Phase 2 — Marks tasks originating from `customTasks` config. */
   isCustom?: boolean;
+  /**
+   * On-demand maintenance pipeline (D5). When `true`, the task is excluded
+   * from the human "overdue" sweep computed by `selectTasks` — used for
+   * git-mutating housekeeping (`main-sync`, `perf-baselines`,
+   * `session-cleanup`) and one-shot backfills (`proposal-provenance-backfill`)
+   * that are infra hygiene, not developer-facing health signals.
+   * `undefined` (default) → sweep-eligible.
+   */
+  excludeFromHumanSweep?: boolean;
 }
 
 /**

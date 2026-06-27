@@ -116,6 +116,11 @@ export interface CustomTaskDefinition {
   outputRetention?: OutputRetentionConfig;
   /** Per-task cost ceiling. */
   costCeiling?: TaskCostCeilingConfig;
+  /**
+   * Exclude this custom task from the on-demand human "overdue" sweep
+   * (parity with built-ins). Default (`undefined`) → sweep-eligible.
+   */
+  excludeFromHumanSweep?: boolean;
 }
 
 /**
