@@ -19,6 +19,7 @@ import {
 import { __resetWriterIdForTests } from '../../../src/state/event-sourcing/writer-id';
 import { projectCoreState } from '../../../src/state/event-sourcing/projections/core-state';
 import { projectLanes } from '../../../src/state/event-sourcing/projections/lanes';
+import { projectAudit } from '../../../src/state/event-sourcing/projections/audit';
 import { SNAPSHOT_FILE } from '../../../src/state/event-sourcing/constants';
 
 let dir: string;
@@ -54,8 +55,37 @@ describe('reduce', () => {
     expect(snap.coreState).toEqual(projectCoreState(events));
     // Phase 4: lanes is now the real (empty-for-core-state-only) projection.
     expect(snap.lanes).toEqual({ tasks: {} });
-    expect(snap.audit).toEqual({});
+    // Phase 5: audit is now the real (empty-for-no-audit-events) projection.
+    expect(snap.audit).toEqual({ entries: [] });
     expect(snap.meta.lastSeq).toBe(Math.max(...events.map((e) => e.seq)));
+  });
+
+  it('materializes audit via projectAudit (additive — coreState/lanes byte-identical)', async () => {
+    await seedEvents();
+    const baseline = await unwrap(loadEvents(dir));
+    const baselineCore = JSON.stringify(reduce(baseline).coreState);
+    const baselineLanes = JSON.stringify(reduce(baseline).lanes);
+
+    await emitEvent(dir, {
+      type: 'user_input_captured',
+      payload: { text: 'go ahead', interactionId: 'i1' },
+    });
+    await emitEvent(dir, {
+      type: 'approval_requested',
+      payload: { interactionId: 'i1', kind: 'confirmation', prompt: 'continue?' },
+    });
+    await emitEvent(dir, {
+      type: 'approval_resolved',
+      payload: { interactionId: 'i1', response: 'yes' },
+    });
+    const events = await unwrap(loadEvents(dir));
+    const snap = reduce(events);
+    // audit equals the standalone projection...
+    expect(snap.audit).toEqual(projectAudit(events));
+    expect((snap.audit as ReturnType<typeof projectAudit>).entries).toHaveLength(3);
+    // ...and coreState/lanes are byte-identical to the pre-audit behavior (additivity).
+    expect(JSON.stringify(snap.coreState)).toBe(baselineCore);
+    expect(JSON.stringify(snap.lanes)).toBe(baselineLanes);
   });
 
   it('reduces an empty event list to lastSeq 0 and a default coreState', () => {

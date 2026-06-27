@@ -13,26 +13,22 @@ import { projectCoreState, type CoreStateProjection } from './projections/core-s
 // projectLanes. Re-exported so the existing barrel surface keeps working.
 import { projectLanes, type LanesProjection } from './projections/lanes';
 export type { LanesProjection };
-
-/**
- * Append-only audit projection. Empty placeholder in Phase 2 — Phase 5 extends
- * this additively (the session audit trail) without reshaping the Snapshot envelope.
- */
-// DP2: intentional empty placeholder; Phase 5 adds audit-trail fields by extending this.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface AuditProjection {}
+// Phase 5: audit is now a real projection (the append-only session audit trail,
+// subsuming #580), folded by projectAudit. Re-exported so the barrel surface keeps working.
+import { projectAudit, type AuditProjection } from './projections/audit';
+export type { AuditProjection };
 
 /**
  * The materialized, derived (non-authoritative) snapshot of the event log. The
  * event log remains the source of truth; this is a cache that {@link readSnapshot}
- * recomputes whenever it is stale or corrupt. `lanes`/`audit` are empty placeholders
- * in Phase 2 (DP2), typed so Phases 4-5 extend them additively.
+ * recomputes whenever it is stale or corrupt. `lanes` (Phase 4) and `audit` (Phase 5)
+ * are now real projections, folded additively without reshaping the Snapshot envelope.
  */
 export interface Snapshot {
   schemaVersion: 2;
   coreState: CoreStateProjection;
   lanes: LanesProjection; // Phase 4 — lane machine
-  audit: AuditProjection; // Phase 5 — audit trail
+  audit: AuditProjection; // Phase 5 — session audit trail (#580)
   meta: { lastSeq: number };
 }
 
@@ -46,7 +42,7 @@ export function reduce(events: Event[]): Snapshot {
     schemaVersion: 2,
     coreState: projectCoreState(events),
     lanes: projectLanes(events), // Phase 4 — lane machine
-    audit: {}, // Phase 5: extended additively
+    audit: projectAudit(events), // Phase 5 — session audit trail (#580)
     meta: { lastSeq: events.reduce((m, e) => Math.max(m, e.seq), 0) },
   };
 }
