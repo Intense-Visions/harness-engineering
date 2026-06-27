@@ -4,7 +4,17 @@ status: draft
 feature: event-sourced-state-model
 roadmap: github:Intense-Visions/harness-engineering#598
 subsumes: github:Intense-Visions/harness-engineering#580
-keywords: [event-sourcing, deterministic-reducer, materialized-snapshot, state-machine, lane-guards, append-only-log, projections, provenance]
+keywords:
+  [
+    event-sourcing,
+    deterministic-reducer,
+    materialized-snapshot,
+    state-machine,
+    lane-guards,
+    append-only-log,
+    projections,
+    provenance,
+  ]
 ---
 
 # Event-Sourced State Model with Deterministic Reducer
@@ -17,7 +27,7 @@ in place by every skill, CLI command, and MCP tool that touches it
 execution this is last-write-wins: concurrent agents clobber each other's
 `decisions`, `blockers`, and `progress`.
 
-The orchestrator's task lifecycle is a *separate* problem. It already has a pure
+The orchestrator's task lifecycle is a _separate_ problem. It already has a pure
 reducer (`packages/orchestrator/src/core/state-machine.ts:804` — `applyEvent`) but it
 is ephemeral in-process, and its transitions are unguarded: no dependency checks, no
 evidence required to reach terminal states, no forced-transition discipline.
@@ -33,20 +43,20 @@ the same authoritative log.
 **Strategy grounding.** `STRATEGY.md#our-approach` — "the substrate the agent runs on,
 not the agent itself, determines reliability." State/provenance is harness's weakest
 substrate and the root of several parallel-execution failure modes. A durable,
-replayable decision/outcome log also advances the *Compounding feedback loops* track
+replayable decision/outcome log also advances the _Compounding feedback loops_ track
 (`STRATEGY.md#tracks`) by giving skill-effectiveness baselines an honest event history.
 
 ## Goals
 
 1. Make the event log the single source of truth; the materialized snapshot (and any
-   `state.json`-shaped read) becomes a *derived* artifact — `replay(events)`
+   `state.json`-shaped read) becomes a _derived_ artifact — `replay(events)`
    deterministically reproduces it.
 2. Eliminate last-write-wins clobbering: concurrent writers append lock-free;
    deterministic order comes from an ordering key, not a held lock.
 3. Give orchestrator/autopilot task lanes an explicit, guarded state machine:
    dependency guards, evidence required for terminal states, and forced-transition
    rules (`force` ⇒ `actor` + `reason`).
-4. Provide a full, replayable audit trail (subsuming #580) and a *derived* observability
+4. Provide a full, replayable audit trail (subsuming #580) and a _derived_ observability
    timeline, retiring the born-deduplicated `events.jsonl`.
 5. Migrate existing on-disk state without loss (single `state_imported` genesis event)
    and without fabricating provenance.
@@ -63,15 +73,15 @@ replayable decision/outcome log also advances the *Compounding feedback loops* t
 
 ## Decisions Made
 
-| ID | Decision | Rationale |
-| -- | -------- | --------- |
-| D1 | Single spec covers both the event-log foundation **and** the guarded lane state machine. | Chosen as one coherent design rather than two sequenced specs. |
-| D2 | New richer snapshot schema (`schemaVersion: 2`) carrying `coreState` + `lanes` + `audit`; all readers migrate to a snapshot/projection API. | Lane state and provenance become first-class, not bolted onto the legacy `HarnessState`. |
-| D3 | Lock-free append (`O_APPEND`, one JSONL line under the platform's atomic single-`write()` size; oversized payloads spilled to a blob side-file); total order via `(seq, writerId)` (see INV-1/INV-2). | Removes last-write-wins clobber without a contention bottleneck. `O_APPEND` makes a single `write()` atomic at the OS level; keeping each line within one `write()` avoids interleaving. |
-| D4 | Harness-native lane machine `planned → claimed → in_progress → in_review → done` + `blocked`/`canceled`, with dependency / evidence-for-terminal / forced-transition guards. | Delivers the three named guards using existing harness vocabulary; YAGNI-cuts review sub-states. |
-| D5 | One unified authoritative log; retire born-deduplicated `events.jsonl` (existing entries are **discarded**, not imported — it was observability-only and lossy by design); subsume #580 as audit event types; observability timeline becomes a derived projection. | A true single source of truth; #598 genuinely closes #580 rather than merely complementing it. |
-| D6 | Migrate legacy `state.json` via one honest `state_imported` genesis event, idempotent on **"a `state_imported` event is already present in the log"** (not merely "file exists" — an empty log from a crashed import must still import). | No data loss, no fabricated provenance, crash-safe re-run. |
-| D7 | One log, multiple pure projections (`coreState`/`lanes`/`audit`) in `packages/core`. | Canonical event-sourcing shape; each projection independently testable; lands incrementally. |
+| ID  | Decision                                                                                                                                                                                                                                                           | Rationale                                                                                                                                                                                |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Single spec covers both the event-log foundation **and** the guarded lane state machine.                                                                                                                                                                           | Chosen as one coherent design rather than two sequenced specs.                                                                                                                           |
+| D2  | New richer snapshot schema (`schemaVersion: 2`) carrying `coreState` + `lanes` + `audit`; all readers migrate to a snapshot/projection API.                                                                                                                        | Lane state and provenance become first-class, not bolted onto the legacy `HarnessState`.                                                                                                 |
+| D3  | Lock-free append (`O_APPEND`, one JSONL line under the platform's atomic single-`write()` size; oversized payloads spilled to a blob side-file); total order via `(seq, writerId)` (see INV-1/INV-2).                                                              | Removes last-write-wins clobber without a contention bottleneck. `O_APPEND` makes a single `write()` atomic at the OS level; keeping each line within one `write()` avoids interleaving. |
+| D4  | Harness-native lane machine `planned → claimed → in_progress → in_review → done` + `blocked`/`canceled`, with dependency / evidence-for-terminal / forced-transition guards.                                                                                       | Delivers the three named guards using existing harness vocabulary; YAGNI-cuts review sub-states.                                                                                         |
+| D5  | One unified authoritative log; retire born-deduplicated `events.jsonl` (existing entries are **discarded**, not imported — it was observability-only and lossy by design); subsume #580 as audit event types; observability timeline becomes a derived projection. | A true single source of truth; #598 genuinely closes #580 rather than merely complementing it.                                                                                           |
+| D6  | Migrate legacy `state.json` via one honest `state_imported` genesis event, idempotent on **"a `state_imported` event is already present in the log"** (not merely "file exists" — an empty log from a crashed import must still import).                           | No data loss, no fabricated provenance, crash-safe re-run.                                                                                                                               |
+| D7  | One log, multiple pure projections (`coreState`/`lanes`/`audit`) in `packages/core`.                                                                                                                                                                               | Canonical event-sourcing shape; each projection independently testable; lands incrementally.                                                                                             |
 
 ## Technical Design
 
@@ -112,14 +122,14 @@ directly:
 `timestamp` is human-facing only and is **never** the ordering authority. The reducer
 imposes the deterministic total order at read time by sorting on `(seq asc, writerId asc)`.
 Because `writerId` is globally unique (INV-1) and each writer's `seq` strictly increases
-(INV-2), no two events share a key, so replay order is a *total* order independent of
+(INV-2), no two events share a key, so replay order is a _total_ order independent of
 wall-clock skew. Two concurrent writers may legitimately produce the same `seq` with
 different `writerId`s; the `writerId` tiebreak resolves this deterministically.
 
 > Note: `(seq, writerId)` gives a deterministic Lamport-style order, **not** a real-time
 > order — two genuinely concurrent events are ordered by tiebreak, not by which happened
-> first in wall-clock terms. This is acceptable: the snapshot must be *deterministic and
-> lossless*, not a real-time trace (that is what `timestamp` is for).
+> first in wall-clock terms. This is acceptable: the snapshot must be _deterministic and
+> lossless_, not a real-time trace (that is what `timestamp` is for).
 
 ### Field-merge semantics
 
@@ -128,7 +138,7 @@ Append/set-valued core-state (`decisions`, `blockers`, `progress` entries keyed 
 a `progress` entry's status) resolve by **deterministic last-event-wins**: the event with
 the highest `(seq, writerId)` key wins. This is what Goal 2 means by "eliminate
 last-write-wins clobbering": the old failure was a whole-snapshot read-modify-write
-overwriting *unrelated* fields another agent had just set; per-field events make that
+overwriting _unrelated_ fields another agent had just set; per-field events make that
 impossible, and the residual scalar contention resolves deterministically rather than by
 filesystem race.
 
@@ -140,9 +150,15 @@ Resolved per `getStateDir` scope (global / stream / session — unchanged from t
 - `state.events.jsonl` — the authoritative append-only log.
 - `state.events.blobs/<hash>.json` — spilled oversized event payloads (referenced by
   hash from the log line, keeping each line under the atomic-append size bound). The blob
-  is written (atomically) **before** the referencing log line, so a crash between the two
-  writes leaves an orphan blob (harmless, GC-able), never a dangling reference. Phase 1
-  pins the concrete atomic-append byte bound per platform/filesystem.
+  is written (atomically, temp + rename) **before** the referencing log line, so a
+  **process crash** between the two writes leaves an orphan blob (harmless, GC-able),
+  never a dangling reference. This ordering guarantee covers process crashes; it does not
+  claim power-loss durability ordering (an `fsync` would be required for that, deliberately
+  not paid for local dev state). Phase 1 pins the concrete atomic-append byte bound per
+  platform/filesystem. Read-path resilience is symmetric: a missing or corrupt blob (or a
+  schema-invalid line) skips that single event and is surfaced as a drop diagnostic — it is
+  never allowed to abort the whole `loadEvents()` replay (a corrupt side-file is a cache
+  miss, not data loss).
 - `state.snapshot.json` — materialized snapshot (`schemaVersion: 2`), derived; carries
   `{ coreState, lanes, audit, meta: { lastSeq } }`. Written atomically (temp + rename,
   matching `state-persistence.ts:54`). A snapshot that is missing, stale, or fails to
@@ -206,6 +222,7 @@ New `packages/core/src/state/event-sourcing/`:
 ## Integration Points
 
 ### Entry Points
+
 - `manage_state` MCP tool (`packages/cli/src/mcp/tools/state.ts:365`): mutating actions
   emit events; read actions read the snapshot; new `task-transition` action wraps
   `transitionLane`.
@@ -224,17 +241,20 @@ New `packages/core/src/state/event-sourcing/`:
   ~3 `saveState` call sites); Phase 3 enumerates and converts each.
 
 ### Registrations Required
+
 - Core barrel-export regeneration for the new `event-sourcing/` module.
 - `manage_state` MCP schema update (new `task-transition` action; read actions repointed
   to the snapshot).
 - Retire or alias the legacy `events.ts` `emitEvent`.
 
 ### Documentation Updates
+
 - AGENTS.md state section (event-sourced model, lane machine).
 - `.harness/` on-disk layout docs (new log + snapshot + blobs).
 - `manage_state` action reference.
 
 ### Architectural Decisions
+
 - **D2 — event log authoritative; snapshot derived** warrants a standalone ADR: it
   inverts the state-ownership model the codebase has assumed since `schemaVersion: 1`.
 - **D4 — guarded lane state machine** warrants a standalone ADR: it introduces a new
@@ -243,6 +263,7 @@ New `packages/core/src/state/event-sourcing/`:
   (Pointers only — canonical decision text lives in **Decisions Made**.)
 
 ### Knowledge Impact
+
 New concepts: append-only event log, projection/read-model, materialized snapshot, lane
 state machine, transition guards, genesis migration. New relationship edges:
 `snapshot —derived-from→ log`, `lanes-projection —uses→ guards`,
