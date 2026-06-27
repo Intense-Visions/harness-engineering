@@ -91,7 +91,15 @@ export async function loadEvents(
       }
       const stored = StoredEventSchema.safeParse(parsed);
       if (!stored.success) continue;
-      const payload = rehydratePayload(stored.data.payload, blobsDir);
+      let payload: unknown;
+      try {
+        payload = rehydratePayload(stored.data.payload, blobsDir);
+      } catch {
+        // Missing/corrupt blob (or unreadable side-file): skip ONLY this event, never
+        // abort the whole replay. A bad blob degrades to a dropped event, not data loss
+        // for the entire scope (C1; mirrors the line-skip resilience above).
+        continue;
+      }
       const full = EventSchema.safeParse({ ...stored.data, payload });
       if (full.success) events.push(full.data);
     }

@@ -69,6 +69,68 @@ describe('loadEvents (ordered read)', () => {
       [2, 'b'],
     ]);
   });
+  it('skips an event whose blob is missing/corrupt without aborting the whole load (C1)', async () => {
+    // A valid inline event + an event whose payload spilled to a blob that we then delete.
+    // loadEvents must return the valid event and drop only the blob-broken one.
+    const { logPath, blobsDir } = await eventLogPaths(dir);
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    const validLine = JSON.stringify({
+      seq: 1,
+      writerId: 'a',
+      timestamp: 't',
+      scope: {},
+      type: 'position_set',
+      payload: { position: 'GOOD' },
+    });
+    const blobLine = JSON.stringify({
+      seq: 2,
+      writerId: 'a',
+      timestamp: 't',
+      scope: {},
+      type: 'state_imported',
+      payload: { $blob: 'deadbeef' },
+    });
+    fs.writeFileSync(logPath, validLine + '\n' + blobLine + '\n');
+    // The referenced blob never exists (simulates corruption / orphan-vs-dangling crash window).
+    expect(fs.existsSync(path.join(blobsDir, 'deadbeef.json'))).toBe(false);
+
+    const r = await loadEvents(dir);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.length).toBe(1);
+    expect(r.value[0]?.seq).toBe(1);
+    if (r.value[0]?.type === 'position_set') {
+      expect(r.value[0].payload.position).toBe('GOOD');
+    }
+  });
+
+  it('skips an event whose blob holds corrupt (non-JSON) content (C1)', async () => {
+    const { logPath, blobsDir } = await eventLogPaths(dir);
+    fs.mkdirSync(blobsDir, { recursive: true });
+    const validLine = JSON.stringify({
+      seq: 1,
+      writerId: 'a',
+      timestamp: 't',
+      scope: {},
+      type: 'position_set',
+      payload: { position: 'GOOD' },
+    });
+    const blobLine = JSON.stringify({
+      seq: 2,
+      writerId: 'a',
+      timestamp: 't',
+      scope: {},
+      type: 'state_imported',
+      payload: { $blob: 'corrupt' },
+    });
+    fs.writeFileSync(logPath, validLine + '\n' + blobLine + '\n');
+    fs.writeFileSync(path.join(blobsDir, 'corrupt.json'), '{ not valid json');
+
+    const r = await loadEvents(dir);
+    expect(r.ok && r.value.length).toBe(1);
+    if (r.ok) expect(r.value[0]?.seq).toBe(1);
+  });
+
   it('skips malformed JSON lines', async () => {
     const { logPath } = await eventLogPaths(dir);
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
