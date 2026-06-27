@@ -76,7 +76,7 @@ export function projectCoreState(events: Event[]): CoreStateProjection {
         break;
       }
       case 'position_set': {
-        // Overwrite (last-event-wins). Vestigial `position` string is ignored (DP1).
+        // Overwrite (last-event-wins) with the structured { phase, task }.
         const next: { phase?: string; task?: string } = {};
         if (event.payload.phase !== undefined) next.phase = event.payload.phase;
         if (event.payload.task !== undefined) next.task = event.payload.task;

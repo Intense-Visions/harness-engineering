@@ -24,13 +24,9 @@ const DecisionRecordedPayload = z.object({
   text: z.string(),
   context: z.string().optional(),
 });
-// DP1: superset payload keeps the legacy { position } valid while adding the
-// structured { phase, task } the projection actually reads. The vestigial
-// `position` string is dropped in Phase 3 once the generic fixtures are reauthored.
 const PositionSetPayload = z.object({
   phase: z.string().optional(),
   task: z.string().optional(),
-  position: z.string().optional(),
 });
 const BlockerOpenedPayload = z.object({ id: z.string(), description: z.string() });
 const BlockerResolvedPayload = z.object({ id: z.string() });
