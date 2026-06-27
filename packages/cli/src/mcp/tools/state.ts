@@ -34,6 +34,7 @@ export const manageStateDefinition = {
           'task-complete',
           'phase-start',
           'phase-complete',
+          'task-transition',
         ],
         description: 'Action to perform',
       },
@@ -76,6 +77,28 @@ export const manageStateDefinition = {
         description:
           'New status for the entry: active, resolved, or superseded (required for update_entry_status)',
       },
+      taskId: { type: 'string', description: 'Task id (required for task-transition)' },
+      toLane: {
+        type: 'string',
+        enum: ['planned', 'claimed', 'in_progress', 'in_review', 'done', 'blocked', 'canceled'],
+        description: 'Target lane (required for task-transition)',
+      },
+      dependsOn: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Dependency task ids; when set, the task is registered before transitioning',
+      },
+      evidence: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'PR/commit/test refs (required to enter done)',
+      },
+      force: {
+        type: 'boolean',
+        description: 'Force an off-table transition (requires actor+reason)',
+      },
+      actor: { type: 'string', description: 'Actor for a forced transition' },
+      reason: { type: 'string', description: 'Reason for a forced transition' },
     },
     required: ['path', 'action'],
   },
@@ -99,6 +122,13 @@ type StateInput = {
   content?: string;
   entryId?: string;
   newStatus?: string;
+  taskId?: string;
+  toLane?: string;
+  dependsOn?: string[];
+  evidence?: string[];
+  force?: boolean;
+  actor?: string;
+  reason?: string;
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
