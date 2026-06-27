@@ -61,7 +61,7 @@ function main() {
 
     if (typeof filePath !== 'string' || !filePath) {
       process.stderr.write(
-        'BLOCKED: protect-config could not verify the edit target (missing file_path) — refusing to allow a potentially unprotected config edit.\n'
+        'BLOCKED: protect-config could not verify the edit target (missing or unresolvable file_path) — refusing to allow a potentially unprotected config edit.\n'
       );
       process.exit(2);
     }
@@ -76,7 +76,7 @@ function main() {
     process.exit(0);
   } catch {
     process.stderr.write(
-      'BLOCKED: protect-config hit an unexpected error verifying the edit target — refusing fail-closed.\n'
+      'BLOCKED: protect-config hit an unexpected error verifying the edit target — blocking (fail-closed).\n'
     );
     process.exit(2);
   }
