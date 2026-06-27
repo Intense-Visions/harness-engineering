@@ -360,6 +360,17 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
 
 ## Other
 
+### `acceptance_eval`
+
+Pre-execution LLM-judgment: does a spec carry measurable, testable, complete acceptance criteria? The upstream twin of outcome_eval. Reads the spec's success/acceptance section, emits a confidence-rated AcceptanceVerdict (MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE) with criteriaFindings (a, advisory), coverageFindings (b, advisory) and a rationale. Authority is DERIVED in TypeScript, never trusted from the LLM: a high-confidence NOT_MEASURABLE is blocking; every other verdict is advisory. testGlobs/testContent are optional evidence for (b) — omitting them degrades coverage findings to advisory-empty but never affects the measurability gate.
+
+**Parameters:**
+
+- `specPath` (string, required) — Absolute or repo-relative path to the spec markdown to judge
+- `testGlobs` (array, optional) — Optional globs locating test files; their contents supply the (b) coverage evidence. Ignored when testContent is provided. Absolute globs are recommended; relative globs resolve against the MCP server cwd.
+- `testContent` (string, optional) — Optional pre-collected test snippets (the (b) evidence). Takes precedence over testGlobs.
+- `model` (string, optional) — Optional model override for the acceptance-eval LLM call
+
 ### `acquire_compound_lock`
 
 Acquire a per-category compound lock at `.harness/locks/compound-<category>.lock` under the project root. Returns `{ acquired, token, lockPath }` on success or `{ acquired: false, error, holderPid, lockPath }` on contention. The returned token must be passed to release_compound_lock when the write completes. Categories must be one of the documented bug-track/knowledge-track categories.

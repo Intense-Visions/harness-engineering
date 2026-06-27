@@ -1,0 +1,54 @@
+name: acceptance-eval
+version: '0.1.0'
+description: >-
+  Pre-execution LLM-judgment skill: does a spec carry measurable, testable,
+  complete acceptance criteria before work begins? Resolves the spec's
+  acceptance section, critiques observability / testability / completeness
+  (advisory), flags user-visible behaviors with no covering test (advisory),
+  and emits a confidence-rated AcceptanceVerdict
+  (MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE). Authority is derived in
+  TypeScript, never from the LLM: a high-confidence NOT_MEASURABLE blocks
+  merge; every other verdict is advisory. The upstream twin of the
+  outcome-eval ship gate.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+platforms:
+  - claude-code
+  - cursor
+  - codex
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+mcp:
+  tool: acceptance_eval
+  # specPath is the only required input. testGlobs/testContent are the (b)
+  # coverage evidence: omitting them degrades coverage findings to
+  # advisory-empty but NEVER affects the (c) measurability gate.
+  input:
+    specPath: 'string (required) — absolute or repo-relative path to the spec markdown to evaluate'
+    testGlobs: 'string[] (optional) — globs locating test files that evidence (b) coverage; omission degrades coverage findings to advisory-empty, never the (c) gate'
+    testContent: 'string (optional) — pre-read test snippets as (b) coverage evidence; an alternative to testGlobs'
+    model: 'string (optional) — model override for the acceptance-eval LLM call'
+type: rigid
+tier: 2
+phases:
+  - name: resolve
+    description: Resolve the judgment section (Success Criteria -> User-Visible Behavior -> Overview), recorded in judgedAgainst
+    required: true
+  - name: gather
+    description: Locate test evidence for (b) coverage via testGlobs/testContent; optional — omission degrades coverage findings, never the (c) gate
+    required: false
+  - name: judge
+    description: Invoke AcceptanceEvaluator; the LLM returns measurability/confidence/criteriaFindings/coverageFindings/rationale; authority is derived in TS via deriveAcceptanceAuthority
+    required: true
+  - name: gate
+    description: Render the verdict; on a blocking verdict (NOT_MEASURABLE + high confidence) HALT before merge
+    required: true
+state:
+  persistent: false
