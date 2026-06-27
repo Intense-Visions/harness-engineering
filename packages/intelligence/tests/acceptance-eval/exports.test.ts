@@ -3,6 +3,8 @@ import {
   AcceptanceEvaluator,
   deriveAcceptanceAuthority,
   acceptanceVerdictSchema,
+  ACCEPTANCE_EVAL_SYSTEM_PROMPT,
+  buildAcceptanceUserPrompt,
 } from '../../src/index.js';
 import type { AcceptanceVerdict } from '../../src/index.js';
 
@@ -24,5 +26,11 @@ describe('@harness-engineering/intelligence acceptance-eval surface', () => {
       rationale: 'ok',
     };
     expect(v.authority).toBe('advisory');
+  });
+
+  it('re-exports the prompt builder and system prompt from the barrel', () => {
+    expect(typeof buildAcceptanceUserPrompt).toBe('function');
+    expect(typeof ACCEPTANCE_EVAL_SYSTEM_PROMPT).toBe('string');
+    expect(ACCEPTANCE_EVAL_SYSTEM_PROMPT.length).toBeGreaterThan(0);
   });
 });

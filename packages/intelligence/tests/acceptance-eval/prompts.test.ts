@@ -22,6 +22,7 @@ describe('ACCEPTANCE_EVAL_SYSTEM_PROMPT', () => {
   it('names the three responsibilities (measurability, criteria, coverage)', () => {
     const p = ACCEPTANCE_EVAL_SYSTEM_PROMPT.toLowerCase();
     expect(p).toMatch(/measurab/);
+    expect(p).toMatch(/criteria|testable|observable/);
     expect(p).toMatch(/cover|test/);
   });
 });
