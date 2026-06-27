@@ -1135,6 +1135,15 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Phase 4 (DLane-5): the task lanes most recently read back from the durable
+   * log on startup, exposed for external observability. Read-only — a fresh
+   * `{ tasks: {} }` until the first tick's read-back has run.
+   */
+  public getPersistedLanes(): PersistedLanes {
+    return this.persistedLanes;
+  }
+
+  /**
    * Guards workspace cleanup by checking whether the agent pushed a branch
    * that does not yet have a pull request. If so, the worktree is preserved
    * and an interaction is queued so a human can create the PR manually.

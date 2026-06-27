@@ -93,7 +93,7 @@ describe('Orchestrator startup lane read-back', () => {
     await orchestrator.tick();
 
     // The read-back stored the persisted lanes for observability.
-    expect((orchestrator as any).persistedLanes.tasks['issue-9'].lane).toBe('claimed');
+    expect(orchestrator.getPersistedLanes().tasks['issue-9']?.lane).toBe('claimed');
 
     // And the durable snapshot exposes it directly (survives across processes).
     const snap = await eventSourcing.readSnapshot(tmpDir);
@@ -102,6 +102,6 @@ describe('Orchestrator startup lane read-back', () => {
 
   it('read-back is non-fatal when no lanes have been persisted yet', async () => {
     await orchestrator.tick();
-    expect((orchestrator as any).persistedLanes.tasks).toEqual({});
+    expect(orchestrator.getPersistedLanes().tasks).toEqual({});
   }, 15000);
 });
