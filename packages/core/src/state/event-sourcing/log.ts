@@ -4,7 +4,8 @@ import * as path from 'path';
 import type { Result } from '../../shared/result';
 import { Ok, Err } from '../../shared/result';
 import { getStateDir } from '../state-shared';
-import { EVENT_LOG_FILE, EVENT_BLOBS_DIR, MAX_LINE_BYTES } from './constants';
+import { computeContentHash } from '../learnings-content';
+import { EVENT_LOG_FILE, EVENT_BLOBS_DIR, MAX_LINE_BYTES, BLOB_REF_KEY } from './constants';
 import {
   EventSchema,
   StoredEventSchema,
@@ -119,6 +120,31 @@ export interface EmitResult {
 }
 
 /**
+ * If the fully-serialized line would reach MAX_LINE_BYTES, spill the payload to
+ * <blobsDir>/<hash>.json (atomic temp+rename) written BEFORE the caller appends the line,
+ * and return a { $blob: hash } reference to embed instead. Otherwise return the payload
+ * unchanged. Blob writes are content-addressed and therefore idempotent.
+ */
+function spillIfNeeded(
+  envelope: { seq: number; writerId: string; timestamp: string; scope: Scope; type: string },
+  payload: unknown,
+  blobsDir: string
+): unknown {
+  const candidate = Buffer.byteLength(JSON.stringify({ ...envelope, payload }) + '\n', 'utf-8');
+  if (candidate < MAX_LINE_BYTES) return payload;
+  const json = JSON.stringify(payload);
+  const hash = computeContentHash(json);
+  fs.mkdirSync(blobsDir, { recursive: true });
+  const blobPath = path.join(blobsDir, `${hash}.json`);
+  if (!fs.existsSync(blobPath)) {
+    const tmp = `${blobPath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, json);
+    fs.renameSync(tmp, blobPath); // atomic; blob durable BEFORE the referencing line
+  }
+  return { [BLOB_REF_KEY]: hash };
+}
+
+/**
  * Lock-free append. Resolves scope paths, stamps writerId (INV-1) and
  * seq = max(readTailSeq(live log), localCounter) + 1 (INV-2, re-derived every append),
  * then appends one JSONL line via a single O_APPEND write (flag 'a'). Oversized payloads
@@ -130,7 +156,7 @@ export async function emitEvent(
   options?: EventLogOptions
 ): Promise<Result<EmitResult, Error>> {
   try {
-    const { dir, logPath } = await eventLogPaths(projectPath, options);
+    const { dir, logPath, blobsDir } = await eventLogPaths(projectPath, options);
     fs.mkdirSync(dir, { recursive: true });
 
     const writerId = getWriterId();
@@ -140,17 +166,18 @@ export async function emitEvent(
     localCounters.set(logPath, seq);
 
     const scope: Scope = { stream: options?.stream, session: options?.session };
-    const event = {
+    const envelope = {
       seq,
       writerId,
       timestamp: new Date().toISOString(),
       scope,
       type: input.type,
-      payload: input.payload,
     };
-
-    const line = Buffer.from(JSON.stringify(event) + '\n', 'utf-8');
-    // NOTE: blob spill for line.byteLength >= MAX_LINE_BYTES is added in Task 6.
+    const storedPayload = spillIfNeeded(envelope, input.payload, blobsDir);
+    const line = Buffer.from(
+      JSON.stringify({ ...envelope, payload: storedPayload }) + '\n',
+      'utf-8'
+    );
     fs.appendFileSync(logPath, line, { flag: 'a' });
     return Ok({ seq, writerId });
   } catch (error) {
@@ -159,7 +186,5 @@ export async function emitEvent(
     );
   }
 }
-
-void MAX_LINE_BYTES; // referenced fully in Task 6
 
 export type { Scope };

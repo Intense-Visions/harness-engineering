@@ -10,6 +10,7 @@ import {
   resetLocalCountersForTests,
 } from '../../../src/state/event-sourcing/log';
 import { __resetWriterIdForTests } from '../../../src/state/event-sourcing/writer-id';
+import { MAX_LINE_BYTES } from '../../../src/state/event-sourcing/constants';
 
 let dir: string;
 beforeEach(() => {
@@ -142,5 +143,54 @@ describe('emitEvent (append, INV-2)', () => {
     const r = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
     expect(r.ok && r.value.writerId).toBe('w-test');
     expect(r.ok && r.value.seq).toBe(1);
+  });
+});
+
+describe('blob spill', () => {
+  beforeEach(() => {
+    process.env.HARNESS_EVENT_WRITER_ID = 'w-blob';
+    __resetWriterIdForTests();
+    resetLocalCountersForTests();
+  });
+  afterEach(() => {
+    delete process.env.HARNESS_EVENT_WRITER_ID;
+  });
+
+  it('keeps the stored line under MAX_LINE_BYTES and rehydrates the payload on read', async () => {
+    const big = 'x'.repeat(MAX_LINE_BYTES * 2);
+    const r = await emitEvent(dir, {
+      type: 'state_imported',
+      payload: { legacyState: { big } },
+    });
+    expect(r.ok).toBe(true);
+
+    const { logPath, blobsDir } = await eventLogPaths(dir);
+    const onDiskLine = fs.readFileSync(logPath, 'utf-8').trim();
+    expect(Buffer.byteLength(onDiskLine + '\n', 'utf-8')).toBeLessThan(MAX_LINE_BYTES);
+    expect(onDiskLine).toContain('$blob');
+
+    const blobs = fs.readdirSync(blobsDir);
+    expect(blobs.length).toBe(1);
+
+    const loaded = await loadEvents(dir);
+    expect(loaded.ok).toBe(true);
+    if (loaded.ok && loaded.value[0]?.type === 'state_imported') {
+      expect((loaded.value[0].payload.legacyState as { big: string }).big).toBe(big);
+    } else {
+      throw new Error('expected rehydrated state_imported event');
+    }
+  });
+
+  it('writes the blob before the log line (crash leaves orphan blob, never dangling ref)', async () => {
+    // White-box: a small payload never spills; an oversized one always produces a blob
+    // file whose existence does not depend on the line. Assert blob+line both present and
+    // the line references the existing blob hash.
+    const big = 'y'.repeat(MAX_LINE_BYTES * 2);
+    const r = await emitEvent(dir, { type: 'state_imported', payload: { legacyState: big } });
+    expect(r.ok).toBe(true);
+    const { logPath, blobsDir } = await eventLogPaths(dir);
+    const stored = JSON.parse(fs.readFileSync(logPath, 'utf-8').trim());
+    const hash = stored.payload.$blob as string;
+    expect(fs.existsSync(path.join(blobsDir, `${hash}.json`))).toBe(true);
   });
 });
