@@ -181,8 +181,8 @@ describe('gather_context tool', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('state field matches loadState output', async () => {
-      const { loadState } = await import('@harness-engineering/core');
+    it('state field matches the event-sourced snapshot projection', async () => {
+      const { eventSourcing } = await import('@harness-engineering/core');
 
       const compositeResponse = await handleGatherContext({
         path: tmpDir,
@@ -191,8 +191,8 @@ describe('gather_context tool', () => {
       });
       const compositeData = JSON.parse(compositeResponse.content[0].text);
 
-      const directResult = await loadState(tmpDir);
-      const directState = directResult.ok ? directResult.value : null;
+      const snap = await eventSourcing.readSnapshot(tmpDir);
+      const directState = snap.ok ? eventSourcing.toHarnessState(snap.value.coreState) : null;
 
       expect(compositeData.state).toEqual(directState);
     });
