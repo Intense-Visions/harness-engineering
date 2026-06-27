@@ -288,6 +288,11 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
 }
 
+/**
+ * Update a session section entry's status. When a `decisions` entry is moved to `resolved`,
+ * this is the in-tool moment the #580 approval round-trip closes, so it additionally emits an
+ * `approval_resolved` audit event keyed by the entry/interaction id (Task 8 disposition A).
+ */
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
   if (!input.session) return mcpError('Error: session is required for update_entry_status action');
   if (!input.section) return mcpError('Error: section is required for update_entry_status action');
