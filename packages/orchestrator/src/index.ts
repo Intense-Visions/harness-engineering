@@ -66,6 +66,11 @@ export { validateCustomTasks } from './maintenance/custom-task-validator';
 export type { CustomTaskValidationError } from './maintenance/custom-task-validator';
 export type { TaskDefinition, TaskType, RunOrigin, RunMode } from './maintenance/types';
 
+// On-demand maintenance pipeline (Phase 2) — overdue/selection helper consumed
+// by the `harness maintenance run` CLI subcommand without booting an orchestrator.
+export { selectTasks } from './maintenance/overdue';
+export type { TaskSelectionFilter } from './maintenance/overdue';
+
 // Hermes Phase 0 / Phase 1: re-export TokenStore so the CLI (`harness gateway token`)
 // and the dashboard tokens router can construct it via the package root without
 // reaching into the `./auth` subpath (decision phase1-d4).
