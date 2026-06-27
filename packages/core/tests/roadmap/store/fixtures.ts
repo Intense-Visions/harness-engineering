@@ -291,6 +291,58 @@ export const MIGRATION_SHARDS: Shard[] = [
   { slug: 'future-idea', milestone: 'Backlog', order: 10, feature: MIG_FUTURE },
 ];
 
+// --- Phase 2 Task 4: in-memory Roadmap for roadmapToShards decomposition ----
+//
+// Exercises every disambiguation branch: two features that slugify to the same
+// base (`fix-login`), a feature whose name is all-symbols (empty slug ->
+// `row-<n>` fallback), mixed priorities/statuses across two milestones + Backlog,
+// at least one `done`, and a populated assignmentHistory. 1-2 digit issue refs.
+
+export const MIGRATION_ROADMAP: Roadmap = {
+  frontmatter: META.frontmatter,
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [
+        feat('Fix login', 'in-progress', {
+          summary: 'Repair the login flow.',
+          assignee: 'alice',
+          priority: 'P1',
+          externalId: 'github:o/r#7',
+        }),
+        feat('Fix: login!', 'planned', {
+          summary: 'Second feature colliding to the same slug.',
+          priority: 'P2',
+        }),
+      ],
+    },
+    {
+      name: 'v5.0 Hardening',
+      isBacklog: false,
+      features: [
+        feat('Token bypass guard', 'done', {
+          summary: 'Guard shipped.',
+          externalId: '#42',
+        }),
+        feat('!!!', 'planned', {
+          summary: 'All-symbol feature name -> empty slug -> row-<n> fallback.',
+          priority: 'P3',
+        }),
+      ],
+    },
+    {
+      name: 'Backlog',
+      isBacklog: true,
+      features: [feat('Future idea', 'backlog', { summary: 'Something for later.' })],
+    },
+  ],
+  assignmentHistory: [
+    { feature: 'Fix login', assignee: 'alice', action: 'assigned', date: '2026-01-02' },
+    { feature: 'Fix login', assignee: 'bob', action: 'unassigned', date: '2026-01-03' },
+  ],
+};
+
 export const OLD_ROADMAP_MD = `---
 project: harness-engineering
 version: 1
