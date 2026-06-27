@@ -11,3 +11,5 @@ export const EVENT_BLOBS_DIR = 'state.events.blobs';
 export const MAX_LINE_BYTES = 4096;
 /** Marker key replacing a spilled payload on the stored line: { "$blob": "<hash>" }. */
 export const BLOB_REF_KEY = '$blob';
+/** Derived (non-authoritative) materialized snapshot file, written only by materialize(). */
+export const SNAPSHOT_FILE = 'state.snapshot.json';
