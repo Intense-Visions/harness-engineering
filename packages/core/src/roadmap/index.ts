@@ -9,6 +9,13 @@ export { parseRoadmap } from './parse';
 export { serializeRoadmap } from './serialize';
 
 /**
+ * Roadmap store: backend-agnostic storage (shard/`_meta` format, RoadmapStore
+ * interface with MonolithStore + ShardStore backends, assembler, regenerator).
+ * See packages/core/src/roadmap/store/index.ts.
+ */
+export * from './store';
+
+/**
  * Synchronizes the project roadmap with the current state of the codebase and issues.
  */
 export { syncRoadmap, applySyncChanges } from './sync';
