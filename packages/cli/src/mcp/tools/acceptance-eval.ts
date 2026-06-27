@@ -3,7 +3,7 @@
  *
  * Pre-execution acceptance-criteria measurability judgment — the upstream twin
  * of `outcome_eval`. Wraps the intelligence-package `AcceptanceEvaluator` so an
- * agent can run the TS-derived-authority seam (evaluate -> deriveAuthority)
+ * agent can run the TS-derived-authority seam (evaluate -> deriveAcceptanceAuthority)
  * rather than emulating the verdict in chat (ADR: authority is never read from
  * the LLM, extended to a pre-execution gate).
  *
@@ -44,7 +44,7 @@ export const acceptanceEvalDefinition = {
   name: 'acceptance_eval',
   description:
     'Pre-execution LLM-judgment: does a spec carry measurable, testable, complete ' +
-    'acceptance criteria? The upstream twin of outcome_eval. Reads the spec’s ' +
+    "acceptance criteria? The upstream twin of outcome_eval. Reads the spec's " +
     'success/acceptance section, emits a confidence-rated AcceptanceVerdict ' +
     '(MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE) with criteriaFindings (a, advisory), ' +
     'coverageFindings (b, advisory) and a rationale. Authority is DERIVED in TypeScript, ' +
@@ -64,7 +64,8 @@ export const acceptanceEvalDefinition = {
         items: { type: 'string' },
         description:
           'Optional globs locating test files; their contents supply the (b) coverage ' +
-          'evidence. Ignored when testContent is provided.',
+          'evidence. Ignored when testContent is provided. Absolute globs are recommended; ' +
+          'relative globs resolve against the MCP server cwd.',
       },
       testContent: {
         type: 'string',
