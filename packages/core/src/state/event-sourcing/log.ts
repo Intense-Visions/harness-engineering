@@ -67,10 +67,40 @@ function rehydratePayload(payload: unknown, blobsDir: string): unknown {
   return JSON.parse(raw);
 }
 
+/** Reason a stored line was dropped during {@link loadEvents} replay. */
+type DropReason =
+  | 'malformed-json' // line is not parseable JSON (torn/truncated write)
+  | 'schema-invalid' // valid JSON but not a well-formed stored envelope
+  | 'blob-unreadable' // payload is a blob ref but the blob is missing/corrupt (C1)
+  | 'schema-invalid-rehydrated'; // rehydrated event fails the strict EventSchema
+
+/**
+ * Surface dropped lines for an authoritative audit log: silent loss hides corruption,
+ * version skew, and bugs. We reuse the repo's existing non-fatal-warning mechanism
+ * (console.warn with a bracketed prefix, as in session-archive.ts) rather than inventing
+ * a logger or a richer return type — keeping loadEvents' Result<Event[]> contract intact
+ * for existing callers (I1).
+ */
+function reportDrops(logPath: string, drops: DropReason[]): void {
+  if (drops.length === 0) return;
+  const byReason = drops.reduce<Record<string, number>>((acc, reason) => {
+    acc[reason] = (acc[reason] ?? 0) + 1;
+    return acc;
+  }, {});
+  const summary = Object.entries(byReason)
+    .map(([reason, count]) => `${reason}=${count}`)
+    .join(', ');
+  console.warn(
+    `[event-log] dropped ${drops.length} event line(s) during load of ${logPath}: ${summary}`
+  );
+}
+
 /**
  * Ordered read: parse stored lines (skip malformed), rehydrate blobs, validate against
  * the strict schema, and return sorted by (seq asc, writerId asc) — a deterministic total
- * order (INV-1 + INV-2). timestamp is never used for ordering.
+ * order (INV-1 + INV-2). timestamp is never used for ordering. Dropped lines (malformed
+ * JSON, schema-invalid, or unreadable blob) are skipped individually and surfaced via a
+ * console.warn diagnostic so silent audit-log loss is observable (I1).
  */
 export async function loadEvents(
   projectPath: string,
@@ -81,16 +111,21 @@ export async function loadEvents(
     if (!fs.existsSync(logPath)) return Ok([]);
     const content = fs.readFileSync(logPath, 'utf-8');
     const events: Event[] = [];
+    const drops: DropReason[] = [];
     for (const line of content.split('\n')) {
       if (line.trim() === '') continue;
       let parsed: unknown;
       try {
         parsed = JSON.parse(line);
       } catch {
-        continue; // malformed line — JSONL resilience
+        drops.push('malformed-json'); // torn/truncated line — JSONL resilience
+        continue;
       }
       const stored = StoredEventSchema.safeParse(parsed);
-      if (!stored.success) continue;
+      if (!stored.success) {
+        drops.push('schema-invalid');
+        continue;
+      }
       let payload: unknown;
       try {
         payload = rehydratePayload(stored.data.payload, blobsDir);
@@ -98,11 +133,14 @@ export async function loadEvents(
         // Missing/corrupt blob (or unreadable side-file): skip ONLY this event, never
         // abort the whole replay. A bad blob degrades to a dropped event, not data loss
         // for the entire scope (C1; mirrors the line-skip resilience above).
+        drops.push('blob-unreadable');
         continue;
       }
       const full = EventSchema.safeParse({ ...stored.data, payload });
       if (full.success) events.push(full.data);
+      else drops.push('schema-invalid-rehydrated');
     }
+    reportDrops(logPath, drops);
     events.sort(
       (a, b) => a.seq - b.seq || (a.writerId < b.writerId ? -1 : a.writerId > b.writerId ? 1 : 0)
     );

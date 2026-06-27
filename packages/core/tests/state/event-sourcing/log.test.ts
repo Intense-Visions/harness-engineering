@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -147,6 +147,57 @@ describe('loadEvents (ordered read)', () => {
     );
     const r = await loadEvents(dir);
     expect(r.ok && r.value.length).toBe(1);
+  });
+
+  it('surfaces dropped lines via a console.warn diagnostic (I1)', async () => {
+    const { logPath } = await eventLogPaths(dir);
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    const valid = JSON.stringify({
+      seq: 1,
+      writerId: 'a',
+      timestamp: 't',
+      scope: {},
+      type: 'position_set',
+      payload: { position: 'P' },
+    });
+    // One torn line + one valid-JSON-but-schema-invalid line (missing required fields).
+    const schemaInvalid = JSON.stringify({ seq: 2, not: 'an envelope' });
+    fs.writeFileSync(logPath, valid + '\n{ not json\n' + schemaInvalid + '\n');
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const r = await loadEvents(dir);
+      expect(r.ok && r.value.length).toBe(1); // valid event still returned
+      expect(warn).toHaveBeenCalledTimes(1);
+      const msg = String(warn.mock.calls[0]?.[0]);
+      expect(msg).toContain('[event-log]');
+      expect(msg).toContain('dropped 2 event line(s)');
+      expect(msg).toContain('malformed-json=1');
+      expect(msg).toContain('schema-invalid=1');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('emits no diagnostic when every line is valid (I1)', async () => {
+    const { logPath } = await eventLogPaths(dir);
+    writeLines(logPath, [
+      {
+        seq: 1,
+        writerId: 'a',
+        timestamp: 't',
+        scope: {},
+        type: 'position_set',
+        payload: { position: 'P' },
+      },
+    ]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await loadEvents(dir);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
