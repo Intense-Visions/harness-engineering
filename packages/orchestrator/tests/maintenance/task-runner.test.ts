@@ -755,4 +755,37 @@ describe('TaskRunner run mode (D4)', () => {
     expect(result.status).toBe('success');
     expect(agentDispatcher.dispatch).toHaveBeenCalled();
   });
+
+  const PURE_TASK: TaskDefinition = {
+    id: 'dead-code',
+    type: 'pure-ai',
+    description: 'Find and remove dead code',
+    schedule: '0 2 * * 0',
+    branch: 'harness-maint/dead-code',
+    fixSkill: 'harness-codebase-cleanup',
+  };
+
+  it('pure-ai: report mode never dispatches and opens no PR', async () => {
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 2 });
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ agentDispatcher, prManager }));
+
+    const result = await runner.run(PURE_TASK, 'cli', 'report');
+
+    expect(result.status).toBe('no-issues');
+    expect(result.findings).toBe(0);
+    expect(result.prUrl).toBeNull();
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+  });
+
+  it('pure-ai: omitting mode defaults to fix and still dispatches', async () => {
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 2 });
+    const runner = new TaskRunner(createRunnerOptions({ agentDispatcher }));
+
+    const result = await runner.run(PURE_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(agentDispatcher.dispatch).toHaveBeenCalled();
+  });
 });

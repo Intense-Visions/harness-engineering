@@ -187,7 +187,7 @@ export class TaskRunner {
           break;
         }
         case 'pure-ai':
-          result = await this.runPureAI(task, startedAt);
+          result = await this.runPureAI(task, startedAt, mode);
           break;
         case 'report-only': {
           const out = await this.runReportOnly(task, startedAt);
@@ -437,7 +437,24 @@ export class TaskRunner {
   /**
    * Pure-AI: always dispatch agent with configured skill.
    */
-  private async runPureAI(task: TaskDefinition, startedAt: string): Promise<RunResult> {
+  private async runPureAI(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunResult> {
+    if (mode === 'report') {
+      // Report mode: pure-ai has no check step and never dispatches.
+      return {
+        taskId: task.id,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: 'no-issues',
+        findings: 0,
+        fixed: 0,
+        prUrl: null,
+        prUpdated: false,
+      };
+    }
     if (!task.fixSkill) {
       return this.failureResult(task.id, startedAt, 'pure-ai task missing fixSkill');
     }
