@@ -7,9 +7,11 @@ import type { Shard, RoadmapMeta } from './roadmap-store';
  * `ShardStore.load()` and the regenerator.
  *
  * Ordering:
- *  - Milestones follow `meta.milestones`; any milestone present in a shard but
- *    absent from the list is appended after the ordered ones, in first-seen order
- *    (defensive fallback — the Phase 2 migration guarantees completeness).
+ *  - Milestones follow `meta.milestones` exactly (each gets `features: []` when it
+ *    has no shards, matching `parseRoadmap`, which keeps empty milestones); any
+ *    milestone present in a shard but absent from the list is appended after the
+ *    ordered ones, in first-seen order (defensive fallback — the Phase 2 migration
+ *    guarantees completeness).
  *  - Features within a milestone: `order` ascending, then status-rank descending
  *    (more-advanced status first), then `slug` ascending.
  *
@@ -24,12 +26,13 @@ export function assembleRoadmap(shards: Shard[], meta: RoadmapMeta): Roadmap {
     else byMilestone.set(shard.milestone, [shard]);
   }
 
-  // Milestone order: meta.milestones first, then any unlisted milestones in
-  // first-seen order (Map preserves insertion order).
+  // Milestone order: every meta.milestone (even with zero shards, so empty
+  // milestones survive — parity with parseRoadmap), then any unlisted milestones
+  // present only in shards, in first-seen order (Map preserves insertion order).
   const ordered: string[] = [];
   const seen = new Set<string>();
   for (const name of meta.milestones) {
-    if (byMilestone.has(name) && !seen.has(name)) {
+    if (!seen.has(name)) {
       ordered.push(name);
       seen.add(name);
     }
@@ -47,7 +50,9 @@ export function assembleRoadmap(shards: Shard[], meta: RoadmapMeta): Roadmap {
       (a, b) =>
         a.order - b.order ||
         STATUS_RANK[b.feature.status] - STATUS_RANK[a.feature.status] ||
-        a.slug.localeCompare(b.slug)
+        // Deterministic code-unit comparison (NOT localeCompare, whose ICU/locale
+        // collation is environment-dependent and threatens byte-stable regen).
+        (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)
     );
     return {
       name,
