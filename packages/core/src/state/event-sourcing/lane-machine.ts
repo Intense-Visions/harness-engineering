@@ -4,6 +4,8 @@
 // projections/core-state.ts. The transition table + guards here are the single
 // source of truth for what lane moves are legal; transition.ts (writer) and the
 // manage_state task-transition action compose them before emitting an event.
+import type { Result } from '../../shared/result';
+import { Ok, Err } from '../../shared/result';
 import type { Lane } from './events';
 import { LANES } from './events';
 
@@ -31,4 +33,21 @@ const TABLE: Record<Lane, ReadonlySet<Lane>> = {
 
 export function isAllowedTransition(from: Lane, to: Lane): boolean {
   return TABLE[from].has(to);
+}
+
+/**
+ * Guard: entering `in_progress` requires every `dependsOn` task to be `done`.
+ * Applies only to `in_progress` — all other target lanes pass vacuously. Pure:
+ * the caller supplies a `laneOf` lookup over the current lane projection.
+ */
+export function dependencyGuard(
+  to: Lane,
+  dependsOn: string[],
+  laneOf: (taskId: string) => Lane | undefined
+): Result<void, Error> {
+  if (to !== 'in_progress') return Ok(undefined);
+  const unmet = dependsOn.filter((id) => laneOf(id) !== 'done');
+  if (unmet.length > 0)
+    return Err(new Error(`dependencyGuard: tasks not done: ${unmet.join(', ')}`));
+  return Ok(undefined);
 }

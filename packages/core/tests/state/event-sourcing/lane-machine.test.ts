@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { isAllowedTransition, isTerminal } from '../../../src/state/event-sourcing/lane-machine';
+import {
+  isAllowedTransition,
+  isTerminal,
+  dependencyGuard,
+} from '../../../src/state/event-sourcing/lane-machine';
+import type { Lane } from '../../../src/state/event-sourcing/lane-machine';
+
+const laneFrom =
+  (lanes: Record<string, Lane>) =>
+  (id: string): Lane | undefined =>
+    lanes[id];
 
 describe('transition table', () => {
   it('allows the happy-path forward edges', () => {
@@ -31,6 +41,25 @@ describe('transition table', () => {
   it('rejects any transition out of a terminal lane', () => {
     expect(isAllowedTransition('done', 'in_progress')).toBe(false);
     expect(isAllowedTransition('canceled', 'claimed')).toBe(false);
+  });
+});
+
+describe('dependencyGuard', () => {
+  it('rejects entering in_progress while a dependency is not done', () => {
+    const r = dependencyGuard('in_progress', ['a', 'b'], laneFrom({ a: 'done', b: 'in_review' }));
+    expect(r.ok).toBe(false);
+  });
+  it('allows entering in_progress when all dependencies are done', () => {
+    const r = dependencyGuard('in_progress', ['a', 'b'], laneFrom({ a: 'done', b: 'done' }));
+    expect(r.ok).toBe(true);
+  });
+  it('allows entering in_progress with no dependencies', () => {
+    const r = dependencyGuard('in_progress', [], laneFrom({}));
+    expect(r.ok).toBe(true);
+  });
+  it('only applies to in_progress (claimed with unmet deps is allowed)', () => {
+    const r = dependencyGuard('claimed', ['a'], laneFrom({ a: 'planned' }));
+    expect(r.ok).toBe(true);
   });
 });
 
