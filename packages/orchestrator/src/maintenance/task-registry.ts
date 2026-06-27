@@ -175,6 +175,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 0 * * *',
     branch: null,
     checkCommand: ['cleanup-sessions'],
+    excludeFromHumanSweep: true,
   },
   {
     id: 'perf-baselines',
@@ -183,6 +184,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 7 * * *',
     branch: null,
     checkCommand: ['perf', 'baselines', 'update'],
+    excludeFromHumanSweep: true,
   },
   {
     id: 'main-sync',
@@ -191,6 +193,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '*/15 * * * *',
     branch: null,
     checkCommand: ['harness', 'sync-main', '--json'],
+    excludeFromHumanSweep: true,
   },
   // Hermes Phase 4 — one-shot backfill that stamps `provenance: user-authored`
   // on every existing catalog skill. Schedule is Feb 31 (a date that never
@@ -205,5 +208,6 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 0 31 2 *',
     branch: null,
     checkCommand: ['backfill-skill-provenance'],
+    excludeFromHumanSweep: true,
   },
 ] as const;

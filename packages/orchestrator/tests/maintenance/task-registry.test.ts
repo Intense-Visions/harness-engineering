@@ -243,5 +243,19 @@ describe('task-registry', () => {
         'traceability',
       ]);
     });
+
+    it('marks exactly the four git-mutating/backfill housekeeping tasks excludeFromHumanSweep', () => {
+      const excluded = BUILT_IN_TASKS.filter((t) => t.excludeFromHumanSweep === true)
+        .map((t) => t.id)
+        .sort();
+      expect(excluded).toEqual([
+        'main-sync',
+        'perf-baselines',
+        'proposal-provenance-backfill',
+        'session-cleanup',
+      ]);
+      // Every other built-in is sweep-eligible (flag unset).
+      expect(BUILT_IN_TASKS.filter((t) => t.excludeFromHumanSweep === true)).toHaveLength(4);
+    });
   });
 });
