@@ -153,6 +153,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'security_craft',
   // outcome-eval — post-execution spec-satisfaction verdict (tiered confidence→authority)
   'outcome_eval',
+  // acceptance-eval — pre-execution acceptance-criteria measurability verdict (upstream twin of outcome_eval)
+  'acceptance_eval',
   // strategic-anchor — STRATEGY.md read/validate/write so projects can call
   // these via MCP without needing @harness-engineering/core in node_modules
   'validate_strategy',

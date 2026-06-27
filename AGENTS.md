@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 16 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Strategic Anchor
 
@@ -106,7 +106,7 @@ harness-engineering/
 │   ├── skills/codex/         # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/cursor/        # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
-│   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
+│   └── personas/             # 16 personas (adversarial-reviewer, architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, frontend-races-reviewer, graph-maintainer, harness-pm, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, typescript-strict-reviewer, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more) — plus the opt-in `ci-required-review` template that `harness init` renders into a GitHub Actions workflow + branch-protection ruleset wiring the `harness review-ci` required check
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level

@@ -44,6 +44,7 @@ The evaluator resolves the section internally via the fallback chain `## Success
 - **Provider path (v1 supported):** the anthropic analysis provider (`ANTHROPIC_API_KEY`). When no provider is configured the call degrades to INCONCLUSIVE/advisory. The openai-compatible _strict_ structured-output path is a known follow-up (see Known Limitations).
 - **Orchestrator:** runs as step 6.5 between Code Review and Ship in `harness.orchestrator.md`.
 - **Persistence:** each `evaluate()` writes one `execution_outcome` node via `ExecutionOutcomeConnector`, consumable by `effectiveness/scorer.ts`.
+- **Relationship to `acceptance-eval`:** `acceptance-eval` is the upstream twin — it gates spec measurability before execution; `outcome-eval` judges implementation satisfaction after. The "authority is never read from the LLM" discipline spans both.
 
 ## Known Limitations
 
