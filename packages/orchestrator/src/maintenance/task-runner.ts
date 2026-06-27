@@ -353,12 +353,24 @@ export class TaskRunner {
       typeof check.structured === 'object' &&
       (check.structured as { wakeAgent?: unknown }).wakeAgent === false;
     if (check.findings === 0 || wakeAgentExplicitlyFalse || mode === 'report') {
+      // Report-mode status is aligned with the sibling `runReportOnly`
+      // convention rather than reusing 'no-issues': a report sweep that ran
+      // the check and surfaced N findings did real, successful work and must
+      // NOT claim 'no-issues' while carrying `findings: N` (that disagrees with
+      // runReportOnly's `status: 'success'` + real count for the same "ran a
+      // check, found N, did not fix" semantics, and would mislead the Phase 3
+      // CLI). Chosen over a new RunResult discriminator because it is the
+      // minimal change — zero type/consumer churn — and reuses the existing
+      // report-only contract Phase 3 already reads. Only a genuine zero-findings
+      // report reports 'no-issues'. Fix-mode no-issues paths (findings === 0 or
+      // wakeAgent:false) keep returning 'no-issues' unchanged.
+      const reportedWithFindings = mode === 'report' && check.findings > 0;
       return {
         result: {
           taskId: task.id,
           startedAt,
           completedAt: new Date().toISOString(),
-          status: 'no-issues',
+          status: reportedWithFindings ? 'success' : 'no-issues',
           findings: check.findings,
           fixed: 0,
           prUrl: null,

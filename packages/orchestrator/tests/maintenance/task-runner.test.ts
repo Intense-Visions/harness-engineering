@@ -729,7 +729,7 @@ describe('TaskRunner run mode (D4)', () => {
     fixSkill: 'harness-arch-fix',
   };
 
-  it('mechanical-ai: report mode records findings but never dispatches', async () => {
+  it('mechanical-ai: report mode records findings, reports success (not no-issues), never dispatches', async () => {
     const checkRunner = createMockCheckRunner({ findings: 5, passed: false });
     const agentDispatcher = createMockAgentDispatcher();
     const prManager = createMockPRManager();
@@ -738,11 +738,31 @@ describe('TaskRunner run mode (D4)', () => {
     const result = await runner.run(MECH_TASK, 'cli', 'report');
 
     expect(result.findings).toBe(5);
-    expect(result.status).toBe('no-issues');
+    // Finding 1: a report sweep with findings > 0 did real work — it must NOT
+    // claim 'no-issues' while carrying findings: 5 (aligns with runReportOnly).
+    expect(result.status).not.toBe('no-issues');
+    expect(result.status).toBe('success');
     expect(result.prUrl).toBeNull();
     expect(checkRunner.run).toHaveBeenCalledWith(['check-arch'], '/test/project');
     expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
     expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
+  });
+
+  it('mechanical-ai: report mode with zero findings reports no-issues and never dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 0, passed: true });
+    const agentDispatcher = createMockAgentDispatcher();
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher, prManager }));
+
+    const result = await runner.run(MECH_TASK, 'cli', 'report');
+
+    expect(result.findings).toBe(0);
+    expect(result.status).toBe('no-issues');
+    expect(result.prUrl).toBeNull();
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
   });
 
   it('mechanical-ai: omitting mode defaults to fix and still dispatches', async () => {
@@ -777,6 +797,7 @@ describe('TaskRunner run mode (D4)', () => {
     expect(result.prUrl).toBeNull();
     expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
     expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
   });
 
   it('pure-ai: omitting mode defaults to fix and still dispatches', async () => {
