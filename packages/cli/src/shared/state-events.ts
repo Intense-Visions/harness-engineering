@@ -5,8 +5,9 @@
 // CLI import these two helpers so genesis import composes with read/write in exactly one place.
 //
 // The event-sourcing primitives are published under the `eventSourcing` namespace of
-// `@harness-engineering/core` (the legacy top-level `emitEvent`/`loadEvents` are the skill-event
-// log, NOT this store), so we destructure them from that namespace.
+// `@harness-engineering/core`. The legacy top-level skill-event log (`events.jsonl`) was retired
+// in Phase 5 (#580): its audit/timeline role is subsumed by this store's audit projection, and
+// its skill-telemetry role was relocated CLI-side (metrics/skill-events.jsonl).
 import { eventSourcing, Ok, type HarnessState, type Result } from '@harness-engineering/core';
 
 const { importLegacyState, readSnapshot, toHarnessState, emitEvent, formatAuditTimeline } =
