@@ -1062,6 +1062,33 @@ Migrate the project roadmap to a different storage mode
 - `--dry-run` — Print the migration plan without making any changes
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
+### `harness roadmap regen`
+
+Regenerate docs/roadmap.md from the shard directory (docs/roadmap.d)
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+
+### `harness roadmap shard`
+
+Migrate docs/roadmap.md to per-row shards under docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Report the migration plan without writing anything
+- `--force` — Proceed even if docs/roadmap.d already exists
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap unshard`
+
+Reassemble docs/roadmap.md from shards and remove docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+
 ## Routing Commands
 
 Inspect routing config, trace decisions, and read recent dispatches
