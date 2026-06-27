@@ -151,6 +151,14 @@ This mirrors the ask-once-record-the-answer pattern also used by the i18n and de
 
 ### Phase 3: CONFIGURE — Customize for the Project
 
+0. **Persist the Phase 0 grounding decision.** SCAFFOLD has now created `.harness/`. If the user **declined**
+   the strategic anchor in `Phase 0: GROUND` (answered "No", or chose "ignore" on a present-but-invalid
+   `STRATEGY.md`), write `init.strategy.declined: true` to `.harness/state.json` (merge into existing JSON;
+   do not clobber). If the user answered "Yes" or "Not sure" in Phase 0, write nothing. This is the deferred
+   half of the Phase 0 offer: Phase 0 captures the answer, this step records the decline once `.harness/`
+   exists — so the relocation never fabricates `.harness/` early and never misclassifies a new project as a
+   migration in `Phase 1: ASSESS`.
+
 1. **Configure personas.** Run `harness persona generate` to create persona definitions based on the project's stack and team structure. Personas define how agents should behave in this project — coding style, communication preferences, constraint strictness.
 
 2. **Customize AGENTS.md.** The generated template needs project-specific content:
@@ -210,60 +218,6 @@ This mirrors the ask-once-record-the-answer pattern also used by the i18n and de
     - **Not sure:** Do not write `design.enabled` or `design.platforms`. The project can enable design later by running `harness-design-system` directly; `on_new_feature` will prompt gently when a feature touches user-facing UI.
 
     **Skip this step entirely if Phase 1 step 5 classified the project as a test suite.** Test-suite projects will be dispatched at step 6 below to `initialize-test-suite-project` and have no UI to govern.
-
-5c. **Capture strategic anchor (all levels).** Offer a three-way prompt for `STRATEGY.md` — the durable upstream product anchor read by `harness-brainstorming`, `harness-ideate`, and `harness-roadmap-pilot`. Use `emit_interaction`:
-
-    ```json
-    emit_interaction({
-      type: "question",
-      question: {
-        text: "Capture strategic anchor (STRATEGY.md) now?",
-        options: [
-          {
-            label: "Yes — run the strategy interview",
-            pros: [
-              "Grounds brainstorm/ideate/roadmap-pilot in product-level context",
-              "Durable across milestones and phases (peer of README.md)"
-            ],
-            cons: ["Adds an interview (10-20 minutes) to init"],
-            risk: "low",
-            effort: "medium"
-          },
-          {
-            label: "No — this project does not need a strategy doc",
-            pros: ["Permanent decline recorded; init does not re-ask on rerun"],
-            cons: ["Re-running init will not re-offer; user must run /harness:strategy manually"],
-            risk: "low",
-            effort: "low"
-          },
-          {
-            label: "Not sure yet",
-            pros: ["Decision deferred without commitment", "Can run /harness:strategy later"],
-            cons: ["No decline flag set; init may re-offer on rerun"],
-            risk: "low",
-            effort: "low"
-          }
-        ],
-        recommendation: { optionIndex: 0, reason: "Strategy grounds brainstorm/ideate/roadmap-pilot — value compounds as the project grows", confidence: "medium" }
-      }
-    })
-    ```
-
-    Before prompting, check whether `STRATEGY.md` already exists at repo root. Three cases:
-
-    - **Absent (most common on init).** Present the prompt above. Apply the answer:
-      - **Yes:** delegate to `harness-strategy` (which routes via its own Phase 0 to the first-run interview). When `harness-strategy` completes, continue with step 6.
-      - **No:** write `init.strategy.declined: true` to `.harness/state.json` (merge into existing JSON; do not clobber). This is the explicit decline location; re-running init detects the flag and skips the prompt.
-      - **Not sure:** no state write. `/harness:strategy` remains available standalone, and a future re-run of init will re-offer.
-
-    - **Present and valid.** Skip the prompt silently. Surface a one-line note: `STRATEGY.md detected — downstream skills will pick it up as grounding`. No `init.strategy.declined` write.
-
-    - **Present but invalid.** Surface the validation error verbatim (run a Node one-liner that imports `validateStrategy` from `@harness-engineering/core` and pipes the error). Offer three paths (mirror `harness-strategy` Phase 0):
-      - **a) Fix now via `/harness:strategy` update** → delegate to `harness-strategy` with the broken section pre-selected.
-      - **b) Move file to `STRATEGY.md.bak.<YYYY-MM-DD-HHmm>` and run a fresh interview** → rename, then delegate to `harness-strategy` Phase 1.
-      - **c) Ignore for this init and proceed** → record `init.strategy.declined: true` and continue. Init does NOT block on present-but-invalid STRATEGY.md.
-
-    Mirror the i18n / design-system pattern: ask once, record the answer, never silently skip.
 
 6. **Test-suite projects only — dispatch to `initialize-test-suite-project`.** If Phase 1 step 5 classified this as a test suite, invoke `initialize-test-suite-project` now and let it own archetype selection, shared-library decision, layer variants (A self-contained vs B consumer), ESLint flat-config fix, tag taxonomy, reporter stack, custom report, and the "prove the guards fire" verification. Return here for Phase 4 step 4+ (knowledge graph, roadmap, commit). Product and service projects skip this step entirely.
 
