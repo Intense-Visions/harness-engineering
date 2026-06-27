@@ -200,6 +200,51 @@ describe('manage_state tool', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it('reset truncates the event log and re-genesises to DEFAULT_STATE (W3 parity)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-reset-'));
+    try {
+      const harnessDir = path.join(tmpDir, '.harness');
+      fs.mkdirSync(harnessDir, { recursive: true });
+      // Seed a populated legacy state so there is real content for reset to discard.
+      fs.writeFileSync(
+        path.join(harnessDir, 'state.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          position: { phase: 'execute', task: 'Task 9' },
+          decisions: [{ date: '2026-06-27', decision: 'keep', context: 'ctx' }],
+          blockers: [],
+          progress: { 'Task 1': 'complete' },
+        })
+      );
+
+      // Materialise the genesis import (and a snapshot) via a read first.
+      const { readHarnessState } = await import('../../../src/shared/state-events');
+      const before = await readHarnessState(tmpDir);
+      expect(before.ok).toBe(true);
+      if (before.ok) expect(before.value.decisions).toHaveLength(1);
+
+      const response = await handleManageState({ path: tmpDir, action: 'reset' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.reset).toBe(true);
+
+      // Parity: after reset the projected state deep-equals DEFAULT_STATE (the legacy
+      // wholesale saveState({...DEFAULT_STATE}) wipe, observed through the new read path).
+      const { DEFAULT_STATE, eventSourcing } = await import('@harness-engineering/core');
+      const after = await readHarnessState(tmpDir);
+      expect(after.ok).toBe(true);
+      if (after.ok) expect(after.value).toEqual(DEFAULT_STATE);
+
+      // A subsequent genesis import is a no-op: the re-genesis event is present, so a
+      // lingering legacy state.json (if any) is NOT re-imported.
+      const reimport = await eventSourcing.importLegacyState(tmpDir);
+      expect(reimport.ok).toBe(true);
+      if (reimport.ok) expect(reimport.value.imported).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('append_entry without session returns error for non-decisions sections', async () => {
     const response = await handleManageState({
       path: '/tmp/test-project',

@@ -153,8 +153,14 @@ async function handleArchive(projectPath: string, input: StateInput) {
 }
 
 async function handleReset(projectPath: string, input: StateInput) {
-  const { saveState, DEFAULT_STATE } = await import('@harness-engineering/core');
-  const result = await saveState(projectPath, { ...DEFAULT_STATE }, input.stream, input.session);
+  // Event-sourced reset: truncate the authoritative log + clear snapshot/blobs, then emit a
+  // fresh genesis state_imported{ DEFAULT_STATE }. Semantics-preserving translation of the legacy
+  // wholesale DEFAULT_STATE overwrite (destructive by design; discards event history).
+  const { eventSourcing } = await import('@harness-engineering/core');
+  const result = await eventSourcing.resetEventLog(projectPath, {
+    stream: input.stream,
+    session: input.session,
+  });
   if (!result.ok) return resultToMcpResponse(result);
   return resultToMcpResponse(Ok({ reset: true }));
 }

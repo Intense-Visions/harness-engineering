@@ -6,10 +6,8 @@ import * as path from 'path';
 const ALLOWED_FILES = ['state-persistence.ts', path.join('state', 'index.ts')];
 
 // Ratchet: each write-conversion task removes its entry. SC1 is met when this is empty.
-// (Documentation of the remaining sites; the assertions below track file-granularity.)
-const KNOWN_MUTATIONS = [
-  'packages/cli/src/mcp/tools/state.ts:reset', // W3 handleReset — removed in Task 11
-];
+// All three write sites (W1 append_entry, W2 recordInteraction, W3 handleReset) are converted.
+const KNOWN_MUTATIONS: string[] = [];
 void KNOWN_MUTATIONS;
 
 function walk(dir: string): string[] {
@@ -35,9 +33,9 @@ describe('SC1 — no production saveState mutation (ratchet)', () => {
         if (/\bsaveState\s*\(/.test(src)) hits.push(file);
       }
     }
-    // W1 + W2 are converted; only W3 (handleReset in state.ts) still mutates via saveState.
-    // interaction.ts is now clean. Exact-zero (both files) is asserted in Task 16.
-    expect(hits.some((h) => h.endsWith(path.join('tools', 'state.ts')))).toBe(true);
+    // W1, W2 and W3 are all converted: zero production saveState mutations remain.
+    // The strict exact-zero invariant (across both packages) is locked in by Task 16.
+    expect(hits.some((h) => h.endsWith(path.join('tools', 'state.ts')))).toBe(false);
     expect(hits.some((h) => h.endsWith(path.join('tools', 'interaction.ts')))).toBe(false);
   });
 });
