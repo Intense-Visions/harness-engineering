@@ -234,14 +234,46 @@ outputs:
 
 ## Implementation order
 
-1. **Intelligence core** — `types.ts`, `authority.ts` (+ exhaustive unit tests),
-   reuse `section-resolver`, `evaluator.ts`, `prompts.ts`, barrel exports.
-2. **MCP tool** — `acceptance-eval.ts` handler + registration in `server.ts`
-   (+ an integration test asserting authority parity).
-3. **Skill** — `acceptance-eval` `SKILL.md` + `skill.yaml`; generate client
-   variants.
-4. **Persona** — `harness-pm.yaml`; `generate-agent-definitions`.
-5. **Docs & ADR** — `AGENTS.md`, persona-count references, `outcome-eval`
-   cross-reference, ADR for D3.
-6. **Verify** — full `harness validate`, test suite, plugin-artifact
-   regeneration.
+Phases are listed in dependency order. Per-phase verification (`harness validate`,
+unit/integration tests) and final cross-phase review (full validate, test suite,
+plugin-artifact regeneration) are handled by the execution loop's built-in VERIFY
+and FINAL_REVIEW stages, so they are not separate phases here.
+
+### Phase 1: Intelligence core
+
+<!-- complexity: medium -->
+
+`packages/intelligence/src/acceptance-eval/`: `types.ts`, `authority.ts`
+(+ exhaustive unit tests across all nine measurability × confidence
+combinations), reuse `section-resolver` from `outcome-eval`, `evaluator.ts`,
+`prompts.ts`, and barrel exports from `packages/intelligence/src/index.ts`.
+
+### Phase 2: MCP tool
+
+<!-- complexity: low -->
+
+`packages/cli/src/mcp/tools/acceptance-eval.ts` handler + registration in
+`packages/cli/src/mcp/server.ts` (+ an integration test asserting the returned
+`authority` equals `deriveAcceptanceAuthority(...)`).
+
+### Phase 3: Skill
+
+<!-- complexity: low -->
+
+`agents/skills/claude-code/acceptance-eval/` (`SKILL.md` + `skill.yaml`); generate
+the cursor / codex / gemini-cli variants.
+
+### Phase 4: Persona
+
+<!-- complexity: low -->
+
+`agents/personas/harness-pm.yaml`; run `harness generate-agent-definitions` to
+emit the `harness-pm` agent type across all four clients.
+
+### Phase 5: Docs & ADR
+
+<!-- complexity: low -->
+
+`AGENTS.md` persona list, persona-count references (15 → 16), an `outcome-eval`
+cross-reference to its upstream twin, and an ADR recording D3 (TS-derived
+authority extended to a pre-execution gate).
