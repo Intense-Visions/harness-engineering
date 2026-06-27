@@ -378,6 +378,33 @@ async function handlePhaseComplete(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-complete' }));
 }
 
+async function handleTaskTransition(projectPath: string, input: StateInput) {
+  if (!input.taskId) return mcpError('Error: taskId is required for task-transition action');
+  if (!input.toLane) return mcpError('Error: toLane is required for task-transition action');
+  const { eventSourcing } = await import('@harness-engineering/core');
+  const scope = { stream: input.stream, session: input.session };
+  // When dependsOn is supplied, register (idempotent) before transitioning so MCP
+  // callers get a single-action register+transition path (DLane-4).
+  if (input.dependsOn) {
+    const reg = await eventSourcing.registerTask(projectPath, input.taskId, input.dependsOn, scope);
+    if (!reg.ok) return resultToMcpResponse(reg);
+  }
+  const result = await eventSourcing.transitionLane(
+    projectPath,
+    input.taskId,
+    input.toLane as import('@harness-engineering/core').eventSourcing.Lane,
+    {
+      ...(input.evidence !== undefined ? { evidence: input.evidence } : {}),
+      ...(input.force !== undefined ? { force: input.force } : {}),
+      ...(input.actor !== undefined ? { actor: input.actor } : {}),
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    },
+    scope
+  );
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ taskId: input.taskId, lane: input.toLane }));
+}
+
 const ACTION_HANDLERS: Record<
   string,
   (projectPath: string, input: StateInput) => Promise<McpResponse>
@@ -399,6 +426,7 @@ const ACTION_HANDLERS: Record<
   'task-complete': handleTaskComplete,
   'phase-start': handlePhaseStart,
   'phase-complete': handlePhaseComplete,
+  'task-transition': handleTaskTransition,
 };
 
 export async function handleManageState(input: StateInput) {

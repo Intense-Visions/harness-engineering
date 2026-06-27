@@ -539,3 +539,83 @@ describe('manage_state session section actions', () => {
     expect(fs.existsSync(archiveBase)).toBe(true);
   });
 });
+
+describe('manage_state task-transition action', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-task-transition-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('has task-transition in the action enum and the lane fields', () => {
+    const props = manageStateDefinition.inputSchema.properties as Record<string, unknown>;
+    const actionProp = props.action as { enum: string[] };
+    expect(actionProp.enum).toContain('task-transition');
+    expect(props.taskId).toBeDefined();
+    expect(props.toLane).toBeDefined();
+    expect(props.dependsOn).toBeDefined();
+    expect(props.evidence).toBeDefined();
+  });
+
+  it('registers then transitions a task and returns the new lane', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'claimed',
+      dependsOn: [],
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.taskId).toBe('t1');
+    expect(parsed.lane).toBe('claimed');
+
+    // The transition is durable: a follow-up snapshot read shows the new lane.
+    const { eventSourcing } = await import('@harness-engineering/core');
+    const snap = await eventSourcing.readSnapshot(tmpDir);
+    expect(snap.ok).toBe(true);
+    if (snap.ok) expect(snap.value.lanes.tasks.t1.lane).toBe('claimed');
+  });
+
+  it('returns the guard error for an off-table transition without force', async () => {
+    await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'claimed',
+      dependsOn: [],
+    });
+    // claimed→done is off-table.
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'done',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/not allowed|forceGuard/);
+  });
+
+  it('errors when taskId is missing', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      toLane: 'claimed',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/taskId is required/);
+  });
+
+  it('errors when toLane is missing', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/toLane is required/);
+  });
+});
