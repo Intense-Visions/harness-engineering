@@ -367,17 +367,16 @@ async function recordInteraction(
   stream?: string
 ): Promise<void> {
   try {
-    const { loadState, saveState } = await import('@harness-engineering/core');
-    const stateResult = await loadState(projectPath, stream);
-    if (stateResult.ok) {
-      const state = stateResult.value;
-      state.decisions.push({
-        date: new Date().toISOString(),
-        decision: `[${type}:${id}] ${decision}`,
-        context: 'pending user response',
-      });
-      await saveState(projectPath, state, stream);
-    }
+    const { emitCoreEvent } = await import('../../shared/state-events.js');
+    // The interaction id is unique per interaction, so it doubles as the decision id.
+    await emitCoreEvent(
+      projectPath,
+      {
+        type: 'decision_recorded',
+        payload: { id, text: `[${type}:${id}] ${decision}`, context: 'pending user response' },
+      },
+      { stream }
+    );
   } catch {
     // State recording failure is non-fatal
   }

@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   InteractionOptionSchema,
   InteractionQuestionWithOptionsSchema,
@@ -492,5 +495,49 @@ describe('emit_interaction tool', () => {
       type: 'unknown' as 'question',
     });
     expect(response.isError).toBe(true);
+  });
+});
+
+describe('emit_interaction — W2 recordInteraction parity', () => {
+  const tmpDirs: string[] = [];
+  afterEach(() => {
+    for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+  });
+
+  it('records a pending decision readable through the event-sourced read path', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'interaction-w2-'));
+    tmpDirs.push(tmpDir);
+
+    const response = await handleEmitInteraction({
+      path: tmpDir,
+      type: 'question',
+      question: { text: 'Authentication approach' },
+    });
+    expect(response.isError).toBeFalsy();
+    const meta = JSON.parse(response.content[1].text) as { id: string };
+    expect(meta.id).toBeTruthy();
+
+    // Parity: same `[type:id] <decision>` text + 'pending user response' context the legacy
+    // saveState push produced, now observable via the snapshot projection.
+    const { readHarnessState } = await import('../../../src/shared/state-events');
+    const state = await readHarnessState(tmpDir);
+    expect(state.ok).toBe(true);
+    if (state.ok) {
+      expect(state.value.decisions).toHaveLength(1);
+      expect(state.value.decisions[0].decision).toBe(
+        `[question:${meta.id}] Authentication approach`
+      );
+      expect(state.value.decisions[0].context).toBe('pending user response');
+    }
+  });
+
+  it('state-recording failure stays non-fatal (interaction still succeeds)', async () => {
+    // A path that cannot host a state dir must not make the interaction itself fail.
+    const response = await handleEmitInteraction({
+      path: '/tmp/test-interaction',
+      type: 'question',
+      question: { text: 'still works?' },
+    });
+    expect(response.isError).toBeFalsy();
   });
 });
