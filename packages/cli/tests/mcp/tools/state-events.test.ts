@@ -4,9 +4,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { handleManageState } from '../../../src/mcp/tools/state';
 
-/** Read all events from the events.jsonl file. */
+/** Read all skill-telemetry events from the relocated metrics log (#580 D5). */
 function readEvents(tmpDir: string) {
-  const eventsPath = path.join(tmpDir, '.harness', 'events.jsonl');
+  const eventsPath = path.join(tmpDir, '.harness', 'metrics', 'skill-events.jsonl');
   if (!fs.existsSync(eventsPath)) return [];
   return fs
     .readFileSync(eventsPath, 'utf-8')
