@@ -1,5 +1,5 @@
 import type { RoadmapFeature } from '@harness-engineering/types';
-import type { Shard } from '../../../src/roadmap/store/roadmap-store';
+import type { Shard, RoadmapMeta } from '../../../src/roadmap/store/roadmap-store';
 
 /**
  * Shared fixtures for the roadmap shard store tests.
@@ -81,4 +81,41 @@ order: 1
 - **Summary:** has no slug
 - **Blockers:** —
 - **Plan:** —
+`;
+
+// --- Task 4: the _meta.md file (frontmatter-only) -------------------------
+
+export const META_MD = `---
+project: harness-engineering
+version: 1
+created: 2026-06-01
+updated: 2026-06-27
+last_synced: 2026-06-27T12:00:00.000Z
+last_manual_edit: 2026-06-27T11:00:00.000Z
+milestones:
+  - MVP Release
+  - v5.0 Hardening
+  - Backlog
+---
+`;
+
+export const META: RoadmapMeta = {
+  frontmatter: {
+    project: 'harness-engineering',
+    version: 1,
+    created: '2026-06-01',
+    updated: '2026-06-27',
+    lastSynced: '2026-06-27T12:00:00.000Z',
+    lastManualEdit: '2026-06-27T11:00:00.000Z',
+  },
+  milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
+};
+
+/** `_meta.md` missing required frontmatter (`last_synced`/`last_manual_edit`). */
+export const META_MD_MISSING_REQUIRED = `---
+project: harness-engineering
+version: 1
+milestones:
+  - Backlog
+---
 `;
