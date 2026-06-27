@@ -64,22 +64,23 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 ### Phase 2: EVALUATE -- Ask Questions and Narrow
 
-1. **Ask ONE question at a time.** Ask the most important question first. Wait for the answer. Let it inform the next question. Use `emit_interaction` with `type: 'question'`:
+1. **Ask ONE question at a time, in plain text.** Ask the most important question first. Wait for the answer. Let it inform the next question.
 
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "question",
-     question: {
-       text: "For auth, which approach should we use?",
-       options: [
-         { "label": "A) Existing JWT middleware", "pros": ["Already in codebase"], "cons": ["No refresh tokens"], "risk": "low", "effort": "low" },
-         { "label": "B) OAuth2 via provider X", "pros": ["Industry standard"], "cons": ["New dependency"], "risk": "medium", "effort": "medium" },
-         { "label": "C) External auth service", "pros": ["Zero maintenance"], "cons": ["Vendor lock-in", "Cost"], "risk": "medium", "effort": "low" }
-       ],
-       recommendation: { "optionIndex": 0, "reason": "Sufficient for current requirements.", "confidence": "high" }
-     }
-   })
+   **Ask directly in your reply. Do NOT route the question through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the question in state but does not display it to the human — the client collapses it to "Called harness" and the rendered prompt only returns to the model, so the human sees nothing and you end up narrating a question they cannot answer. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
+
+   Present the question as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
+
+   ```markdown
+   ### Decision needed: For auth, which approach should we use?
+
+   |            | A) Existing JWT middleware | B) OAuth2 via provider X | C) External auth service |
+   | ---------- | -------------------------- | ------------------------ | ------------------------ |
+   | **Pros**   | Already in codebase        | Industry standard        | Zero maintenance         |
+   | **Cons**   | No refresh tokens          | New dependency           | Vendor lock-in; cost     |
+   | **Risk**   | Low                        | Medium                   | Medium                   |
+   | **Effort** | Low                        | Medium                   | Low                      |
+
+   **Recommendation:** A) Existing JWT middleware (confidence: high) — sufficient for current requirements.
    ```
 
 2. **Prefer multiple choice over open-ended questions.** Give 2-4 concrete options with brief tradeoff notes.
@@ -169,22 +170,19 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
 5. **Run `harness validate`** to verify proper placement and project health.
 
-6. **Request sign-off via `emit_interaction`:**
+6. **Request sign-off in plain text.** Ask directly in your reply — do NOT route the request through `emit_interaction` or `AskUserQuestion` (the human will not see it). Present it as:
 
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "confirmation",
-     confirmation: {
-       text: "Approve spec at <file-path>?",
-       context: "<one-paragraph summary>",
-       impact: "Spec approval unlocks implementation planning. No code changes yet.",
-       risk: "low"
-     }
-   })
+   ```markdown
+   Approve spec at <file-path>?
+
+   Context: <one-paragraph summary>
+   Impact: Spec approval unlocks implementation planning. No code changes yet.
+   Risk: low
+
+   Proceed? (yes/no)
    ```
 
-   The human must explicitly approve before this skill is complete.
+   The human must explicitly approve (a clear "yes") before this skill is complete.
 
 7. **Promote the roadmap row.** If `docs/roadmap.md` exists, transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists.
    - Derive the lookup key from the slash-command `ARGUMENTS` string (D1). Derive the summary from the spec title (the H1 heading).
