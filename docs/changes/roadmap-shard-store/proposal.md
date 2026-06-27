@@ -83,15 +83,15 @@ reconciler flips the corresponding shard to `done` when a PR closes its linked i
 
 ## Decisions Made
 
-| #      | Decision                                                                                                                | Rationale                                                                                                                            |
-| ------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | Hybrid: per-row local shards **plus** keep GitHub sync as cross-machine reconciliation                                  | Conflict-free local model without coupling correctness to the flaky MCP↔GitHub path; sync stays optional and pluggable               |
-| **D2** | Per-row files named by **feature slug** (`docs/roadmap.d/<slug>.md`); GitHub issue # stored *inside* as `External-ID`   | Slug exists before the issue does (fixes the Intake/new-row case); browsable; the issue # stays the durable immutable sync key       |
-| **D3** | `docs/roadmap.md` becomes a **generated `merge=ours` aggregate**; shards are the source of truth                        | One human/PR-reviewable artifact that cannot conflict; the internal `Roadmap` type is unchanged                                      |
-| **D4** | **Hook-driven** regeneration; writers patch exactly one shard                                                            | A single deterministic regen path kills the live-drift `format:check`; writers stay "dumb", which is the conflict-free guarantee     |
-| **D5** | New projects sharded by default; existing adopters migrate via a reversible `harness roadmap shard`                     | No surprise rewrites of adopter files or git history                                                                                 |
-| **D6** | **Auto-done on merge:** a reconciler flips a shard to `done` when a merged PR closes the row's linked `External-ID` issue | Sharding makes the writeback conflict-free, removing the blocker that kept this manual; reuses the existing issue↔row mapping         |
-| **R**  | **Read-source invariant:** only the regenerator reads `roadmap.md`; all tools read `docs/roadmap.d/`                    | Makes correctness independent of hooks/merge-driver setup — the worst case is a stale cosmetic file, never wrong tool behavior       |
+| #      | Decision                                                                                                                  | Rationale                                                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | Hybrid: per-row local shards **plus** keep GitHub sync as cross-machine reconciliation                                    | Conflict-free local model without coupling correctness to the flaky MCP↔GitHub path; sync stays optional and pluggable           |
+| **D2** | Per-row files named by **feature slug** (`docs/roadmap.d/<slug>.md`); GitHub issue # stored _inside_ as `External-ID`     | Slug exists before the issue does (fixes the Intake/new-row case); browsable; the issue # stays the durable immutable sync key   |
+| **D3** | `docs/roadmap.md` becomes a **generated `merge=ours` aggregate**; shards are the source of truth                          | One human/PR-reviewable artifact that cannot conflict; the internal `Roadmap` type is unchanged                                  |
+| **D4** | **Hook-driven** regeneration; writers patch exactly one shard                                                             | A single deterministic regen path kills the live-drift `format:check`; writers stay "dumb", which is the conflict-free guarantee |
+| **D5** | New projects sharded by default; existing adopters migrate via a reversible `harness roadmap shard`                       | No surprise rewrites of adopter files or git history                                                                             |
+| **D6** | **Auto-done on merge:** a reconciler flips a shard to `done` when a merged PR closes the row's linked `External-ID` issue | Sharding makes the writeback conflict-free, removing the blocker that kept this manual; reuses the existing issue↔row mapping    |
+| **R**  | **Read-source invariant:** only the regenerator reads `roadmap.md`; all tools read `docs/roadmap.d/`                      | Makes correctness independent of hooks/merge-driver setup — the worst case is a stale cosmetic file, never wrong tool behavior   |
 
 ## Technical Design
 
@@ -226,7 +226,7 @@ regeneration determinism; slug↔issue identity mapping; merge-triggered auto-do
 - No code path reads `roadmap.md` except the regenerator — enforced by a grep/validate
   check (invariant R).
 - `harness roadmap shard` migrates this repo's 170 rows with a **semantic round-trip**:
-  `parse(old)` deep-equals `parse(regen(shards))`. (Byte-equality against the *old* file
+  `parse(old)` deep-equals `parse(regen(shards))`. (Byte-equality against the _old_ file
   is impossible because today's serialize is already lossy; this is no regression.)
 - Pre-push `format:check` passes on a freshly regenerated aggregate, and reruns are
   byte-stable.
@@ -237,16 +237,54 @@ regeneration determinism; slug↔issue identity mapping; merge-triggered auto-do
 
 ## Implementation Order
 
-1. **Core foundation** — shard format, `RoadmapStore` + `ShardStore`, assembler, and the
-   deterministic regenerator; unit tests including semantic round-trip and
-   byte-stability.
-2. **Migration CLI** — `shard` / `unshard` / `regen` with the round-trip assertion.
-3. **Git/hook integration** — regen hook (both profiles + plugin-config),
-   `.gitattributes merge=ours`, `init` git-config, and the read-source invariant check.
-4. **Wire writers through the store** — `manage_roadmap`, brainstorming promote,
-   execution claim, pilot assign, groom, and sync-engine — each patches a single shard.
-5. **Auto-done reconciler** — core reconcile function + `harness roadmap reconcile` CLI +
-   PR-merge GitHub Action; idempotency and assignee-lifecycle tests.
-6. **Rollout** — `sharded` mode detection, new-init scaffolds sharded, docs/ADRs/knowledge.
-7. **Dogfood migration** — run `harness roadmap shard` on this repo; commit the shards
-   plus the generated aggregate.
+### Phase 1: Core foundation
+
+<!-- complexity: medium -->
+
+Shard file format + frontmatter parser reuse, the `RoadmapStore` interface,
+`ShardStore` + `MonolithStore` backends, the assembler, and the deterministic
+regenerator. Unit tests including semantic round-trip and byte-stability. Self-contained
+new modules; no existing call sites change yet.
+
+### Phase 2: Migration CLI
+
+<!-- complexity: medium -->
+
+`harness roadmap shard` / `unshard` / `regen` with the semantic round-trip assertion and
+`_meta.md` generation.
+
+### Phase 3: Git and hook integration
+
+<!-- complexity: medium -->
+
+Pre-commit + post-merge regen hook (registered in **both** `profiles.ts` and
+`plugin-config.mjs STANDARD_HOOKS`), `.gitattributes merge=ours`, `init` git-config, and
+the read-source invariant check (R).
+
+### Phase 4: Wire writers through the store
+
+<!-- complexity: high -->
+
+Route `manage_roadmap`, brainstorming promote, execution claim, pilot assign, groom, and
+sync-engine through `RoadmapStore` — each patches a single shard. Large blast radius
+across six writers; warrants interactive planning.
+
+### Phase 5: Auto-done reconciler
+
+<!-- complexity: medium -->
+
+Core reconcile function + `harness roadmap reconcile` CLI + PR-merge GitHub Action;
+idempotency and assignee-lifecycle tests.
+
+### Phase 6: Rollout
+
+<!-- complexity: medium -->
+
+`sharded` mode detection, new-`init` scaffolds sharded, docs/ADRs/knowledge updates.
+
+### Phase 7: Dogfood migration
+
+<!-- complexity: low -->
+
+Run `harness roadmap shard` on this repo; commit the shards plus the generated
+aggregate.
