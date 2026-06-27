@@ -333,6 +333,104 @@ describe('blob spill', () => {
   });
 });
 
+describe('MAX_LINE_BYTES spill boundary (exact)', () => {
+  const WRITER = 'w-bnd';
+  beforeEach(() => {
+    process.env.HARNESS_EVENT_WRITER_ID = WRITER;
+    __resetWriterIdForTests();
+    resetLocalCountersForTests();
+  });
+  afterEach(() => {
+    delete process.env.HARNESS_EVENT_WRITER_ID;
+  });
+
+  // Replicates emitEvent's exact serialized-line byte computation for a position payload.
+  // Byte length depends only on string LENGTHS (plain ASCII, no escaping), and the ISO
+  // timestamp is always 24 chars, so a fixed placeholder yields the identical byte count.
+  // Key order matches emitEvent: { seq, writerId, timestamp, scope, type, payload }.
+  function lineBytesFor(positionLen: number): number {
+    const obj = {
+      seq: 1,
+      writerId: WRITER,
+      timestamp: '2026-06-26T21:38:03.123Z',
+      scope: {},
+      type: 'position_set',
+      payload: { position: 'a'.repeat(positionLen) },
+    };
+    return Buffer.byteLength(JSON.stringify(obj) + '\n', 'utf-8');
+  }
+
+  // Smallest position length whose serialized line reaches exactly MAX_LINE_BYTES.
+  function findBoundaryLen(): { spillLen: number; inlineLen: number } {
+    let spillLen = 0;
+    while (lineBytesFor(spillLen) < MAX_LINE_BYTES) spillLen++;
+    return { spillLen, inlineLen: spillLen - 1 };
+  }
+
+  it('keeps the line inline when it is exactly one byte under MAX_LINE_BYTES', async () => {
+    const { inlineLen } = findBoundaryLen();
+    expect(lineBytesFor(inlineLen)).toBe(MAX_LINE_BYTES - 1);
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'esbnd-'));
+    try {
+      const r = await emitEvent(d, {
+        type: 'position_set',
+        payload: { position: 'a'.repeat(inlineLen) },
+      });
+      expect(r.ok).toBe(true);
+      const { logPath, blobsDir } = await eventLogPaths(d);
+      const line = fs.readFileSync(logPath, 'utf-8').trim();
+      expect(Buffer.byteLength(line + '\n', 'utf-8')).toBe(MAX_LINE_BYTES - 1);
+      expect(line).not.toContain('$blob'); // inline, no spill
+      expect(fs.existsSync(blobsDir)).toBe(false); // no blob dir created
+    } finally {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('spills when the line is exactly at MAX_LINE_BYTES', async () => {
+    const { spillLen } = findBoundaryLen();
+    expect(lineBytesFor(spillLen)).toBe(MAX_LINE_BYTES);
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'esbnd-'));
+    try {
+      const r = await emitEvent(d, {
+        type: 'position_set',
+        payload: { position: 'a'.repeat(spillLen) },
+      });
+      expect(r.ok).toBe(true);
+      const { logPath, blobsDir } = await eventLogPaths(d);
+      const line = fs.readFileSync(logPath, 'utf-8').trim();
+      expect(line).toContain('$blob'); // spilled
+      expect(Buffer.byteLength(line + '\n', 'utf-8')).toBeLessThan(MAX_LINE_BYTES);
+      expect(fs.readdirSync(blobsDir).length).toBe(1);
+      const loaded = await loadEvents(d);
+      expect(loaded.ok).toBe(true);
+      if (loaded.ok && loaded.value[0]?.type === 'position_set') {
+        expect(loaded.value[0].payload.position).toBe('a'.repeat(spillLen)); // rehydrates exactly
+      } else {
+        throw new Error('expected rehydrated position_set event');
+      }
+    } finally {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('spills when the line is just over MAX_LINE_BYTES', async () => {
+    const { spillLen } = findBoundaryLen();
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'esbnd-'));
+    try {
+      const r = await emitEvent(d, {
+        type: 'position_set',
+        payload: { position: 'a'.repeat(spillLen + 1) },
+      });
+      expect(r.ok).toBe(true);
+      const { logPath } = await eventLogPaths(d);
+      expect(fs.readFileSync(logPath, 'utf-8')).toContain('$blob');
+    } finally {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('INV-2: seq re-derived from live tail, never a stale local max', () => {
   beforeEach(() => {
     process.env.HARNESS_EVENT_WRITER_ID = 'w-inv2';
