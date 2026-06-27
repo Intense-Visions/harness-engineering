@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { projectAudit } from '../../../../src/state/event-sourcing/projections/audit';
+import {
+  projectAudit,
+  formatAuditTimeline,
+} from '../../../../src/state/event-sourcing/projections/audit';
 import type { Event } from '../../../../src/state/event-sourcing/events';
 
 const env = (seq: number) => ({
@@ -114,5 +117,42 @@ describe('projectAudit', () => {
     ];
     const shuffled = [events[2], events[0], events[3], events[1]];
     expect(projectAudit(shuffled)).toEqual(projectAudit(events));
+  });
+});
+
+describe('formatAuditTimeline', () => {
+  it('returns "" for an empty projection', () => {
+    expect(formatAuditTimeline({ entries: [] })).toBe('');
+  });
+
+  it('renders one "- HH:MM [<label>] <text>" line per entry, most-recent-last', () => {
+    const audit = projectAudit([
+      userInput(1, 'hello', 'i1'),
+      approvalRequested(2, 'i1', 'continue?'),
+      approvalResolved(3, 'i1', 'yes'),
+    ]);
+    const lines = formatAuditTimeline(audit).split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/^- \d{2}:\d{2} \[input\] hello$/);
+    expect(lines[1]).toMatch(/^- \d{2}:\d{2} \[approval\?\] continue\?$/);
+    expect(lines[2]).toMatch(/^- \d{2}:\d{2} \[approval=\] yes$/);
+  });
+
+  it('caps output at the limit (most recent entries)', () => {
+    const events: Event[] = [];
+    for (let i = 1; i <= 5; i++) events.push(userInput(i, `m${i}`, 'i1'));
+    const audit = projectAudit(events);
+    const lines = formatAuditTimeline(audit, 2).split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('m4');
+    expect(lines[1]).toContain('m5');
+  });
+
+  it('truncates long text', () => {
+    const long = 'x'.repeat(200);
+    const audit = projectAudit([userInput(1, long, 'i1')]);
+    const line = formatAuditTimeline(audit);
+    expect(line.endsWith('...')).toBe(true);
+    expect(line.length).toBeLessThan(long.length);
   });
 });

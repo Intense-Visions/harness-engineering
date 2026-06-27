@@ -57,3 +57,30 @@ export function projectAudit(events: Event[]): AuditProjection {
   }
   return { entries };
 }
+
+const KIND_LABEL: Record<AuditKind, string> = {
+  user_input_captured: 'input',
+  approval_requested: 'approval?',
+  approval_resolved: 'approval=',
+};
+
+function hhmm(timestamp: string): string {
+  try {
+    const d = new Date(timestamp);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch {
+    return '??:??';
+  }
+}
+
+/** Compact timeline for gather_context, derived from the audit projection (replaces formatEventTimeline). */
+export function formatAuditTimeline(audit: AuditProjection, limit = 20): string {
+  if (audit.entries.length === 0) return '';
+  return audit.entries
+    .slice(-limit)
+    .map((e) => {
+      const text = e.text.length > 80 ? `${e.text.slice(0, 77)}...` : e.text;
+      return `- ${hhmm(e.timestamp)} [${KIND_LABEL[e.kind]}] ${text}`;
+    })
+    .join('\n');
+}
