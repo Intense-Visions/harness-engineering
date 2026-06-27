@@ -119,8 +119,78 @@ describe('selectTasks', () => {
     ).toEqual(['beta']);
   });
 
-  it('never-run task on an impossible cron is not overdue', () => {
-    const impossible = task('feb31', '0 0 31 2 *');
-    expect(selectTasks([impossible], [], { mode: 'overdue', now })).toHaveLength(0);
+  it('selects a sweep-eligible never-run task as overdue even on an impossible cron (rule 1)', () => {
+    // Rule 1: a never-run eligible task is overdue regardless of fire lookup —
+    // here the fire is null (impossible Feb-31 cron) yet the task has never run.
+    // The real-world guard against impossible-cron infra tasks is the
+    // excludeFromHumanSweep flag (asserted below), not the fire-null check.
+    const eligibleImpossible = task('feb31', '0 0 31 2 *');
+    expect(
+      selectTasks([eligibleImpossible], [], { mode: 'overdue', now }).map((t) => t.id)
+    ).toEqual(['feb31']);
+
+    const excludedImpossible = task('feb31x', '0 0 31 2 *', true);
+    expect(selectTasks([excludedImpossible], [], { mode: 'overdue', now })).toHaveLength(0);
+  });
+});
+
+describe('selectTasks — long-cadence schedules (look-back > 31 days)', () => {
+  // now sits mid-period for both cadences so the previous fire is > 31 days back,
+  // which the old 31-day look-back silently resolved to null → never selected.
+  const now = new Date('2026-06-25T05:00:00');
+  const quarterly = task('quarterly', '0 2 1 */3 *'); // 02:00 on the 1st of Jan/Apr/Jul/Oct
+  const annual = task('annual', '0 2 1 1 *'); // 02:00 on Jan 1
+
+  it('quarterly never run → overdue', () => {
+    expect(selectTasks([quarterly], [], { mode: 'overdue', now }).map((t) => t.id)).toEqual([
+      'quarterly',
+    ]);
+  });
+
+  it('quarterly last run before the current period fire → overdue', () => {
+    // Ran during Q1 (Jan 5); the most recent fire is Apr 1 02:00 → not satisfied.
+    const history = [ran('quarterly', '2026-01-05T02:30:00')];
+    expect(selectTasks([quarterly], history, { mode: 'overdue', now }).map((t) => t.id)).toEqual([
+      'quarterly',
+    ]);
+  });
+
+  it('quarterly run within the current period → current (not overdue)', () => {
+    // Ran just after the Apr 1 02:00 fire → satisfied for the current period.
+    const history = [ran('quarterly', '2026-04-01T02:30:00')];
+    expect(selectTasks([quarterly], history, { mode: 'overdue', now })).toHaveLength(0);
+  });
+
+  it('annual never run → overdue', () => {
+    expect(selectTasks([annual], [], { mode: 'overdue', now }).map((t) => t.id)).toEqual([
+      'annual',
+    ]);
+  });
+
+  it('annual last run before this year fire → overdue', () => {
+    // Ran 2025-12-15, before the Jan 1 2026 02:00 fire → not satisfied.
+    const history = [ran('annual', '2025-12-15T02:30:00')];
+    expect(selectTasks([annual], history, { mode: 'overdue', now }).map((t) => t.id)).toEqual([
+      'annual',
+    ]);
+  });
+
+  it('annual run after this year fire → current (not overdue)', () => {
+    const history = [ran('annual', '2026-01-01T03:00:00')];
+    expect(selectTasks([annual], history, { mode: 'overdue', now })).toHaveLength(0);
+  });
+});
+
+describe('previousFireTime — long-cadence resolution', () => {
+  it('resolves a quarterly fire more than 31 days back', () => {
+    // now = 2026-06-25; previous 0 2 1 */3 * fire = Apr 1 02:00 (~85 days back).
+    const fire = previousFireTime('0 2 1 */3 *', new Date('2026-06-25T05:00:00'));
+    expect(fire?.toISOString()).toBe(new Date('2026-04-01T02:00:00').toISOString());
+  });
+
+  it('resolves an annual fire more than 31 days back', () => {
+    // now = 2026-06-25; previous 0 2 1 1 * fire = Jan 1 02:00 (~175 days back).
+    const fire = previousFireTime('0 2 1 1 *', new Date('2026-06-25T05:00:00'));
+    expect(fire?.toISOString()).toBe(new Date('2026-01-01T02:00:00').toISOString());
   });
 });

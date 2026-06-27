@@ -1,21 +1,57 @@
 import type { TaskDefinition, RunResult } from './types';
-import { cronMatchesNow } from './cron-matcher';
+import { cronMatchesNow, cronMatchesDate } from './cron-matcher';
 
-/** Minutes in 31 days — the backward look-back window (mirrors computeNextRun). */
-const LOOKBACK_MINUTES = 44_640;
+/**
+ * Backward look-back window, in days. 366 covers every realistic maintenance
+ * cadence up to annual (`0 2 1 1 *`) plus a leap-year margin: the previous fire
+ * of an annual schedule is at most ~365 days before `now`. Cadences longer than
+ * annual are out of scope — a task that fires less than once a year is treated
+ * as having no fire in the window (and, if never run, is still selected as
+ * overdue by `isOverdue`). The bound is in days, not minutes, because the scan
+ * is hierarchical (see `previousFireTime`).
+ */
+const LOOKBACK_DAYS = 366;
 
 /**
  * Most recent cron fire at/before `now` (minute resolution), or `null` when no
- * fire exists within the 31-day look-back window (e.g. the impossible `0 0 31 2 *`).
- * Reuses `cronMatchesNow`; interprets cron fields in the local-time frame.
- * `now` is injected — never reads the wall clock.
+ * fire exists within the {@link LOOKBACK_DAYS} window (e.g. the impossible
+ * `0 0 31 2 *`, or a cadence longer than annual).
+ *
+ * Coarse-to-fine to stay performant: rather than scanning every minute across
+ * the whole window (527k iterations/task for a year), it steps backward one
+ * calendar day at a time, skipping days whose date can never fire via
+ * `cronMatchesDate`, and only minute-scans a day that is date-eligible. An
+ * impossible cron therefore costs ~366 cheap day checks and zero minute scans.
+ *
+ * Days are walked by calendar component (`new Date(y, m, d - 1)`) so month/year
+ * rollovers and DST day-length changes are handled by the platform. `now` is
+ * injected — this never reads the wall clock.
  */
 export function previousFireTime(schedule: string, now: Date): Date | null {
-  const start = new Date(now);
-  start.setSeconds(0, 0);
-  for (let i = 0; i <= LOOKBACK_MINUTES; i++) {
-    const candidate = new Date(start.getTime() - i * 60_000);
-    if (cronMatchesNow(schedule, candidate)) return candidate;
+  // Local midnight of `now`'s day; the day-level cursor walks backward from here.
+  let day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  for (let d = 0; d <= LOOKBACK_DAYS; d++) {
+    if (cronMatchesDate(schedule, day)) {
+      // Most recent candidate minute on this day: `now` (floored) for today,
+      // else 23:59. Scan downward to local midnight; first match is the fire.
+      const dayStartMs = day.getTime();
+      const scanStart =
+        d === 0
+          ? new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate(),
+              now.getHours(),
+              now.getMinutes()
+            )
+          : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59);
+      for (let ms = scanStart.getTime(); ms >= dayStartMs; ms -= 60_000) {
+        const candidate = new Date(ms);
+        if (cronMatchesNow(schedule, candidate)) return candidate;
+      }
+    }
+    day = new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1);
   }
   return null;
 }
@@ -36,12 +72,19 @@ function isSatisfyingRun(r: RunResult): boolean {
 
 /** True when a sweep-eligible task has no satisfying run since its previous fire. */
 function isOverdue(task: TaskDefinition, history: RunResult[], now: Date): boolean {
+  const satisfyingRuns = history.filter((r) => r.taskId === task.id && isSatisfyingRun(r));
   const fire = previousFireTime(task.schedule, now);
-  if (fire === null) return false; // no computable fire (e.g. impossible cron) → not overdue
+
+  // No computable fire within the look-back window (impossible cron, or a cadence
+  // longer than annual). Under-selection is the invisible failure we must avoid:
+  // a task that has NEVER run satisfyingly is overdue regardless of fire lookup.
+  // A task that HAS run is treated as current (no fire to be late against).
+  // Real impossible-cron infra tasks carry `excludeFromHumanSweep` and never
+  // reach this path — they are filtered out by `selectTasks` first.
+  if (fire === null) return satisfyingRuns.length === 0;
+
   const fireMs = fire.getTime();
-  const satisfied = history.some(
-    (r) => r.taskId === task.id && isSatisfyingRun(r) && new Date(r.completedAt).getTime() >= fireMs
-  );
+  const satisfied = satisfyingRuns.some((r) => new Date(r.completedAt).getTime() >= fireMs);
   return !satisfied; // includes never-run (no matching history)
 }
 

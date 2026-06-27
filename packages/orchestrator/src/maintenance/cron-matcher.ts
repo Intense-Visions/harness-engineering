@@ -100,3 +100,32 @@ export function cronMatchesNow(expression: string, now: Date): boolean {
     daysOfWeek.has(dayOfWeek)
   );
 }
+
+/**
+ * Returns true if the calendar date (day-of-month, month, day-of-week) of `date`
+ * satisfies the cron expression, ignoring the minute/hour fields entirely.
+ *
+ * Used by the overdue scan to cheaply skip whole days that can never fire,
+ * turning a flat minute-by-minute look-back into a coarse-to-fine (day → minute)
+ * scan. Genuinely-impossible date combinations (e.g. `0 0 31 2 *` — Feb 31)
+ * match no real calendar day, so callers stepping over real dates get `false`
+ * for every day and resolve to "no fire".
+ *
+ * @throws {Error} If the expression does not have exactly 5 fields.
+ */
+export function cronMatchesDate(expression: string, date: Date): boolean {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) {
+    throw new Error(`Invalid cron expression: expected 5 fields, got ${fields.length}`);
+  }
+  const [, , domField, monthField, dowField] = fields as [string, string, string, string, string];
+  const daysOfMonth = parseField(domField, 1, 31);
+  const months = parseField(monthField, 1, 12);
+  const daysOfWeek = parseField(dowField, 0, 6);
+
+  return (
+    daysOfMonth.has(date.getDate()) &&
+    months.has(date.getMonth() + 1) &&
+    daysOfWeek.has(date.getDay())
+  );
+}
