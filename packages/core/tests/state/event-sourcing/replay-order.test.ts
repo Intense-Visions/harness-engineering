@@ -23,7 +23,7 @@ describe('SC3 deterministic replay order', () => {
         timestamp: 'z',
         scope: {},
         type: 'position_set',
-        payload: { position: 'c' },
+        payload: { phase: 'c' },
       },
       {
         seq: 1,
@@ -31,7 +31,7 @@ describe('SC3 deterministic replay order', () => {
         timestamp: 'a',
         scope: {},
         type: 'position_set',
-        payload: { position: 'a' },
+        payload: { phase: 'a' },
       },
       {
         seq: 2,
@@ -39,7 +39,7 @@ describe('SC3 deterministic replay order', () => {
         timestamp: 'y',
         scope: {},
         type: 'position_set',
-        payload: { position: 'b1' },
+        payload: { phase: 'b1' },
       },
       {
         seq: 2,
@@ -47,7 +47,7 @@ describe('SC3 deterministic replay order', () => {
         timestamp: 'x',
         scope: {},
         type: 'position_set',
-        payload: { position: 'b2' },
+        payload: { phase: 'b2' },
       },
     ];
     fs.mkdirSync(path.dirname(logPath), { recursive: true });

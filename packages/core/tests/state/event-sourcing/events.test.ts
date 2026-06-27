@@ -19,7 +19,7 @@ describe('EventSchema', () => {
     expect(EventSchema.safeParse(e).success).toBe(true);
   });
   it('validates a position_set event', () => {
-    const e = { ...envelope, type: 'position_set', payload: { position: 'EXECUTE' } };
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'EXECUTE' } };
     expect(EventSchema.safeParse(e).success).toBe(true);
   });
   it('validates a state_imported genesis event', () => {
@@ -44,8 +44,8 @@ describe('phase-2 core-state variants', () => {
     const e = { ...envelope, type: 'position_set', payload: { phase: 'p1', task: 't1' } };
     expect(EventSchema.safeParse(e).success).toBe(true);
   });
-  it('still accepts the legacy position_set { position } payload (DP1 back-compat)', () => {
-    const e = { ...envelope, type: 'position_set', payload: { position: 'P1' } };
+  it('accepts a phase-only position_set payload (DP1: structured { phase, task } only)', () => {
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'P1' } };
     expect(EventSchema.safeParse(e).success).toBe(true);
   });
   it('accepts decision_recorded with optional context', () => {
