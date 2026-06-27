@@ -2,8 +2,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { readHarnessState, emitCoreEvent } from '../../src/shared/state-events';
-import type { HarnessState } from '@harness-engineering/core';
+import {
+  readHarnessState,
+  emitCoreEvent,
+  emitUserInputCaptured,
+  emitApprovalRequested,
+  emitApprovalResolved,
+  readAuditTimeline,
+} from '../../src/shared/state-events';
+import { eventSourcing, type HarnessState } from '@harness-engineering/core';
 
 let proj: string;
 beforeEach(() => {
@@ -58,6 +65,29 @@ describe('readHarnessState / emitCoreEvent facade', () => {
     // The new decision carries the emitted context.
     const fresh = after.value.decisions.find((d) => d.decision === 'fresh decision');
     expect(fresh?.context).toBe('harness-execution');
+  });
+
+  it('(d) audit emit helpers append events recoverable via projectAudit + readAuditTimeline', async () => {
+    expect(await readAuditTimeline(proj)).toBe(''); // empty log → empty timeline
+
+    await emitUserInputCaptured(proj, 'go ahead', 'i1');
+    await emitApprovalRequested(proj, 'i1', 'confirmation', 'continue?');
+    await emitApprovalResolved(proj, 'i1', 'yes');
+
+    const loaded = await eventSourcing.loadEvents(proj);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const audit = eventSourcing.projectAudit(loaded.value);
+    expect(audit.entries.map((e) => e.kind)).toEqual([
+      'user_input_captured',
+      'approval_requested',
+      'approval_resolved',
+    ]);
+    expect(audit.entries.map((e) => e.text)).toEqual(['go ahead', 'continue?', 'yes']);
+
+    const timeline = await readAuditTimeline(proj);
+    expect(timeline).not.toBe('');
+    expect(timeline.split('\n')).toHaveLength(3);
   });
 
   it('(c) returns the Result shape callers expect (ok + value)', async () => {

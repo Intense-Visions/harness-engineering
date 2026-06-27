@@ -9,7 +9,8 @@
 // log, NOT this store), so we destructure them from that namespace.
 import { eventSourcing, Ok, type HarnessState, type Result } from '@harness-engineering/core';
 
-const { importLegacyState, readSnapshot, toHarnessState, emitEvent } = eventSourcing;
+const { importLegacyState, readSnapshot, toHarnessState, emitEvent, formatAuditTimeline } =
+  eventSourcing;
 
 interface Scope {
   stream?: string | undefined;
@@ -51,4 +52,61 @@ export async function emitCoreEvent(
 ): Promise<Result<eventSourcing.EmitResult, Error>> {
   await importLegacyState(projectPath, scope); // capture legacy state before the first append
   return emitEvent(projectPath, event, scope);
+}
+
+// --- Phase 5: audit-trail emit + read helpers (subsumes #580) ---
+// These ride the same authoritative log as core-state; the audit subdocument is folded
+// additively by projectAudit. emitCoreEvent's genesis-import-then-append keeps legacy state intact.
+
+/** Append a verbatim user_input_captured audit event. */
+export async function emitUserInputCaptured(
+  projectPath: string,
+  text: string,
+  interactionId?: string,
+  scope?: Scope
+): Promise<Result<eventSourcing.EmitResult, Error>> {
+  const payload: eventSourcing.EventInput['payload'] = interactionId
+    ? { text, interactionId }
+    : { text };
+  return emitCoreEvent(
+    projectPath,
+    { type: 'user_input_captured', payload } as eventSourcing.EventInput,
+    scope
+  );
+}
+
+/** Append an approval_requested audit event carrying the verbatim prompt. */
+export async function emitApprovalRequested(
+  projectPath: string,
+  interactionId: string,
+  kind: string,
+  prompt: string,
+  scope?: Scope
+): Promise<Result<eventSourcing.EmitResult, Error>> {
+  return emitCoreEvent(
+    projectPath,
+    { type: 'approval_requested', payload: { interactionId, kind, prompt } },
+    scope
+  );
+}
+
+/** Append an approval_resolved audit event carrying the verbatim response. */
+export async function emitApprovalResolved(
+  projectPath: string,
+  interactionId: string,
+  response: string,
+  scope?: Scope
+): Promise<Result<eventSourcing.EmitResult, Error>> {
+  return emitCoreEvent(
+    projectPath,
+    { type: 'approval_resolved', payload: { interactionId, response } },
+    scope
+  );
+}
+
+/** Render the observability timeline from the audit projection (replaces formatEventTimeline). */
+export async function readAuditTimeline(projectPath: string, scope?: Scope): Promise<string> {
+  const snap = await readSnapshot(projectPath, scope);
+  if (!snap.ok) return '';
+  return formatAuditTimeline(snap.value.audit);
 }
