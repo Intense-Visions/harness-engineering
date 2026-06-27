@@ -329,11 +329,11 @@ function claimRefusedResponse(
   };
 }
 
-function handleUpdate(
+async function handleUpdate(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok } = deps;
 
   if (!input.feature) {
@@ -397,7 +397,7 @@ function handleUpdate(
 
   // Cascade: when this update marks a feature done (or otherwise resolves a
   // blocker), flip dependents from blocked → planned in the same write.
-  const cascade = syncRoadmap({ projectPath, roadmap });
+  const cascade = await syncRoadmap({ projectPath, roadmap });
   if (cascade.ok && cascade.value.length > 0) {
     applySyncChanges(roadmap, cascade.value);
   }
@@ -565,11 +565,11 @@ function handleQuery(
   return resultToMcpResponse(Ok(filtered));
 }
 
-function handleSync(
+async function handleSync(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   const { parseRoadmap, serializeRoadmap, syncRoadmap, Ok } = deps;
 
   const raw = readRoadmapFile(projectPath);
@@ -579,7 +579,7 @@ function handleSync(
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
-  const syncResult = syncRoadmap({
+  const syncResult = await syncRoadmap({
     projectPath,
     roadmap,
     forceSync: input.force_sync ?? false,
@@ -639,12 +639,12 @@ function handleGroom(
 
 const readOnlyActions = new Set(['show', 'query']);
 
-function dispatchAction(
+async function dispatchAction(
   action: ManageRoadmapInput['action'],
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   switch (action) {
     case 'show':
       return handleShow(projectPath, input, deps);
@@ -733,7 +733,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       groomRoadmap,
       Ok,
     };
-    const response = dispatchAction(input.action, projectPath, input, deps);
+    const response = await dispatchAction(input.action, projectPath, input, deps);
 
     if (shouldTriggerExternalSync(input, response)) {
       await triggerExternalSync(projectPath, roadmapPath(projectPath)).catch(() => {});
