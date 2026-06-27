@@ -35,7 +35,7 @@ Read `references/interview.md` for the SMART pushback rules and the READ-WRITE-D
    - If `name` is non-null, confirm it as the product name; otherwise prompt.
    - For each `keyMetric`, walk it through the SMART bar in step 4.
 
-2. **Pick the lookback default.** Use `emit_interaction` (type: `question`) when in MCP mode; otherwise present numbered options in chat: `["24h", "7d", "30d", "custom"]`. Default `24h` per spec.
+2. **Pick the lookback default.** Ask in plain text — present numbered options `["24h", "7d", "30d", "custom"]` and wait (do NOT use `emit_interaction`/`AskUserQuestion`; the human won't see it — it renders only to the model and the client collapses the call to "Called harness"). Default `24h` per spec.
 
 3. **Identify the primary engagement event** (e.g. `session_started`). Apply the SMART bar. If the user can't name one, set `null` and add a pending entry. Record the event name in `primaryEvent`.
 

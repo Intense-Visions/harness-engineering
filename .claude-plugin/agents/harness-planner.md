@@ -120,44 +120,21 @@ Store the parsed skill list for use in Phase 2 task annotation.
 
    **Read-only constraint:** Steps 1-6 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
 
-   When scope is ambiguous, use `emit_interaction`:
+   When scope is ambiguous, ask in plain text in your reply. **Do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the prompt but does not display it to the human — the client collapses the call to "Called harness" and the rendered text only returns to the model. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "question",
-     question: {
-       text: "The spec mentions X but does not define behavior for Y. Should we:",
-       options: [
-         {
-           label: "A) Include Y in this plan",
-           pros: ["Complete feature in one pass", "No follow-up coordination"],
-           cons: ["Increases scope and time", "May delay delivery"],
-           risk: "medium",
-           effort: "high"
-         },
-         {
-           label: "B) Defer Y to a follow-up plan",
-           pros: ["Keeps current plan focused", "Ship sooner"],
-           cons: ["Y remains unhandled", "May need rework when Y is added"],
-           risk: "low",
-           effort: "low"
-         },
-         {
-           label: "C) Update the spec first",
-           pros: ["Design is complete before planning", "No surprises during execution"],
-           cons: ["Blocks planning until spec is updated", "Extra round-trip"],
-           risk: "low",
-           effort: "medium"
-         }
-       ],
-       recommendation: {
-         optionIndex: 1,
-         reason: "Keeping the current plan focused reduces risk. Y can be addressed in a follow-up.",
-         confidence: "medium"
-       }
-     }
-   })
+   Present the choice as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
+
+   ```markdown
+   ### Decision needed: The spec mentions X but does not define behavior for Y. Should we:
+
+   |            | A) Include Y in this plan                               | B) Defer Y to a follow-up plan                       | C) Update the spec first                                          |
+   | ---------- | ------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------- |
+   | **Pros**   | Complete feature in one pass; no follow-up coordination | Keeps current plan focused; ship sooner              | Design is complete before planning; no surprises during execution |
+   | **Cons**   | Increases scope and time; may delay delivery            | Y remains unhandled; may need rework when Y is added | Blocks planning until spec is updated; extra round-trip           |
+   | **Risk**   | Medium                                                  | Low                                                  | Low                                                               |
+   | **Effort** | High                                                    | Low                                                  | Medium                                                            |
+
+   **Recommendation:** B) Defer Y to a follow-up plan (confidence: medium) — keeping the current plan focused reduces risk; Y can be addressed in a follow-up.
    ```
 
 #### EARS Requirement Patterns
@@ -248,7 +225,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    **Estimated total:** 8 tasks, ~33 minutes
    ```
 
-   **Approval gate:** Present via `emit_interaction` (type: `confirmation`, text: "Approve skeleton direction?"). If approved, proceed to step 3. If rejected, revise and re-present.
+   **Approval gate:** Ask in plain text in your reply — do NOT route this through `emit_interaction` or `AskUserQuestion` (they do not display to the human; `emit_interaction` collapses to "Called harness" and `AskUserQuestion` is Claude-Code-only). Ask directly: "Approve skeleton direction?" and wait. If approved, proceed to step 3. If rejected, revise and re-present.
 
 3. **Decompose into atomic tasks.** Each task must:
    - Be completable in 2-5 minutes, fit in a single context window
@@ -338,7 +315,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 
 10. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
 
-11. **Request plan sign-off:** Use `emit_interaction` (type: `confirmation`) with plan path, task count, and time estimate.
+11. **Request plan sign-off in plain text.** Ask directly in your reply — do NOT route this through `emit_interaction` or `AskUserQuestion` (the human will not see it; `emit_interaction` collapses to "Called harness" and `AskUserQuestion` is Claude-Code-only). Present the plan path, task count, and time estimate, then ask: "Proceed? (yes/no)" and wait for the reply.
 
 12. **Suggest transition to execution.** After approval, call `emit_interaction` with type: `transition`, `completedPhase: "planning"`, `suggestedNext: "execution"`, `requiresConfirmation: true`. Include `qualityGate` with checks: plan-written, harness-validate, observable-truths-traced, human-approved. If confirmed: invoke harness-execution. If declined: stop (handoff already written).
 

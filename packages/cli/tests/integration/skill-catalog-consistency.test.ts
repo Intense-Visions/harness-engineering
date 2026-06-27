@@ -31,15 +31,16 @@
 //     prevents the old wording from sneaking back via a careless edit or
 //     a merge from an old branch.
 //
-// (d) `Not sure yet` outside `emit_interaction` button labels fails
+// (d) `Not sure yet` outside an explicit option label fails
 //     REGRESSION GUARDED: init-design-roadmap-polish FINAL-S2 normalized
 //     narrative copy to lowercase `not sure` (no "yet", no hyphen), but
-//     the literal "Not sure yet" survives as a verbatim button-label
-//     string inside `emit_interaction` options (carries the
-//     "you-can-decide-later" UX affordance). Per D5, this assert tightens
-//     the window so any non-button "Not sure yet" — narrative prose,
-//     headings, table cells — fails the suite. Without this guard, the
-//     vocabulary drift FINAL-S2 closed would re-open on the next edit.
+//     the literal "Not sure yet" survives as a verbatim option-label string
+//     (carries the "you-can-decide-later" UX affordance). Since user-facing
+//     asks moved to plain text, the option label is a markdown table cell
+//     (`C) Not sure yet`) rather than an `emit_interaction` JSON `label:`;
+//     the assert accepts either option-label form. Any "Not sure yet" in
+//     narrative prose or headings still fails the suite. Without this guard,
+//     the vocabulary drift FINAL-S2 closed would re-open on the next edit.
 //
 // (e) hyphenated `not-sure` appears nowhere in user-facing copy
 //     REGRESSION GUARDED: the hyphenated form reads as an identifier
@@ -115,12 +116,17 @@ describe('skill catalog ↔ SKILL.md consistency (spec #15)', () => {
     expect(md).not.toMatch(/created via manage_roadmap/);
   });
 
-  it('forbids "Not sure yet" outside emit_interaction button labels', () => {
+  it('forbids "Not sure yet" outside an explicit option label', () => {
+    // User-facing asks are now plain text (not emit_interaction) — the
+    // "you-can-decide-later" affordance survives as an option label rendered
+    // as a markdown table cell (`C) Not sure yet`) rather than a JSON
+    // `label: "Not sure yet"`. Either form is an explicit option label;
+    // narrative prose must still use lowercase `not sure` (assert intent d).
     const skillMd = fs.readFileSync(SKILL_MD, 'utf-8');
     const occurrences = [...skillMd.matchAll(/Not sure yet/g)];
     for (const m of occurrences) {
       const window = skillMd.slice(Math.max(0, m.index! - 32), m.index! + 16);
-      expect(window).toMatch(/label:\s*["']Not sure yet/);
+      expect(window).toMatch(/(?:label:\s*["']|[A-Z]\)\s*)Not sure yet/);
     }
   });
 
