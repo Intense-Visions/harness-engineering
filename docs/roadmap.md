@@ -504,7 +504,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#663
 
 ### Auto-wire standalone drift and audit pipelines on PRs
 
@@ -515,7 +515,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#664
 
 ## Craft Pipeline
 
