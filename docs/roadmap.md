@@ -39,7 +39,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Make protect-config fail-closed in ambiguous cases
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/protect-config-fail-closed/proposal.md
 - **Summary:** `packages/cli/src/hooks/protect-config.js:36,41,49` — three branches currently fail-open (parse error → allow, empty stdin → allow, missing `file_path` → allow). The security-flavored hook that protects config silently yields whenever its input is malformed. Change to fail-closed with a clear error message. Defense-in-depth. Source: Pass 5 #2.
 - **Blockers:** —
