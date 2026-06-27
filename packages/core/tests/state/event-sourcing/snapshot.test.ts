@@ -18,6 +18,7 @@ import {
 } from '../../../src/state/event-sourcing/log';
 import { __resetWriterIdForTests } from '../../../src/state/event-sourcing/writer-id';
 import { projectCoreState } from '../../../src/state/event-sourcing/projections/core-state';
+import { projectLanes } from '../../../src/state/event-sourcing/projections/lanes';
 import { SNAPSHOT_FILE } from '../../../src/state/event-sourcing/constants';
 
 let dir: string;
@@ -51,7 +52,8 @@ describe('reduce', () => {
     const snap = reduce(events);
     expect(snap.schemaVersion).toBe(2);
     expect(snap.coreState).toEqual(projectCoreState(events));
-    expect(snap.lanes).toEqual({});
+    // Phase 4: lanes is now the real (empty-for-core-state-only) projection.
+    expect(snap.lanes).toEqual({ tasks: {} });
     expect(snap.audit).toEqual({});
     expect(snap.meta.lastSeq).toBe(Math.max(...events.map((e) => e.seq)));
   });
@@ -60,6 +62,22 @@ describe('reduce', () => {
     const snap = reduce([]);
     expect(snap.meta.lastSeq).toBe(0);
     expect(snap.coreState).toEqual({ position: {}, decisions: [], blockers: [], progress: {} });
+  });
+
+  it('materializes lanes via projectLanes (additive — coreState unchanged)', async () => {
+    await seedEvents();
+    await emitEvent(dir, { type: 'task_registered', payload: { taskId: 't1', dependsOn: [] } });
+    await emitEvent(dir, {
+      type: 'lane_transitioned',
+      payload: { taskId: 't1', from: 'planned', to: 'claimed' },
+    });
+    const events = await unwrap(loadEvents(dir));
+    const snap = reduce(events);
+    // lanes equals the standalone projection...
+    expect(snap.lanes).toEqual(projectLanes(events));
+    expect((snap.lanes as ReturnType<typeof projectLanes>).tasks.t1.lane).toBe('claimed');
+    // ...and coreState is byte-identical to the pre-Phase-4 behavior.
+    expect(snap.coreState).toEqual(projectCoreState(events));
   });
 });
 

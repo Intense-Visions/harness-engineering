@@ -9,15 +9,10 @@ import type { Event } from './events';
 // directly from the sibling ./log to resolve the on-disk log + state dir.
 import { eventLogPaths, loadEvents, readTailSeq, type EventLogOptions } from './log';
 import { projectCoreState, type CoreStateProjection } from './projections/core-state';
-
-/**
- * Lane-machine projection. Empty placeholder in Phase 2 — Phase 4 extends this
- * additively (forced-transition lanes, dependency guards) without reshaping the
- * Snapshot envelope.
- */
-// DP2: intentional empty placeholder; Phase 4 adds lane-machine fields by extending this.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface LanesProjection {}
+// Phase 4: lanes is now a real projection (per-task lane + history), folded by
+// projectLanes. Re-exported so the existing barrel surface keeps working.
+import { projectLanes, type LanesProjection } from './projections/lanes';
+export type { LanesProjection };
 
 /**
  * Append-only audit projection. Empty placeholder in Phase 2 — Phase 5 extends
@@ -50,8 +45,8 @@ export function reduce(events: Event[]): Snapshot {
   return {
     schemaVersion: 2,
     coreState: projectCoreState(events),
-    lanes: {}, // Phase 4 / Phase 5: extended additively
-    audit: {},
+    lanes: projectLanes(events), // Phase 4 — lane machine
+    audit: {}, // Phase 5: extended additively
     meta: { lastSeq: events.reduce((m, e) => Math.max(m, e.seq), 0) },
   };
 }
