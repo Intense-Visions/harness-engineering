@@ -99,7 +99,7 @@ export function serializeFeature(feature: RoadmapFeature): string[] {
   return lines;
 }
 
-function serializeAssignmentHistory(records: AssignmentRecord[]): string[] {
+export function serializeAssignmentHistory(records: AssignmentRecord[]): string[] {
   const lines = [
     '## Assignment History',
     '| Feature | Assignee | Action | Date |',

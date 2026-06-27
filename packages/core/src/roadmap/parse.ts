@@ -235,7 +235,7 @@ export function parseFeatureBlock(name: string, body: string): Result<RoadmapFea
   });
 }
 
-function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
+export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
   const historyMatch = body.match(/^## Assignment History\s*\n/m);
   if (!historyMatch || historyMatch.index === undefined) return Ok([]);
 
