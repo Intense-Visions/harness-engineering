@@ -140,26 +140,9 @@ export { archiveSession } from './session-archive';
 export type { ArchiveHooks, ArchiveSessionOptions } from './session-archive';
 
 /**
- * Structured event log for skill lifecycle moments.
- */
-export {
-  emitEvent,
-  loadEvents,
-  formatEventTimeline,
-  SkillEventSchema,
-  clearEventHashCache,
-} from './events';
-export type {
-  SkillEvent,
-  EventType,
-  EmitEventInput,
-  EmitEventOptions,
-  EmitEventResult,
-  LoadEventsOptions,
-} from './events';
-
-/**
- * Event-sourced state log (Phase 1: log core). Namespaced to avoid colliding with the
- * legacy `events.ts` emitEvent/loadEvents until the legacy log is retired (Phase 5).
+ * Event-sourced state log. The authoritative append-only log + materialized snapshot
+ * (core-state, lanes, and the Phase 5 audit trail). This subsumes the retired legacy
+ * `events.ts` skill-event log; the namespace no longer collides with anything, and the
+ * skill-lifecycle telemetry stream now lives CLI-side (metrics/skill-events.jsonl, #580 D5).
  */
 export * as eventSourcing from './event-sourcing';

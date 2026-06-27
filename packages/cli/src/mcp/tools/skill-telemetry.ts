@@ -12,7 +12,28 @@
  */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EmitEventInput } from '@harness-engineering/core';
+
+/** Skill-lifecycle event types (self-contained; formerly core's EventType). */
+export type SkillEventType =
+  | 'phase_transition'
+  | 'decision'
+  | 'gate_result'
+  | 'handoff'
+  | 'error'
+  | 'checkpoint';
+
+/**
+ * Caller-supplied skill-telemetry record (self-contained; formerly core's EmitEventInput).
+ * `timestamp` is stamped on write.
+ */
+export interface SkillEventInput {
+  skill: string;
+  session?: string;
+  type: SkillEventType;
+  summary: string;
+  data?: Record<string, unknown>;
+  refs?: string[];
+}
 
 /** Relative path (under the project root) of the relocated skill-telemetry log. */
 export const SKILL_EVENTS_FILE = join('.harness', 'metrics', 'skill-events.jsonl');
@@ -21,7 +42,7 @@ export const SKILL_EVENTS_FILE = join('.harness', 'metrics', 'skill-events.jsonl
  * Emit a skill lifecycle event. Errors are silently swallowed — telemetry must never
  * interfere with tool execution. Appends one timestamped JSONL line (crash-safe append).
  */
-export async function emitSkillEvent(projectPath: string, event: EmitEventInput): Promise<void> {
+export async function emitSkillEvent(projectPath: string, event: SkillEventInput): Promise<void> {
   try {
     const metricsDir = join(projectPath, '.harness', 'metrics');
     mkdirSync(metricsDir, { recursive: true });
