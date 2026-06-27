@@ -194,3 +194,37 @@ describe('blob spill', () => {
     expect(fs.existsSync(path.join(blobsDir, `${hash}.json`))).toBe(true);
   });
 });
+
+describe('INV-2: seq re-derived from live tail, never a stale local max', () => {
+  beforeEach(() => {
+    process.env.HARNESS_EVENT_WRITER_ID = 'w-inv2';
+    __resetWriterIdForTests();
+    resetLocalCountersForTests();
+  });
+  afterEach(() => {
+    delete process.env.HARNESS_EVENT_WRITER_ID;
+  });
+
+  it('jumps ahead of an externally-bumped tail rather than reusing a cached max', async () => {
+    const first = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    expect(first.ok && first.value.seq).toBe(1);
+
+    // Simulate a *different* writer appending a higher seq directly to the live log.
+    const { logPath } = await eventLogPaths(dir);
+    fs.appendFileSync(
+      logPath,
+      JSON.stringify({
+        seq: 50,
+        writerId: 'other',
+        timestamp: 't',
+        scope: {},
+        type: 'position_set',
+        payload: { position: 'Z' },
+      }) + '\n'
+    );
+
+    // Our next append must read the live tail (50) and emit 51, NOT 2 from a cached max.
+    const next = await emitEvent(dir, { type: 'position_set', payload: { position: 'B' } });
+    expect(next.ok && next.value.seq).toBe(51);
+  });
+});
