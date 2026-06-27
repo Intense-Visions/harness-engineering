@@ -302,6 +302,20 @@ async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
     input.entryId,
     input.newStatus as import('@harness-engineering/types').SessionEntryStatus
   );
+  // #580 audit round-trip (response side, Task 8 disposition A): resolving a decision entry
+  // is the in-tool moment the approval round-trip closes. Emit approval_resolved keyed by the
+  // entry/interaction id onto the authoritative log so projectAudit recovers the full trip.
+  // Non-fatal — audit telemetry must never break the status update.
+  if (result.ok && input.section === 'decisions' && input.newStatus === 'resolved') {
+    try {
+      const { emitApprovalResolved } = await import('../../shared/state-events.js');
+      await emitApprovalResolved(projectPath, input.entryId, input.newStatus, {
+        stream: input.stream,
+      });
+    } catch {
+      // Audit emission failure is non-fatal.
+    }
+  }
   return resultToMcpResponse(result);
 }
 

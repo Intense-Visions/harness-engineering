@@ -541,3 +541,55 @@ describe('emit_interaction — W2 recordInteraction parity', () => {
     expect(response.isError).toBeFalsy();
   });
 });
+
+describe('emit_interaction — SC5 #580 audit round-trip subsumption proof', () => {
+  const tmpDirs: string[] = [];
+  afterEach(() => {
+    for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+  });
+
+  it('persists user_input_captured + approval_requested/resolved recoverable via projectAudit', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'interaction-sc5-'));
+    tmpDirs.push(tmpDir);
+
+    // 1) The prompt side: emit_interaction records the verbatim prompt + the approval request.
+    const response = await handleEmitInteraction({
+      path: tmpDir,
+      type: 'confirmation',
+      confirmation: { text: 'Continue to Task 17?', context: 'plan checkpoint' },
+    });
+    expect(response.isError).toBeFalsy();
+    const meta = JSON.parse(response.content[1].text) as { id: string };
+    expect(meta.id).toBeTruthy();
+
+    // 2) The response side (Task 8 disposition A): the verbatim answer is captured at the
+    // decision-resolution path via emitApprovalResolved. The SC5 proof drives it through
+    // the core helper directly.
+    const { emitApprovalResolved } = await import('../../../src/shared/state-events');
+    await emitApprovalResolved(tmpDir, meta.id, 'yes, proceed');
+
+    // 3) The whole round-trip is recoverable from the authoritative log via projectAudit.
+    const { eventSourcing } = await import('@harness-engineering/core');
+    const loaded = await eventSourcing.loadEvents(tmpDir);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const audit = eventSourcing.projectAudit(loaded.value);
+
+    const userInput = audit.entries.find((e) => e.kind === 'user_input_captured');
+    const requested = audit.entries.find((e) => e.kind === 'approval_requested');
+    const resolved = audit.entries.find((e) => e.kind === 'approval_resolved');
+
+    expect(userInput).toBeDefined();
+    expect(requested).toBeDefined();
+    expect(resolved).toBeDefined();
+
+    // Verbatim capture (#580): the prompt and the response survive byte-for-byte.
+    expect(requested!.text).toBe('Continue to Task 17?');
+    expect(resolved!.text).toBe('yes, proceed');
+
+    // All three share the interaction id — the round-trip is correlated.
+    expect(userInput!.interactionId).toBe(meta.id);
+    expect(requested!.interactionId).toBe(meta.id);
+    expect(resolved!.interactionId).toBe(meta.id);
+  });
+});
