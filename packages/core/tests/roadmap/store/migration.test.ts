@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roadmapToShards } from '../../../src/roadmap/store/migration';
+import { roadmapToShards, assertSemanticRoundTrip } from '../../../src/roadmap/store/migration';
 import { MIGRATION_ROADMAP } from './fixtures';
 
 describe('roadmapToShards()', () => {
@@ -50,5 +50,24 @@ describe('roadmapToShards()', () => {
     expect(meta.frontmatter).toBe(MIGRATION_ROADMAP.frontmatter);
     expect(meta.milestones).toEqual(MIGRATION_ROADMAP.milestones.map((m) => m.name));
     expect(meta.assignmentHistory).toEqual(MIGRATION_ROADMAP.assignmentHistory);
+  });
+});
+
+describe('assertSemanticRoundTrip()', () => {
+  it('passes for shards/meta derived from the same roadmap (history + order + collisions)', () => {
+    const { shards, meta } = roadmapToShards(MIGRATION_ROADMAP);
+    const r = assertSemanticRoundTrip(MIGRATION_ROADMAP, shards, meta);
+    expect(r.ok).toBe(true);
+  });
+
+  it('returns Err (never greenlights) when a shard is corrupted vs the original', () => {
+    const { shards, meta } = roadmapToShards(MIGRATION_ROADMAP);
+    // Corrupt one shard's feature status so regen no longer matches the original.
+    const corrupted = shards.map((s, i) =>
+      i === 0 ? { ...s, feature: { ...s.feature, status: 'done' as const } } : s
+    );
+    const r = assertSemanticRoundTrip(MIGRATION_ROADMAP, corrupted, meta);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/round-trip|deep-equal|abort/i);
   });
 });

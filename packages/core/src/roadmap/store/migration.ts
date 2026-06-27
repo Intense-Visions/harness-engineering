@@ -1,5 +1,10 @@
-import type { Roadmap } from '@harness-engineering/types';
+import { isDeepStrictEqual } from 'node:util';
+import type { Roadmap, Result } from '@harness-engineering/types';
+import { Ok, Err } from '@harness-engineering/types';
 import { slugifyFeatureName } from './monolith-store';
+import { assembleRoadmap } from './assembler';
+import { serializeRoadmap } from '../serialize';
+import { parseRoadmap } from '../parse';
 import type { Shard, RoadmapMeta } from './roadmap-store';
 
 /**
@@ -40,4 +45,44 @@ export function roadmapToShards(roadmap: Roadmap): { shards: Shard[]; meta: Road
     assignmentHistory: roadmap.assignmentHistory ?? [],
   };
   return { shards, meta };
+}
+
+/**
+ * The load-bearing safety check for the `shard` migration: assert that the
+ * shards+meta faithfully reproduce the original roadmap before any destructive
+ * write. Compares CANONICAL parsed forms — `parse(serialize(original))` vs
+ * `parse(serialize(assemble(shards, meta)))` — via `node:util.isDeepStrictEqual`
+ * to honor the spec's "deep-equals". Canonicalizing the original neutralizes the
+ * serializer's documented prose/comment lossiness, so the comparison reflects
+ * exactly what the shard store can represent. Returns `Err` (never throws) so
+ * callers can abort cleanly and leave the monolith untouched.
+ */
+export function assertSemanticRoundTrip(
+  original: Roadmap,
+  shards: Shard[],
+  meta: RoadmapMeta
+): Result<void> {
+  const regenMd = serializeRoadmap(assembleRoadmap(shards, meta));
+  const regenParsed = parseRoadmap(regenMd);
+  if (!regenParsed.ok)
+    return Err(
+      new Error(`round-trip: regenerated roadmap failed to parse: ${regenParsed.error.message}`)
+    );
+
+  const originalCanonical = parseRoadmap(serializeRoadmap(original));
+  if (!originalCanonical.ok)
+    return Err(
+      new Error(
+        `round-trip: original roadmap failed to canonicalize: ${originalCanonical.error.message}`
+      )
+    );
+
+  if (!isDeepStrictEqual(originalCanonical.value, regenParsed.value)) {
+    return Err(
+      new Error(
+        'round-trip: parse(original) does not deep-equal parse(regenerate(shards)); aborting to protect the monolith'
+      )
+    );
+  }
+  return Ok(undefined);
 }
