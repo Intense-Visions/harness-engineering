@@ -31,8 +31,79 @@ describe('EventSchema', () => {
     expect(EventSchema.safeParse(e).success).toBe(false);
   });
   it('rejects a payload mismatched to its type', () => {
-    const e = { ...envelope, type: 'position_set', payload: { id: 'd1', text: 'x' } };
+    // decision_recorded requires id+text; a position-shaped payload is missing both.
+    // (position_set itself is now an all-optional superset per DP1, so it can no longer
+    // serve as the "mismatch" case — see the phase-2 variants block for its back-compat.)
+    const e = { ...envelope, type: 'decision_recorded', payload: { position: 'EXECUTE' } };
     expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+});
+
+describe('phase-2 core-state variants', () => {
+  it('accepts position_set with the superset { phase, task } payload', () => {
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'p1', task: 't1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('still accepts the legacy position_set { position } payload (DP1 back-compat)', () => {
+    const e = { ...envelope, type: 'position_set', payload: { position: 'P1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts decision_recorded with optional context', () => {
+    const e = {
+      ...envelope,
+      type: 'decision_recorded',
+      payload: { id: 'd1', text: 'x', context: 'c' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('still accepts decision_recorded without context (legacy)', () => {
+    const e = { ...envelope, type: 'decision_recorded', payload: { id: 'd1', text: 'x' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts blocker_opened with a description', () => {
+    const e = { ...envelope, type: 'blocker_opened', payload: { id: 'b1', description: 'desc' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects blocker_opened missing a description', () => {
+    const e = { ...envelope, type: 'blocker_opened', payload: { id: 'b1' } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts blocker_resolved with just an id', () => {
+    const e = { ...envelope, type: 'blocker_resolved', payload: { id: 'b1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts progress_set with a valid status', () => {
+    const e = { ...envelope, type: 'progress_set', payload: { task: 't1', status: 'in_progress' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects progress_set with a bogus status', () => {
+    const e = { ...envelope, type: 'progress_set', payload: { task: 't1', status: 'bogus' } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts session_summarized with full fields', () => {
+    const e = {
+      ...envelope,
+      type: 'session_summarized',
+      payload: { summary: 's', lastSkill: 'k', pendingTasks: ['a'] },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts session_summarized with only a summary', () => {
+    const e = { ...envelope, type: 'session_summarized', payload: { summary: 's' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+
+  // StoredEventSchema must also recognize the new types on-disk.
+  it('StoredEventSchema accepts the new stored types', () => {
+    for (const type of [
+      'blocker_opened',
+      'blocker_resolved',
+      'progress_set',
+      'session_summarized',
+    ]) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
   });
 });
 

@@ -17,10 +17,33 @@ const envelopeShape = {
   scope: ScopeSchema,
 };
 
-// --- Phase 1 minimal payload catalog (extended in later phases) ---
+// --- Payload catalog (Phase 1 + Phase 2 core-state variants) ---
 const StateImportedPayload = z.object({ legacyState: z.unknown() });
-const DecisionRecordedPayload = z.object({ id: z.string(), text: z.string() });
-const PositionSetPayload = z.object({ position: z.string() });
+const DecisionRecordedPayload = z.object({
+  id: z.string(),
+  text: z.string(),
+  context: z.string().optional(),
+});
+// DP1: superset payload keeps the legacy { position } valid while adding the
+// structured { phase, task } the projection actually reads. The vestigial
+// `position` string is dropped in Phase 3 once the generic fixtures are reauthored.
+const PositionSetPayload = z.object({
+  phase: z.string().optional(),
+  task: z.string().optional(),
+  position: z.string().optional(),
+});
+const BlockerOpenedPayload = z.object({ id: z.string(), description: z.string() });
+const BlockerResolvedPayload = z.object({ id: z.string() });
+const ProgressSetPayload = z.object({
+  task: z.string(),
+  status: z.enum(['pending', 'in_progress', 'complete']),
+});
+const SessionSummarizedPayload = z.object({
+  date: z.string().optional(),
+  summary: z.string(),
+  lastSkill: z.string().optional(),
+  pendingTasks: z.array(z.string()).optional(),
+});
 
 /** Strict in-memory event union (payload fully present). */
 export const EventSchema = z.discriminatedUnion('type', [
@@ -35,6 +58,18 @@ export const EventSchema = z.discriminatedUnion('type', [
     payload: DecisionRecordedPayload,
   }),
   z.object({ ...envelopeShape, type: z.literal('position_set'), payload: PositionSetPayload }),
+  z.object({ ...envelopeShape, type: z.literal('blocker_opened'), payload: BlockerOpenedPayload }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('blocker_resolved'),
+    payload: BlockerResolvedPayload,
+  }),
+  z.object({ ...envelopeShape, type: z.literal('progress_set'), payload: ProgressSetPayload }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('session_summarized'),
+    payload: SessionSummarizedPayload,
+  }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 export type EventType = Event['type'];
@@ -50,7 +85,15 @@ export type BlobRef = z.infer<typeof BlobRefSchema>;
  */
 export const StoredEventSchema = z.object({
   ...envelopeShape,
-  type: z.enum(['state_imported', 'decision_recorded', 'position_set']),
+  type: z.enum([
+    'state_imported',
+    'decision_recorded',
+    'position_set',
+    'blocker_opened',
+    'blocker_resolved',
+    'progress_set',
+    'session_summarized',
+  ]),
   payload: z.union([z.record(z.unknown()), BlobRefSchema]),
 });
 export type StoredEvent = z.infer<typeof StoredEventSchema>;
@@ -59,7 +102,11 @@ export type StoredEvent = z.infer<typeof StoredEventSchema>;
 export type EventInput =
   | { type: 'state_imported'; payload: z.infer<typeof StateImportedPayload> }
   | { type: 'decision_recorded'; payload: z.infer<typeof DecisionRecordedPayload> }
-  | { type: 'position_set'; payload: z.infer<typeof PositionSetPayload> };
+  | { type: 'position_set'; payload: z.infer<typeof PositionSetPayload> }
+  | { type: 'blocker_opened'; payload: z.infer<typeof BlockerOpenedPayload> }
+  | { type: 'blocker_resolved'; payload: z.infer<typeof BlockerResolvedPayload> }
+  | { type: 'progress_set'; payload: z.infer<typeof ProgressSetPayload> }
+  | { type: 'session_summarized'; payload: z.infer<typeof SessionSummarizedPayload> };
 
 /** True when a stored payload is a blob reference rather than an inline payload. */
 export function isBlobRef(payload: unknown): payload is BlobRef {
