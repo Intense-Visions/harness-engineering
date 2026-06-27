@@ -1,10 +1,14 @@
 import { parse as parseYaml } from 'yaml';
 import type { RoadmapFrontmatter, Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
+import { parseAssignmentHistory } from '../parse';
+import { serializeAssignmentHistory } from '../serialize';
 import { quoteYamlScalar } from './yaml-scalar';
 import type { RoadmapMeta } from './roadmap-store';
 
-const FRONTMATTER = /^---\n([\s\S]*?)\n---\s*$/;
+// Frontmatter fence followed by an OPTIONAL trailing body (the `## Assignment
+// History` section in Phase 2). Group 1 = YAML, group 2 = body (may be empty).
+const FRONTMATTER = /^---\n([\s\S]*?)\n---[ \t]*(?:\n([\s\S]*))?$/;
 
 /**
  * Parse a frontmatter-only `_meta.md` into `RoadmapMeta`.
@@ -61,7 +65,19 @@ export function parseMeta(md: string): Result<RoadmapMeta> {
     return Err(new Error('_meta.md frontmatter `milestones` must be a list of strings'));
   }
 
-  return Ok({ frontmatter, milestones: rawMilestones as string[] });
+  const meta: RoadmapMeta = { frontmatter, milestones: rawMilestones as string[] };
+
+  // Optional trailing `## Assignment History` body. Reuse the exported roadmap
+  // parser; absence yields []. Only attach when records exist so history-free
+  // `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
+  const body = match[2] ?? '';
+  if (body.includes('## Assignment History')) {
+    const history = parseAssignmentHistory(body);
+    if (!history.ok) return Err(history.error);
+    if (history.value.length > 0) meta.assignmentHistory = history.value;
+  }
+
+  return Ok(meta);
 }
 
 /**
@@ -85,5 +101,11 @@ export function serializeMeta(meta: RoadmapMeta): string {
     lines.push(`  - ${quoteYamlScalar(name)}`);
   }
   lines.push('---');
+  // Optional `## Assignment History` body: a blank line then the verbatim
+  // serializer output. Empty/absent history emits nothing (byte-stable with
+  // history-free `_meta.md`); preserves the single-trailing-newline contract.
+  if (meta.assignmentHistory && meta.assignmentHistory.length > 0) {
+    lines.push('', ...serializeAssignmentHistory(meta.assignmentHistory));
+  }
   return lines.join('\n') + '\n';
 }

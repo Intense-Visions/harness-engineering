@@ -122,11 +122,19 @@ order: 12
 
 The row body parser is unchanged; only the milestone source moves to frontmatter.
 
-### `_meta.md` (frontmatter-only)
+### `_meta.md` (frontmatter + optional assignment-history body)
 
 Holds the old roadmap frontmatter (project, version, timestamps) **plus the ordered
 milestone list** — the single source of milestone ordering. Edited only when a milestone
 is added or reordered (rare; a trivial append that virtually never conflicts).
+
+> **Phase 2 refinement (decided):** `_meta.md` is the frontmatter fence **plus an
+> optional trailing `## Assignment History` section** — it is no longer strictly
+> "frontmatter-only". Assignment history is roadmap-level audit data, and `_meta.md`
+> is the only roadmap-level file, so this is its natural home. Without it the semantic
+> round-trip (`parse(old) deep-equals parse(regen(shards))`) would drop the live repo's
+> populated history and the migration would abort. Empty history emits no section,
+> keeping history-free `_meta.md` byte-stable.
 
 ### `RoadmapStore` interface (core)
 

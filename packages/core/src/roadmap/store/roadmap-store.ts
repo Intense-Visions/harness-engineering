@@ -2,6 +2,7 @@ import type {
   Roadmap,
   RoadmapFeature,
   RoadmapFrontmatter,
+  AssignmentRecord,
   Result,
 } from '@harness-engineering/types';
 
@@ -18,6 +19,14 @@ export interface RoadmapMeta {
   frontmatter: RoadmapFrontmatter;
   /** Milestone names in canonical document order (includes 'Backlog'). */
   milestones: string[];
+  /**
+   * Roadmap-level assignment audit log, carried in the `_meta.md` body as an
+   * optional trailing `## Assignment History` section. Empty or absent means no
+   * section is emitted (byte-stable with history-free `_meta.md`). This is the
+   * only roadmap-level home for roadmap-level audit data, so a strict semantic
+   * round-trip (`parse(old) deep-equals parse(regen(shards)))` preserves it.
+   */
+  assignmentHistory?: AssignmentRecord[];
 }
 
 /** A pure mutation applied to one feature during patchFeature. */

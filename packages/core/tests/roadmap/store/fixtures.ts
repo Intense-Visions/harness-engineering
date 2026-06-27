@@ -133,6 +133,41 @@ export const META: RoadmapMeta = {
   milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
 };
 
+/**
+ * `_meta.md` carrying an optional `## Assignment History` body section (Phase 2).
+ * Byte-stability contract: this is exactly what `serializeMeta` emits for a
+ * `RoadmapMeta` with `assignmentHistory` populated — frontmatter fence, a blank
+ * line, then `serializeAssignmentHistory(...)` lines.
+ */
+export const META_MD_WITH_HISTORY = `---
+project: "harness-engineering"
+version: 1
+created: "2026-06-01"
+updated: "2026-06-27"
+last_synced: "2026-06-27T12:00:00.000Z"
+last_manual_edit: "2026-06-27T11:00:00.000Z"
+milestones:
+  - "MVP Release"
+  - "v5.0 Hardening"
+  - "Backlog"
+---
+
+## Assignment History
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
+| Core foundation | alice | assigned | 2026-01-02 |
+| Core foundation | bob | unassigned | 2026-01-03 |
+`;
+
+export const META_WITH_HISTORY: RoadmapMeta = {
+  frontmatter: META.frontmatter,
+  milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
+  assignmentHistory: [
+    { feature: 'Core foundation', assignee: 'alice', action: 'assigned', date: '2026-01-02' },
+    { feature: 'Core foundation', assignee: 'bob', action: 'unassigned', date: '2026-01-03' },
+  ],
+};
+
 /** `_meta.md` missing required frontmatter (`last_synced`/`last_manual_edit`). */
 export const META_MD_MISSING_REQUIRED = `---
 project: harness-engineering
