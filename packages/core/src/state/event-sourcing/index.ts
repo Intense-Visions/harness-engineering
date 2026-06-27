@@ -13,7 +13,25 @@ export type { CoreStateProjection } from './projections/core-state';
 // scheduleMaterialize / __resetMaterializeTimersForTests / __flushMaterializeForTests are
 // intentionally NOT exported (module-internal debounce + test-only hooks).
 export { reduce, materialize, readSnapshot, isStale, MATERIALIZE_DEBOUNCE_MS } from './snapshot';
-export type { Snapshot, LanesProjection, AuditProjection } from './snapshot';
+// LanesProjection now lives in ./projections/lanes (exported below); keep Snapshot + the
+// Phase 5 AuditProjection placeholder here.
+export type { Snapshot, AuditProjection } from './snapshot';
 // Phase 3: genesis migration (idempotent, crash-safe import of the legacy state.json) +
 // reset primitive (truncate log + clear snapshot/blobs + re-genesis DEFAULT_STATE).
 export { importLegacyState, resetEventLog } from './migrate';
+// Phase 4: lane state machine (events, transition table + guards, projection, writers).
+export { LANES, LaneSchema } from './events';
+export type { Lane } from './events';
+export {
+  isAllowedTransition,
+  isTerminal,
+  TERMINAL_LANES,
+  dependencyGuard,
+  evidenceGuard,
+  forceGuard,
+  checkTransition,
+} from './lane-machine';
+export type { ForceOpts, TransitionOpts } from './lane-machine';
+export { projectLanes } from './projections/lanes';
+export type { LanesProjection, LaneRecord, LaneHistoryEntry } from './projections/lanes';
+export { registerTask, transitionLane } from './transition';
