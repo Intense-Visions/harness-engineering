@@ -4,8 +4,16 @@ import * as path from 'path';
 import type { Result } from '../../shared/result';
 import { Ok, Err } from '../../shared/result';
 import { getStateDir } from '../state-shared';
-import { EVENT_LOG_FILE, EVENT_BLOBS_DIR } from './constants';
-import { EventSchema, StoredEventSchema, isBlobRef, type Event, type Scope } from './events';
+import { EVENT_LOG_FILE, EVENT_BLOBS_DIR, MAX_LINE_BYTES } from './constants';
+import {
+  EventSchema,
+  StoredEventSchema,
+  isBlobRef,
+  type Event,
+  type EventInput,
+  type Scope,
+} from './events';
+import { getWriterId } from './writer-id';
 
 export interface EventLogOptions {
   stream?: string | undefined;
@@ -96,5 +104,62 @@ export async function loadEvents(
     );
   }
 }
+
+/** INV-2: per-log verified-monotonic local counter (keyed by resolved log path). */
+const localCounters = new Map<string, number>();
+
+/** Test-only: clear local seq counters between cases. */
+export function resetLocalCountersForTests(): void {
+  localCounters.clear();
+}
+
+export interface EmitResult {
+  seq: number;
+  writerId: string;
+}
+
+/**
+ * Lock-free append. Resolves scope paths, stamps writerId (INV-1) and
+ * seq = max(readTailSeq(live log), localCounter) + 1 (INV-2, re-derived every append),
+ * then appends one JSONL line via a single O_APPEND write (flag 'a'). Oversized payloads
+ * are spilled to a blob BEFORE the line (added in Task 6 — here all payloads are inline).
+ */
+export async function emitEvent(
+  projectPath: string,
+  input: EventInput,
+  options?: EventLogOptions
+): Promise<Result<EmitResult, Error>> {
+  try {
+    const { dir, logPath } = await eventLogPaths(projectPath, options);
+    fs.mkdirSync(dir, { recursive: true });
+
+    const writerId = getWriterId();
+    const tailSeq = readTailSeq(logPath);
+    const local = localCounters.get(logPath) ?? 0;
+    const seq = Math.max(tailSeq, local) + 1;
+    localCounters.set(logPath, seq);
+
+    const scope: Scope = { stream: options?.stream, session: options?.session };
+    const event = {
+      seq,
+      writerId,
+      timestamp: new Date().toISOString(),
+      scope,
+      type: input.type,
+      payload: input.payload,
+    };
+
+    const line = Buffer.from(JSON.stringify(event) + '\n', 'utf-8');
+    // NOTE: blob spill for line.byteLength >= MAX_LINE_BYTES is added in Task 6.
+    fs.appendFileSync(logPath, line, { flag: 'a' });
+    return Ok({ seq, writerId });
+  } catch (error) {
+    return Err(
+      new Error(`Failed to emit event: ${error instanceof Error ? error.message : String(error)}`)
+    );
+  }
+}
+
+void MAX_LINE_BYTES; // referenced fully in Task 6
 
 export type { Scope };

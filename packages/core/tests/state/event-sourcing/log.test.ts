@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { loadEvents, readTailSeq, eventLogPaths } from '../../../src/state/event-sourcing/log';
+import {
+  loadEvents,
+  readTailSeq,
+  eventLogPaths,
+  emitEvent,
+  resetLocalCountersForTests,
+} from '../../../src/state/event-sourcing/log';
+import { __resetWriterIdForTests } from '../../../src/state/event-sourcing/writer-id';
 
 let dir: string;
 beforeEach(() => {
@@ -106,5 +113,34 @@ describe('readTailSeq', () => {
       },
     ]);
     expect(readTailSeq(logPath)).toBe(5);
+  });
+});
+
+describe('emitEvent (append, INV-2)', () => {
+  beforeEach(() => {
+    process.env.HARNESS_EVENT_WRITER_ID = 'w-test';
+    __resetWriterIdForTests();
+    resetLocalCountersForTests();
+  });
+  afterEach(() => {
+    delete process.env.HARNESS_EVENT_WRITER_ID;
+  });
+
+  it('appends one JSONL line per event and round-trips via loadEvents', async () => {
+    const r1 = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    const r2 = await emitEvent(dir, {
+      type: 'decision_recorded',
+      payload: { id: 'd1', text: 'x' },
+    });
+    expect(r1.ok && r2.ok).toBe(true);
+    const loaded = await loadEvents(dir);
+    expect(loaded.ok && loaded.value.length).toBe(2);
+    if (loaded.ok) expect(loaded.value.map((e) => e.seq)).toEqual([1, 2]);
+  });
+
+  it('stamps writerId and a monotonically increasing seq (max(tailSeq, local)+1)', async () => {
+    const r = await emitEvent(dir, { type: 'position_set', payload: { position: 'A' } });
+    expect(r.ok && r.value.writerId).toBe('w-test');
+    expect(r.ok && r.value.seq).toBe(1);
   });
 });
