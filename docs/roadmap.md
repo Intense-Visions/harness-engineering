@@ -23,6 +23,16 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **External-ID:** github:Intense-Visions/harness-engineering#640
 - **Updated-At:** 2026-06-26T17:46:10.000Z
 
+### On-Demand Maintenance Pipeline
+
+- **Status:** planned
+- **Spec:** docs/changes/maintenance-pipeline/proposal.md
+- **Summary:** Build the deferred `harness maintenance run` (overdue-aware, report-first, `--fix` opt-in) on the existing 22-task maintenance registry by threading a `mode: report|fix` through `TaskRunner`, plus a thin `/harness:maintenance-pipeline` skill on top. One executor, one registry — gives developers an on-demand way to run the maintenance that is actually overdue without a running orchestrator. Source: /harness:brainstorming.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+
 ## v5.0 — Enforcement Hardening
 
 ### Rename quality-gate hook and ship a strict variant that blocks
