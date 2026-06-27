@@ -21,6 +21,9 @@
  * Source: docs/changes/harness-pm-persona/proposal.md (Technical design -> MCP tool).
  */
 
+import { readFile } from 'node:fs/promises';
+import { findFiles } from '../../utils/files.js';
+
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
@@ -114,14 +117,36 @@ function validateInput(input: AcceptanceEvalToolInput): string | null {
  * otherwise read every file matched by testGlobs. Always degrade-safe: an
  * unmatched/unreadable glob yields undefined, so (b) stays advisory-empty and
  * the (c) gate is unaffected.
- *
- * (Implemented in Task 2 — Task 1 ships a passthrough-only stub.)
  */
-async function resolveTestContent(input: AcceptanceEvalToolInput): Promise<string | undefined> {
+export async function resolveTestContent(
+  input: AcceptanceEvalToolInput
+): Promise<string | undefined> {
   if (typeof input.testContent === 'string' && input.testContent.length > 0) {
     return input.testContent;
   }
-  return undefined;
+  if (!Array.isArray(input.testGlobs) || input.testGlobs.length === 0) {
+    return undefined;
+  }
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const pattern of input.testGlobs) {
+    let files: string[];
+    try {
+      files = await findFiles(pattern);
+    } catch {
+      continue; // unmatched/invalid glob: degrade-safe skip
+    }
+    for (const file of files) {
+      if (seen.has(file)) continue;
+      seen.add(file);
+      try {
+        parts.push(`// ${file}\n${await readFile(file, 'utf8')}`);
+      } catch {
+        // unreadable file: skip, never throw
+      }
+    }
+  }
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
 }
 
 export async function handleAcceptanceEval(input: AcceptanceEvalToolInput): Promise<ToolResponse> {

@@ -6,6 +6,7 @@ import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence';
 import {
   acceptanceEvalDefinition,
   handleAcceptanceEval,
+  resolveTestContent,
 } from '../../../src/mcp/tools/acceptance-eval.js';
 
 let tmpDir: string;
@@ -102,5 +103,36 @@ describe('handleAcceptanceEval degrade-safe behaviour', () => {
     expect(verdict.authority).toBe(
       deriveAcceptanceAuthority(verdict.measurability, verdict.confidence)
     );
+  });
+});
+
+describe('resolveTestContent (b) evidence resolution', () => {
+  it('returns testContent verbatim when provided', async () => {
+    const out = await resolveTestContent({ specPath: 'x', testContent: 'direct snippet' });
+    expect(out).toBe('direct snippet');
+  });
+
+  it('concatenates contents of all files matched by testGlobs with path headers', async () => {
+    const a = path.join(tmpDir, 'a.test.ts');
+    const b = path.join(tmpDir, 'b.test.ts');
+    await fs.writeFile(a, 'AAA');
+    await fs.writeFile(b, 'BBB');
+
+    const out = await resolveTestContent({
+      specPath: 'x',
+      testGlobs: [path.join(tmpDir, '*.test.ts')],
+    });
+
+    expect(out).toContain('AAA');
+    expect(out).toContain('BBB');
+    expect(out).toContain(a);
+    expect(out).toContain(b);
+  });
+
+  it('returns undefined when neither testContent nor testGlobs yields content', async () => {
+    expect(await resolveTestContent({ specPath: 'x' })).toBeUndefined();
+    expect(
+      await resolveTestContent({ specPath: 'x', testGlobs: [path.join(tmpDir, 'nope-*.ts')] })
+    ).toBeUndefined();
   });
 });
