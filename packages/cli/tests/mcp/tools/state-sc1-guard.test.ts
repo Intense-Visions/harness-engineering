@@ -8,7 +8,6 @@ const ALLOWED_FILES = ['state-persistence.ts', path.join('state', 'index.ts')];
 // Ratchet: each write-conversion task removes its entry. SC1 is met when this is empty.
 // (Documentation of the remaining sites; the assertions below track file-granularity.)
 const KNOWN_MUTATIONS = [
-  'packages/cli/src/mcp/tools/state.ts', // W1 handleAppendEntry — removed in Task 9
   'packages/cli/src/mcp/tools/interaction.ts', // W2 recordInteraction — removed in Task 10
   'packages/cli/src/mcp/tools/state.ts:reset', // W3 handleReset       — removed in Task 11
 ];

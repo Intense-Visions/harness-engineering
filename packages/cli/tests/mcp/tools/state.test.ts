@@ -166,7 +166,7 @@ describe('manage_state tool', () => {
     expect(response.content[0].text).toContain('content is required');
   });
 
-  it('append_entry without session falls back to global state for decisions section', async () => {
+  it('append_entry without session falls back to global state for decisions section (W1 parity)', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-fallback-'));
     const harnessDir = path.join(tmpDir, '.harness');
     fs.mkdirSync(harnessDir, { recursive: true });
@@ -185,11 +185,17 @@ describe('manage_state tool', () => {
     expect(response.isError).toBeFalsy();
     expect(response.content[0].text).toContain('global-state');
 
-    // Verify the decision was appended to state.json
-    const state = JSON.parse(fs.readFileSync(path.join(harnessDir, 'state.json'), 'utf-8'));
-    expect(state.decisions).toHaveLength(1);
-    expect(state.decisions[0].decision).toBe('Test decision content');
-    expect(state.decisions[0].context).toBe('harness-brainstorming');
+    // Parity: the decision is observable through the new event-sourced read path with the
+    // same { decision, context, date } shape the legacy saveState→loadState path produced.
+    const { readHarnessState } = await import('../../../src/shared/state-events');
+    const state = await readHarnessState(tmpDir);
+    expect(state.ok).toBe(true);
+    if (state.ok) {
+      expect(state.value.decisions).toHaveLength(1);
+      expect(state.value.decisions[0].decision).toBe('Test decision content');
+      expect(state.value.decisions[0].context).toBe('harness-brainstorming');
+      expect(state.value.decisions[0].date).toMatch(/^\d{4}-\d{2}-\d{2}T/); // non-empty ISO
+    }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

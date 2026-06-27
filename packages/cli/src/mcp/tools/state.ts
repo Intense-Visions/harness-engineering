@@ -236,16 +236,17 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
   if (input.section !== 'decisions') {
     return mcpError('Error: session is required for non-decisions sections');
   }
-  const { loadState, saveState } = await import('@harness-engineering/core');
-  const lr = await loadState(projectPath, input.stream);
-  if (!lr.ok) return resultToMcpResponse(lr);
-  lr.value.decisions.push({
-    date: new Date().toISOString(),
-    decision: input.content,
-    context: input.authorSkill,
-  });
-  const sr = await saveState(projectPath, lr.value, input.stream);
-  if (!sr.ok) return resultToMcpResponse(sr);
+  const { randomUUID } = await import('crypto');
+  const { emitCoreEvent } = await import('../../shared/state-events.js');
+  const r = await emitCoreEvent(
+    projectPath,
+    {
+      type: 'decision_recorded',
+      payload: { id: randomUUID(), text: input.content, context: input.authorSkill },
+    },
+    { stream: input.stream }
+  );
+  if (!r.ok) return resultToMcpResponse(r);
   return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
 }
 
