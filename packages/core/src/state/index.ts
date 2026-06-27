@@ -157,3 +157,9 @@ export type {
   EmitEventResult,
   LoadEventsOptions,
 } from './events';
+
+/**
+ * Event-sourced state log (Phase 1: log core). Namespaced to avoid colliding with the
+ * legacy `events.ts` emitEvent/loadEvents until the legacy log is retired (Phase 5).
+ */
+export * as eventSourcing from './event-sourcing';
