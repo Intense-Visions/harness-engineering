@@ -166,6 +166,56 @@ describe('readSnapshot — fallbacks (never throws)', () => {
   });
 });
 
+describe('readStoredSnapshot — structural validation (carry-forward, truth #6)', () => {
+  // Tamper a fresh snapshot so it is NOT stale (meta.lastSeq === tailSeq) but is
+  // structurally invalid; the hardened reader must treat it as a cache miss and
+  // recompute from the log rather than returning the stale/skewed stored object.
+  async function tamperFreshSnapshot(
+    mutate: (snap: Record<string, unknown>) => void
+  ): Promise<void> {
+    await seedEvents();
+    await unwrap(materialize(dir));
+    const { dir: stateDir, logPath } = await eventLogPaths(dir);
+    const snapPath = path.join(stateDir, SNAPSHOT_FILE);
+    const stored = JSON.parse(fs.readFileSync(snapPath, 'utf-8')) as Record<string, unknown>;
+    const { readTailSeq } = await import('../../../src/state/event-sourcing/log');
+    (stored.meta as { lastSeq: number }).lastSeq = readTailSeq(logPath); // keep it fresh
+    mutate(stored);
+    fs.writeFileSync(snapPath, JSON.stringify(stored, null, 2));
+  }
+
+  it('recomputes when schemaVersion !== 2 (version skew)', async () => {
+    await tamperFreshSnapshot((s) => {
+      s.schemaVersion = 1;
+      s.coreState = { sentinel: 'STALE-SKEWED' };
+    });
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+  });
+
+  it('recomputes when coreState is null', async () => {
+    await tamperFreshSnapshot((s) => {
+      s.coreState = null;
+    });
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+  });
+
+  it('recomputes when coreState is a non-object', async () => {
+    await tamperFreshSnapshot((s) => {
+      s.coreState = 'not-an-object';
+    });
+    const result = await readSnapshot(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual(reduce(await unwrap(loadEvents(dir))));
+  });
+});
+
 describe('readSnapshot — debounced schedule eventually materializes', () => {
   it('does not write during the read, but a flushed timer materializes the fresh snapshot', async () => {
     vi.useFakeTimers();

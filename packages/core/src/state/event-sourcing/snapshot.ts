@@ -141,11 +141,14 @@ function readStoredSnapshot(snapPath: string): Snapshot | null {
     if (
       parsed !== null &&
       typeof parsed === 'object' &&
-      typeof (parsed as { meta?: { lastSeq?: unknown } }).meta?.lastSeq === 'number'
+      (parsed as { schemaVersion?: unknown }).schemaVersion === 2 &&
+      typeof (parsed as { meta?: { lastSeq?: unknown } }).meta?.lastSeq === 'number' &&
+      (parsed as { coreState?: unknown }).coreState !== null &&
+      typeof (parsed as { coreState?: unknown }).coreState === 'object'
     ) {
       return parsed as Snapshot;
     }
-    return null; // structurally invalid → cache miss
+    return null; // version-skewed / structurally invalid → cache miss → recompute
   } catch {
     return null; // missing file or unparseable JSON → cache miss
   }
