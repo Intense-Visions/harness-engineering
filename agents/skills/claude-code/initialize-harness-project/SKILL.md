@@ -31,6 +31,61 @@ Detect plugin-only state by checking whether `harness` resolves on PATH (`comman
 
 **Prompt the human in plain text** — every framework confirmation, migration check, and telemetry-identity question in this skill is plain text only. Do not elevate to `AskUserQuestion`: the framework list (~10 options) exceeds its 4-option cap and natural headers like "Confirm framework" exceed its 12-char cap, rendering the call as ERR.
 
+### Phase 0: GROUND — Capture the Strategic Anchor
+
+Run this before anything else — it is the first thing init does and the first question it asks the human.
+Offer to capture `STRATEGY.md`, the durable upstream product anchor read by `harness-brainstorming`,
+`harness-ideate`, and `harness-roadmap-pilot`. _Think first (strategy), build second (scaffold)._
+
+Before prompting, check whether `STRATEGY.md` already exists at repo root. Three cases:
+
+- **Absent (most common on init).** Ask the human in plain text (do **not** use an `emit_interaction` block —
+  `SKILL.md` already mandates plain-text prompts for this skill):
+
+  > Capture strategic anchor (STRATEGY.md) now? It grounds brainstorm / ideate / roadmap-pilot in
+  > product-level context and is durable across milestones (a peer of `README.md`). The interview takes
+  > 10-20 minutes.
+  >
+  > - **Yes** — run the strategy interview now.
+  > - **No** — this project does not need a strategy doc (recorded as a permanent decline; init will not
+  >   re-offer on rerun).
+  > - **Not sure** — defer; `/harness:strategy` stays available and a future init re-offers.
+
+  Apply the answer:
+  - **Yes:** delegate to `harness-strategy` (which routes via its own Phase 0 to the first-run interview).
+    It writes a valid `STRATEGY.md` at repo root, doc-validated via the `write_strategy` / `validate_strategy`
+    MCP tools. Do **not** run a project-level `harness validate` here — `harness.config.json` does not exist
+    until SCAFFOLD. When `harness-strategy` completes, proceed to Phase 1.
+  - **No:** record the decline in working memory. `Phase 3: CONFIGURE` step 0 persists
+    `init.strategy.declined: true` to `.harness/state.json` after SCAFFOLD creates it. Do **not** touch
+    `.harness/` here — it does not exist yet.
+  - **Not sure:** record nothing. `/harness:strategy` remains available standalone, and a future re-run of
+    init will re-offer.
+
+- **Present and valid.** Skip the prompt silently. Surface a one-line note:
+  `STRATEGY.md detected — downstream skills will pick it up as grounding`. No decline is recorded.
+
+- **Present but invalid.** Surface the validation error via the `validate_strategy` MCP tool (the MCP server
+  already has `@harness-engineering/core` loaded, so this resolves even for plugin-only adopters with no
+  `node_modules`). Offer three paths (mirror `harness-strategy` Phase 0):
+  - **a) Fix now via `/harness:strategy` update** → delegate to `harness-strategy` with the broken section
+    pre-selected.
+  - **b) Move file to `STRATEGY.md.bak.<YYYY-MM-DD-HHmm>` and run a fresh interview** → rename, then delegate
+    to `harness-strategy` Phase 1.
+  - **c) Ignore for this init and proceed** → record the decline (persisted in `Phase 3: CONFIGURE` step 0)
+    and continue. Init does NOT block on a present-but-invalid `STRATEGY.md`.
+
+**Guards:**
+
+- Phase 0 runs for **all** project shapes, including test suites — strategy is offered before the Phase 1
+  step 5 test-suite classification and the step-6 dispatch, identical in reach to the legacy step.
+- A present-valid (skip) or present-invalid (offer fix) `STRATEGY.md` is the migration path for an existing
+  strategy doc — distinct from the `.harness/`-based adoption-level classification in `Phase 1: ASSESS`,
+  which Phase 0 must not pre-empt.
+- **No / Not-sure proceeds immediately into `Phase 1: ASSESS`. Phase 0 never blocks init.**
+
+This mirrors the ask-once-record-the-answer pattern also used by the i18n and design-system prompts in Phase 3.
+
 ### Phase 1: ASSESS — Determine Current State
 
 1. **Check for existing harness configuration.** Look for `.harness/` directory, `AGENTS.md`, `harness.config.json`, and any skill definitions. Their presence determines whether this is a new project or a migration.
