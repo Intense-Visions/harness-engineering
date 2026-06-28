@@ -118,7 +118,7 @@ export class SSEManager {
 
   private async _tick(ctx: SSEContext): Promise<void> {
     const [roadmap, health, graph] = await Promise.all([
-      gatherRoadmap(ctx.roadmapPath),
+      gatherRoadmap(ctx.projectPath),
       gatherHealth(ctx.projectPath),
       gatherGraph(ctx.projectPath),
     ]);

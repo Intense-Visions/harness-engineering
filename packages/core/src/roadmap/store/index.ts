@@ -24,7 +24,7 @@ export type { FileIO, MonolithStoreOptions } from './monolith-store';
 export { ShardStore, readShardDir } from './shard-store';
 export type { ShardIO } from './shard-store';
 export { createNodeRoadmapIO } from './node-io';
-export { resolveRoadmapStore, roadmapSourceExists } from './factory';
+export { resolveRoadmapStore, roadmapSourceExists, roadmapAggregatePath } from './factory';
 export type { ResolveRoadmapStoreOptions } from './factory';
 export { applyRoadmapDiff } from './apply-diff';
 export { regenerate, writeRegeneratedRoadmap } from './regenerator';

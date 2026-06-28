@@ -21,7 +21,7 @@ export function buildOverviewRouter(ctx: ServerContext): Hono {
     }
 
     const [roadmap, health, graph] = await Promise.all([
-      gatherRoadmap(ctx.roadmapPath),
+      gatherRoadmap(ctx.projectPath),
       gatherHealth(ctx.projectPath),
       gatherGraph(ctx.projectPath),
     ]);

@@ -51,8 +51,6 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/orchestrator/src/orchestrator.ts', // seed/watch path, not a content read
   'packages/orchestrator/src/workflow/config.ts', // seed/watch path, not a content read
   'packages/orchestrator/src/workspace/manager.ts', // seed/watch path, not a content read
-  // ── Pending dashboard migration (Task 18=A); removed when routed via store ──
-  'packages/dashboard/src/server/context.ts', // threads docs/roadmap.md path; migrated next
 ] as const;
 
 /** Matches the generated aggregate path. */

@@ -55,6 +55,20 @@ export function roadmapSourceExists(
   );
 }
 
+/**
+ * The absolute path to a project's generated aggregate (`<root>/docs/roadmap.md`).
+ *
+ * Exposed so callers that still need to NAME the aggregate path for non-content
+ * purposes — a file-watch target, a serialization lock key — can do so WITHOUT
+ * hardcoding the `roadmap.md` literal themselves (which would make them trip the
+ * read-source guard, invariant R). The literal lives only here, in the already
+ * store-sanctioned module. This is NOT a content read: callers must still go
+ * through {@link resolveRoadmapStore}().load() to read roadmap content.
+ */
+export function roadmapAggregatePath(projectRoot: string): string {
+  return path.join(projectRoot, 'docs', 'roadmap.md');
+}
+
 export function resolveRoadmapStore(options: ResolveRoadmapStoreOptions): RoadmapStore {
   const { projectRoot } = options;
   const shardDir = path.join(projectRoot, 'docs', 'roadmap.d');
