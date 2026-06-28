@@ -4,5 +4,8 @@
 # observed by the Claude Code tool-use hook registries (profiles.ts /
 # STANDARD_HOOKS), so the regen must live here.
 if [ -d docs/roadmap.d ]; then
-  node packages/cli/dist/bin/harness.js roadmap regen >/dev/null 2>&1 || true
+  # A post-merge hook cannot abort the merge, but it must NOT be silent: a failed
+  # regen leaves docs/roadmap.md stale (merge=ours kept the pre-merge content), so
+  # surface a visible warning instead of swallowing stderr with `|| true`.
+  node packages/cli/dist/bin/harness.js roadmap regen || echo "⚠ roadmap regen failed after merge; docs/roadmap.md may be stale — run 'harness roadmap regen'" >&2
 fi

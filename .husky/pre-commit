@@ -37,6 +37,13 @@ fi
 # This is intentionally a GIT hook, not an agent hook (profiles.ts/STANDARD_HOOKS
 # register Claude Code tool-use hooks, which cannot fire on git commit/merge).
 if git diff --cached --name-only | grep -qE '^docs/roadmap\.d/'; then
-  node packages/cli/dist/bin/harness.js roadmap regen >/dev/null 2>&1 || true
-  git add docs/roadmap.md 2>/dev/null || true
+  # Fail-safe: do NOT swallow a regen error. `harness roadmap regen` returns
+  # nonzero and leaves docs/roadmap.md untouched on failure, so re-staging it
+  # would commit a STALE aggregate and defeat the drift-prevention guarantee.
+  # Only re-stage on success; on failure, block the commit (exit 1).
+  if ! node packages/cli/dist/bin/harness.js roadmap regen; then
+    echo "✗ Commit blocked: 'harness roadmap regen' failed; refusing to commit a stale docs/roadmap.md" >&2
+    exit 1
+  fi
+  git add docs/roadmap.md
 fi
