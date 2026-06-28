@@ -1,4 +1,9 @@
-import type { Roadmap, RoadmapFrontmatter, Result } from '@harness-engineering/types';
+import type {
+  Roadmap,
+  RoadmapFrontmatter,
+  AssignmentRecord,
+  Result,
+} from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type {
   RoadmapStore,
@@ -9,7 +14,7 @@ import type {
 } from './roadmap-store';
 import type { FileIO } from './monolith-store';
 import { parseShard, serializeShard } from './shard';
-import { parseMeta } from './meta';
+import { parseMeta, serializeMeta } from './meta';
 import { assembleRoadmap } from './assembler';
 
 /** File IO for a shard directory: adds directory listing + delete to `FileIO`. */
@@ -165,6 +170,31 @@ export class ShardStore implements RoadmapStore {
   async patchFrontmatter(
     _mutate: (frontmatter: RoadmapFrontmatter) => RoadmapFrontmatter
   ): Promise<Result<void>> {
+    return Ok(undefined);
+  }
+
+  // The assignment audit log is roadmap-level and NOT derivable from shards, so it
+  // genuinely persists — to `_meta.md`, never a feature shard. Concurrent writers
+  // that only mutate feature shards never touch `_meta`, so this stays off the
+  // single-shard write path for ordinary status edits.
+  async patchAssignmentHistory(history: AssignmentRecord[]): Promise<Result<void>> {
+    const metaPath = joinPath(this.shardDir, META_FILE);
+    let content: string;
+    try {
+      content = await this.io.readFile(metaPath);
+    } catch (err) {
+      return Err(
+        new Error(`Failed to read ${META_FILE} in ${this.shardDir}: ${(err as Error).message}`)
+      );
+    }
+    const parsed = parseMeta(content);
+    if (!parsed.ok) return parsed;
+    const updated = { ...parsed.value, assignmentHistory: history };
+    try {
+      await this.io.writeFile(metaPath, serializeMeta(updated));
+    } catch (err) {
+      return Err(new Error(`Failed to write ${metaPath}: ${(err as Error).message}`));
+    }
     return Ok(undefined);
   }
 

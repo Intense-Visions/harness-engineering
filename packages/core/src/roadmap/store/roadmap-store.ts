@@ -63,4 +63,11 @@ export interface RoadmapStore {
   patchFrontmatter(
     mutate: (frontmatter: RoadmapFrontmatter) => RoadmapFrontmatter
   ): Promise<Result<void>>;
+  /**
+   * Replace the roadmap-level assignment audit log. Unlike frontmatter timestamps
+   * this is NOT derivable from shards, so it genuinely persists in both backends —
+   * monolith rewrites the whole file; the shard backend rewrites only `_meta.md`
+   * (never a feature shard).
+   */
+  patchAssignmentHistory(history: AssignmentRecord[]): Promise<Result<void>>;
 }

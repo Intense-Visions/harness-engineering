@@ -2,6 +2,7 @@ import type {
   Roadmap,
   RoadmapFeature,
   RoadmapFrontmatter,
+  AssignmentRecord,
   Result,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
@@ -138,6 +139,14 @@ export class MonolithStore implements RoadmapStore {
     if (!loaded.ok) return loaded;
     const roadmap = loaded.value;
     roadmap.frontmatter = mutate(roadmap.frontmatter);
+    return this.write(roadmap);
+  }
+
+  async patchAssignmentHistory(history: AssignmentRecord[]): Promise<Result<void>> {
+    const loaded = await this.load();
+    if (!loaded.ok) return loaded;
+    const roadmap = loaded.value;
+    roadmap.assignmentHistory = history;
     return this.write(roadmap);
   }
 

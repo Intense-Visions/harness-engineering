@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Result } from '@harness-engineering/types';
-import type { RoadmapFrontmatter } from '@harness-engineering/types';
+import type { RoadmapFrontmatter, AssignmentRecord } from '@harness-engineering/types';
 import type { RoadmapStore, FeatureMutation, AddFeatureInput } from './roadmap-store';
 import type { ShardIO } from './shard-store';
 import { ShardStore } from './shard-store';
@@ -74,5 +74,9 @@ function withAggregateRegen(
     // regenerate since no shard/_meta changed.
     patchFrontmatter: (mutate: (fm: RoadmapFrontmatter) => RoadmapFrontmatter) =>
       base.patchFrontmatter(mutate),
+    // Writes _meta.md in sharded mode → regenerate the aggregate so its audit log
+    // section stays fresh.
+    patchAssignmentHistory: async (history: AssignmentRecord[]) =>
+      regen(await base.patchAssignmentHistory(history)),
   };
 }

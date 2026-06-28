@@ -81,5 +81,13 @@ export async function applyRoadmapDiff(
     if (!r.ok) return r;
   }
 
+  // Roadmap-level assignment audit log (appended by claim/release). NOT derivable
+  // from shards, so it genuinely persists in both modes (monolith: whole file;
+  // sharded: _meta.md only).
+  if (!isDeepStrictEqual(before.assignmentHistory ?? [], after.assignmentHistory ?? [])) {
+    const r = await store.patchAssignmentHistory(after.assignmentHistory ?? []);
+    if (!r.ok) return r;
+  }
+
   return Ok(undefined);
 }

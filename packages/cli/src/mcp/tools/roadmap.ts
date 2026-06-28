@@ -378,7 +378,7 @@ async function handleUpdate(
   input: ManageRoadmapInput,
   deps: RoadmapDeps
 ): Promise<McpResponse> {
-  const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok } = deps;
+  const { syncRoadmap, applySyncChanges, Ok } = deps;
 
   if (!input.feature) {
     return {
@@ -387,13 +387,13 @@ async function handleUpdate(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   let found = false;
   for (const m of roadmap.milestones) {
     const feature = m.features.find((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
@@ -461,7 +461,8 @@ async function handleUpdate(
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 

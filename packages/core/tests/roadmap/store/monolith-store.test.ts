@@ -96,6 +96,20 @@ describe('MonolithStore', () => {
     expect(written.value.frontmatter.lastManualEdit).toBe('2099-12-31');
   });
 
+  it('patchAssignmentHistory() persists roadmap-level audit log via whole-file rewrite', async () => {
+    const { io, files, writes } = makeIO();
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const history = [
+      { feature: 'A feature', action: 'assigned' as const, assignee: '@alice', date: '2026-01-02' },
+    ];
+    const r = await store.patchAssignmentHistory(history);
+    expect(r.ok).toBe(true);
+    expect(writes).toEqual([ROADMAP_PATH]);
+    const written = parseRoadmap(files.get(ROADMAP_PATH)!);
+    if (!written.ok) throw written.error;
+    expect(written.value.assignmentHistory).toEqual(history);
+  });
+
   it('removeFeature() splices the resolved feature and writes back', async () => {
     const { io, files, writes } = makeIO();
     const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });

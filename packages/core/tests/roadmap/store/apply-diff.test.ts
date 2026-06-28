@@ -49,6 +49,10 @@ function spyStore() {
       calls.push({ op: 'frontmatter', slug: '*' });
       return Ok(undefined);
     },
+    patchAssignmentHistory: async () => {
+      calls.push({ op: 'history', slug: '*' });
+      return Ok(undefined);
+    },
   };
   return { store, calls };
 }
@@ -104,6 +108,7 @@ describe('applyRoadmapDiff', () => {
       },
       removeFeature: async () => Ok(undefined),
       patchFrontmatter: async () => Ok(undefined),
+      patchAssignmentHistory: async () => Ok(undefined),
     };
     const r = await applyRoadmapDiff(store, before, after);
     expect(r.ok).toBe(false);

@@ -126,6 +126,20 @@ describe('ShardStore', () => {
     expect(deletes).toHaveLength(0);
   });
 
+  it('patchAssignmentHistory() writes ONLY _meta.md (no shard touched)', async () => {
+    const { io, files, writes } = makeShardIO();
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+    const history = [
+      { feature: 'A feature', action: 'assigned' as const, assignee: '@alice', date: '2026-01-02' },
+    ];
+    const r = await store.patchAssignmentHistory(history);
+    expect(r.ok).toBe(true);
+    // Audit log is roadmap-level (not derivable from shards) so it persists to
+    // _meta.md — but no feature shard is rewritten.
+    expect(writes).toEqual([`${SHARD_DIR}/_meta.md`]);
+    expect(files.get(`${SHARD_DIR}/_meta.md`)).toContain('@alice');
+  });
+
   it('removeFeature() deletes ONLY the one shard file', async () => {
     const { io, files, writes, deletes } = makeShardIO();
     const store = new ShardStore({ shardDir: SHARD_DIR, io });

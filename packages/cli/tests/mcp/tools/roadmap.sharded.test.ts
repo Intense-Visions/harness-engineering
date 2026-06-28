@@ -146,4 +146,65 @@ describe('manage_roadmap sharded — add (single new shard)', () => {
   });
 });
 
+describe('manage_roadmap sharded — update (single shard)', () => {
+  it('a status edit patches only the edited row shard', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'Auth System',
+      status: 'done',
+    });
+    expect(res.isError).toBeFalsy();
+    expect(changedShards(before)).toEqual(['auth-system.md']);
+    expect(fs.readFileSync(path.join(shardDir, 'auth-system.md'), 'utf-8')).toMatch(
+      /\*\*Status:\*\* done/
+    );
+  });
+
+  it('first-claim-wins refusal writes no shard', async () => {
+    // Alice claims Auth System (forces in-progress under alice).
+    await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'Auth System',
+      assignee: '@alice',
+    });
+    const before = snapshotShardDir();
+    // Bob's claim must be refused and persist nothing.
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'Auth System',
+      assignee: '@bob',
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('Claim refused');
+    expect(changedShards(before)).toEqual([]);
+  });
+
+  it('preserves the unblock-only cascade (issue 610: dependent flips planned, no re-block)', async () => {
+    // Marking the blocker done must flip a blocked dependent to planned. Set up a
+    // genuinely blocked dependent first by blocking User Dashboard.
+    await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'User Dashboard',
+      status: 'blocked',
+    });
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'Auth System',
+      status: 'done',
+    });
+    expect(res.isError).toBeFalsy();
+    const parsed = JSON.parse(res.content[0].text);
+    const dash = parsed.milestones
+      .flatMap((m: { features: { name: string; status: string }[] }) => m.features)
+      .find((f: { name: string }) => f.name === 'User Dashboard');
+    expect(dash.status).toBe('planned');
+  });
+});
+
 export { writeShardedProject, snapshotShardDir, changedShards };
