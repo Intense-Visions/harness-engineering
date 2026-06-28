@@ -1,0 +1,94 @@
+name: Roadmap Auto-Done
+
+# Phase 5 (D6): when a PR is MERGED, flip the roadmap rows whose linked GitHub
+# issue was closed by that merge to `done`, then commit the changed shard(s) and
+# the regenerated aggregate back to the base branch.
+#
+# Commit-to-main mechanism (decided at the Phase 5 Task 7 checkpoint):
+#   - Push with the workflow's built-in GITHUB_TOKEN under `permissions: contents: write`.
+#   - Use a `git pull --rebase` retry loop to absorb concurrent merges racing the push.
+# This repo's `main` has no required status checks, so a token push is sufficient.
+# Adopters whose branch protection forbids direct pushes should swap this step for
+# an app/bypass token or a follow-up-PR step — a Phase 6 rollout doc note, not a
+# Phase 5 concern.
+#
+# The PR `closingIssuesReferences` (issues closed BY the merge) is authoritative:
+# unlike the offline CLI it distinguishes a completed close from a wontfix close,
+# so this path never mis-flips a `not planned`/`wontfix` row.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  auto-done:
+    # Only run when the PR was actually MERGED (not merely closed/abandoned).
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Resolve the PR's closing issue references
+        id: closing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NUMBERS=$(gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$pr:Int!){
+              repository(owner:$owner,name:$repo){
+                pullRequest(number:$pr){
+                  closingIssuesReferences(first:50){ nodes { number } }
+                }
+              }
+            }' \
+            -F owner='${{ github.repository_owner }}' \
+            -F repo='${{ github.event.repository.name }}' \
+            -F pr=${{ github.event.pull_request.number }} \
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes | map(.number) | join(",")')
+          echo "numbers=$NUMBERS" >> "$GITHUB_OUTPUT"
+          if [ -z "$NUMBERS" ]; then
+            echo "No roadmap-linked closing issues for this PR; nothing to reconcile."
+          else
+            echo "Closing issue numbers: $NUMBERS"
+          fi
+
+      - name: Reconcile auto-done
+        if: steps.closing.outputs.numbers != ''
+        run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-issues "${{ steps.closing.outputs.numbers }}"
+
+      - name: Commit and push the shard flip
+        if: steps.closing.outputs.numbers != ''
+        run: |
+          if [ -z "$(git status --porcelain docs/roadmap.d docs/roadmap.md)" ]; then
+            echo "Reconcile produced no roadmap changes (rows already done); nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/roadmap.d docs/roadmap.md
+          git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
+          BASE='${{ github.event.pull_request.base.ref }}'
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin "$BASE" && git push origin "HEAD:$BASE"; then
+              echo "Pushed auto-done commit to $BASE on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt failed (likely a concurrent merge); retrying after rebase."
+            sleep 3
+          done
+          echo "Failed to push auto-done commit after 5 attempts." >&2
+          exit 1
