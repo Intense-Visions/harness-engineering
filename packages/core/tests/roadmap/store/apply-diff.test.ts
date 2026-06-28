@@ -118,6 +118,32 @@ describe('applyRoadmapDiff', () => {
     expect(calls).toEqual([]);
   });
 
+  // F5 (silent milestone-move footgun): a feature whose body changes AND whose
+  // milestone moves cannot be expressed as a single patch (patchFeature preserves
+  // the shard's recorded milestone/order), so the move would be silently lost.
+  // applyRoadmapDiff must reject it — a milestone move must be remove+add.
+  it('returns Err on an in-place cross-milestone move (body + milestone changed)', async () => {
+    const before: Roadmap = {
+      frontmatter: { version: 1 } as Roadmap['frontmatter'],
+      milestones: [
+        { name: 'MVP Release', isBacklog: false, features: [feature('Alpha', 'planned')] },
+        { name: 'Backlog', isBacklog: true, features: [] },
+      ],
+    };
+    const after: Roadmap = {
+      frontmatter: { version: 1 } as Roadmap['frontmatter'],
+      milestones: [
+        { name: 'MVP Release', isBacklog: false, features: [] },
+        { name: 'Backlog', isBacklog: true, features: [feature('Alpha', 'done')] },
+      ],
+    };
+    const { store, calls } = spyStore();
+    const r = await applyRoadmapDiff(store, before, after);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/milestone/i);
+    expect(calls).toEqual([]);
+  });
+
   it('short-circuits and returns the first Err', async () => {
     const before = roadmap([feature('Alpha')]);
     const after = roadmap([feature('Alpha'), feature('Gamma'), feature('Delta')]);

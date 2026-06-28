@@ -84,6 +84,20 @@ export async function applyRoadmapDiff(
       });
       if (!r.ok) return r;
     } else if (!isDeepStrictEqual(prev.feature, loc.feature)) {
+      // Milestone-move footgun (fail loud, not silent): `patchFeature` rewrites
+      // only the row body and preserves the shard's recorded milestone/order, so
+      // an in-place cross-milestone move (body changed AND milestone changed)
+      // would silently drop the move. A milestone move must be expressed as
+      // remove + add, not a patch.
+      if (prev.milestone !== loc.milestone) {
+        return Err(
+          new Error(
+            `Cannot move feature "${loc.feature.name}" from milestone ` +
+              `"${prev.milestone}" to "${loc.milestone}" via patch: a milestone ` +
+              `move must be a remove + add, not an in-place edit.`
+          )
+        );
+      }
       const r = await store.patchFeature(slug, () => loc.feature);
       if (!r.ok) return r;
     }
