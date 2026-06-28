@@ -94,6 +94,13 @@ export type {
   CheckFailureClassification,
 } from './maintenance/task-runner';
 export type { RunResult } from './maintenance/types';
+// Real maintenance agent dispatcher (#679). Exported so the on-demand CLI
+// (`harness maintenance run --fix`) can build the SAME real dispatcher the cron
+// orchestrator uses (createMaintenanceTaskRunner) instead of a local stub —
+// resolving backends from the CLI's loaded config and degrading gracefully when
+// no backend is configured.
+export { createAgentDispatcher } from './maintenance/agent-dispatcher';
+export type { AgentDispatcherDeps } from './maintenance/agent-dispatcher';
 export { MaintenanceReporter } from './maintenance/reporter';
 export type { MaintenanceReporterOptions } from './maintenance/reporter';
 export { CheckScriptRunner } from './maintenance/check-script-runner';
