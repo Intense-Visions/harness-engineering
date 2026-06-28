@@ -35,7 +35,7 @@ import { PromptRenderer } from './prompt/renderer';
 import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
-import { createBackend } from './agent/backend-factory';
+import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
@@ -716,10 +716,11 @@ export class Orchestrator extends EventEmitter {
 
     // Resolve a configured backend by name into a live AgentBackend; null when
     // the maintenance task references a backend that isn't in agent.backends.
-    const resolveBackend = (backendName: string) => {
-      const def = this.getBackends()?.[backendName];
-      return def ? createBackend(def) : null;
-    };
+    // Shared with the on-demand CLI (`harness maintenance run --fix` →
+    // makeResolveBackend) via `makeBackendResolver` so the two sites can't
+    // drift. `getBackends()` returns the immutable synthesized map set in the
+    // constructor, so capturing it once here matches the prior per-call read.
+    const resolveBackend = makeBackendResolver(this.getBackends());
     const agentDispatcher: AgentDispatcher = createAgentDispatcher({
       resolveBackend,
       git: (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf-8' }).toString().trim(),
