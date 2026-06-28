@@ -55,7 +55,7 @@ read-source invariant (R) guard test.
 - **[BLOCKING → DECISION T19]** The invariant-R detector matches only the literal
   `roadmap.md` substring. Four real readers/writers thread the path through a variable and
   are therefore NOT on the allowlist and NOT flagged: `packages/dashboard/src/server/
-  routes/actions.ts` (writer), `packages/dashboard/src/server/gather/roadmap.ts` (reader),
+routes/actions.ts` (writer), `packages/dashboard/src/server/gather/roadmap.ts` (reader),
   `packages/orchestrator/src/server/routes/roadmap-actions.ts` (writer),
   `packages/orchestrator/src/tracker/adapters/roadmap.ts` (writer). Migrating only the
   allowlisted files makes the guard pass but does NOT actually establish invariant R.
@@ -67,7 +67,7 @@ read-source invariant (R) guard test.
   readers and matches "regenerate aggregate" in the auto-sync requirement), in addition to
   the Phase-3 git hook. If rejected, rely on the hook only and accept transient staleness
   (cosmetic per R). **Recommended: regenerate-after-write inside the factory's patch path.**
-- **[DEFERRABLE]** Some allowlist entries name `roadmap.md` as a legitimate *file* path
+- **[DEFERRABLE]** Some allowlist entries name `roadmap.md` as a legitimate _file_ path
   (orchestrator seed/watch paths, the file-less `migrate/run` archive, the `roadmap-mode`
   existence check) — these are NOT content reads and do not violate R. They are
   re-annotated PERMANENT-permitted rather than migrated (T23).
@@ -75,6 +75,7 @@ read-source invariant (R) guard test.
 ## File Map
 
 ### Core — store foundation (4A)
+
 - MODIFY packages/core/src/roadmap/store/roadmap-store.ts (add `removeFeature` to interface)
 - MODIFY packages/core/src/roadmap/store/monolith-store.ts (implement `removeFeature`)
 - MODIFY packages/core/src/roadmap/store/shard-store.ts (implement `removeFeature`; extend `ShardIO` with `deleteFile`)
@@ -88,26 +89,31 @@ read-source invariant (R) guard test.
 - MODIFY packages/core/src/roadmap/store/monolith-store.test.ts / shard-store.test.ts (removeFeature)
 
 ### CLI — manage_roadmap (4B)
+
 - MODIFY packages/cli/src/mcp/tools/roadmap.ts (read/write seams → store; all 6 handlers)
 - MODIFY packages/cli/src/mcp/tools/roadmap.test.ts (parity + sharded-scope cases)
 
 ### Auto-sync + sync-engine (4C)
+
 - MODIFY packages/cli/src/mcp/tools/roadmap-auto-sync.ts
 - MODIFY packages/cli/src/mcp/tools/roadmap-auto-sync.test.ts
 - MODIFY packages/core/src/roadmap/sync-engine.ts (writeback via store; signature)
 - MODIFY packages/core/src/roadmap/sync-engine.test.ts
 
 ### Readers (4D)
+
 - MODIFY packages/core/src/architecture/prediction-engine.ts
 - MODIFY packages/cli/src/commands/publish-analyses.ts
 - MODIFY packages/cli/src/commands/sync-analyses.ts
 - (+ their tests)
 
 ### Dashboard + orchestrator hidden writers (4E, conditional on T19)
+
 - MODIFY packages/dashboard/src/server/context.ts, gather/roadmap.ts, routes/actions.ts
 - MODIFY packages/orchestrator/src/server/routes/roadmap-actions.ts, tracker/adapters/roadmap.ts
 
 ### Allowlist sweep + rewording (4E)
+
 - MODIFY packages/core/src/validation/roadmap-read-source.ts (shrink allowlist; re-annotate permanents)
 - MODIFY (reword incidental refs) packages/core/src/roadmap/{pilot-scoring,health,assignee-lifecycle,mode}.ts, packages/core/src/roadmap/migrate/{plan-builder,types}.ts, packages/cli/src/config/schema.ts, packages/cli/src/mcp/tools/roadmap-file-less.ts, packages/orchestrator/src/core/candidate-selection.ts, packages/types/src/orchestrator.ts
 - CREATE .changeset/roadmap-shard-store-phase4.md
@@ -141,7 +147,7 @@ task (see Uncertainties). Do NOT write code until confirmed.
    `ShardStore` iff `docs/roadmap.d/` exists, else `MonolithStore`. (Phase 6 later folds
    into `load-mode.ts`.)
 2. **Interface extension:** add `removeFeature(slug)` + an `applyRoadmapDiff(store,
-   before, after)` helper for multi-row writers (`sync`, `groom`).
+before, after)` helper for multi-row writers (`sync`, `groom`).
 3. **Regenerate-after-write:** in sharded mode the store patch path regenerates the
    aggregate `roadmap.md` immediately (in addition to the git hook).
 4. **Recommended option set = accept all four.**
@@ -205,7 +211,7 @@ shard-io.ts` but in core.
 3. Implement `resolveRoadmapStore({ projectRoot, io? })`:
    - `shardDir = <projectRoot>/docs/roadmap.d`; `roadmapPath = <projectRoot>/docs/roadmap.md`.
    - If shardDir exists (sync `fs.existsSync` is fine here) → `new ShardStore({ shardDir, io
-     ?? createNodeRoadmapIO() })`, wrapped so each `patchFeature`/`addFeature`/`removeFeature`
+?? createNodeRoadmapIO() })`, wrapped so each `patchFeature`/`addFeature`/`removeFeature`
      regenerates `roadmap.md` via `writeRegeneratedRoadmap(shardDir, roadmapPath, io)` after
      the per-shard write (decision T1.3). Else `new MonolithStore({ roadmapPath, io })`.
    - Export from barrel. This file legitimately names `roadmap.md` (path constant) → add to
@@ -231,7 +237,7 @@ single-shard writes.
      the D2 slug-identity assumption in a comment).
    - For slugs only in `after` → `addFeature`. Only in `before` → `removeFeature`.
    - In both but `!deepEqual(beforeFeature, afterFeature)` → `patchFeature(slug, () =>
-     afterFeature)`. Short-circuit on first `Err`.
+afterFeature)`. Short-circuit on first `Err`.
    - Export from barrel.
 4. Run — observe pass.
 5. Run: `harness validate` && `harness check-deps`
@@ -273,7 +279,7 @@ groom) is untouched.
 2. Run — observe failure.
 3. Implement: `handleAdd` builds the feature (`buildFeatureFromInput`), resolves milestone
    from a fresh `loadRoadmap`, then `store.addFeature({ slug: slugifyFeatureName(name),
-   milestone, order, feature })`. Bump `lastManualEdit` via a meta patch path (monolith:
+milestone, order, feature })`. Bump `lastManualEdit` via a meta patch path (monolith:
    load→set→write; sharded: meta is regenerated). Drop the direct `writeRoadmapFile` for this
    handler.
 4. Run — observe pass.
@@ -293,7 +299,7 @@ groom) is untouched.
 3. Implement: keep the entire in-memory mutation block verbatim (setStatus/claim/release/
    cascade). Capture `before = structuredClone(roadmap)` right after `loadRoadmap`. Replace
    the terminal `writeRoadmapFile(serializeRoadmap(roadmap))` with `persistRoadmap(projectPath,
-   before, roadmap)`. The refusal path still returns early with no persist.
+before, roadmap)`. The refusal path still returns early with no persist.
 4. Run — observe pass.
 5. Run: `harness validate`
 6. Commit: `refactor(mcp): manage_roadmap update persists via applyRoadmapDiff`
@@ -429,7 +435,7 @@ rewrite.
 3. Implement: replace `fs.readFileSync(roadmapPath)`+`parseRoadmap` (L457–459) with
    `await resolveRoadmapStore({ projectRoot: this.rootDir }).load()`. Note `rootDir` here is
    already the docs-parent root; verify the path math (currently `path.join(this.rootDir,
-   'roadmap.md')` — the factory expects `<root>/docs/...`; adjust `projectRoot` accordingly).
+'roadmap.md')` — the factory expects `<root>/docs/...`; adjust `projectRoot` accordingly).
    Remove `prediction-engine.ts` from the allowlist.
 4. Run its test + repo guard — observe pass/green.
 5. Run: `harness validate`
@@ -475,6 +481,7 @@ thread `roadmap.md` through `ctx.roadmapPath` / config and are NOT flagged by th
 `orchestrator/.../tracker/adapters/roadmap.ts` (write).
 
 Decide:
+
 - **A) Migrate them now (Tasks 19–20 run).** Recommended — they are independent contention
   writers; leaving them un-migrated means invariant R is not truly established.
 - **B) Defer + tighten the detector** to catch path-variable threading and add them
@@ -507,7 +514,7 @@ sub-task + annotated allowlist entries in Task 22.
    parity.
 2. Run — observe failures.
 3. Implement: replace the `serializeRoadmap`+write sites with `applyRoadmapDiff` over a
-   resolved store. Leave orchestrator *seed-path* / *file-watch* references (orchestrator.ts,
+   resolved store. Leave orchestrator _seed-path_ / _file-watch_ references (orchestrator.ts,
    workflow/config.ts, workspace/manager.ts) untouched — they name the aggregate as a file to
    copy/watch, not a content read (handled in Task 22 re-annotation).
 4. Run orchestrator tests — observe pass.

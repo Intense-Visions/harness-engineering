@@ -63,7 +63,7 @@ _Skeleton approved: pre-approved by standalone invocation. Task count (13) is ab
 
 ### C1 — DECISION: the regen hook is a GIT hook, not an agent hook (category mismatch in the spec)
 
-The spec (Integration Points → Registrations Required) says to register the regen hook in **both** `profiles.ts` AND `plugin-config.mjs STANDARD_HOOKS`. **Investigation shows this is a category error.** Those registries describe Claude Code **tool-use** hooks (`PreToolUse`/`PostToolUse`/`PreCompact`/`Stop`); they install `.harness/hooks/*.js` and fire on *agent tool calls*. They cannot model `pre-commit`/`post-merge`, do not fire for human commits, and do not fire on `git merge` — exactly the events the spec's Phase-3 body ("pre-commit + post-merge regeneration") requires.
+The spec (Integration Points → Registrations Required) says to register the regen hook in **both** `profiles.ts` AND `plugin-config.mjs STANDARD_HOOKS`. **Investigation shows this is a category error.** Those registries describe Claude Code **tool-use** hooks (`PreToolUse`/`PostToolUse`/`PreCompact`/`Stop`); they install `.harness/hooks/*.js` and fire on _agent tool calls_. They cannot model `pre-commit`/`post-merge`, do not fire for human commits, and do not fire on `git merge` — exactly the events the spec's Phase-3 body ("pre-commit + post-merge regeneration") requires.
 
 **Recommendation (Option A): implement as husky git hooks; do NOT touch the agent-hook registries.** A `git merge` and the post-merge `merge=ours`-staleness clear can only be handled by a real git hook. Registering a regen entry in `profiles.ts`/`STANDARD_HOOKS` would create a non-functional agent hook and reintroduce the dual-registration desync hazard for no benefit.
 
@@ -77,7 +77,7 @@ The spec (Integration Points → Registrations Required) says to register the re
 ~22 legacy files read `roadmap.md` and do not migrate until Phase 4. Two sub-decisions:
 
 1. **Sequencing:** author the check **now** but enforce it as "the set of files reading `roadmap.md` must be a subset of `ROADMAP_READ_ALLOWLIST`." The allowlist enumerates today's legacy readers + the regenerator, each annotated `// Phase 4: remove when migrated to RoadmapStore`. This **fails on any NEW reader** (the real risk) while passing on the legacy set. Phase 4 shrinks the allowlist toward `{ regenerator }`.
-2. **Enforcement surface:** the invariant is about *harness's own tools*, whose source lives only in this repo — an adopter's `harness validate` has no harness source to scan. So enforcement is a **repo guard test** (`roadmap-read-source.repo.test.ts`, runs under `test:coverage` / pre-push), not an adopter-facing `harness validate` rule. The detector is still a reusable core function so a future `ci check` rule can adopt it. (The separate, adopter-relevant `merge.ours.driver` doctor warning IS wired into `harness validate` — Tasks 3–4 — because that is about the adopter's clone, not harness source.)
+2. **Enforcement surface:** the invariant is about _harness's own tools_, whose source lives only in this repo — an adopter's `harness validate` has no harness source to scan. So enforcement is a **repo guard test** (`roadmap-read-source.repo.test.ts`, runs under `test:coverage` / pre-push), not an adopter-facing `harness validate` rule. The detector is still a reusable core function so a future `ci check` rule can adopt it. (The separate, adopter-relevant `merge.ours.driver` doctor warning IS wired into `harness validate` — Tasks 3–4 — because that is about the adopter's clone, not harness source.)
 
 ### C3 — `.gitattributes merge=ours` lands before the repo is sharded (Phase 7): low risk
 
@@ -196,7 +196,7 @@ Adding `docs/roadmap.md merge=ours` while `roadmap.md` is still the human-author
 **Depends on:** Tasks 6, 7 | **Files:** none (verification)
 
 1. In a throwaway temp git repo (or a scratch branch), scaffold a minimal `docs/roadmap.d/<slug>.md` + `_meta.md` (reuse a Phase-2 round-trip fixture), stage a shard edit, and `git commit`. **Verify** `docs/roadmap.md` was regenerated and included in the commit (pre-commit re-stage worked).
-2. Create a second branch editing a *different* shard; merge it. **Verify** `.husky/post-merge` regenerated `docs/roadmap.md` with no error.
+2. Create a second branch editing a _different_ shard; merge it. **Verify** `.husky/post-merge` regenerated `docs/roadmap.md` with no error.
 3. **Verify** on the current (un-sharded) repo: a normal commit with no staged `docs/roadmap.d/` files does NOT invoke regen and does NOT fail (`harness roadmap regen` would error on a missing shard dir — the guard must prevent that path).
 4. Pause and show results; wait for human confirmation before continuing.
 
@@ -264,15 +264,15 @@ Adding `docs/roadmap.md merge=ours` while `roadmap.md` is still the human-author
 
 ## Traceability (truth → task)
 
-| Truth | Tasks |
-| ----- | ----- |
-| 1 (`merge=ours` declared) | 2 |
-| 2 (pre-commit regen) | 6, 8 |
-| 3 (post-merge regen) | 7, 8 |
-| 4 (init sets driver) | 5 |
-| 5 (validate doctor warning) | 3, 4 |
-| 6 (invariant-R guard) | 10, 11, 12 |
-| 7 (gates at baseline) | every task |
+| Truth                       | Tasks      |
+| --------------------------- | ---------- |
+| 1 (`merge=ours` declared)   | 2          |
+| 2 (pre-commit regen)        | 6, 8       |
+| 3 (post-merge regen)        | 7, 8       |
+| 4 (init sets driver)        | 5          |
+| 5 (validate doctor warning) | 3, 4       |
+| 6 (invariant-R guard)       | 10, 11, 12 |
+| 7 (gates at baseline)       | every task |
 
 ## Out of scope / deferred (flag for later phases)
 

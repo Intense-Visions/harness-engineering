@@ -4,18 +4,19 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `gof-memento-pattern` | Stack: typescript; Domain: data, design, testing | Testing | 0.5 |
-| `gof-chain-of-responsibility` | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.49 |
-| `ts-testing-types` | Stack: typescript; Domain: data, design, testing | Testing | 0.49 |
-| `ts-zod-integration` | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.49 |
-| `gof-builder-pattern` | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.48 |
-| `gof-composite-pattern` | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.48 |
-| `ts-performance-patterns` | Stack: typescript; Domain: data, design, testing | During implementation | 0.48 |
-| `ts-type-guards` | Stack: typescript; Domain: data, design, testing | During implementation | 0.47 |
-| `ts-utility-types` | Stack: typescript; Domain: data, design, testing | During implementation | 0.45 |
-| `angular-component-pattern` | Stack: typescript; Domain: data, design, testing | During implementation | 0.41 |
+| Skill                         | Purpose                                          | When                   | Relevance |
+| ----------------------------- | ------------------------------------------------ | ---------------------- | --------- |
+| `gof-memento-pattern`         | Stack: typescript; Domain: data, design, testing | Testing                | 0.5       |
+| `gof-chain-of-responsibility` | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.49      |
+| `ts-testing-types`            | Stack: typescript; Domain: data, design, testing | Testing                | 0.49      |
+| `ts-zod-integration`          | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.49      |
+| `gof-builder-pattern`         | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.48      |
+| `gof-composite-pattern`       | Stack: typescript; Domain: data, design, testing | Architecture decisions | 0.48      |
+| `ts-performance-patterns`     | Stack: typescript; Domain: data, design, testing | During implementation  | 0.48      |
+| `ts-type-guards`              | Stack: typescript; Domain: data, design, testing | During implementation  | 0.47      |
+| `ts-utility-types`            | Stack: typescript; Domain: data, design, testing | During implementation  | 0.45      |
+| `angular-component-pattern`   | Stack: typescript; Domain: data, design, testing | During implementation  | 0.41      |
 
 ---
-*Scanned 751 skills in 196ms. Signals: 0 keywords, 2 stack markers, 3 domains.*
+
+_Scanned 751 skills in 196ms. Signals: 0 keywords, 2 stack markers, 3 domains._
