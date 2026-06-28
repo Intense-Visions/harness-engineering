@@ -51,4 +51,6 @@ export interface RoadmapStore {
   patchFeature(slug: string, mutate: FeatureMutation): Promise<Result<void>>;
   /** Add a new feature/shard. Phase 4 wires real callers. */
   addFeature(input: AddFeatureInput): Promise<Result<void>>;
+  /** Delete exactly one feature/shard by slug. `Err` if the slug resolves to none. */
+  removeFeature(slug: string): Promise<Result<void>>;
 }

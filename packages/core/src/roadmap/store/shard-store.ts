@@ -12,10 +12,12 @@ import { parseShard, serializeShard } from './shard';
 import { parseMeta } from './meta';
 import { assembleRoadmap } from './assembler';
 
-/** File IO for a shard directory: adds directory listing to `FileIO`. */
+/** File IO for a shard directory: adds directory listing + delete to `FileIO`. */
 export interface ShardIO extends FileIO {
   /** List the entries (basenames) directly under `dir`. */
   listDir(dir: string): Promise<string[]>;
+  /** Delete a single file. Should reject if the file does not exist. */
+  deleteFile(path: string): Promise<void>;
 }
 
 const META_FILE = '_meta.md';
@@ -144,6 +146,16 @@ export class ShardStore implements RoadmapStore {
       feature: input.feature,
     };
     return this.writeShard(path, shard);
+  }
+
+  async removeFeature(slug: string): Promise<Result<void>> {
+    const path = joinPath(this.shardDir, `${slug}.md`);
+    try {
+      await this.io.deleteFile(path);
+    } catch (err) {
+      return Err(new Error(`removeFeature: shard "${slug}" not found: ${(err as Error).message}`));
+    }
+    return Ok(undefined);
   }
 
   private async writeShard(path: string, shard: Shard): Promise<Result<void>> {

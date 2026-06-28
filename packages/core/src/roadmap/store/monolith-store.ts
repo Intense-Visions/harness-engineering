@@ -108,6 +108,24 @@ export class MonolithStore implements RoadmapStore {
     return this.write(roadmap);
   }
 
+  async removeFeature(slug: string): Promise<Result<void>> {
+    const loaded = await this.load();
+    if (!loaded.ok) return loaded;
+    const roadmap = loaded.value;
+
+    let removed = false;
+    for (const milestone of roadmap.milestones) {
+      const before = milestone.features.length;
+      milestone.features = milestone.features.filter((f) => !this.matchSlug(slug, f));
+      if (milestone.features.length !== before) removed = true;
+    }
+    if (!removed) {
+      return Err(new Error(`removeFeature: no feature resolves to slug "${slug}"`));
+    }
+
+    return this.write(roadmap);
+  }
+
   private async write(roadmap: Roadmap): Promise<Result<void>> {
     try {
       await this.io.writeFile(this.roadmapPath, serializeRoadmap(roadmap));

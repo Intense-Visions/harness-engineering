@@ -23,6 +23,7 @@ function makeShardIO() {
   files.set(`${SHARD_DIR}/_meta.md`, serializeMeta(ASSEMBLER_META));
 
   const writes: string[] = [];
+  const deletes: string[] = [];
   const io: ShardIO = {
     listDir: async (dir) => [...files.keys()].filter((p) => p.startsWith(`${dir}/`)).map(basename),
     readFile: async (p) => {
@@ -34,8 +35,13 @@ function makeShardIO() {
       files.set(p, d);
       writes.push(p);
     },
+    deleteFile: async (p) => {
+      if (!files.has(p)) throw new Error(`ENOENT: ${p}`);
+      files.delete(p);
+      deletes.push(p);
+    },
   };
-  return { io, files, writes };
+  return { io, files, writes, deletes };
 }
 
 describe('ShardStore', () => {
@@ -109,6 +115,24 @@ describe('ShardStore', () => {
     expect(files.has(`${SHARD_DIR}/new-thing.md`)).toBe(true);
   });
 
+  it('removeFeature() deletes ONLY the one shard file', async () => {
+    const { io, files, writes, deletes } = makeShardIO();
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+    const r = await store.removeFeature('a-feature');
+    expect(r.ok).toBe(true);
+    expect(writes).toHaveLength(0);
+    expect(deletes).toEqual([`${SHARD_DIR}/a-feature.md`]);
+    expect(files.has(`${SHARD_DIR}/a-feature.md`)).toBe(false);
+  });
+
+  it('removeFeature() returns Err for an unknown slug and deletes nothing', async () => {
+    const { io, deletes } = makeShardIO();
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+    const r = await store.removeFeature('not-a-real-slug');
+    expect(r.ok).toBe(false);
+    expect(deletes).toHaveLength(0);
+  });
+
   it('excludes _meta.md from the shard glob', async () => {
     const { io } = makeShardIO();
     const store = new ShardStore({ shardDir: SHARD_DIR, io });
@@ -164,6 +188,7 @@ describe('readShardDir() integrity guards', () => {
         return v;
       },
       writeFile: async () => {},
+      deleteFile: async (p) => void files.delete(p),
     };
   }
 

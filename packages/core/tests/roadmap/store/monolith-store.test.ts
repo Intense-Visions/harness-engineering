@@ -85,6 +85,27 @@ describe('MonolithStore', () => {
     expect(mvp?.features.map((f) => f.name)).toContain('C feature');
   });
 
+  it('removeFeature() splices the resolved feature and writes back', async () => {
+    const { io, files, writes } = makeIO();
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.removeFeature('a-feature');
+    expect(r.ok).toBe(true);
+    expect(writes).toEqual([ROADMAP_PATH]);
+
+    const written = parseRoadmap(files.get(ROADMAP_PATH)!);
+    if (!written.ok) throw written.error;
+    const allNames = written.value.milestones.flatMap((m) => m.features.map((f) => f.name));
+    expect(allNames).not.toContain('A feature');
+  });
+
+  it('removeFeature() returns Err when the slug resolves to no feature', async () => {
+    const { io, writes } = makeIO();
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.removeFeature('does-not-exist');
+    expect(r.ok).toBe(false);
+    expect(writes).toHaveLength(0);
+  });
+
   // Guard: addFeature must not silently overwrite/duplicate an existing row when
   // its slug already resolves to a feature (Phase 4 data loss).
   it('addFeature() returns Err when the slug already resolves to a feature', async () => {
