@@ -227,7 +227,7 @@ export function assignFeature(
  *     The caller is expected to pass a `Roadmap` whose milestones' features
  *     carry tracker fields (constructed from `RoadmapTrackerClient.fetchAll()`).
  *
- * @param roadmap - The roadmap (file-backed: parsed from docs/roadmap.md;
+ * @param roadmap - The roadmap (file-backed: parsed from the roadmap aggregate;
  *                  file-less: synthesized from tracker fetchAll output).
  * @param options - Pilot scoring options (currentUser etc.).
  * @param config  - The Harness config (or any object with optional `roadmap.mode`);

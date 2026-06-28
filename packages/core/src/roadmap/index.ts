@@ -9,6 +9,13 @@ export { parseRoadmap } from './parse';
 export { serializeRoadmap } from './serialize';
 
 /**
+ * Roadmap store: backend-agnostic storage (shard/`_meta` format, RoadmapStore
+ * interface with MonolithStore + ShardStore backends, assembler, regenerator).
+ * See packages/core/src/roadmap/store/index.ts.
+ */
+export * from './store';
+
+/**
  * Synchronizes the project roadmap with the current state of the codebase and issues.
  */
 export { syncRoadmap, applySyncChanges } from './sync';
@@ -47,9 +54,23 @@ export { STATUS_RANK, isRegression } from './status-rank';
 export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
 
 /**
+ * External-ID (`github:owner/repo#NNN`) parse/build helpers, reused by the
+ * auto-done reconciler edges to map issue numbers ↔ roadmap rows without
+ * format drift.
+ */
+export { parseExternalId, buildExternalId } from './external-id';
+
+/**
  * Shared tracker config loader for harness.config.json.
  */
 export { loadTrackerSyncConfig } from './tracker-config';
+
+/**
+ * Auto-done reconciler (Phase 5, D6): flip roadmap rows whose linked issue is
+ * closed to `done`, store-routed via the assignee-lifecycle authority.
+ */
+export { reconcileDoneFromClosedIssues } from './reconcile';
+export type { ReconcileResult } from './reconcile';
 
 /**
  * Sync engine for bidirectional sync between roadmap and external trackers.
@@ -115,7 +136,8 @@ export { getRoadmapMode } from './mode';
 export type { RoadmapMode, RoadmapModeConfig } from './mode';
 
 /** Per-request loader: resolves roadmap.mode from <projectRoot>/harness.config.json. */
-export { loadProjectRoadmapMode } from './load-mode';
+export { loadProjectRoadmapMode, detectRoadmapStorageMode } from './load-mode';
+export type { RoadmapStorageMode } from './load-mode';
 
 /** Shared loader: resolves `TrackerClientConfig` from harness.config.json. */
 export { loadTrackerClientConfigFromProject } from './load-tracker-client-config';

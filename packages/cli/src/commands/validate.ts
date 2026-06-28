@@ -13,7 +13,13 @@ import {
   validateRoadmapMode,
   parseRoadmap,
   checkRoadmapHealth,
+  needsMergeOursDriverWarning,
+  checkRoadmapAggregateDrift,
+  detectRoadmapStorageMode,
+  regenerate,
+  createNodeRoadmapIO,
 } from '@harness-engineering/core';
+import { execFileSync } from 'node:child_process';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -45,6 +51,8 @@ interface ValidateResult {
     solutionsDir?: boolean;
     roadmapMode?: boolean;
     roadmapHealth?: boolean;
+    mergeDriver?: boolean;
+    roadmapAggregateDrift?: boolean;
     componentAnatomy?: boolean;
     driftDetection?: boolean;
     brandCompliance?: boolean;
@@ -196,6 +204,73 @@ export async function runValidate(
         suggestion: roadmapModeResult.error.suggestions[0],
       }),
     });
+  }
+
+  // Merge-driver doctor (warning). `.gitattributes` may declare generated
+  // aggregates (e.g. docs/roadmap.md) as merge=ours, but that attribute is inert
+  // until the clone runs `git config merge.ours.driver true` once. Surface a
+  // non-fatal warning so existing clones know about the one-time fix (C4).
+  const gitattributesPath = path.join(cwd, '.gitattributes');
+  if (fs.existsSync(gitattributesPath)) {
+    const gitattributesContent = fs.readFileSync(gitattributesPath, 'utf-8');
+    let driverConfigured = false;
+    try {
+      const out = execFileSync('git', ['config', '--get', 'merge.ours.driver'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      driverConfigured = out.length > 0 && out !== 'false';
+    } catch {
+      // git unavailable or cwd is not a repo — treat as unconfigured.
+    }
+    if (needsMergeOursDriverWarning(gitattributesContent, driverConfigured)) {
+      result.checks.mergeDriver = false;
+      result.issues.push({
+        check: 'mergeDriver',
+        file: '.gitattributes',
+        severity: 'warning',
+        message:
+          'Generated files are declared merge=ours but merge.ours.driver is unset in this clone (the attribute is inert without it). One-time fix: git config merge.ours.driver true',
+      });
+    } else {
+      result.checks.mergeDriver = true;
+    }
+  }
+
+  // Roadmap aggregate-drift doctor (warning). In sharded mode (docs/roadmap.d/
+  // present) the aggregate is a generated view; the local husky regen hook is
+  // per-developer and invisible to CI. Surface a non-fatal warning when the
+  // committed aggregate has drifted from a fresh regeneration of the shards so the
+  // pipeline catches staleness — the adopter freshness contract. No-op for monolith
+  // projects (no shard dir). The fix is `harness roadmap regen`.
+  // Route shard presence through the single detection authority so "one place
+  // decides sharded" is literally true (behaviorally identical to probing
+  // docs/roadmap.d/ directly for the conventional docs/ layout).
+  if (detectRoadmapStorageMode(cwd) === 'sharded') {
+    const shardDir = path.join(cwd, 'docs', 'roadmap.d');
+    const regenerated = await regenerate(shardDir, createNodeRoadmapIO());
+    const aggregatePath = path.join(cwd, 'docs', 'roadmap.md');
+    const committedAggregate = fs.existsSync(aggregatePath)
+      ? fs.readFileSync(aggregatePath, 'utf-8')
+      : null;
+    const drift = checkRoadmapAggregateDrift({
+      shardDirExists: true,
+      committedAggregate,
+      regeneratedAggregate: regenerated.ok ? regenerated.value : null,
+    });
+    if (drift.applicable && drift.stale) {
+      result.checks.roadmapAggregateDrift = false;
+      result.issues.push({
+        check: 'roadmapAggregateDrift',
+        file: 'docs/roadmap.md',
+        severity: 'warning',
+        message:
+          'docs/roadmap.md is stale vs docs/roadmap.d/ — run `harness roadmap regen` to regenerate the aggregate.',
+      });
+    } else {
+      result.checks.roadmapAggregateDrift = true;
+    }
   }
 
   // Roadmap health (regression guard). Read-only diagnostics over docs/roadmap.md:

@@ -70,23 +70,23 @@ function mockTimelineManager(timeline: TimelineFile): TimelineManager {
 
 describe('PredictionEngine', () => {
   describe('edge cases', () => {
-    it('throws when fewer than 3 snapshots', () => {
+    it('throws when fewer than 3 snapshots', async () => {
       const tm = mockTimelineManager({ version: 1, snapshots: [makeSnapshot(0), makeSnapshot(1)] });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      expect(() => engine.predict()).toThrow(/at least 3 snapshots/i);
+      await expect(engine.predict()).rejects.toThrow(/at least 3 snapshots/i);
     });
 
-    it('throws when timeline is empty', () => {
+    it('throws when timeline is empty', async () => {
       const tm = mockTimelineManager({ version: 1, snapshots: [] });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      expect(() => engine.predict()).toThrow(/at least 3 snapshots/i);
+      await expect(engine.predict()).rejects.toThrow(/at least 3 snapshots/i);
     });
 
-    it('handles exactly 3 snapshots (minimum viable)', () => {
+    it('handles exactly 3 snapshots (minimum viable)', async () => {
       const snapshots = [makeSnapshot(0), makeSnapshot(1), makeSnapshot(2)];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
       expect(result.snapshotsUsed).toBe(3);
       expect(PredictionResultSchema.parse(result)).toBeTruthy();
     });
@@ -108,20 +108,20 @@ describe('PredictionEngine', () => {
       engine = new PredictionEngine('/tmp/test', tm, null);
     });
 
-    it('returns all 7 categories', () => {
-      const result = engine.predict();
+    it('returns all 7 categories', async () => {
+      const result = await engine.predict();
       for (const cat of ALL_CATEGORIES) {
         expect(result.categories[cat]).toBeDefined();
       }
     });
 
-    it('returns valid PredictionResult (Zod parse succeeds)', () => {
-      const result = engine.predict();
+    it('returns valid PredictionResult (Zod parse succeeds)', async () => {
+      const result = await engine.predict();
       expect(() => PredictionResultSchema.parse(result)).not.toThrow();
     });
 
-    it('projects increasing values for complexity', () => {
-      const result = engine.predict();
+    it('projects increasing values for complexity', async () => {
+      const result = await engine.predict();
       const forecast = result.categories['complexity']!.baseline;
       expect(forecast.current).toBe(60);
       expect(forecast.projectedValue4w).toBeGreaterThan(60);
@@ -129,22 +129,22 @@ describe('PredictionEngine', () => {
       expect(forecast.projectedValue12w).toBeGreaterThan(forecast.projectedValue8w);
     });
 
-    it('computes threshold crossing for complexity (threshold=100)', () => {
-      const result = engine.predict();
+    it('computes threshold crossing for complexity (threshold=100)', async () => {
+      const result = await engine.predict();
       const forecast = result.categories['complexity']!.baseline;
       expect(forecast.thresholdCrossingWeeks).toBeGreaterThan(0);
       expect(forecast.thresholdCrossingWeeks).not.toBeNull();
     });
 
-    it('returns null threshold crossing for zero-value categories', () => {
-      const result = engine.predict();
+    it('returns null threshold crossing for zero-value categories', async () => {
+      const result = await engine.predict();
       const forecast = result.categories['circular-deps']!.baseline;
       expect(forecast.current).toBe(0);
       expect(forecast.thresholdCrossingWeeks).toBeNull();
     });
 
-    it('adjusted equals baseline when no estimator', () => {
-      const result = engine.predict();
+    it('adjusted equals baseline when no estimator', async () => {
+      const result = await engine.predict();
       for (const cat of ALL_CATEGORIES) {
         const af = result.categories[cat]!;
         expect(af.adjusted).toEqual(af.baseline);
@@ -152,28 +152,28 @@ describe('PredictionEngine', () => {
       }
     });
 
-    it('classifies direction correctly', () => {
-      const result = engine.predict();
+    it('classifies direction correctly', async () => {
+      const result = await engine.predict();
       // complexity is increasing -> declining
       expect(result.categories['complexity']!.baseline.direction).toBe('declining');
       // zero categories -> stable
       expect(result.categories['circular-deps']!.baseline.direction).toBe('stable');
     });
 
-    it('includes timelineRange from first to last snapshot', () => {
-      const result = engine.predict();
+    it('includes timelineRange from first to last snapshot', async () => {
+      const result = await engine.predict();
       expect(result.timelineRange.from).toContain('2026-01-05');
       expect(result.timelineRange.to).toContain('2026-02-02');
     });
 
-    it('sets snapshotsUsed correctly', () => {
-      const result = engine.predict();
+    it('sets snapshotsUsed correctly', async () => {
+      const result = await engine.predict();
       expect(result.snapshotsUsed).toBe(5);
     });
   });
 
   describe('warnings', () => {
-    it('generates critical warning for threshold crossing <= 4 weeks with high confidence', () => {
+    it('generates critical warning for threshold crossing <= 4 weeks with high confidence', async () => {
       // complexity at 95, threshold 100, slope ~5/week -> crosses in 1 week
       const snapshots = [
         makeSnapshot(0, { complexity: 70 }),
@@ -185,7 +185,7 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
 
       const criticals = result.warnings.filter((w) => w.severity === 'critical');
       expect(criticals.length).toBeGreaterThanOrEqual(1);
@@ -193,7 +193,7 @@ describe('PredictionEngine', () => {
       expect(criticals[0]!.weeksUntil).toBeLessThanOrEqual(4);
     });
 
-    it('generates warning severity for threshold crossing <= 8 weeks', () => {
+    it('generates warning severity for threshold crossing <= 8 weeks', async () => {
       // complexity at 65, threshold 100, slope ~5/week -> crosses in ~7 weeks
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
@@ -205,14 +205,14 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
 
       const warnings = result.warnings.filter((w) => w.severity === 'warning');
       expect(warnings.length).toBeGreaterThanOrEqual(1);
       expect(warnings[0]!.category).toBe('complexity');
     });
 
-    it('generates info severity for threshold crossing <= 12 weeks', () => {
+    it('generates info severity for threshold crossing <= 12 weeks', async () => {
       // complexity at 50, threshold 100, slope ~5/week -> crosses in ~10 weeks
       const snapshots = [
         makeSnapshot(0, { complexity: 25 }),
@@ -224,14 +224,14 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
 
       const infos = result.warnings.filter((w) => w.severity === 'info');
       expect(infos.length).toBeGreaterThanOrEqual(1);
       expect(infos[0]!.category).toBe('complexity');
     });
 
-    it('does not generate warnings for stable/improving categories', () => {
+    it('does not generate warnings for stable/improving categories', async () => {
       // all categories at zero, stable
       const snapshots = [
         makeSnapshot(0),
@@ -242,11 +242,11 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
       expect(result.warnings).toEqual([]);
     });
 
-    it('warning contributingFeatures is empty in baseline mode', () => {
+    it('warning contributingFeatures is empty in baseline mode', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 70 }),
         makeSnapshot(1, { complexity: 75 }),
@@ -257,7 +257,7 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
       for (const w of result.warnings) {
         expect(w.contributingFeatures).toEqual([]);
       }
@@ -265,7 +265,7 @@ describe('PredictionEngine', () => {
   });
 
   describe('stability forecast', () => {
-    it('computes composite stability forecast', () => {
+    it('computes composite stability forecast', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -275,7 +275,7 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
 
       expect(result.stabilityForecast.current).toBeGreaterThan(0);
       expect(result.stabilityForecast.current).toBeLessThanOrEqual(100);
@@ -285,7 +285,7 @@ describe('PredictionEngine', () => {
       );
     });
 
-    it('stability forecast has valid confidence and direction', () => {
+    it('stability forecast has valid confidence and direction', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -295,7 +295,7 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict();
+      const result = await engine.predict();
 
       expect(['high', 'medium', 'low']).toContain(result.stabilityForecast.confidence);
       expect(['improving', 'stable', 'declining']).toContain(result.stabilityForecast.direction);
@@ -303,7 +303,7 @@ describe('PredictionEngine', () => {
   });
 
   describe('options', () => {
-    it('respects categories filter', () => {
+    it('respects categories filter', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40, coupling: 0.5 }),
         makeSnapshot(1, { complexity: 45, coupling: 0.6 }),
@@ -313,14 +313,14 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine('/tmp/test', tm, null);
-      const result = engine.predict({ categories: ['complexity', 'coupling'] });
+      const result = await engine.predict({ categories: ['complexity', 'coupling'] });
 
       // Should still have all 7 categories in result but only filtered ones get full regression
       expect(result.categories['complexity']).toBeDefined();
       expect(result.categories['coupling']).toBeDefined();
     });
 
-    it('respects custom thresholds', () => {
+    it('respects custom thresholds', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -332,7 +332,7 @@ describe('PredictionEngine', () => {
       const engine = new PredictionEngine('/tmp/test', tm, null);
 
       // With threshold=200, crossing should be further out (or null)
-      const result = engine.predict({ thresholds: { complexity: 200 } });
+      const result = await engine.predict({ thresholds: { complexity: 200 } });
       const forecast = result.categories['complexity']!.baseline;
       expect(forecast.threshold).toBe(200);
     });
@@ -355,9 +355,10 @@ describe('PredictionEngine', () => {
           ],
         })
       );
-      // Write a roadmap.md
+      // Write the roadmap at the standard docs/ location (read via the store).
+      fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
       fs.writeFileSync(
-        path.join(tmpDir, 'roadmap.md'),
+        path.join(tmpDir, 'docs', 'roadmap.md'),
         [
           '---',
           'project: test',
@@ -412,7 +413,7 @@ describe('PredictionEngine', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('adjusted differs from baseline when estimator is provided and includeRoadmap is true', () => {
+    it('adjusted differs from baseline when estimator is provided and includeRoadmap is true', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -423,7 +424,7 @@ describe('PredictionEngine', () => {
       const tm = mockTimelineManager({ version: 1, snapshots });
       const estimator = new SpecImpactEstimator(tmpDir);
       const engine = new PredictionEngine(tmpDir, tm, estimator);
-      const result = engine.predict({ includeRoadmap: true });
+      const result = await engine.predict({ includeRoadmap: true });
 
       // Complexity adjusted should be higher than baseline (spec adds files + phases)
       const complexityAF = result.categories['complexity']!;
@@ -432,7 +433,7 @@ describe('PredictionEngine', () => {
       );
     });
 
-    it('contributingFeatures is populated for affected categories', () => {
+    it('contributingFeatures is populated for affected categories', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -443,7 +444,7 @@ describe('PredictionEngine', () => {
       const tm = mockTimelineManager({ version: 1, snapshots });
       const estimator = new SpecImpactEstimator(tmpDir);
       const engine = new PredictionEngine(tmpDir, tm, estimator);
-      const result = engine.predict({ includeRoadmap: true });
+      const result = await engine.predict({ includeRoadmap: true });
 
       const complexityAF = result.categories['complexity']!;
       expect(complexityAF.contributingFeatures.length).toBeGreaterThan(0);
@@ -451,7 +452,7 @@ describe('PredictionEngine', () => {
       expect(complexityAF.contributingFeatures[0]!.delta).toBeGreaterThan(0);
     });
 
-    it('adjusted equals baseline when includeRoadmap is false', () => {
+    it('adjusted equals baseline when includeRoadmap is false', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -462,7 +463,7 @@ describe('PredictionEngine', () => {
       const tm = mockTimelineManager({ version: 1, snapshots });
       const estimator = new SpecImpactEstimator(tmpDir);
       const engine = new PredictionEngine(tmpDir, tm, estimator);
-      const result = engine.predict({ includeRoadmap: false });
+      const result = await engine.predict({ includeRoadmap: false });
 
       for (const cat of ALL_CATEGORIES) {
         const af = result.categories[cat]!;
@@ -471,7 +472,7 @@ describe('PredictionEngine', () => {
       }
     });
 
-    it('adjusted equals baseline when estimator is null', () => {
+    it('adjusted equals baseline when estimator is null', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -481,7 +482,7 @@ describe('PredictionEngine', () => {
       ];
       const tm = mockTimelineManager({ version: 1, snapshots });
       const engine = new PredictionEngine(tmpDir, tm, null);
-      const result = engine.predict({ includeRoadmap: true });
+      const result = await engine.predict({ includeRoadmap: true });
 
       for (const cat of ALL_CATEGORIES) {
         const af = result.categories[cat]!;
@@ -489,7 +490,7 @@ describe('PredictionEngine', () => {
       }
     });
 
-    it('warnings use adjusted forecast for severity calculation', () => {
+    it('warnings use adjusted forecast for severity calculation', async () => {
       // Complexity close to threshold -- spec impact should push it into warning range
       const snapshots = [
         makeSnapshot(0, { complexity: 70 }),
@@ -501,7 +502,7 @@ describe('PredictionEngine', () => {
       const tm = mockTimelineManager({ version: 1, snapshots });
       const estimator = new SpecImpactEstimator(tmpDir);
       const engine = new PredictionEngine(tmpDir, tm, estimator);
-      const result = engine.predict({ includeRoadmap: true });
+      const result = await engine.predict({ includeRoadmap: true });
 
       // Should have a warning for complexity
       const complexityWarning = result.warnings.find((w) => w.category === 'complexity');
@@ -510,7 +511,7 @@ describe('PredictionEngine', () => {
       expect(complexityWarning!.contributingFeatures.length).toBeGreaterThan(0);
     });
 
-    it('result still validates against Zod schema with roadmap integration', () => {
+    it('result still validates against Zod schema with roadmap integration', async () => {
       const snapshots = [
         makeSnapshot(0, { complexity: 40 }),
         makeSnapshot(1, { complexity: 45 }),
@@ -521,7 +522,7 @@ describe('PredictionEngine', () => {
       const tm = mockTimelineManager({ version: 1, snapshots });
       const estimator = new SpecImpactEstimator(tmpDir);
       const engine = new PredictionEngine(tmpDir, tm, estimator);
-      const result = engine.predict({ includeRoadmap: true });
+      const result = await engine.predict({ includeRoadmap: true });
 
       expect(() => PredictionResultSchema.parse(result)).not.toThrow();
     });

@@ -401,6 +401,7 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - **`harness state learn "<message>"`** — Append a learning from CLI.
 - **State/Learnings files** — Session-scoped when session known, otherwise `.harness/`. State updated after every task; learnings append-only.
 - **Roadmap claim** — Phase 2 Step 0: `manage_roadmap update` with `status: in-progress` + `assignee: <currentUser>` claims the item at execution start (the assignee = "who is executing" invariant). Stop if `currentUser` is unresolvable. Marking the row `done` later auto-clears the assignee via the lifecycle `setStatus` chokepoint — never leave a non-in-progress row assigned (RMH005).
+- **Auto-done (do NOT hand-mark rows done)** — A row reaches `done` automatically when the implementing PR merges and closes its linked issue: the merge-triggered auto-done reconciler flips exactly that shard via `External-ID` (CI Action authoritative; `harness roadmap reconcile` is the offline fallback). Execution should claim the row `in-progress` and let the merge drive it to `done` — do not call `manage_roadmap update status:done` by hand. See knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowledge/roadmap/merge-triggered-auto-done.md). In sharded mode (`docs/roadmap.d/` present) the claim writes one shard and regenerates the aggregate.
 - **Roadmap sync** — After plan completion, `manage_roadmap sync` with `apply: true`. Mandatory when roadmap exists. No `force_sync: true`.
 - **`emit_interaction`** — Auto-transition to harness-verification at plan completion.
 

@@ -1095,6 +1095,47 @@ Migrate the project roadmap to a different storage mode
 - `--dry-run` — Print the migration plan without making any changes
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
+### `harness roadmap reconcile`
+
+Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode flips only issues closed as 'completed' (a 'not planned'/'wontfix' close is left untouched); the PR-merge auto-done workflow remains authoritative for cross-repo correctness.
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--from-issues` — comma-separated issue numbers to reconcile against the configured repo (authoritative; skips the network fetch)
+- `--from-refs` — comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)
+
+### `harness roadmap regen`
+
+Regenerate the aggregate from the shard directory (docs/roadmap.d)
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Report what would be regenerated without writing anything
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap shard`
+
+Migrate docs/roadmap.md to per-row shards under docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Report the migration plan without writing anything
+- `--force` — Proceed even if docs/roadmap.d already exists
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap unshard`
+
+Reassemble the aggregate from shards and remove docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Preview the reassembly without writing or deleting the shard dir
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
 ## Routing Commands
 
 Inspect routing config, trace decisions, and read recent dispatches

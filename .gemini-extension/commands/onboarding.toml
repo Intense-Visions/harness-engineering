@@ -49,6 +49,8 @@ Onboard a new developer to a harness-managed project
 
 4. **Read `.harness/state.json`** if it exists. This reveals what was happening in the last session — current phase, active task, any blockers that were recorded.
 
+5. **Detect the roadmap layout.** If `docs/roadmap.d/` exists the project uses the **sharded** roadmap: per-row shards `docs/roadmap.d/<slug>.md` (plus `_meta.md`) are canonical and `docs/roadmap.md` is a **generated** `merge=ours` aggregate (do not hand-edit it). New contributors must run the one-time per-clone setup so generated-file merges behave: `git config merge.ours.driver true` (the `.gitattributes merge=ours` entry is inert without it — `harness validate` warns clones that have not run it). Surface this in "Getting Started". If only `docs/roadmap.md` exists, the project is monolith; if neither, it is file-less or uninitialized. See the adoption guide `docs/guides/roadmap-sharding.md`.
+
 ### Phase 2: MAP — Understand the Codebase Structure
 
 Use `code_outline` to get structural overviews of key modules (functions, classes, exports) without reading full source files. Use `code_search` to locate patterns, symbols, or conventions across the codebase.

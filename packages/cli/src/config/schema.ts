@@ -409,7 +409,7 @@ export const IntegrationsConfigSchema = z.object({
  * Schema for external tracker sync configuration (`roadmap.tracker`).
  *
  * IMPORTANT: do **not** confuse this `kind` ('github' — the file-backed sync
- * engine that reconciles `docs/roadmap.md` ↔ an external tracker) with the
+ * engine that reconciles the roadmap aggregate ↔ an external tracker) with the
  * orchestrator's `WorkflowConfig.tracker.kind` ('roadmap' | 'github-issues' —
  * the IssueTrackerClient dispatch). Two near-identical strings live in
  * different config namespaces. See Phase 4 plan R3 for the long-form note.
@@ -434,7 +434,7 @@ export const TrackerConfigSchema = z.object({
  * Schema for roadmap configuration.
  *
  * `mode` selects the storage backend:
- *   - `"file-backed"` (default) — `docs/roadmap.md` is canonical.
+ *   - `"file-backed"` (default) — the roadmap aggregate is canonical.
  *   - `"file-less"` — the configured external tracker is canonical; the
  *     markdown file must not exist. Validated by `validateRoadmapMode`
  *     (cross-cutting filesystem check) in addition to this Zod shape check.

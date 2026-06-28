@@ -50,7 +50,7 @@ describe('gatherRoadmap', () => {
 
   it('returns structured roadmap data for valid file', async () => {
     vi.mocked(fs.readFile).mockResolvedValue(VALID_ROADMAP);
-    const result = await gatherRoadmap('/project/docs/roadmap.md');
+    const result = await gatherRoadmap('/project');
 
     expect('error' in result).toBe(false);
     if ('error' in result) return;
@@ -72,7 +72,7 @@ describe('gatherRoadmap', () => {
     vi.mocked(fs.readFile).mockRejectedValue(
       Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
     );
-    const result = await gatherRoadmap('/project/docs/roadmap.md');
+    const result = await gatherRoadmap('/project');
 
     expect('error' in result).toBe(true);
     if (!('error' in result)) return;
@@ -81,14 +81,14 @@ describe('gatherRoadmap', () => {
 
   it('returns error for malformed roadmap', async () => {
     vi.mocked(fs.readFile).mockResolvedValue('not a valid roadmap');
-    const result = await gatherRoadmap('/project/docs/roadmap.md');
+    const result = await gatherRoadmap('/project');
 
     expect('error' in result).toBe(true);
   });
 
   it('returns projected features without filesystem paths', async () => {
     vi.mocked(fs.readFile).mockResolvedValue(VALID_ROADMAP);
-    const result = await gatherRoadmap('/project/docs/roadmap.md');
+    const result = await gatherRoadmap('/project');
 
     if ('error' in result) return;
     expect(result.features).toHaveLength(5);

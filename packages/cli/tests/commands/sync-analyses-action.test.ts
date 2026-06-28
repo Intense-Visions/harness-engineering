@@ -28,11 +28,17 @@ const {
   mockCreateTrackerClient: vi.fn(),
 }));
 
-// Mock fs
-vi.mock('fs', () => ({
-  existsSync: vi.fn(),
-  readFileSync: vi.fn(),
-}));
+// Mock fs but keep the real implementations by default (spread original): the
+// roadmap reader resolves the store against REAL fs, so mkdtemp/write/exists must
+// behave for real. existsSync/readFileSync stay spy-able for the .env-check tests.
+vi.mock('fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('fs')>();
+  return {
+    ...original,
+    existsSync: vi.fn(original.existsSync),
+    readFileSync: vi.fn(original.readFileSync),
+  };
+});
 
 // Mock @harness-engineering/core
 vi.mock('@harness-engineering/core', () => ({
@@ -68,6 +74,8 @@ vi.mock('../../src/output/logger', () => ({
 }));
 
 import * as fs from 'fs';
+import * as os from 'node:os';
+import * as nodePath from 'node:path';
 import { logger } from '../../src/output/logger';
 import { createSyncAnalysesCommand } from '../../src/commands/sync-analyses';
 
@@ -138,42 +146,43 @@ describe('sync-analyses action handler', () => {
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('No GITHUB_TOKEN'));
   });
 
-  it('exits when roadmap.md not found', async () => {
+  it('exits when no roadmap source found', async () => {
     process.env.GITHUB_TOKEN = 'test-token';
     mockLoadTrackerSyncConfig.mockReturnValue({ kind: 'github', repo: 'owner/repo' });
-    // existsSync: false for .env, false for roadmap.md
-    vi.mocked(fs.existsSync).mockReturnValue(false);
+    // The reader resolves the store against the REAL fs (require bypasses vi.mock):
+    // a temp dir with no docs/roadmap.md or docs/roadmap.d → not found.
+    const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'sync-an-'));
+    try {
+      const program = createProgram();
+      await expect(
+        program.parseAsync(['node', 'test', 'sync-analyses', '-d', dir])
+      ).rejects.toThrow('process.exit');
 
-    const program = createProgram();
-    await expect(
-      program.parseAsync(['node', 'test', 'sync-analyses', '-d', '/tmp/project'])
-    ).rejects.toThrow('process.exit');
-
-    expect(mockExit).toHaveBeenCalledWith(1);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('No docs/roadmap.md found'));
+      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('No roadmap source found'));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  it('exits when roadmap parsing fails', async () => {
+  it('exits when roadmap read fails', async () => {
     process.env.GITHUB_TOKEN = 'test-token';
     mockLoadTrackerSyncConfig.mockReturnValue({ kind: 'github', repo: 'owner/repo' });
-    let calls = 0;
-    vi.mocked(fs.existsSync).mockImplementation(() => {
-      calls++;
-      // Call 1: .env -> false, Call 2: roadmap.md -> true
-      return calls >= 2;
-    });
-    vi.mocked(fs.readFileSync).mockReturnValue('# Roadmap');
-    mockParseRoadmap.mockReturnValue({ ok: false });
+    // Real temp dir with an UNPARSEABLE docs/roadmap.md → store.load() Err.
+    const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'sync-an-'));
+    fs.mkdirSync(nodePath.join(dir, 'docs'), { recursive: true });
+    fs.writeFileSync(nodePath.join(dir, 'docs', 'roadmap.md'), 'not a valid roadmap');
+    try {
+      const program = createProgram();
+      await expect(
+        program.parseAsync(['node', 'test', 'sync-analyses', '-d', dir])
+      ).rejects.toThrow('process.exit');
 
-    const program = createProgram();
-    await expect(
-      program.parseAsync(['node', 'test', 'sync-analyses', '-d', '/tmp/project'])
-    ).rejects.toThrow('process.exit');
-
-    expect(mockExit).toHaveBeenCalledWith(1);
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to parse docs/roadmap.md')
-    );
+      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to read roadmap'));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   // Note: Tests for loadRoadmapFeatures, syncFeatureAnalyses, and the success path

@@ -10,7 +10,7 @@ export interface MigrationPlan {
   unchanged: Array<{ externalId: string; name: string }>;
   /** History events to append, deduplicated by hash against existing comments. */
   historyToAppend: Array<{ externalId: string; event: HistoryEvent; hash: string }>;
-  /** Features in `roadmap.md` with no External-ID AND a same-titled existing issue (D-P5-E). */
+  /** Features in the roadmap with no External-ID AND a same-titled existing issue (D-P5-E). */
   ambiguous: Array<{ name: string; existingIssueRef: string }>;
 }
 

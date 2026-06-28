@@ -2,6 +2,8 @@
 
 The harness roadmap system tracks project features across milestones in a single markdown file (`docs/roadmap.md`), with optional bidirectional sync to GitHub Issues and AI-assisted next-item selection.
 
+> **Sharded storage:** new projects store the roadmap as per-row shards under `docs/roadmap.d/` (with `docs/roadmap.md` as a generated aggregate) rather than one monolith file. See [`roadmap-sharding.md`](roadmap-sharding.md) for adoption, git mechanics, and the read-source invariant. Everything in this guide applies to both layouts — tools read and write through the same roadmap store.
+
 ## The Roadmap File
 
 ### Creating a Roadmap

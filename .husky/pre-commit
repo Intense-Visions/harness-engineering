@@ -29,3 +29,25 @@ if git diff --cached --name-only | grep -qE '^(agents/skills/|scripts/(generate-
     git add .claude-plugin .cursor-plugin .gemini-extension .codex-plugin 2>/dev/null
   fi
 fi
+
+# Regenerate the roadmap aggregate when any shard is staged, so docs/roadmap.md
+# (merge=ours) never drifts from docs/roadmap.d/. No-op when no shard is staged
+# (e.g. before this repo is sharded). Output is deterministic + prettier-clean
+# (writeRegeneratedRoadmap), so it never trips the pre-push format:check.
+# This is intentionally a GIT hook, not an agent hook (profiles.ts/STANDARD_HOOKS
+# register Claude Code tool-use hooks, which cannot fire on git commit/merge).
+if git diff --cached --name-only | grep -qE '^docs/roadmap\.d/'; then
+  # Caveat: `roadmap regen` reads the WORKING TREE, not the staged index — with a
+  # partial stage (some hunks of a shard staged, the rest left unstaged) the
+  # regenerated aggregate reflects the working-tree shards, which may differ from
+  # what is committed. Stage shard files whole to keep the aggregate exact.
+  # Fail-safe: do NOT swallow a regen error. `harness roadmap regen` returns
+  # nonzero and leaves docs/roadmap.md untouched on failure, so re-staging it
+  # would commit a STALE aggregate and defeat the drift-prevention guarantee.
+  # Only re-stage on success; on failure, block the commit (exit 1).
+  if ! node packages/cli/dist/bin/harness.js roadmap regen; then
+    echo "✗ Commit blocked: 'harness roadmap regen' failed; refusing to commit a stale docs/roadmap.md" >&2
+    exit 1
+  fi
+  git add docs/roadmap.md
+fi

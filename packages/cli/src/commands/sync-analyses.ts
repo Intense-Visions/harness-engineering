@@ -91,7 +91,7 @@ function bootstrapTrackerCommand(opts: { dir: string }, verb: string): Bootstrap
 async function loadRoadmapFeatures(
   projectPath: string
 ): Promise<Array<{ name: string; externalId: string }> | null> {
-  // FR-S2: route on roadmap.mode instead of using `fs.existsSync(roadmap.md)`
+  // FR-S2: route on roadmap.mode instead of an aggregate-file existence check
   // as a proxy. In file-less mode, the file does not exist and the tracker
   // is canonical — fetch features through `RoadmapTrackerClient.fetchAll`.
   const mode = loadProjectRoadmapMode(projectPath);
@@ -116,17 +116,16 @@ async function loadRoadmapFeatures(
       .map((f) => ({ name: f.name, externalId: f.externalId }));
   }
 
-  const roadmapFile = path.join(projectPath, 'docs', 'roadmap.md');
-  if (!fs.existsSync(roadmapFile)) {
-    logger.error('No docs/roadmap.md found. Cannot discover features with externalIds.');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { resolveRoadmapStore, roadmapSourceExists } = require('@harness-engineering/core');
+  if (!roadmapSourceExists(projectPath)) {
+    logger.error('No roadmap source found. Cannot discover features with externalIds.');
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { parseRoadmap } = require('@harness-engineering/core');
-  const roadmapParsed = parseRoadmap(fs.readFileSync(roadmapFile, 'utf-8'));
+  const roadmapParsed = await resolveRoadmapStore({ projectRoot: projectPath }).load();
   if (!roadmapParsed.ok) {
-    logger.error('Failed to parse docs/roadmap.md');
+    logger.error('Failed to read roadmap.');
     return null;
   }
 

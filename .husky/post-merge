@@ -1,0 +1,14 @@
+# Clear merge=ours staleness: after a merge, regenerate docs/roadmap.md from the
+# shards. No-op (and never errors) when the repo is not sharded yet.
+# This is intentionally a GIT hook, not an agent hook — git merge cannot be
+# observed by the Claude Code tool-use hook registries (profiles.ts /
+# STANDARD_HOOKS), so the regen must live here.
+if [ -d docs/roadmap.d ]; then
+  # Rebase caveat: a clean `git rebase` replay regenerates via NEITHER this hook
+  # nor pre-commit, so a rebased branch can land with a stale aggregate — re-run
+  # `harness roadmap regen` by hand (or `harness validate` flags the drift).
+  # A post-merge hook cannot abort the merge, but it must NOT be silent: a failed
+  # regen leaves docs/roadmap.md stale (merge=ours kept the pre-merge content), so
+  # surface a visible warning instead of swallowing stderr with `|| true`.
+  node packages/cli/dist/bin/harness.js roadmap regen || echo "⚠ roadmap regen failed after merge; docs/roadmap.md may be stale — run 'harness roadmap regen'" >&2
+fi

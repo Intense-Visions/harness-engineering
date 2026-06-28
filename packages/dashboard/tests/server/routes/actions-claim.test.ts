@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
+import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { buildActionsRouter } from '../../../src/server/routes/actions';
 import type { ServerContext } from '../../../src/server/context';
 import { DataCache } from '../../../src/server/cache';
 import { GatherCache } from '../../../src/server/gather-cache';
 import { SSEManager } from '../../../src/server/sse';
-import * as fs from 'node:fs/promises';
 
 // Mock all gatherers used by actions router
 vi.mock('../../../src/server/gather/security', () => ({
@@ -35,7 +37,6 @@ vi.mock('../../../src/server/gather/anomalies', () => ({
 vi.mock('../../../src/server/identity', () => ({
   resolveIdentity: vi.fn().mockResolvedValue({ username: 'testuser', source: 'git-config' }),
 }));
-vi.mock('node:fs/promises');
 
 const CLAIMABLE_ROADMAP = `---
 project: test
@@ -52,39 +53,54 @@ last_manual_edit: "2026-01-01T00:00:00Z"
 - **Status:** planned
 - **Spec:** docs/changes/auth/proposal.md
 - **Summary:** Authentication
-- **Blockers:** \u2014
-- **Plan:** \u2014
+- **Blockers:** —
+- **Plan:** —
 
 ### Dashboard
 - **Status:** in-progress
 - **Spec:** docs/changes/dashboard/proposal.md
 - **Summary:** Dashboard UI
-- **Blockers:** \u2014
+- **Blockers:** —
 - **Plan:** docs/plans/dashboard-plan.md
 - **Assignee:** existing-user
 - **Priority:** P0
-- **External-ID:** \u2014
+- **External-ID:** —
 
 ### API Gateway
 - **Status:** planned
-- **Spec:** \u2014
+- **Spec:** —
 - **Summary:** REST API gateway
-- **Blockers:** \u2014
-- **Plan:** \u2014
-- **Assignee:** \u2014
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#42
 `;
 
 const origEnv = { ...process.env };
 
-function makeContext(): ServerContext {
+/**
+ * The claim handler reads + writes roadmap CONTENT through the store
+ * (`resolveRoadmapStore`), so these tests use a REAL monolith roadmap under a
+ * temp project root rather than `node:fs` mocks — a static mock cannot model the
+ * store's load → applyRoadmapDiff round-trip.
+ */
+async function makeProject(withRoadmap = true): Promise<string> {
+  const root = await mkdtemp(path.join(tmpdir(), 'dash-claim-'));
+  if (withRoadmap) {
+    await mkdir(path.join(root, 'docs'), { recursive: true });
+    await writeFile(path.join(root, 'docs', 'roadmap.md'), CLAIMABLE_ROADMAP, 'utf-8');
+  }
+  return root;
+}
+
+function makeContext(projectPath: string): ServerContext {
   const sseManager = new SSEManager();
   vi.spyOn(sseManager, 'broadcast').mockResolvedValue(undefined);
   return {
-    projectPath: '/fake',
-    roadmapPath: '/fake/docs/roadmap.md',
-    chartsPath: '/fake/docs/roadmap-charts.md',
+    projectPath,
+    roadmapPath: path.join(projectPath, 'docs', 'roadmap.md'),
+    chartsPath: path.join(projectPath, 'docs', 'roadmap-charts.md'),
     cache: new DataCache(60_000),
     pollIntervalMs: 30_000,
     sseManager,
@@ -95,22 +111,22 @@ function makeContext(): ServerContext {
 describe('POST /api/actions/roadmap/claim', () => {
   let app: Hono;
   let ctx: ServerContext;
+  let projectRoot: string;
 
-  beforeEach(() => {
-    vi.resetAllMocks();
+  beforeEach(async () => {
     process.env = { ...origEnv };
     delete process.env['GITHUB_TOKEN'];
     vi.stubGlobal('fetch', vi.fn());
-    ctx = makeContext();
+    projectRoot = await makeProject();
+    ctx = makeContext(projectRoot);
     app = new Hono();
     app.route('/api', buildActionsRouter(ctx));
-    vi.mocked(fs.readFile).mockResolvedValue(CLAIMABLE_ROADMAP);
-    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = origEnv;
     vi.unstubAllGlobals();
+    await rm(projectRoot, { recursive: true, force: true });
   });
 
   it('returns 400 when feature or assignee is missing', async () => {
@@ -171,8 +187,7 @@ describe('POST /api/actions/roadmap/claim', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feature: 'Auth Module', assignee: 'testuser' }),
     });
-    expect(fs.writeFile).toHaveBeenCalledTimes(1);
-    const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+    const written = await readFile(path.join(projectRoot, 'docs', 'roadmap.md'), 'utf-8');
     expect(written).toContain('in-progress');
     expect(written).toContain('testuser');
   });
@@ -231,36 +246,34 @@ describe('POST /api/actions/roadmap/claim', () => {
     expect(body.githubSynced).toBe(false);
   });
 
-  it('returns 500 when roadmap file cannot be read', async () => {
-    // Phase 3: handleClaim reads harness.config.json first to resolve roadmap.mode.
-    // Reject only the roadmap.md read so the mode lookup falls through harmlessly
-    // and the subsequent roadmap-file read triggers the 500 path.
-    vi.mocked(fs.readFile).mockImplementation(((p: string) => {
-      if (typeof p === 'string' && p.endsWith('roadmap.md')) {
-        return Promise.reject(new Error('ENOENT'));
-      }
-      if (typeof p === 'string' && p.endsWith('harness.config.json')) {
-        return Promise.reject(new Error('ENOENT'));
-      }
-      return Promise.resolve(CLAIMABLE_ROADMAP);
-    }) as never);
-    const res = await app.request('/api/actions/roadmap/claim', {
+  it('returns 500 when roadmap source cannot be read', async () => {
+    const emptyRoot = await makeProject(false);
+    const emptyCtx = makeContext(emptyRoot);
+    const emptyApp = new Hono();
+    emptyApp.route('/api', buildActionsRouter(emptyCtx));
+    const res = await emptyApp.request('/api/actions/roadmap/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feature: 'Auth Module', assignee: 'testuser' }),
     });
     expect(res.status).toBe(500);
+    await rm(emptyRoot, { recursive: true, force: true });
   });
 });
 
 describe('GET /api/identity', () => {
   let app: Hono;
+  let projectRoot: string;
 
-  beforeEach(() => {
-    vi.resetAllMocks();
-    const ctx = makeContext();
+  beforeEach(async () => {
+    projectRoot = await makeProject();
+    const ctx = makeContext(projectRoot);
     app = new Hono();
     app.route('/api', buildActionsRouter(ctx));
+  });
+
+  afterEach(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
   });
 
   it('returns 200 with identity when resolution succeeds', async () => {

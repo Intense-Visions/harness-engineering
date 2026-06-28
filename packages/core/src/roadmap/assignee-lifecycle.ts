@@ -24,7 +24,7 @@ import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineerin
 
 /**
  * Patterns that identify a *machine* (orchestrator) assignee — an executor that
- * lives only in `docs/roadmap.md` and must never be pushed to a GitHub issue's
+ * lives only in the roadmap aggregate and must never be pushed to a GitHub issue's
  * `assignee` field (it is not a real GitHub login).
  *
  * - `orchestrator-{8 hex}` — the current orchestrator id form.

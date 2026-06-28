@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { roadmapAggregatePath } from '@harness-engineering/core';
 import { DataCache } from './cache';
 import { GatherCache } from './gather-cache';
 import type { SSEContext, SSEManager } from './sse';
@@ -26,7 +27,11 @@ function resolvePaths(
   projectPath: string
 ): { roadmapPath: string; chartsPath: string } {
   return {
-    roadmapPath: overrides.roadmapPath ?? join(projectPath, 'docs', 'roadmap.md'),
+    // The aggregate path is named via the store-sanctioned core helper (not a
+    // local path literal) so this file no longer trips invariant R. It is
+    // retained only as a serialization lock key / display path — roadmap CONTENT is
+    // read and written through `resolveRoadmapStore` (see gather/roadmap + actions).
+    roadmapPath: overrides.roadmapPath ?? roadmapAggregatePath(projectPath),
     chartsPath: overrides.chartsPath ?? join(projectPath, 'docs', 'roadmap-charts.md'),
   };
 }

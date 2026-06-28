@@ -174,6 +174,65 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('scaffolds a sharded roadmap (_meta.md, no monolith) for a new project', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({ cwd: tmpDir, name: 'demo' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const metaPath = path.join(tmpDir, 'docs', 'roadmap.d', '_meta.md');
+    expect(fs.existsSync(metaPath)).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.md'))).toBe(false);
+    // _meta.md carries the empty-roadmap frontmatter (no milestones yet).
+    const meta = fs.readFileSync(metaPath, 'utf-8');
+    expect(meta).toContain('project: "demo"');
+    expect(meta).toContain('milestones:');
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not scaffold a roadmap for an existing project', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    // A project marker makes this an existing project (no scaffold).
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"existing"}\n');
+    const result = await runInit({ cwd: tmpDir, name: 'existing' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.d', '_meta.md'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.md'))).toBe(false);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not orphan a populated aggregate behind empty shards on --force', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    // A populated aggregate already exists in an initialized project.
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    const aggregate = '# Roadmap\n\n## Current Work\n\n- **Thing** — status: planned\n';
+    fs.writeFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), aggregate);
+    fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
+
+    const result = await runInit({ cwd: tmpDir, name: 'existing', force: true });
+    expect(result.ok).toBe(true);
+    // No empty shards scaffolded over the populated aggregate.
+    expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.d'))).toBe(false);
+    // The populated aggregate is untouched (not clobbered).
+    expect(fs.readFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), 'utf-8')).toBe(aggregate);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not re-scaffold when a shard directory already exists on --force', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    const existingMeta = '---\nproject: "kept"\n---\n';
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), existingMeta);
+    fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
+
+    const result = await runInit({ cwd: tmpDir, name: 'kept', force: true });
+    expect(result.ok).toBe(true);
+    // The existing shard meta is preserved, not overwritten with empty scaffold.
+    expect(fs.readFileSync(path.join(shardDir, '_meta.md'), 'utf-8')).toBe(existingMeta);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('rejects already initialized project without --force', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
