@@ -26,7 +26,7 @@ import type { PersistedOutputEntry } from '@harness-engineering/orchestrator';
 import { ExitCode } from '../utils/errors';
 import { logger } from '../output/logger';
 
-async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | null> {
+export async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | null> {
   const workflowPath = path.join(cwd, 'harness.orchestrator.md');
   if (!fs.existsSync(workflowPath)) return null;
   const loader = new WorkflowLoader();
@@ -37,7 +37,7 @@ async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | n
   return (result.value.config as { maintenance?: MaintenanceConfig }).maintenance ?? null;
 }
 
-function mergeResolvedTasks(config: MaintenanceConfig | null): TaskDefinition[] {
+export function mergeResolvedTasks(config: MaintenanceConfig | null): TaskDefinition[] {
   const overrides = config?.tasks ?? {};
   const tasks: TaskDefinition[] = [];
   appendBuiltIns(tasks, overrides);
