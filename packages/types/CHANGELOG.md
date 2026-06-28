@@ -1,5 +1,57 @@
 # @harness-engineering/types
 
+## 0.16.2
+
+### Patch Changes
+
+- 4df8934: Add an on-demand maintenance pipeline: `harness maintenance run [taskId...]` and the `/harness:maintenance-pipeline` skill.
+
+  The command runs the maintenance that is actually **overdue** (computed from each task's cron schedule + `history.json`) in a **report-first**, infra-free sweep — no orchestrator, gateway, or `ClaimManager` required. `--all`/`--only`/`--skip` scope selection, `--json` emits a consolidated `ConsolidatedReport` (also written to `.harness/maintenance/last-run-summary.json`), and exit codes are CI-friendly (`0` completed, `1` a task failed to execute, `2` invalid invocation).
+
+  Built on a single shared executor: a `mode: 'report' | 'fix'` parameter on `TaskRunner` (default `fix` leaves cron unchanged), a `selectTasks` overdue/eligibility selector with an `excludeFromHumanSweep` flag on task definitions, and a shared `runHarnessCheck` core used by both the CLI and the cron scheduler. `--fix` dispatches the real maintenance agent dispatcher when an `agent.backends` backend is configured, and skips honestly otherwise.
+
+  This work also corrected pre-existing bugs that affected the cron scheduler too: maintenance check commands now resolve through the harness binary (previously ENOENT), check-execution failures are reported as `failure` instead of being masked as `success`, and two misconfigured built-in checks (`cross-check`, `stale-constraints`) gained real read-only CLI subcommands. ADRs 0049 (one executor, two callers) and 0050 (report-first on-demand) document the design.
+
+- 863df8f: Phase 4 of the roadmap shard store: route every roadmap writer and content
+  reader through `RoadmapStore`.
+
+  In sharded mode (`docs/roadmap.d/` present) each logical mutation now rewrites
+  exactly one shard file (conflict-free by construction) and regenerates the
+  aggregate; in monolith mode the on-disk `docs/roadmap.md` is byte-for-byte
+  unchanged. Every writer captures `before = structuredClone(roadmap)` and
+  persists via `applyRoadmapDiff(store, before, after)`, so only the rows that
+  actually changed are written.
+
+  Migrated onto the store:
+  - `manage_roadmap` (add / update / remove / promote / sync / groom) and the
+    show/query readers, preserving the unblock-only cascade, async external sync,
+    and first-claim-wins refusal.
+  - `autoSyncRoadmap` and `sync-engine` `fullSync` (now takes a project root) with
+    per-shard writeback; the assignee-lifecycle invariant holds on every write.
+  - Content readers: `prediction-engine`, `publish-analyses`, `sync-analyses`.
+  - Dashboard roadmap reader (`gather/roadmap`) and content writers
+    (`routes/actions` claim + status).
+  - Orchestrator roadmap writers (`/api/roadmap/append` and the
+    `RoadmapTrackerAdapter` claim / release / mark-complete), preserving
+    compare-and-set, idempotency, and the RMH005 assignee invariant.
+
+  Behavioral note — prediction engine: routing the roadmap read through the store
+  also corrected the path it reads from (`<root>/roadmap.md` →
+  `<root>/docs/roadmap.md`). Previously `computeSpecImpacts` always failed to load
+  and returned no impacts, so spec-impact adjustments were effectively dead; the
+  engine now folds spec impacts into the adjusted forecasts (and warning
+  severities) as originally designed.
+
+  New core APIs: `RoadmapStore.removeFeature`, `resolveRoadmapStore` /
+  `resolveRoadmapStoreForFile` (mode-detection factories), `applyRoadmapDiff`,
+  `roadmapAggregatePath`, and a node-fs roadmap IO adapter.
+
+  The read-source guard (invariant R) is tightened to also catch DYNAMIC-path
+  readers/writers — code that threads a `roadmapPath`/`roadmapFile` variable into a
+  raw filesystem read/write rather than spelling the `roadmap.md` literal — and its
+  allowlist has shrunk to its permanent floor (store + regenerator + factory, the
+  git/merge tooling, and non-content path references).
+
 ## 0.16.1
 
 ### Patch Changes

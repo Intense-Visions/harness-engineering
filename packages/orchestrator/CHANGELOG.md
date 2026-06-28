@@ -1,5 +1,111 @@
 # @harness-engineering/orchestrator
 
+## 0.9.0
+
+### Minor Changes
+
+- 854b142: Event-sourced state model with a deterministic reducer (#598).
+
+  Replaces the mutated `.harness/state.json` with an append-only event log
+  (`state.events.jsonl`) + a deterministic reducer composed of pure projections
+  (`coreState` / `lanes` / `audit`) + a materialized snapshot (`state.snapshot.json`).
+  Concurrent writers append lock-free with a collision-free `(seq, writerId)` total
+  order, eliminating the last-write-wins clobbering of the previous read-modify-write
+  model. Legacy `state.json` is migrated via a one-time `state_imported` genesis event.
+
+  Adds an explicit guarded lane state machine for orchestrator/autopilot task lanes
+  (`planned → claimed → in_progress → in_review → done`, plus `blocked`/`canceled`)
+  with dependency, evidence-for-terminal, and forced-transition guards; the
+  orchestrator persists lane transitions durably via the core log.
+
+  Subsumes the Append-Only Session Audit Trail (GH-580): verbatim user input and
+  approval prompt/response pairs are captured as audit events. The born-deduplicated
+  `events.jsonl` is retired — the observability timeline now derives from the audit
+  projection, and skill-lifecycle telemetry is relocated to
+  `.harness/metrics/skill-events.jsonl`.
+
+  BREAKING (internal): the deprecated `saveState`/`loadState` exports are removed;
+  all state reads/writes now flow through the event-sourced store.
+
+- 4df8934: Add an on-demand maintenance pipeline: `harness maintenance run [taskId...]` and the `/harness:maintenance-pipeline` skill.
+
+  The command runs the maintenance that is actually **overdue** (computed from each task's cron schedule + `history.json`) in a **report-first**, infra-free sweep — no orchestrator, gateway, or `ClaimManager` required. `--all`/`--only`/`--skip` scope selection, `--json` emits a consolidated `ConsolidatedReport` (also written to `.harness/maintenance/last-run-summary.json`), and exit codes are CI-friendly (`0` completed, `1` a task failed to execute, `2` invalid invocation).
+
+  Built on a single shared executor: a `mode: 'report' | 'fix'` parameter on `TaskRunner` (default `fix` leaves cron unchanged), a `selectTasks` overdue/eligibility selector with an `excludeFromHumanSweep` flag on task definitions, and a shared `runHarnessCheck` core used by both the CLI and the cron scheduler. `--fix` dispatches the real maintenance agent dispatcher when an `agent.backends` backend is configured, and skips honestly otherwise.
+
+  This work also corrected pre-existing bugs that affected the cron scheduler too: maintenance check commands now resolve through the harness binary (previously ENOENT), check-execution failures are reported as `failure` instead of being masked as `success`, and two misconfigured built-in checks (`cross-check`, `stale-constraints`) gained real read-only CLI subcommands. ADRs 0049 (one executor, two callers) and 0050 (report-first on-demand) document the design.
+
+- 863df8f: Phase 4 of the roadmap shard store: route every roadmap writer and content
+  reader through `RoadmapStore`.
+
+  In sharded mode (`docs/roadmap.d/` present) each logical mutation now rewrites
+  exactly one shard file (conflict-free by construction) and regenerates the
+  aggregate; in monolith mode the on-disk `docs/roadmap.md` is byte-for-byte
+  unchanged. Every writer captures `before = structuredClone(roadmap)` and
+  persists via `applyRoadmapDiff(store, before, after)`, so only the rows that
+  actually changed are written.
+
+  Migrated onto the store:
+  - `manage_roadmap` (add / update / remove / promote / sync / groom) and the
+    show/query readers, preserving the unblock-only cascade, async external sync,
+    and first-claim-wins refusal.
+  - `autoSyncRoadmap` and `sync-engine` `fullSync` (now takes a project root) with
+    per-shard writeback; the assignee-lifecycle invariant holds on every write.
+  - Content readers: `prediction-engine`, `publish-analyses`, `sync-analyses`.
+  - Dashboard roadmap reader (`gather/roadmap`) and content writers
+    (`routes/actions` claim + status).
+  - Orchestrator roadmap writers (`/api/roadmap/append` and the
+    `RoadmapTrackerAdapter` claim / release / mark-complete), preserving
+    compare-and-set, idempotency, and the RMH005 assignee invariant.
+
+  Behavioral note — prediction engine: routing the roadmap read through the store
+  also corrected the path it reads from (`<root>/roadmap.md` →
+  `<root>/docs/roadmap.md`). Previously `computeSpecImpacts` always failed to load
+  and returned no impacts, so spec-impact adjustments were effectively dead; the
+  engine now folds spec impacts into the adjusted forecasts (and warning
+  severities) as originally designed.
+
+  New core APIs: `RoadmapStore.removeFeature`, `resolveRoadmapStore` /
+  `resolveRoadmapStoreForFile` (mode-detection factories), `applyRoadmapDiff`,
+  `roadmapAggregatePath`, and a node-fs roadmap IO adapter.
+
+  The read-source guard (invariant R) is tightened to also catch DYNAMIC-path
+  readers/writers — code that threads a `roadmapPath`/`roadmapFile` variable into a
+  raw filesystem read/write rather than spelling the `roadmap.md` literal — and its
+  allowlist has shrunk to its permanent floor (store + regenerator + factory, the
+  git/merge tooling, and non-content path references).
+
+### Patch Changes
+
+- 97b55db: Add a real `LinearGraphQLClient`, replacing the `LinearGraphQLStub` that only `console.log`ged the query and returned an empty object. The client POSTs the operation to Linear's GraphQL endpoint (`https://api.linear.app/graphql`, overridable) with the API key in the `Authorization` header, and normalizes all three failure modes — transport throw, non-2xx HTTP (with a truncated body), and a GraphQL `errors` array — into a single `Err`, returning `Ok(data)` on success. `fetch` is injectable for testing. `LinearGraphQLStub` is retained but `@deprecated`.
+
+  Scope note: this is the authenticated GraphQL transport. Wiring a full `linear` tracker _kind_ (mapping Linear issues to `TrackedFeature` and implementing the tracker-client interface) is a larger follow-up that builds on this client.
+
+- 924490c: Wire the maintenance `AgentDispatcher` to a real agent session. It was a stub that only logged "skill dispatch integration pending" and returned `{ producedCommits: false, fixed: 0 }`, so agent/skill-based maintenance tasks silently did nothing while the check/command runners worked.
+
+  A new `createAgentDispatcher` (extracted to `maintenance/agent-dispatcher.ts` for unit-testability) resolves the named backend from `agent.backends` via `createBackend`, drives a multi-turn `AgentRunner` session over the skill prompt in the worktree, and measures the outcome by diffing `HEAD` before/after — commit count (`git rev-list --count`), not the agent's self-report, is the source of truth for `fixed`/`producedCommits`. An unknown/unconfigured backend name degrades to a logged no-op instead of crashing the scheduler.
+
+- 4790454: Extract a shared `makeBackendResolver` helper (orchestrator package) used by both the CLI's `harness maintenance run --fix` backend resolution and the orchestrator's `createMaintenanceTaskRunner`, removing the duplicated `name → createBackend(def) | null` resolve logic that could drift. Behavior is unchanged.
+- 757bfac: Implement `Last-Event-ID` reconnection for the `GET /api/v1/events` SSE stream, which was deferred ("clients lose events across reconnects"). Previously each frame carried a _random_ `id`, so a reconnecting client's `Last-Event-ID` pointed at nothing replayable.
+
+  A per-bus `SseEventLog` is now the single subscriber to the event bus: it stamps every event with a monotonic, gap-free sequence id, keeps the most recent events in a bounded in-memory ring buffer (default 1024), and fans them out to connected streams. A client that reconnects with `Last-Event-ID: <seq>` (browser `EventSource` sends this automatically) replays every buffered event strictly after that id — with no gap and no duplicate — before live delivery resumes. A non-numeric/absent `Last-Event-ID` (e.g. a legacy client) resumes live with no replay. The buffer is in-memory and bounded, so a server restart or an outage longer than the buffer simply resumes live from the next event, exactly like a first-time connection; the wire contract is unchanged so a durable store can replace the ring buffer later.
+
+- Updated dependencies [854b142]
+- Updated dependencies [d80871f]
+- Updated dependencies [09524aa]
+- Updated dependencies [c68b780]
+- Updated dependencies [4df8934]
+- Updated dependencies [645f21e]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+  - @harness-engineering/core@0.32.0
+  - @harness-engineering/intelligence@0.4.0
+  - @harness-engineering/types@0.16.2
+  - @harness-engineering/graph@0.11.2
+
 ## 0.8.4
 
 ### Patch Changes

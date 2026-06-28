@@ -1,5 +1,279 @@
 # @harness-engineering/cli
 
+## 4.0.0
+
+### Minor Changes
+
+- 854b142: Event-sourced state model with a deterministic reducer (#598).
+
+  Replaces the mutated `.harness/state.json` with an append-only event log
+  (`state.events.jsonl`) + a deterministic reducer composed of pure projections
+  (`coreState` / `lanes` / `audit`) + a materialized snapshot (`state.snapshot.json`).
+  Concurrent writers append lock-free with a collision-free `(seq, writerId)` total
+  order, eliminating the last-write-wins clobbering of the previous read-modify-write
+  model. Legacy `state.json` is migrated via a one-time `state_imported` genesis event.
+
+  Adds an explicit guarded lane state machine for orchestrator/autopilot task lanes
+  (`planned → claimed → in_progress → in_review → done`, plus `blocked`/`canceled`)
+  with dependency, evidence-for-terminal, and forced-transition guards; the
+  orchestrator persists lane transitions durably via the core log.
+
+  Subsumes the Append-Only Session Audit Trail (GH-580): verbatim user input and
+  approval prompt/response pairs are captured as audit events. The born-deduplicated
+  `events.jsonl` is retired — the observability timeline now derives from the audit
+  projection, and skill-lifecycle telemetry is relocated to
+  `.harness/metrics/skill-events.jsonl`.
+
+  BREAKING (internal): the deprecated `saveState`/`loadState` exports are removed;
+  all state reads/writes now flow through the event-sourced store.
+
+- d80871f: Add the harness-pm persona plus the acceptance-eval skill, MCP tool, and intelligence module — the upstream twin of outcome-eval that gates specs on measurable acceptance criteria. acceptance-eval resolves a spec's acceptance section, critiques observability/testability/completeness (advisory `criteriaFindings`), flags user-visible behaviors with no covering test (advisory `coverageFindings`), and emits a confidence-rated `AcceptanceVerdict` (`MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE`). Merge authority is derived in TypeScript via `deriveAcceptanceAuthority` and never read from the LLM: a high-confidence `NOT_MEASURABLE` blocks; every other verdict is advisory. Exposed as the `mcp__harness__acceptance_eval` MCP tool and the `harness-pm` persona (triggered `on_pr` for `docs/changes/**`).
+- 09524aa: Reconcile health-snapshot `passed` flags with active signals (#528). A captured snapshot could report a check as `passed: true` while `signals[]` listed a contradicting problem, so the harness's own self-model — consumed by skill dispatch, recommendation, and insights — reported false-green.
+
+  `core` gains a canonical `health-signals` contract: a single `SIGNAL_REGISTRY` from which `CHECK_SIGNAL_MAP`, `SIGNAL_CATEGORY_MAP`, `SignalName`, and `HEALTH_SIGNAL_NAMES` are all derived, plus a pure `reconcilePassed` (conjunction, monotonic toward fail). `cli` wires `reconcilePassed` into `captureHealthSnapshot` so a check's `passed` can no longer be `true` against an active contradicting signal, and unifies `HEALTH_SIGNALS`/`SIGNAL_CATEGORIES` onto the registry. The `strength-007` strength rule now consumes the derived map, closing a silent entropy/deps/docs false-negative.
+
+  Behavior change: health snapshots and the dispatch/recommendation output they feed will now surface failures that were previously hidden behind false-green flags.
+
+- 4df8934: Add an on-demand maintenance pipeline: `harness maintenance run [taskId...]` and the `/harness:maintenance-pipeline` skill.
+
+  The command runs the maintenance that is actually **overdue** (computed from each task's cron schedule + `history.json`) in a **report-first**, infra-free sweep — no orchestrator, gateway, or `ClaimManager` required. `--all`/`--only`/`--skip` scope selection, `--json` emits a consolidated `ConsolidatedReport` (also written to `.harness/maintenance/last-run-summary.json`), and exit codes are CI-friendly (`0` completed, `1` a task failed to execute, `2` invalid invocation).
+
+  Built on a single shared executor: a `mode: 'report' | 'fix'` parameter on `TaskRunner` (default `fix` leaves cron unchanged), a `selectTasks` overdue/eligibility selector with an `excludeFromHumanSweep` flag on task definitions, and a shared `runHarnessCheck` core used by both the CLI and the cron scheduler. `--fix` dispatches the real maintenance agent dispatcher when an `agent.backends` backend is configured, and skips honestly otherwise.
+
+  This work also corrected pre-existing bugs that affected the cron scheduler too: maintenance check commands now resolve through the harness binary (previously ENOENT), check-execution failures are reported as `failure` instead of being masked as `success`, and two misconfigured built-in checks (`cross-check`, `stale-constraints`) gained real read-only CLI subcommands. ADRs 0049 (one executor, two callers) and 0050 (report-first on-demand) document the design.
+
+- 863df8f: Roadmap-shard follow-ups: correctness + CLI parity.
+  - **Offline reconcile honors `state_reason` (correctness).** `harness roadmap
+reconcile` no longer flips a row whose linked issue was closed as
+    `not_planned`/`wontfix` — only a `completed` close (or a close whose reason the
+    tracker does not report, a conservative back-compat default) drives an auto-done
+    flip. `ExternalTicketState` now carries an optional `stateReason`, populated by
+    the GitHub adapter.
+  - **Cross-repo issue mis-map fixed (correctness).** A PR can close an issue in a
+    different repo; the prior path built External-IDs from bare numbers against the
+    configured repo, so a colliding number could flip the wrong local row. New
+    `harness roadmap reconcile --from-refs owner/repo#number` builds each External-ID
+    from the ref's own `owner/repo` and matches the full External-ID; the auto-done
+    Action now fetches `repository.nameWithOwner` per closing issue and passes refs
+    through. `--from-issues` (configured-repo numbers) is retained.
+  - **`regen`/`unshard` gain `--dry-run` and `--format json`** for parity with
+    `shard` (unshard can now preview before the destructive shard-dir deletion).
+  - **Internal cleanup:** the `github:owner/repo#NNN` parser is consolidated into one
+    canonical module (`roadmap/external-id.ts`); `roadmapSourceExists` shares the
+    shard-dir probe with the storage-mode detector.
+
+- 863df8f: Roadmap shard store — Phase 3 (git and hook integration). Make `docs/roadmap.md`
+  a self-healing, conflict-free generated aggregate of the per-row shards under
+  `docs/roadmap.d/`:
+  - **Regen git hooks (husky):** a pre-commit block regenerates and re-stages
+    `docs/roadmap.md` whenever any shard is staged (no-op otherwise), and a new
+    `.husky/post-merge` clears `merge=ours` staleness by regenerating after a
+    merge. Both are thin wrappers over the deterministic `harness roadmap regen`.
+    These are intentionally git hooks, not Claude Code tool-use hooks (those
+    registries cannot model `git commit` / `git merge`).
+  - **`merge=ours` declaration:** `.gitattributes` now declares
+    `docs/roadmap.md merge=ours` so disjoint row edits never re-conflict.
+  - **Merge-driver setup + doctor:** `harness init` now runs
+    `git config merge.ours.driver true` (non-fatal if git is unavailable), and
+    `harness validate` warns when `merge=ours` is declared but the driver is unset
+    in the current clone (the one-time per-clone fix).
+  - **Read-source invariant (R):** a new core detector
+    (`findRoadmapReadSourceViolations` + `ROADMAP_READ_ALLOWLIST`) plus a repo
+    guard test fail when any new source file starts reading the generated
+    `docs/roadmap.md` aggregate instead of the shard store. The allowlist enumerates
+    today's legacy readers and shrinks as writers migrate onto `RoadmapStore`.
+
+- 863df8f: Phase 6 of the roadmap shard store: make sharding discoverable, documented, and
+  the default for new projects.
+  - **Single detection authority.** `detectRoadmapStorageMode` (and the
+    `RoadmapStorageMode` type) now live in `packages/core/src/roadmap/load-mode.ts`
+    as the one place that decides `monolith` vs `sharded` (by the presence of
+    `docs/roadmap.d/`). `store/factory.ts` delegates to it instead of carrying its
+    own inline existence check, so the formal storage mode and the chosen store
+    backend can never disagree. Storage mode is modelled as an axis orthogonal to
+    `RoadmapMode` (file-backed vs file-less), so the ~28 existing mode consumers are
+    unaffected.
+  - **Sharded-by-default `harness init`.** A brand-new project is scaffolded with an
+    empty `docs/roadmap.d/_meta.md` (emitted via the core `serializeMeta` serializer
+    for byte-stable round-tripping) and NO monolith `docs/roadmap.md`. Existing
+    projects are left untouched and opt in via `harness roadmap shard`.
+  - **Aggregate-drift doctor.** `harness validate` now warns when `docs/roadmap.d/`
+    exists but the committed aggregate is stale versus `regenerate(shards)` — the
+    CI-checkable freshness contract for adopters, fixed by `harness roadmap regen`.
+    No-ops for monolith projects.
+  - **Documentation.** ADRs 0050 (read-source invariant R) and 0051 (slug identity +
+    External-ID sync key), knowledge entries for the roadmap-store abstraction,
+    read-source invariant, slug↔issue identity, and merge-triggered auto-done, an
+    adoption/rollout guide, the AGENTS.md roadmap section, and the harness skills
+    (agents stop hand-marking rows; promote stages shard + regenerated aggregate).
+
+- 863df8f: Phase 4 of the roadmap shard store: route every roadmap writer and content
+  reader through `RoadmapStore`.
+
+  In sharded mode (`docs/roadmap.d/` present) each logical mutation now rewrites
+  exactly one shard file (conflict-free by construction) and regenerates the
+  aggregate; in monolith mode the on-disk `docs/roadmap.md` is byte-for-byte
+  unchanged. Every writer captures `before = structuredClone(roadmap)` and
+  persists via `applyRoadmapDiff(store, before, after)`, so only the rows that
+  actually changed are written.
+
+  Migrated onto the store:
+  - `manage_roadmap` (add / update / remove / promote / sync / groom) and the
+    show/query readers, preserving the unblock-only cascade, async external sync,
+    and first-claim-wins refusal.
+  - `autoSyncRoadmap` and `sync-engine` `fullSync` (now takes a project root) with
+    per-shard writeback; the assignee-lifecycle invariant holds on every write.
+  - Content readers: `prediction-engine`, `publish-analyses`, `sync-analyses`.
+  - Dashboard roadmap reader (`gather/roadmap`) and content writers
+    (`routes/actions` claim + status).
+  - Orchestrator roadmap writers (`/api/roadmap/append` and the
+    `RoadmapTrackerAdapter` claim / release / mark-complete), preserving
+    compare-and-set, idempotency, and the RMH005 assignee invariant.
+
+  Behavioral note — prediction engine: routing the roadmap read through the store
+  also corrected the path it reads from (`<root>/roadmap.md` →
+  `<root>/docs/roadmap.md`). Previously `computeSpecImpacts` always failed to load
+  and returned no impacts, so spec-impact adjustments were effectively dead; the
+  engine now folds spec impacts into the adjusted forecasts (and warning
+  severities) as originally designed.
+
+  New core APIs: `RoadmapStore.removeFeature`, `resolveRoadmapStore` /
+  `resolveRoadmapStoreForFile` (mode-detection factories), `applyRoadmapDiff`,
+  `roadmapAggregatePath`, and a node-fs roadmap IO adapter.
+
+  The read-source guard (invariant R) is tightened to also catch DYNAMIC-path
+  readers/writers — code that threads a `roadmapPath`/`roadmapFile` variable into a
+  raw filesystem read/write rather than spelling the `roadmap.md` literal — and its
+  allowlist has shrunk to its permanent floor (store + regenerator + factory, the
+  git/merge tooling, and non-content path references).
+
+- 863df8f: Phase 5 of the roadmap shard store: auto-done reconciler (D6).
+
+  When a merged PR closes a roadmap row's linked GitHub issue
+  (`External-ID: github:owner/repo#NNN`), the matching row is flipped to `done`
+  automatically — conflict-free, idempotent, and store-routed.
+  - **Core:** `reconcileDoneFromClosedIssues(store, closedExternalIds)` — a pure,
+    store-routed function that maps each closed `External-ID` to its row and flips
+    non-`done` matches to `done` via `setStatus` (the assignee-lifecycle authority,
+    which auto-clears a live assignee and appends one `unassigned` history record),
+    persisting through `applyRoadmapDiff` (one shard per matched issue; `_meta.md`
+    only when an assignee was cleared). Already-`done` rows are no-ops; unmatched
+    ids are reported, not written. Works in both sharded and monolith modes and
+    adds no new `roadmap.md` reader (invariant R untouched). Also re-exports the
+    `parseExternalId` / `buildExternalId` `External-ID` helpers.
+  - **CLI:** `harness roadmap reconcile` — an offline fallback that fetches issue
+    state from the configured tracker and reconciles closed issues, plus an
+    authoritative `--from-issues <n,...>` path that reconciles exact issue numbers
+    with no network fetch. (Offline mode treats any closed issue as done; it cannot
+    distinguish a `completed` close from a `not planned`/`wontfix` close — the
+    PR-merge workflow path is authoritative.)
+  - **CI:** a `pull_request: closed` workflow that, only when the PR is merged,
+    resolves the PR's `closingIssuesReferences`, no-ops when none are
+    roadmap-linked, runs `harness roadmap reconcile --from-issues`, and commits the
+    changed shard(s) + regenerated aggregate back to the base branch.
+
+  Both surfaces share the one store-routed core function.
+
+- 5be1aab: Promote sentinel-pre/sentinel-post to the standard hook profile so default adopters get
+  prompt-injection defense out of the box. This changes default _blocking_ behavior:
+  in an already-tainted session, sentinel-pre can now block a destructive bash op for
+  projects on the standard profile (previously strict-only). Existing standard projects
+  pick up the hooks on their next `harness update`. cost-tracker remains strict-only.
+
+### Patch Changes
+
+- a1ec37b: Expand the audit-anatomy ANAT-P\* catalog from 2 to the proposal's target of 10 composition patterns, and refactor the catalog onto a shared `presencePattern` factory (trigger present AND no mitigating affordance in file → one `warn` finding). New patterns:
+  - **P003 fetch-without-error** — async load with no error state.
+  - **P004 conditional-render-without-fallback** — `{data && <…>}` with no else/empty branch.
+  - **P005 form-without-submit-feedback** — submit with no pending/success/error signal.
+  - **P006 modal-without-dismiss** — `Modal`/`Dialog`/`Drawer` with no `onClose`/`onDismiss`/`onOpenChange`.
+  - **P007 async-action-without-pending** — async handler with no disabled/pending state.
+  - **P008 list-without-key** — `.map(...)` rendering elements with no `key`.
+  - **P009 router-without-not-found** — route table with no catch-all/404.
+  - **P010 destructive-action-without-confirm** — delete/remove with no confirmation step.
+
+  (P001 map-without-empty and P002 fetch-without-loading are unchanged.) Patterns deliberately avoid pure-accessibility checks (deferred to v2 per Decision #2) and stay conservative source-heuristics to keep false positives low. `full` mode runs all 10; `fast` mode is unchanged.
+
+- 59601d0: Stop `check-arch --update-baseline --module <path>` from corrupting the shared architecture baseline (#594). The CI `refresh-baselines` job ran a whole-repo update followed by a `--module packages/cli` update against the same baseline file; because `ArchBaselineManager.update` merges per-category, the second run overwrote the whole-repo `module-size`/`dependency-depth` aggregates with a cli-only subset. Every subsequent `harness ci check` then scanned the whole repo but diffed against the too-small baseline, reporting permanent false `module-size`/`dependency-depth` REGRESSIONS on clean checkouts and built worktrees alike. The arch analyzer already skips `dist/` (via `DEFAULT_SKIP_DIRS`), so the originally-suspected `dist` inflation was not the cause. `runCheckArch` now rejects `--update-baseline` combined with `--module` (a module-scoped subset cannot represent the whole-repo aggregate the baseline stores); `--module` remains valid for scoping a read/diff run. The post-merge CI job no longer runs the `--module packages/cli` refresh, and the committed baseline is regenerated to correct whole-repo values.
+- c49c640: Implement the audit-anatomy source-of-truth override layers (follow-up to the component-type resolvers). The `resolveAnatomyRules` resolver previously stubbed Layers 1 and 2 to `null`, so anatomy rules always came from the built-in catalog with no project/author override path:
+  - **Layer 1 — JSDoc `@anatomy-*`**: a file's leading doc block can declare its own anatomy via `@anatomy-slot content required`, `@anatomy-state disabled exclusive`, `@anatomy-variant primary|secondary|ghost`, `@anatomy-size sm|md|lg` (`parsers/anatomy-tags.ts`), producing a `ConventionRule` that overrides the catalog default.
+  - **Layer 2 — DESIGN.md `## Component Anatomy Overrides`**: a tolerant parser (`parsers/design-overrides.ts`) reads per-component override blocks from the nearest DESIGN.md (list or inline `variants: a, b` styles, `(required)`/`(exclusive)` flags), memoized per DESIGN.md path.
+
+  Resolution order is JSDoc → DESIGN.md → built-in catalog. Components with neither an `@anatomy-*` declaration nor a DESIGN.md override are unchanged (catalog default).
+
+- f40f35d: Implement the audit-anatomy ANAT-P\* pattern engine, which was a no-op (`void mode`) — `full` mode behaved identically to `fast` and `patternsApplied` was always empty. A new, extensible pattern catalog (`catalog/patterns/`) ships the two flagship composition patterns:
+  - **ANAT-P001 map-without-empty** — a list rendered with `.map(...)` but no empty-state branch (length-zero guard, `EmptyState`, "no results" copy).
+  - **ANAT-P002 fetch-without-loading** — async data loading (`fetch` / query hook / awaited effect) with no loading affordance (skeleton, spinner, Suspense, `isLoading`).
+
+  `full` mode now runs these over every audited file (composition patterns aren't bound to a resolved component type), emits `warn`-severity findings with manual fix hints, and reports the applied pattern ids in `summary.catalog.patternsApplied`; `fast` mode is unchanged (conventions only). Detection uses conservative source heuristics (a finding fires only when the triggering construct is present and no mitigating affordance appears in the file) — no tree-sitter dependency. The `PatternCheck` interface is the extension point for the rest of the catalog (P003+).
+
+- e2f1c3a: Implement the component-type resolver's two explicit-declaration layers for `audit_anatomy`, which were stubbed (`return null` "pending the JSDoc/DESIGN.md parser task") so only the export-name heuristic resolved component types:
+  - **Layer 1 — JSDoc `@component-type`**: a new dependency-free JSDoc reader (`parsers/jsdoc.ts`) extracts the file's leading doc block (skipping a `use client` banner) and reads the authoritative `@component-type <Type>` self-declaration.
+  - **Layer 2 — DESIGN.md `## Component Registry`**: a new parser (`parsers/design-registry.ts`) finds the nearest `DESIGN.md` up the tree and parses its `| Type | File |` registry table, mapping the audited file to its declared type (parsed registries are memoized per DESIGN.md path).
+
+  Resolution order is JSDoc → registry → export-name → silent skip (Decision #3). The JSDoc reader also exposes `readJsDocTag` for the repeated `@anatomy-*` tags, groundwork for the anatomy-override and ANAT-P\* pattern layers (still pending). No behavior change for files that rely on the export-name layer.
+
+- 19c139a: `harness-brainstorming` Phase 4 now offers both build paths at the handoff instead of only planning. After a spec is approved, it asks the human — in plain text — to choose between **autopilot** (recommended: autonomously chains plan → execute → verify → review) and **planning** (interactive plan only), then sets `suggestedNext` and dispatches accordingly. Autopilot is the recommended default when the spec's `## Implementation Order` lays out clear phases.
+
+  The choice is asked in plain text rather than via `emit_interaction`, since a `transition` records the handoff but does not surface a question. `harness-autopilot` is added to the skill's `depends_on`.
+
+- 3a7cbb5: Wire `design-craft` deep-mode auto-capture through a caller-configured capture command — finishing the `autoCapture` arg, which previously did nothing (`'prompt'`/`'auto'` behaved like `'skip'`). When `mode: 'deep'` needs captures and none are supplied, a new `captureCommand` is invoked (unless `autoCapture: 'skip'`) to render the components and produce screenshots; deep mode then vision-critiques them. This deliberately avoids a built-in headless browser: the project supplies its own render+screenshot step (Storybook, Playwright, etc.).
+
+  Contract: the command receives the candidate files via the `HARNESS_DESIGN_CRAFT_FILES` env var (a JSON array) and prints a JSON array of `{ file, image, component? }` to stdout. A failed command, non-JSON output, or an empty manifest surfaces as a clear tool error. Explicit `captures` still take precedence, and `fast` mode is unaffected. `runCaptureCommand` is exported (with an executor seam) for testing.
+
+- 4b7cfb4: Implement `design-craft` deep mode, which previously hard-errored ("deep mode (render + vision LLM) is not implemented in the Phase 1 MVP"). Deep mode now runs the CRITIQUE phase through the provider's **vision** channel (`callVision`, which was already part of the provider contract but unwired) over caller-supplied rendered screenshots:
+  - a new `captures` input (`[{ file, image, component? }]`) carries the screenshots, and a new `runVisionCritique` phase critiques each capture × seed-rubric exactly like `runCritique` does for source code;
+  - `mode: 'deep'` routes the critique phase to vision; POLISH and BENCHMARK are unaffected (they were already implemented — the stale module header claiming they "return []" is corrected);
+  - when `mode: 'deep'` is requested for the critique phase without `captures`, the tool returns a clear, actionable error rather than the old blanket "not implemented".
+
+  Auto-rendering components to screenshots remains out of scope (the CLI has no browser); captures are supplied by the caller (e.g. a Storybook/Playwright step). `fast` mode behavior is unchanged.
+
+- 34ee21d: Register `scan`, `query`, and `ingest` as subcommands of the `graph` command group (#644). Previously the `graph` group only exposed `status` and `export`, so `harness graph scan` failed with `unknown command 'scan'` — which also broke the post-update graph rebuild in `harness update` (its `runLocalGraphScan` invokes `harness graph scan .`). The top-level `harness scan`/`query`/`ingest` commands continue to work unchanged; both forms now resolve, and the `graph` group mirrors every operation defined under `commands/graph/`.
+- dd0f63e: Implement GitLab CI generation for personas (`generateCIWorkflow(persona, 'gitlab')`), which previously returned `Err('GitLab CI generation is not yet supported')`. The generator emits a `.gitlab-ci.yml` pipeline fragment with an `enforce` job (`image: node:20`, `corepack`/`pnpm` setup, one `npx harness <command>` script line per command step) and translates persona triggers into GitLab `rules:` — merge-request pipelines (with `changes:` from path globs), per-branch `$CI_COMMIT_BRANCH` matches, and schedule pipelines (the cron lives in GitLab's pipeline-schedule settings, not the YAML, so it is intentionally omitted). Skill steps are skipped (CI cannot run an AI agent); a persona with only skill steps gets a no-op script so the YAML stays valid.
+
+  Also wires the previously-unreachable platform parameter to a user-facing flag: `harness persona generate <name> --platform gitlab` now writes `<slug>.gitlab-ci.yml` (include it from `.gitlab-ci.yml`), while `--platform github` (the default) continues to write `.github/workflows/<slug>.yml`.
+
+- ff64e41: `protect-config` (PreToolUse:Write|Edit hook) now fails CLOSED (exit 2) in two
+  ambiguous cases instead of failing open: a well-formed request with a missing, empty, or
+  non-string `file_path`, and any unexpected error in the post-parse processing block. Both emit a
+  distinct fail-closed stderr line referencing the unresolvable edit target, rather than the
+  "protected config file" message, since the target is unknown. Absent/partial stdin
+  (unreadable, empty, or unparseable JSON) still fails OPEN (exit 0) with its existing log,
+  preserving the issue-#619 stability under v8 coverage. Closes the silent-yield security gap
+  without re-introducing the self-DoS.
+- 5fa30f8: Wire up `harness review-ci --comment` to actually post the verdict to the pull request (it previously logged a "not yet wired (Phase 3 stub)" warning). When `--comment` is set, the command now renders the verdict as a Markdown summary — assessment, finding counts, and a list of blocking + other findings — and posts it as a comment on the current branch's PR via `gh pr comment` (piped over stdin so long verdicts never hit the shell arg-length limit). A comment is used rather than a `--request-changes` review so it works in every context, including when the same actor authored the PR and in CI where the bot is not the author; the gate's exit code remains the authoritative merge blocker. If posting fails (no PR, no `gh`, auth error) the command warns and still exits with the verdict's code rather than crashing.
+
+  Also fixes verdict-artifact output, which never worked: `review-ci`'s own `--json <path>` option was silently shadowed by the root program's global `--json` flag (commander routed the value to the parent, so the file was never written). The global `--json` now streams the verdict artifact to stdout (suppressing the human summary so the output stays valid, pipeable JSON), and a new `--out <path>` writes the artifact to a file.
+
+- b85dc83: Implement `harness roadmap migrate --to=file-backed` (reverse migration), which previously errored `--to=file-backed reverse migration is not yet implemented`. It is the inverse of the forward (file-backed → file-less) migration: it fetches every feature from the configured tracker, reconstructs a `docs/roadmap.md` (grouping features by milestone, with un-milestoned features in a Backlog section), and flips `roadmap.mode` back to `file-backed` after taking a byte-identical `harness.config.json.pre-migration` backup — mirroring the forward path's config rewrite.
+
+  Safety: it short-circuits to `already-migrated` when the project is already file-backed, refuses to overwrite an existing `docs/roadmap.md` (the file-less invariant is that the file must not exist), and honors `--dry-run` (prints the plan, writes nothing) and `--format=json`. Exposes `featuresToRoadmap` for reuse/testing.
+
+- 483fe1d: Stop `manage_roadmap update` from re-blocking unrelated features (#610). The post-update cascade re-ran `syncRoadmap`, whose `inferStatus` re-derives `blocked` for any `planned` feature with an unfinished blocker. Because `planned` and `blocked` are lateral in `STATUS_RANK`, that move was not treated as a regression and got applied verbatim — so editing one feature (e.g. setting an assignee) silently flipped every unrelated `planned`-with-pending-blocker row to `blocked`. The cascade is now unblock-only: it drops any transition _into_ `blocked`, matching its documented intent ("flip dependents from `blocked → planned`"). Re-deriving `blocked` remains the explicit `sync` action's job. (Symptoms 1 & 2 from the issue — inline assignee not written and a bystander assignee wiped — were already resolved by the assignee-lifecycle chokepoint, ADR-0045.)
+- 4790454: Extract a shared `makeBackendResolver` helper (orchestrator package) used by both the CLI's `harness maintenance run --fix` backend resolution and the orchestrator's `createMaintenanceTaskRunner`, removing the duplicated `name → createBackend(def) | null` resolve logic that could drift. Behavior is unchanged.
+- 7421749: Resolve project-local skills in `skill info` and `skill run` (#587). Previously these commands resolved only through `resolveSkillsDir()`, which walks up from the compiled CLI module location first — so in a consuming repo it found the CLI's bundled skills and never the project's own `agents/skills/claude-code/<name>/`. A locally-authored skill was therefore listable via `skill list --local` but reported `Skill not found` by `info`/`run`. Both commands now resolve through a shared `resolveSkillDir(name)` helper that searches the same source set as `skill list` (project-local → community → bundled, first match wins), making discovery consistent across all `skill` subcommands.
+- Updated dependencies [854b142]
+- Updated dependencies [d80871f]
+- Updated dependencies [09524aa]
+- Updated dependencies [97b55db]
+- Updated dependencies [c68b780]
+- Updated dependencies [924490c]
+- Updated dependencies [4df8934]
+- Updated dependencies [645f21e]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [863df8f]
+- Updated dependencies [4790454]
+- Updated dependencies [757bfac]
+  - @harness-engineering/core@0.32.0
+  - @harness-engineering/orchestrator@0.9.0
+  - @harness-engineering/intelligence@0.4.0
+  - @harness-engineering/types@0.16.2
+  - @harness-engineering/dashboard@0.11.0
+  - @harness-engineering/graph@0.11.2
+
 ## 3.1.0
 
 ### Minor Changes
