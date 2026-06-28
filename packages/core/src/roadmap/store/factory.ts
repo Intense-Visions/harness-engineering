@@ -56,7 +56,8 @@ export function roadmapSourceExists(
   // the aggregate path is named here, in this already-sanctioned store module.
   return (
     detectRoadmapStorageMode(projectRoot, exists) === 'sharded' ||
-    exists(path.join(projectRoot, 'docs', 'roadmap.md'))
+    // Normalize to '/' to match detectRoadmapStorageMode's probe contract cross-OS.
+    exists(path.join(projectRoot, 'docs', 'roadmap.md').replaceAll('\\', '/'))
   );
 }
 
@@ -118,7 +119,10 @@ export function resolveRoadmapStoreForFile(
   // does not follow the conventional `docs/` layout (e.g. the orchestrator's
   // tracker adapter). Behaviorally identical to a direct `exists(shardDir)`.
   const projectRoot = path.dirname(path.dirname(roadmapPath));
-  const shardDirProbe = path.join(projectRoot, 'docs', 'roadmap.d');
+  // Match detectRoadmapStorageMode's normalized probe (forward slashes) so the
+  // remap comparison holds on Windows; the real `shardDir` (used for IO) is
+  // left as-is for the injected/fs probe.
+  const shardDirProbe = path.join(projectRoot, 'docs', 'roadmap.d').replaceAll('\\', '/');
   const mode = detectRoadmapStorageMode(projectRoot, (target) =>
     target === shardDirProbe ? exists(shardDir) : exists(target)
   );

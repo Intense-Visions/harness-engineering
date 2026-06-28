@@ -46,5 +46,8 @@ export function detectRoadmapStorageMode(
   projectRoot: string,
   exists: (target: string) => boolean = (target) => fs.existsSync(target)
 ): RoadmapStorageMode {
-  return exists(path.join(projectRoot, 'docs', 'roadmap.d')) ? 'sharded' : 'monolith';
+  // Normalize separators to '/' so the injectable `exists` probe receives a
+  // consistent path on every OS (Node's fs accepts forward slashes on Windows).
+  const shardDir = path.join(projectRoot, 'docs', 'roadmap.d').replaceAll('\\', '/');
+  return exists(shardDir) ? 'sharded' : 'monolith';
 }
