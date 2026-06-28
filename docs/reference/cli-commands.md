@@ -422,8 +422,8 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--runner` — claude | gemini | antigravity | codex | cursor | local (omit = floor-only)
 - `--block-on` — approve | comment | request-changes | none (default: "request-changes")
 - `--diff` — git range (default: origin/<base>...HEAD)
-- `--comment` — post verdict as a PR review (stubbed in this phase)
-- `--json` — write the verdict artifact to this path
+- `--comment` — post the verdict as a comment on the current branch's PR via gh
+- `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
 
 ### `harness scan [path]`
 
@@ -1000,6 +1000,7 @@ Generate artifacts from a persona config
 
 - `--output-dir` — Output directory (default: ".")
 - `--only` — Generate only: ci, agents-md, runtime
+- `--platform` — CI platform for the ci artifact (default: "github")
 
 ### `harness persona list`
 
@@ -1058,9 +1059,18 @@ Migrate the project roadmap to a different storage mode
 
 **Options:**
 
-- `--to` — Migration target (only "file-less" supported today)
+- `--to` — Migration target: "file-less" or "file-backed"
 - `--dry-run` — Print the migration plan without making any changes
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap reconcile`
+
+Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode treats any closed issue as done (it cannot tell 'completed' from 'not planned'/'wontfix' closes; the PR-merge auto-done workflow is authoritative).
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--from-issues` — comma-separated issue numbers to reconcile (authoritative; skips the network fetch)
 
 ### `harness roadmap regen`
 

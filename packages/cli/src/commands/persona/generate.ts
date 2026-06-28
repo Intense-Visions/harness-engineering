@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadPersona } from '../../persona/loader';
@@ -14,7 +14,8 @@ import type { Persona } from '../../persona/schema';
 function generatePersonaArtifacts(
   persona: Persona,
   outputDir: string,
-  only: string | undefined
+  only: string | undefined,
+  platform: 'github' | 'gitlab'
 ): string[] {
   const slug = toKebabCase(persona.name);
   const generated: string[] = [];
@@ -37,9 +38,15 @@ function generatePersonaArtifacts(
     }
   }
   if (!only || only === 'ci') {
-    const result = generateCIWorkflow(persona, 'github');
+    const result = generateCIWorkflow(persona, platform);
     if (result.ok) {
-      const outPath = path.join(outputDir, '.github', 'workflows', `${slug}.yml`);
+      // GitHub Actions wants one workflow file under .github/workflows/; GitLab
+      // wants an includable pipeline fragment (the user references it from
+      // .gitlab-ci.yml via `include:`).
+      const outPath =
+        platform === 'gitlab'
+          ? path.join(outputDir, `${slug}.gitlab-ci.yml`)
+          : path.join(outputDir, '.github', 'workflows', `${slug}.yml`);
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
       fs.writeFileSync(outPath, result.value);
       generated.push(outPath);
@@ -54,6 +61,11 @@ export function createGenerateCommand(): Command {
     .argument('<name>', 'Persona name (e.g., architecture-enforcer)')
     .option('--output-dir <dir>', 'Output directory', '.')
     .option('--only <type>', 'Generate only: ci, agents-md, runtime')
+    .addOption(
+      new Option('--platform <platform>', 'CI platform for the ci artifact')
+        .choices(['github', 'gitlab'])
+        .default('github')
+    )
     .action(async (name, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const personaResult = loadPersona(path.join(resolvePersonasDir(), `${name}.yaml`));
@@ -64,7 +76,8 @@ export function createGenerateCommand(): Command {
       const generated = generatePersonaArtifacts(
         personaResult.value,
         path.resolve(opts.outputDir),
-        opts.only as string | undefined
+        opts.only as string | undefined,
+        opts.platform as 'github' | 'gitlab'
       );
       if (!globalOpts.quiet) {
         logger.success(`Generated ${generated.length} artifacts for ${personaResult.value.name}:`);

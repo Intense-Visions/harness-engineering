@@ -35,6 +35,9 @@ import { PromptRenderer } from './prompt/renderer';
 import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { createBackend } from './agent/backend-factory';
+import { createAgentDispatcher } from './maintenance/agent-dispatcher';
+import { execFileSync } from 'node:child_process';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { toArray } from './agent/backend-router';
 import { RoutingDecisionBus } from './routing/decision-bus.js';
@@ -694,20 +697,17 @@ export class Orchestrator extends EventEmitter {
       },
     };
 
-    const agentDispatcher: AgentDispatcher = {
-      dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
-        logger.info(
-          'Maintenance agent dispatcher invoked (stub — skill dispatch integration pending)',
-          {
-            skill,
-            branch,
-            backendName,
-            cwd,
-          }
-        );
-        return { producedCommits: false, fixed: 0 };
-      },
+    // Resolve a configured backend by name into a live AgentBackend; null when
+    // the maintenance task references a backend that isn't in agent.backends.
+    const resolveBackend = (backendName: string) => {
+      const def = this.getBackends()?.[backendName];
+      return def ? createBackend(def) : null;
     };
+    const agentDispatcher: AgentDispatcher = createAgentDispatcher({
+      resolveBackend,
+      git: (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf-8' }).toString().trim(),
+      logger,
+    });
 
     const commandExecutor: CommandExecutor = {
       exec: async (command: string[], cwd: string) => {

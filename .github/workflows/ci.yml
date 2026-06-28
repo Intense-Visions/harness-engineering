@@ -67,6 +67,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/coverage-ratchet.mjs
 
+      # Guards the baseline-update gating that keeps refresh-baselines PRs from
+      # conflicting on coverage/benchmark jitter (see scripts + tests for context).
+      - name: Baseline-gating regression test
+        if: matrix.os == 'ubuntu-latest'
+        run: node --test 'tests/scripts/*.test.mjs'
+
       - name: Verify generated docs are fresh
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run generate-docs --check
@@ -151,32 +157,51 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .harness/arch/baselines.json packages/cli/.harness/arch/baselines.json coverage-baselines.json benchmark-baselines.json
+          BASELINE_FILES=".harness/arch/baselines.json packages/cli/.harness/arch/baselines.json coverage-baselines.json benchmark-baselines.json"
+          git add $BASELINE_FILES
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."
             exit 0
           fi
           git commit -m "chore: refresh baselines after merge [skip ci]"
+          OURS=$(git rev-parse HEAD)
           # Try direct push first; fall back to PR if branch protection blocks it
-          if ! git push 2>&1; then
-            echo "Direct push blocked by branch protection. Creating PR instead."
-            BRANCH="chore/refresh-baselines-$(date +%s)"
-            git checkout -b "$BRANCH"
-            git push -u origin "$BRANCH"
-            # Create the PR as github-actions[bot] so the PAT owner (a human) can approve it
-            # without hitting GitHub's self-approval block.
-            PR_URL=$(gh pr create \
-              --title "chore: refresh baselines after merge" \
-              --body "Auto-generated baseline refresh. This PR was created because direct pushes to main are blocked by branch protection rules." \
-              --base main \
-              --head "$BRANCH")
-            # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
-            # workflow runs, so a separate auto-approve workflow on pull_request_target
-            # would never fire for this PR.
-            GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
-              --body "Auto-approved: baseline refresh from github-actions[bot]."
-            gh pr merge "$PR_URL" --auto --squash --delete-branch
+          if git push 2>&1; then
+            exit 0
           fi
+          echo "Direct push blocked by branch protection. Creating PR instead."
+          # Fix B: base the PR branch on the CURRENT tip of origin/main, not the
+          # (possibly stale) event SHA this run checked out. Concurrent refresh runs
+          # otherwise branch from divergent commits and conflict on the same baseline
+          # lines; GitHub auto-merge cannot resolve content conflicts, so the loser
+          # sits open forever (this was the #671 failure mode).
+          git fetch origin main
+          BRANCH="chore/refresh-baselines-$(date +%s)"
+          git checkout -B "$BRANCH" origin/main
+          # Re-apply our freshly generated baselines on top of latest main. The files
+          # are regenerated wholesale, so "ours" is always the correct resolution and
+          # this re-apply can never conflict.
+          git checkout "$OURS" -- $BASELINE_FILES
+          git add $BASELINE_FILES
+          if git diff --cached --quiet; then
+            echo "Latest main already carries these baselines; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore: refresh baselines after merge [skip ci]"
+          git push -u origin "$BRANCH"
+          # Create the PR as github-actions[bot] so the PAT owner (a human) can approve it
+          # without hitting GitHub's self-approval block.
+          PR_URL=$(gh pr create \
+            --title "chore: refresh baselines after merge" \
+            --body "Auto-generated baseline refresh. Created because direct pushes to main are blocked by branch protection. Branch is based on the current tip of main to avoid concurrent-refresh conflicts." \
+            --base main \
+            --head "$BRANCH")
+          # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
+          # workflow runs, so a separate auto-approve workflow on pull_request_target
+          # would never fire for this PR.
+          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+            --body "Auto-approved: baseline refresh from github-actions[bot]."
+          gh pr merge "$PR_URL" --auto --squash --delete-branch
         env:
           HUSKY: '0'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

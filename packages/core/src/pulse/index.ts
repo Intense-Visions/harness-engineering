@@ -21,7 +21,8 @@ export {
   MOCK_ADAPTER_NAME,
 } from './adapters';
 export { runPulse, computeWindow, parseLookback, assembleReport, extractHeadlines } from './run';
-export type { OrchestratorResult } from './run/orchestrator';
+export type { OrchestratorResult, QualitySummary } from './run/orchestrator';
+export { computeQuality } from './run/orchestrator';
 export type {
   PulseConfig,
   PulseSources,
