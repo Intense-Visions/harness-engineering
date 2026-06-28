@@ -1,0 +1,234 @@
+import { describe, it, expect } from 'vitest';
+import {
+  EventSchema,
+  StoredEventSchema,
+  ScopeSchema,
+  type Event,
+} from '../../../src/state/event-sourcing/events';
+
+const envelope = {
+  seq: 1,
+  writerId: 'w-1',
+  timestamp: '2026-06-26T10:00:00.000Z',
+  scope: { stream: undefined, session: undefined },
+};
+
+describe('EventSchema', () => {
+  it('validates a decision_recorded event', () => {
+    const e = { ...envelope, type: 'decision_recorded', payload: { id: 'd1', text: 'use X' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a position_set event', () => {
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'EXECUTE' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a state_imported genesis event', () => {
+    const e = { ...envelope, type: 'state_imported', payload: { legacyState: { a: 1 } } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects an unknown event type', () => {
+    const e = { ...envelope, type: 'nope', payload: {} };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('rejects a payload mismatched to its type', () => {
+    // decision_recorded requires id+text; a position-shaped payload is missing both.
+    // (position_set itself is now an all-optional superset per DP1, so it can no longer
+    // serve as the "mismatch" case — see the phase-2 variants block for its back-compat.)
+    const e = { ...envelope, type: 'decision_recorded', payload: { position: 'EXECUTE' } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+});
+
+describe('phase-2 core-state variants', () => {
+  it('accepts position_set with the superset { phase, task } payload', () => {
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'p1', task: 't1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts a phase-only position_set payload (DP1: structured { phase, task } only)', () => {
+    const e = { ...envelope, type: 'position_set', payload: { phase: 'P1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts decision_recorded with optional context', () => {
+    const e = {
+      ...envelope,
+      type: 'decision_recorded',
+      payload: { id: 'd1', text: 'x', context: 'c' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('still accepts decision_recorded without context (legacy)', () => {
+    const e = { ...envelope, type: 'decision_recorded', payload: { id: 'd1', text: 'x' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts blocker_opened with a description', () => {
+    const e = { ...envelope, type: 'blocker_opened', payload: { id: 'b1', description: 'desc' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects blocker_opened missing a description', () => {
+    const e = { ...envelope, type: 'blocker_opened', payload: { id: 'b1' } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts blocker_resolved with just an id', () => {
+    const e = { ...envelope, type: 'blocker_resolved', payload: { id: 'b1' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts progress_set with a valid status', () => {
+    const e = { ...envelope, type: 'progress_set', payload: { task: 't1', status: 'in_progress' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects progress_set with a bogus status', () => {
+    const e = { ...envelope, type: 'progress_set', payload: { task: 't1', status: 'bogus' } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts session_summarized with full fields', () => {
+    const e = {
+      ...envelope,
+      type: 'session_summarized',
+      payload: { summary: 's', lastSkill: 'k', pendingTasks: ['a'] },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts session_summarized with only a summary', () => {
+    const e = { ...envelope, type: 'session_summarized', payload: { summary: 's' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+
+  // StoredEventSchema must also recognize the new types on-disk.
+  it('StoredEventSchema accepts the new stored types', () => {
+    for (const type of [
+      'blocker_opened',
+      'blocker_resolved',
+      'progress_set',
+      'session_summarized',
+    ]) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
+  });
+});
+
+describe('lane events', () => {
+  it('round-trips a task_registered event through EventSchema', () => {
+    const e = {
+      ...envelope,
+      type: 'task_registered',
+      payload: { taskId: 't1', dependsOn: ['t0'] },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('defaults task_registered.dependsOn to [] when absent', () => {
+    const e = { ...envelope, type: 'task_registered', payload: { taskId: 't1' } };
+    const parsed = EventSchema.safeParse(e);
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === 'task_registered')
+      expect(parsed.data.payload.dependsOn).toEqual([]);
+  });
+  it('rejects task_registered missing taskId', () => {
+    const e = { ...envelope, type: 'task_registered', payload: { dependsOn: ['t0'] } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('accepts a minimal lane_transitioned event', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: { taskId: 't1', from: 'planned', to: 'claimed' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('accepts a lane_transitioned event with force/actor/reason/evidence', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: {
+        taskId: 't1',
+        from: 'planned',
+        to: 'done',
+        force: true,
+        actor: 'a',
+        reason: 'r',
+        evidence: ['pr#1'],
+      },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects a lane_transitioned with a bogus lane', () => {
+    const e = {
+      ...envelope,
+      type: 'lane_transitioned',
+      payload: { taskId: 't1', from: 'planned', to: 'bogus' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('StoredEventSchema accepts both lane event types', () => {
+    for (const type of ['task_registered', 'lane_transitioned']) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
+  });
+});
+
+describe('audit events (Phase 5 — GH-580 subsumption)', () => {
+  it('validates a well-formed user_input_captured event', () => {
+    const e = {
+      ...envelope,
+      type: 'user_input_captured',
+      payload: { text: 'hi', interactionId: 'i1' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a user_input_captured event without interactionId', () => {
+    const e = { ...envelope, type: 'user_input_captured', payload: { text: 'hi' } };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a well-formed approval_requested event', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_requested',
+      payload: { interactionId: 'i1', kind: 'confirmation', prompt: 'continue?' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('validates a well-formed approval_resolved event', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_resolved',
+      payload: { interactionId: 'i1', response: 'yes' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(true);
+  });
+  it('rejects approval_requested missing prompt', () => {
+    const e = {
+      ...envelope,
+      type: 'approval_requested',
+      payload: { interactionId: 'i1', kind: 'confirmation' },
+    };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('rejects user_input_captured with a non-string text', () => {
+    const e = { ...envelope, type: 'user_input_captured', payload: { text: 42 } };
+    expect(EventSchema.safeParse(e).success).toBe(false);
+  });
+  it('StoredEventSchema accepts the new audit stored types', () => {
+    for (const type of ['user_input_captured', 'approval_requested', 'approval_resolved']) {
+      const e = { ...envelope, type, payload: {} };
+      expect(StoredEventSchema.safeParse(e).success).toBe(true);
+    }
+  });
+});
+
+describe('StoredEventSchema (on-disk, may carry a blob ref)', () => {
+  it('accepts a payload replaced by a blob marker', () => {
+    const e = { ...envelope, type: 'state_imported', payload: { $blob: 'abc123' } };
+    expect(StoredEventSchema.safeParse(e).success).toBe(true);
+  });
+});
+
+describe('ScopeSchema', () => {
+  it('accepts an empty (global) scope', () => {
+    expect(ScopeSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+// Type-level assertion keeps the `Event` import load-bearing.
+const _typeCheck: Event['type'] = 'position_set';
+void _typeCheck;

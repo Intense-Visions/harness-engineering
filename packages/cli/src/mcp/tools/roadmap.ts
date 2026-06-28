@@ -329,11 +329,11 @@ function claimRefusedResponse(
   };
 }
 
-function handleUpdate(
+async function handleUpdate(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok } = deps;
 
   if (!input.feature) {
@@ -404,7 +404,10 @@ function handleUpdate(
   // applying it verbatim re-blocks unrelated bystanders on every single update
   // (#610). Drop any transition *into* blocked here — re-blocking is the explicit
   // `sync` action's job, not a side-effect of editing one feature.
-  const cascade = syncRoadmap({ projectPath, roadmap });
+  //
+  // `syncRoadmap` is async since the event-sourced cutover (#598): inferStatus now
+  // reads progress from the snapshot projection rather than a mutated state.json.
+  const cascade = await syncRoadmap({ projectPath, roadmap });
   if (cascade.ok) {
     const unblocking = cascade.value.filter((change) => change.to !== 'blocked');
     if (unblocking.length > 0) {
@@ -575,11 +578,11 @@ function handleQuery(
   return resultToMcpResponse(Ok(filtered));
 }
 
-function handleSync(
+async function handleSync(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   const { parseRoadmap, serializeRoadmap, syncRoadmap, Ok } = deps;
 
   const raw = readRoadmapFile(projectPath);
@@ -589,7 +592,7 @@ function handleSync(
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
-  const syncResult = syncRoadmap({
+  const syncResult = await syncRoadmap({
     projectPath,
     roadmap,
     forceSync: input.force_sync ?? false,
@@ -649,12 +652,12 @@ function handleGroom(
 
 const readOnlyActions = new Set(['show', 'query']);
 
-function dispatchAction(
+async function dispatchAction(
   action: ManageRoadmapInput['action'],
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   switch (action) {
     case 'show':
       return handleShow(projectPath, input, deps);
@@ -743,7 +746,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       groomRoadmap,
       Ok,
     };
-    const response = dispatchAction(input.action, projectPath, input, deps);
+    const response = await dispatchAction(input.action, projectPath, input, deps);
 
     if (shouldTriggerExternalSync(input, response)) {
       await triggerExternalSync(projectPath, roadmapPath(projectPath)).catch(() => {});

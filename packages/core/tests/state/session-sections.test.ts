@@ -8,7 +8,7 @@ import {
   appendSessionEntry,
   updateSessionEntryStatus,
 } from '../../src/state/session-sections';
-import { loadState, saveState } from '../../src/state/state-persistence';
+import { emitEvent, readSnapshot, toHarnessState } from '../../src/state/event-sourcing';
 import type { SessionSections } from '@harness-engineering/types';
 
 describe('readSessionSections', () => {
@@ -297,17 +297,14 @@ describe('backward compatibility', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('loadState and saveState work unchanged alongside session sections', async () => {
-    // Save traditional state
-    const state = {
-      schemaVersion: 1 as const,
-      position: { phase: 'planning' },
-      decisions: [],
-      blockers: [],
-      progress: { 'task-1': 'complete' as const },
-    };
-    const saveResult = await saveState(tmpDir, state, undefined, 'test-session');
-    expect(saveResult.ok).toBe(true);
+  it('event-sourced core state works alongside session sections', async () => {
+    // Append core-state progress via the authoritative event log (session-scoped)
+    const emit = await emitEvent(
+      tmpDir,
+      { type: 'progress_set', payload: { task: 'task-1', status: 'complete' } },
+      { session: 'test-session' }
+    );
+    expect(emit.ok).toBe(true);
 
     // Append session section entry in the same session
     await appendSessionEntry(
@@ -318,11 +315,11 @@ describe('backward compatibility', () => {
       'Session decision'
     );
 
-    // Verify traditional state is untouched
-    const loadResult = await loadState(tmpDir, undefined, 'test-session');
-    expect(loadResult.ok).toBe(true);
-    if (loadResult.ok) {
-      expect(loadResult.value.progress['task-1']).toBe('complete');
+    // Verify core-state progress is intact (snapshot projection)
+    const snap = await readSnapshot(tmpDir, { session: 'test-session' });
+    expect(snap.ok).toBe(true);
+    if (snap.ok) {
+      expect(toHarnessState(snap.value.coreState).progress['task-1']).toBe('complete');
     }
 
     // Verify session sections work independently

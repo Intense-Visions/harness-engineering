@@ -34,6 +34,7 @@ export const manageStateDefinition = {
           'task-complete',
           'phase-start',
           'phase-complete',
+          'task-transition',
         ],
         description: 'Action to perform',
       },
@@ -76,6 +77,28 @@ export const manageStateDefinition = {
         description:
           'New status for the entry: active, resolved, or superseded (required for update_entry_status)',
       },
+      taskId: { type: 'string', description: 'Task id (required for task-transition)' },
+      toLane: {
+        type: 'string',
+        enum: ['planned', 'claimed', 'in_progress', 'in_review', 'done', 'blocked', 'canceled'],
+        description: 'Target lane (required for task-transition)',
+      },
+      dependsOn: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Dependency task ids; when set, the task is registered before transitioning',
+      },
+      evidence: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'PR/commit/test refs (required to enter done)',
+      },
+      force: {
+        type: 'boolean',
+        description: 'Force an off-table transition (requires actor+reason)',
+      },
+      actor: { type: 'string', description: 'Actor for a forced transition' },
+      reason: { type: 'string', description: 'Reason for a forced transition' },
     },
     required: ['path', 'action'],
   },
@@ -99,11 +122,20 @@ type StateInput = {
   content?: string;
   entryId?: string;
   newStatus?: string;
+  taskId?: string;
+  toLane?: string;
+  dependsOn?: string[];
+  evidence?: string[];
+  force?: boolean;
+  actor?: string;
+  reason?: string;
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
-  const { loadState } = await import('@harness-engineering/core');
-  return resultToMcpResponse(await loadState(projectPath, input.stream, input.session));
+  const { readHarnessState } = await import('../../shared/state-events.js');
+  return resultToMcpResponse(
+    await readHarnessState(projectPath, { stream: input.stream, session: input.session })
+  );
 }
 
 async function handleLearn(projectPath: string, input: StateInput) {
@@ -153,8 +185,14 @@ async function handleArchive(projectPath: string, input: StateInput) {
 }
 
 async function handleReset(projectPath: string, input: StateInput) {
-  const { saveState, DEFAULT_STATE } = await import('@harness-engineering/core');
-  const result = await saveState(projectPath, { ...DEFAULT_STATE }, input.stream, input.session);
+  // Event-sourced reset: truncate the authoritative log + clear snapshot/blobs, then emit a
+  // fresh genesis state_imported{ DEFAULT_STATE }. Semantics-preserving translation of the legacy
+  // wholesale DEFAULT_STATE overwrite (destructive by design; discards event history).
+  const { eventSourcing } = await import('@harness-engineering/core');
+  const result = await eventSourcing.resetEventLog(projectPath, {
+    stream: input.stream,
+    session: input.session,
+  });
   if (!result.ok) return resultToMcpResponse(result);
   return resultToMcpResponse(Ok({ reset: true }));
 }
@@ -232,23 +270,30 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
     return resultToMcpResponse(result);
   }
 
-  // Fallback: append to global state.json decisions when no session
+  // Fallback: emit a decision_recorded event to the global event log when no session
+  // (the legacy global state.json was retired in the event-sourcing cutover).
   if (input.section !== 'decisions') {
     return mcpError('Error: session is required for non-decisions sections');
   }
-  const { loadState, saveState } = await import('@harness-engineering/core');
-  const lr = await loadState(projectPath, input.stream);
-  if (!lr.ok) return resultToMcpResponse(lr);
-  lr.value.decisions.push({
-    date: new Date().toISOString(),
-    decision: input.content,
-    context: input.authorSkill,
-  });
-  const sr = await saveState(projectPath, lr.value, input.stream);
-  if (!sr.ok) return resultToMcpResponse(sr);
+  const { randomUUID } = await import('crypto');
+  const { emitCoreEvent } = await import('../../shared/state-events.js');
+  const r = await emitCoreEvent(
+    projectPath,
+    {
+      type: 'decision_recorded',
+      payload: { id: randomUUID(), text: input.content, context: input.authorSkill },
+    },
+    { stream: input.stream }
+  );
+  if (!r.ok) return resultToMcpResponse(r);
   return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
 }
 
+/**
+ * Update a session section entry's status. When a `decisions` entry is moved to `resolved`,
+ * this is the in-tool moment the GH-580 approval round-trip closes, so it additionally emits an
+ * `approval_resolved` audit event keyed by the entry/interaction id (Task 8 disposition A).
+ */
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
   if (!input.session) return mcpError('Error: session is required for update_entry_status action');
   if (!input.section) return mcpError('Error: section is required for update_entry_status action');
@@ -263,6 +308,20 @@ async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
     input.entryId,
     input.newStatus as import('@harness-engineering/types').SessionEntryStatus
   );
+  // GH-580 audit round-trip (response side, Task 8 disposition A): resolving a decision entry
+  // is the in-tool moment the approval round-trip closes. Emit approval_resolved keyed by the
+  // entry/interaction id onto the authoritative log so projectAudit recovers the full trip.
+  // Non-fatal — audit telemetry must never break the status update.
+  if (result.ok && input.section === 'decisions' && input.newStatus === 'resolved') {
+    try {
+      const { emitApprovalResolved } = await import('../../shared/state-events.js');
+      await emitApprovalResolved(projectPath, input.entryId, input.newStatus, {
+        stream: input.stream,
+      });
+    } catch {
+      // Audit emission failure is non-fatal.
+    }
+  }
   return resultToMcpResponse(result);
 }
 
@@ -339,6 +398,33 @@ async function handlePhaseComplete(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-complete' }));
 }
 
+async function handleTaskTransition(projectPath: string, input: StateInput) {
+  if (!input.taskId) return mcpError('Error: taskId is required for task-transition action');
+  if (!input.toLane) return mcpError('Error: toLane is required for task-transition action');
+  const { eventSourcing } = await import('@harness-engineering/core');
+  const scope = { stream: input.stream, session: input.session };
+  // When dependsOn is supplied, register (idempotent) before transitioning so MCP
+  // callers get a single-action register+transition path (DLane-4).
+  if (input.dependsOn) {
+    const reg = await eventSourcing.registerTask(projectPath, input.taskId, input.dependsOn, scope);
+    if (!reg.ok) return resultToMcpResponse(reg);
+  }
+  const result = await eventSourcing.transitionLane(
+    projectPath,
+    input.taskId,
+    input.toLane as import('@harness-engineering/core').eventSourcing.Lane,
+    {
+      ...(input.evidence !== undefined ? { evidence: input.evidence } : {}),
+      ...(input.force !== undefined ? { force: input.force } : {}),
+      ...(input.actor !== undefined ? { actor: input.actor } : {}),
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    },
+    scope
+  );
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ taskId: input.taskId, lane: input.toLane }));
+}
+
 const ACTION_HANDLERS: Record<
   string,
   (projectPath: string, input: StateInput) => Promise<McpResponse>
@@ -360,6 +446,7 @@ const ACTION_HANDLERS: Record<
   'task-complete': handleTaskComplete,
   'phase-start': handlePhaseStart,
   'phase-complete': handlePhaseComplete,
+  'task-transition': handleTaskTransition,
 };
 
 export async function handleManageState(input: StateInput) {

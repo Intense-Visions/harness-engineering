@@ -67,6 +67,48 @@ describe('gather_context tool', () => {
       expect(parsed.meta).toHaveProperty('errors');
     });
 
+    it('derives the events timeline from the audit projection, not events.jsonl (GH-580 SC6)', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-audit-'));
+      try {
+        // Seed audit activity through the authoritative log (no events.jsonl involved).
+        const { emitApprovalRequested, emitApprovalResolved, readAuditTimeline } =
+          await import('../../../src/shared/state-events');
+        await emitApprovalRequested(tmpDir, 'i1', 'confirmation', 'Continue?');
+        await emitApprovalResolved(tmpDir, 'i1', 'yes');
+
+        const response = await handleGatherContext({
+          path: tmpDir,
+          intent: 'audit timeline',
+          include: ['events'],
+        });
+        const parsed = JSON.parse(response.content[0].text);
+        expect(parsed.events).toBeTruthy();
+        expect(typeof parsed.events).toBe('string');
+        // Matches the audit-projection-derived timeline exactly.
+        expect(parsed.events).toBe(await readAuditTimeline(tmpDir));
+        // The legacy events.jsonl must NOT have been created by the read path.
+        expect(fs.existsSync(path.join(tmpDir, '.harness', 'events.jsonl'))).toBe(false);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('returns an empty events timeline when there is no audit activity', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-audit-empty-'));
+      try {
+        const response = await handleGatherContext({
+          path: tmpDir,
+          intent: 'no audit',
+          include: ['events'],
+        });
+        const parsed = JSON.parse(response.content[0].text);
+        // No audit events → null/empty timeline (never throws).
+        expect(parsed.events ?? null).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     it('respects include filter -- only runs specified constituents', async () => {
       const response = await handleGatherContext({
         path: '/nonexistent/project-gc-test',
@@ -139,8 +181,8 @@ describe('gather_context tool', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('state field matches loadState output', async () => {
-      const { loadState } = await import('@harness-engineering/core');
+    it('state field matches the event-sourced snapshot projection', async () => {
+      const { eventSourcing } = await import('@harness-engineering/core');
 
       const compositeResponse = await handleGatherContext({
         path: tmpDir,
@@ -149,10 +191,33 @@ describe('gather_context tool', () => {
       });
       const compositeData = JSON.parse(compositeResponse.content[0].text);
 
-      const directResult = await loadState(tmpDir);
-      const directState = directResult.ok ? directResult.value : null;
+      const snap = await eventSourcing.readSnapshot(tmpDir);
+      const directState = snap.ok ? eventSourcing.toHarnessState(snap.value.coreState) : null;
 
       expect(compositeData.state).toEqual(directState);
+    });
+
+    it('state field reflects populated legacy state via snapshot projection (R2 parity)', async () => {
+      const legacy = {
+        schemaVersion: 1,
+        position: { phase: 'execute', task: 'Task 13' },
+        decisions: [
+          { date: '2026-06-27', decision: 'gather-context reads', context: 'harness-execution' },
+        ],
+        blockers: [],
+        progress: { 'Task 12': 'complete' },
+      };
+      fs.writeFileSync(path.join(tmpDir, '.harness', 'state.json'), JSON.stringify(legacy));
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['state'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      // Parity: same HarnessState slice the legacy loadState path produced for this file.
+      expect(compositeData.state).toEqual(legacy);
     });
 
     it('learnings field matches loadRelevantLearnings output', async () => {

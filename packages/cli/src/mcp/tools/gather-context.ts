@@ -230,8 +230,8 @@ export async function handleGatherContext(input: {
 
   // Build constituent promises
   const statePromise = includeSet.has('state')
-    ? import('@harness-engineering/core').then((core) =>
-        core.loadState(projectPath, undefined, input.session)
+    ? import('../../shared/state-events.js').then((m) =>
+        m.readHarnessState(projectPath, { session: input.session })
       )
     : Promise.resolve(null);
 
@@ -315,14 +315,12 @@ export async function handleGatherContext(input: {
       ? input.includeEvents
       : includeSet.has('events') || (!!input.session && !input.include);
 
+  // GH-580 SC6: the observability timeline is derived from the audit projection of the
+  // authoritative event log (readSnapshot → formatAuditTimeline), never from events.jsonl.
   const eventsPromise = shouldIncludeEvents
-    ? import('@harness-engineering/core').then(async (core) => {
-        const result = await core.loadEvents(projectPath, {
-          session: input.session,
-        });
-        if (!result.ok) return null;
-        return core.formatEventTimeline(result.value);
-      })
+    ? import('../../shared/state-events.js').then((m) =>
+        m.readAuditTimeline(projectPath, { session: input.session })
+      )
     : Promise.resolve(null);
 
   const validationPromise = includeSet.has('validation')

@@ -11,6 +11,9 @@ import {
 } from './stream-types';
 
 import { HARNESS_DIR, INDEX_FILE } from './constants';
+// Leaf constants module (no imports) — safe to pull in without a stream-resolver
+// <-> event-sourcing cycle.
+import { EVENT_LOG_FILE, SNAPSHOT_FILE, EVENT_BLOBS_DIR } from './event-sourcing/constants';
 
 const STREAMS_DIR = 'streams';
 
@@ -287,7 +290,21 @@ export function getStreamForBranch(index: StreamIndex, branch: string): string |
 
 // ── Migration ──────────────────────────────────────────────────────
 
-const STATE_FILES = ['state.json', 'handoff.json', 'learnings.md', 'failures.md'];
+// Flat state files migrated into the stream layout. Includes the event-sourced
+// log + derived snapshot (state.json is kept too — genesis import still reads it
+// post-move). The blobs side-directory is migrated separately via STATE_DIRS.
+const STATE_FILES = [
+  'state.json',
+  'handoff.json',
+  'learnings.md',
+  'failures.md',
+  EVENT_LOG_FILE,
+  SNAPSHOT_FILE,
+];
+
+// Directories (not flat files) migrated alongside STATE_FILES, e.g. the spilled
+// event-payload blob store.
+const STATE_DIRS = [EVENT_BLOBS_DIR];
 
 export async function migrateToStreams(projectPath: string): Promise<Result<void, Error>> {
   const harnessDir = path.join(projectPath, HARNESS_DIR);
@@ -297,9 +314,10 @@ export async function migrateToStreams(projectPath: string): Promise<Result<void
     return Ok(undefined);
   }
 
-  // Any old-layout files to migrate?
+  // Any old-layout files or directories to migrate?
   const filesToMove = STATE_FILES.filter((f) => fs.existsSync(path.join(harnessDir, f)));
-  if (filesToMove.length === 0) {
+  const dirsToMove = STATE_DIRS.filter((d) => fs.existsSync(path.join(harnessDir, d)));
+  if (filesToMove.length === 0 && dirsToMove.length === 0) {
     return Ok(undefined);
   }
 
@@ -308,8 +326,9 @@ export async function migrateToStreams(projectPath: string): Promise<Result<void
   try {
     fs.mkdirSync(defaultDir, { recursive: true });
 
-    for (const file of filesToMove) {
-      fs.renameSync(path.join(harnessDir, file), path.join(defaultDir, file));
+    // renameSync moves both flat files and directories.
+    for (const entry of [...filesToMove, ...dirsToMove]) {
+      fs.renameSync(path.join(harnessDir, entry), path.join(defaultDir, entry));
     }
   } catch (error) {
     return Err(
