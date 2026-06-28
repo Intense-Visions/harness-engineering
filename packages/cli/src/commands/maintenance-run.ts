@@ -18,6 +18,9 @@ import {
   MaintenanceReporter,
   CheckScriptRunner,
   selectTasks,
+  runHarnessCheck,
+  MAINTENANCE_CHECK_MAX_BUFFER,
+  MAINTENANCE_CHECK_TIMEOUT_MS,
   type CheckCommandRunner,
   type AgentDispatcher,
   type CommandExecutor,
@@ -31,39 +34,6 @@ import { mapWithConcurrency } from '../utils/concurrency';
 import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config';
 
 const execFileAsync = promisify(execFile);
-
-const FINDINGS_RE = /(\d+)\s+(?:finding|issue|violation|error)/i;
-
-/**
- * Generous stdout/stderr capture ceiling for spawned check subcommands. The
- * Node default (1 MB) is far too small for verbose checks — `harness cleanup`
- * on a large repo emits ~8 MB — and an exceeded buffer makes `execFile` reject
- * with EMPTY stdout/stderr, which the runner would otherwise misread as a
- * check that produced no output (a false execution failure). 64 MB leaves ample
- * headroom while still bounding memory.
- */
-const CHECK_MAX_BUFFER = 64 * 1024 * 1024;
-
-/**
- * Per-check wall-clock budget. Raised from the original 120 s because heavy
- * whole-repo checks legitimately need longer on large monorepos — `harness
- * cleanup` (all entropy types) takes ~165 s here — and a too-tight timeout
- * SIGTERMs the child, yielding empty output that the runner can only read as a
- * (false) execution failure. 300 s keeps a bound while letting real checks
- * finish. Shared with the cron orchestrator (orchestrator.ts) for parity.
- */
-const CHECK_TIMEOUT_MS = 300_000;
-
-/** Best-effort detection of a child killed by the `execFile` timeout (SIGTERM /
- * ETIMEDOUT / killed flag) so the runner can emit a diagnosable "timed out"
- * message instead of an empty, inscrutable failure. */
-function isTimeoutError(e: {
-  killed?: boolean;
-  signal?: string | null;
-  code?: string | number | null;
-}): boolean {
-  return e.killed === true || e.signal === 'SIGTERM' || e.code === 'ETIMEDOUT';
-}
 
 /**
  * Resolve a maintenance `checkCommand` into a runnable child-process spawn.
@@ -91,9 +61,11 @@ function defaultHarnessEntry(): string {
   return process.argv[1] ?? '';
 }
 
-/** Real check runner — pure child_process, no orchestrator infra. Mirrors
- * Orchestrator.createMaintenanceTaskRunner's checkRunner (orchestrator.ts) but
- * resolves checkCommands through the harness binary so they actually execute.
+/** Real check runner — pure child_process, no orchestrator infra. Shares the
+ * spawn/parse/timeout/executionFailed core (`runHarnessCheck`) with the cron
+ * orchestrator (orchestrator.ts) so CLI and cron behave identically; the only
+ * difference is how the checkCommand is resolved into a spawn invocation — here
+ * via the harness entry script this CLI is running as.
  * @param harnessEntry entry script to invoke subcommands through (injectable). */
 export function createCheckRunner(
   harnessEntry: string = defaultHarnessEntry()
@@ -102,44 +74,7 @@ export function createCheckRunner(
     run: async (command, cwd) => {
       if (command.length === 0)
         return { passed: true, findings: 0, output: '', executionFailed: false };
-      const { file, args } = resolveHarnessSpawn(command, harnessEntry);
-      try {
-        const { stdout } = await execFileAsync(file, args, {
-          cwd,
-          timeout: CHECK_TIMEOUT_MS,
-          maxBuffer: CHECK_MAX_BUFFER,
-        });
-        // Parse-miss on a clean (exit 0) run defaults to 0 findings — a check
-        // that ran and said nothing is clean, not "1 finding".
-        const m = stdout.match(FINDINGS_RE);
-        const findings = m ? parseInt(m[1]!, 10) : 0;
-        return { passed: findings === 0, findings, output: stdout, executionFailed: false };
-      } catch (err) {
-        const e = err as {
-          stdout?: string;
-          stderr?: string;
-          killed?: boolean;
-          signal?: string | null;
-          code?: string | number | null;
-        };
-        let output = [e.stdout, e.stderr].filter(Boolean).join('\n');
-        // A timeout SIGTERMs the child before it can flush — surface a clear,
-        // diagnosable reason instead of an empty "failed to execute".
-        if (!output.trim() && isTimeoutError(e)) {
-          output = `check timed out after ${CHECK_TIMEOUT_MS}ms`;
-        }
-        const m = output.match(FINDINGS_RE);
-        if (m) {
-          // Non-zero exit WITH a parseable count: the check ran and found
-          // issues (e.g. `check-arch` exits 1 with "45 issues"). Real finding.
-          return { passed: false, findings: parseInt(m[1]!, 10), output, executionFailed: false };
-        }
-        // Non-zero exit / spawn error with NO parseable count: the check could
-        // not produce a usable result (ENOENT, unknown subcommand, crash).
-        // Flag executionFailed so the runner reports failure (ADR 0050) and
-        // default findings to 0 — a broken check is not "1 finding".
-        return { passed: false, findings: 0, output, executionFailed: true };
-      }
+      return runHarnessCheck(resolveHarnessSpawn(command, harnessEntry), cwd);
     },
   };
 }
@@ -155,8 +90,8 @@ export function createCommandExecutor(
       const { file, args } = resolveHarnessSpawn(command, harnessEntry);
       const { stdout } = await execFileAsync(file, args, {
         cwd,
-        timeout: CHECK_TIMEOUT_MS,
-        maxBuffer: CHECK_MAX_BUFFER,
+        timeout: MAINTENANCE_CHECK_TIMEOUT_MS,
+        maxBuffer: MAINTENANCE_CHECK_MAX_BUFFER,
       });
       return { stdout: String(stdout) };
     },
@@ -517,6 +452,16 @@ export async function runMaintenanceRun(
   }
 
   // Report checks parallelize under the cap; --fix forces sequential (D-P3-2).
+  // If the user explicitly asked for parallelism (`--concurrency N`, N>1) under
+  // --fix, that value is silently overridden — warn so the override is visible.
+  if (mode === 'fix' && opts.concurrency !== undefined && opts.concurrency !== '') {
+    const requested = Number(opts.concurrency);
+    if (Number.isInteger(requested) && requested > 1) {
+      logErr(
+        `--concurrency ${requested} ignored: --fix runs sequentially (concurrency forced to 1 for fix-mode safety).`
+      );
+    }
+  }
   const concurrency = mode === 'fix' ? 1 : parseConcurrency(opts.concurrency);
   const makeRunner =
     deps.makeRunner ??

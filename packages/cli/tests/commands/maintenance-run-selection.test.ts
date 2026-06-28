@@ -385,6 +385,47 @@ describe('runMaintenanceRun (fake deps, no real exec)', () => {
     expect(calls.every((c) => c.mode === 'fix')).toBe(true);
     expect(f.peak()).toBe(1); // --fix forces sequential execution regardless of --concurrency
     expect(errLines.join('\n')).toMatch(/fix-agent dispatch is not yet wired/i);
+    // The explicit --concurrency 8 was overridden by fix-mode → one-line warning.
+    expect(errLines.join('\n')).toMatch(/--concurrency 8 ignored: --fix runs sequentially/i);
+  });
+
+  it('--fix without an explicit --concurrency does NOT emit the override warning', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, fix: true },
+      deps({ makeRunner: f.makeRunner, logErr: (l) => errLines.push(l) }, [task('doc-drift')])
+    );
+    expect(errLines.join('\n')).not.toMatch(/concurrency.*ignored/i);
+  });
+
+  it('--fix --concurrency 1 (already sequential) does NOT emit the override warning', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, fix: true, concurrency: '1' },
+      deps({ makeRunner: f.makeRunner, logErr: (l) => errLines.push(l) }, [task('doc-drift')])
+    );
+    expect(errLines.join('\n')).not.toMatch(/concurrency.*ignored/i);
+  });
+
+  it('report mode (no --fix) does NOT emit the override warning even with --concurrency', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, concurrency: '4' },
+      deps({ makeRunner: f.makeRunner, logErr: (l) => errLines.push(l) }, [task('doc-drift')])
+    );
+    expect(errLines.join('\n')).not.toMatch(/concurrency.*ignored/i);
   });
 
   it('nothing selected → "All maintenance current." logged, exit 0, summary written', async () => {
