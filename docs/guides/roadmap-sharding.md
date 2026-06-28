@@ -54,6 +54,13 @@ harness roadmap unshard    # reassemble the monolith from the shards
 Both go through the same parse/serialize core as the regenerator, so the round-trip
 is content-preserving.
 
+> **Recovering from a partial/crashed shard.** `harness roadmap shard` refuses to
+> run when `docs/roadmap.d/` already exists, to avoid clobbering shards. If a prior
+> run crashed part-way and left a half-written shard dir, re-running needs a clean
+> slate first: `rm -rf docs/roadmap.d` before `harness roadmap shard --force`. The
+> monolith is rewritten last (after an on-disk round-trip re-assert), so an
+> interrupted run leaves `docs/roadmap.md` intact and the repo re-shardable.
+
 ## (d) Git mechanics — keeping the aggregate fresh
 
 Because the aggregate is committed (so GitHub and non-harness tools can read it), it
@@ -149,11 +156,13 @@ changes touch the shared meta.
 Merge-triggered auto-done has two paths (see
 [`merge-triggered-auto-done.md`](../knowledge/roadmap/merge-triggered-auto-done.md)):
 the CI Action (authoritative, driven by the PR's `closingIssuesReferences`) and the
-offline `harness roadmap reconcile` fallback. The offline path maps a raw "closed"
-issue to `done`; it does not currently receive GitHub's `state_reason`, so it could
-flip a `wontfix` / `not_planned`-closed row to `done`. Prefer the Action path, which
-acts only on issues the merge actually completed. A follow-up to thread `state_reason`
-into the offline path is filed.
+offline `harness roadmap reconcile` fallback. The offline path now reads GitHub's
+`state_reason`, so it flips only issues closed as `completed` — a `wontfix` /
+`not_planned`-closed row is left untouched. A close whose reason the tracker does not
+report still flips (a conservative default that preserves behavior for adapters that
+cannot supply `state_reason`). Still prefer the Action path: it is driven by the PR's
+closing-issue references, so it also carries each issue's `owner/repo` and cannot
+mis-map a cross-repo issue with a colliding number onto a local row.
 
 ## See also
 

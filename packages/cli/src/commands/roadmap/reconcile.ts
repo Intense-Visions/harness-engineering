@@ -38,8 +38,19 @@ export interface RoadmapReconcileOptions {
    * Authoritative path: reconcile exactly these issue numbers against the
    * configured repo WITHOUT any network fetch (the PR-merge Action passes the
    * PR's closing-issue references here). Skips adapter discovery entirely.
+   *
+   * Numbers alone assume the configured repo, so a cross-repo closing reference
+   * could collide with a same-numbered local row — prefer {@link fromRefs}, which
+   * carries each closing issue's own `owner/repo`.
    */
   fromIssues?: number[];
+  /**
+   * Authoritative path (preferred): reconcile exactly these closing-issue
+   * references, each a fully-qualified `owner/repo#number`. The External-ID is
+   * built from each ref's OWN `owner/repo`, so a closing issue in a different repo
+   * with a number that collides with a local row never flips it. No network fetch.
+   */
+  fromRefs?: string[];
 }
 
 /**
@@ -50,12 +61,12 @@ export interface RoadmapReconcileOptions {
  * each matching non-`done` roadmap row to `done` via the shared core reconciler
  * (store-routed; one shard per matched row; assignee-lifecycle preserved).
  *
- * CAVEAT (offline mode): `ExternalTicketState` carries only `open`/`closed`, not
- * GitHub's `state_reason`, so this path treats ANY closed issue as done — it
- * cannot distinguish a `completed` close from a `not planned`/`wontfix` close.
- * The PR-merge Action path uses the PR's closing-issue references (closed *by
- * merge* = completed) and is authoritative; prefer it. A follow-up may expose
- * `state_reason` to gate the offline path on `completed` only.
+ * OFFLINE state_reason gate: `ExternalTicketState` now carries GitHub's
+ * `state_reason`, so the offline path no longer flips a row whose issue was closed
+ * as `not_planned`/`wontfix` — only a `completed` close (or a close whose reason
+ * the tracker does not report) drives an auto-done flip. The PR-merge Action path
+ * (driven by the PR's closing-issue references = closed *by merge* = completed)
+ * remains authoritative; prefer it for cross-repo correctness.
  */
 export async function runRoadmapReconcile(
   opts: RoadmapReconcileOptions = {}
@@ -83,14 +94,47 @@ export async function runRoadmapReconcile(
 }
 
 /**
- * Compute the closed `External-ID` set: the authoritative `--from-issues` path
- * builds them from the configured repo with NO network call; otherwise the
- * offline path fetches current issue state and keeps the closed ones.
+ * Whether a closed ticket should drive an auto-done flip. GitHub's `state_reason`
+ * distinguishes a `completed` close from a `not_planned`/`wontfix` close; only the
+ * former means "the work shipped". When the tracker does not report a reason
+ * (`stateReason` absent) we still flip — preserving prior behavior for adapters
+ * that cannot supply it rather than silently dropping legitimate flips.
+ */
+function isCompletedClose(t: ExternalTicketState): boolean {
+  return t.stateReason === undefined || t.stateReason === 'completed';
+}
+
+/**
+ * Compute the closed `External-ID` set. The authoritative paths build them with
+ * NO network call: `--from-refs` carries each closing issue's own `owner/repo`
+ * (cross-repo safe), `--from-issues` builds against the configured repo. The
+ * offline fallback fetches current issue state and keeps the issues closed as
+ * `completed` (or with no reported reason).
  */
 async function resolveClosedIds(
   opts: RoadmapReconcileOptions,
   cwd: string
 ): Promise<Result<string[], CLIError>> {
+  if (opts.fromRefs && opts.fromRefs.length > 0) {
+    const ids: string[] = [];
+    for (const ref of opts.fromRefs) {
+      // Each ref is a fully-qualified `owner/repo#number`; build the External-ID
+      // from the ref's OWN owner/repo so a colliding number in another repo
+      // cannot map onto a local row.
+      const m = ref.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+      if (!m) {
+        return Err(
+          new CLIError(
+            `Invalid issue reference "${ref}"; expected "owner/repo#number"`,
+            ExitCode.ERROR
+          )
+        );
+      }
+      ids.push(buildExternalId(m[1]!, m[2]!, Number.parseInt(m[3]!, 10)));
+    }
+    return Ok(ids);
+  }
+
   if (opts.fromIssues && opts.fromIssues.length > 0) {
     const repo = opts.config?.repo ?? loadTrackerSyncConfig(cwd)?.repo;
     if (!repo) {
@@ -118,7 +162,11 @@ async function resolveClosedIds(
       new CLIError(`Failed to fetch issue state: ${tickets.error.message}`, ExitCode.ERROR)
     );
   }
-  return Ok(tickets.value.filter((t) => t.status === 'closed').map((t) => t.externalId));
+  return Ok(
+    tickets.value
+      .filter((t) => t.status === 'closed' && isCompletedClose(t))
+      .map((t) => t.externalId)
+  );
 }
 
 /** Resolve the issue-state adapter, building a GitHub adapter from config + token if not injected. */
@@ -177,18 +225,37 @@ function logSummary(result: {
 export function createRoadmapReconcileCommand(): Command {
   return new Command('reconcile')
     .description(
-      'Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode treats any ' +
-        "closed issue as done (it cannot tell 'completed' from 'not planned'/'wontfix' closes; the " +
-        'PR-merge auto-done workflow is authoritative).'
+      'Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode flips only ' +
+        "issues closed as 'completed' (a 'not planned'/'wontfix' close is left untouched); the " +
+        'PR-merge auto-done workflow remains authoritative for cross-repo correctness.'
     )
     .option('--cwd <dir>', 'Project root (defaults to the current working directory)')
     .option(
       '--from-issues <numbers>',
-      'comma-separated issue numbers to reconcile (authoritative; skips the network fetch)'
+      'comma-separated issue numbers to reconcile against the configured repo (authoritative; skips the network fetch)'
     )
-    .action(async (options: { cwd?: string; fromIssues?: string }) => {
-      const opts: { cwd?: string; fromIssues?: number[] } = {};
+    .option(
+      '--from-refs <refs>',
+      'comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)'
+    )
+    .action(async (options: { cwd?: string; fromIssues?: string; fromRefs?: string }) => {
+      const opts: { cwd?: string; fromIssues?: number[]; fromRefs?: string[] } = {};
       if (options.cwd) opts.cwd = options.cwd;
+      if (options.fromRefs !== undefined) {
+        const refs = options.fromRefs
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        // Fail loudly rather than silently falling back to the network path.
+        if (refs.length === 0) {
+          logger.error(
+            `--from-refs was provided ("${options.fromRefs}") but contained no valid ` +
+              'references; expected a comma-separated list of owner/repo#number'
+          );
+          process.exit(ExitCode.ERROR);
+        }
+        opts.fromRefs = refs;
+      }
       if (options.fromIssues !== undefined) {
         const parsed = options.fromIssues
           .split(',')

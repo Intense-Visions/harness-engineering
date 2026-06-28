@@ -13,8 +13,10 @@ name: Roadmap Auto-Done
 # Phase 5 concern.
 #
 # The PR `closingIssuesReferences` (issues closed BY the merge) is authoritative:
-# unlike the offline CLI it distinguishes a completed close from a wontfix close,
-# so this path never mis-flips a `not planned`/`wontfix` row.
+# the references carry each closing issue's own `owner/repo`, so this path never
+# mis-flips a cross-repo issue with a colliding number onto a local row. (The
+# offline CLI now also gates on `state_reason`, so both paths skip `wontfix` /
+# `not planned` closes.)
 
 on:
   pull_request:
@@ -55,28 +57,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          NUMBERS=$(gh api graphql \
+          # Fetch each closing issue's full owner/repo (nameWithOwner), not just
+          # its number: a PR can close an issue in a DIFFERENT repo, and a bare
+          # number built against this repo could collide with a same-numbered
+          # local roadmap row. Emit `owner/repo#number` refs so the reconciler
+          # matches the full External-ID.
+          REFS=$(gh api graphql \
             -f query='query($owner:String!,$repo:String!,$pr:Int!){
               repository(owner:$owner,name:$repo){
                 pullRequest(number:$pr){
-                  closingIssuesReferences(first:50){ nodes { number } }
+                  closingIssuesReferences(first:50){
+                    nodes { number repository { nameWithOwner } }
+                  }
                 }
               }
             }' \
             -F owner='${{ github.repository_owner }}' \
             -F repo='${{ github.event.repository.name }}' \
             -F pr=${{ github.event.pull_request.number }} \
-            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes | map(.number) | join(",")')
-          echo "numbers=$NUMBERS" >> "$GITHUB_OUTPUT"
-          if [ -z "$NUMBERS" ]; then
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes | map("\(.repository.nameWithOwner)#\(.number)") | join(",")')
+          echo "refs=$REFS" >> "$GITHUB_OUTPUT"
+          if [ -z "$REFS" ]; then
             echo "No roadmap-linked closing issues for this PR; nothing to reconcile."
           else
-            echo "Closing issue numbers: $NUMBERS"
+            echo "Closing issue refs: $REFS"
           fi
 
       - name: Reconcile auto-done
-        if: steps.closing.outputs.numbers != ''
-        run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-issues "${{ steps.closing.outputs.numbers }}"
+        if: steps.closing.outputs.refs != ''
+        run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-refs "${{ steps.closing.outputs.refs }}"
 
       # In sharded mode the reconcile writes ONLY the changed shard(s); the
       # aggregate is generated, so it must be regenerated from the shards before
@@ -84,14 +93,14 @@ jobs:
       # mode the reconcile already wrote the aggregate directly, so there is no
       # shard dir and this step is skipped.
       - name: Regenerate the aggregate when sharded
-        if: steps.closing.outputs.numbers != ''
+        if: steps.closing.outputs.refs != ''
         run: |
           if [ -d docs/roadmap.d ]; then
             node packages/cli/dist/bin/harness.js roadmap regen
           fi
 
       - name: Commit and push the shard flip
-        if: steps.closing.outputs.numbers != ''
+        if: steps.closing.outputs.refs != ''
         run: |
           if [ -z "$(git status --porcelain docs/roadmap.d docs/roadmap.md)" ]; then
             echo "Reconcile produced no roadmap changes (rows already done); nothing to commit."

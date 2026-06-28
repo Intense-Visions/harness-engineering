@@ -55,7 +55,14 @@ function shard(slug: string, order: number, feat: RoadmapFeature): Shard {
 }
 
 /** A fake adapter returning a fixed ticket set without any network call. */
-function fakeAdapter(tickets: Array<{ externalId: string; status: string }>, onFetch?: () => void) {
+function fakeAdapter(
+  tickets: Array<{
+    externalId: string;
+    status: string;
+    stateReason?: ExternalTicketState['stateReason'];
+  }>,
+  onFetch?: () => void
+) {
   return {
     fetchAllTickets: async (): Promise<Result<ExternalTicketState[]>> => {
       onFetch?.();
@@ -64,6 +71,7 @@ function fakeAdapter(tickets: Array<{ externalId: string; status: string }>, onF
           externalId: t.externalId,
           title: t.externalId,
           status: t.status,
+          ...(t.stateReason ? { stateReason: t.stateReason } : {}),
           labels: [],
           assignee: null,
         }))
@@ -132,6 +140,53 @@ describe('runRoadmapReconcile() — offline mode', () => {
       expect(r.error.exitCode).not.toBe(0);
       expect(r.error.message).toMatch(/tracker|config|token/i);
     }
+  });
+
+  it('does NOT flip a row whose issue was closed as not_planned (wontfix)', async () => {
+    const adapter = fakeAdapter([
+      { externalId: 'github:o/r#1', status: 'closed', stateReason: 'not_planned' },
+    ]);
+    const r = await runRoadmapReconcile({ cwd, adapter });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('planned');
+  });
+
+  it('flips a row whose issue was closed as completed', async () => {
+    const adapter = fakeAdapter([
+      { externalId: 'github:o/r#1', status: 'closed', stateReason: 'completed' },
+    ]);
+    const r = await runRoadmapReconcile({ cwd, adapter });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('done');
+  });
+
+  it('flips a closed issue with no reported state_reason (conservative back-compat)', async () => {
+    const adapter = fakeAdapter([{ externalId: 'github:o/r#1', status: 'closed' }]);
+    const r = await runRoadmapReconcile({ cwd, adapter });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('done');
+  });
+});
+
+describe('runRoadmapReconcile() — --from-refs cross-repo-safe path', () => {
+  it('flips a row when the ref repo matches the linked External-ID', async () => {
+    const r = await runRoadmapReconcile({ cwd, fromRefs: ['o/r#1'] });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('done');
+  });
+
+  it('does NOT flip a local row when a colliding number closes in a DIFFERENT repo', async () => {
+    // Alpha is linked to github:o/r#1; a closed issue other/repo#1 shares the
+    // number but not the repo, so it must not map onto Alpha.
+    const r = await runRoadmapReconcile({ cwd, fromRefs: ['other/repo#1'] });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('planned');
+  });
+
+  it('rejects a malformed ref (missing owner/repo)', async () => {
+    const r = await runRoadmapReconcile({ cwd, fromRefs: ['1'] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/owner\/repo#number|invalid/i);
   });
 });
 
