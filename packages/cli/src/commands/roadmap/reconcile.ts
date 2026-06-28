@@ -65,7 +65,7 @@ export async function runRoadmapReconcile(
   if (!opts.store && !roadmapSourceExists(cwd)) {
     return Err(
       new CLIError(
-        'No roadmap found (docs/roadmap.d or docs/roadmap.md); nothing to reconcile',
+        'No roadmap found (no docs/roadmap.d shards or generated aggregate); nothing to reconcile',
         ExitCode.ERROR
       )
     );

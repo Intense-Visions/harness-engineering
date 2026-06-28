@@ -24,7 +24,7 @@ export interface ReconcileResult {
  * Pure with respect to discovery: the caller supplies the closed-id set (CLI
  * fetch / Action GraphQL); this function performs no network or fs IO beyond the
  * injected {@link RoadmapStore}. It reads and writes ONLY through the store
- * (`store.load()` + {@link applyRoadmapDiff}) — never a direct `roadmap.md` read,
+ * (`store.load()` + {@link applyRoadmapDiff}) — never a direct aggregate read,
  * so invariant R is untouched and it works in both sharded and monolith modes.
  *
  * The `→ done` transition routes through {@link setStatus} (the assignee-lifecycle
