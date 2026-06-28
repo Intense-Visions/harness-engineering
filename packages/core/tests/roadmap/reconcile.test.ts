@@ -259,4 +259,11 @@ describe('reconcileDoneFromClosedIssues', () => {
       expect(betaAfter).toBe(betaBefore); // unmatched shard untouched byte-for-byte
     });
   });
+
+  describe('public surface', () => {
+    it('exports reconcileDoneFromClosedIssues from the package entry', async () => {
+      const mod = await import('@harness-engineering/core');
+      expect(typeof mod.reconcileDoneFromClosedIssues).toBe('function');
+    });
+  });
 });

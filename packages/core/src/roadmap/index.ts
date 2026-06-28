@@ -66,6 +66,13 @@ export { parseExternalId, buildExternalId } from './adapters/github-issues';
 export { loadTrackerSyncConfig } from './tracker-config';
 
 /**
+ * Auto-done reconciler (Phase 5, D6): flip roadmap rows whose linked issue is
+ * closed to `done`, store-routed via the assignee-lifecycle authority.
+ */
+export { reconcileDoneFromClosedIssues } from './reconcile';
+export type { ReconcileResult } from './reconcile';
+
+/**
  * Sync engine for bidirectional sync between roadmap and external trackers.
  */
 export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
