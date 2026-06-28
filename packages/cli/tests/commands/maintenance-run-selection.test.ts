@@ -450,6 +450,36 @@ describe('runMaintenanceRun (fake deps, no real exec)', () => {
     expect(fs.existsSync(summary)).toBe(true);
   });
 
+  it('nothing selected + --json → stdout is parseable JSON with tasks:[] (NOT the sentinel), exit 0', async () => {
+    const dir = tmp();
+    const logLines: string[] = [];
+    // doc-drift is current (recent success), so overdue selects nothing.
+    const history = [
+      runResult('doc-drift', {
+        status: 'success',
+        startedAt: '2026-06-27T11:59:00.000Z',
+        completedAt: '2026-06-27T11:59:00.000Z',
+      }),
+    ];
+    const res = await runMaintenanceRun(
+      dir,
+      { json: true },
+      deps({ log: (l) => logLines.push(l) }, [task('doc-drift')], history)
+    );
+    expect(res.exitCode).toBe(0);
+    const stdout = logLines.join('\n');
+    // The --json happy path must NEVER print the human sentinel.
+    expect(stdout).not.toMatch(/All maintenance current/i);
+    // JSON.parse(stdout) must succeed and yield an empty-tasks report.
+    const parsed = JSON.parse(stdout);
+    expect(parsed.tasks).toEqual([]);
+    expect(parsed.exitCode).toBe(0);
+    expect(parsed.overdueNowCurrent).toEqual([]);
+    // last-run-summary.json stays consistent (empty-tasks report on disk too).
+    const summary = path.join(dir, '.harness', 'maintenance', 'last-run-summary.json');
+    expect(JSON.parse(fs.readFileSync(summary, 'utf-8')).tasks).toEqual([]);
+  });
+
   it('--json emits the report object to stdout log', async () => {
     const dir = tmp();
     const calls: RunCall[] = [];

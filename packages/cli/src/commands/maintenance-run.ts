@@ -438,7 +438,6 @@ export async function runMaintenanceRun(
   const selectedOverdue = new Set(selected.filter((t) => overdueIds.has(t.id)).map((t) => t.id));
 
   if (selected.length === 0) {
-    log('All maintenance current.');
     const report = aggregateReport({
       results: [],
       mode,
@@ -448,6 +447,12 @@ export async function runMaintenanceRun(
       generatedAt: now.toISOString(),
     });
     writeSummary(cwd, report);
+    // --json must ALWAYS emit a parseable ConsolidatedReport to stdout — even on
+    // the common nothing-overdue happy path. Emitting the human sentinel here
+    // would make `JSON.parse(stdout)` throw for any --json consumer. The plain
+    // "All maintenance current." sentinel is for the NON-json path only.
+    if (opts.json) log(JSON.stringify(report, null, 2));
+    else log('All maintenance current.');
     return { exitCode: 0, report };
   }
 
