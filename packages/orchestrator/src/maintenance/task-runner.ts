@@ -23,6 +23,18 @@ export interface CheckCommandResult {
   findings: number;
   /** Raw output for logging/reporting */
   output: string;
+  /**
+   * True when the check command could NOT be executed to a usable result —
+   * the process failed to spawn (ENOENT), the subcommand was unknown, or it
+   * crashed with no parseable findings count. This is distinct from a check
+   * that ran fine and legitimately reported findings (`passed: false`,
+   * `findings > 0`). The TaskRunner maps `executionFailed` onto
+   * `status: 'failure'` so an un-runnable check is never masked as a
+   * successful 1-finding run (ADR 0050 — exit-1-on-check-crash). Omitted /
+   * `undefined` is treated as `false` for backward compatibility with runners
+   * that predate this field.
+   */
+  executionFailed?: boolean;
 }
 
 /**
@@ -270,6 +282,7 @@ export class TaskRunner {
         stdout: r.output,
         stderr: r.stderr,
         structured: r.structured ? (r.structured as unknown as Record<string, unknown>) : null,
+        executionFailed: false,
       };
     }
     if (!task.checkCommand || task.checkCommand.length === 0) {
@@ -282,6 +295,7 @@ export class TaskRunner {
       stdout: r.output,
       stderr: '',
       structured: null,
+      executionFailed: r.executionFailed ?? false,
     };
   }
 
@@ -334,6 +348,19 @@ export class TaskRunner {
       check = await this.runCheckStep(task);
     } catch (err) {
       return wrap(this.failureResult(task.id, startedAt, String(err)));
+    }
+
+    // A check that could not RUN (spawn error / unknown subcommand / crash) is
+    // a failure, never a phantom 'no-issues'. Without this guard a non-runnable
+    // check would fall through to the `findings === 0` branch (parse-miss
+    // default is 0) and be reported as 'no-issues' — silently masking that the
+    // check never executed (ADR 0050). A check that ran and found N issues has
+    // `executionFailed: false` and proceeds normally.
+    if (check.executionFailed) {
+      return wrap(
+        this.failureResult(task.id, startedAt, checkExecutionError(check)),
+        captureFromCheck(check)
+      );
     }
 
     const promptContext = await this.composePromptContext(task);
@@ -550,6 +577,17 @@ export class TaskRunner {
     }
     const parsed = parseStatusLine(check.stdout);
 
+    // Execution-honesty (ADR 0050): a check that emitted no JSON status line
+    // AND could not run is a failure, not a 'success' carrying phantom
+    // findings. A CLI that emits an explicit JSON status (`parsed !== null`)
+    // spawned and ran — its contract status wins, even on a non-zero exit.
+    if (parsed === null && check.executionFailed) {
+      return wrap(
+        this.failureResult(task.id, startedAt, checkExecutionError(check)),
+        captureFromCheck(check)
+      );
+    }
+
     const status: RunResult['status'] = parsed?.status ?? 'success';
     // Findings precedence:
     //   - If a CLI emitted a JSON status line, the contract is that
@@ -718,6 +756,8 @@ interface CheckOutcome {
   stdout: string;
   stderr: string;
   structured: Record<string, unknown> | null;
+  /** True when the check command could not be executed to a usable result. */
+  executionFailed: boolean;
 }
 
 /**
@@ -731,6 +771,19 @@ interface RunOutcome {
 
 function wrap(result: RunResult, captured?: CapturedCheck): RunOutcome {
   return captured ? { result, captured } : { result };
+}
+
+/** Build a human-readable error for a check that could not execute, preferring
+ * stderr, then stdout, then a generic fallback. */
+function checkExecutionError(check: CheckOutcome): string {
+  const detail = (check.stderr || check.stdout || '').trim();
+  return detail ? `check command failed to execute: ${detail}` : 'check command failed to execute';
+}
+
+/** Preserve a failed check's captured output so the output store records what
+ * (little) the broken check produced. */
+function captureFromCheck(check: CheckOutcome): CapturedCheck {
+  return { stdout: check.stdout, stderr: check.stderr, structured: check.structured };
 }
 
 /**

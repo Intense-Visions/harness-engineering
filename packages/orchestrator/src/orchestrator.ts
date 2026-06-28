@@ -96,6 +96,25 @@ export function deriveSeedPaths(config: WorkflowConfig): string[] {
 }
 
 /**
+ * Resolve a maintenance `checkCommand` (or housekeeping command) into a runnable
+ * argv. Built-in maintenance task definitions store the command as harness
+ * SUBCOMMAND argv (e.g. `['check-arch']`, `['graph','scan']`); `main-sync`
+ * carries an explicit leading `'harness'` literal. Either way the command must
+ * be executed through the `harness` binary, so:
+ *   - `['check-arch']`           → `['harness', 'check-arch']`
+ *   - `['harness','sync-main']`  → `['harness', 'sync-main']`  (no double-prefix)
+ *   - `[]`                       → `[]`
+ *
+ * The cron daemon resolves `harness` from PATH (the pre-existing assumption that
+ * `main-sync` already relied on).
+ */
+export function normalizeHarnessCommand(command: string[]): string[] {
+  if (command.length === 0) return [];
+  if (command[0] === 'harness') return command;
+  return ['harness', ...command];
+}
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -664,21 +683,40 @@ export class Orchestrator extends EventEmitter {
         const { execFile } = await import('node:child_process');
         const { promisify } = await import('node:util');
         const execFileAsync = promisify(execFile);
-        const [cmd, ...args] = command;
-        if (!cmd) return { passed: true, findings: 0, output: '' };
+        // Built-in checkCommands are harness SUBCOMMAND argv (e.g. ['check-arch'],
+        // ['graph','scan']); only `main-sync` carries an explicit leading
+        // 'harness' literal. Resolve them through the `harness` binary on PATH
+        // (the cron daemon's existing assumption — see main-sync) so a bare
+        // subcommand name actually runs instead of ENOENT-ing.
+        const [cmd, ...args] = normalizeHarnessCommand(command);
+        if (!cmd) return { passed: true, findings: 0, output: '', executionFailed: false };
 
         try {
           const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
           // Try to extract a findings count from the output (common patterns: "N findings", "N issues")
           const findingsMatch = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
           const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 0;
-          return { passed: findings === 0, findings, output: stdout };
+          return { passed: findings === 0, findings, output: stdout, executionFailed: false };
         } catch (err) {
           const error = err as { stdout?: string; stderr?: string; code?: number };
           const output = [error.stdout, error.stderr].filter(Boolean).join('\n');
           const findingsMatch = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 1;
-          return { passed: false, findings, output };
+          if (findingsMatch) {
+            // The check ran and reported a count on a non-zero exit (e.g.
+            // `check-arch` exits 1 with "45 issues") — a real finding, not a
+            // failure to execute.
+            return {
+              passed: false,
+              findings: parseInt(findingsMatch[1]!, 10),
+              output,
+              executionFailed: false,
+            };
+          }
+          // No parseable count on a non-zero exit / spawn error: the check could
+          // not produce a usable result. Report findings: 0 (a broken check is
+          // not "1 finding") and flag executionFailed so the TaskRunner maps it
+          // to status: 'failure' rather than masking it (ADR 0050).
+          return { passed: false, findings: 0, output, executionFailed: true };
         }
       },
     };
@@ -703,7 +741,11 @@ export class Orchestrator extends EventEmitter {
         const { execFile } = await import('node:child_process');
         const { promisify } = await import('node:util');
         const execFileAsync = promisify(execFile);
-        const [cmd, ...args] = command;
+        // Housekeeping checkCommands are also harness subcommand argv (e.g.
+        // ['cleanup-sessions'], ['harness','sync-main','--json']) — resolve
+        // through the `harness` binary on PATH, stripping any explicit leading
+        // 'harness' literal to avoid double-prefixing.
+        const [cmd, ...args] = normalizeHarnessCommand(command);
         if (!cmd) return { stdout: '' };
 
         try {
