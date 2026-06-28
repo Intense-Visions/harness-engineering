@@ -194,27 +194,94 @@ export async function runReviewCi(opts: ReviewCiOptions): Promise<CiReviewResult
   return (opts.runCiReviewImpl ?? runCiReview)(callOpts);
 }
 
+/** A single validated finding as it appears on the verdict. */
+type ReviewFindingView = CiReviewResult['verdict']['findings'][number];
+
+/** Render a finding as a one-line Markdown bullet: severity, location, title. */
+function findingLine(f: ReviewFindingView): string {
+  const loc = f.lineRange ? `${f.file}:${f.lineRange[0]}` : f.file;
+  return `- \`${f.severity}\` **${loc}** — ${f.title}`;
+}
+
 /**
- * Emit the review result: print the terminal summary, optionally write the
- * verdict artifact, and (in this phase) warn that `--comment` is stubbed.
+ * Render the CI review verdict as a Markdown PR-comment body. Pure (no I/O), so
+ * it is unit-testable; the {@link PostReview} seam handles delivery.
+ */
+export function buildReviewBody(verdict: CiReviewResult['verdict']): string {
+  const findings = verdict.findings ?? [];
+  const blocking = verdict.blockingFindings ?? [];
+  const icon =
+    verdict.assessment === 'approve'
+      ? '✅'
+      : verdict.assessment === 'request-changes'
+        ? '🛑'
+        : '💬';
+  const out: string[] = [
+    `## ${icon} harness review-ci — ${verdict.assessment}`,
+    '',
+    `**Runner:** \`${verdict.runner}\`  •  **Findings:** ${findings.length} (blocking: ${blocking.length})`,
+  ];
+  if (verdict.skipped) out.push('', `> ⚠️ ${verdict.skipReason ?? 'A review tier was skipped.'}`);
+  if (blocking.length) out.push('', '### Blocking', ...blocking.map(findingLine));
+  const nonBlocking = findings.filter((f) => !blocking.some((b) => b.id === f.id));
+  if (nonBlocking.length) out.push('', '### Other findings', ...nonBlocking.map(findingLine));
+  if (!findings.length) out.push('', 'No findings. 🎉');
+  out.push('', '<sub>Posted by `harness review-ci`. The CI exit code is authoritative.</sub>');
+  return out.join('\n');
+}
+
+/** Seam for delivering the verdict to a PR — real impl shells out to `gh`. */
+export type PostReview = (verdict: CiReviewResult['verdict']) => void;
+
+/**
+ * Default poster: comment the verdict onto the current branch's PR via `gh`.
  *
- * Pure aside from the injected `writeFile`/`log` seams — contains NO
+ * Uses `gh pr comment` (not a `--request-changes` review) deliberately: a comment
+ * works in every context, including when the same actor authored the PR (GitHub
+ * forbids self-requesting-changes) and in CI where the bot is not the author. The
+ * gate's exit code — not this comment — is what blocks the merge, so an
+ * informational comment is the correct delivery. The body is piped via stdin
+ * (`--body-file -`) so long verdicts never hit the shell arg-length limit.
+ */
+const defaultPostReview: PostReview = (verdict) => {
+  execFileSync('gh', ['pr', 'comment', '--body-file', '-'], {
+    input: buildReviewBody(verdict),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    encoding: 'utf-8',
+  });
+};
+
+/**
+ * Emit the review result: print the terminal summary (or the JSON artifact to
+ * stdout when `--json` is given without a path), optionally write the artifact to
+ * a file, and optionally post it to the PR.
+ *
+ * Pure aside from the injected `writeFile`/`log`/`postReview` seams — contains NO
  * `process.exit`, so it stays unit-testable.
  */
 export function emitReviewCi(
   result: CiReviewResult,
-  opts: { jsonPath?: string | undefined; comment?: boolean | undefined },
+  opts: { jsonPath?: string | boolean | undefined; comment?: boolean | undefined },
   writeFile: (p: string, d: string) => void = (p, d) => writeFileSync(p, d),
-  log: (m: string) => void = (m) => process.stdout.write(m + '\n')
+  log: (m: string) => void = (m) => process.stdout.write(m + '\n'),
+  postReview: PostReview = defaultPostReview
 ): void {
-  log(result.terminalOutput);
-  if (opts.jsonPath) writeFile(opts.jsonPath, JSON.stringify(result.verdict, null, 2));
+  const serialized = JSON.stringify(result.verdict, null, 2);
+  // `--json` with no path => emit the artifact to stdout; suppress the human
+  // summary so the output stays valid, pipeable JSON.
+  const jsonToStdout = opts.jsonPath === true;
+  if (!jsonToStdout) log(result.terminalOutput);
+  if (typeof opts.jsonPath === 'string') writeFile(opts.jsonPath, serialized);
+  else if (jsonToStdout) log(serialized);
   if (opts.comment) {
-    logger.warn(
-      'review-ci: --comment posting is not yet wired (no gh PR poster; Phase 3 stub). ' +
-        'The verdict above is authoritative; use --json to capture the artifact. ' +
-        'PR-review posting lands in a later phase.'
-    );
+    try {
+      postReview(result.verdict);
+    } catch (err) {
+      logger.warn(
+        `review-ci: failed to post PR comment (${err instanceof Error ? err.message : String(err)}). ` +
+          'The verdict above is authoritative; the exit code still reflects the gate.'
+      );
+    }
   }
 }
 
@@ -233,16 +300,24 @@ export function createReviewCiCommand(): Command {
         .default('request-changes')
     )
     .option('--diff <range>', 'git range (default: origin/<base>...HEAD)')
-    .option('--comment', 'post verdict as a PR review (stubbed in this phase)')
-    .option('--json <path>', 'write the verdict artifact to this path')
-    .action(async (opts: Record<string, unknown>) => {
+    .option('--comment', "post the verdict as a comment on the current branch's PR via gh")
+    .option(
+      '--out <path>',
+      'write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)'
+    )
+    .action(async (opts: Record<string, unknown>, cmd: Command) => {
       const result = await runReviewCi({
         runner: opts.runner as string | undefined,
         blockOn: opts.blockOn as CiBlockOn | undefined,
         diffRange: opts.diff as string | undefined,
       });
+      // The root program owns a global `--json` (boolean); a subcommand cannot
+      // redeclare `--json` (commander routes the value to the parent program), so
+      // we read the global to mean "stream the verdict JSON to stdout" and use
+      // `--out <path>` to write the artifact to a file.
+      const streamJson = cmd.optsWithGlobals().json === true;
       emitReviewCi(result, {
-        jsonPath: opts.json as string | undefined,
+        jsonPath: typeof opts.out === 'string' ? opts.out : streamJson ? true : undefined,
         comment: opts.comment as boolean | undefined,
       });
       // process.exit is confined to the commander action so the pure functions
