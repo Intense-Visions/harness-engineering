@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -95,5 +95,26 @@ describe('runRoadmapRegen()', () => {
     const r = await runRoadmapRegen({ cwd });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.message).toMatch(/roadmap\.d|not sharded|not found/i);
+  });
+
+  it('--dry-run reports the size without writing the aggregate', async () => {
+    const r = await runRoadmapRegen({ cwd, dryRun: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.bytes).toBeGreaterThan(0);
+    expect(fs.existsSync(roadmapPath)).toBe(false);
+  });
+
+  it('--format json emits a single machine-readable object', async () => {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((m?: unknown) => {
+      logs.push(String(m));
+    });
+    await runRoadmapRegen({ cwd, format: 'json' });
+    spy.mockRestore();
+    expect(logs).toHaveLength(1);
+    const parsed = JSON.parse(logs[0]!);
+    expect(parsed.ok).toBe(true);
+    expect(typeof parsed.bytes).toBe('number');
+    expect(parsed.dryRun).toBe(false);
   });
 });

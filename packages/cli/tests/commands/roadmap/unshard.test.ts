@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -141,5 +141,32 @@ last_manual_edit: 2026-05-09T00:00:00Z
     await runRoadmapUnshard({ cwd });
     expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(afterShard);
     expect(fs.existsSync(shardDir)).toBe(false);
+  });
+
+  it('--dry-run previews without writing the aggregate or deleting the shard dir', async () => {
+    seedShards();
+    const r = await runRoadmapUnshard({ cwd, dryRun: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.shardCount).toBe(2);
+      expect(r.value.bytes).toBeGreaterThan(0);
+    }
+    expect(fs.existsSync(shardDir)).toBe(true); // not deleted
+    expect(fs.existsSync(roadmapPath)).toBe(false); // not written
+  });
+
+  it('--format json emits a single machine-readable object', async () => {
+    seedShards();
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((m?: unknown) => {
+      logs.push(String(m));
+    });
+    await runRoadmapUnshard({ cwd, format: 'json' });
+    spy.mockRestore();
+    expect(logs).toHaveLength(1);
+    const parsed = JSON.parse(logs[0]!);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.shardCount).toBe(2);
+    expect(parsed.dryRun).toBe(false);
   });
 });
