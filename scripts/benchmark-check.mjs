@@ -30,6 +30,37 @@ const PACKAGES = [
 const isUpdate = process.argv.includes('--update');
 
 /**
+ * Merge freshly measured benchmarks onto the committed baselines, keeping the
+ * existing entry for any benchmark whose mean moved less than the regression
+ * threshold (runner noise).
+ *
+ * This is Fix A for the refresh-baselines race: `--update` used to rewrite every
+ * mean/p99 on every run, so each push produced a diff of pure microsecond jitter.
+ * Concurrent refresh PRs then edited the same lines from divergent bases and
+ * conflicted — and auto-merge cannot resolve content conflicts. Gating the write
+ * to genuine movement makes jitter-only runs byte-identical (no diff, no PR).
+ *
+ * - mean within threshold -> keep the committed entry verbatim (no churn)
+ * - mean beyond threshold -> adopt the measured entry (real movement)
+ * - new benchmark / zero or missing baseline mean -> adopt
+ * - benchmark removed from code -> dropped (only fresh keys are written)
+ */
+export function mergeBenchmarkBaselines(existing = {}, fresh = {}, threshold = THRESHOLD) {
+  const merged = {};
+  for (const key of Object.keys(fresh)) {
+    const prev = existing[key];
+    const next = fresh[key];
+    if (!prev || typeof prev.mean !== 'number' || prev.mean === 0) {
+      merged[key] = next;
+      continue;
+    }
+    const delta = Math.abs(next.mean - prev.mean) / prev.mean;
+    merged[key] = delta <= threshold ? prev : next;
+  }
+  return merged;
+}
+
+/**
  * Run vitest bench for a package and return parsed JSON results.
  * Uses --outputJson to write structured output to a temp file.
  */
@@ -121,7 +152,14 @@ function main() {
   console.log(`\n  Found ${Object.keys(allResults).length} benchmarks.\n`);
 
   if (isUpdate) {
-    writeFileSync(BASELINES_PATH, JSON.stringify(allResults, null, 2) + '\n');
+    let existing = {};
+    try {
+      existing = JSON.parse(readFileSync(BASELINES_PATH, 'utf-8'));
+    } catch {
+      /* first run -- no committed baselines yet */
+    }
+    const merged = mergeBenchmarkBaselines(existing, allResults);
+    writeFileSync(BASELINES_PATH, JSON.stringify(merged, null, 2) + '\n');
     console.log(`Baselines updated: ${BASELINES_PATH}`);
     return;
   }
@@ -183,4 +221,9 @@ function main() {
   console.log('\nAll benchmarks within threshold.');
 }
 
-main();
+// Only run benchmarks when invoked directly, not when imported by tests.
+const invokedDirectly =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  main();
+}
