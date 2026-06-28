@@ -28,7 +28,10 @@ export interface ShardIO extends FileIO {
 const META_FILE = '_meta.md';
 
 function joinPath(dir: string, name: string): string {
-  return dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
+  // Normalize Windows backslashes so shard IO paths are '/'-delimited on every OS
+  // (the injected-IO contract expects '/'; Node fs accepts '/' on Windows).
+  const d = dir.replaceAll('\\', '/');
+  return d.endsWith('/') ? `${d}${name}` : `${d}/${name}`;
 }
 
 /**

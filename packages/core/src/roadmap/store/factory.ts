@@ -72,7 +72,9 @@ export function roadmapSourceExists(
  * through {@link resolveRoadmapStore}().load() to read roadmap content.
  */
 export function roadmapAggregatePath(projectRoot: string): string {
-  return path.join(projectRoot, 'docs', 'roadmap.md');
+  // Forward slashes so the path is stable across OSes (used as a lock key /
+  // watch target and as the store's IO path; Node fs accepts '/' on Windows).
+  return path.join(projectRoot, 'docs', 'roadmap.md').replaceAll('\\', '/');
 }
 
 export function resolveRoadmapStore(options: ResolveRoadmapStoreOptions): RoadmapStore {
@@ -108,8 +110,10 @@ export interface ResolveRoadmapStoreForFileOptions {
 export function resolveRoadmapStoreForFile(
   options: ResolveRoadmapStoreForFileOptions
 ): RoadmapStore {
-  const { roadmapPath } = options;
-  const shardDir = path.join(path.dirname(roadmapPath), 'roadmap.d');
+  // Normalize to '/' so both stores receive OS-stable IO paths (the injected-IO
+  // contract and tests expect '/'; Node fs accepts '/' on Windows).
+  const roadmapPath = options.roadmapPath.replaceAll('\\', '/');
+  const shardDir = path.join(path.dirname(roadmapPath), 'roadmap.d').replaceAll('\\', '/');
   const io = options.io ?? createNodeRoadmapIO();
   const exists = options.exists ?? ((target: string) => fs.existsSync(target));
 
