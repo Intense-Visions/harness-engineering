@@ -30,6 +30,13 @@ Migrated onto the store:
   `RoadmapTrackerAdapter` claim / release / mark-complete), preserving
   compare-and-set, idempotency, and the RMH005 assignee invariant.
 
+Behavioral note — prediction engine: routing the roadmap read through the store
+also corrected the path it reads from (`<root>/roadmap.md` →
+`<root>/docs/roadmap.md`). Previously `computeSpecImpacts` always failed to load
+and returned no impacts, so spec-impact adjustments were effectively dead; the
+engine now folds spec impacts into the adjusted forecasts (and warning
+severities) as originally designed.
+
 New core APIs: `RoadmapStore.removeFeature`, `resolveRoadmapStore` /
 `resolveRoadmapStoreForFile` (mode-detection factories), `applyRoadmapDiff`,
 `roadmapAggregatePath`, and a node-fs roadmap IO adapter.
