@@ -125,6 +125,23 @@ describe('task-registry', () => {
       expect(t.type).toBe('mechanical-ai');
       expect(t.schedule).toBe('0 6 * * 1');
       expect(t.branch).toBe('harness-maint/cross-check-fixes');
+      // Repointed off the MCP tool name `validate-cross-check` (unknown CLI
+      // command) onto the real `validate --cross-check` CLI surface.
+      expect(t.checkCommand).toEqual(['validate', '--cross-check']);
+    });
+
+    it('every built-in checkCommand uses a real CLI subcommand, not an MCP tool name', () => {
+      // MCP tools are underscore_cased; CLI subcommands are kebab-cased. A
+      // checkCommand whose head is underscore_cased can never resolve through the
+      // harness binary. `detect_stale_constraints` is the one known, DOCUMENTED
+      // exception (MCP-only, no CLI counterpart — see task-registry.ts).
+      const KNOWN_NO_CLI = new Set(['stale-constraints']);
+      for (const t of BUILT_IN_TASKS) {
+        if (!t.checkCommand || t.checkCommand.length === 0) continue;
+        if (KNOWN_NO_CLI.has(t.id)) continue;
+        const head = t.checkCommand[0] === 'harness' ? t.checkCommand[1] : t.checkCommand[0];
+        expect(head, `task '${t.id}' checkCommand head '${head}'`).not.toMatch(/_/);
+      }
     });
 
     // Pure-AI tasks
@@ -174,12 +191,18 @@ describe('task-registry', () => {
       const t = taskMap.get('project-health')!;
       expect(t.type).toBe('report-only');
       expect(t.schedule).toBe('0 6 * * *');
+      // Repointed off the MCP tool name `assess_project` onto the CLI composite
+      // health report `harness insights`.
+      expect(t.checkCommand).toEqual(['insights']);
     });
 
     it('stale-constraints: monthly 1st 2am, report-only', () => {
       const t = taskMap.get('stale-constraints')!;
       expect(t.type).toBe('report-only');
       expect(t.schedule).toBe('0 2 1 * *');
+      // DOCUMENTED follow-up: detect_stale_constraints is MCP-only (no CLI
+      // counterpart). Left unchanged so the gap stays visible.
+      expect(t.checkCommand).toEqual(['detect_stale_constraints']);
     });
 
     // Housekeeping tasks

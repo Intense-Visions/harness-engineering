@@ -71,7 +71,12 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix cross-check violations',
     schedule: '0 6 * * 1',
     branch: 'harness-maint/cross-check-fixes',
-    checkCommand: ['validate-cross-check'],
+    // `validate_cross_check` is an MCP tool name, not a CLI subcommand. Its only
+    // CLI surface is `validate --cross-check`, which runs cross-artifact
+    // consistency validation (plan↔impl + staleness). NOTE: `validate` also runs
+    // the full validation suite, so the reported finding count is broad-spectrum;
+    // a dedicated `harness cross-check` subcommand is a documented follow-up.
+    checkCommand: ['validate', '--cross-check'],
     fixSkill: 'harness-cross-check-fix',
   },
 
@@ -132,7 +137,10 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Assess overall project health',
     schedule: '0 6 * * *',
     branch: null,
-    checkCommand: ['assess_project'],
+    // `assess_project` is an MCP tool name, not a CLI subcommand. The CLI
+    // composite project-health report is `harness insights` (health, entropy,
+    // decay, attention, impact) — a read-only report that records metrics.
+    checkCommand: ['insights'],
   },
   {
     id: 'stale-constraints',
@@ -140,6 +148,12 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect stale architectural constraints',
     schedule: '0 2 1 * *',
     branch: null,
+    // FOLLOW-UP: `detect_stale_constraints` is an MCP-only tool — there is no
+    // `harness` CLI subcommand that surfaces it, so this checkCommand cannot run
+    // and reports `failure` honestly. Either add a CLI subcommand (e.g.
+    // `harness check-arch --stale` / `harness insights` surfacing stale
+    // constraints) or retire this built-in. Left unchanged so the gap stays
+    // visible rather than fabricating a mapping.
     checkCommand: ['detect_stale_constraints'],
   },
   {
