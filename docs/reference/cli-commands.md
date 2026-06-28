@@ -425,14 +425,6 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--comment` — post verdict as a PR review (stubbed in this phase)
 - `--json` — write the verdict artifact to this path
 
-### `harness scan [path]`
-
-Scan project and build knowledge graph
-
-**Arguments:**
-
-- `path` (optional) — Project root path
-
 ### `harness scan-config`
 
 Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns
@@ -731,6 +723,14 @@ Export graph
 **Options:**
 
 - `--format` — Output format (json, mermaid)
+
+### `harness graph scan [path]`
+
+Scan project and build knowledge graph
+
+**Arguments:**
+
+- `path` (optional) — Project root path
 
 ### `harness graph status`
 
