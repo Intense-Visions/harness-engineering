@@ -76,6 +76,15 @@ const ROADMAP_MD = /roadmap\.md/;
  * variable instead. Sanctioned readers/writers go through `resolveRoadmapStore`
  * (whose own fs IO lives in the injected store backend, not on a `roadmapPath`
  * identifier), so they do not match.
+ *
+ * HEURISTIC, not airtight: this signal only fires on the `roadmap(Path|File)`
+ * naming convention applied directly to a recognized fs call. It will NOT catch
+ * a roadmap path threaded through a differently-named variable (e.g. `target`,
+ * `p`), nor a read/write wrapped in a custom fs helper that hides the literal
+ * `readFile`/`writeFile` call. It is a tripwire to make the common bypass loud,
+ * not a proof of absence. The real enforcement net is the repo guard test plus
+ * the curated `ROADMAP_READ_ALLOWLIST` — code review of any new allowlist entry
+ * is where store-bypass is ultimately caught.
  */
 const DYNAMIC_ROADMAP_IO =
   /\b(?:readFile|writeFile|readFileSync|writeFileSync)\s*\(\s*[^)]*\broadmap(?:Path|File)\b/i;
