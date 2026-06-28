@@ -16,6 +16,7 @@ import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
 import { setupMcp } from './setup-mcp';
 import { generateCIConfig } from './ci/init';
+import { configureMergeOursDriver } from '../git/merge-driver-setup';
 
 interface InitOptions {
   cwd?: string;
@@ -109,7 +110,7 @@ function resolveLanguage(
   return undefined;
 }
 
-function scaffoldProject(
+async function scaffoldProject(
   engine: TemplateEngine,
   ctx: {
     cwd: string;
@@ -118,7 +119,7 @@ function scaffoldProject(
     language: string | undefined;
     options: InitOptions;
   }
-): Result<InitResult, CLIError> {
+): Promise<Result<InitResult, CLIError>> {
   const { cwd, name, force, language, options } = ctx;
   const isNonJs = language && language !== 'typescript';
   const level = isNonJs ? undefined : (options.level ?? 'basic');
@@ -170,6 +171,14 @@ function scaffoldProject(
   persistToolingConfig(cwd, resolveResult.value, options.framework);
   appendFrameworkAgents(cwd, options.framework, language);
   ensureHarnessGitignore(cwd);
+
+  // Configure the `ours` merge driver so generated-file merge=ours entries
+  // (e.g. the regenerated docs/roadmap.md aggregate) take effect. Non-fatal:
+  // warns and continues if git is unavailable or cwd is not a repo.
+  const mergeDriver = await configureMergeOursDriver(cwd);
+  if (mergeDriver.warning) {
+    logger.warn(mergeDriver.warning);
+  }
 
   return Ok({
     filesCreated: writeResult.value.written,
