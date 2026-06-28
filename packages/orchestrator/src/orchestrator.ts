@@ -64,6 +64,11 @@ import { SingleProcessLeaderElector } from './maintenance/leader-elector';
 import { MaintenanceReporter } from './maintenance/reporter';
 import { TaskRunner } from './maintenance/task-runner';
 import { CheckScriptRunner } from './maintenance/check-script-runner';
+import {
+  runHarnessCheck,
+  MAINTENANCE_CHECK_MAX_BUFFER,
+  MAINTENANCE_CHECK_TIMEOUT_MS,
+} from './maintenance/check-runner';
 import { TaskOutputStore } from './maintenance/output-store';
 import { ContextResolver, type InlineSkillReader } from './maintenance/context-resolver';
 import { validateCustomTasks } from './maintenance/custom-task-validator';
@@ -113,25 +118,6 @@ export function normalizeHarnessCommand(command: string[]): string[] {
   if (command[0] === 'harness') return command;
   return ['harness', ...command];
 }
-
-/**
- * Generous stdout/stderr capture ceiling for spawned maintenance checks. The
- * Node `execFile` default (1 MB) is far too small for verbose checks — e.g.
- * `harness cleanup` on a large repo emits ~8 MB — and an exceeded buffer
- * rejects with EMPTY stdout/stderr, which the runner would misread as a check
- * that produced no output (a false execution failure). Mirrors the CLI's
- * on-demand runner (maintenance-run.ts) so cron and CLI behave identically.
- */
-const MAINTENANCE_CHECK_MAX_BUFFER = 64 * 1024 * 1024;
-
-/**
- * Per-check wall-clock budget for cron maintenance checks. Raised from the
- * original 120 s: heavy whole-repo checks (e.g. `harness cleanup` over all
- * entropy types) legitimately need longer on large monorepos, and a too-tight
- * timeout SIGTERMs the child before it flushes, yielding empty output read as a
- * false execution failure. Mirrors the CLI on-demand runner (maintenance-run.ts).
- */
-const MAINTENANCE_CHECK_TIMEOUT_MS = 300_000;
 
 /**
  * The central orchestrator that manages the lifecycle of coding agents.
@@ -699,9 +685,6 @@ export class Orchestrator extends EventEmitter {
 
     const checkRunner: CheckCommandRunner = {
       run: async (command: string[], cwd: string) => {
-        const { execFile } = await import('node:child_process');
-        const { promisify } = await import('node:util');
-        const execFileAsync = promisify(execFile);
         // Built-in checkCommands are harness SUBCOMMAND argv (e.g. ['check-arch'],
         // ['graph','scan']); only `main-sync` carries an explicit leading
         // 'harness' literal. Resolve them through the `harness` binary on PATH
@@ -709,52 +692,11 @@ export class Orchestrator extends EventEmitter {
         // subcommand name actually runs instead of ENOENT-ing.
         const [cmd, ...args] = normalizeHarnessCommand(command);
         if (!cmd) return { passed: true, findings: 0, output: '', executionFailed: false };
-
-        try {
-          const { stdout } = await execFileAsync(cmd, args, {
-            cwd,
-            timeout: MAINTENANCE_CHECK_TIMEOUT_MS,
-            maxBuffer: MAINTENANCE_CHECK_MAX_BUFFER,
-          });
-          // Try to extract a findings count from the output (common patterns: "N findings", "N issues")
-          const findingsMatch = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 0;
-          return { passed: findings === 0, findings, output: stdout, executionFailed: false };
-        } catch (err) {
-          const error = err as {
-            stdout?: string;
-            stderr?: string;
-            code?: string | number | null;
-            killed?: boolean;
-            signal?: string | null;
-          };
-          let output = [error.stdout, error.stderr].filter(Boolean).join('\n');
-          // A timeout SIGTERMs the child before it can flush — surface a clear
-          // reason instead of an empty, inscrutable failure.
-          if (
-            !output.trim() &&
-            (error.killed === true || error.signal === 'SIGTERM' || error.code === 'ETIMEDOUT')
-          ) {
-            output = `check timed out after ${MAINTENANCE_CHECK_TIMEOUT_MS}ms`;
-          }
-          const findingsMatch = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-          if (findingsMatch) {
-            // The check ran and reported a count on a non-zero exit (e.g.
-            // `check-arch` exits 1 with "45 issues") — a real finding, not a
-            // failure to execute.
-            return {
-              passed: false,
-              findings: parseInt(findingsMatch[1]!, 10),
-              output,
-              executionFailed: false,
-            };
-          }
-          // No parseable count on a non-zero exit / spawn error: the check could
-          // not produce a usable result. Report findings: 0 (a broken check is
-          // not "1 finding") and flag executionFailed so the TaskRunner maps it
-          // to status: 'failure' rather than masking it (ADR 0050).
-          return { passed: false, findings: 0, output, executionFailed: true };
-        }
+        // The spawn/parse/timeout/executionFailed core is shared with the
+        // on-demand CLI runner (maintenance-run.ts → createCheckRunner) so cron
+        // and CLI behave identically (ADR 0050). Cron differs only here: it runs
+        // `harness` from PATH rather than the CLI's own entry script.
+        return runHarnessCheck({ file: cmd, args }, cwd);
       },
     };
 

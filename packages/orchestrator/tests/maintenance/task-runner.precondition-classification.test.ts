@@ -81,6 +81,15 @@ describe('classifyCheckExecutionFailure', () => {
     expect(classifyCheckExecutionFailure('ETIMEDOUT').kind).toBe('unrunnable');
   });
 
+  it('classifies a timeout that flushed PARTIAL parseable output as unrunnable (timeout wins over the count)', () => {
+    // A check SIGTERM'd mid-run can flush a partial "5 issues" before the
+    // runner appends the timeout marker. The truncated count must NOT be
+    // trusted as ran-no-count — the timeout signature is matched ahead of
+    // explicitFindingsCount.
+    const partial = '5 issues so far...\ncheck timed out after 300000ms';
+    expect(classifyCheckExecutionFailure(partial).kind).toBe('unrunnable');
+  });
+
   it('does not false-positive on unrunnable words buried deep in a real findings report', () => {
     // `cleanup`'s drift report can contain "not found" / "ENOENT" / "unknown
     // command" inside legitimate findings. Those must NOT downgrade a check that

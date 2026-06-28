@@ -98,6 +98,24 @@ export { MaintenanceReporter } from './maintenance/reporter';
 export type { MaintenanceReporterOptions } from './maintenance/reporter';
 export { CheckScriptRunner } from './maintenance/check-script-runner';
 
+// Shared maintenance check-runner core. The on-demand CLI (`harness maintenance
+// run`) consumes `runHarnessCheck` (plus the timeout/maxBuffer constants) so it
+// shares ONE spawn/parse/timeout/executionFailed implementation with the cron
+// orchestrator — they differ only in how each resolves a checkCommand into a
+// spawn invocation.
+export {
+  runHarnessCheck,
+  isCheckTimeoutError,
+  MAINTENANCE_CHECK_MAX_BUFFER,
+  MAINTENANCE_CHECK_TIMEOUT_MS,
+} from './maintenance/check-runner';
+export type {
+  HarnessSpawn,
+  ExecFileError,
+  ExecFileAsyncFn,
+  RunHarnessCheckOptions,
+} from './maintenance/check-runner';
+
 // Hermes Phase 0 / Phase 1: re-export TokenStore so the CLI (`harness gateway token`)
 // and the dashboard tokens router can construct it via the package root without
 // reaching into the `./auth` subpath (decision phase1-d4).

@@ -908,6 +908,16 @@ const UNRUNNABLE_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Distinct timeout marker the maintenance check runners synthesize on SIGTERM /
+ * ETIMEDOUT (see `runHarnessCheck`). Classified ahead of `explicitFindingsCount`
+ * and matched across the FULL output (not just the head): a timed-out check may
+ * have flushed PARTIAL parseable output ("5 issues") before being killed, with
+ * the marker appended after it. That partial count is truncated and untrustworthy,
+ * so the timeout always wins — the check did not complete and is `unrunnable`.
+ */
+const TIMEOUT_SIGNATURE = /check timed out after \d+\s*ms/i;
+
+/**
  * Parse an EXPLICIT finding count from output the primary `N keyword` parser in
  * the `CheckCommandRunner` missed — it only matches "45 issues", not the
  * "Entropy issues: 32264" (count-after-keyword) shape. Returns `null` when no
@@ -962,7 +972,11 @@ const CLASSIFY_HEAD_LINES = 3;
 export function classifyCheckExecutionFailure(output: string): CheckFailureClassification {
   const text = (output ?? '').trim();
   if (text.length === 0) return { kind: 'unrunnable' };
-  // Strongest signal first: an explicit finding count proves the check RAN and
+  // Timeout provenance wins ahead of the explicit-count fast path: a timed-out
+  // check is truncated and unreliable even if it flushed a parseable count
+  // ("5 issues") before SIGTERM, so it must never be trusted as ran-no-count.
+  if (TIMEOUT_SIGNATURE.test(text)) return { kind: 'unrunnable' };
+  // Strongest signal next: an explicit finding count proves the check RAN and
   // produced results, regardless of any alarming words deep in the findings.
   if (explicitFindingsCount(text) !== null) return { kind: 'ran-no-count' };
   const head = text
