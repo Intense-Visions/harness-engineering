@@ -67,3 +67,9 @@ export type {
  */
 export { validateRoadmapMode } from './roadmap-mode';
 export type { RoadmapModeValidationConfig } from './roadmap-mode';
+
+/**
+ * Merge-driver doctor helper — warns when `merge=ours` is declared in
+ * `.gitattributes` but the per-clone `merge.ours.driver` config is unset.
+ */
+export { needsMergeOursDriverWarning } from './merge-driver';
