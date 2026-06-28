@@ -1000,6 +1000,7 @@ Generate artifacts from a persona config
 
 - `--output-dir` — Output directory (default: ".")
 - `--only` — Generate only: ci, agents-md, runtime
+- `--platform` — CI platform for the ci artifact (default: "github")
 
 ### `harness persona list`
 
