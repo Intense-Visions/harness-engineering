@@ -25,6 +25,14 @@ permissions:
   issues: read
   pull-requests: read
 
+# Serialize commit-to-base across simultaneous PR merges into the same base
+# branch: a second auto-done waits for the first to finish its push rather than
+# racing it. `cancel-in-progress: false` is mandatory — an in-flight auto-done
+# commit must NEVER be cancelled (cancelling could drop a row flip on the floor).
+concurrency:
+  group: roadmap-auto-done-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
 jobs:
   auto-done:
     # Only run when the PR was actually MERGED (not merely closed/abandoned).
@@ -70,6 +78,18 @@ jobs:
         if: steps.closing.outputs.numbers != ''
         run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-issues "${{ steps.closing.outputs.numbers }}"
 
+      # In sharded mode the reconcile writes ONLY the changed shard(s); the
+      # aggregate is generated, so it must be regenerated from the shards before
+      # we commit (otherwise the committed aggregate would be stale). In monolith
+      # mode the reconcile already wrote the aggregate directly, so there is no
+      # shard dir and this step is skipped.
+      - name: Regenerate the aggregate when sharded
+        if: steps.closing.outputs.numbers != ''
+        run: |
+          if [ -d docs/roadmap.d ]; then
+            node packages/cli/dist/bin/harness.js roadmap regen
+          fi
+
       - name: Commit and push the shard flip
         if: steps.closing.outputs.numbers != ''
         run: |
@@ -79,10 +99,18 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/roadmap.d docs/roadmap.md
+          # Stage the aggregate (always present) and the shard dir only when it
+          # exists — a bare `git add docs/roadmap.d ...` aborts (exit 128) in a
+          # monolith repo that has no shard dir, losing the auto-done flip.
+          git add docs/roadmap.md
+          [ -d docs/roadmap.d ] && git add docs/roadmap.d
           git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
           BASE='${{ github.event.pull_request.base.ref }}'
           for attempt in 1 2 3 4 5; do
+            # Clear any rebase left in progress by a previous attempt's conflict,
+            # otherwise every later `git pull --rebase` aborts with "rebase in
+            # progress" and a transient conflict can never be retried cleanly.
+            git rebase --abort 2>/dev/null || true
             if git pull --rebase origin "$BASE" && git push origin "HEAD:$BASE"; then
               echo "Pushed auto-done commit to $BASE on attempt $attempt."
               exit 0

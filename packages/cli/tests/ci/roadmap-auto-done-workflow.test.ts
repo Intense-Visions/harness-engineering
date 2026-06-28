@@ -10,6 +10,7 @@ const raw = readFileSync(workflowPath, 'utf8');
 const wf = parse(raw) as {
   on: { pull_request: { types: string[] } };
   permissions: Record<string, string>;
+  concurrency?: { group?: string; 'cancel-in-progress'?: boolean };
   jobs: Record<string, { if?: string; steps: Array<{ if?: string; run?: string; name?: string }> }>;
 };
 
@@ -46,5 +47,30 @@ describe('roadmap-auto-done workflow', () => {
   it('pushes with a rebase-retry loop to absorb concurrent merges', () => {
     expect(stepRuns).toMatch(/git pull --rebase/);
     expect(stepRuns).toMatch(/git push/);
+  });
+
+  it('stages the aggregate but guards the shard dir so a monolith layout is tolerated (C1)', () => {
+    // A bare `git add docs/roadmap.d docs/roadmap.md` aborts (exit 128) in a
+    // monolith repo with no shard dir — the commit step must not contain it.
+    expect(stepRuns).not.toMatch(/git add docs\/roadmap\.d docs\/roadmap\.md/);
+    // The shard dir is only staged when it exists.
+    expect(stepRuns).toMatch(/\[ -d docs\/roadmap\.d \] && git add docs\/roadmap\.d/);
+  });
+
+  it('regenerates the aggregate from shards before committing in sharded mode (I1)', () => {
+    const regenStep = job.steps.find((s) => (s.run ?? '').includes('roadmap regen'));
+    expect(regenStep).toBeDefined();
+    // Regen only runs when the shard dir exists (sharded mode).
+    expect(regenStep!.run ?? '').toMatch(/\[ -d docs\/roadmap\.d \]/);
+  });
+
+  it('aborts any in-progress rebase at the start of each retry so a real conflict is retried cleanly (I2)', () => {
+    expect(stepRuns).toMatch(/git rebase --abort/);
+  });
+
+  it('serializes commit-to-base via a concurrency group that never cancels in-flight runs (I3)', () => {
+    expect(wf.concurrency).toBeDefined();
+    expect(wf.concurrency!.group).toMatch(/roadmap-auto-done/);
+    expect(wf.concurrency!['cancel-in-progress']).toBe(false);
   });
 });
