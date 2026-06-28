@@ -28,7 +28,7 @@ import {
 } from '@harness-engineering/orchestrator';
 import type { MaintenanceConfig } from '@harness-engineering/types';
 import { mapWithConcurrency } from '../utils/concurrency';
-import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance';
+import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config';
 
 const execFileAsync = promisify(execFile);
 
