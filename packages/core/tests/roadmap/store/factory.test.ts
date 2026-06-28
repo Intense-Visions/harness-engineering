@@ -139,7 +139,9 @@ describe('resolveRoadmapStoreForFile', () => {
   // An aggregate FILE that does NOT follow the <root>/docs/roadmap.md layout —
   // the shard dir is resolved as the sibling roadmap.d/ next to the file.
   const FILE_PATH = '/some/where/ROADMAP.md';
-  const SIBLING_SHARD_DIR = path.join(path.dirname(FILE_PATH), 'roadmap.d');
+  // posix join: the store normalizes IO paths to '/', so the sibling shard dir the
+  // test asserts on must be '/'-delimited too (plain path.join = '\' on Windows).
+  const SIBLING_SHARD_DIR = path.posix.join(path.posix.dirname(FILE_PATH), 'roadmap.d');
 
   it('uses the sibling roadmap.d/ as the shard dir when present', async () => {
     const files = new Map<string, string>();
