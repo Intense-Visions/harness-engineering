@@ -9,6 +9,7 @@
 
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
@@ -16,6 +17,7 @@ import {
   TaskOutputStore,
   MaintenanceReporter,
   CheckScriptRunner,
+  selectTasks,
   type CheckCommandRunner,
   type AgentDispatcher,
   type CommandExecutor,
@@ -25,6 +27,8 @@ import {
   type TaskSelectionFilter,
 } from '@harness-engineering/orchestrator';
 import type { MaintenanceConfig } from '@harness-engineering/types';
+import { mapWithConcurrency } from '../utils/concurrency';
+import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance';
 
 const execFileAsync = promisify(execFile);
 
@@ -288,4 +292,159 @@ export function renderTable(report: ConsolidatedReport): string {
     );
   }
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Orchestration: the pure runner the `.command('run').action` thin-wraps.
+// All side-effecting collaborators are injectable so selection, exit codes,
+// and aggregation are unit-tested with fakes (no real check execution).
+// ---------------------------------------------------------------------------
+
+/** Injectable collaborators (D-P3-5). Defaults wire the real, infra-free path. */
+export interface MaintenanceRunDeps {
+  /** Reference instant for overdue computation (default: wall clock). */
+  now?: Date;
+  loadTasks?: (cwd: string) => Promise<TaskDefinition[]>;
+  loadHistory?: (cwd: string) => Promise<RunResult[]>;
+  makeRunner?: (cwd: string, config: MaintenanceConfig, mode: RunMode) => TaskRunner;
+  record?: (cwd: string, results: RunResult[]) => Promise<void>;
+  /** stdout sink (table / --json). Default: console.log. */
+  log?: (line: string) => void;
+  /** stderr sink (warnings / errors). Default: console.error. Kept separate so
+   * `--json` stdout stays a clean, parseable report. */
+  logErr?: (line: string) => void;
+}
+
+export interface MaintenanceRunResult {
+  exitCode: 0 | 1 | 2;
+  report: ConsolidatedReport | null;
+}
+
+const STUB_FIX_WARNING =
+  '--fix: AI fix-agent dispatch is not yet wired (executor dispatcher is a stub repo-wide); checks ran, no PRs were opened.';
+
+async function defaultRecord(cwd: string, results: RunResult[]): Promise<void> {
+  const reporter = new MaintenanceReporter({
+    persistDir: path.join(cwd, '.harness', 'maintenance'),
+  });
+  await reporter.load();
+  for (const r of results) await reporter.record(r);
+}
+
+function writeSummary(cwd: string, report: ConsolidatedReport): void {
+  const dir = path.join(cwd, '.harness', 'maintenance');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'last-run-summary.json'),
+    JSON.stringify(report, null, 2),
+    'utf-8'
+  );
+}
+
+function syntheticFailure(taskId: string, message: string): RunResult {
+  const ts = new Date().toISOString();
+  return {
+    taskId,
+    startedAt: ts,
+    completedAt: ts,
+    status: 'failure',
+    findings: 0,
+    fixed: 0,
+    prUrl: null,
+    prUpdated: false,
+    error: message,
+  };
+}
+
+/**
+ * Execute an on-demand maintenance sweep. Returns `{ exitCode, report }`; the
+ * `.action()` wrapper translates `exitCode` into `process.exit`. Constructs no
+ * orchestrator/gateway/ClaimManager — the report path is fully infra-free.
+ */
+export async function runMaintenanceRun(
+  cwd: string,
+  opts: RunOptions,
+  deps: MaintenanceRunDeps = {}
+): Promise<MaintenanceRunResult> {
+  const now = deps.now ?? new Date();
+  const log = deps.log ?? ((l: string) => console.log(l));
+  const logErr = deps.logErr ?? ((l: string) => console.error(l));
+
+  const config = await loadMaintenanceConfig(cwd);
+  const loadTasks = deps.loadTasks ?? (async () => mergeResolvedTasks(config));
+  const tasks = await loadTasks(cwd);
+
+  const sel = resolveSelection(opts, tasks, now);
+  for (const w of sel.warnings) logErr(w);
+  if (sel.errors.length > 0) {
+    for (const e of sel.errors) logErr(`error: ${e}`);
+    return { exitCode: 2, report: null };
+  }
+
+  const mode: RunMode = opts.fix ? 'fix' : 'report';
+  if (opts.fix) logErr(STUB_FIX_WARNING);
+
+  const history = await (deps.loadHistory ?? loadRunHistory)(cwd);
+
+  const overdueIds = new Set(
+    selectTasks(tasks, history, { mode: 'overdue', now }).map((t) => t.id)
+  );
+
+  let selected = selectTasks(tasks, history, sel.filter);
+  if (sel.skipIds.size > 0) selected = selected.filter((t) => !sel.skipIds.has(t.id));
+
+  const selectedOverdue = new Set(selected.filter((t) => overdueIds.has(t.id)).map((t) => t.id));
+
+  if (selected.length === 0) {
+    log('All maintenance current.');
+    const report = aggregateReport({
+      results: [],
+      mode,
+      fix: Boolean(opts.fix),
+      exitCode: 0,
+      overdueNowCurrent: [],
+      generatedAt: now.toISOString(),
+    });
+    writeSummary(cwd, report);
+    return { exitCode: 0, report };
+  }
+
+  // Report checks parallelize under the cap; --fix forces sequential (D-P3-2).
+  const concurrency = mode === 'fix' ? 1 : parseConcurrency(opts.concurrency);
+  const runner = (deps.makeRunner ?? buildTaskRunner)(
+    cwd,
+    config ?? ({} as MaintenanceConfig),
+    mode
+  );
+
+  const settled = await mapWithConcurrency(selected, concurrency, (t) =>
+    runner.run(t, 'cli', mode)
+  );
+  const results: RunResult[] = settled.map((r, i) =>
+    r instanceof Error ? syntheticFailure(selected[i]!.id, r.message) : r
+  );
+
+  await (deps.record ?? defaultRecord)(cwd, results);
+
+  const overdueNowCurrent = results
+    .filter(
+      (r) => selectedOverdue.has(r.taskId) && (r.status === 'success' || r.status === 'no-issues')
+    )
+    .map((r) => r.taskId);
+
+  const exitCode = deriveExitCode(results);
+  const report = aggregateReport({
+    results,
+    mode,
+    fix: Boolean(opts.fix),
+    exitCode,
+    overdueNowCurrent,
+    generatedAt: now.toISOString(),
+  });
+  writeSummary(cwd, report);
+
+  if (opts.json) log(JSON.stringify(report, null, 2));
+  else log(renderTable(report));
+
+  return { exitCode, report };
 }

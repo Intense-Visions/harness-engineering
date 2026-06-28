@@ -10,8 +10,10 @@ import {
   deriveExitCode,
   aggregateReport,
   renderTable,
+  runMaintenanceRun,
+  type MaintenanceRunDeps,
 } from '../../src/commands/maintenance-run';
-import type { TaskDefinition, RunResult } from '@harness-engineering/orchestrator';
+import type { TaskDefinition, RunResult, RunMode } from '@harness-engineering/orchestrator';
 
 function tmp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'maint-run-'));
@@ -214,5 +216,211 @@ describe('aggregateReport / renderTable', () => {
     const rendered = renderTable(report);
     expect(rendered).toContain('1 overdue but now current');
     expect(rendered).toContain('doc-drift');
+  });
+});
+
+describe('runMaintenanceRun (fake deps, no real exec)', () => {
+  interface RunCall {
+    taskId: string;
+    mode: RunMode;
+    at: number;
+  }
+
+  // A fake runner that records call order/overlap and returns canned results.
+  function fakeRunner(
+    calls: RunCall[],
+    canned: (taskId: string) => Partial<RunResult> = () => ({})
+  ): { makeRunner: NonNullable<MaintenanceRunDeps['makeRunner']>; peak: () => number } {
+    let current = 0;
+    let peak = 0;
+    const makeRunner: NonNullable<MaintenanceRunDeps['makeRunner']> = (_cwd, _config, mode) =>
+      ({
+        run: (async (t: TaskDefinition) => {
+          current++;
+          peak = Math.max(peak, current);
+          calls.push({ taskId: t.id, mode, at: Date.now() });
+          await new Promise((r) => setTimeout(r, 3));
+          current--;
+          return runResult(t.id, canned(t.id));
+        }) as never,
+      }) as never;
+    return { makeRunner, peak: () => peak };
+  }
+
+  function deps(
+    over: Partial<MaintenanceRunDeps>,
+    tasks: TaskDefinition[],
+    history: RunResult[] = []
+  ): MaintenanceRunDeps {
+    return {
+      now: NOW,
+      loadTasks: async () => tasks,
+      loadHistory: async () => history,
+      record: async () => {},
+      ...over,
+    };
+  }
+
+  it('overdue default selects only overdue tasks and writes last-run-summary.json (exit 0)', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls);
+    // doc-drift ran recently (current); dead-code never ran (overdue).
+    const history = [
+      runResult('doc-drift', {
+        status: 'success',
+        startedAt: '2026-06-27T11:59:00.000Z',
+        completedAt: '2026-06-27T11:59:00.000Z',
+      }),
+    ];
+    const res = await runMaintenanceRun(
+      dir,
+      {},
+      deps({ makeRunner: f.makeRunner }, [task('doc-drift'), task('dead-code')], history)
+    );
+    expect(res.exitCode).toBe(0);
+    expect(calls.map((c) => c.taskId)).toEqual(['dead-code']);
+    const summary = path.join(dir, '.harness', 'maintenance', 'last-run-summary.json');
+    expect(fs.existsSync(summary)).toBe(true);
+    const report = JSON.parse(fs.readFileSync(summary, 'utf-8'));
+    expect(report.tasks.map((t: { taskId: string }) => t.taskId)).toEqual(['dead-code']);
+  });
+
+  it('a task that fails to execute yields exit 1', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls, (id) =>
+      id === 'dead-code' ? { status: 'failure', error: 'boom' } : {}
+    );
+    const res = await runMaintenanceRun(
+      dir,
+      { all: true },
+      deps({ makeRunner: f.makeRunner }, [task('doc-drift'), task('dead-code')])
+    );
+    expect(res.exitCode).toBe(1);
+  });
+
+  it('findings-only stays exit 0', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls, () => ({ status: 'success', findings: 7 }));
+    const res = await runMaintenanceRun(
+      dir,
+      { all: true },
+      deps({ makeRunner: f.makeRunner }, [task('doc-drift')])
+    );
+    expect(res.exitCode).toBe(0);
+  });
+
+  it('--all runs every eligible task; excluded task never appears', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls);
+    const res = await runMaintenanceRun(
+      dir,
+      { all: true },
+      deps({ makeRunner: f.makeRunner }, FIXTURE_TASKS)
+    );
+    expect(res.exitCode).toBe(0);
+    expect(calls.map((c) => c.taskId).sort()).toEqual(['dead-code', 'doc-drift']);
+    expect(calls.map((c) => c.taskId)).not.toContain('main-sync');
+  });
+
+  it('--only runs just that id', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { only: 'doc-drift' },
+      deps({ makeRunner: f.makeRunner }, FIXTURE_TASKS)
+    );
+    expect(calls.map((c) => c.taskId)).toEqual(['doc-drift']);
+  });
+
+  it('--skip removes a task', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, skip: 'doc-drift' },
+      deps({ makeRunner: f.makeRunner }, FIXTURE_TASKS)
+    );
+    expect(calls.map((c) => c.taskId)).toEqual(['dead-code']);
+  });
+
+  it('unknown id → exit 2, no runner invoked', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const f = fakeRunner(calls);
+    const res = await runMaintenanceRun(
+      dir,
+      { only: 'nope' },
+      deps({ makeRunner: f.makeRunner }, FIXTURE_TASKS)
+    );
+    expect(res.exitCode).toBe(2);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('excluded id → exit 2', async () => {
+    const dir = tmp();
+    const res = await runMaintenanceRun(dir, { only: 'main-sync' }, deps({}, FIXTURE_TASKS));
+    expect(res.exitCode).toBe(2);
+  });
+
+  it('--fix threads mode=fix to the runner, forces concurrency 1, and logs the stub warning', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, fix: true, concurrency: '8' },
+      deps({ makeRunner: f.makeRunner, logErr: (l) => errLines.push(l) }, [
+        task('doc-drift'),
+        task('dead-code'),
+      ])
+    );
+    expect(calls.every((c) => c.mode === 'fix')).toBe(true);
+    expect(f.peak()).toBe(1); // --fix forces sequential execution regardless of --concurrency
+    expect(errLines.join('\n')).toMatch(/fix-agent dispatch is not yet wired/i);
+  });
+
+  it('nothing selected → "All maintenance current." logged, exit 0, summary written', async () => {
+    const dir = tmp();
+    const logLines: string[] = [];
+    // doc-drift is current (recent success), so overdue selects nothing.
+    const history = [
+      runResult('doc-drift', {
+        status: 'success',
+        startedAt: '2026-06-27T11:59:00.000Z',
+        completedAt: '2026-06-27T11:59:00.000Z',
+      }),
+    ];
+    const res = await runMaintenanceRun(
+      dir,
+      {},
+      deps({ log: (l) => logLines.push(l) }, [task('doc-drift')], history)
+    );
+    expect(res.exitCode).toBe(0);
+    expect(logLines.join('\n')).toMatch(/All maintenance current/i);
+    const summary = path.join(dir, '.harness', 'maintenance', 'last-run-summary.json');
+    expect(fs.existsSync(summary)).toBe(true);
+  });
+
+  it('--json emits the report object to stdout log', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const logLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, json: true },
+      deps({ makeRunner: f.makeRunner, log: (l) => logLines.push(l) }, [task('doc-drift')])
+    );
+    const parsed = JSON.parse(logLines.join('\n'));
+    expect(parsed.tasks[0].taskId).toBe('doc-drift');
+    expect(parsed.exitCode).toBe(0);
   });
 });
