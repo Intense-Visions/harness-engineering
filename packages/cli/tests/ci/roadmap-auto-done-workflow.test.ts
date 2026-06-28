@@ -31,10 +31,14 @@ describe('roadmap-auto-done workflow', () => {
     expect(stepIfs).toContain('github.event.pull_request.merged == true');
   });
 
-  it('resolves the PR closing-issue references and runs reconcile --from-issues', () => {
+  it('resolves the PR closing-issue references (full owner/repo) and runs reconcile --from-refs', () => {
     expect(raw).toContain('closingIssuesReferences');
+    // Cross-repo safety: fetch each closing issue's full owner/repo, not just the
+    // number, and pass owner/repo#number refs so a colliding number in another repo
+    // can't flip the wrong local row.
+    expect(raw).toContain('nameWithOwner');
     expect(stepRuns).toMatch(/roadmap reconcile/);
-    expect(stepRuns).toMatch(/--from-issues/);
+    expect(stepRuns).toMatch(/--from-refs/);
   });
 
   it('no-ops when there are no roadmap-linked closing issues', () => {
