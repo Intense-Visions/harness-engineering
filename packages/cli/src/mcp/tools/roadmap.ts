@@ -524,12 +524,12 @@ function promoteEnvelopeResponse(
   };
 }
 
-function handlePromote(
+async function handlePromote(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, promoteFeature } = deps;
+): Promise<McpResponse> {
+  const { promoteFeature } = deps;
 
   if (!input.feature) {
     return {
@@ -544,11 +544,10 @@ function handlePromote(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
   // D4: no roadmap → silent skip. The skill still commits the spec; no envelope.
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   // A malformed roadmap surfaces as a write-failed envelope (D4): promotion
   // cannot proceed against a broken file and the human must repair it.
   if (!result.ok) {
@@ -560,6 +559,7 @@ function handlePromote(
     });
   }
 
+  const before = structuredClone(result.value);
   const { result: envelope, nextRoadmap } = promoteFeature(result.value, {
     feature: input.feature,
     spec: input.spec,
@@ -569,14 +569,13 @@ function handlePromote(
   // Only a mutating success touches the file; noop and refusals leave it byte-identical.
   if (envelope.ok && envelope.transitioned !== 'noop') {
     nextRoadmap.frontmatter.lastManualEdit = new Date().toISOString();
-    try {
-      writeRoadmapFile(projectPath, serializeRoadmap(nextRoadmap));
-    } catch (error) {
+    const persisted = await persistRoadmap(projectPath, before, nextRoadmap);
+    if (!persisted.ok) {
       return promoteEnvelopeResponse({
         ok: false,
         reason: 'write-failed',
         feature: input.feature,
-        detail: error instanceof Error ? error.message : String(error),
+        detail: persisted.error.message,
       });
     }
   }

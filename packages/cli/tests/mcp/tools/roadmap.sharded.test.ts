@@ -234,4 +234,36 @@ function snapshotShardKeys(snap: Map<string, string>): string[] {
   return [...snap.keys()].sort();
 }
 
+describe('manage_roadmap sharded — promote', () => {
+  it('existing backlog→planned promote patches exactly one shard', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'promote',
+      feature: 'Mobile App',
+      spec: 'docs/changes/mobile/proposal.md',
+    });
+    expect(res.isError).toBeFalsy();
+    expect(changedShards(before)).toEqual(['mobile-app.md']);
+    expect(fs.readFileSync(path.join(shardDir, 'mobile-app.md'), 'utf-8')).toMatch(
+      /\*\*Status:\*\* planned/
+    );
+  });
+
+  it('not-found create promote adds exactly one new Intake shard', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'promote',
+      feature: 'Telemetry Pipeline',
+      spec: 'docs/changes/telemetry/proposal.md',
+      summary: 'Telemetry ingestion',
+    });
+    expect(res.isError).toBeFalsy();
+    const newShard = 'telemetry-pipeline.md';
+    expect(fs.existsSync(path.join(shardDir, newShard))).toBe(true);
+    expect(changedShards(before)).toEqual([newShard]);
+  });
+});
+
 export { writeShardedProject, snapshotShardDir, changedShards };
