@@ -26,5 +26,6 @@ export type { ShardIO } from './shard-store';
 export { createNodeRoadmapIO } from './node-io';
 export { resolveRoadmapStore } from './factory';
 export type { ResolveRoadmapStoreOptions } from './factory';
+export { applyRoadmapDiff } from './apply-diff';
 export { regenerate, writeRegeneratedRoadmap } from './regenerator';
 export { roadmapToShards, assertSemanticRoundTrip, assertRegeneratedRoundTrip } from './migration';
