@@ -11,6 +11,7 @@ import {
   buildDiffInfo,
   runReviewCi,
   emitReviewCi,
+  buildReviewBody,
   createReviewCiCommand,
   assertKnownRunner,
 } from '../../src/commands/review-ci';
@@ -258,19 +259,78 @@ describe('emitReviewCi', () => {
     expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it('warns the documented stub when --comment is set', () => {
+  it('emits the JSON artifact to stdout (not a file) when jsonPath is true', () => {
+    const writeFile = vi.fn();
+    const log = vi.fn();
+    emitReviewCi(result, { jsonPath: true }, writeFile, log);
+    expect(writeFile).not.toHaveBeenCalled();
+    // Human summary is suppressed so stdout stays valid, pipeable JSON.
+    expect(log).not.toHaveBeenCalledWith('TERMINAL_SUMMARY');
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(log.mock.calls[0]![0] as string)).toMatchObject({
+      assessment: 'request-changes',
+    });
+  });
+
+  it('posts the verdict via the PR poster when --comment is set', () => {
+    const postReview = vi.fn();
+    emitReviewCi(result, { comment: true }, vi.fn(), vi.fn(), postReview);
+    expect(postReview).toHaveBeenCalledTimes(1);
+    expect(postReview.mock.calls[0]![0]).toMatchObject({ assessment: 'request-changes' });
+  });
+
+  it('warns (does not throw) when the PR poster fails', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
-    emitReviewCi(result, { comment: true }, vi.fn(), vi.fn());
+    const postReview = vi.fn(() => {
+      throw new Error('gh: no PR found');
+    });
+    expect(() =>
+      emitReviewCi(result, { comment: true }, vi.fn(), vi.fn(), postReview)
+    ).not.toThrow();
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0]![0]).toContain('comment posting is not yet wired');
+    expect(warn.mock.calls[0]![0]).toContain('failed to post PR comment');
     warn.mockRestore();
   });
 
-  it('does not warn when --comment is absent', () => {
-    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
-    emitReviewCi(result, {}, vi.fn(), vi.fn());
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
+  it('does not post when --comment is absent', () => {
+    const postReview = vi.fn();
+    emitReviewCi(result, {}, vi.fn(), vi.fn(), postReview);
+    expect(postReview).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildReviewBody', () => {
+  it('renders assessment, counts, and blocking findings as Markdown', () => {
+    const verdict = {
+      assessment: 'request-changes',
+      runner: 'claude',
+      findings: [
+        { id: 'a', file: 'src/a.ts', lineRange: [10, 10], severity: 'critical', title: 'Boom' },
+        { id: 'b', file: 'src/b.ts', lineRange: [3, 3], severity: 'info', title: 'Nit' },
+      ],
+      blockingFindings: [
+        { id: 'a', file: 'src/a.ts', lineRange: [10, 10], severity: 'critical', title: 'Boom' },
+      ],
+    } as unknown as CiReviewResult['verdict'];
+
+    const body = buildReviewBody(verdict);
+
+    expect(body).toContain('harness review-ci — request-changes');
+    expect(body).toContain('Findings:** 2 (blocking: 1)');
+    expect(body).toContain('### Blocking');
+    expect(body).toContain('`critical` **src/a.ts:10** — Boom');
+    expect(body).toContain('### Other findings');
+    expect(body).toContain('`info` **src/b.ts:3** — Nit');
+  });
+
+  it('renders a clean verdict when there are no findings', () => {
+    const verdict = {
+      assessment: 'approve',
+      runner: 'floor-only',
+      findings: [],
+      blockingFindings: [],
+    } as unknown as CiReviewResult['verdict'];
+    expect(buildReviewBody(verdict)).toContain('No findings.');
   });
 });
 
@@ -280,7 +340,7 @@ describe('createReviewCiCommand', () => {
     expect(cmd.name()).toBe('review-ci');
     const flags = cmd.options.map((o) => o.long);
     expect(flags).toEqual(
-      expect.arrayContaining(['--runner', '--block-on', '--diff', '--comment', '--json'])
+      expect.arrayContaining(['--runner', '--block-on', '--diff', '--comment', '--out'])
     );
   });
 
