@@ -4,6 +4,7 @@ import {
   resolveRoadmapStore,
   resolveRoadmapStoreForFile,
 } from '../../../src/roadmap/store/factory';
+import { detectRoadmapStorageMode } from '../../../src/roadmap/load-mode';
 import type { ShardIO } from '../../../src/roadmap/store/shard-store';
 import { assembleRoadmap } from '../../../src/roadmap/store/assembler';
 import { serializeShard } from '../../../src/roadmap/store/shard';
@@ -60,6 +61,23 @@ describe('resolveRoadmapStore', () => {
     if (loaded.ok) {
       expect(loaded.value).toEqual(assembleRoadmap(ASSEMBLER_SHARDS, ASSEMBLER_META));
     }
+  });
+
+  it('selects the ShardStore backend exactly when detectRoadmapStorageMode reports sharded', async () => {
+    // The factory and the single detection authority must agree on the same
+    // `exists` probe — sharded iff the shard dir is present.
+    const shardedExists = (p: string) => p.endsWith('/roadmap.d');
+    expect(detectRoadmapStorageMode(PROJECT_ROOT, shardedExists)).toBe('sharded');
+    expect(detectRoadmapStorageMode(PROJECT_ROOT, () => false)).toBe('monolith');
+
+    // Sharded selection is observable as aggregate regeneration on a single-shard
+    // write (the decorator that only ShardStore-backed stores carry).
+    const { io, writes } = makeShardIO();
+    const sharded = resolveRoadmapStore({ projectRoot: PROJECT_ROOT, io, exists: shardedExists });
+    const r = await sharded.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+    expect(r.ok).toBe(true);
+    expect(writes).toContain(`${SHARD_DIR}/a-feature.md`);
+    expect(writes).toContain(ROADMAP_PATH);
   });
 
   it('regenerates the aggregate roadmap.md after a sharded patch', async () => {

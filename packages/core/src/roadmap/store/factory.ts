@@ -8,6 +8,7 @@ import { ShardStore } from './shard-store';
 import { MonolithStore } from './monolith-store';
 import { createNodeRoadmapIO } from './node-io';
 import { writeRegeneratedRoadmap } from './regenerator';
+import { detectRoadmapStorageMode } from '../load-mode';
 
 /**
  * Options for {@link resolveRoadmapStore}. `io`/`exists` are injectable so the
@@ -27,9 +28,10 @@ export interface ResolveRoadmapStoreOptions {
  * a `ShardStore` when `docs/roadmap.d/` is present, else a `MonolithStore` over
  * `docs/roadmap.md`.
  *
- * This is a minimal, presence-based detector pulled forward into Phase 4 so
- * writers work in both modes now; Phase 6 folds full mode detection into
- * `load-mode.ts`. In sharded mode every mutation regenerates the aggregate
+ * Phase 6 DONE: storage-mode detection lives in `load-mode.ts`
+ * (`detectRoadmapStorageMode`); this factory delegates to that single authority
+ * so the formal mode and the store backend can never disagree. In sharded mode
+ * every mutation regenerates the aggregate
  * `docs/roadmap.md` immediately after the single-shard write (in addition to the
  * Phase-3 git hook) so same-process readers and the on-disk aggregate stay fresh.
  *
@@ -107,7 +109,18 @@ export function resolveRoadmapStoreForFile(
   const io = options.io ?? createNodeRoadmapIO();
   const exists = options.exists ?? ((target: string) => fs.existsSync(target));
 
-  if (exists(shardDir)) {
+  // Delegate to the single detection authority. `detectRoadmapStorageMode`
+  // probes `<projectRoot>/docs/roadmap.d`; map that one probe to this file's
+  // actual sibling shard dir so detection stays correct even when `roadmapPath`
+  // does not follow the conventional `docs/` layout (e.g. the orchestrator's
+  // tracker adapter). Behaviorally identical to a direct `exists(shardDir)`.
+  const projectRoot = path.dirname(path.dirname(roadmapPath));
+  const shardDirProbe = path.join(projectRoot, 'docs', 'roadmap.d');
+  const mode = detectRoadmapStorageMode(projectRoot, (target) =>
+    target === shardDirProbe ? exists(shardDir) : exists(target)
+  );
+
+  if (mode === 'sharded') {
     return withAggregateRegen(new ShardStore({ shardDir, io }), shardDir, roadmapPath, io);
   }
   return new MonolithStore({ roadmapPath, io });
