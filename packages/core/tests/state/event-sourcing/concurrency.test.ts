@@ -8,7 +8,6 @@ import { loadEvents, eventLogPaths } from '../../../src/state/event-sourcing/log
 import { MAX_LINE_BYTES } from '../../../src/state/event-sourcing/constants';
 
 const WORKER = fileURLToPath(new URL('./concurrency-worker.mts', import.meta.url));
-const TSX = fileURLToPath(new URL('../../../../../node_modules/.bin/tsx', import.meta.url));
 
 function runWorker(
   projectDir: string,
@@ -17,9 +16,13 @@ function runWorker(
   mode?: 'big'
 ): Promise<number> {
   return new Promise((resolve, reject) => {
-    const args = [WORKER, projectDir, String(count)];
+    // Spawn `node --import tsx <worker.mts>` rather than the `node_modules/.bin/tsx` shim:
+    // the bin shim is extensionless and not directly spawnable on Windows (ENOENT — it needs
+    // a `.cmd`/shell), whereas `process.execPath` (node) is spawnable on every platform and
+    // `--import tsx` registers tsx's ESM loader to run the `.mts` worker.
+    const args = ['--import', 'tsx', WORKER, projectDir, String(count)];
     if (mode) args.push(mode);
-    const child = spawn(TSX, args, {
+    const child = spawn(process.execPath, args, {
       env: { ...process.env, HARNESS_EVENT_WRITER_ID: writerId },
       stdio: ['ignore', 'ignore', 'inherit'],
     });
