@@ -563,17 +563,16 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments \
 
 ### Review Acceptance
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "confirmation",
-  confirmation: {
-    text: "Review complete: <Assessment>. Accept review?",
-    context: "<N critical, N important, N suggestion findings>",
-    impact: "Accepting finalizes findings. Approve = ready for merge. Request-changes = fixes needed.",
-    risk: "<low if approve, high if critical>"
-  }
-})
+Ask for acceptance directly in your reply. Do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI). Present it as:
+
+```markdown
+Review complete: <Assessment>. Accept review?
+
+Context: <N critical, N important, N suggestion findings>
+Impact: Accepting finalizes findings. Approve = ready for merge. Request-changes = fixes needed.
+Risk: <low if approve, high if critical>
+
+Proceed? (yes/no)
 ```
 
 #### Handoff and Transition

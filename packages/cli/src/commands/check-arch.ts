@@ -1,6 +1,13 @@
 import { Command } from 'commander';
 import type { Result } from '@harness-engineering/core';
-import { Ok, ArchConfigSchema, ArchBaselineManager, runAll, diff } from '@harness-engineering/core';
+import {
+  Ok,
+  Err,
+  ArchConfigSchema,
+  ArchBaselineManager,
+  runAll,
+  diff,
+} from '@harness-engineering/core';
 import type {
   ArchConfig,
   ArchDiffResult,
@@ -94,6 +101,23 @@ export async function runCheckArch(
       regressions: [],
       thresholdViolations: [],
     });
+  }
+
+  // Guard (issue #594): a module-scoped run produces only a subset of the
+  // repo's metrics, but the baseline stores one aggregate value per category.
+  // Merging a `--module`-filtered result via `manager.update` would overwrite
+  // the whole-repo aggregate with the subset, making every later whole-repo
+  // `ci check` report a permanent false regression. `--module` is valid for
+  // scoping a diff (read) run, but never for updating the shared baseline.
+  if (options.updateBaseline && options.module) {
+    return Err(
+      new CLIError(
+        'Cannot combine --update-baseline with --module: a module-scoped update ' +
+          'would overwrite the whole-repo aggregate baseline with a subset, ' +
+          'producing false regressions. Run --update-baseline without --module.',
+        ExitCode.ERROR
+      )
+    );
   }
 
   // Run all collectors

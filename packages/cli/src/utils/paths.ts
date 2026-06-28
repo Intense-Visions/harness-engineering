@@ -168,3 +168,23 @@ export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[]
 
   return dirs;
 }
+
+/**
+ * Resolve a single skill directory by name across all skill sources.
+ *
+ * Searches in priority order (project-local -> community -> bundled), returning
+ * the first `<dir>/<name>` that exists as a directory. This mirrors how
+ * `skill list` discovers skills, so `skill info`/`skill run` resolve the same
+ * project-local skills that `skill list --local` surfaces (issue #587).
+ *
+ * Returns null if no source contains the named skill.
+ */
+export function resolveSkillDir(name: string, platform: string = 'claude-code'): string | null {
+  for (const dir of resolveAllSkillsDirs(platform)) {
+    const candidate = path.join(dir, name);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+  return null;
+}

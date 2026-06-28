@@ -1,3 +1,13 @@
+## 2026-06-27: protect-config fail-closed — hook fail-open is load-bearing under issue #619
+
+Hardening a harness hook to "fail closed" on malformed input is NOT a blanket win — it interacts with a documented stability fix:
+
+1. **All harness hooks fail OPEN on absent/partial stdin on purpose.** `protect-config.test.ts:8-10` records issue #619: under v8 coverage the `cat <file> | node` pipe intermittently delivers empty/truncated stdin, which trips the fail-open path. Every sibling hook (including the security hook `sentinel-pre.js:107,112,119`) exits 0 on unreadable/empty/unparseable stdin. A naive "make the security hook fail closed" would turn that coverage glitch into BLOCKED legitimate Write/Edit calls — a self-DoS. The fix that ships: fail closed only on a _well-formed-but-unresolvable_ request (valid JSON, missing/non-string `file_path`, or an unexpected post-parse throw); keep absent/partial stdin fail-open. The #619 glitch lands in the still-open branches, so stability is preserved.
+
+2. **A PreToolUse Write|Edit hook flipping to exit 2 is near-zero false-positive risk for the missing-file_path branch** because Write/Edit always carry `file_path` by schema (matcher is `Write|Edit`, not `*` — `profiles.ts:29`). But pin it with tests (null / number / empty-string) since the branch now BLOCKS instead of allows.
+
+3. **Behavior-only hook changes do NOT trigger the profiles.ts/plugin-config.mjs dual-source concern** — that only applies to hook-profile _membership_ changes. This change kept protect-config in the standard profile, so no STANDARD_HOOKS mirror edit was needed.
+
 ## 2026-06-04: init-design-roadmap-polish — autopilot resume and pre-push hook interactions
 
 Three reusable observations from resuming a session at FINAL_REVIEW and shipping the PR:

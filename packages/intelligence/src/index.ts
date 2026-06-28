@@ -83,6 +83,24 @@ export type {
   OutcomeEvaluatorOptions,
 } from './outcome-eval/index.js';
 
+// Acceptance-Eval — pre-execution acceptance-criteria measurability judgment (upstream twin)
+export {
+  deriveAcceptanceAuthority,
+  acceptanceVerdictSchema,
+  findingSchema,
+  AcceptanceEvaluator,
+  ACCEPTANCE_EVAL_SYSTEM_PROMPT,
+  buildUserPrompt as buildAcceptanceUserPrompt,
+} from './acceptance-eval/index.js';
+export type {
+  Measurability,
+  Finding,
+  AcceptanceEvalInput,
+  AcceptanceVerdict,
+  LlmAcceptanceVerdict,
+  AcceptanceEvaluatorOptions,
+} from './acceptance-eval/index.js';
+
 // CML Historical
 export { computeHistoricalComplexity } from './cml/historical.js';
 

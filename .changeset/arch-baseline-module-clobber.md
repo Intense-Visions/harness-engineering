@@ -1,0 +1,5 @@
+---
+'@harness-engineering/cli': patch
+---
+
+Stop `check-arch --update-baseline --module <path>` from corrupting the shared architecture baseline (#594). The CI `refresh-baselines` job ran a whole-repo update followed by a `--module packages/cli` update against the same baseline file; because `ArchBaselineManager.update` merges per-category, the second run overwrote the whole-repo `module-size`/`dependency-depth` aggregates with a cli-only subset. Every subsequent `harness ci check` then scanned the whole repo but diffed against the too-small baseline, reporting permanent false `module-size`/`dependency-depth` REGRESSIONS on clean checkouts and built worktrees alike. The arch analyzer already skips `dist/` (via `DEFAULT_SKIP_DIRS`), so the originally-suspected `dist` inflation was not the cause. `runCheckArch` now rejects `--update-baseline` combined with `--module` (a module-scoped subset cannot represent the whole-repo aggregate the baseline stores); `--module` remains valid for scoping a read/diff run. The post-merge CI job no longer runs the `--module packages/cli` refresh, and the committed baseline is regenerated to correct whole-repo values.

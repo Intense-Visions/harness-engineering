@@ -29,7 +29,7 @@ describe('built-in personas', () => {
     const result = listPersonas(PERSONAS_DIR);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // 12 core personas + 3 conditional review subagents (adversarial, typescript-strict, frontend-races)
-    expect(result.value.length).toBe(15);
+    // 12 core personas + 3 conditional review subagents + harness-pm = 16
+    expect(result.value.length).toBe(16);
   });
 });

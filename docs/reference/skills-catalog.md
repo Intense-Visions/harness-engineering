@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-757 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+758 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -34,7 +34,7 @@ Structured ideation and exploration with harness methodology
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
-- **Depends on:** harness-planning, harness-soundness-review
+- **Depends on:** harness-planning, harness-autopilot, harness-soundness-review
 
 ### harness-debugging
 
@@ -141,7 +141,16 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (40 skills)
+## Tier 2 — Maintenance (41 skills)
+
+### acceptance-eval
+
+Pre-execution LLM-judgment skill: does a spec carry measurable, testable, complete acceptance criteria before work begins? Resolves the spec's acceptance section, critiques observability / testability / completeness (advisory), flags user-visible behaviors with no covering test (advisory), and emits a confidence-rated AcceptanceVerdict (MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE). Authority is derived in TypeScript, never from the LLM: a high-confidence NOT_MEASURABLE blocks merge; every other verdict is advisory. The upstream twin of the outcome-eval ship gate.
+
+- **Triggers:** manual, on_pr
+- **Platforms:** claude-code, cursor, codex, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### align-design-system
 

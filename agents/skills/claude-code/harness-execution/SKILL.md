@@ -186,40 +186,37 @@ Three checkpoint types. Each requires pausing execution.
 
 **`[checkpoint:human-verify]` — Show and Confirm**
 
-Stop. Present via `emit_interaction`:
+Stop. Present the confirmation in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "confirmation",
-  confirmation: {
-    text: "Task N complete. Output: <summary>. Continue to Task N+1?",
-    context: "<test output or diff summary>",
-    impact: "Continuing proceeds to next task. Declining pauses for review.",
-    risk: "low"
-  }
-})
+```markdown
+Task N complete. Output: <summary>. Continue to Task N+1?
+
+Context: <test output or diff summary>
+Impact: Continuing proceeds to next task. Declining pauses for review.
+Risk: low
+
+Proceed? (yes/no)
 ```
 
 Wait for human confirmation.
 
 **`[checkpoint:decision]` — Present Options and Wait**
 
-Stop. Present via `emit_interaction`:
+Stop. Present the decision in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "question",
-  question: {
-    text: "Task N requires a decision: <description>",
-    options: [
-      { label: "<option A>", pros: ["..."], cons: ["..."], risk: "low", effort: "low" },
-      { label: "<option B>", pros: ["..."], cons: ["..."], risk: "medium", effort: "medium" }
-    ],
-    recommendation: { optionIndex: 0, reason: "<why>", confidence: "medium" }
-  }
-})
+Present the options as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
+
+```markdown
+### Decision needed: Task N requires a decision: <description>
+
+|            | A) <option A>   | B) <option B>   |
+| ---------- | --------------- | --------------- |
+| **Pros**   | <option A pros> | <option B pros> |
+| **Cons**   | <option A cons> | <option B cons> |
+| **Risk**   | low             | medium          |
+| **Effort** | low             | medium          |
+
+**Recommendation:** A) <option A> (confidence: medium) — <why>.
 ```
 
 Wait for human choice.

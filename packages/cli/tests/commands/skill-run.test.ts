@@ -10,10 +10,13 @@ const mockStdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() 
 const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-// Mock resolveSkillsDir to use our temp dir
+// Mock resolveSkillDir to resolve against our temp dir
 let mockSkillsDir = '';
 vi.mock('../../src/utils/paths', () => ({
-  resolveSkillsDir: () => mockSkillsDir,
+  resolveSkillDir: (name: string) => {
+    const dir = path.join(mockSkillsDir, name);
+    return fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? dir : null;
+  },
 }));
 
 import { createRunCommand } from '../../src/commands/skill/run';

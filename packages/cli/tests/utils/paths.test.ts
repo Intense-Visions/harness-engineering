@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import {
   resolveTemplatesDir,
   resolvePersonasDir,
   resolveSkillsDir,
   resolveAllSkillsDirs,
   resolveCommunitySkillsDir,
+  resolveSkillDir,
 } from '../../src/utils/paths';
 
 describe('resolveTemplatesDir', () => {
@@ -84,5 +88,35 @@ describe('resolveAllSkillsDirs', () => {
   it('accepts gemini-cli platform', () => {
     const result = resolveAllSkillsDirs('gemini-cli');
     result.forEach((dir) => expect(dir).toMatch(/gemini-cli$/));
+  });
+});
+
+describe('resolveSkillDir', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('resolves a project-local skill discovered from cwd (#587)', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-resolve-skill-'));
+    const skillDir = path.join(projectDir, 'agents', 'skills', 'claude-code', 'local-only');
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'skill.yaml'), 'name: local-only\n');
+
+    vi.spyOn(process, 'cwd').mockReturnValue(projectDir);
+    try {
+      expect(resolveSkillDir('local-only')).toBe(skillDir);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns null when no source contains the named skill', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-resolve-skill-'));
+    vi.spyOn(process, 'cwd').mockReturnValue(projectDir);
+    try {
+      expect(resolveSkillDir('definitely-does-not-exist-xyz')).toBeNull();
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
   });
 });

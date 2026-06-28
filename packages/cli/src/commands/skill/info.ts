@@ -5,15 +5,14 @@ import { parse } from 'yaml';
 import { SkillMetadataSchema, type SkillMetadata } from '../../skill/schema';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-import { resolveSkillsDir } from '../../utils/paths';
+import { resolveSkillDir } from '../../utils/paths';
 
 type LoadResult = { ok: true; data: SkillMetadata } | { ok: false; exitCode: number };
 
 function loadSkillMetadata(name: string): LoadResult {
-  const skillsDir = resolveSkillsDir();
-  const skillDir = path.join(skillsDir, name);
+  const skillDir = resolveSkillDir(name);
 
-  if (!fs.existsSync(skillDir)) {
+  if (!skillDir) {
     logger.error(`Skill not found: ${name}`);
     return { ok: false, exitCode: ExitCode.ERROR };
   }

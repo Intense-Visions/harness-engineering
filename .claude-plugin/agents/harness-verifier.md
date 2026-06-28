@@ -200,19 +200,16 @@ Use severity markers for critical findings: `**[CRITICAL]**` for blocking issues
 
 ### Verification Sign-Off
 
-After producing the report, request acceptance:
+After producing the report, request acceptance in plain text. Ask in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI). Present it as:
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "confirmation",
-  confirmation: {
-    text: "Verification report: <VERDICT>. Accept and proceed?",
-    context: "<N artifacts checked, N gaps found>",
-    impact: "Accepting proceeds to code review. Declining requires gap resolution.",
-    risk: "<low if PASS, high if gaps remain>"
-  }
-})
+```markdown
+Verification report: <VERDICT>. Accept and proceed?
+
+Context: <N artifacts checked, N gaps found>
+Impact: Accepting proceeds to code review. Declining requires gap resolution.
+Risk: <low if PASS, high if gaps remain>
+
+Proceed? (yes/no)
 ```
 
 ### Handoff and Transition

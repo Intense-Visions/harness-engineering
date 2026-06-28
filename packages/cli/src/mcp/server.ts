@@ -202,6 +202,7 @@ import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledg
 // craft-pipeline #10: security-craft LLM-judgment skill (AST-driven signal detection, conservative confidence).
 import { securityCraftDefinition, handleSecurityCraft } from './tools/security-craft.js';
 import { outcomeEvalDefinition, handleOutcomeEval } from './tools/outcome-eval.js';
+import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js';
 // strategic-anchor: STRATEGY.md read/validate/write tools so skills don't have
 // to shell out to `node -e "import('@harness-engineering/core')..."` from a cwd
 // that may not have core installed.
@@ -325,6 +326,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   knowledgeCraftDefinition,
   securityCraftDefinition,
   outcomeEvalDefinition,
+  acceptanceEvalDefinition,
   validateStrategyDefinition,
   readStrategyDefinition,
   writeStrategyDefinition,
@@ -418,6 +420,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   knowledge_craft: handleKnowledgeCraft as unknown as ToolHandler,
   security_craft: handleSecurityCraft as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
+  acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
   validate_strategy: handleValidateStrategy as unknown as ToolHandler,
   read_strategy: handleReadStrategy as unknown as ToolHandler,
   write_strategy: handleWriteStrategy as unknown as ToolHandler,

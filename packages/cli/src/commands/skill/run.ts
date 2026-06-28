@@ -7,7 +7,7 @@ import { detectComplexity, type Complexity } from '../../skill/complexity';
 import { buildPreamble } from './preamble';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-import { resolveSkillsDir } from '../../utils/paths';
+import { resolveSkillDir } from '../../utils/paths';
 
 type SkillMetadata = ReturnType<typeof SkillMetadataSchema.parse>;
 
@@ -104,10 +104,9 @@ async function runSkill(
   name: string,
   opts: { path?: string; complexity?: string; phase?: string; party?: boolean; backend?: string }
 ): Promise<void> {
-  const skillsDir = resolveSkillsDir();
-  const skillDir = path.join(skillsDir, name);
+  const skillDir = resolveSkillDir(name);
 
-  if (!fs.existsSync(skillDir)) {
+  if (!skillDir) {
     logger.error(`Skill not found: ${name}`);
     process.exit(ExitCode.ERROR);
     return;

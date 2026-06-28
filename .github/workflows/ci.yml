@@ -136,9 +136,12 @@ jobs:
       # Update coverage baselines from downloaded data
       - run: node scripts/coverage-ratchet.mjs --update
 
-      # Regenerate architecture baselines
+      # Regenerate architecture baselines (whole-repo aggregate only).
+      # A second `--module packages/cli` run was removed (issue #594): it
+      # overwrote the whole-repo module-size/dependency-depth aggregates with a
+      # cli-only subset, so every clean-checkout `ci check` reported permanent
+      # false regressions. `--update-baseline` now rejects `--module`.
       - run: node packages/cli/dist/bin/harness.js check-arch --update-baseline
-      - run: node packages/cli/dist/bin/harness.js check-arch --update-baseline --module packages/cli
 
       # Regenerate benchmark baselines
       - run: node scripts/benchmark-check.mjs --update
