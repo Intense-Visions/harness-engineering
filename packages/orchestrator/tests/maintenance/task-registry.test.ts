@@ -125,22 +125,22 @@ describe('task-registry', () => {
       expect(t.type).toBe('mechanical-ai');
       expect(t.schedule).toBe('0 6 * * 1');
       expect(t.branch).toBe('harness-maint/cross-check-fixes');
-      // Reverted to the MCP tool name `validate_cross_check`: `validate
-      // --cross-check` runs the FULL validation suite and reports a broad-spectrum
-      // count mislabeled as cross-check findings. Left as an honest failure (no
-      // dedicated `harness cross-check` CLI subcommand exists), mirroring
-      // stale-constraints.
-      expect(t.checkCommand).toEqual(['validate_cross_check']);
+      // Repointed onto the dedicated `harness cross-check` CLI subcommand, which
+      // surfaces JUST cross-artifact consistency (plan→implementation coverage +
+      // staleness) via the `validate_cross_check` core (`runCrossCheck`) WITHOUT
+      // running the full `harness validate` suite. Emits a parseable
+      // `Cross-check: N issues` line so the runner reports real results.
+      expect(t.checkCommand).toEqual(['cross-check']);
     });
 
     it('every built-in checkCommand uses a real CLI subcommand, not an MCP tool name', () => {
       // MCP tools are underscore_cased; CLI subcommands are kebab-cased. A
       // checkCommand whose head is underscore_cased can never resolve through the
-      // harness binary. `detect_stale_constraints` (stale-constraints) and
-      // `validate_cross_check` (cross-check) are the known, DOCUMENTED exceptions
-      // (MCP-only, no CLI counterpart — left as honest failures; see
-      // task-registry.ts).
-      const KNOWN_NO_CLI = new Set(['stale-constraints', 'cross-check']);
+      // harness binary. Both former exceptions (`cross-check` →
+      // `validate_cross_check`, `stale-constraints` → `detect_stale_constraints`)
+      // now have dedicated kebab-cased CLI subcommands, so the exception set is
+      // empty: EVERY built-in must resolve through the harness binary.
+      const KNOWN_NO_CLI = new Set<string>([]);
       for (const t of BUILT_IN_TASKS) {
         if (!t.checkCommand || t.checkCommand.length === 0) continue;
         if (KNOWN_NO_CLI.has(t.id)) continue;
@@ -205,9 +205,11 @@ describe('task-registry', () => {
       const t = taskMap.get('stale-constraints')!;
       expect(t.type).toBe('report-only');
       expect(t.schedule).toBe('0 2 1 * *');
-      // DOCUMENTED follow-up: detect_stale_constraints is MCP-only (no CLI
-      // counterpart). Left unchanged so the gap stays visible.
-      expect(t.checkCommand).toEqual(['detect_stale_constraints']);
+      // Repointed onto the dedicated `harness stale-constraints` CLI subcommand,
+      // which surfaces the `detect_stale_constraints` core in-process. Graph-gated:
+      // with no graph it emits a precondition signature (runner → `skipped`); with
+      // a graph it prints a parseable `Stale constraints: N findings` line.
+      expect(t.checkCommand).toEqual(['stale-constraints']);
     });
 
     // Housekeeping tasks

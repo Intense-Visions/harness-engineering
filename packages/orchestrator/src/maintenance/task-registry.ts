@@ -71,16 +71,13 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix cross-check violations',
     schedule: '0 6 * * 1',
     branch: 'harness-maint/cross-check-fixes',
-    // FOLLOW-UP: `validate_cross_check` is an MCP-only tool — there is no dedicated
-    // `harness cross-check` CLI subcommand that surfaces JUST cross-artifact
-    // consistency. It was briefly repointed to `validate --cross-check`, but that
-    // runs the FULL validation suite and derives findings/exit from the whole
-    // result, so the reported count was mislabeled cross-check findings (a
-    // misleading "success"). Reverted to the MCP tool name so this checkCommand
-    // cannot run and reports `failure` honestly (mirrors stale-constraints).
-    // Either add a dedicated `harness cross-check` subcommand or retire this
-    // built-in; left honest so the gap stays visible rather than fabricated.
-    checkCommand: ['validate_cross_check'],
+    // `harness cross-check` is a dedicated read-only CLI subcommand that surfaces
+    // JUST cross-artifact consistency (plan→implementation coverage + staleness),
+    // mirroring the `validate_cross_check` MCP tool's core (`runCrossCheck`)
+    // WITHOUT running the full `harness validate` suite. It prints a parseable
+    // `Cross-check: N issues` line and exits 0 (clean) / 1 (N issues), so the
+    // maintenance runner reports real results instead of an honest `failure`.
+    checkCommand: ['cross-check'],
     fixSkill: 'harness-cross-check-fix',
   },
 
@@ -152,13 +149,14 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect stale architectural constraints',
     schedule: '0 2 1 * *',
     branch: null,
-    // FOLLOW-UP: `detect_stale_constraints` is an MCP-only tool — there is no
-    // `harness` CLI subcommand that surfaces it, so this checkCommand cannot run
-    // and reports `failure` honestly. Either add a CLI subcommand (e.g.
-    // `harness check-arch --stale` / `harness insights` surfacing stale
-    // constraints) or retire this built-in. Left unchanged so the gap stays
-    // visible rather than fabricating a mapping.
-    checkCommand: ['detect_stale_constraints'],
+    // `harness stale-constraints` is a dedicated read-only CLI subcommand that
+    // surfaces the `detect_stale_constraints` MCP tool's core in-process. It is
+    // precondition-gated on the knowledge graph: with no graph it emits the
+    // "No knowledge graph found. Run `harness scan` first." signature and exits
+    // non-zero, which the runner classifies as `skipped` (not failure). With a
+    // graph it prints a parseable `Stale constraints: N findings` line and exits
+    // 0 (clean) / 1 (N stale), recorded as report-only metrics.
+    checkCommand: ['stale-constraints'],
   },
   {
     id: 'graph-refresh',
