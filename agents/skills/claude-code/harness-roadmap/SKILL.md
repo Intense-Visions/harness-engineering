@@ -25,6 +25,23 @@ If the human has not seen and approved the milestone groupings and feature list,
 
 ---
 
+### Storage mode: monolith vs sharded
+
+The roadmap has two physical layouts, auto-detected (not configured) by the presence of `docs/roadmap.d/`:
+
+- **Monolith** — a single `docs/roadmap.md` aggregate is canonical (legacy default).
+- **Sharded** — per-row shards `docs/roadmap.d/<slug>.md` (plus `_meta.md`) are canonical, and `docs/roadmap.md` is a generated `merge=ours` aggregate. New `harness init` projects are sharded by default.
+
+In sharded mode a write patches a **single shard** (conflict-free by construction) and **regenerates the aggregate** — so when committing a roadmap change, stage both `docs/roadmap.d/` and the regenerated `docs/roadmap.md`. Read/write only through `manage_roadmap` / the `RoadmapStore`; never parse the aggregate for content (read-source invariant R, ADR 0050). Subcommands:
+
+- `harness roadmap shard` — adopt sharding (split the monolith into shards), reversible with `harness roadmap unshard` (semantic round-trip).
+- `harness roadmap regen` — regenerate the aggregate from the shards (the fix when `harness validate` warns the aggregate has drifted).
+- `harness roadmap reconcile` — offline merge-triggered auto-done (flip closed-issue rows to `done`).
+
+**Stop hand-marking rows `done`** — rows reach `done` automatically when the implementing PR merges (auto-done reconciler; see knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowledge/roadmap/merge-triggered-auto-done.md)). See also the adoption guide [`docs/guides/roadmap-sharding.md`](../../../../docs/guides/roadmap-sharding.md).
+
+---
+
 ### Command: `--create` -- Bootstrap Roadmap
 
 #### Phase 1: SCAN -- Discover Artifacts
