@@ -152,6 +152,9 @@ export async function runRoadmapShard(
   }
 
   if (format === 'json') {
+    // Deliberately bypass `logger` (and its `raw`, which pretty-prints multi-line):
+    // machine consumers want exactly ONE single-line JSON object on stdout, which
+    // the logger abstraction cannot emit cleanly.
     console.log(JSON.stringify({ ok: true, ...report, dryRun }));
   } else {
     logger.success(

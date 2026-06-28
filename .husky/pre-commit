@@ -37,6 +37,10 @@ fi
 # This is intentionally a GIT hook, not an agent hook (profiles.ts/STANDARD_HOOKS
 # register Claude Code tool-use hooks, which cannot fire on git commit/merge).
 if git diff --cached --name-only | grep -qE '^docs/roadmap\.d/'; then
+  # Caveat: `roadmap regen` reads the WORKING TREE, not the staged index — with a
+  # partial stage (some hunks of a shard staged, the rest left unstaged) the
+  # regenerated aggregate reflects the working-tree shards, which may differ from
+  # what is committed. Stage shard files whole to keep the aggregate exact.
   # Fail-safe: do NOT swallow a regen error. `harness roadmap regen` returns
   # nonzero and leaves docs/roadmap.md untouched on failure, so re-staging it
   # would commit a STALE aggregate and defeat the drift-prevention guarantee.

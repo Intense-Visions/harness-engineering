@@ -19,7 +19,7 @@ import {
   regenerate,
   createNodeRoadmapIO,
 } from '@harness-engineering/core';
-import { execFileSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
