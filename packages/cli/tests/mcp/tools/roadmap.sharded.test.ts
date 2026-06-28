@@ -266,6 +266,33 @@ describe('manage_roadmap sharded — promote', () => {
   });
 });
 
+describe('manage_roadmap sharded — groom (per-shard archive/demote)', () => {
+  it('archives a done row by deleting its shard; archive file is whole-file', async () => {
+    // Mark Auth System done so groom archives it.
+    await handleManageRoadmap({
+      path: dir,
+      action: 'update',
+      feature: 'Auth System',
+      status: 'done',
+    });
+    expect(fs.existsSync(path.join(shardDir, 'auth-system.md'))).toBe(true);
+
+    const res = await handleManageRoadmap({ path: dir, action: 'groom' });
+    expect(res.isError).toBeFalsy();
+
+    // The archived (done) row's shard is removed; _meta.md survives.
+    expect(fs.existsSync(path.join(shardDir, 'auth-system.md'))).toBe(false);
+    expect(fs.existsSync(path.join(shardDir, '_meta.md'))).toBe(true);
+    // The archive is a standalone whole-file document (not sharded).
+    expect(fs.existsSync(path.join(dir, 'docs', 'roadmap-archive.md'))).toBe(true);
+    // Aggregate regenerated without the archived row's heading (a stale blocker
+    // reference may remain, but the Feature heading must be gone).
+    expect(fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8')).not.toContain(
+      '### Feature: Auth System'
+    );
+  });
+});
+
 describe('manage_roadmap sharded — sync (per-shard writeback)', () => {
   it('apply patches exactly the rows whose status changed (N shards == N changes)', async () => {
     const before = snapshotShardDir();

@@ -100,22 +100,6 @@ function roadmapPath(projectRoot: string): string {
   return path.join(projectRoot, 'docs', 'roadmap.md');
 }
 
-function readRoadmapFile(projectRoot: string): string | null {
-  const filePath = roadmapPath(projectRoot);
-  try {
-    return fs.readFileSync(filePath, 'utf-8');
-  } catch {
-    return null;
-  }
-}
-
-function writeRoadmapFile(projectRoot: string, content: string): void {
-  const filePath = roadmapPath(projectRoot);
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, content, 'utf-8');
-}
-
 /**
  * Whether a roadmap source exists for this project — either the sharded
  * `docs/roadmap.d/` directory or the monolith `docs/roadmap.md` file. Used to
@@ -659,19 +643,19 @@ async function handleSync(
   return resultToMcpResponse(Ok({ changes, applied: false }));
 }
 
-function handleGroom(
+async function handleGroom(
   projectPath: string,
   _input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, groomRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { groomRoadmap, Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
+  const before = structuredClone(result.value);
   const { roadmap: groomed, archived, changes } = groomRoadmap(result.value);
 
   if (changes.length === 0) {
@@ -680,9 +664,12 @@ function handleGroom(
     );
   }
 
+  // The archive stays a whole-file write (docs/roadmap-archive.md is NOT sharded).
   appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
   groomed.frontmatter.lastManualEdit = new Date().toISOString();
-  writeRoadmapFile(projectPath, serializeRoadmap(groomed));
+  // Per-shard: archived rows are removeFeature'd, demoted rows patchFeature'd.
+  const persisted = await persistRoadmap(projectPath, before, groomed);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
 
   const demoted = changes.filter((c) => c.kind === 'demoted').length;
   return resultToMcpResponse(
