@@ -71,12 +71,16 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix cross-check violations',
     schedule: '0 6 * * 1',
     branch: 'harness-maint/cross-check-fixes',
-    // `validate_cross_check` is an MCP tool name, not a CLI subcommand. Its only
-    // CLI surface is `validate --cross-check`, which runs cross-artifact
-    // consistency validation (plan↔impl + staleness). NOTE: `validate` also runs
-    // the full validation suite, so the reported finding count is broad-spectrum;
-    // a dedicated `harness cross-check` subcommand is a documented follow-up.
-    checkCommand: ['validate', '--cross-check'],
+    // FOLLOW-UP: `validate_cross_check` is an MCP-only tool — there is no dedicated
+    // `harness cross-check` CLI subcommand that surfaces JUST cross-artifact
+    // consistency. It was briefly repointed to `validate --cross-check`, but that
+    // runs the FULL validation suite and derives findings/exit from the whole
+    // result, so the reported count was mislabeled cross-check findings (a
+    // misleading "success"). Reverted to the MCP tool name so this checkCommand
+    // cannot run and reports `failure` honestly (mirrors stale-constraints).
+    // Either add a dedicated `harness cross-check` subcommand or retire this
+    // built-in; left honest so the gap stays visible rather than fabricated.
+    checkCommand: ['validate_cross_check'],
     fixSkill: 'harness-cross-check-fix',
   },
 
