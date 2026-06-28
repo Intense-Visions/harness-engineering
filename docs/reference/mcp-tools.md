@@ -500,12 +500,13 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.
+- `mode` (string, optional) — fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
 - `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
 - `autoCapture` (string, optional) — B' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 - `benchmarkTargets` (array, optional) — BENCHMARK target descriptors. Each entry needs at minimum { file, component }; optional componentType narrows exemplar selection.
+- `captures` (array, optional) — Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" and the critique phase runs. Each entry: { file, image, component? }, where `image` is a path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).
 
 ### `dispatch_skills`
 
