@@ -20,3 +20,31 @@ export function loadProjectRoadmapMode(projectRoot: string): RoadmapMode {
     return getRoadmapMode(null);
   }
 }
+
+/**
+ * Roadmap storage layout — orthogonal to {@link RoadmapMode} (which selects the
+ * canonical source: file-backed vs file-less). Storage layout selects how a
+ * file-backed roadmap is physically stored:
+ *   - `monolith` — a single aggregate file under `docs/` is canonical (legacy).
+ *   - `sharded`  — per-row shards under `docs/roadmap.d/` are canonical; the
+ *     aggregate is a generated `merge=ours` view (spec Decisions D3/D4/R).
+ *
+ * Auto-detected by the presence of `docs/roadmap.d/`. This is the single
+ * detection authority; `store/factory.ts` delegates here so the formal mode and
+ * the store backend can never disagree.
+ *
+ * @see docs/changes/roadmap-shard-store/proposal.md (§Mode detection)
+ */
+export type RoadmapStorageMode = 'monolith' | 'sharded';
+
+/**
+ * Detect a project's roadmap storage layout from the filesystem. Returns
+ * `sharded` when the `docs/roadmap.d/` shard directory is present, else
+ * `monolith`. The `exists` probe is injectable for unit testing.
+ */
+export function detectRoadmapStorageMode(
+  projectRoot: string,
+  exists: (target: string) => boolean = (target) => fs.existsSync(target)
+): RoadmapStorageMode {
+  return exists(path.join(projectRoot, 'docs', 'roadmap.d')) ? 'sharded' : 'monolith';
+}

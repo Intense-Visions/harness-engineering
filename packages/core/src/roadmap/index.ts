@@ -136,7 +136,8 @@ export { getRoadmapMode } from './mode';
 export type { RoadmapMode, RoadmapModeConfig } from './mode';
 
 /** Per-request loader: resolves roadmap.mode from <projectRoot>/harness.config.json. */
-export { loadProjectRoadmapMode } from './load-mode';
+export { loadProjectRoadmapMode, detectRoadmapStorageMode } from './load-mode';
+export type { RoadmapStorageMode } from './load-mode';
 
 /** Shared loader: resolves `TrackerClientConfig` from harness.config.json. */
 export { loadTrackerClientConfigFromProject } from './load-tracker-client-config';
