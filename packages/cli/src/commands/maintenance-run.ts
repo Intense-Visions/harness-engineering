@@ -20,7 +20,7 @@ import {
   selectTasks,
   runHarnessCheck,
   createAgentDispatcher,
-  createBackend,
+  makeBackendResolver,
   MAINTENANCE_CHECK_MAX_BUFFER,
   MAINTENANCE_CHECK_TIMEOUT_MS,
   type CheckCommandRunner,
@@ -47,12 +47,13 @@ export type ResolveBackend = (backendName: string) => AgentBackend | null;
 
 /** Build a {@link ResolveBackend} from a loaded `agent.backends` map. A `null`
  * or empty map yields a resolver that always returns `null` (nothing
- * configured) — the graceful-degradation case for a plain checkout. */
+ * configured) — the graceful-degradation case for a plain checkout.
+ *
+ * Delegates to the orchestrator's `makeBackendResolver` so the CLI's `--fix`
+ * dispatcher and the cron orchestrator (`createMaintenanceTaskRunner`) share
+ * ONE name → `createBackend` → `null` resolution and cannot drift. */
 export function makeResolveBackend(backends: Record<string, BackendDef> | null): ResolveBackend {
-  return (backendName: string) => {
-    const def = backends?.[backendName];
-    return def ? createBackend(def) : null;
-  };
+  return makeBackendResolver(backends);
 }
 
 /**

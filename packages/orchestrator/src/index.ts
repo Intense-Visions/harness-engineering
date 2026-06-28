@@ -34,6 +34,12 @@ export type { OrchestratorBackendFactoryOptions } from './agent/orchestrator-bac
 export { migrateAgentConfig } from './agent/config-migration';
 export type { MigrationResult } from './agent/config-migration';
 export { createBackend } from './agent/backend-factory';
+// Shared maintenance backend resolver. The ONE implementation of "backend
+// name → live AgentBackend via createBackend, else null", consumed by both
+// the cron orchestrator (createMaintenanceTaskRunner) and the on-demand CLI
+// (`harness maintenance run --fix`) so the two resolution sites cannot drift.
+export { makeBackendResolver } from './agent/backend-resolver';
+export type { BackendResolver } from './agent/backend-resolver';
 
 // Re-export the workflow Zod schemas so other packages (cli config, tests)
 // can validate `agent.backends` / `agent.routing` against the same source
