@@ -65,7 +65,7 @@ export function isEligible(
   }
 
   // Already finished in this orchestrator process. Without this guard,
-  // tracker write-back failures (e.g. dirty roadmap.md) would let a
+  // tracker write-back failures (e.g. dirty roadmap aggregate) would let a
   // just-completed issue be picked up again on the very next tick.
   if (state.completed.has(issue.id)) {
     return false;

@@ -42,23 +42,17 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/core/src/validation/merge-driver.ts',
   // This detector itself references the path in its allowlist/comments.
   'packages/core/src/validation/roadmap-read-source.ts',
-  // ── Phase 4: remove when migrated to RoadmapStore (legacy monolith readers) ─
-  'packages/core/src/roadmap/pilot-scoring.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/health.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/assignee-lifecycle.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/mode.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/migrate/plan-builder.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/migrate/run.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/roadmap/migrate/types.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/validation/roadmap-mode.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/cli/src/config/schema.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/cli/src/mcp/tools/roadmap-file-less.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/dashboard/src/server/context.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/orchestrator/src/core/candidate-selection.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/orchestrator/src/orchestrator.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/orchestrator/src/workflow/config.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/orchestrator/src/workspace/manager.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/types/src/orchestrator.ts', // Phase 4: remove when migrated to RoadmapStore
+  // ── Permanent: legitimate path references (NOT content reads) ─────────────
+  // These name `docs/roadmap.md` as a real file path for non-content purposes —
+  // the file-less existence/mode check, the migrate archive move, and the
+  // orchestrator seed/file-watch paths — so they do not violate invariant R.
+  'packages/core/src/roadmap/migrate/run.ts', // migrate archive move, not a content read
+  'packages/core/src/validation/roadmap-mode.ts', // mode existence check, not a content read
+  'packages/orchestrator/src/orchestrator.ts', // seed/watch path, not a content read
+  'packages/orchestrator/src/workflow/config.ts', // seed/watch path, not a content read
+  'packages/orchestrator/src/workspace/manager.ts', // seed/watch path, not a content read
+  // ── Pending dashboard migration (Task 18=A); removed when routed via store ──
+  'packages/dashboard/src/server/context.ts', // threads docs/roadmap.md path; migrated next
 ] as const;
 
 /** Matches the generated aggregate path. */
