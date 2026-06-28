@@ -1245,7 +1245,7 @@ Append a learning to .harness/learnings.md
 
 ### `harness state reset`
 
-Reset project state (deletes .harness/state.json)
+Reset project state (truncates the event log to a fresh default)
 
 **Options:**
 

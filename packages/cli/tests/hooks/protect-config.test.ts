@@ -94,13 +94,44 @@ describe('protect-config', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('fails open on missing file_path', () => {
+  it('fails closed on missing file_path', () => {
     const input = JSON.stringify({
       tool_name: 'Write',
       tool_input: { content: '{}' },
     });
-    const { exitCode } = runHook(input);
-    expect(exitCode).toBe(0);
+    const { exitCode, stderr } = runHook(input);
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('could not verify the edit target');
+  });
+
+  it('fails closed on null file_path', () => {
+    const input = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: null, content: '{}' },
+    });
+    const { exitCode, stderr } = runHook(input);
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('could not verify the edit target');
+  });
+
+  it('fails closed on numeric file_path', () => {
+    const input = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: 123, content: '{}' },
+    });
+    const { exitCode, stderr } = runHook(input);
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('could not verify the edit target');
+  });
+
+  it('fails closed on empty-string file_path', () => {
+    const input = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: '', content: '{}' },
+    });
+    const { exitCode, stderr } = runHook(input);
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('could not verify the edit target');
   });
 
   it('handles nested paths correctly', () => {

@@ -16,11 +16,6 @@ export {
 export type { HarnessState, FailureEntry, Handoff, GateResult, GateConfig } from './types';
 
 /**
- * State persistence for loading and saving project health.
- */
-export { loadState, saveState } from './state-persistence';
-
-/**
  * Learning content parsing and deduplication.
  */
 export {
@@ -140,20 +135,9 @@ export { archiveSession } from './session-archive';
 export type { ArchiveHooks, ArchiveSessionOptions } from './session-archive';
 
 /**
- * Structured event log for skill lifecycle moments.
+ * Event-sourced state log. The authoritative append-only log + materialized snapshot
+ * (core-state, lanes, and the Phase 5 audit trail). This subsumes the retired legacy
+ * `events.ts` skill-event log; the namespace no longer collides with anything, and the
+ * skill-lifecycle telemetry stream now lives CLI-side (metrics/skill-events.jsonl, GH-580 D5).
  */
-export {
-  emitEvent,
-  loadEvents,
-  formatEventTimeline,
-  SkillEventSchema,
-  clearEventHashCache,
-} from './events';
-export type {
-  SkillEvent,
-  EventType,
-  EmitEventInput,
-  EmitEventOptions,
-  EmitEventResult,
-  LoadEventsOptions,
-} from './events';
+export * as eventSourcing from './event-sourcing';

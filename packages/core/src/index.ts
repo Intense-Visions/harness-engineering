@@ -213,7 +213,7 @@ export type {
 export * from './harness-strength';
 
 /**
- * Health-signals contract (canonical signal<->check mapping).
+ * Health-signals module.
  */
 export * from './health-signals';
 

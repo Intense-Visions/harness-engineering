@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { Roadmap, RoadmapFeature, FeatureStatus, Result } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { isRegression } from './status-rank';
+import * as eventSourcing from '../state/event-sourcing';
 
 /**
  * A proposed status change from the sync engine.
@@ -26,10 +27,6 @@ export interface SyncOptions {
 }
 
 type TaskStatus = 'pending' | 'in_progress' | 'complete';
-
-interface RootState {
-  progress?: Record<string, TaskStatus>;
-}
 
 interface AutopilotPhase {
   name: string;
@@ -76,13 +73,16 @@ function collectAutopilotStatuses(
 }
 
 /**
- * Infer status for a single feature by checking execution state files.
+ * Infer status for a single feature by checking execution state.
+ *
+ * Root progress is read from the authoritative event-sourced log via
+ * `readSnapshot` + `toHarnessState` (not a mutated `.harness/state.json`).
  */
-function inferStatus(
+async function inferStatus(
   feature: RoadmapFeature,
   projectPath: string,
   allFeatures: RoadmapFeature[]
-): FeatureStatus | null {
+): Promise<FeatureStatus | null> {
   // 1. Blocker check takes precedence
   if (feature.blockedBy.length > 0) {
     const blockerNotDone = feature.blockedBy.some((blockerName) => {
@@ -101,7 +101,7 @@ function inferStatus(
   // 3. Gather task statuses from all state sources
   const allTaskStatuses: TaskStatus[] = [];
 
-  // 3a. Check root .harness/state.json
+  // 3a. Check root event-sourced core state (progress projection).
   // Root state has no planPath field, so we can only use it when exactly one
   // feature has linked plans. With multiple plan-linked features, root state
   // is ambiguous and we rely solely on autopilot session state (which has
@@ -110,18 +110,13 @@ function inferStatus(
   const useRootState = featuresWithPlans.length <= 1;
 
   if (useRootState) {
-    const rootStatePath = path.join(projectPath, '.harness', 'state.json');
-    if (fs.existsSync(rootStatePath)) {
-      try {
-        const raw = fs.readFileSync(rootStatePath, 'utf-8');
-        const state: RootState = JSON.parse(raw);
-        if (state.progress) {
-          for (const status of Object.values(state.progress)) {
-            allTaskStatuses.push(status);
-          }
+    const snap = await eventSourcing.readSnapshot(projectPath);
+    if (snap.ok) {
+      const progress = eventSourcing.toHarnessState(snap.value.coreState).progress;
+      if (progress) {
+        for (const status of Object.values(progress)) {
+          allTaskStatuses.push(status);
         }
-      } catch {
-        // Ignore malformed state files
       }
     }
   }
@@ -166,14 +161,14 @@ function inferStatus(
  * progression (planned → in-progress → done) is always allowed regardless
  * of manual edits.
  */
-export function syncRoadmap(options: SyncOptions): Result<SyncChange[]> {
+export async function syncRoadmap(options: SyncOptions): Promise<Result<SyncChange[]>> {
   const { projectPath, roadmap, forceSync } = options;
 
   const allFeatures = roadmap.milestones.flatMap((m) => m.features);
   const changes: SyncChange[] = [];
 
   for (const feature of allFeatures) {
-    const inferred = inferStatus(feature, projectPath, allFeatures);
+    const inferred = await inferStatus(feature, projectPath, allFeatures);
     if (inferred === null) continue;
     if (inferred === feature.status) continue;
 

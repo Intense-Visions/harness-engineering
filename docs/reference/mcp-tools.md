@@ -1088,5 +1088,12 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `content` (string, optional) — Entry content text (required for append_entry)
 - `entryId` (string, optional) — ID of the entry to update (required for update_entry_status)
 - `newStatus` (string, optional) — New status for the entry: active, resolved, or superseded (required for update_entry_status)
+- `taskId` (string, optional) — Task id (required for task-transition)
+- `toLane` (string, optional) — Target lane (required for task-transition)
+- `dependsOn` (array, optional) — Dependency task ids; when set, the task is registered before transitioning
+- `evidence` (array, optional) — PR/commit/test refs (required to enter done)
+- `force` (boolean, optional) — Force an off-table transition (requires actor+reason)
+- `actor` (string, optional) — Actor for a forced transition
+- `reason` (string, optional) — Reason for a forced transition
 
 **CLI equivalent:** [`harness state show`](cli-commands.md#harness-state-show)

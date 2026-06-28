@@ -78,7 +78,6 @@ release-readiness.json
 skills-index.json
 stack-profile.json
 metrics/
-events.jsonl
 .install-id
 telemetry.json
 .telemetry-notice-shown

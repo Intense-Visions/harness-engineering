@@ -5,10 +5,11 @@ const mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as neve
 const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-// Mock @harness-engineering/core loadState
+// `state show` reads through the event-sourced facade now (R4), not the legacy core loadState.
+// Mock the facade's readHarnessState — same Result<HarnessState> contract.
 const mockLoadState = vi.fn();
-vi.mock('@harness-engineering/core', () => ({
-  loadState: (...args: unknown[]) => mockLoadState(...args),
+vi.mock('../../src/shared/state-events', () => ({
+  readHarnessState: (...args: unknown[]) => mockLoadState(...args),
 }));
 
 import { createShowCommand } from '../../src/commands/state/show';

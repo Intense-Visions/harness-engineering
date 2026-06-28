@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
-import { loadState } from '@harness-engineering/core';
 import type { HarnessState } from '@harness-engineering/core';
+import { readHarnessState } from '../../shared/state-events';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 
@@ -35,7 +35,7 @@ export function createShowCommand(): Command {
     .option('--stream <name>', 'Target a specific stream')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const result = await loadState(path.resolve(opts.path), opts.stream);
+      const result = await readHarnessState(path.resolve(opts.path), { stream: opts.stream });
 
       if (!result.ok) {
         logger.error(result.error.message);
