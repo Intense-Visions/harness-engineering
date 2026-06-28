@@ -76,6 +76,6 @@ export { needsMergeOursDriverWarning } from './merge-driver';
 
 /**
  * Read-source invariant R — detector + allowlist for files that read the
- * generated docs/roadmap.md aggregate (enforced by the repo guard test).
+ * generated roadmap aggregate (enforced by the repo guard test).
  */
 export { findRoadmapReadSourceViolations, ROADMAP_READ_ALLOWLIST } from './roadmap-read-source';
