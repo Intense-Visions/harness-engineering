@@ -95,6 +95,29 @@ describe('applyRoadmapDiff', () => {
     expect(calls).toEqual([]);
   });
 
+  // F4 (colliding-slug data loss): if either side has two features that slugify
+  // to the same slug, the slug→feature index would silently collapse them (last
+  // wins). applyRoadmapDiff must reject loudly rather than corrupt a row.
+  it('returns Err when two features collide on slug (after side)', async () => {
+    const before = roadmap([feature('Alpha')]);
+    const after = roadmap([feature('Add foo (v2)'), feature('Add foo v2')]);
+    const { store, calls } = spyStore();
+    const r = await applyRoadmapDiff(store, before, after);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/slug/i);
+    // Nothing was written — fail-closed before any mutation.
+    expect(calls).toEqual([]);
+  });
+
+  it('returns Err when two features collide on slug (before side)', async () => {
+    const before = roadmap([feature('Add foo (v2)'), feature('Add foo v2')]);
+    const after = roadmap([feature('Alpha')]);
+    const { store, calls } = spyStore();
+    const r = await applyRoadmapDiff(store, before, after);
+    expect(r.ok).toBe(false);
+    expect(calls).toEqual([]);
+  });
+
   it('short-circuits and returns the first Err', async () => {
     const before = roadmap([feature('Alpha')]);
     const after = roadmap([feature('Alpha'), feature('Gamma'), feature('Delta')]);

@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { Roadmap, RoadmapFeature, Result } from '@harness-engineering/types';
-import { Ok } from '@harness-engineering/types';
+import { Ok, Err } from '@harness-engineering/types';
 import type { RoadmapStore } from './roadmap-store';
 import { slugifyFeatureName } from './monolith-store';
 
@@ -12,18 +12,30 @@ interface LocatedFeature {
 }
 
 /**
- * Index a roadmap's features by slug. Assumes slug identity = `slugifyFeatureName`
- * of the feature name (D2) and that each slug is unique within the roadmap (the
- * store's integrity guards enforce this on write).
+ * Index a roadmap's features by slug. Slug identity = `slugifyFeatureName` of the
+ * feature name (D2). Two features whose names slugify identically would silently
+ * collapse (last write wins), corrupting one row, so a collision is rejected
+ * loudly with `Err` rather than indexed — the data-loss guard for the diff seam.
  */
-function indexBySlug(roadmap: Roadmap): Map<string, LocatedFeature> {
+function indexBySlug(roadmap: Roadmap): Result<Map<string, LocatedFeature>> {
   const map = new Map<string, LocatedFeature>();
   for (const milestone of roadmap.milestones) {
-    milestone.features.forEach((feature, order) => {
-      map.set(slugifyFeatureName(feature.name), { feature, milestone: milestone.name, order });
-    });
+    let order = 0;
+    for (const feature of milestone.features) {
+      const slug = slugifyFeatureName(feature.name);
+      if (map.has(slug)) {
+        return Err(
+          new Error(
+            `Slug collision: two features resolve to slug "${slug}" (e.g. "${feature.name}"). ` +
+              `Roadmap rows must have distinct slugs; rename one before writing.`
+          )
+        );
+      }
+      map.set(slug, { feature, milestone: milestone.name, order });
+      order += 1;
+    }
   }
-  return map;
+  return Ok(map);
 }
 
 /**
@@ -45,8 +57,12 @@ export async function applyRoadmapDiff(
   before: Roadmap,
   after: Roadmap
 ): Promise<Result<void>> {
-  const beforeMap = indexBySlug(before);
-  const afterMap = indexBySlug(after);
+  const beforeIndexed = indexBySlug(before);
+  if (!beforeIndexed.ok) return beforeIndexed;
+  const afterIndexed = indexBySlug(after);
+  if (!afterIndexed.ok) return afterIndexed;
+  const beforeMap = beforeIndexed.value;
+  const afterMap = afterIndexed.value;
 
   // Removed: present in before, absent in after.
   for (const slug of beforeMap.keys()) {

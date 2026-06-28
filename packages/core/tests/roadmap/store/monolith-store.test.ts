@@ -2,7 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { MonolithStore } from '../../../src/roadmap/store/monolith-store';
 import type { FileIO } from '../../../src/roadmap/store/monolith-store';
 import { parseRoadmap } from '../../../src/roadmap/parse';
-import { MONOLITH_ROADMAP, MONOLITH_ROADMAP_MD } from './fixtures';
+import { serializeRoadmap } from '../../../src/roadmap/serialize';
+import { MONOLITH_ROADMAP, MONOLITH_ROADMAP_MD, feat } from './fixtures';
+
+/**
+ * A roadmap with two features whose names slugify identically
+ * (`slugifyFeatureName` collapses both to `add-foo-v2`). Used to prove the
+ * colliding-slug data-loss guards (F4): a write keyed by the shared slug must
+ * touch EXACTLY one row, never silently overwrite/remove both.
+ */
+const COLLIDING_ROADMAP_MD = serializeRoadmap({
+  frontmatter: MONOLITH_ROADMAP.frontmatter,
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [feat('Add foo (v2)', 'planned'), feat('Add foo v2', 'planned')],
+    },
+  ],
+  assignmentHistory: [],
+});
 
 const ROADMAP_PATH = '/repo/docs/roadmap.md';
 
@@ -155,5 +174,35 @@ describe('MonolithStore', () => {
     });
     expect(r.ok).toBe(false);
     expect(writes).toHaveLength(0);
+  });
+
+  // F4 (colliding-slug data loss): when two features slugify identically,
+  // patchFeature must touch EXACTLY one row (the first match), never both.
+  it('patchFeature() touches only one row when two features share a slug', async () => {
+    const { io, files } = makeIO({ [ROADMAP_PATH]: COLLIDING_ROADMAP_MD });
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.patchFeature('add-foo-v2', (f) => ({ ...f, status: 'done' }));
+    expect(r.ok).toBe(true);
+
+    const written = parseRoadmap(files.get(ROADMAP_PATH)!);
+    if (!written.ok) throw written.error;
+    const statuses = written.value.milestones[0]!.features.map((f) => f.status);
+    // Exactly one row flipped to done; the colliding sibling is untouched.
+    expect(statuses.filter((s) => s === 'done')).toHaveLength(1);
+    expect(statuses.filter((s) => s === 'planned')).toHaveLength(1);
+  });
+
+  // F4: removeFeature must splice EXACTLY one row when slugs collide, never wipe
+  // both siblings.
+  it('removeFeature() removes only one row when two features share a slug', async () => {
+    const { io, files } = makeIO({ [ROADMAP_PATH]: COLLIDING_ROADMAP_MD });
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.removeFeature('add-foo-v2');
+    expect(r.ok).toBe(true);
+
+    const written = parseRoadmap(files.get(ROADMAP_PATH)!);
+    if (!written.ok) throw written.error;
+    // One sibling survives — the other slug-colliding row is gone, not both.
+    expect(written.value.milestones[0]!.features).toHaveLength(1);
   });
 });

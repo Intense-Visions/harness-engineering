@@ -69,12 +69,16 @@ export class MonolithStore implements RoadmapStore {
     if (!loaded.ok) return loaded;
     const roadmap = loaded.value;
 
+    // Stop at the FIRST match (data-loss guard): two features whose names
+    // slugify identically resolve to the same slug, so without breaking we would
+    // overwrite every colliding row. Patch exactly one.
     let found = false;
-    for (const milestone of roadmap.milestones) {
+    outer: for (const milestone of roadmap.milestones) {
       for (let i = 0; i < milestone.features.length; i++) {
         if (this.matchSlug(slug, milestone.features[i]!)) {
           milestone.features[i] = mutate(milestone.features[i]!);
           found = true;
+          break outer;
         }
       }
     }
@@ -119,11 +123,18 @@ export class MonolithStore implements RoadmapStore {
     if (!loaded.ok) return loaded;
     const roadmap = loaded.value;
 
+    // Remove the FIRST match only (data-loss guard): two features whose names
+    // slugify identically resolve to the same slug, so a blanket filter would
+    // delete every colliding row. Splice exactly one.
     let removed = false;
-    for (const milestone of roadmap.milestones) {
-      const before = milestone.features.length;
-      milestone.features = milestone.features.filter((f) => !this.matchSlug(slug, f));
-      if (milestone.features.length !== before) removed = true;
+    outer: for (const milestone of roadmap.milestones) {
+      for (let i = 0; i < milestone.features.length; i++) {
+        if (this.matchSlug(slug, milestone.features[i]!)) {
+          milestone.features.splice(i, 1);
+          removed = true;
+          break outer;
+        }
+      }
     }
     if (!removed) {
       return Err(new Error(`removeFeature: no feature resolves to slug "${slug}"`));
