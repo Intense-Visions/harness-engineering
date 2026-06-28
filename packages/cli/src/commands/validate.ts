@@ -14,6 +14,9 @@ import {
   parseRoadmap,
   checkRoadmapHealth,
   needsMergeOursDriverWarning,
+  checkRoadmapAggregateDrift,
+  regenerate,
+  createNodeRoadmapIO,
 } from '@harness-engineering/core';
 import { execFileSync } from 'child_process';
 import { resolveConfig } from '../config/loader';
@@ -48,6 +51,7 @@ interface ValidateResult {
     roadmapMode?: boolean;
     roadmapHealth?: boolean;
     mergeDriver?: boolean;
+    roadmapAggregateDrift?: boolean;
     componentAnatomy?: boolean;
     driftDetection?: boolean;
     brandCompliance?: boolean;
@@ -230,6 +234,38 @@ export async function runValidate(
       });
     } else {
       result.checks.mergeDriver = true;
+    }
+  }
+
+  // Roadmap aggregate-drift doctor (warning). In sharded mode (docs/roadmap.d/
+  // present) the aggregate is a generated view; the local husky regen hook is
+  // per-developer and invisible to CI. Surface a non-fatal warning when the
+  // committed aggregate has drifted from a fresh regeneration of the shards so the
+  // pipeline catches staleness — the adopter freshness contract. No-op for monolith
+  // projects (no shard dir). The fix is `harness roadmap regen`.
+  const shardDir = path.join(cwd, 'docs', 'roadmap.d');
+  if (fs.existsSync(shardDir)) {
+    const regenerated = await regenerate(shardDir, createNodeRoadmapIO());
+    const aggregatePath = path.join(cwd, 'docs', 'roadmap.md');
+    const committedAggregate = fs.existsSync(aggregatePath)
+      ? fs.readFileSync(aggregatePath, 'utf-8')
+      : null;
+    const drift = checkRoadmapAggregateDrift({
+      shardDirExists: true,
+      committedAggregate,
+      regeneratedAggregate: regenerated.ok ? regenerated.value : null,
+    });
+    if (drift.applicable && drift.stale) {
+      result.checks.roadmapAggregateDrift = false;
+      result.issues.push({
+        check: 'roadmapAggregateDrift',
+        file: 'docs/roadmap.md',
+        severity: 'warning',
+        message:
+          'docs/roadmap.md is stale vs docs/roadmap.d/ — run `harness roadmap regen` to regenerate the aggregate.',
+      });
+    } else {
+      result.checks.roadmapAggregateDrift = true;
     }
   }
 

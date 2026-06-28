@@ -75,6 +75,17 @@ export type { RoadmapModeValidationConfig } from './roadmap-mode';
 export { needsMergeOursDriverWarning } from './merge-driver';
 
 /**
+ * Roadmap aggregate-drift doctor — pure check that warns when a sharded project's
+ * committed aggregate has drifted from a fresh regeneration of its shards (the
+ * CI-checkable adopter freshness contract). No-op for monolith projects.
+ */
+export { checkRoadmapAggregateDrift } from './roadmap-aggregate-drift';
+export type {
+  RoadmapAggregateDriftInput,
+  RoadmapAggregateDriftResult,
+} from './roadmap-aggregate-drift';
+
+/**
  * Read-source invariant R — detector + allowlist for files that read the
  * generated roadmap aggregate (enforced by the repo guard test).
  */
