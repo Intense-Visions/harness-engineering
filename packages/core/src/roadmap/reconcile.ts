@@ -53,7 +53,18 @@ export async function reconcileDoneFromClosedIssues(
   const byExternalId = new Map<string, RoadmapFeature>();
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
-      if (feature.externalId) byExternalId.set(feature.externalId, feature);
+      if (!feature.externalId) continue;
+      const existing = byExternalId.get(feature.externalId);
+      if (existing) {
+        // Two rows share one External-ID: only the last-indexed row can be
+        // matched/flipped (map overwrite). Behavior is unchanged — surface the
+        // collision so the duplicate linkage can be cleaned up.
+        console.warn(
+          `harness-reconcile: duplicate External-ID "${feature.externalId}" on rows ` +
+            `"${existing.name}" and "${feature.name}"; only "${feature.name}" can be reconciled.`
+        );
+      }
+      byExternalId.set(feature.externalId, feature);
     }
   }
 
