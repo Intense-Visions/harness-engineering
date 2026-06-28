@@ -15,6 +15,7 @@ import {
   checkRoadmapHealth,
   needsMergeOursDriverWarning,
   checkRoadmapAggregateDrift,
+  detectRoadmapStorageMode,
   regenerate,
   createNodeRoadmapIO,
 } from '@harness-engineering/core';
@@ -243,8 +244,11 @@ export async function runValidate(
   // committed aggregate has drifted from a fresh regeneration of the shards so the
   // pipeline catches staleness — the adopter freshness contract. No-op for monolith
   // projects (no shard dir). The fix is `harness roadmap regen`.
-  const shardDir = path.join(cwd, 'docs', 'roadmap.d');
-  if (fs.existsSync(shardDir)) {
+  // Route shard presence through the single detection authority so "one place
+  // decides sharded" is literally true (behaviorally identical to probing
+  // docs/roadmap.d/ directly for the conventional docs/ layout).
+  if (detectRoadmapStorageMode(cwd) === 'sharded') {
+    const shardDir = path.join(cwd, 'docs', 'roadmap.d');
     const regenerated = await regenerate(shardDir, createNodeRoadmapIO());
     const aggregatePath = path.join(cwd, 'docs', 'roadmap.md');
     const committedAggregate = fs.existsSync(aggregatePath)
