@@ -196,9 +196,19 @@ write (or auto-done reconcile) can only touch a single shard, never clobber the 
 
 ### Registrations Required
 
-- Register the regen hook in **both** `packages/cli/.../profiles.ts` AND
-  `plugin-config.mjs STANDARD_HOOKS` (the hook channel silently desyncs otherwise — no
-  test catches it).
+- Install the regen hook as **git hooks** via husky: a regen-and-restage block in
+  `.husky/pre-commit` (mirroring the existing plugin-artifact regen block) plus a new
+  `.husky/post-merge`. Both are thin wrappers over `harness roadmap regen`.
+  **Do NOT** register it in `packages/cli/.../profiles.ts` / `plugin-config.mjs
+STANDARD_HOOKS`: those register Claude Code **tool-use** hooks
+  (`PreToolUse`/`PostToolUse`/`PreCompact`/`Stop`) that install `.harness/hooks/*.js` and
+  fire on agent tool calls — they cannot model `git commit` / `git merge`, never fire for
+  human commits, and cannot satisfy the post-merge requirement. A registry entry would be
+  a non-functional agent hook that reintroduces the dual-registration desync hazard for no
+  benefit. (Decision C1, Phase 3; documenting comments live in the `.husky/*` hooks.)
+  Adopter-facing git-hook installation (`harness init` scaffolding these hooks into
+  adopter repos) is deferred to Phase 6 rollout — `harness init` installs no git hooks
+  today.
 - `.gitattributes`: add `docs/roadmap.md merge=ours`.
 - `harness init`: run `git config merge.ours.driver true` (already required today for
   baseline files; make it explicit).
@@ -265,9 +275,11 @@ new modules; no existing call sites change yet.
 
 <!-- complexity: medium -->
 
-Pre-commit + post-merge regen hook (registered in **both** `profiles.ts` and
-`plugin-config.mjs STANDARD_HOOKS`), `.gitattributes merge=ours`, `init` git-config, and
-the read-source invariant check (R).
+Pre-commit + post-merge regen hook installed as **husky git hooks** (`.husky/pre-commit`
+regen-and-restage block + new `.husky/post-merge`), NOT as agent tool-use hooks in
+`profiles.ts` / `STANDARD_HOOKS` — git events cannot be modeled by those registries (C1).
+Plus `.gitattributes merge=ours`, `init` git-config of `merge.ours.driver`, a `harness
+validate` doctor warning for existing clones, and the read-source invariant check (R).
 
 ### Phase 4: Wire writers through the store
 
