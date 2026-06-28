@@ -64,8 +64,10 @@ export async function runRoadmapShard(
   const force = Boolean(opts.force);
   const format: 'human' | 'json' = opts.format === 'json' ? 'json' : 'human';
   const assertRoundTrip = opts.assertRoundTrip ?? assertSemanticRoundTrip;
-  const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
-  const shardDir = path.join(cwd, 'docs', 'roadmap.d');
+  // Normalize to '/' so all IO paths are OS-stable (the injected-IO contract +
+  // tests expect '/'; Node fs accepts '/' on Windows).
+  const roadmapPath = path.join(cwd, 'docs', 'roadmap.md').replaceAll('\\', '/');
+  const shardDir = path.join(cwd, 'docs', 'roadmap.d').replaceAll('\\', '/');
 
   if (!(await io.exists(roadmapPath))) {
     return Err(new CLIError('docs/roadmap.md not found', ExitCode.ERROR));
@@ -122,10 +124,12 @@ export async function runRoadmapShard(
     }
 
     await io.mkdirp(shardDir);
+    // Use '/' templates (not path.join, which re-introduces '\' on Windows) so the
+    // shard IO paths stay OS-stable and match the regenerator's readShardDir joins.
     for (const shard of shards) {
-      await io.writeFile(path.join(shardDir, `${shard.slug}.md`), serializeShard(shard));
+      await io.writeFile(`${shardDir}/${shard.slug}.md`, serializeShard(shard));
     }
-    await io.writeFile(path.join(shardDir, '_meta.md'), serializeMeta(meta));
+    await io.writeFile(`${shardDir}/_meta.md`, serializeMeta(meta));
 
     // H2: re-assert the round-trip against the bytes ON DISK before overwriting
     // the monolith. The in-memory assert never exercised serializeShard/parseShard

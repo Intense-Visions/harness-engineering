@@ -75,8 +75,10 @@ let roadmapPath: string;
 
 beforeEach(() => {
   cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-shard-'));
-  shardDir = path.join(cwd, 'docs', 'roadmap.d');
-  roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
+  // Normalize to '/': runRoadmapShard emits '/'-delimited IO paths on every OS, so
+  // the injected-io `endsWith('/...')` / `=== roadmapPath` mocks below must match.
+  shardDir = path.join(cwd, 'docs', 'roadmap.d').replaceAll('\\', '/');
+  roadmapPath = path.join(cwd, 'docs', 'roadmap.md').replaceAll('\\', '/');
   fs.mkdirSync(path.join(cwd, 'docs'), { recursive: true });
   fs.writeFileSync(roadmapPath, ROADMAP_MD);
 });
