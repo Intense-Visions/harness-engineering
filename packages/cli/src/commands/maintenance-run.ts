@@ -35,6 +35,37 @@ const execFileAsync = promisify(execFile);
 const FINDINGS_RE = /(\d+)\s+(?:finding|issue|violation|error)/i;
 
 /**
+ * Generous stdout/stderr capture ceiling for spawned check subcommands. The
+ * Node default (1 MB) is far too small for verbose checks — `harness cleanup`
+ * on a large repo emits ~8 MB — and an exceeded buffer makes `execFile` reject
+ * with EMPTY stdout/stderr, which the runner would otherwise misread as a
+ * check that produced no output (a false execution failure). 64 MB leaves ample
+ * headroom while still bounding memory.
+ */
+const CHECK_MAX_BUFFER = 64 * 1024 * 1024;
+
+/**
+ * Per-check wall-clock budget. Raised from the original 120 s because heavy
+ * whole-repo checks legitimately need longer on large monorepos — `harness
+ * cleanup` (all entropy types) takes ~165 s here — and a too-tight timeout
+ * SIGTERMs the child, yielding empty output that the runner can only read as a
+ * (false) execution failure. 300 s keeps a bound while letting real checks
+ * finish. Shared with the cron orchestrator (orchestrator.ts) for parity.
+ */
+const CHECK_TIMEOUT_MS = 300_000;
+
+/** Best-effort detection of a child killed by the `execFile` timeout (SIGTERM /
+ * ETIMEDOUT / killed flag) so the runner can emit a diagnosable "timed out"
+ * message instead of an empty, inscrutable failure. */
+function isTimeoutError(e: {
+  killed?: boolean;
+  signal?: string | null;
+  code?: string | number | null;
+}): boolean {
+  return e.killed === true || e.signal === 'SIGTERM' || e.code === 'ETIMEDOUT';
+}
+
+/**
  * Resolve a maintenance `checkCommand` into a runnable child-process spawn.
  *
  * Built-in checkCommands are harness SUBCOMMAND argv (e.g. `['check-arch']`,
@@ -73,15 +104,30 @@ export function createCheckRunner(
         return { passed: true, findings: 0, output: '', executionFailed: false };
       const { file, args } = resolveHarnessSpawn(command, harnessEntry);
       try {
-        const { stdout } = await execFileAsync(file, args, { cwd, timeout: 120_000 });
+        const { stdout } = await execFileAsync(file, args, {
+          cwd,
+          timeout: CHECK_TIMEOUT_MS,
+          maxBuffer: CHECK_MAX_BUFFER,
+        });
         // Parse-miss on a clean (exit 0) run defaults to 0 findings — a check
         // that ran and said nothing is clean, not "1 finding".
         const m = stdout.match(FINDINGS_RE);
         const findings = m ? parseInt(m[1]!, 10) : 0;
         return { passed: findings === 0, findings, output: stdout, executionFailed: false };
       } catch (err) {
-        const e = err as { stdout?: string; stderr?: string };
-        const output = [e.stdout, e.stderr].filter(Boolean).join('\n');
+        const e = err as {
+          stdout?: string;
+          stderr?: string;
+          killed?: boolean;
+          signal?: string | null;
+          code?: string | number | null;
+        };
+        let output = [e.stdout, e.stderr].filter(Boolean).join('\n');
+        // A timeout SIGTERMs the child before it can flush — surface a clear,
+        // diagnosable reason instead of an empty "failed to execute".
+        if (!output.trim() && isTimeoutError(e)) {
+          output = `check timed out after ${CHECK_TIMEOUT_MS}ms`;
+        }
         const m = output.match(FINDINGS_RE);
         if (m) {
           // Non-zero exit WITH a parseable count: the check ran and found
@@ -107,7 +153,11 @@ export function createCommandExecutor(
     exec: async (command, cwd) => {
       if (command.length === 0) return { stdout: '' };
       const { file, args } = resolveHarnessSpawn(command, harnessEntry);
-      const { stdout } = await execFileAsync(file, args, { cwd, timeout: 120_000 });
+      const { stdout } = await execFileAsync(file, args, {
+        cwd,
+        timeout: CHECK_TIMEOUT_MS,
+        maxBuffer: CHECK_MAX_BUFFER,
+      });
       return { stdout: String(stdout) };
     },
   };

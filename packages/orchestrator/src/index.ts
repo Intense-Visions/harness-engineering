@@ -75,7 +75,12 @@ export type { TaskSelectionFilter } from './maintenance/overdue';
 // The CLI builds an infra-free TaskRunner (report mode), reads/records history
 // via MaintenanceReporter, and runs custom `checkScript` tasks via CheckScriptRunner,
 // all without booting an orchestrator/gateway/ClaimManager.
-export { TaskRunner } from './maintenance/task-runner';
+export {
+  TaskRunner,
+  classifyCheckExecutionFailure,
+  recoverFindingsCount,
+  explicitFindingsCount,
+} from './maintenance/task-runner';
 export type {
   TaskRunnerOptions,
   CheckCommandRunner,
@@ -85,6 +90,8 @@ export type {
   CommandExecutor,
   CommandExecResult,
   PRLifecycleManager,
+  CheckFailureKind,
+  CheckFailureClassification,
 } from './maintenance/task-runner';
 export type { RunResult } from './maintenance/types';
 export { MaintenanceReporter } from './maintenance/reporter';

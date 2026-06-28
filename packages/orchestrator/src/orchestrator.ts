@@ -115,6 +115,25 @@ export function normalizeHarnessCommand(command: string[]): string[] {
 }
 
 /**
+ * Generous stdout/stderr capture ceiling for spawned maintenance checks. The
+ * Node `execFile` default (1 MB) is far too small for verbose checks — e.g.
+ * `harness cleanup` on a large repo emits ~8 MB — and an exceeded buffer
+ * rejects with EMPTY stdout/stderr, which the runner would misread as a check
+ * that produced no output (a false execution failure). Mirrors the CLI's
+ * on-demand runner (maintenance-run.ts) so cron and CLI behave identically.
+ */
+const MAINTENANCE_CHECK_MAX_BUFFER = 64 * 1024 * 1024;
+
+/**
+ * Per-check wall-clock budget for cron maintenance checks. Raised from the
+ * original 120 s: heavy whole-repo checks (e.g. `harness cleanup` over all
+ * entropy types) legitimately need longer on large monorepos, and a too-tight
+ * timeout SIGTERMs the child before it flushes, yielding empty output read as a
+ * false execution failure. Mirrors the CLI on-demand runner (maintenance-run.ts).
+ */
+const MAINTENANCE_CHECK_TIMEOUT_MS = 300_000;
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -692,14 +711,32 @@ export class Orchestrator extends EventEmitter {
         if (!cmd) return { passed: true, findings: 0, output: '', executionFailed: false };
 
         try {
-          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          const { stdout } = await execFileAsync(cmd, args, {
+            cwd,
+            timeout: MAINTENANCE_CHECK_TIMEOUT_MS,
+            maxBuffer: MAINTENANCE_CHECK_MAX_BUFFER,
+          });
           // Try to extract a findings count from the output (common patterns: "N findings", "N issues")
           const findingsMatch = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
           const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 0;
           return { passed: findings === 0, findings, output: stdout, executionFailed: false };
         } catch (err) {
-          const error = err as { stdout?: string; stderr?: string; code?: number };
-          const output = [error.stdout, error.stderr].filter(Boolean).join('\n');
+          const error = err as {
+            stdout?: string;
+            stderr?: string;
+            code?: string | number | null;
+            killed?: boolean;
+            signal?: string | null;
+          };
+          let output = [error.stdout, error.stderr].filter(Boolean).join('\n');
+          // A timeout SIGTERMs the child before it can flush — surface a clear
+          // reason instead of an empty, inscrutable failure.
+          if (
+            !output.trim() &&
+            (error.killed === true || error.signal === 'SIGTERM' || error.code === 'ETIMEDOUT')
+          ) {
+            output = `check timed out after ${MAINTENANCE_CHECK_TIMEOUT_MS}ms`;
+          }
           const findingsMatch = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
           if (findingsMatch) {
             // The check ran and reported a count on a non-zero exit (e.g.
@@ -749,7 +786,11 @@ export class Orchestrator extends EventEmitter {
         if (!cmd) return { stdout: '' };
 
         try {
-          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          const { stdout } = await execFileAsync(cmd, args, {
+            cwd,
+            timeout: MAINTENANCE_CHECK_TIMEOUT_MS,
+            maxBuffer: MAINTENANCE_CHECK_MAX_BUFFER,
+          });
           return { stdout: String(stdout) };
         } catch (err) {
           logger.warn('Maintenance command execution failed', {
