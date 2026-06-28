@@ -23,5 +23,6 @@ export { MonolithStore, slugifyFeatureName } from './monolith-store';
 export type { FileIO, MonolithStoreOptions } from './monolith-store';
 export { ShardStore, readShardDir } from './shard-store';
 export type { ShardIO } from './shard-store';
+export { createNodeRoadmapIO } from './node-io';
 export { regenerate, writeRegeneratedRoadmap } from './regenerator';
 export { roadmapToShards, assertSemanticRoundTrip, assertRegeneratedRoundTrip } from './migration';
