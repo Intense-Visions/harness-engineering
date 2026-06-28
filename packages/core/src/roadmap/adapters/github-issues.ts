@@ -25,7 +25,7 @@ export function parseExternalId(
 /**
  * Build the externalId string from parts.
  */
-function buildExternalId(owner: string, repo: string, number: number): string {
+export function buildExternalId(owner: string, repo: string, number: number): string {
   return `github:${owner}/${repo}#${number}`;
 }
 

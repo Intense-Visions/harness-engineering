@@ -54,6 +54,13 @@ export { STATUS_RANK, isRegression } from './status-rank';
 export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
 
 /**
+ * External-ID (`github:owner/repo#NNN`) parse/build helpers, reused by the
+ * auto-done reconciler edges to map issue numbers ↔ roadmap rows without
+ * format drift.
+ */
+export { parseExternalId, buildExternalId } from './adapters/github-issues';
+
+/**
  * Shared tracker config loader for harness.config.json.
  */
 export { loadTrackerSyncConfig } from './tracker-config';
