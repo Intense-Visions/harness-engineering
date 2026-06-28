@@ -10,7 +10,7 @@
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as fs from 'node:fs';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
   TaskRunner,
@@ -19,6 +19,8 @@ import {
   CheckScriptRunner,
   selectTasks,
   runHarnessCheck,
+  createAgentDispatcher,
+  createBackend,
   MAINTENANCE_CHECK_MAX_BUFFER,
   MAINTENANCE_CHECK_TIMEOUT_MS,
   type CheckCommandRunner,
@@ -29,11 +31,29 @@ import {
   type TaskDefinition,
   type TaskSelectionFilter,
 } from '@harness-engineering/orchestrator';
-import type { MaintenanceConfig } from '@harness-engineering/types';
+import type { AgentBackend, BackendDef, MaintenanceConfig } from '@harness-engineering/types';
 import { mapWithConcurrency } from '../utils/concurrency';
-import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config';
+import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config';
+import { logger } from '../output/logger';
 
 const execFileAsync = promisify(execFile);
+
+/** Maintenance task → AI backend resolver. Mirrors the cron orchestrator's
+ * `resolveBackend` (orchestrator.ts createMaintenanceTaskRunner): map a backend
+ * NAME to a live {@link AgentBackend} via `createBackend`, or `null` when the
+ * name is not in the loaded `agent.backends`. `null` makes the real dispatcher
+ * no-op honestly instead of throwing. */
+export type ResolveBackend = (backendName: string) => AgentBackend | null;
+
+/** Build a {@link ResolveBackend} from a loaded `agent.backends` map. A `null`
+ * or empty map yields a resolver that always returns `null` (nothing
+ * configured) — the graceful-degradation case for a plain checkout. */
+export function makeResolveBackend(backends: Record<string, BackendDef> | null): ResolveBackend {
+  return (backendName: string) => {
+    const def = backends?.[backendName];
+    return def ? createBackend(def) : null;
+  };
+}
 
 /**
  * Resolve a maintenance `checkCommand` into a runnable child-process spawn.
@@ -108,19 +128,48 @@ function reportDispatcher(): AgentDispatcher {
   };
 }
 
-/** Fix-mode dispatcher: parity with the orchestrator's STUB (orchestrator.ts:686).
- * Real fix-agent dispatch does not exist anywhere in the repo yet (D-P3-1). */
-function fixStubDispatcher(): AgentDispatcher {
-  return { dispatch: async () => ({ producedCommits: false, fixed: 0 }) };
+/** Real git seam for the fix dispatcher: `git <args>` in `cwd`, trimmed stdout.
+ * Mirrors the orchestrator's seam (orchestrator.ts createMaintenanceTaskRunner). */
+function realGit(args: string[], cwd: string): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf-8' }).toString().trim();
+}
+
+/**
+ * Fix-mode dispatcher: the REAL maintenance agent dispatcher (#679), the same
+ * one the cron orchestrator uses. Resolves the task's backend via
+ * {@link ResolveBackend}, drives an AgentRunner session in the worktree, and
+ * measures `fixed` by diffing git HEAD before/after.
+ *
+ * Graceful degradation is inherited from the dispatcher: when `resolveBackend`
+ * returns `null` (no backend configured for that task) it logs a warning and
+ * returns `{ producedCommits: false, fixed: 0 }` — it never throws and never
+ * fabricates a result. There is NO prManager and NO PR: the agent commits to the
+ * worktree directly, so `prUrl` stays null (we do not claim a PR).
+ */
+export function createFixDispatcher(
+  resolveBackend: ResolveBackend,
+  git: (args: string[], cwd: string) => string = realGit
+): AgentDispatcher {
+  return createAgentDispatcher({
+    resolveBackend,
+    git,
+    logger: {
+      info: (message: string) => logger.info(message),
+      warn: (message: string) => logger.warn(message),
+    },
+  });
 }
 
 /** Construct a TaskRunner with no orchestrator/gateway/ClaimManager.
- * No prManager is wired in either mode → no git mutation, no PRs (D-P3-1). */
+ * No prManager is wired in either mode → no PRs. In fix mode the agent
+ * dispatches for real and commits to the worktree; `resolveBackend` maps each
+ * task's backend name to a live backend (or `null` → honest no-op). */
 export function buildTaskRunner(
   cwd: string,
   config: MaintenanceConfig,
   mode: RunMode,
-  harnessEntry?: string
+  harnessEntry?: string,
+  resolveBackend: ResolveBackend = () => null
 ): TaskRunner {
   const outputStore = new TaskOutputStore({
     rootDir: path.join(cwd, '.harness', 'maintenance'),
@@ -129,7 +178,7 @@ export function buildTaskRunner(
     config,
     checkRunner: createCheckRunner(harnessEntry),
     commandExecutor: createCommandExecutor(harnessEntry),
-    agentDispatcher: mode === 'report' ? reportDispatcher() : fixStubDispatcher(),
+    agentDispatcher: mode === 'report' ? reportDispatcher() : createFixDispatcher(resolveBackend),
     cwd,
     checkScriptRunner: new CheckScriptRunner(cwd),
     outputStore,
@@ -350,6 +399,11 @@ export interface MaintenanceRunDeps {
    *  integration tests can point at a controlled fake harness binary. */
   harnessEntry?: string;
   record?: (cwd: string, results: RunResult[]) => Promise<void>;
+  /** Load the `agent.backends` map the `--fix` dispatcher resolves against
+   *  (default: read `harness.orchestrator.md` via `loadAgentBackends`). Returns
+   *  `null` when no backend is configured. Injectable so tests can supply a
+   *  resolvable (mock) backend or assert the no-backend degradation path. */
+  loadBackends?: (cwd: string) => Promise<Record<string, BackendDef> | null>;
   /** stdout sink (table / --json). Default: console.log. */
   log?: (line: string) => void;
   /** stderr sink (warnings / errors). Default: console.error. Kept separate so
@@ -362,8 +416,13 @@ export interface MaintenanceRunResult {
   report: ConsolidatedReport | null;
 }
 
-const STUB_FIX_WARNING =
-  '--fix: AI fix-agent dispatch is not yet wired (executor dispatcher is a stub repo-wide); checks ran, no PRs were opened.';
+/** Honest degradation notice emitted when `--fix` runs but no agent backend is
+ * configured for the default maintenance backend. Dispatch is skipped (the real
+ * dispatcher no-ops a null backend), so nothing was fixed — say so plainly
+ * rather than implying a "stub" or pretending work happened. */
+const NO_BACKEND_FIX_WARNING =
+  '--fix: no agent backend configured for maintenance dispatch — dispatch was skipped and nothing was fixed. ' +
+  'Configure agent.backends in harness.orchestrator.md (and maintenance.aiBackend), or run maintenance via the orchestrator.';
 
 async function defaultRecord(cwd: string, results: RunResult[]): Promise<void> {
   const reporter = new MaintenanceReporter({
@@ -424,7 +483,20 @@ export async function runMaintenanceRun(
   }
 
   const mode: RunMode = opts.fix ? 'fix' : 'report';
-  if (opts.fix) logErr(STUB_FIX_WARNING);
+
+  // Wire the REAL fix dispatcher (#679): resolve `agent.backends` the same way
+  // the cron orchestrator does. When the default maintenance backend cannot be
+  // resolved (plain checkout, no agent.backends) we still build the dispatcher —
+  // its null-backend branch no-ops honestly — but surface a clear notice so the
+  // human knows nothing was dispatched. Report mode never touches backends.
+  let resolveBackend: ResolveBackend = () => null;
+  if (opts.fix) {
+    const backends = await (deps.loadBackends ?? loadAgentBackends)(cwd);
+    resolveBackend = makeResolveBackend(backends);
+    const defaultBackendName = config?.aiBackend ?? 'local';
+    const fixBackendConfigured = backends?.[defaultBackendName] !== undefined;
+    if (!fixBackendConfigured) logErr(NO_BACKEND_FIX_WARNING);
+  }
 
   const history = await (deps.loadHistory ?? loadRunHistory)(cwd);
 
@@ -471,7 +543,7 @@ export async function runMaintenanceRun(
   const makeRunner =
     deps.makeRunner ??
     ((c: string, cfg: MaintenanceConfig, m: RunMode) =>
-      buildTaskRunner(c, cfg, m, deps.harnessEntry));
+      buildTaskRunner(c, cfg, m, deps.harnessEntry, resolveBackend));
   const runner = makeRunner(cwd, config ?? ({} as MaintenanceConfig), mode);
 
   const settled = await mapWithConcurrency(selected, concurrency, (t) =>

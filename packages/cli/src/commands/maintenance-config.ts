@@ -10,9 +10,15 @@ import * as fs from 'node:fs';
 import {
   BUILT_IN_TASKS,
   WorkflowLoader,
+  migrateAgentConfig,
   type TaskDefinition,
 } from '@harness-engineering/orchestrator';
-import type { CustomTaskDefinition, MaintenanceConfig } from '@harness-engineering/types';
+import type {
+  AgentConfig,
+  BackendDef,
+  CustomTaskDefinition,
+  MaintenanceConfig,
+} from '@harness-engineering/types';
 import { logger } from '../output/logger';
 
 export async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceConfig | null> {
@@ -24,6 +30,40 @@ export async function loadMaintenanceConfig(cwd: string): Promise<MaintenanceCon
   // Spec B Phase 2 / S3: surface non-blocking routing warnings at startup.
   for (const w of result.value.warnings) logger.warn(w);
   return (result.value.config as { maintenance?: MaintenanceConfig }).maintenance ?? null;
+}
+
+/**
+ * Load the named `agent.backends` map the on-demand `--fix` dispatcher resolves
+ * against, mirroring how the cron orchestrator gets `this.getBackends()`.
+ *
+ * Reads the SAME `harness.orchestrator.md` the orchestrator boots from, then
+ * applies `migrateAgentConfig` so legacy single-backend configs synthesize a
+ * `backends` map exactly as the Orchestrator constructor does — without
+ * constructing a full Orchestrator. Returns `null` when there is no orchestrator
+ * config, the config fails to load, or no backends can be resolved (the common
+ * plain-checkout case), so the CLI can degrade gracefully and honestly rather
+ * than crash or pretend it dispatched.
+ */
+export async function loadAgentBackends(cwd: string): Promise<Record<string, BackendDef> | null> {
+  const workflowPath = path.join(cwd, 'harness.orchestrator.md');
+  if (!fs.existsSync(workflowPath)) return null;
+  const loader = new WorkflowLoader();
+  const result = await loader.loadWorkflow(workflowPath);
+  if (!result.ok) return null;
+  const agent = (result.value.config as { agent?: AgentConfig }).agent;
+  if (!agent) return null;
+  // Already-modern configs carry `agent.backends` directly. Legacy single-backend
+  // configs synthesize it via migrateAgentConfig (no-op when backends are set).
+  // Swallow synthesis errors the same way the Orchestrator constructor does and
+  // fall back to whatever `backends` is already present (possibly none).
+  try {
+    const migrated = migrateAgentConfig(agent);
+    const backends = migrated.config.backends ?? agent.backends ?? null;
+    return backends && Object.keys(backends).length > 0 ? backends : null;
+  } catch {
+    const backends = agent.backends ?? null;
+    return backends && Object.keys(backends).length > 0 ? backends : null;
+  }
 }
 
 export function mergeResolvedTasks(config: MaintenanceConfig | null): TaskDefinition[] {

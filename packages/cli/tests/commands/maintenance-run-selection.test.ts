@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -11,8 +11,11 @@ import {
   aggregateReport,
   renderTable,
   runMaintenanceRun,
+  createFixDispatcher,
+  makeResolveBackend,
   type MaintenanceRunDeps,
 } from '../../src/commands/maintenance-run';
+import { MockBackend } from '@harness-engineering/orchestrator';
 import type { TaskDefinition, RunResult, RunMode } from '@harness-engineering/orchestrator';
 
 function tmp(): string {
@@ -61,6 +64,43 @@ describe('buildTaskRunner', () => {
     // by reaching into the constructed deps is not possible, so we assert the
     // runner type instead and rely on integration test (Task 8) for behavior.
     expect(typeof runner.run).toBe('function');
+  });
+});
+
+describe('makeResolveBackend', () => {
+  it('returns null for every name when the backend map is null (plain checkout)', () => {
+    const resolve = makeResolveBackend(null);
+    expect(resolve('local')).toBeNull();
+    expect(resolve('primary')).toBeNull();
+  });
+
+  it('builds a live backend for a configured name and null for an unknown one', () => {
+    const resolve = makeResolveBackend({ local: { type: 'mock' } });
+    expect(resolve('local')).not.toBeNull();
+    expect(resolve('nope')).toBeNull();
+  });
+});
+
+describe('createFixDispatcher (real dispatch, #679)', () => {
+  it('dispatches via the resolved backend and reports the real commit count', async () => {
+    // Fake git seam: HEAD advances during the (mock) session → 3 commits.
+    const revParse = ['sha-before', 'sha-after'];
+    const git = vi.fn((args: string[]) => {
+      if (args[0] === 'rev-parse') return revParse.shift()!;
+      if (args[0] === 'rev-list') return '3';
+      return '';
+    });
+    const dispatcher = createFixDispatcher(() => new MockBackend(), git);
+    const result = await dispatcher.dispatch('harness-dead-code-fix', 'main', 'local', '/repo');
+    expect(result).toEqual({ producedCommits: true, fixed: 3 });
+  });
+
+  it('no-ops honestly (fixed 0, no git, no throw) when the backend is unresolvable', async () => {
+    const git = vi.fn();
+    const dispatcher = createFixDispatcher(() => null, git);
+    const result = await dispatcher.dispatch('harness-dead-code-fix', 'main', 'local', '/repo');
+    expect(result).toEqual({ producedCommits: false, fixed: 0 });
+    expect(git).not.toHaveBeenCalled();
   });
 });
 
@@ -369,7 +409,7 @@ describe('runMaintenanceRun (fake deps, no real exec)', () => {
     expect(res.exitCode).toBe(2);
   });
 
-  it('--fix threads mode=fix to the runner, forces concurrency 1, and logs the stub warning', async () => {
+  it('--fix (no backend configured) threads mode=fix, forces concurrency 1, and logs the honest no-backend notice', async () => {
     const dir = tmp();
     const calls: RunCall[] = [];
     const errLines: string[] = [];
@@ -384,9 +424,57 @@ describe('runMaintenanceRun (fake deps, no real exec)', () => {
     );
     expect(calls.every((c) => c.mode === 'fix')).toBe(true);
     expect(f.peak()).toBe(1); // --fix forces sequential execution regardless of --concurrency
-    expect(errLines.join('\n')).toMatch(/fix-agent dispatch is not yet wired/i);
+    // No backend resolvable in a bare temp dir → honest skip notice (NOT "stub").
+    expect(errLines.join('\n')).toMatch(/no agent backend configured/i);
+    expect(errLines.join('\n')).not.toMatch(/stub/i);
     // The explicit --concurrency 8 was overridden by fix-mode → one-line warning.
     expect(errLines.join('\n')).toMatch(/--concurrency 8 ignored: --fix runs sequentially/i);
+  });
+
+  it('--fix with a resolvable backend does NOT emit the no-backend notice', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    await runMaintenanceRun(
+      dir,
+      { all: true, fix: true },
+      deps(
+        {
+          makeRunner: f.makeRunner,
+          logErr: (l) => errLines.push(l),
+          // default maintenance backend name is 'local' (aiBackend ?? 'local')
+          loadBackends: async () => ({ local: { type: 'mock' } }),
+        },
+        [task('doc-drift')]
+      )
+    );
+    expect(calls.every((c) => c.mode === 'fix')).toBe(true);
+    expect(errLines.join('\n')).not.toMatch(/no agent backend configured/i);
+  });
+
+  it('--fix with a backend map that lacks the default backend still warns honestly', async () => {
+    const dir = tmp();
+    const calls: RunCall[] = [];
+    const errLines: string[] = [];
+    const f = fakeRunner(calls);
+    const res = await runMaintenanceRun(
+      dir,
+      { all: true, fix: true },
+      deps(
+        {
+          makeRunner: f.makeRunner,
+          logErr: (l) => errLines.push(l),
+          // 'primary' is configured but the default maintenance backend ('local') is not.
+          loadBackends: async () => ({ primary: { type: 'mock' } }),
+        },
+        [task('doc-drift')]
+      )
+    );
+    expect(errLines.join('\n')).toMatch(/no agent backend configured/i);
+    expect(res.report?.fix).toBe(true);
+    // Fake runner reports fixed:0 — the honest no-fix outcome is preserved.
+    expect(res.report?.tasks.every((t) => t.fixed === 0)).toBe(true);
   });
 
   it('--fix without an explicit --concurrency does NOT emit the override warning', async () => {
