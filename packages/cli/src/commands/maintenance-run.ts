@@ -32,34 +32,82 @@ import { loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 
 const execFileAsync = promisify(execFile);
 
+const FINDINGS_RE = /(\d+)\s+(?:finding|issue|violation|error)/i;
+
+/**
+ * Resolve a maintenance `checkCommand` into a runnable child-process spawn.
+ *
+ * Built-in checkCommands are harness SUBCOMMAND argv (e.g. `['check-arch']`,
+ * `['graph','scan']`); `main-sync` carries an explicit leading `'harness'`
+ * literal. Either way the command must run THROUGH the harness binary — a bare
+ * `check-arch` is not an executable on PATH and ENOENTs. We reuse the very
+ * binary this CLI is executing as (`process.execPath` + this CLI's entry
+ * script), so the subcommand actually runs and reports real numbers. The
+ * leading `'harness'` literal is stripped to avoid double-prefixing.
+ */
+export function resolveHarnessSpawn(
+  command: string[],
+  harnessEntry: string
+): { file: string; args: string[] } {
+  const sub = command[0] === 'harness' ? command.slice(1) : command;
+  return { file: process.execPath, args: [harnessEntry, ...sub] };
+}
+
+/** Resolve the harness entry script this CLI is running as (the bin the
+ * subcommand checks should be invoked through). `process.argv[1]` is
+ * `…/dist/bin/harness.js` under the real binary; tests inject a fake entry. */
+function defaultHarnessEntry(): string {
+  return process.argv[1] ?? '';
+}
+
 /** Real check runner — pure child_process, no orchestrator infra. Mirrors
- * Orchestrator.createMaintenanceTaskRunner's checkRunner (orchestrator.ts:662). */
-function createCheckRunner(): CheckCommandRunner {
+ * Orchestrator.createMaintenanceTaskRunner's checkRunner (orchestrator.ts) but
+ * resolves checkCommands through the harness binary so they actually execute.
+ * @param harnessEntry entry script to invoke subcommands through (injectable). */
+export function createCheckRunner(
+  harnessEntry: string = defaultHarnessEntry()
+): CheckCommandRunner {
   return {
     run: async (command, cwd) => {
-      const [cmd, ...args] = command;
-      if (!cmd) return { passed: true, findings: 0, output: '' };
+      if (command.length === 0)
+        return { passed: true, findings: 0, output: '', executionFailed: false };
+      const { file, args } = resolveHarnessSpawn(command, harnessEntry);
       try {
-        const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
-        const m = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
+        const { stdout } = await execFileAsync(file, args, { cwd, timeout: 120_000 });
+        // Parse-miss on a clean (exit 0) run defaults to 0 findings — a check
+        // that ran and said nothing is clean, not "1 finding".
+        const m = stdout.match(FINDINGS_RE);
         const findings = m ? parseInt(m[1]!, 10) : 0;
-        return { passed: findings === 0, findings, output: stdout };
+        return { passed: findings === 0, findings, output: stdout, executionFailed: false };
       } catch (err) {
         const e = err as { stdout?: string; stderr?: string };
         const output = [e.stdout, e.stderr].filter(Boolean).join('\n');
-        const m = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-        return { passed: false, findings: m ? parseInt(m[1]!, 10) : 1, output };
+        const m = output.match(FINDINGS_RE);
+        if (m) {
+          // Non-zero exit WITH a parseable count: the check ran and found
+          // issues (e.g. `check-arch` exits 1 with "45 issues"). Real finding.
+          return { passed: false, findings: parseInt(m[1]!, 10), output, executionFailed: false };
+        }
+        // Non-zero exit / spawn error with NO parseable count: the check could
+        // not produce a usable result (ENOENT, unknown subcommand, crash).
+        // Flag executionFailed so the runner reports failure (ADR 0050) and
+        // default findings to 0 — a broken check is not "1 finding".
+        return { passed: false, findings: 0, output, executionFailed: true };
       }
     },
   };
 }
 
-function createCommandExecutor(): CommandExecutor {
+/** Real housekeeping command executor — resolves harness subcommands through
+ * the harness binary (parity with createCheckRunner / the orchestrator). */
+export function createCommandExecutor(
+  harnessEntry: string = defaultHarnessEntry()
+): CommandExecutor {
   return {
     exec: async (command, cwd) => {
-      const [cmd, ...args] = command;
-      if (!cmd) return { stdout: '' };
-      const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+      if (command.length === 0) return { stdout: '' };
+      const { file, args } = resolveHarnessSpawn(command, harnessEntry);
+      const { stdout } = await execFileAsync(file, args, { cwd, timeout: 120_000 });
       return { stdout: String(stdout) };
     },
   };
@@ -83,14 +131,19 @@ function fixStubDispatcher(): AgentDispatcher {
 
 /** Construct a TaskRunner with no orchestrator/gateway/ClaimManager.
  * No prManager is wired in either mode → no git mutation, no PRs (D-P3-1). */
-export function buildTaskRunner(cwd: string, config: MaintenanceConfig, mode: RunMode): TaskRunner {
+export function buildTaskRunner(
+  cwd: string,
+  config: MaintenanceConfig,
+  mode: RunMode,
+  harnessEntry?: string
+): TaskRunner {
   const outputStore = new TaskOutputStore({
     rootDir: path.join(cwd, '.harness', 'maintenance'),
   });
   return new TaskRunner({
     config,
-    checkRunner: createCheckRunner(),
-    commandExecutor: createCommandExecutor(),
+    checkRunner: createCheckRunner(harnessEntry),
+    commandExecutor: createCommandExecutor(harnessEntry),
     agentDispatcher: mode === 'report' ? reportDispatcher() : fixStubDispatcher(),
     cwd,
     checkScriptRunner: new CheckScriptRunner(cwd),
@@ -307,6 +360,10 @@ export interface MaintenanceRunDeps {
   loadTasks?: (cwd: string) => Promise<TaskDefinition[]>;
   loadHistory?: (cwd: string) => Promise<RunResult[]>;
   makeRunner?: (cwd: string, config: MaintenanceConfig, mode: RunMode) => TaskRunner;
+  /** Harness entry script that checkCommand subcommands are invoked through.
+   *  Defaults to the running CLI's own entry (`process.argv[1]`). Injectable so
+   *  integration tests can point at a controlled fake harness binary. */
+  harnessEntry?: string;
   record?: (cwd: string, results: RunResult[]) => Promise<void>;
   /** stdout sink (table / --json). Default: console.log. */
   log?: (line: string) => void;
@@ -411,11 +468,11 @@ export async function runMaintenanceRun(
 
   // Report checks parallelize under the cap; --fix forces sequential (D-P3-2).
   const concurrency = mode === 'fix' ? 1 : parseConcurrency(opts.concurrency);
-  const runner = (deps.makeRunner ?? buildTaskRunner)(
-    cwd,
-    config ?? ({} as MaintenanceConfig),
-    mode
-  );
+  const makeRunner =
+    deps.makeRunner ??
+    ((c: string, cfg: MaintenanceConfig, m: RunMode) =>
+      buildTaskRunner(c, cfg, m, deps.harnessEntry));
+  const runner = makeRunner(cwd, config ?? ({} as MaintenanceConfig), mode);
 
   const settled = await mapWithConcurrency(selected, concurrency, (t) =>
     runner.run(t, 'cli', mode)
