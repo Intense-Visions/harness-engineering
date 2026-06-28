@@ -14,8 +14,11 @@ const LOOKBACK_DAYS = 366;
 
 /**
  * Most recent cron fire at/before `now` (minute resolution), or `null` when no
- * fire exists within the {@link LOOKBACK_DAYS} window (e.g. the impossible
- * `0 0 31 2 *`, or a cadence longer than annual).
+ * fire exists within the {@link LOOKBACK_DAYS} window. `null` covers two cases:
+ *   - a date that no real calendar day satisfies — the impossible `0 0 31 2 *`
+ *     (Feb 31), AND quadrennial/Feb-29 schedules (`0 2 29 2 *`) evaluated in a
+ *     non-leap year, where no Feb 29 occurs inside the look-back window; and
+ *   - a cadence longer than annual, whose previous fire predates the window.
  *
  * Coarse-to-fine to stay performant: rather than scanning every minute across
  * the whole window (527k iterations/task for a year), it steps backward one
@@ -26,6 +29,25 @@ const LOOKBACK_DAYS = 366;
  * Days are walked by calendar component (`new Date(y, m, d - 1)`) so month/year
  * rollovers and DST day-length changes are handled by the platform. `now` is
  * injected — this never reads the wall clock.
+ *
+ * KNOWN LIMITATIONS — local-time DST edges (custom-task exposure only; no
+ * built-in/registry schedule restricts the fire-minute to a DST-sensitive slot,
+ * so none is affected). These are intentional and regression-pinned in
+ * overdue.test.ts ("DST edges — pinned current behavior"):
+ *
+ *   - Spring-forward GAP (under-selection): a once-per-period schedule whose
+ *     fire minute lands inside the skipped hour (e.g. `30 2 8 3 *` → 02:30 on a
+ *     US spring-forward day, which has no real instant) matches no minute on
+ *     that day. The scan keeps walking back and resolves to the PRIOR period's
+ *     fire (e.g. the same date one year earlier), under-reporting the true
+ *     cadence. Only sub-daily-resolution, rare-cadence custom crons can hit
+ *     this; a fire minute repeated daily/hourly fires on adjacent valid days.
+ *
+ *   - Fall-back DUPLICATE hour: when the fire minute falls in the hour that
+ *     repeats (e.g. `30 1 1 11 *` → 01:30 on a US fall-back day, which occurs
+ *     twice), the downward minute scan returns the SECOND (post-transition,
+ *     standard-time) occurrence — the first match encountered walking back from
+ *     `now`. The fire is real, so this is a tie-break choice, not a miss.
  */
 export function previousFireTime(schedule: string, now: Date): Date | null {
   // Local midnight of `now`'s day; the day-level cursor walks backward from here.
@@ -97,6 +119,11 @@ function isOverdue(task: TaskDefinition, history: RunResult[], now: Date): boole
  * - `all`:     every eligible task.
  * - `ids`:     the eligible subset named in `filter.ids` (a named excluded id
  *              is dropped, honoring "excluded tasks never run in either path").
+ *              `filter.ids` is treated as a SET membership test, not an ordered
+ *              request list: results preserve the input `tasks` array order, not
+ *              the order ids appear in `filter.ids`. Duplicate ids are collapsed
+ *              and a task is returned at most once. Callers that need request
+ *              order must reorder the result themselves.
  */
 export function selectTasks(
   tasks: TaskDefinition[],

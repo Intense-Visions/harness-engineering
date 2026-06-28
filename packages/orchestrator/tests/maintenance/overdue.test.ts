@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { previousFireTime, selectTasks } from '../../src/maintenance/overdue';
 import type { TaskDefinition, RunResult } from '../../src/maintenance/types';
 
@@ -119,6 +119,25 @@ describe('selectTasks', () => {
     ).toEqual(['beta']);
   });
 
+  it('ids preserves task-array order, not filter.ids request order (set semantics)', () => {
+    // Pins p2-006: `ids` is a membership filter over `tasks`, so the result
+    // follows the input task order regardless of how ids are ordered in the
+    // request. tasks = [alpha, beta, gamma]; ids requested gamma-first.
+    const gamma = task('gamma', '0 2 * * *');
+    const tasks = [daily, beta, gamma]; // alpha, beta, gamma
+    expect(
+      selectTasks(tasks, [], { mode: 'ids', ids: ['gamma', 'alpha'], now }).map((t) => t.id)
+    ).toEqual(['alpha', 'gamma']); // task order, NOT ['gamma', 'alpha']
+  });
+
+  it('ids collapses duplicate ids and returns each task at most once', () => {
+    const gamma = task('gamma', '0 2 * * *');
+    const tasks = [daily, beta, gamma];
+    expect(
+      selectTasks(tasks, [], { mode: 'ids', ids: ['beta', 'beta', 'alpha'], now }).map((t) => t.id)
+    ).toEqual(['alpha', 'beta']);
+  });
+
   it('selects a sweep-eligible never-run task as overdue even on an impossible cron (rule 1)', () => {
     // Rule 1: a never-run eligible task is overdue regardless of fire lookup —
     // here the fire is null (impossible Feb-31 cron) yet the task has never run.
@@ -192,5 +211,55 @@ describe('previousFireTime — long-cadence resolution', () => {
     // now = 2026-06-25; previous 0 2 1 1 * fire = Jan 1 02:00 (~175 days back).
     const fire = previousFireTime('0 2 1 1 *', new Date('2026-06-25T05:00:00'));
     expect(fire?.toISOString()).toBe(new Date('2026-01-01T02:00:00').toISOString());
+  });
+
+  it('returns null for a Feb-29 / quadrennial schedule in a non-leap year', () => {
+    // 0 2 29 2 * fires only on Feb 29. 2026 is not a leap year and no Feb 29
+    // falls inside the 366-day look-back from 2026-06-25, so no fire resolves —
+    // the same null path as the impossible Feb-31 cron (documented limitation).
+    expect(previousFireTime('0 2 29 2 *', new Date('2026-06-25T05:00:00'))).toBeNull();
+  });
+});
+
+// REGRESSION PINS — local-time DST edges in previousFireTime (p2-001/p2-005).
+//
+// previousFireTime walks calendar days and minute-scans with local-time Date
+// constructors, so behavior at DST transitions depends on the process timezone.
+// CI typically runs in UTC (no DST), which would hide these edges entirely.
+// We therefore PIN a DST-observing zone (America/New_York) for this block only,
+// setting process.env.TZ in beforeAll and restoring it in afterAll. Node 24's
+// V8 re-reads process.env.TZ on each Date op, so this is deterministic and
+// flake-free — no reliance on the host's real timezone. Assertions use absolute
+// UTC instants (toISOString) so they are unambiguous under the fixed zone.
+//
+// These tests pin CURRENT behavior; they are guards against silent change, not
+// assertions that the behavior is ideal. The documented limitation stands.
+describe('previousFireTime — DST edges (pinned current behavior, TZ=America/New_York)', () => {
+  const originalTZ = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    if (originalTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTZ;
+  });
+
+  it('spring-forward GAP under-selects to the prior period (30 2 8 3 *)', () => {
+    // 2026-03-08 is the US spring-forward day: 02:00→03:00 jumps, so the 02:30
+    // fire has no real instant. The scan finds no minute on 2026-03-08 and walks
+    // back to the SAME date one year earlier (2026 not-yet-fired → 2025-03-08
+    // 02:30 EST), a ~1-year under-selection. `now` = 2026-03-08 12:00 local.
+    const fire = previousFireTime('30 2 8 3 *', new Date(2026, 2, 8, 12, 0));
+    // 2025-03-08 02:30 EST (DST had not yet started in 2025) === 07:30 UTC.
+    expect(fire?.toISOString()).toBe('2025-03-08T07:30:00.000Z');
+  });
+
+  it('fall-back DUPLICATE hour resolves to the second (EST) occurrence (30 1 1 11 *)', () => {
+    // 2026-11-01 is the US fall-back day: 01:00–01:59 occurs twice (EDT then
+    // EST). The downward minute scan from noon hits the later/standard-time
+    // 01:30 EST first, so that instant is returned. `now` = 2026-11-01 12:00.
+    const fire = previousFireTime('30 1 1 11 *', new Date(2026, 10, 1, 12, 0));
+    // 01:30 EST === 06:30 UTC (the EDT duplicate would be 05:30 UTC).
+    expect(fire?.toISOString()).toBe('2026-11-01T06:30:00.000Z');
   });
 });
