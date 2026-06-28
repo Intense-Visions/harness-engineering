@@ -53,7 +53,6 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/core/src/validation/roadmap-mode.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/cli/src/config/schema.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/cli/src/mcp/tools/roadmap-file-less.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/cli/src/commands/publish-analyses.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/cli/src/commands/sync-analyses.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/dashboard/src/server/context.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/orchestrator/src/core/candidate-selection.ts', // Phase 4: remove when migrated to RoadmapStore
