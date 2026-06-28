@@ -201,6 +201,38 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('does not orphan a populated aggregate behind empty shards on --force', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    // A populated aggregate already exists in an initialized project.
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    const aggregate = '# Roadmap\n\n## Current Work\n\n- **Thing** — status: planned\n';
+    fs.writeFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), aggregate);
+    fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
+
+    const result = await runInit({ cwd: tmpDir, name: 'existing', force: true });
+    expect(result.ok).toBe(true);
+    // No empty shards scaffolded over the populated aggregate.
+    expect(fs.existsSync(path.join(tmpDir, 'docs', 'roadmap.d'))).toBe(false);
+    // The populated aggregate is untouched (not clobbered).
+    expect(fs.readFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), 'utf-8')).toBe(aggregate);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not re-scaffold when a shard directory already exists on --force', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    const existingMeta = '---\nproject: "kept"\n---\n';
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), existingMeta);
+    fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
+
+    const result = await runInit({ cwd: tmpDir, name: 'kept', force: true });
+    expect(result.ok).toBe(true);
+    // The existing shard meta is preserved, not overwritten with empty scaffold.
+    expect(fs.readFileSync(path.join(shardDir, '_meta.md'), 'utf-8')).toBe(existingMeta);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('rejects already initialized project without --force', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');

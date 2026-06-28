@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Result, RoadmapMeta } from '@harness-engineering/core';
-import { Ok, Err, serializeMeta } from '@harness-engineering/core';
+import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
 import {
@@ -204,6 +204,16 @@ async function scaffoldProject(
  * regen`). Returns the created file paths (project-relative) for the success log.
  */
 function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
+  // Gate on ACTUAL filesystem state, independent of --force: never scaffold an
+  // empty sharded roadmap when a roadmap source already exists. Under --force the
+  // caller's `!existingProject` gate no longer protects this path, so without this
+  // guard a re-init would `mkdir docs/roadmap.d/` + write an empty `_meta.md` over
+  // a populated project — orphaning the real roadmap behind empty shards (mode
+  // detection would then report sharded and readers would read the empty shards).
+  // `roadmapSourceExists` is the single presence authority (it checks both the
+  // shard dir and the aggregate), so "one place decides sharded" stays literally
+  // true here as well.
+  if (roadmapSourceExists(cwd)) return [];
   const shardDir = path.join(cwd, 'docs', 'roadmap.d');
   fs.mkdirSync(shardDir, { recursive: true });
   const nowIso = new Date().toISOString();
