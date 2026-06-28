@@ -17,6 +17,9 @@ import type {
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
+import { roadmapToShards } from '../../src/roadmap/store/migration';
+import { serializeShard } from '../../src/roadmap/store/shard';
+import { serializeMeta } from '../../src/roadmap/store/meta';
 
 const CONFIG: TrackerSyncConfig = {
   kind: 'github',
@@ -623,7 +626,9 @@ describe('fullSync()', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fullsync-'));
-    roadmapPath = path.join(tmpDir, 'roadmap.md');
+    // fullSync now takes a PROJECT ROOT; the monolith aggregate lives at docs/roadmap.md.
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    roadmapPath = path.join(tmpDir, 'docs', 'roadmap.md');
     _resetSyncMutex();
   });
 
@@ -635,7 +640,7 @@ describe('fullSync()', () => {
     fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');
   }
 
-  it('reads roadmap, pushes, pulls, writes back', async () => {
+  it('reads roadmap, pushes, pulls, writes back (monolith)', async () => {
     const roadmap = makeRoadmap([makeFeature({ name: 'My Feature' })]);
     writeRoadmap(roadmap);
 
@@ -643,7 +648,7 @@ describe('fullSync()', () => {
       fetchAllTickets: vi.fn(async () => Ok([])),
     });
 
-    const result = await fullSync(roadmapPath, adapter, CONFIG);
+    const result = await fullSync(tmpDir, adapter, CONFIG);
 
     expect(result.created).toHaveLength(1); // feature had no externalId
     expect(result.errors).toHaveLength(0);
@@ -677,8 +682,8 @@ describe('fullSync()', () => {
 
     // Fire two syncs concurrently
     const [r1, r2] = await Promise.all([
-      fullSync(roadmapPath, adapter, CONFIG),
-      fullSync(roadmapPath, adapter, CONFIG),
+      fullSync(tmpDir, adapter, CONFIG),
+      fullSync(tmpDir, adapter, CONFIG),
     ]);
 
     // Both should complete without error
@@ -696,9 +701,51 @@ describe('fullSync()', () => {
     fs.writeFileSync(roadmapPath, 'not a valid roadmap', 'utf-8');
     const adapter = mockAdapter();
 
-    const result = await fullSync(roadmapPath, adapter, CONFIG);
+    const result = await fullSync(tmpDir, adapter, CONFIG);
 
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]!.featureOrId).toBe('*');
+  });
+
+  it('writes back per-shard in sharded mode (only changed rows)', async () => {
+    // Build a sharded project: two features, one already linked to external.
+    const roadmap = makeRoadmap([
+      makeFeature({ name: 'Already Linked', externalId: 'github:owner/repo#7' }),
+      makeFeature({ name: 'Needs Ticket' }),
+    ]);
+    const { shards, meta } = roadmapToShards(roadmap);
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    for (const shard of shards) {
+      fs.writeFileSync(path.join(shardDir, `${shard.slug}.md`), serializeShard(shard), 'utf-8');
+    }
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), serializeMeta(meta), 'utf-8');
+
+    const snap = () => {
+      const m = new Map<string, string>();
+      for (const n of fs.readdirSync(shardDir)) {
+        m.set(n, fs.readFileSync(path.join(shardDir, n), 'utf-8'));
+      }
+      return m;
+    };
+    const before = snap();
+
+    const adapter = mockAdapter({
+      // 'Already Linked' update is a no-op (same fields); 'Needs Ticket' gets a new ticket.
+      fetchAllTickets: vi.fn(async () => Ok([])),
+    });
+
+    const result = await fullSync(tmpDir, adapter, CONFIG);
+    expect(result.errors).toHaveLength(0);
+
+    const after = snap();
+    const changed = [...new Set([...before.keys(), ...after.keys()])]
+      .filter((n) => n !== '_meta.md' && before.get(n) !== after.get(n))
+      .sort();
+    // Only 'needs-ticket' acquired a new externalId → exactly that shard changed.
+    expect(changed).toEqual(['needs-ticket.md']);
+    expect(fs.readFileSync(path.join(shardDir, 'needs-ticket.md'), 'utf-8')).toContain(
+      'github:owner/repo#1'
+    );
   });
 });

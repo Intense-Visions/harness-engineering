@@ -6,6 +6,7 @@ import {
   loadTrackerClientConfigFromProject,
   resolveRoadmapStore,
   applyRoadmapDiff,
+  roadmapSourceExists,
 } from '@harness-engineering/core';
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
@@ -16,7 +17,7 @@ import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.',
+    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -96,27 +97,11 @@ interface ManageRoadmapInput {
   force_sync?: boolean;
 }
 
-function roadmapPath(projectRoot: string): string {
-  return path.join(projectRoot, 'docs', 'roadmap.md');
-}
-
-/**
- * Whether a roadmap source exists for this project — either the sharded
- * `docs/roadmap.d/` directory or the monolith `docs/roadmap.md` file. Used to
- * preserve the distinct "roadmap not found" response (vs a parse error) now that
- * reads go through `resolveRoadmapStore().load()`, whose `Err` covers both.
- */
-function roadmapSourceExists(projectRoot: string): boolean {
-  return (
-    fs.existsSync(path.join(projectRoot, 'docs', 'roadmap.d')) ||
-    fs.existsSync(roadmapPath(projectRoot))
-  );
-}
-
 /**
  * Read the roadmap through the store seam: `ShardStore` when `docs/roadmap.d/`
- * exists, else `MonolithStore` over `docs/roadmap.md`. Store parity guarantees an
- * identical in-memory `Roadmap` in both modes.
+ * exists, else the monolith aggregate. Store parity guarantees an identical
+ * in-memory `Roadmap` in both modes. `roadmapSourceExists` (from core) preserves
+ * the distinct "roadmap not found" response vs a parse error.
  */
 async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
   return resolveRoadmapStore({ projectRoot }).load();
@@ -206,7 +191,7 @@ function roadmapNotFoundError(): McpResponse {
     content: [
       {
         type: 'text' as const,
-        text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+        text: 'Error: roadmap not found. Create a roadmap first.',
       },
     ],
     isError: true,
@@ -716,7 +701,7 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   if (response.isError || readOnlyActions.has(input.action)) return false;
   if (input.action === 'sync') return input.apply === true;
   // Groom is a local reorganization (demote/archive). Mirroring it would read
-  // archived rows leaving roadmap.md as deletions; run `sync` explicitly instead.
+  // archived rows leaving the aggregate as deletions; run `sync` explicitly instead.
   if (input.action === 'groom') return false;
   return true;
 }
@@ -781,7 +766,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
     const response = await dispatchAction(input.action, projectPath, input, deps);
 
     if (shouldTriggerExternalSync(input, response)) {
-      await triggerExternalSync(projectPath, roadmapPath(projectPath)).catch(() => {});
+      await triggerExternalSync(projectPath).catch(() => {});
     }
 
     return response;

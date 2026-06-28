@@ -63,7 +63,7 @@ describe('manage_roadmap — Phase 4 file-less dispatch', () => {
     const res = await handleManageRoadmap({ path: dir, action: 'show' });
     expect(res.isError).toBe(true);
     const text = res.content?.[0]?.text ?? '';
-    expect(text).toMatch(/docs\/roadmap\.md not found/);
+    expect(text).toMatch(/roadmap not found/);
     expect(text).not.toMatch(/not yet wired/);
   });
 });

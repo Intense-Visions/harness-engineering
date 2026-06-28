@@ -36,6 +36,25 @@ export interface ResolveRoadmapStoreOptions {
  * NOTE: this file legitimately names `roadmap.md` as a path constant (not a
  * content read); it is permitted under invariant R (see ROADMAP_READ_ALLOWLIST).
  */
+/**
+ * Whether a roadmap SOURCE exists for a project — either the sharded
+ * `docs/roadmap.d/` directory or the monolith `docs/roadmap.md` aggregate. Callers
+ * use this to preserve a distinct "roadmap not found" response now that reads go
+ * through {@link resolveRoadmapStore}().load(), whose `Err` covers both not-found
+ * and parse failures. Lives here (not in the CLI) so the literal aggregate path is
+ * named only in this already-permitted store module — keeping callers free of any
+ * `roadmap.md` reference (invariant R).
+ */
+export function roadmapSourceExists(
+  projectRoot: string,
+  exists: (target: string) => boolean = (target) => fs.existsSync(target)
+): boolean {
+  return (
+    exists(path.join(projectRoot, 'docs', 'roadmap.d')) ||
+    exists(path.join(projectRoot, 'docs', 'roadmap.md'))
+  );
+}
+
 export function resolveRoadmapStore(options: ResolveRoadmapStoreOptions): RoadmapStore {
   const { projectRoot } = options;
   const shardDir = path.join(projectRoot, 'docs', 'roadmap.d');
