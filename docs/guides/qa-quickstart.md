@@ -171,7 +171,7 @@ This builds a structural graph from your code, git history, and documentation. I
 | `harness check-docs`     | Documentation coverage check                                                                               |
 | `harness check-perf`     | Performance budget enforcement                                                                             |
 | `harness validate`       | Configuration and structure validation                                                                     |
-| `harness graph scan`           | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan`     | Build/refresh the knowledge graph                                                                          |
 
 ---
 
@@ -632,7 +632,7 @@ harness graph scan
 | Find risky areas of the codebase   | `/harness:hotspot-detector`                          | Slash command       |
 | Check if docs match code           | `/harness:detect-doc-drift`                          | Slash command       |
 | Deep audit before a release        | `/harness:integrity`                                 | Slash command       |
-| Build the knowledge graph          | `harness graph scan`                                       | CLI                 |
+| Build the knowledge graph          | `harness graph scan`                                 | CLI                 |
 | Ask questions about the codebase   | `ask_graph` MCP tool                                 | MCP tool            |
 
 ### Exit Codes for CI

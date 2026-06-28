@@ -577,7 +577,7 @@ These tools are available through the MCP server and can be invoked directly in 
 | Run the full docs pipeline          | `/harness:docs-pipeline`        | Slash command |
 | Review a PR for arch violations     | `/harness:code-review`          | Slash command |
 | Run all checks in CI                | `harness ci check`              | CLI           |
-| Build the knowledge graph           | `harness graph scan`                  | CLI           |
+| Build the knowledge graph           | `harness graph scan`            | CLI           |
 | Query the graph in natural language | `ask_graph` MCP tool            | MCP tool      |
 | Get blast radius analysis           | `compute_blast_radius` MCP tool | MCP tool      |
 | Track architecture stability        | `get_decay_trends` MCP tool     | MCP tool      |

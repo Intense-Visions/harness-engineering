@@ -113,7 +113,7 @@ This runs all mechanical checks in one pass — configuration, dependencies, lin
 | `/harness:onboarding`      | 4-phase automated codebase orientation    | First thing on a new project                          |
 | `ask_graph` (MCP tool)     | Natural language codebase queries         | "What depends on auth?", "What tests cover payments?" |
 | `/harness:impact-analysis` | Graph-based "if I change X, what breaks?" | Before making changes, understanding blast radius     |
-| `harness graph scan`             | Build/refresh the knowledge graph         | After cloning, after major changes                    |
+| `harness graph scan`       | Build/refresh the knowledge graph         | After cloning, after major changes                    |
 
 ### Daily Development
 
@@ -163,7 +163,7 @@ This runs all mechanical checks in one pass — configuration, dependencies, lin
 | `harness check-docs`     | Documentation coverage check                                                                               |
 | `harness check-perf`     | Performance budget enforcement                                                                             |
 | `harness validate`       | Configuration and structure validation                                                                     |
-| `harness graph scan`           | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan`     | Build/refresh the knowledge graph                                                                          |
 
 ---
 
@@ -580,7 +580,7 @@ Start with `hello-world` to see harness in action, then move to `task-api` for a
 | Write E2E tests                  | `harness skill run harness-e2e`                      | Domain skill        |
 | Write integration tests          | `harness skill run harness-integration-test`         | Domain skill        |
 | Write property-based tests       | `harness skill run harness-property-test`            | Domain skill        |
-| Build the knowledge graph        | `harness graph scan`                                       | CLI                 |
+| Build the knowledge graph        | `harness graph scan`                                 | CLI                 |
 | Ask questions about the codebase | `ask_graph` (MCP tool)                               | MCP tool            |
 
 ### Key Files to Know

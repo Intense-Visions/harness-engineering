@@ -189,7 +189,7 @@ This builds a structural graph from your code, git history, and documentation. I
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `harness ci check`   | Run ALL checks in one pass (validate, deps, docs, entropy, security, perf, arch, phase-gate, traceability) |
 | `harness validate`   | Configuration and structure validation                                                                     |
-| `harness graph scan`       | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan` | Build/refresh the knowledge graph                                                                          |
 | `harness check-docs` | Documentation coverage check                                                                               |
 
 ---
@@ -666,7 +666,7 @@ harness ci check --json | jq '[.checks[].issues[] | select(.category == "design"
 | See what breaks if I change a token    | `/harness:impact-analysis`                    | Slash command       |
 | Deep audit before a release            | `/harness:integrity`                          | Slash command       |
 | Handle RTL/LTR layout                  | `harness skill run design-i18n-design`        | Domain skill        |
-| Build the knowledge graph              | `harness graph scan`                                | CLI                 |
+| Build the knowledge graph              | `harness graph scan`                          | CLI                 |
 | Ask questions about token usage        | `ask_graph` MCP tool                          | MCP tool            |
 
 ### Exit Codes for CI
