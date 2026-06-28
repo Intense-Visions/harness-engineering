@@ -71,6 +71,26 @@ export type { TaskDefinition, TaskType, RunOrigin, RunMode } from './maintenance
 export { selectTasks } from './maintenance/overdue';
 export type { TaskSelectionFilter } from './maintenance/overdue';
 
+// On-demand maintenance pipeline (Phase 3) — CLI `run` subcommand surface.
+// The CLI builds an infra-free TaskRunner (report mode), reads/records history
+// via MaintenanceReporter, and runs custom `checkScript` tasks via CheckScriptRunner,
+// all without booting an orchestrator/gateway/ClaimManager.
+export { TaskRunner } from './maintenance/task-runner';
+export type {
+  TaskRunnerOptions,
+  CheckCommandRunner,
+  CheckCommandResult,
+  AgentDispatcher,
+  AgentDispatchResult,
+  CommandExecutor,
+  CommandExecResult,
+  PRLifecycleManager,
+} from './maintenance/task-runner';
+export type { RunResult } from './maintenance/types';
+export { MaintenanceReporter } from './maintenance/reporter';
+export type { MaintenanceReporterOptions } from './maintenance/reporter';
+export { CheckScriptRunner } from './maintenance/check-script-runner';
+
 // Hermes Phase 0 / Phase 1: re-export TokenStore so the CLI (`harness gateway token`)
 // and the dashboard tokens router can construct it via the package root without
 // reaching into the `./auth` subpath (decision phase1-d4).
