@@ -39,12 +39,22 @@ export interface RoadmapAggregateDriftResult {
   stale: boolean;
 }
 
+/** Normalize line endings so a CRLF-vs-LF-only difference is not treated as drift. */
+function normalizeEol(content: string): string {
+  return content.replace(/\r\n/g, '\n');
+}
+
 /**
  * Decide whether a project's committed roadmap aggregate is stale relative to its
  * shards. Returns `{ applicable: false, stale: false }` (a no-op) for monolith
  * projects (no shard dir) and when regeneration was not possible. Otherwise reports
  * `stale: true` when the committed aggregate (treated as empty when absent) differs
- * byte-for-byte from the regenerated aggregate.
+ * from the regenerated aggregate after line-ending normalization.
+ *
+ * The comparison normalizes CRLF→LF on both sides first: regeneration always emits
+ * LF, but a Windows clone with `core.autocrlf=true` (and no `.gitattributes eol=lf`
+ * for the file) reads the committed aggregate back as CRLF, which would otherwise
+ * surface a spurious drift warning on an otherwise-fresh aggregate.
  */
 export function checkRoadmapAggregateDrift(
   input: RoadmapAggregateDriftInput
@@ -52,6 +62,7 @@ export function checkRoadmapAggregateDrift(
   if (!input.shardDirExists || input.regeneratedAggregate === null) {
     return { applicable: false, stale: false };
   }
-  const committed = input.committedAggregate ?? '';
-  return { applicable: true, stale: committed !== input.regeneratedAggregate };
+  const committed = normalizeEol(input.committedAggregate ?? '');
+  const regenerated = normalizeEol(input.regeneratedAggregate);
+  return { applicable: true, stale: committed !== regenerated };
 }

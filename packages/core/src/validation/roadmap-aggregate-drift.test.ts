@@ -30,6 +30,16 @@ describe('checkRoadmapAggregateDrift', () => {
     expect(result).toEqual({ applicable: false, stale: false });
   });
 
+  it('does not report drift when content differs only by CRLF vs LF line endings', () => {
+    const result = checkRoadmapAggregateDrift({
+      shardDirExists: true,
+      // A Windows clone (core.autocrlf=true, no eol=lf attribute) reads CRLF.
+      committedAggregate: '# Roadmap\r\n\r\nidentical\r\n',
+      regeneratedAggregate: '# Roadmap\n\nidentical\n',
+    });
+    expect(result).toEqual({ applicable: true, stale: false });
+  });
+
   it('treats a missing aggregate as stale when shards regenerate non-empty content', () => {
     const result = checkRoadmapAggregateDrift({
       shardDirExists: true,
