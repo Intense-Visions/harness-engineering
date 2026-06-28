@@ -13,7 +13,9 @@ import {
   validateRoadmapMode,
   parseRoadmap,
   checkRoadmapHealth,
+  needsMergeOursDriverWarning,
 } from '@harness-engineering/core';
+import { execFileSync } from 'child_process';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -45,6 +47,7 @@ interface ValidateResult {
     solutionsDir?: boolean;
     roadmapMode?: boolean;
     roadmapHealth?: boolean;
+    mergeDriver?: boolean;
     componentAnatomy?: boolean;
     driftDetection?: boolean;
     brandCompliance?: boolean;
@@ -196,6 +199,38 @@ export async function runValidate(
         suggestion: roadmapModeResult.error.suggestions[0],
       }),
     });
+  }
+
+  // Merge-driver doctor (warning). `.gitattributes` may declare generated
+  // aggregates (e.g. docs/roadmap.md) as merge=ours, but that attribute is inert
+  // until the clone runs `git config merge.ours.driver true` once. Surface a
+  // non-fatal warning so existing clones know about the one-time fix (C4).
+  const gitattributesPath = path.join(cwd, '.gitattributes');
+  if (fs.existsSync(gitattributesPath)) {
+    const gitattributesContent = fs.readFileSync(gitattributesPath, 'utf-8');
+    let driverConfigured = false;
+    try {
+      const out = execFileSync('git', ['config', '--get', 'merge.ours.driver'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      driverConfigured = out.length > 0 && out !== 'false';
+    } catch {
+      // git unavailable or cwd is not a repo — treat as unconfigured.
+    }
+    if (needsMergeOursDriverWarning(gitattributesContent, driverConfigured)) {
+      result.checks.mergeDriver = false;
+      result.issues.push({
+        check: 'mergeDriver',
+        file: '.gitattributes',
+        severity: 'warning',
+        message:
+          'Generated files are declared merge=ours but merge.ours.driver is unset in this clone (the attribute is inert without it). One-time fix: git config merge.ours.driver true',
+      });
+    } else {
+      result.checks.mergeDriver = true;
+    }
   }
 
   // Roadmap health (regression guard). Read-only diagnostics over docs/roadmap.md:
