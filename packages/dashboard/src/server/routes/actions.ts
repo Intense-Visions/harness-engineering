@@ -8,6 +8,7 @@ import {
   createTrackerClient,
   resolveRoadmapStore,
   applyRoadmapDiff,
+  setStatus,
 } from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
@@ -79,7 +80,12 @@ async function updateRoadmapContent(
     return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
   }
 
-  feat.status = status as FeatureStatus;
+  // Route through the assignee-lifecycle authority (the same chokepoint the MCP
+  // and orchestrator paths use) so a transition away from in-progress clears any
+  // assignee — preserving assignee !== null <=> in-progress (RMH005). A bare
+  // `feat.status = status` would leave a stale assignee on a done/planned row.
+  const date = new Date().toISOString().split('T')[0]!;
+  setStatus(roadmap, feat, status as FeatureStatus, date);
 
   const persisted = await applyRoadmapDiff(store, before, roadmap);
   if (!persisted.ok) {

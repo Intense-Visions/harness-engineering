@@ -8,6 +8,7 @@ import type { ServerContext } from '../../../src/server/context';
 import { DataCache } from '../../../src/server/cache';
 import { GatherCache } from '../../../src/server/gather-cache';
 import { SSEManager } from '../../../src/server/sse';
+import { parseRoadmap } from '@harness-engineering/core';
 
 vi.mock('../../../src/server/gather/security', () => ({ gatherSecurity: vi.fn() }));
 vi.mock('../../../src/server/gather/perf', () => ({ gatherPerf: vi.fn() }));
@@ -31,6 +32,14 @@ last_manual_edit: "2026-01-01T00:00:00Z"
 - **Summary:** Authentication
 - **Blockers:** —
 - **Plan:** —
+
+### Billing Module
+- **Status:** in-progress
+- **Spec:** docs/changes/billing/proposal.md
+- **Summary:** Billing
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** @alice
 `;
 
 /**
@@ -105,6 +114,28 @@ describe('POST /api/actions/roadmap-status (file-based)', () => {
 
     const written = await readFile(path.join(projectRoot, 'docs', 'roadmap.md'), 'utf-8');
     expect(written).toContain('**Status:** in-progress');
+  });
+
+  // F1 (assignee-lifecycle parity): moving an in-progress + assigned row to a
+  // non-in-progress status must clear the assignee (invariant
+  // assignee !== null <=> in-progress / RMH005). The route must go through the
+  // `setStatus` authority, not a bare `feat.status = status`.
+  it('clears the assignee when an in-progress assigned row is set to done', async () => {
+    const res = await app.request('/api/actions/roadmap-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'Billing Module', status: 'done' }),
+    });
+    expect(res.status).toBe(200);
+
+    const written = await readFile(path.join(projectRoot, 'docs', 'roadmap.md'), 'utf-8');
+    const parsed = parseRoadmap(written);
+    if (!parsed.ok) throw parsed.error;
+    const billing = parsed.value.milestones
+      .flatMap((m) => m.features)
+      .find((f) => f.name === 'Billing Module');
+    expect(billing?.status).toBe('done');
+    expect(billing?.assignee).toBeNull();
   });
 
   it('returns 404 for an unknown feature', async () => {
