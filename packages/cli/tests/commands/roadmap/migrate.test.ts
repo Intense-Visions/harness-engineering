@@ -12,6 +12,7 @@ import {
   runRoadmapMigrate,
   reportToExitCode,
   MigrateExitCode,
+  featuresToRoadmap,
 } from '../../../src/commands/roadmap/migrate';
 
 function baseFeature(name: string, externalId: string): TrackedFeature {
@@ -48,6 +49,10 @@ function happyClient(): RoadmapTrackerClient {
     appendHistory: async () => Ok(undefined),
     fetchHistory: async () => Ok([]),
   };
+}
+
+function featureClient(features: TrackedFeature[]): RoadmapTrackerClient {
+  return { ...happyClient(), fetchAll: async () => Ok({ features, etag: null }) };
 }
 
 function throwingClient(): RoadmapTrackerClient {
@@ -485,21 +490,104 @@ describe('runRoadmapMigrate', () => {
     expect(result.ok).toBe(true);
     expect(fs.existsSync(path.join(cwd, '.harness', 'migrate.lock'))).toBe(false);
   });
+});
 
-  it('REV-P5-S5: --to=file-backed → recognized but not-yet-implemented error', async () => {
-    // Future-proofing: reverse migration is a recognized direction but not
-    // implemented in this release. The error must be specific (not the
-    // generic "unsupported target") so operators can find tracking docs.
-    cwd = makeProject();
+describe('runRoadmapMigrate --to=file-backed (reverse)', () => {
+  let cwd: string;
+  afterEach(() => {
+    if (cwd) fs.rmSync(cwd, { recursive: true, force: true });
+    cwd = '';
+  });
+
+  const feats = (): TrackedFeature[] => [
+    { ...baseFeature('Alpha', 'github:o/r#1'), milestone: 'MVP', status: 'in-progress' },
+    { ...baseFeature('Beta', 'github:o/r#2'), milestone: null },
+  ];
+
+  it('--dry-run reports dry-run and writes nothing (config stays file-less)', async () => {
+    cwd = makeProject({ mode: 'file-less', withRoadmap: false });
+    const result = await runRoadmapMigrate({
+      to: 'file-backed',
+      dryRun: true,
+      cwd,
+      client: featureClient(feats()),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.mode).toBe('dry-run');
+    expect(fs.existsSync(path.join(cwd, 'docs', 'roadmap.md'))).toBe(false);
+    const cfg = JSON.parse(fs.readFileSync(path.join(cwd, 'harness.config.json'), 'utf-8'));
+    expect(cfg.roadmap.mode).toBe('file-less');
+  });
+
+  it('applied: writes a round-trippable roadmap.md, flips mode, backs up config', async () => {
+    cwd = makeProject({ mode: 'file-less', withRoadmap: false });
     const result = await runRoadmapMigrate({
       to: 'file-backed',
       dryRun: false,
       cwd,
-      client: happyClient(),
+      client: featureClient(feats()),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.mode).toBe('applied');
+    expect(result.value.created).toBe(2);
+
+    const md = fs.readFileSync(path.join(cwd, 'docs', 'roadmap.md'), 'utf-8');
+    expect(md).toContain('### Alpha');
+    expect(md).toContain('### Beta');
+    expect(md).toContain('## MVP');
+    expect(md).toContain('## Backlog');
+
+    const cfg = JSON.parse(fs.readFileSync(path.join(cwd, 'harness.config.json'), 'utf-8'));
+    expect(cfg.roadmap.mode).toBe('file-backed');
+    expect(fs.existsSync(path.join(cwd, 'harness.config.json.pre-migration'))).toBe(true);
+    expect(result.value.configBackup).toContain('pre-migration');
+  });
+
+  it('already file-backed → already-migrated, no roadmap.md written', async () => {
+    cwd = makeProject({ mode: 'file-backed', withRoadmap: false });
+    const result = await runRoadmapMigrate({
+      to: 'file-backed',
+      dryRun: false,
+      cwd,
+      client: featureClient(feats()),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.mode).toBe('already-migrated');
+    expect(fs.existsSync(path.join(cwd, 'docs', 'roadmap.md'))).toBe(false);
+  });
+
+  it('refuses to overwrite an existing docs/roadmap.md', async () => {
+    cwd = makeProject({ mode: 'file-less', withRoadmap: true });
+    const result = await runRoadmapMigrate({
+      to: 'file-backed',
+      dryRun: false,
+      cwd,
+      client: featureClient(feats()),
     });
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.message).toMatch(/reverse migration is not yet implemented/i);
-    expect(result.error.message).not.toMatch(/unsupported (migration )?target/i);
+    expect(result.error.message).toMatch(/already exists; refusing to overwrite/i);
+  });
+});
+
+describe('featuresToRoadmap', () => {
+  it('groups features by milestone with Backlog last and preserves data', () => {
+    const rm = featuresToRoadmap(
+      [
+        { ...baseFeature('Alpha', 'x#1'), milestone: 'MVP' },
+        { ...baseFeature('Beta', 'x#2'), milestone: null },
+        { ...baseFeature('Gamma', 'x#3'), milestone: 'MVP' },
+      ],
+      'Proj',
+      '2026-06-28T00:00:00Z'
+    );
+    expect(rm.milestones.map((m) => m.name)).toEqual(['MVP', 'Backlog']);
+    expect(rm.milestones[0]?.features.map((f) => f.name)).toEqual(['Alpha', 'Gamma']);
+    expect(rm.milestones[1]?.isBacklog).toBe(true);
+    expect(rm.frontmatter.project).toBe('Proj');
+    expect(rm.milestones[0]?.features[0]?.externalId).toBe('x#1');
   });
 });

@@ -1059,7 +1059,7 @@ Migrate the project roadmap to a different storage mode
 
 **Options:**
 
-- `--to` — Migration target (only "file-less" supported today)
+- `--to` — Migration target: "file-less" or "file-backed"
 - `--dry-run` — Print the migration plan without making any changes
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
