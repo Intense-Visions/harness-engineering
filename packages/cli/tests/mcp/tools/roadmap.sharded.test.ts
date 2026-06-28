@@ -266,4 +266,21 @@ describe('manage_roadmap sharded — promote', () => {
   });
 });
 
+describe('manage_roadmap sharded — sync (per-shard writeback)', () => {
+  it('apply patches exactly the rows whose status changed (N shards == N changes)', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({ path: dir, action: 'sync', apply: true });
+    expect(res.isError).toBeFalsy();
+    const parsed = JSON.parse(res.content[0].text);
+    if (parsed.applied) {
+      expect(parsed.changes.length).toBeGreaterThan(0);
+      // Exactly one shard rewritten per status change — no other shard touched.
+      expect(changedShards(before).length).toBe(parsed.changes.length);
+    } else {
+      // Up-to-date roadmap is a valid outcome; then nothing is rewritten.
+      expect(changedShards(before)).toEqual([]);
+    }
+  });
+});
+
 export { writeShardedProject, snapshotShardDir, changedShards };

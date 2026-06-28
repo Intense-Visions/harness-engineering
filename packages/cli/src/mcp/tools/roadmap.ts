@@ -627,15 +627,15 @@ async function handleSync(
   input: ManageRoadmapInput,
   deps: RoadmapDeps
 ): Promise<McpResponse> {
-  const { parseRoadmap, serializeRoadmap, syncRoadmap, Ok } = deps;
+  const { syncRoadmap, Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   const syncResult = await syncRoadmap({
     projectPath,
     roadmap,
@@ -651,7 +651,8 @@ async function handleSync(
 
   if (input.apply) {
     deps.applySyncChanges(roadmap, changes);
-    writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+    const persisted = await persistRoadmap(projectPath, before, roadmap);
+    if (!persisted.ok) return resultToMcpResponse(persisted);
     return resultToMcpResponse(Ok({ changes, applied: true, roadmap }));
   }
 
