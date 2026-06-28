@@ -8,9 +8,14 @@ import type {
   RoadmapMeta,
   RoadmapFeature,
   ExternalTicketState,
+  TrackerSyncConfig,
   Result,
 } from '@harness-engineering/core';
 import { runRoadmapReconcile } from '../../../src/commands/roadmap/reconcile';
+
+function trackerConfig(repo: string): TrackerSyncConfig {
+  return { kind: 'github', repo, statusMap: {} as TrackerSyncConfig['statusMap'] };
+}
 
 let cwd: string;
 let shardDir: string;
@@ -126,6 +131,41 @@ describe('runRoadmapReconcile() — offline mode', () => {
     if (!r.ok) {
       expect(r.error.exitCode).not.toBe(0);
       expect(r.error.message).toMatch(/tracker|config|token/i);
+    }
+  });
+});
+
+describe('runRoadmapReconcile() — --from-issues authoritative path', () => {
+  it('builds External-IDs from the configured repo and reconciles WITHOUT fetching', async () => {
+    let fetched = false;
+    const adapter = fakeAdapter([], () => {
+      fetched = true;
+    });
+    const r = await runRoadmapReconcile({
+      cwd,
+      adapter,
+      config: trackerConfig('o/r'),
+      fromIssues: [1, 2],
+    });
+    expect(r.ok).toBe(true);
+    expect(fetched).toBe(false); // authoritative path never calls the adapter
+    expect(await statusOf('Alpha')).toBe('done');
+    expect(await statusOf('Beta')).toBe('done');
+  });
+
+  it('reconciles exactly the requested issue numbers (others untouched)', async () => {
+    const r = await runRoadmapReconcile({ cwd, config: trackerConfig('o/r'), fromIssues: [1] });
+    expect(r.ok).toBe(true);
+    expect(await statusOf('Alpha')).toBe('done');
+    expect(await statusOf('Beta')).toBe('planned');
+  });
+
+  it('errors when --from-issues is given but no repo is configured', async () => {
+    const r = await runRoadmapReconcile({ cwd, fromIssues: [1] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.exitCode).not.toBe(0);
+      expect(r.error.message).toMatch(/repo/i);
     }
   });
 });

@@ -8,6 +8,7 @@ import {
   roadmapSourceExists,
   loadTrackerSyncConfig,
   reconcileDoneFromClosedIssues,
+  buildExternalId,
   GitHubIssuesSyncAdapter,
 } from '@harness-engineering/core';
 import type {
@@ -33,6 +34,12 @@ export interface RoadmapReconcileOptions {
   adapter?: ClosedIssueAdapter;
   /** Injectable tracker config (defaults to {@link loadTrackerSyncConfig} over `cwd`). */
   config?: TrackerSyncConfig;
+  /**
+   * Authoritative path: reconcile exactly these issue numbers against the
+   * configured repo WITHOUT any network fetch (the PR-merge Action passes the
+   * PR's closing-issue references here). Skips adapter discovery entirely.
+   */
+  fromIssues?: number[];
 }
 
 /**
@@ -65,6 +72,43 @@ export async function runRoadmapReconcile(
   }
   const store = opts.store ?? resolveRoadmapStore({ projectRoot: cwd });
 
+  const closedResult = await resolveClosedIds(opts, cwd);
+  if (!closedResult.ok) return closedResult;
+
+  const r = await reconcileDoneFromClosedIssues(store, closedResult.value);
+  if (!r.ok) return Err(new CLIError(r.error.message, ExitCode.ERROR));
+
+  logSummary(r.value);
+  return Ok(undefined);
+}
+
+/**
+ * Compute the closed `External-ID` set: the authoritative `--from-issues` path
+ * builds them from the configured repo with NO network call; otherwise the
+ * offline path fetches current issue state and keeps the closed ones.
+ */
+async function resolveClosedIds(
+  opts: RoadmapReconcileOptions,
+  cwd: string
+): Promise<Result<string[], CLIError>> {
+  if (opts.fromIssues && opts.fromIssues.length > 0) {
+    const repo = opts.config?.repo ?? loadTrackerSyncConfig(cwd)?.repo;
+    if (!repo) {
+      return Err(
+        new CLIError(
+          'No repo configured (harness.config.json roadmap.tracker.repo); ' +
+            '--from-issues needs a repo to build External-IDs',
+          ExitCode.ERROR
+        )
+      );
+    }
+    const [owner, name] = repo.split('/');
+    if (!owner || !name) {
+      return Err(new CLIError(`Invalid repo "${repo}"; expected "owner/repo"`, ExitCode.ERROR));
+    }
+    return Ok(opts.fromIssues.map((n) => buildExternalId(owner, name, n)));
+  }
+
   const adapterResult = await resolveAdapter(opts, cwd);
   if (!adapterResult.ok) return adapterResult;
 
@@ -74,13 +118,7 @@ export async function runRoadmapReconcile(
       new CLIError(`Failed to fetch issue state: ${tickets.error.message}`, ExitCode.ERROR)
     );
   }
-  const closed = tickets.value.filter((t) => t.status === 'closed').map((t) => t.externalId);
-
-  const r = await reconcileDoneFromClosedIssues(store, closed);
-  if (!r.ok) return Err(new CLIError(r.error.message, ExitCode.ERROR));
-
-  logSummary(r.value);
-  return Ok(undefined);
+  return Ok(tickets.value.filter((t) => t.status === 'closed').map((t) => t.externalId));
 }
 
 /** Resolve the issue-state adapter, building a GitHub adapter from config + token if not injected. */
@@ -144,8 +182,21 @@ export function createRoadmapReconcileCommand(): Command {
         'PR-merge auto-done workflow is authoritative).'
     )
     .option('--cwd <dir>', 'Project root (defaults to the current working directory)')
-    .action(async (options: { cwd?: string }) => {
-      const result = await runRoadmapReconcile(options.cwd ? { cwd: options.cwd } : {});
+    .option(
+      '--from-issues <numbers>',
+      'comma-separated issue numbers to reconcile (authoritative; skips the network fetch)'
+    )
+    .action(async (options: { cwd?: string; fromIssues?: string }) => {
+      const opts: { cwd?: string; fromIssues?: number[] } = {};
+      if (options.cwd) opts.cwd = options.cwd;
+      if (options.fromIssues) {
+        const parsed = options.fromIssues
+          .split(',')
+          .map((s) => Number.parseInt(s.trim(), 10))
+          .filter((n) => Number.isInteger(n));
+        if (parsed.length > 0) opts.fromIssues = parsed;
+      }
+      const result = await runRoadmapReconcile(opts);
       if (!result.ok) {
         logger.error(result.error.message);
         process.exit(result.error.exitCode);
