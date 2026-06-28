@@ -204,7 +204,7 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
    The human must explicitly approve (a clear "yes") before this skill is complete.
 
-7. **Promote the roadmap row.** If `docs/roadmap.md` exists, transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists.
+7. **Promote the roadmap row.** If a roadmap exists (a `docs/roadmap.md` aggregate **or** a `docs/roadmap.d/` shard directory), transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists. In sharded mode `manage_roadmap promote` writes the single row's shard under `docs/roadmap.d/` **and** regenerates the `docs/roadmap.md` aggregate — both are staged in step 8.
    - Derive the lookup key from the slash-command `ARGUMENTS` string (D1). Derive the summary from the spec title (the H1 heading).
    - Call `manage_roadmap` with action `promote`, `feature: "<ARGUMENTS>"`, `spec: "docs/changes/<feature>/proposal.md"`, and `summary: "<H1>"`.
    - Branch on the returned `PromoteResult` envelope:
@@ -228,11 +228,11 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 8. **Commit spec artifacts and roadmap promotion.** After a successful promote (or a silent skip when no roadmap exists), commit the spec, skill recommendations, and the roadmap mutation together so the promotion ships atomically with the spec:
 
    ```bash
-   git add docs/changes/<feature>/proposal.md docs/changes/<feature>/SKILLS.md docs/roadmap.md
+   git add docs/changes/<feature>/proposal.md docs/changes/<feature>/SKILLS.md docs/roadmap.d/ docs/roadmap.md
    git commit -m "docs(<feature>): add spec and promote to planned"
    ```
 
-   Include `docs/roadmap.md` in `git add` only when it exists; omit it when the project has no roadmap. Do not skip this step — `harness-execution` commits only implementation files, so a spec uncommitted here stays untracked until someone notices. If a pre-commit hook reformats a file, re-add and re-commit.
+   Stage the roadmap by mode: **sharded mode** (`docs/roadmap.d/` present) — stage both `docs/roadmap.d/` (the written shard) and the regenerated `docs/roadmap.md` aggregate; **monolith mode** — stage only `docs/roadmap.md`; **no roadmap** — omit both. Do not skip this step — `harness-execution` commits only implementation files, so a spec uncommitted here stays untracked until someone notices. If a pre-commit hook reformats a file, re-add and re-commit.
 
 9. **Write handoff and suggest transition.** After approval:
 
@@ -378,7 +378,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **Spec location** -- `docs/changes/<feature>/proposal.md`.
 - **Handoff** -- Once approved, hand off per the human's choice: harness-autopilot (recommended -- autonomous plan → execute → verify → review) or harness-planning (interactive plan only).
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
-- **Spec commit** -- After sign-off, the Phase 4 step 8 commit captures `docs/changes/<feature>/proposal.md`, `docs/changes/<feature>/SKILLS.md`, and the promoted `docs/roadmap.md` together so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these — see issue #487.
+- **Spec commit** -- After sign-off, the Phase 4 step 8 commit captures `docs/changes/<feature>/proposal.md`, `docs/changes/<feature>/SKILLS.md`, and the promoted roadmap together (in sharded mode: the `docs/roadmap.d/` shard plus the regenerated `docs/roadmap.md` aggregate; in monolith mode: `docs/roadmap.md`) so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these — see issue #487.
 - **Roadmap promotion** -- After approval (Phase 4 step 7), call `manage_roadmap` action `promote` to transition the named row to `planned` and link the spec atomically with the spec commit. Falls back to `add` (create new row) when the row does not exist; refuses on `in-progress`/`done`/`ambiguous`. Skip silently if no roadmap.
 - **`emit_interaction`** -- End of Phase 4 to record the transition to harness-autopilot or harness-planning (the human picks; default autopilot). The choice itself is asked in plain text -- `emit_interaction` records the confirmed transition, it does not surface the question.
 
