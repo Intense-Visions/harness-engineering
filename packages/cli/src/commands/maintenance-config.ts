@@ -52,18 +52,23 @@ export async function loadAgentBackends(cwd: string): Promise<Record<string, Bac
   if (!result.ok) return null;
   const agent = (result.value.config as { agent?: AgentConfig }).agent;
   if (!agent) return null;
-  // Already-modern configs carry `agent.backends` directly. Legacy single-backend
-  // configs synthesize it via migrateAgentConfig (no-op when backends are set).
-  // Swallow synthesis errors the same way the Orchestrator constructor does and
-  // fall back to whatever `backends` is already present (possibly none).
+  return synthesizeBackends(agent);
+}
+
+/** Resolve the effective `agent.backends` map for an `AgentConfig`, normalizing
+ * an empty/absent map to `null`. Already-modern configs carry `backends`
+ * directly; legacy single-backend configs synthesize it via `migrateAgentConfig`
+ * (a no-op when `backends` is already set). Synthesis errors are swallowed the
+ * same way the Orchestrator constructor does — fall back to whatever `backends`
+ * is already present (possibly none). */
+function synthesizeBackends(agent: AgentConfig): Record<string, BackendDef> | null {
+  let backends: Record<string, BackendDef> | undefined;
   try {
-    const migrated = migrateAgentConfig(agent);
-    const backends = migrated.config.backends ?? agent.backends ?? null;
-    return backends && Object.keys(backends).length > 0 ? backends : null;
+    backends = migrateAgentConfig(agent).config.backends ?? agent.backends;
   } catch {
-    const backends = agent.backends ?? null;
-    return backends && Object.keys(backends).length > 0 ? backends : null;
+    backends = agent.backends;
   }
+  return backends && Object.keys(backends).length > 0 ? backends : null;
 }
 
 export function mergeResolvedTasks(config: MaintenanceConfig | null): TaskDefinition[] {
