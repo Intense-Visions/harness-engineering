@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-758 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+759 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (14 skills)
 
@@ -141,7 +141,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
 
-## Tier 2 — Maintenance (41 skills)
+## Tier 2 — Maintenance (42 skills)
 
 ### acceptance-eval
 
@@ -359,6 +359,15 @@ Unified integrity gate — chains verify (quick gate) with AI review into a sing
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### harness-maintenance-pipeline
+
+On-demand, report-first maintenance sweep — runs overdue checks via `harness maintenance run`, triages findings, and asks the human in plain text before dispatching any fix
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, cursor, codex, gemini-cli
+- **Type:** flexible
+- **Cognitive mode:** analytical-reporter
 
 ### harness-perf
 

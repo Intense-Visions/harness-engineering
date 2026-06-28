@@ -881,6 +881,20 @@ List all resolved maintenance tasks (built-in + customTasks)
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
 
+### `harness maintenance run [taskId]`
+
+Run overdue (default) / selected maintenance tasks; report-first unless --fix
+
+**Options:**
+
+- `--all` — Run all sweep-eligible tasks (not just overdue)
+- `--only` — Comma-separated task ids to run
+- `--skip` — Comma-separated task ids to exclude
+- `--fix` — Dispatch fixes per task type (default: report-only)
+- `--concurrency` — Max parallel tasks (report mode); --fix forces 1
+- `--json` — Emit machine-readable consolidated report
+- `--path` — Project root path (default: ".")
+
 ### `harness maintenance show <task-id>`
 
 Show last N persisted runs for a task (from .harness/maintenance/[id]/outputs/)
