@@ -73,3 +73,9 @@ export type { RoadmapModeValidationConfig } from './roadmap-mode';
  * `.gitattributes` but the per-clone `merge.ours.driver` config is unset.
  */
 export { needsMergeOursDriverWarning } from './merge-driver';
+
+/**
+ * Read-source invariant R — detector + allowlist for files that read the
+ * generated docs/roadmap.md aggregate (enforced by the repo guard test).
+ */
+export { findRoadmapReadSourceViolations, ROADMAP_READ_ALLOWLIST } from './roadmap-read-source';
