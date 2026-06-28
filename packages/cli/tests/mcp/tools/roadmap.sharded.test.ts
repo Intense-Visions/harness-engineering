@@ -207,4 +207,31 @@ describe('manage_roadmap sharded — update (single shard)', () => {
   });
 });
 
+describe('manage_roadmap sharded — remove (single shard delete)', () => {
+  it('deletes exactly the one shard and regenerates the aggregate', async () => {
+    expect(fs.existsSync(path.join(shardDir, 'mobile-app.md'))).toBe(true);
+    const res = await handleManageRoadmap({ path: dir, action: 'remove', feature: 'Mobile App' });
+    expect(res.isError).toBeFalsy();
+    // Only mobile-app.md is gone; the others remain.
+    expect(fs.existsSync(path.join(shardDir, 'mobile-app.md'))).toBe(false);
+    expect(fs.existsSync(path.join(shardDir, 'auth-system.md'))).toBe(true);
+    expect(fs.existsSync(path.join(shardDir, 'user-dashboard.md'))).toBe(true);
+    const aggregate = fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8');
+    expect(aggregate).not.toContain('Mobile App');
+  });
+
+  it('unknown feature returns an error and deletes nothing', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({ path: dir, action: 'remove', feature: 'Nonexistent' });
+    expect(res.isError).toBe(true);
+    expect(changedShards(before)).toEqual([]);
+    expect(fs.readdirSync(shardDir).sort()).toEqual(snapshotShardKeys(before));
+  });
+});
+
+/** Sorted basenames captured in a snapshot map. */
+function snapshotShardKeys(snap: Map<string, string>): string[] {
+  return [...snap.keys()].sort();
+}
+
 export { writeShardedProject, snapshotShardDir, changedShards };

@@ -466,12 +466,12 @@ async function handleUpdate(
   return resultToMcpResponse(Ok(roadmap));
 }
 
-function handleRemove(
+async function handleRemove(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   if (!input.feature) {
     return {
@@ -480,13 +480,13 @@ function handleRemove(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   let found = false;
   for (const m of roadmap.milestones) {
     const idx = m.features.findIndex((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
@@ -506,7 +506,8 @@ function handleRemove(
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 
