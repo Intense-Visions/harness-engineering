@@ -102,8 +102,12 @@ export function createMaintenanceCommand(): Command {
     .option('--concurrency <n>', 'Max parallel tasks (report mode); --fix forces 1')
     .option('--json', 'Emit machine-readable consolidated report', false)
     .option('--path <path>', 'Project root path', '.')
-    .action(async (taskIds: string[], opts) => {
+    .action(async (taskIds: string[], opts, command: Command) => {
       const cwd = path.resolve(opts.path);
+      // `--json` is also declared as a GLOBAL program option (index.ts), so
+      // commander binds it to the program rather than this subcommand — read
+      // the merged view so `harness maintenance run --json` is honored.
+      const json = Boolean(command.optsWithGlobals().json);
       const result = await runMaintenanceRun(cwd, {
         positional: taskIds,
         all: opts.all,
@@ -111,7 +115,7 @@ export function createMaintenanceCommand(): Command {
         skip: opts.skip,
         fix: opts.fix,
         concurrency: opts.concurrency,
-        json: opts.json,
+        json,
       });
       process.exit(result.exitCode);
     });
