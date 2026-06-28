@@ -189,12 +189,21 @@ export function createRoadmapReconcileCommand(): Command {
     .action(async (options: { cwd?: string; fromIssues?: string }) => {
       const opts: { cwd?: string; fromIssues?: number[] } = {};
       if (options.cwd) opts.cwd = options.cwd;
-      if (options.fromIssues) {
+      if (options.fromIssues !== undefined) {
         const parsed = options.fromIssues
           .split(',')
           .map((s) => Number.parseInt(s.trim(), 10))
           .filter((n) => Number.isInteger(n));
-        if (parsed.length > 0) opts.fromIssues = parsed;
+        // Fail loudly rather than silently falling back to the network path:
+        // `--from-issues` with no parseable issue number is an operator mistake.
+        if (parsed.length === 0) {
+          logger.error(
+            `--from-issues was provided ("${options.fromIssues}") but contained no valid ` +
+              'issue numbers; expected a comma-separated list of integers'
+          );
+          process.exit(ExitCode.ERROR);
+        }
+        opts.fromIssues = parsed;
       }
       const result = await runRoadmapReconcile(opts);
       if (!result.ok) {
