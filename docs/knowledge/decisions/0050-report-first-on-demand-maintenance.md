@@ -21,12 +21,21 @@ around it. A developer typing `harness maintenance run` to answer "what
 maintenance did I forget?" is a different context: they want findings, not
 surprise branches, agent dispatches, or PRs appearing in their working tree.
 
-There is also a hard constraint from the codebase: **no real AI fix-agent
-dispatch exists anywhere in the repo.** The only `AgentDispatcher` is the
-orchestrator's stub (`orchestrator.ts:686`), which logs "skill dispatch
-integration pending" and returns `{ producedCommits: false, fixed: 0 }`. A
-repo-wide search for a non-stub dispatch returns nothing. So `--fix` cannot
-construct real dispatch in this phase — there is nothing to construct.
+> **Update (#679):** the original phase shipped against a hard constraint — **no
+> real AI fix-agent dispatch existed anywhere in the repo**, so `--fix` was a
+> documented repo-wide no-op-dispatch. That constraint is now lifted.
+> `createAgentDispatcher` (`maintenance/agent-dispatcher.ts`) is a real
+> dispatcher — it resolves a configured backend, drives an `AgentRunner` session
+> in the worktree, and measures `fixed` by diffing git HEAD before/after. The
+> cron orchestrator and the on-demand CLI `--fix` both use it. The remaining
+> limitation is **not** "no dispatcher exists" but "dispatch requires a
+> configured agent backend" — see the revised `--fix` bullet below.
+
+The original constraint (now historical): when ADR 0050 first landed, the only
+`AgentDispatcher` was the orchestrator's stub, which logged "skill dispatch
+integration pending" and returned `{ producedCommits: false, fixed: 0 }`. A
+repo-wide search for a non-stub dispatch returned nothing, so `--fix` could not
+construct real dispatch in that phase — there was nothing to construct.
 
 ## Decision
 
@@ -45,13 +54,20 @@ no `PRManager`.**
   orchestrator, gateway, or `ClaimManager` is constructed (spec SC6).
 
 - **`--fix` threads `mode: 'fix'` into the same `TaskRunner`** (reproducing the
-  scheduler's per-type branching — spec SC4), using the **same logging stub
-  dispatcher** the scheduler uses and **still no `PRManager`**. It prints a
-  one-line warning to stderr:
-  `--fix: AI fix-agent dispatch is not yet wired (executor dispatcher is a stub
-repo-wide); checks ran, no PRs were opened.` `--fix` also forces concurrency to
-  1 (sequential), pre-empting duplicate-dispatch / worktree-collapse hazards the
-  moment a real dispatcher lands.
+  scheduler's per-type branching — spec SC4), using the **real
+  `createAgentDispatcher`** (#679) the scheduler uses and **still no
+  `PRManager`**. The CLI resolves `agent.backends` from `harness.orchestrator.md`
+  exactly as the cron orchestrator does (`loadAgentBackends` → `makeResolveBackend`
+  → `createBackend`); the agent commits directly to the worktree, so there is no
+  PR (`prUrl` stays null — we do not claim one). **Graceful degradation:** when no
+  agent backend is configured for the default maintenance backend (the common
+  plain-checkout case), `--fix` prints an honest stderr notice
+  (`--fix: no agent backend configured for maintenance dispatch — dispatch was
+skipped and nothing was fixed. …`), skips dispatch, and reports `fixed: 0` — it
+  never crashes and never fabricates a result. When a backend **is** resolved
+  there is no warning: it really dispatched and `fixed` reflects the actual commit
+  count. `--fix` also forces concurrency to 1 (sequential), pre-empting
+  duplicate-dispatch / worktree-collapse hazards.
 
 - **CI gates on execution failure only.** Exit code is `0` on completion
   (findings are **not** failures — a sweep that ran every check and surfaced N
@@ -67,16 +83,20 @@ repo-wide); checks ran, no PRs were opened.` `--fix` also forces concurrency to
   dispatch, no PRs, no orchestrator. A developer can ask "what would maintenance
   find?" with zero side effects beyond the per-task output dir and the
   consolidated `.harness/maintenance/last-run-summary.json`.
-- The `mode: 'fix'` seam is wired end-to-end and ready: when a real
-  `AgentDispatcher` is built, `--fix` gains real behavior by swapping the stub —
-  no CLI re-architecture, no second executor (ADR 0049 holds).
+- The `mode: 'fix'` seam is wired end-to-end to the real `createAgentDispatcher`
+  (#679): the same dispatcher cron uses, with no CLI re-architecture and no second
+  executor (ADR 0049 holds). The seam degraded cleanly from stub → real by
+  swapping the dispatcher factory, exactly as this ADR anticipated.
 - CI can adopt `harness maintenance run` immediately and gate on exit `1`.
 
 **Negative / known boundaries:**
 
-- `--fix` is intentionally a no-op-dispatch in this phase. A reviewer expecting
-  real fixes will not get them; the runtime warning and this ADR make that
-  explicit. Real dispatch is a separate future change.
+- `--fix` now dispatches for real (#679), but **only when an agent backend is
+  configured**. In a plain checkout with no `agent.backends`, `--fix` honestly
+  skips dispatch and reports `fixed: 0` with a stderr notice — a reviewer
+  expecting fixes there will not get them, and the notice + this ADR make the
+  reason (no backend) explicit. (Superseded: the original boundary was "no-op in
+  this phase, real dispatch is a future change.")
 - Because report mode reuses the no-dispatch branch, a `pure-ai` task's
   `fixSkill`/`branch` misconfiguration is not surfaced as a failure under the
   default sweep (it is never read) — same boundary noted in ADR 0049.

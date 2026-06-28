@@ -33,16 +33,16 @@ them, and consolidates the results:
 
 ### Flags
 
-| Flag                | Effect                                                            |
-| ------------------- | ----------------------------------------------------------------- |
-| _(none)_            | Run **overdue**, sweep-eligible tasks in report mode              |
-| `--all`             | Run **all** sweep-eligible tasks (ignore overdue computation)     |
-| `--only <a,b>`      | Run only these task ids                                           |
-| `--skip <a,b>`      | Exclude these task ids from the selection                         |
-| `--fix`             | Switch to fix mode — dispatch fix agents / open PRs per task type |
-| `--concurrency <n>` | Parallel cap for report-mode checks (default `min(cores-2, 8)`)   |
-| `--json`            | Emit the consolidated report as JSON to stdout                    |
-| `--path <path>`     | Project root (default `.`)                                        |
+| Flag                | Effect                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| _(none)_            | Run **overdue**, sweep-eligible tasks in report mode                                                |
+| `--all`             | Run **all** sweep-eligible tasks (ignore overdue computation)                                       |
+| `--only <a,b>`      | Run only these task ids                                                                             |
+| `--skip <a,b>`      | Exclude these task ids from the selection                                                           |
+| `--fix`             | Switch to fix mode — dispatch a fix agent that commits to the worktree (needs a configured backend) |
+| `--concurrency <n>` | Parallel cap for report-mode checks (default `min(cores-2, 8)`)                                     |
+| `--json`            | Emit the consolidated report as JSON to stdout                                                      |
+| `--path <path>`     | Project root (default `.`)                                                                          |
 
 `harness maintenance list` and `harness maintenance show <id>` are unchanged —
 use them to inspect the registry and a task's run history.
@@ -91,23 +91,31 @@ branch, dispatches a fix agent, or opens a PR — it computes findings and recor
 them. This keeps the surprising, repo-mutating behavior out of the path a
 developer reaches for to simply _look_.
 
-`--fix` opts into fix mode, which threads the same executor into its
-dispatch-on-findings behavior (mechanical-AI dispatches when findings exist,
-pure-AI always, report-only records only). Fix mode runs **sequentially** to
-avoid duplicate-dispatch and worktree-collapse hazards.
+`--fix` opts into fix mode, which threads the **real agent dispatcher** (#679)
+into its dispatch-on-findings behavior (mechanical-AI dispatches when findings
+exist, pure-AI always, report-only records only). The agent commits its fixes
+directly to your worktree — there is **no PR** (so `prUrl` stays `null`); `fixed`
+reflects the actual number of commits the agent landed. Fix mode runs
+**sequentially** to avoid duplicate-dispatch and worktree-collapse hazards.
 
-> **Honest caveat:** real AI fix-agent dispatch does not exist anywhere in the
-> repo yet — the dispatcher is a documented repo-wide stub. So `--fix` runs the
-> checks and **opens no PRs today.** The command says so explicitly, printing
-> this to **stderr** (stdout stays a clean JSON report):
+> **Honest caveat — `--fix` needs a configured agent backend.** Fix mode
+> resolves an agent backend from `agent.backends` in `harness.orchestrator.md`
+> (the same config the cron orchestrator uses, via `maintenance.aiBackend`,
+> default `local`). When that backend is configured, `--fix` really dispatches.
+> When it is **not** (a plain checkout with no `agent.backends`), `--fix` does
+> **not** crash and does **not** pretend to work — it skips dispatch and says so
+> on **stderr** (stdout stays a clean JSON report):
 >
 > ```
-> --fix: AI fix-agent dispatch is not yet wired (executor dispatcher is a stub
-> repo-wide); checks ran, no PRs were opened.
+> --fix: no agent backend configured for maintenance dispatch — dispatch was
+> skipped and nothing was fixed. Configure agent.backends in
+> harness.orchestrator.md (and maintenance.aiBackend), or run maintenance via
+> the orchestrator.
 > ```
 >
-> Treat `--fix` as "run the checks the way cron would" — not as "fix it for me"
-> — until that dispatch is wired.
+> So: with a backend configured, `--fix` fixes for real and commits to your
+> worktree; without one, treat `--fix` as "run the checks the way cron would"
+> and configure a backend (or use the orchestrator) when you actually want fixes.
 
 ## Reading the report
 
@@ -191,7 +199,8 @@ For an interactive sweep, the `harness-maintenance-pipeline` skill (slash comman
    bucketed by status (failed to execute / needs attention / skipped / clean).
 3. Asks you **in plain text** which tasks, if any, to fix — then re-invokes
    `harness maintenance run --only <ids> --fix` for the ones you pick.
-4. Relays the result honestly, including the `--fix` stub warning.
+4. Relays the result honestly: real `fixed` counts when a backend is configured,
+   or the honest no-backend skip notice when `--fix` could not dispatch.
 
 The skill owns no state of its own — the CLI writes the artifacts; the skill only
 reads and relays. Reach for it when you want a guided sweep-and-triage; reach for
