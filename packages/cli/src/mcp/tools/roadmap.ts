@@ -4,7 +4,9 @@ import {
   loadProjectRoadmapMode,
   createTrackerClient,
   loadTrackerClientConfigFromProject,
+  resolveRoadmapStore,
 } from '@harness-engineering/core';
+import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { triggerExternalSync } from './roadmap-auto-sync.js';
@@ -113,6 +115,28 @@ function writeRoadmapFile(projectRoot: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/**
+ * Whether a roadmap source exists for this project — either the sharded
+ * `docs/roadmap.d/` directory or the monolith `docs/roadmap.md` file. Used to
+ * preserve the distinct "roadmap not found" response (vs a parse error) now that
+ * reads go through `resolveRoadmapStore().load()`, whose `Err` covers both.
+ */
+function roadmapSourceExists(projectRoot: string): boolean {
+  return (
+    fs.existsSync(path.join(projectRoot, 'docs', 'roadmap.d')) ||
+    fs.existsSync(roadmapPath(projectRoot))
+  );
+}
+
+/**
+ * Read the roadmap through the store seam: `ShardStore` when `docs/roadmap.d/`
+ * exists, else `MonolithStore` over `docs/roadmap.md`. Store parity guarantees an
+ * identical in-memory `Roadmap` in both modes.
+ */
+async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
+  return resolveRoadmapStore({ projectRoot }).load();
+}
+
 import { type McpResponse } from '../utils.js';
 
 interface RoadmapDeps {
@@ -189,17 +213,16 @@ function roadmapNotFoundError(): McpResponse {
   };
 }
 
-function handleShow(
+async function handleShow(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   let roadmap = result.value;
@@ -539,12 +562,12 @@ function handlePromote(
   return promoteEnvelopeResponse(envelope);
 }
 
-function handleQuery(
+async function handleQuery(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   if (!input.filter) {
     return {
@@ -553,10 +576,9 @@ function handleQuery(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;

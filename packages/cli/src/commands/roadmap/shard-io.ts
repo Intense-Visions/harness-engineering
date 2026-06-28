@@ -22,6 +22,7 @@ export function createNodeShardIO(): NodeShardIO {
     readFile: (path) => fsp.readFile(path, 'utf-8'),
     writeFile: (path, data) => fsp.writeFile(path, data, 'utf-8'),
     listDir: (dir) => fsp.readdir(dir),
+    deleteFile: (path) => fsp.rm(path),
     mkdirp: async (dir) => {
       await fsp.mkdir(dir, { recursive: true });
     },
