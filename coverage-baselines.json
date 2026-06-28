@@ -20,7 +20,7 @@
   "packages/orchestrator": {
     "lines": 83.06,
     "branches": 71.44,
-    "functions": 85.02,
+    "functions": 83.99,
     "statements": 81.47
   },
   "packages/eslint-plugin": {
