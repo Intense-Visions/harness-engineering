@@ -1,4 +1,4 @@
-import type { Roadmap, Result } from '@harness-engineering/types';
+import type { Roadmap, RoadmapFrontmatter, Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type {
   RoadmapStore,
@@ -155,6 +155,16 @@ export class ShardStore implements RoadmapStore {
     } catch (err) {
       return Err(new Error(`removeFeature: shard "${slug}" not found: ${(err as Error).message}`));
     }
+    return Ok(undefined);
+  }
+
+  // Frontmatter in sharded mode lives in `_meta.md`, and the aggregate is
+  // regenerated from it. Per-feature writes deliberately do NOT touch `_meta`
+  // so that a single-feature mutation rewrites exactly one shard (conflict-free).
+  // Bumping roadmap-level frontmatter is therefore a no-op here.
+  async patchFrontmatter(
+    _mutate: (frontmatter: RoadmapFrontmatter) => RoadmapFrontmatter
+  ): Promise<Result<void>> {
     return Ok(undefined);
   }
 

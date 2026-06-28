@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Result } from '@harness-engineering/types';
+import type { RoadmapFrontmatter } from '@harness-engineering/types';
 import type { RoadmapStore, FeatureMutation, AddFeatureInput } from './roadmap-store';
 import type { ShardIO } from './shard-store';
 import { ShardStore } from './shard-store';
@@ -69,5 +70,9 @@ function withAggregateRegen(
       regen(await base.patchFeature(slug, mutate)),
     addFeature: async (input: AddFeatureInput) => regen(await base.addFeature(input)),
     removeFeature: async (slug: string) => regen(await base.removeFeature(slug)),
+    // No-op in sharded mode (see ShardStore.patchFrontmatter); nothing to
+    // regenerate since no shard/_meta changed.
+    patchFrontmatter: (mutate: (fm: RoadmapFrontmatter) => RoadmapFrontmatter) =>
+      base.patchFrontmatter(mutate),
   };
 }

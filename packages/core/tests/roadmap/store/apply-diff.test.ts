@@ -45,6 +45,10 @@ function spyStore() {
       calls.push({ op: 'remove', slug });
       return Ok(undefined);
     },
+    patchFrontmatter: async () => {
+      calls.push({ op: 'frontmatter', slug: '*' });
+      return Ok(undefined);
+    },
   };
   return { store, calls };
 }
@@ -99,6 +103,7 @@ describe('applyRoadmapDiff', () => {
         return Err(new Error('boom'));
       },
       removeFeature: async () => Ok(undefined),
+      patchFrontmatter: async () => Ok(undefined),
     };
     const r = await applyRoadmapDiff(store, before, after);
     expect(r.ok).toBe(false);

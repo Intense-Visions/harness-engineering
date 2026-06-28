@@ -1,4 +1,9 @@
-import type { Roadmap, RoadmapFeature, Result } from '@harness-engineering/types';
+import type {
+  Roadmap,
+  RoadmapFeature,
+  RoadmapFrontmatter,
+  Result,
+} from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import { parseRoadmap } from '../parse';
 import { serializeRoadmap } from '../serialize';
@@ -123,6 +128,16 @@ export class MonolithStore implements RoadmapStore {
       return Err(new Error(`removeFeature: no feature resolves to slug "${slug}"`));
     }
 
+    return this.write(roadmap);
+  }
+
+  async patchFrontmatter(
+    mutate: (frontmatter: RoadmapFrontmatter) => RoadmapFrontmatter
+  ): Promise<Result<void>> {
+    const loaded = await this.load();
+    if (!loaded.ok) return loaded;
+    const roadmap = loaded.value;
+    roadmap.frontmatter = mutate(roadmap.frontmatter);
     return this.write(roadmap);
   }
 

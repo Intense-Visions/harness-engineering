@@ -5,6 +5,7 @@ import {
   createTrackerClient,
   loadTrackerClientConfigFromProject,
   resolveRoadmapStore,
+  applyRoadmapDiff,
 } from '@harness-engineering/core';
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
@@ -135,6 +136,21 @@ function roadmapSourceExists(projectRoot: string): boolean {
  */
 async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
   return resolveRoadmapStore({ projectRoot }).load();
+}
+
+/**
+ * Persist an in-memory mutation as the minimal set of single-feature store
+ * writes: in sharded mode exactly the changed shard(s) are rewritten (+ aggregate
+ * regenerated); in monolith mode it is a whole-file rewrite. `before` must be a
+ * structuredClone captured right after `loadRoadmap`.
+ */
+async function persistRoadmap(
+  projectRoot: string,
+  before: Roadmap,
+  after: Roadmap
+): Promise<Result<void>> {
+  const store = resolveRoadmapStore({ projectRoot });
+  return applyRoadmapDiff(store, before, after);
 }
 
 import { type McpResponse } from '../utils.js';
@@ -290,19 +306,23 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
   };
 }
 
-function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: RoadmapDeps): McpResponse {
-  const { parseRoadmap, serializeRoadmap, Ok } = deps;
+async function handleAdd(
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   const validationError = validateAddFields(input);
   if (validationError) return validationError;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   const milestone = roadmap.milestones.find(
     (m) => m.name.toLowerCase() === input.milestone!.toLowerCase()
   );
@@ -318,7 +338,8 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
   // Update last_manual_edit timestamp
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 

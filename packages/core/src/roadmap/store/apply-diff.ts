@@ -73,5 +73,13 @@ export async function applyRoadmapDiff(
     }
   }
 
+  // Roadmap-level frontmatter (e.g. lastManualEdit/lastSynced bumps). Monolith
+  // rewrites the whole file; the shard backend no-ops (aggregate frontmatter is
+  // regenerated from _meta), so this stays single-shard in sharded mode.
+  if (!isDeepStrictEqual(before.frontmatter, after.frontmatter)) {
+    const r = await store.patchFrontmatter(() => after.frontmatter);
+    if (!r.ok) return r;
+  }
+
   return Ok(undefined);
 }

@@ -53,4 +53,14 @@ export interface RoadmapStore {
   addFeature(input: AddFeatureInput): Promise<Result<void>>;
   /** Delete exactly one feature/shard by slug. `Err` if the slug resolves to none. */
   removeFeature(slug: string): Promise<Result<void>>;
+  /**
+   * Patch roadmap-level frontmatter (e.g. `lastManualEdit`/`lastSynced`). The
+   * monolith backend rewrites the whole file; the shard backend treats this as a
+   * no-op — the aggregate's frontmatter is regenerated from `_meta.md`, so
+   * per-feature writes never touch `_meta`, preserving the single-shard,
+   * conflict-free write guarantee.
+   */
+  patchFrontmatter(
+    mutate: (frontmatter: RoadmapFrontmatter) => RoadmapFrontmatter
+  ): Promise<Result<void>>;
 }

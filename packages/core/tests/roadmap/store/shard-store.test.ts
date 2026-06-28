@@ -115,6 +115,17 @@ describe('ShardStore', () => {
     expect(files.has(`${SHARD_DIR}/new-thing.md`)).toBe(true);
   });
 
+  it('patchFrontmatter() is a no-op that writes nothing (single-shard invariant)', async () => {
+    const { io, writes, deletes } = makeShardIO();
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+    const r = await store.patchFrontmatter((fm) => ({ ...fm, lastManualEdit: '2099-12-31' }));
+    expect(r.ok).toBe(true);
+    // Aggregate frontmatter is regenerated from _meta.md; per-feature writes must
+    // never touch _meta or any shard, so this primitive writes/deletes nothing.
+    expect(writes).toHaveLength(0);
+    expect(deletes).toHaveLength(0);
+  });
+
   it('removeFeature() deletes ONLY the one shard file', async () => {
     const { io, files, writes, deletes } = makeShardIO();
     const store = new ShardStore({ shardDir: SHARD_DIR, io });

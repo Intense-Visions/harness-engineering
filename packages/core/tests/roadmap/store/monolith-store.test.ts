@@ -85,6 +85,17 @@ describe('MonolithStore', () => {
     expect(mvp?.features.map((f) => f.name)).toContain('C feature');
   });
 
+  it('patchFrontmatter() mutates frontmatter via a whole-file rewrite', async () => {
+    const { io, files, writes } = makeIO();
+    const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+    const r = await store.patchFrontmatter((fm) => ({ ...fm, lastManualEdit: '2099-12-31' }));
+    expect(r.ok).toBe(true);
+    expect(writes).toEqual([ROADMAP_PATH]);
+    const written = parseRoadmap(files.get(ROADMAP_PATH)!);
+    if (!written.ok) throw written.error;
+    expect(written.value.frontmatter.lastManualEdit).toBe('2099-12-31');
+  });
+
   it('removeFeature() splices the resolved feature and writes back', async () => {
     const { io, files, writes } = makeIO();
     const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });

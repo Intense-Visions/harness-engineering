@@ -123,4 +123,27 @@ describe('manage_roadmap sharded — read seam', () => {
   });
 });
 
+describe('manage_roadmap sharded — add (single new shard)', () => {
+  it('creates exactly one new shard and touches no existing shard', async () => {
+    const before = snapshotShardDir();
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+    expect(res.isError).toBeFalsy();
+
+    // Exactly one shard changed: the newly-created billing.md. No existing shard
+    // (auth-system.md / user-dashboard.md / mobile-app.md) was rewritten.
+    expect(fs.existsSync(path.join(shardDir, 'billing.md'))).toBe(true);
+    expect(changedShards(before)).toEqual(['billing.md']);
+    // Aggregate regenerated to include the new feature.
+    const aggregate = fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8');
+    expect(aggregate).toContain('Billing');
+  });
+});
+
 export { writeShardedProject, snapshotShardDir, changedShards };
