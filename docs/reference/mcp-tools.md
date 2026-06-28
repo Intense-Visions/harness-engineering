@@ -503,7 +503,8 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 - `mode` (string, optional) — fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
 - `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
-- `autoCapture` (string, optional) — B' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.
+- `autoCapture` (string, optional) — Deep-mode capture behavior when no `captures` are supplied. "skip" never runs the capture command; "prompt"/"auto" run `captureCommand` when one is configured.
+- `captureCommand` (string, optional) — Deep-mode render+screenshot command. Receives the candidate files via the HARNESS_DESIGN_CRAFT_FILES env var (JSON array) and must print a JSON array of { file, image, component? } to stdout. Used to obtain captures without a built-in browser.
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 - `benchmarkTargets` (array, optional) — BENCHMARK target descriptors. Each entry needs at minimum { file, component }; optional componentType narrows exemplar selection.
 - `captures` (array, optional) — Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" and the critique phase runs. Each entry: { file, image, component? }, where `image` is a path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).
