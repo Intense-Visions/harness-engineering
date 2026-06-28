@@ -5,17 +5,27 @@ import * as path from 'node:path';
  * Invariant R (read-source invariant) — Phase 3, roadmap shard store.
  *
  * `docs/roadmap.md` is a GENERATED aggregate; the shards under `docs/roadmap.d/`
- * are the source of truth. Long-term, only the regenerator may read the
- * aggregate; every other tool must read the shard store. This module mechanically
- * enforces that no NEW code starts reading `docs/roadmap.md` by requiring the set
- * of source files that reference it to be a subset of `ROADMAP_READ_ALLOWLIST`.
+ * are the source of truth. Only the sanctioned store/regenerator may read or write
+ * the aggregate; every other tool must go through `RoadmapStore`. This module
+ * mechanically enforces that no code reads/writes the aggregate outside the store
+ * by requiring the set of source files that reference it to be a subset of
+ * `ROADMAP_READ_ALLOWLIST`.
  *
- * The allowlist enumerates TODAY's readers:
- *   - the regenerator + store (permanent — the sanctioned readers/writers);
+ * A file is flagged when it references the aggregate as a content source by EITHER:
+ *   1. naming the `roadmap.md` literal (a path constant, comment, or message); or
+ *   2. threading a roadmap-path identifier (`roadmapPath`/`roadmapFile`, incl.
+ *      `ctx.roadmapPath`) into a raw filesystem read/write — the DYNAMIC-path case
+ *      that, pre-Phase-4, evaded the guard simply by never spelling the literal.
+ *
+ * As of Phase 4 every roadmap writer and content reader is on the store, so the
+ * allowlist has shrunk to its permanent floor — no migration-pending entries
+ * remain. What remains is exactly:
+ *   - the sanctioned store + regenerator (the aggregate's own readers/writers);
  *   - the Phase-3 git/merge tooling that names the path in comments/messages
- *     (declares merge=ours, regen wrappers) rather than parse-reading it;
- *   - the unmigrated legacy readers, annotated `// Phase 4: remove …`, which
- *     shrink as writers move onto `RoadmapStore`.
+ *     (declares merge=ours, regen/shard/unshard/migrate wrappers, init/validate);
+ *   - legitimate path references that name the aggregate as a FILE for non-content
+ *     purposes (mode/existence checks, the migrate archive move, orchestrator
+ *     seed/file-watch paths) — these do not read roadmap content.
  *
  * Enforced by the repo guard test (`roadmap-read-source.repo.test.ts`, runs under
  * pre-push `test:coverage`), NOT an adopter-facing `harness validate` rule — the
@@ -53,8 +63,31 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/orchestrator/src/workspace/manager.ts', // seed/watch path, not a content read
 ] as const;
 
-/** Matches the generated aggregate path. */
+/** Matches the generated aggregate path named as a literal (path constant, comment, message). */
 const ROADMAP_MD = /roadmap\.md/;
+
+/**
+ * Matches a DYNAMIC-path roadmap read/write: a raw filesystem read/write call
+ * (`readFile`/`writeFile`/`readFileSync`/`writeFileSync`, bare or `fs.`-qualified)
+ * applied to an argument that threads a roadmap-path identifier
+ * (`roadmapPath`/`roadmapFile`, including `ctx.roadmapPath`). This closes the
+ * pre-Phase-4 blind spot where a reader/writer evaded the guard simply by never
+ * spelling the `roadmap.md` literal — threading the aggregate path through a
+ * variable instead. Sanctioned readers/writers go through `resolveRoadmapStore`
+ * (whose own fs IO lives in the injected store backend, not on a `roadmapPath`
+ * identifier), so they do not match.
+ */
+const DYNAMIC_ROADMAP_IO =
+  /\b(?:readFile|writeFile|readFileSync|writeFileSync)\s*\(\s*[^)]*\broadmap(?:Path|File)\b/i;
+
+/**
+ * Whether a source file references the roadmap aggregate as a content source —
+ * either by naming the `roadmap.md` literal, or by threading a roadmap-path
+ * variable into a raw filesystem read/write (a store bypass).
+ */
+function referencesRoadmapSource(content: string): boolean {
+  return ROADMAP_MD.test(content) || DYNAMIC_ROADMAP_IO.test(content);
+}
 
 function walkTsFiles(dir: string, out: string[]): void {
   let entries: fs.Dirent[];
@@ -82,9 +115,11 @@ function walkTsFiles(dir: string, out: string[]): void {
 /**
  * Walk `packages/<pkg>/src/**\/*.ts` (skipping `*.test.ts`, `*.d.ts`, `dist/`,
  * `node_modules/`) and return the repo-relative, posix-separated paths of every
- * source file that references `roadmap.md` but is NOT in `allowlist`, sorted.
+ * source file that references the roadmap aggregate as a content source — by the
+ * `roadmap.md` literal OR a dynamic roadmap-path fs read/write (see
+ * {@link referencesRoadmapSource}) — but is NOT in `allowlist`, sorted.
  *
- * An empty result means the invariant holds (every reader is accounted for).
+ * An empty result means the invariant holds (every reader/writer is accounted for).
  */
 export function findRoadmapReadSourceViolations(
   repoRoot: string,
@@ -113,7 +148,7 @@ export function findRoadmapReadSourceViolations(
     } catch {
       continue;
     }
-    if (!ROADMAP_MD.test(content)) continue;
+    if (!referencesRoadmapSource(content)) continue;
     const rel = path.relative(repoRoot, file).replaceAll('\\', '/');
     if (!allow.has(rel)) violations.push(rel);
   }

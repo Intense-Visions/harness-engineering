@@ -8,10 +8,17 @@ import { findRoadmapReadSourceViolations } from './roadmap-read-source';
  * Repo guard for invariant R (read-source invariant).
  *
  * Every source file under `packages/<pkg>/src` that references the generated
- * roadmap aggregate must be enumerated in `ROADMAP_READ_ALLOWLIST`. This test
- * fails the moment a NEW reader appears (the real risk), while passing on the
- * curated legacy set. As writers migrate onto `RoadmapStore` in Phase 4, the
- * allowlist shrinks toward `{ regenerator }`.
+ * roadmap aggregate as a content source — by the `roadmap.md` literal OR by
+ * threading a roadmap-path variable into a raw fs read/write — must be enumerated
+ * in `ROADMAP_READ_ALLOWLIST`. This test fails the moment a NEW reader/writer
+ * appears (the real risk), including the dynamic-path case that previously evaded
+ * the literal-only detector.
+ *
+ * Phase 4 end state: every roadmap writer and content reader is now on
+ * `RoadmapStore`, so the allowlist has reached its permanent floor —
+ * `{ store + regenerator + factory, Phase-3 git/merge tooling, and legitimate
+ * non-content path references (mode/existence checks, the migrate archive move,
+ * orchestrator seed/file-watch paths) }`. No migration-pending entries remain.
  *
  * Runs under pre-push `test:coverage` (harness's OWN repo), NOT an adopter
  * `harness validate` rule — the invariant is about harness source, which an
