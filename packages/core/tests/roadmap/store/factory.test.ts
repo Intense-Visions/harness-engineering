@@ -13,8 +13,11 @@ import { serializeRoadmap } from '../../../src/roadmap/serialize';
 import { ASSEMBLER_SHARDS, ASSEMBLER_META, MONOLITH_ROADMAP_MD } from './fixtures';
 
 const PROJECT_ROOT = '/repo';
-const SHARD_DIR = path.join(PROJECT_ROOT, 'docs', 'roadmap.d');
-const ROADMAP_PATH = path.join(PROJECT_ROOT, 'docs', 'roadmap.md');
+// Use posix joins: the store normalizes IO paths to '/' on every OS, so the
+// in-memory io seeding, `exists` probes, and `writes` assertions below must be
+// '/'-delimited too (plain path.join would produce '\' on Windows and mismatch).
+const SHARD_DIR = path.posix.join(PROJECT_ROOT, 'docs', 'roadmap.d');
+const ROADMAP_PATH = path.posix.join(PROJECT_ROOT, 'docs', 'roadmap.md');
 
 function basename(p: string): string {
   return p.slice(p.lastIndexOf('/') + 1);
