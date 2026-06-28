@@ -50,7 +50,6 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/core/src/roadmap/migrate/plan-builder.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/core/src/roadmap/migrate/run.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/core/src/roadmap/migrate/types.ts', // Phase 4: remove when migrated to RoadmapStore
-  'packages/core/src/architecture/prediction-engine.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/core/src/validation/roadmap-mode.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/cli/src/config/schema.ts', // Phase 4: remove when migrated to RoadmapStore
   'packages/cli/src/mcp/tools/roadmap-file-less.ts', // Phase 4: remove when migrated to RoadmapStore

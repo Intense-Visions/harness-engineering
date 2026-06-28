@@ -108,13 +108,13 @@ function printPredictionReport(result: PredictionResult): void {
   console.log('');
 }
 
-export function runPredict(options: {
+export async function runPredict(options: {
   cwd?: string;
   configPath?: string;
   category?: string;
   noRoadmap?: boolean;
   horizon?: number;
-}): PredictionResult {
+}): Promise<PredictionResult> {
   const cwd = options.cwd ?? process.cwd();
 
   const configResult = resolveConfig(options.configPath);
@@ -171,7 +171,7 @@ export function createPredictCommand(): Command {
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
 
       try {
-        const result = runPredict({
+        const result = await runPredict({
           configPath: globalOpts.config,
           category: opts.category,
           noRoadmap: opts.roadmap === false,

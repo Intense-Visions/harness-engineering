@@ -24268,8 +24268,39 @@
       ]
     },
     {
-      "capturedAt": "2026-06-28T02:30:19.445Z",
+      "capturedAt": "2026-06-28T02:30:34.204Z",
       "commitHash": "240d9b1de4833c357265336a549595ca91ae4d06",
+      "securityScore": 99,
+      "totalFindings": 1,
+      "bySeverity": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd"
+      ]
+    },
+    {
+      "capturedAt": "2026-06-28T02:37:34.548Z",
+      "commitHash": "abf54d7c75e0b52b6fb19358f26139997c4f5e3d",
       "securityScore": 99,
       "totalFindings": 1,
       "bySeverity": {

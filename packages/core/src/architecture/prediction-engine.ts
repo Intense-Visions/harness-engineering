@@ -1,5 +1,4 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { resolveRoadmapStore } from '../roadmap/store/factory';
 import { ArchMetricCategorySchema } from './types';
 import type { ArchMetricCategory } from './types';
 import { DEFAULT_STABILITY_THRESHOLDS } from './timeline-types';
@@ -25,7 +24,6 @@ import type {
   ConfidenceTier,
 } from './prediction-types';
 import type { SpecImpactEstimator } from './spec-impact-estimator';
-import { parseRoadmap } from '../roadmap/parse';
 
 const ALL_CATEGORIES = ArchMetricCategorySchema.options;
 const DIRECTION_THRESHOLD = 0.001; // slope magnitude below this is "stable"
@@ -47,7 +45,7 @@ export class PredictionEngine {
    * Produce a PredictionResult with per-category forecasts and warnings.
    * Throws if fewer than 3 snapshots are available.
    */
-  predict(options?: Partial<PredictionOptions>): PredictionResult {
+  async predict(options?: Partial<PredictionOptions>): Promise<PredictionResult> {
     const opts = this.resolveOptions(options);
     const snapshots = this.loadValidatedSnapshots();
     const thresholds = this.resolveThresholds(opts);
@@ -63,7 +61,7 @@ export class PredictionEngine {
       opts.horizon
     );
 
-    const specImpacts = this.computeSpecImpacts(opts);
+    const specImpacts = await this.computeSpecImpacts(opts);
     const categories = this.computeAdjustedForecasts(baselines, thresholds, specImpacts, currentT);
     const adjustedCategories = categories as Record<ArchMetricCategory, AdjustedForecast>;
 
@@ -448,20 +446,19 @@ export class PredictionEngine {
    * Load roadmap features, estimate spec impacts via the estimator.
    * Returns null if estimator is null or includeRoadmap is false.
    */
-  private computeSpecImpacts(opts: PredictionOptions): SpecImpactEstimate[] | null {
+  private async computeSpecImpacts(opts: PredictionOptions): Promise<SpecImpactEstimate[] | null> {
     if (!this.estimator || !opts.includeRoadmap) {
       return null;
     }
 
     try {
-      const roadmapPath = path.join(this.rootDir, 'roadmap.md');
-      const raw = fs.readFileSync(roadmapPath, 'utf-8');
-      const parseResult = parseRoadmap(raw);
-
-      if (!parseResult.ok) return null;
+      // Read the roadmap through the store (shards when docs/roadmap.d/ exists,
+      // else the monolith aggregate) at the standard docs/ location.
+      const loaded = await resolveRoadmapStore({ projectRoot: this.rootDir }).load();
+      if (!loaded.ok) return null;
 
       // Collect all features with specs across all milestones
-      const features = parseResult.value.milestones.flatMap((m) =>
+      const features = loaded.value.milestones.flatMap((m) =>
         m.features
           .filter((f) => f.status === 'planned' || f.status === 'in-progress')
           .map((f) => ({ name: f.name, spec: f.spec }))
