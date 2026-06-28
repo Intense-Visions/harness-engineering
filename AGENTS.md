@@ -448,7 +448,7 @@ _Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-
 
 _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`, `search`, `insights`
 
-_Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
+_Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`; maintenance-pipeline Phase 3: `run [taskId...]` — on-demand, report-first sweep of overdue sweep-eligible tasks, `--all` / `--only` / `--skip` / `--fix` / `--concurrency` / `--json`, infra-free with no orchestrator), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
 
 _Content & Generation:_ `blueprint`, `create-skill`, `generate-agent-definitions`, `generate-slash-commands`, `knowledge-pipeline`, `share`
 
@@ -682,7 +682,7 @@ The dashboard `Maintenance` page renders a candidate-count badge on `compound-ca
 
 `RunResult.origin: RunOrigin` is a discriminated provenance tag (`'cron' | 'cli' | { kind: 'api', tokenName } | { kind: 'chain', upstreamTaskId }`) set by the entry point and never configurable. `TaskOutputStore` persists one JSON file per run at `.harness/maintenance/<task-id>/outputs/<iso>.json` (one-file-per-run trades inode count for clarity; retention-bounded).
 
-CLI: `harness maintenance list` shows the resolved task list (built-in + custom); `harness maintenance show <task-id> --limit N` reads from the output store. The `harness maintenance run <task-id>` subcommand and the `/api/v1/jobs/maintenance/{taskId}/trigger` API are deferred to a follow-up alongside the Phase 0 Gateway API contracts.
+CLI: `harness maintenance list` shows the resolved task list (built-in + custom); `harness maintenance show <task-id> --limit N` reads from the output store. `harness maintenance run [taskId...]` (maintenance-pipeline Phase 3) runs an on-demand, report-first sweep of overdue sweep-eligible tasks through the same `TaskRunner` the cron scheduler uses — no orchestrator, gateway, or `ClaimManager` constructed (ADR [0050](docs/knowledge/decisions/0050-report-first-on-demand-maintenance.md)). Default is overdue + report mode (parallel, no PRs); `--all` / `--only` / `--skip` scope selection, `--fix` threads fix mode (sequential) and dispatches the real `createAgentDispatcher` (#679) when an `agent.backends` backend is configured, otherwise skips with an honest `NO_BACKEND_FIX_WARNING` and `fixed: 0`, `--json` emits the consolidated report also written to `.harness/maintenance/last-run-summary.json`. Exit codes: `0` completed (findings are not failures), `1` a task failed to execute, `2` invalid invocation. The `/api/v1/jobs/maintenance/{taskId}/trigger` API remains deferred to a follow-up alongside the Phase 0 Gateway API contracts.
 
 #### Pre-launch OSV Malware Guard (Hermes Phase 2 / A8)
 
@@ -763,7 +763,7 @@ The tier is estimated during planning and confirmed from execution results. The 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
 - **Tier 1 (Workflow, 14 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component, harness-integration, harness-router, initialize-test-suite-project.
-- **Tier 2 (Maintenance, 24 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot, harness-compound, harness-knowledge-pipeline, harness-pulse.
+- **Tier 2 (Maintenance, 25 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot, harness-compound, harness-knowledge-pipeline, harness-pulse, maintenance-pipeline.
 - **Tier 3 (Catalog, 697 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
 - **Internal (6 skills):** Dependency-only, never surfaced. Invoked by other skills as part of pipelines.
 

@@ -717,3 +717,128 @@ describe('TaskRunner', () => {
     });
   });
 });
+
+describe('TaskRunner run mode (D4)', () => {
+  const MECH_TASK: TaskDefinition = {
+    id: 'arch-violations',
+    type: 'mechanical-ai',
+    description: 'Detect and fix architecture violations',
+    schedule: '0 2 * * *',
+    branch: 'harness-maint/arch-fixes',
+    checkCommand: ['check-arch'],
+    fixSkill: 'harness-arch-fix',
+  };
+
+  it('mechanical-ai: report mode records findings, reports success (not no-issues), never dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 5, passed: false });
+    const agentDispatcher = createMockAgentDispatcher();
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher, prManager }));
+
+    const result = await runner.run(MECH_TASK, 'cli', 'report');
+
+    expect(result.findings).toBe(5);
+    // Finding 1: a report sweep with findings > 0 did real work — it must NOT
+    // claim 'no-issues' while carrying findings: 5 (aligns with runReportOnly).
+    expect(result.status).not.toBe('no-issues');
+    expect(result.status).toBe('success');
+    expect(result.prUrl).toBeNull();
+    expect(checkRunner.run).toHaveBeenCalledWith(['check-arch'], '/test/project');
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
+  });
+
+  it('mechanical-ai: report mode with zero findings reports no-issues and never dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 0, passed: true });
+    const agentDispatcher = createMockAgentDispatcher();
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher, prManager }));
+
+    const result = await runner.run(MECH_TASK, 'cli', 'report');
+
+    expect(result.findings).toBe(0);
+    expect(result.status).toBe('no-issues');
+    expect(result.prUrl).toBeNull();
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
+  });
+
+  it('mechanical-ai: omitting mode defaults to fix and still dispatches', async () => {
+    const checkRunner = createMockCheckRunner({ findings: 5, passed: false });
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 3 });
+    const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher }));
+
+    const result = await runner.run(MECH_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(agentDispatcher.dispatch).toHaveBeenCalled();
+  });
+
+  const PURE_TASK: TaskDefinition = {
+    id: 'dead-code',
+    type: 'pure-ai',
+    description: 'Find and remove dead code',
+    schedule: '0 2 * * 0',
+    branch: 'harness-maint/dead-code',
+    fixSkill: 'harness-codebase-cleanup',
+  };
+
+  it('pure-ai: report mode never dispatches and opens no PR', async () => {
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 2 });
+    const prManager = createMockPRManager();
+    const runner = new TaskRunner(createRunnerOptions({ agentDispatcher, prManager }));
+
+    const result = await runner.run(PURE_TASK, 'cli', 'report');
+
+    expect(result.status).toBe('no-issues');
+    expect(result.findings).toBe(0);
+    expect(result.prUrl).toBeNull();
+    expect(agentDispatcher.dispatch).not.toHaveBeenCalled();
+    expect(prManager.ensureBranch).not.toHaveBeenCalled();
+    expect(prManager.ensurePR).not.toHaveBeenCalled();
+  });
+
+  it('pure-ai: omitting mode defaults to fix and still dispatches', async () => {
+    const agentDispatcher = createMockAgentDispatcher({ producedCommits: true, fixed: 2 });
+    const runner = new TaskRunner(createRunnerOptions({ agentDispatcher }));
+
+    const result = await runner.run(PURE_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(agentDispatcher.dispatch).toHaveBeenCalled();
+  });
+
+  const HOUSEKEEPING_MUTATING_TASK: TaskDefinition = {
+    id: 'main-sync',
+    type: 'housekeeping',
+    description: 'Sync the maintenance worktree with main',
+    schedule: '0 1 * * *',
+    branch: null,
+    checkCommand: ['sync-main', '--json'],
+  };
+
+  it('housekeeping: report mode skips the command and never mutates', async () => {
+    const commandExecutor = createMockCommandExecutor('{"status":"updated"}\n');
+    const runner = new TaskRunner(createRunnerOptions({ commandExecutor }));
+
+    const result = await runner.run(HOUSEKEEPING_MUTATING_TASK, 'cli', 'report');
+
+    // Finding 2 (defense-in-depth): a git-mutating housekeeping task must NOT
+    // exec under report mode — skipped with a clear reason, executor untouched.
+    expect(result.status).toBe('skipped');
+    expect(result.error).toContain('report mode');
+    expect(commandExecutor.exec).not.toHaveBeenCalled();
+  });
+
+  it('housekeeping: omitting mode defaults to fix and still execs the command', async () => {
+    const commandExecutor = createMockCommandExecutor('{"status":"updated"}\n');
+    const runner = new TaskRunner(createRunnerOptions({ commandExecutor }));
+
+    const result = await runner.run(HOUSEKEEPING_MUTATING_TASK); // no mode arg -> 'fix'
+
+    expect(result.status).toBe('success');
+    expect(commandExecutor.exec).toHaveBeenCalledWith(['sync-main', '--json'], '/test/project');
+  });
+});

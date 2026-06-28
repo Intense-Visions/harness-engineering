@@ -3,6 +3,17 @@
  *
  * Supports: exact values, wildcards (*), ranges (1-5), lists (1,3,5), and step values (star/N).
  * Does NOT support: L, W, #, ?, or 6/7-field expressions.
+ *
+ * DAY-OF-MONTH / DAY-OF-WEEK SEMANTICS — intentional divergence from POSIX cron:
+ * when BOTH the day-of-month and day-of-week fields are restricted (neither is
+ * `*`), this matcher ANDs them (a date must satisfy both), whereas standard cron
+ * ORs them (a date fires if it satisfies EITHER). E.g. `0 0 13 * 5` matches only
+ * a Friday that is also the 13th here, but every 13th OR every Friday under
+ * POSIX. This is internally consistent across `cronMatchesNow`/`cronMatchesDate`
+ * (so the overdue scan's day-skip and minute-match agree) and safe in practice:
+ * no built-in/registry schedule restricts both fields. Pinned by the
+ * "dom + dow AND semantics" tests. Custom tasks that need OR must split into two
+ * task entries.
  */
 
 /**
@@ -92,11 +103,42 @@ export function cronMatchesNow(expression: string, now: Date): boolean {
   const months = parseField(monthField, 1, 12);
   const daysOfWeek = parseField(dowField, 0, 6);
 
+  // dom AND dow when both restricted — see module header (diverges from POSIX OR).
   return (
     minutes.has(minute) &&
     hours.has(hour) &&
     daysOfMonth.has(dayOfMonth) &&
     months.has(month) &&
     daysOfWeek.has(dayOfWeek)
+  );
+}
+
+/**
+ * Returns true if the calendar date (day-of-month, month, day-of-week) of `date`
+ * satisfies the cron expression, ignoring the minute/hour fields entirely.
+ *
+ * Used by the overdue scan to cheaply skip whole days that can never fire,
+ * turning a flat minute-by-minute look-back into a coarse-to-fine (day → minute)
+ * scan. Genuinely-impossible date combinations (e.g. `0 0 31 2 *` — Feb 31)
+ * match no real calendar day, so callers stepping over real dates get `false`
+ * for every day and resolve to "no fire".
+ *
+ * @throws {Error} If the expression does not have exactly 5 fields.
+ */
+export function cronMatchesDate(expression: string, date: Date): boolean {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) {
+    throw new Error(`Invalid cron expression: expected 5 fields, got ${fields.length}`);
+  }
+  const [, , domField, monthField, dowField] = fields as [string, string, string, string, string];
+  const daysOfMonth = parseField(domField, 1, 31);
+  const months = parseField(monthField, 1, 12);
+  const daysOfWeek = parseField(dowField, 0, 6);
+
+  // dom AND dow when both restricted — see module header (diverges from POSIX OR).
+  return (
+    daysOfMonth.has(date.getDate()) &&
+    months.has(date.getMonth() + 1) &&
+    daysOfWeek.has(date.getDay())
   );
 }

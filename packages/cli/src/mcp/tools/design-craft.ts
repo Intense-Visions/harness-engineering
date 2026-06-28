@@ -11,10 +11,11 @@
 //     called out as a separate coordination commit by the user's scope
 //     statement, mirroring the same posture the user took for
 //     harness.config.json schema extension and DesignConstraintAdapter.
-//   - CRITIQUE phase invoked end-to-end against the one seeded rubric
-//     (hierarchy-clarity). POLISH and BENCHMARK are stubs returning [].
-//   - Mode arg accepts 'fast' | 'deep' but only 'fast' is implemented;
-//     'deep' returns a friendly "unimplemented in MVP" error.
+//   - CRITIQUE / POLISH / BENCHMARK phases all run end-to-end over the
+//     seeded rubrics / patterns / exemplars.
+//   - Mode 'fast' critiques source code; mode 'deep' critiques rendered
+//     screenshots (`captures`) via the provider's vision channel. The CLI
+//     does not render components itself — captures are caller-supplied.
 //   - autoCapture arg accepts 'prompt' | 'auto' | 'skip' but only 'skip'
 //     has fully defined behavior in this MVP (no detect-and-offer yet);
 //     'prompt' and 'auto' are accepted and currently behave like 'skip'
@@ -35,8 +36,8 @@ import { Ok, Err } from '@harness-engineering/core';
 import type { Result } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
-import { runCritique } from '../../design-craft/phases/critique.js';
-import type { CritiqueTarget } from '../../design-craft/phases/critique.js';
+import { runCritique, runVisionCritique } from '../../design-craft/phases/critique.js';
+import type { CritiqueTarget, VisionCritiqueTarget } from '../../design-craft/phases/critique.js';
 import { runPolish } from '../../design-craft/phases/polish.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark } from '../../design-craft/phases/benchmark.js';
@@ -87,6 +88,13 @@ export interface DesignCraftInput {
     componentType?: string;
   }>;
   /**
+   * Deep-mode (vision) captures: rendered screenshots of components to critique
+   * visually. Required when `mode: 'deep'` and the critique phase runs — the CLI
+   * does not render components itself (no browser), so the screenshots are
+   * supplied by the caller (e.g. a Storybook/Playwright capture step).
+   */
+  captures?: VisionCritiqueTarget[];
+  /**
    * Test seam — inject an LlmProvider directly (e.g. MockLlmProvider).
    * NOT documented in the MCP tool schema; used by integration tests so
    * deterministic CI works without touching the live provider factory.
@@ -115,7 +123,8 @@ export const designCraftToolDefinition = {
         type: 'string',
         enum: ['fast', 'deep'],
         description:
-          'fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.',
+          'fast (code-only LLM critique) or deep (vision critique of rendered screenshots — ' +
+          'requires `captures`).',
       },
       phases: {
         type: 'array',
@@ -150,6 +159,22 @@ export const designCraftToolDefinition = {
             componentType: { type: 'string' },
           },
           required: ['file', 'component'],
+        },
+      },
+      captures: {
+        type: 'array',
+        description:
+          'Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" ' +
+          'and the critique phase runs. Each entry: { file, image, component? }, where `image` is a ' +
+          'path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).',
+        items: {
+          type: 'object',
+          properties: {
+            file: { type: 'string' },
+            image: { type: 'string' },
+            component: { type: 'string' },
+          },
+          required: ['file', 'image'],
         },
       },
     },
@@ -218,14 +243,20 @@ async function runPipeline(
   input: DesignCraftInput
 ): Promise<Result<DesignCraftOutput, { message: string }>> {
   const mode: Mode = input.mode ?? 'fast';
-  if (mode === 'deep') {
+  const phases = selectPhases(input.phases);
+
+  // Deep mode critiques rendered screenshots via the provider's vision channel.
+  // The CLI does not render components itself, so captures must be supplied by
+  // the caller; without them the critique phase cannot run in deep mode.
+  const captures = input.captures ?? [];
+  if (mode === 'deep' && phases.includes('critique') && captures.length === 0) {
     return Err({
       message:
-        'design-craft deep mode (render + vision LLM) is not implemented in the Phase 1 MVP. Use mode: "fast".',
+        'design-craft deep mode critiques rendered screenshots — supply `captures` ' +
+        '([{ file, image }]). The CLI does not render components itself; capture them ' +
+        '(e.g. via Storybook/Playwright) and pass the image paths, or use mode: "fast".',
     });
   }
-
-  const phases = selectPhases(input.phases);
   const autoCapture: AutoCapture = input.autoCapture ?? 'prompt';
   if (autoCapture !== 'skip') {
     // TODO (next task): implement resolvers/preconditions + resolvers/offer
@@ -245,12 +276,21 @@ async function runPipeline(
   const scores: BenchmarkScore[] = [];
 
   let rubricsApplied: string[] = [];
-  if (phases.includes('critique') && critiqueTargets.length > 0) {
+  if (phases.includes('critique')) {
     const rubrics = [...SEED_RUBRICS];
-    rubricsApplied = rubrics.map((r) => r.id);
-    const critiqueFindings = await runCritique({ targets: critiqueTargets, rubrics, provider });
+    // Deep mode → vision critique over the rendered captures; fast mode → the
+    // code-only critique over the source files.
+    const critiqueFindings =
+      mode === 'deep'
+        ? await runVisionCritique({ targets: captures, rubrics, provider })
+        : critiqueTargets.length > 0
+          ? await runCritique({ targets: critiqueTargets, rubrics, provider })
+          : [];
+    if (critiqueFindings.length > 0 || mode === 'deep') {
+      rubricsApplied = rubrics.map((r) => r.id);
+    }
     findings.push(...critiqueFindings);
-    if (recordMeasurement) {
+    if (recordMeasurement && critiqueFindings.length > 0) {
       for (const rubric of rubrics) recordTrigger(rubric.id, measurementRoot);
       for (const f of critiqueFindings) recordSignalEvent(f, measurementRoot, measurementRoot);
     }

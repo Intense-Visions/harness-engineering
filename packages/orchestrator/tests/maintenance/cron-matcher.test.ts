@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cronMatchesNow } from '../../src/maintenance/cron-matcher';
+import { cronMatchesNow, cronMatchesDate } from '../../src/maintenance/cron-matcher';
 
 describe('cronMatchesNow', () => {
   // Helper: 2026-04-17 is a Friday (day 5)
@@ -68,6 +68,22 @@ describe('cronMatchesNow', () => {
     expect(() => cronMatchesNow('0 0 32 * *', friday2am)).toThrow(/must be 1-31/);
     expect(() => cronMatchesNow('0 0 * 13 *', friday2am)).toThrow(/must be 1-12/);
     expect(() => cronMatchesNow('0 0 * * 8', friday2am)).toThrow(/must be 0-6/);
+  });
+
+  it('ANDs day-of-month and day-of-week when both are restricted (diverges from POSIX OR)', () => {
+    // Pins p2-002: `0 0 13 * 5` = midnight, the 13th, AND Friday. POSIX cron
+    // would fire on every 13th OR every Friday; this matcher requires BOTH.
+    const friday13 = new Date('2026-02-13T00:00:00'); // Friday the 13th → both
+    const monday13 = new Date('2026-04-13T00:00:00'); // 13th, but a Monday
+    const friday6 = new Date('2026-02-06T00:00:00'); // Friday, but the 6th
+    // Both restricted → only the date satisfying BOTH matches (AND, not OR):
+    expect(cronMatchesNow('0 0 13 * 5', friday13)).toBe(true);
+    expect(cronMatchesNow('0 0 13 * 5', monday13)).toBe(false); // POSIX OR → true
+    expect(cronMatchesNow('0 0 13 * 5', friday6)).toBe(false); // POSIX OR → true
+    // cronMatchesDate (the overdue day-skip) must agree, ignoring minute/hour:
+    expect(cronMatchesDate('0 0 13 * 5', friday13)).toBe(true);
+    expect(cronMatchesDate('0 0 13 * 5', monday13)).toBe(false);
+    expect(cronMatchesDate('0 0 13 * 5', friday6)).toBe(false);
   });
 
   it('matches all 18 built-in schedules against expected times', () => {

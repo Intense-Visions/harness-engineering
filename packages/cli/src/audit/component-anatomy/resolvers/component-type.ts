@@ -3,21 +3,22 @@
  *
  * Three-layer stack:
  *   1. JSDoc `@component-type` tag (top of the file) — authoritative
- *      self-declaration. STUB in this MVP — returns null pending the
- *      JSDoc parser task.
+ *      self-declaration, read from the leading doc block.
  *   2. DESIGN.md `## Component Registry` section — explicit
- *      project-level mapping. STUB in this MVP — returns null pending
- *      the DESIGN.md parser task.
+ *      project-level Type→File mapping (nearest DESIGN.md up the tree).
  *   3. Top-level export-name catalog match — `export const Button = ...`
- *      where `Button` is a key in the convention catalog. This is the
- *      implemented layer for the vertical slice; per Decision #3 it
- *      covers ~80% of well-organized React codebases.
+ *      where `Button` is a key in the convention catalog. Per Decision #3
+ *      it covers ~80% of well-organized React codebases.
  *
  * Resolution returns `null` (silent skip) when no layer matches — per
  * Decision #3 the audit deliberately does NOT guess.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { getCatalogTypes } from '../catalog/index.js';
+import { extractLeadingJsDoc, readJsDocTagValue } from '../parsers/jsdoc.js';
+import { parseComponentRegistry, findDesignMd } from '../parsers/design-registry.js';
 
 /**
  * Catalog of recognised component types, lazily materialised from the
@@ -49,14 +50,47 @@ export function resolveComponentType(filePath: string, fileContents: string): st
   return resolveFromExportName(fileContents);
 }
 
-/** STUB. Returns null until the JSDoc parser task lands. */
-function resolveFromJSDoc(_filePath: string, _fileContents: string): string | null {
-  return null;
+/**
+ * Layer 1: the file's leading JSDoc `@component-type <Type>` self-declaration.
+ * Authoritative when present — returned verbatim (the author owns it); if the
+ * declared type has no convention, the downstream rule resolver skips silently.
+ */
+function resolveFromJSDoc(_filePath: string, fileContents: string): string | null {
+  const jsdoc = extractLeadingJsDoc(fileContents);
+  if (jsdoc === null) return null;
+  return readJsDocTagValue(jsdoc, 'component-type');
 }
 
-/** STUB. Returns null until the DESIGN.md parser task lands. */
-function resolveFromDesignRegistry(_filePath: string): string | null {
-  return null;
+// Parsed `## Component Registry` rows keyed by the DESIGN.md path that produced
+// them — DESIGN.md is static for a process, so memoizing avoids re-reading and
+// re-parsing it on every audited file.
+const registryCache = new Map<string, Map<string, string>>();
+
+/**
+ * Layer 2: the nearest DESIGN.md `## Component Registry` table. Maps the audited
+ * file (matched by its registry `File` path, resolved relative to DESIGN.md's
+ * directory) to its declared `Type`.
+ */
+function resolveFromDesignRegistry(filePath: string): string | null {
+  const designPath = findDesignMd(filePath);
+  if (designPath === null) return null;
+
+  let byFile = registryCache.get(designPath);
+  if (!byFile) {
+    byFile = new Map();
+    let contents: string;
+    try {
+      contents = fs.readFileSync(designPath, 'utf8');
+    } catch {
+      contents = '';
+    }
+    const designDir = path.dirname(designPath);
+    for (const entry of parseComponentRegistry(contents)) {
+      byFile.set(path.resolve(designDir, entry.file), entry.type);
+    }
+    registryCache.set(designPath, byFile);
+  }
+  return byFile.get(path.resolve(filePath)) ?? null;
 }
 
 /**

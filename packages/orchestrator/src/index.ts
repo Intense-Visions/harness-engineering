@@ -64,7 +64,64 @@ export { TaskOutputStore } from './maintenance/output-store';
 export type { PersistedOutputEntry } from './maintenance/output-store';
 export { validateCustomTasks } from './maintenance/custom-task-validator';
 export type { CustomTaskValidationError } from './maintenance/custom-task-validator';
-export type { TaskDefinition, TaskType, RunOrigin } from './maintenance/types';
+export type { TaskDefinition, TaskType, RunOrigin, RunMode } from './maintenance/types';
+
+// On-demand maintenance pipeline (Phase 2) — overdue/selection helper consumed
+// by the `harness maintenance run` CLI subcommand without booting an orchestrator.
+export { selectTasks } from './maintenance/overdue';
+export type { TaskSelectionFilter } from './maintenance/overdue';
+
+// On-demand maintenance pipeline (Phase 3) — CLI `run` subcommand surface.
+// The CLI builds an infra-free TaskRunner (report mode), reads/records history
+// via MaintenanceReporter, and runs custom `checkScript` tasks via CheckScriptRunner,
+// all without booting an orchestrator/gateway/ClaimManager.
+export {
+  TaskRunner,
+  classifyCheckExecutionFailure,
+  recoverFindingsCount,
+  explicitFindingsCount,
+} from './maintenance/task-runner';
+export type {
+  TaskRunnerOptions,
+  CheckCommandRunner,
+  CheckCommandResult,
+  AgentDispatcher,
+  AgentDispatchResult,
+  CommandExecutor,
+  CommandExecResult,
+  PRLifecycleManager,
+  CheckFailureKind,
+  CheckFailureClassification,
+} from './maintenance/task-runner';
+export type { RunResult } from './maintenance/types';
+// Real maintenance agent dispatcher (#679). Exported so the on-demand CLI
+// (`harness maintenance run --fix`) can build the SAME real dispatcher the cron
+// orchestrator uses (createMaintenanceTaskRunner) instead of a local stub —
+// resolving backends from the CLI's loaded config and degrading gracefully when
+// no backend is configured.
+export { createAgentDispatcher } from './maintenance/agent-dispatcher';
+export type { AgentDispatcherDeps } from './maintenance/agent-dispatcher';
+export { MaintenanceReporter } from './maintenance/reporter';
+export type { MaintenanceReporterOptions } from './maintenance/reporter';
+export { CheckScriptRunner } from './maintenance/check-script-runner';
+
+// Shared maintenance check-runner core. The on-demand CLI (`harness maintenance
+// run`) consumes `runHarnessCheck` (plus the timeout/maxBuffer constants) so it
+// shares ONE spawn/parse/timeout/executionFailed implementation with the cron
+// orchestrator — they differ only in how each resolves a checkCommand into a
+// spawn invocation.
+export {
+  runHarnessCheck,
+  isCheckTimeoutError,
+  MAINTENANCE_CHECK_MAX_BUFFER,
+  MAINTENANCE_CHECK_TIMEOUT_MS,
+} from './maintenance/check-runner';
+export type {
+  HarnessSpawn,
+  ExecFileError,
+  ExecFileAsyncFn,
+  RunHarnessCheckOptions,
+} from './maintenance/check-runner';
 
 // Hermes Phase 0 / Phase 1: re-export TokenStore so the CLI (`harness gateway token`)
 // and the dashboard tokens router can construct it via the package root without

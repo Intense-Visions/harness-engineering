@@ -32,6 +32,16 @@ export type RunOrigin =
   | { kind: 'chain'; upstreamTaskId: string };
 
 /**
+ * Run mode for a maintenance task (on-demand pipeline, D4).
+ *
+ * - 'fix'    — current cron behavior: mechanical-ai dispatches on findings,
+ *              pure-ai always dispatches, PRs may be opened. Default.
+ * - 'report' — read-only sweep: run the check step, record findings, and take
+ *              the no-dispatch branch — never dispatch a fix agent or open a PR.
+ */
+export type RunMode = 'report' | 'fix';
+
+/**
  * Per-task cost ceiling (Hermes Phase 5).
  *
  * When set, the orchestrator's `CostCeilingMonitor` tracks cumulative
@@ -93,6 +103,15 @@ export interface TaskDefinition {
   outputRetention?: OutputRetentionConfig;
   /** Hermes Phase 2 — Marks tasks originating from `customTasks` config. */
   isCustom?: boolean;
+  /**
+   * On-demand maintenance pipeline (D5). When `true`, the task is excluded
+   * from the human "overdue" sweep computed by `selectTasks` — used for
+   * git-mutating housekeeping (`main-sync`, `perf-baselines`,
+   * `session-cleanup`) and one-shot backfills (`proposal-provenance-backfill`)
+   * that are infra hygiene, not developer-facing health signals.
+   * `undefined` (default) → sweep-eligible.
+   */
+  excludeFromHumanSweep?: boolean;
 }
 
 /**

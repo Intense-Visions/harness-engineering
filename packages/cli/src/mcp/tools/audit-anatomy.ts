@@ -4,7 +4,7 @@
  * Entry point for the audit-component-anatomy skill (design-pipeline
  * sub-project #2). Phase 1 vertical-slice scope:
  *   - Convention catalog: Button only (one rule)
- *   - Pattern catalog: stubbed — patterns return empty
+ *   - Pattern catalog: ANAT-P* composition patterns run in `full` mode
  *   - Mode handling: fast/full both run conventions only in MVP
  *
  * Tool registration into `mcp/server.ts` is a separate coordination
@@ -26,6 +26,7 @@ import {
 import { resolveComponentType } from '../../audit/component-anatomy/resolvers/component-type.js';
 import { resolveAnatomyRules } from '../../audit/component-anatomy/resolvers/source-of-truth.js';
 import { runConventionRule } from '../../audit/component-anatomy/rules/convention-runner.js';
+import { PATTERN_CHECKS } from '../../audit/component-anatomy/catalog/patterns/index.js';
 import type { AnatomyFinding, Severity } from '../../audit/component-anatomy/findings/finding.js';
 
 type AuditMode = 'fast' | 'full';
@@ -55,7 +56,7 @@ export const auditAnatomyDefinition = {
   description:
     'Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions ' +
     'missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the ' +
-    'Button convention only; pattern-presence checks (ANAT-P*) return empty pending follow-up.',
+    'component conventions, plus ANAT-P* composition patterns (map-without-empty, fetch-without-loading) in full mode.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -64,8 +65,7 @@ export const auditAnatomyDefinition = {
         type: 'string',
         enum: ['fast', 'full'],
         description:
-          'fast = conventions only (cheap AST scan). full = conventions + patterns. ' +
-          'In v1 both modes run conventions only because pattern engine is not yet wired.',
+          'fast = conventions only (cheap AST scan); full additionally runs the ANAT-P* composition patterns.',
       },
       files: {
         type: 'array',
@@ -105,6 +105,7 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
   const candidateFiles = input.files ?? [];
 
   const conventionsApplied = new Set<string>();
+  const patternsApplied = new Set<string>();
   let totalFiles = 0;
 
   for (const candidatePath of candidateFiles) {
@@ -119,7 +120,22 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     }
     totalFiles += 1;
 
+    const fileRelative = path.relative(projectRoot, absolute).replaceAll('\\', '/') || absolute;
     const componentType = resolveComponentType(absolute, contents);
+
+    // ANAT-P* pattern checks (full mode only — they are the more expensive,
+    // composition-level scans). They run on EVERY file regardless of whether a
+    // component type resolved, since composition patterns are not bound to a
+    // component definition.
+    if (mode === 'full') {
+      for (const pattern of PATTERN_CHECKS) {
+        const patternFindings = pattern.detect(fileRelative, contents, componentType);
+        if (patternFindings.length > 0) patternsApplied.add(pattern.id);
+        findings.push(...patternFindings);
+      }
+    }
+
+    // ANAT-D* convention checks require a resolved type, a rule, and a parse.
     if (componentType === null) continue;
 
     const rule = resolveAnatomyRules(absolute, contents, componentType);
@@ -130,17 +146,12 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
 
     conventionsApplied.add(rule.componentType);
 
-    const fileRelative = path.relative(projectRoot, absolute).replaceAll('\\', '/') || absolute;
     const runnerOptions: Parameters<typeof runConventionRule>[2] = { filePath: fileRelative };
     if (input.designStrictness !== undefined) {
       runnerOptions.strictness = input.designStrictness;
     }
     const fileFindings = runConventionRule(rule, parsed, runnerOptions);
     findings.push(...fileFindings);
-
-    // Pattern catalog is stubbed for the MVP — patterns return empty in
-    // both fast and full mode until the tree-sitter wrapper lands.
-    void mode;
   }
 
   const summary = buildSummary(findings, totalFiles, Date.now() - start);
@@ -150,7 +161,7 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     summary,
     catalog: {
       conventionsApplied: [...conventionsApplied].sort(),
-      patternsApplied: [],
+      patternsApplied: [...patternsApplied].sort(),
     },
     meta: { mode, deferredToA11y: 0 },
   };

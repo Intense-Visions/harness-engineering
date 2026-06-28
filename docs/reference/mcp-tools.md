@@ -419,12 +419,12 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 
 ### `audit_anatomy`
 
-Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the Button convention only; pattern-presence checks (ANAT-P*) return empty pending follow-up.
+Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the component conventions, plus ANAT-P* composition patterns (map-without-empty, fetch-without-loading) in full mode.
 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast = conventions only (cheap AST scan). full = conventions + patterns. In v1 both modes run conventions only because pattern engine is not yet wired.
+- `mode` (string, optional) — fast = conventions only (cheap AST scan); full additionally runs the ANAT-P\* composition patterns.
 - `files` (array, optional) — Optional explicit file list (paths or globs) to scope the audit.
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `catalog` (array, optional) — Optional subset of catalog entries to run.
@@ -500,12 +500,13 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.
+- `mode` (string, optional) — fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
 - `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
 - `autoCapture` (string, optional) — B' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 - `benchmarkTargets` (array, optional) — BENCHMARK target descriptors. Each entry needs at minimum { file, component }; optional componentType narrows exemplar selection.
+- `captures` (array, optional) — Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" and the critique phase runs. Each entry: { file, image, component? }, where `image` is a path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).
 
 ### `dispatch_skills`
 

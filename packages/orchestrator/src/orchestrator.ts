@@ -73,6 +73,11 @@ import { SingleProcessLeaderElector } from './maintenance/leader-elector';
 import { MaintenanceReporter } from './maintenance/reporter';
 import { TaskRunner } from './maintenance/task-runner';
 import { CheckScriptRunner } from './maintenance/check-script-runner';
+import {
+  runHarnessCheck,
+  MAINTENANCE_CHECK_MAX_BUFFER,
+  MAINTENANCE_CHECK_TIMEOUT_MS,
+} from './maintenance/check-runner';
 import { TaskOutputStore } from './maintenance/output-store';
 import { ContextResolver, type InlineSkillReader } from './maintenance/context-resolver';
 import { validateCustomTasks } from './maintenance/custom-task-validator';
@@ -102,6 +107,25 @@ export function deriveSeedPaths(config: WorkflowConfig): string[] {
       ? config.tracker.filePath
       : 'docs/roadmap.md';
   return ['.harness/proposals', roadmapPath];
+}
+
+/**
+ * Resolve a maintenance `checkCommand` (or housekeeping command) into a runnable
+ * argv. Built-in maintenance task definitions store the command as harness
+ * SUBCOMMAND argv (e.g. `['check-arch']`, `['graph','scan']`); `main-sync`
+ * carries an explicit leading `'harness'` literal. Either way the command must
+ * be executed through the `harness` binary, so:
+ *   - `['check-arch']`           → `['harness', 'check-arch']`
+ *   - `['harness','sync-main']`  → `['harness', 'sync-main']`  (no double-prefix)
+ *   - `[]`                       → `[]`
+ *
+ * The cron daemon resolves `harness` from PATH (the pre-existing assumption that
+ * `main-sync` already relied on).
+ */
+export function normalizeHarnessCommand(command: string[]): string[] {
+  if (command.length === 0) return [];
+  if (command[0] === 'harness') return command;
+  return ['harness', ...command];
 }
 
 /**
@@ -675,25 +699,18 @@ export class Orchestrator extends EventEmitter {
 
     const checkRunner: CheckCommandRunner = {
       run: async (command: string[], cwd: string) => {
-        const { execFile } = await import('node:child_process');
-        const { promisify } = await import('node:util');
-        const execFileAsync = promisify(execFile);
-        const [cmd, ...args] = command;
-        if (!cmd) return { passed: true, findings: 0, output: '' };
-
-        try {
-          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
-          // Try to extract a findings count from the output (common patterns: "N findings", "N issues")
-          const findingsMatch = stdout.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 0;
-          return { passed: findings === 0, findings, output: stdout };
-        } catch (err) {
-          const error = err as { stdout?: string; stderr?: string; code?: number };
-          const output = [error.stdout, error.stderr].filter(Boolean).join('\n');
-          const findingsMatch = output.match(/(\d+)\s+(?:finding|issue|violation|error)/i);
-          const findings = findingsMatch ? parseInt(findingsMatch[1]!, 10) : 1;
-          return { passed: false, findings, output };
-        }
+        // Built-in checkCommands are harness SUBCOMMAND argv (e.g. ['check-arch'],
+        // ['graph','scan']); only `main-sync` carries an explicit leading
+        // 'harness' literal. Resolve them through the `harness` binary on PATH
+        // (the cron daemon's existing assumption — see main-sync) so a bare
+        // subcommand name actually runs instead of ENOENT-ing.
+        const [cmd, ...args] = normalizeHarnessCommand(command);
+        if (!cmd) return { passed: true, findings: 0, output: '', executionFailed: false };
+        // The spawn/parse/timeout/executionFailed core is shared with the
+        // on-demand CLI runner (maintenance-run.ts → createCheckRunner) so cron
+        // and CLI behave identically (ADR 0050). Cron differs only here: it runs
+        // `harness` from PATH rather than the CLI's own entry script.
+        return runHarnessCheck({ file: cmd, args }, cwd);
       },
     };
 
@@ -714,11 +731,19 @@ export class Orchestrator extends EventEmitter {
         const { execFile } = await import('node:child_process');
         const { promisify } = await import('node:util');
         const execFileAsync = promisify(execFile);
-        const [cmd, ...args] = command;
+        // Housekeeping checkCommands are also harness subcommand argv (e.g.
+        // ['cleanup-sessions'], ['harness','sync-main','--json']) — resolve
+        // through the `harness` binary on PATH, stripping any explicit leading
+        // 'harness' literal to avoid double-prefixing.
+        const [cmd, ...args] = normalizeHarnessCommand(command);
         if (!cmd) return { stdout: '' };
 
         try {
-          const { stdout } = await execFileAsync(cmd, args, { cwd, timeout: 120_000 });
+          const { stdout } = await execFileAsync(cmd, args, {
+            cwd,
+            timeout: MAINTENANCE_CHECK_TIMEOUT_MS,
+            maxBuffer: MAINTENANCE_CHECK_MAX_BUFFER,
+          });
           return { stdout: String(stdout) };
         } catch (err) {
           logger.warn('Maintenance command execution failed', {

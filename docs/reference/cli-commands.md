@@ -174,6 +174,15 @@ Scaffold a new skill with skill.yaml and SKILL.md
 - `--pre-checks` — Pre-check commands
 - `--post-checks` — Post-check commands
 
+### `harness cross-check`
+
+Check cross-artifact consistency (plan-to-implementation coverage and staleness)
+
+**Options:**
+
+- `--specs-dir` — Specs directory relative to project root (default: docs/specs)
+- `--plans-dir` — Plans directory relative to project root (default: docs/plans)
+
 ### `harness dashboard`
 
 Start the Harness local web dashboard
@@ -506,6 +515,15 @@ LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline 
 - `-s, --sections` — Restrict to specific canonical section names
 - `--max-files` — Cap doc count (default: 50)
 - `--max-sections-per-file` — Cap per-doc section critique (default: 10)
+
+### `harness stale-constraints`
+
+Detect architectural constraints not violated within a window (candidates for removal)
+
+**Options:**
+
+- `--window` — Days without violation to consider a constraint stale (default: 30)
+- `--category` — Filter by category (circular-deps, layer-violations, complexity, coupling, forbidden-imports, module-size, dependency-depth)
 
 ### `harness sync-analyses`
 
@@ -879,6 +897,20 @@ List all resolved maintenance tasks (built-in + customTasks)
 **Options:**
 
 - `--json` — Emit machine-readable JSON
+- `--path` — Project root path (default: ".")
+
+### `harness maintenance run [taskId]`
+
+Run overdue (default) / selected maintenance tasks; report-first unless --fix
+
+**Options:**
+
+- `--all` — Run all sweep-eligible tasks (not just overdue)
+- `--only` — Comma-separated task ids to run
+- `--skip` — Comma-separated task ids to exclude
+- `--fix` — Dispatch fixes per task type (default: report-only)
+- `--concurrency` — Max parallel tasks (report mode); --fix forces 1
+- `--json` — Emit machine-readable consolidated report
 - `--path` — Project root path (default: ".")
 
 ### `harness maintenance show <task-id>`
