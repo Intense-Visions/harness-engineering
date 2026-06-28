@@ -3,16 +3,7 @@ title: On-Demand Maintenance Pipeline
 status: proposed
 owner: Chad Warner
 keywords:
-  [
-    maintenance,
-    on-demand,
-    overdue,
-    cli,
-    task-registry,
-    task-runner,
-    report-first,
-    scheduler,
-  ]
+  [maintenance, on-demand, overdue, cli, task-registry, task-runner, report-first, scheduler]
 ---
 
 # On-Demand Maintenance Pipeline
@@ -82,13 +73,13 @@ path.
 
 ## Decisions
 
-| #   | Decision                                                                          | Rationale                                                                                                                                                       |
-| --- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Layer = CLI engine + thin skill wrapper (not a standalone fan-out skill)          | Keeps `task-registry.ts` as the single source of truth; a pure skill would be a third definition of "maintenance" and drift.                                   |
-| D2  | Report-first by default; `--fix` opts into AI-dispatch / PRs                       | An on-demand human sweep must be safe and non-surprising; keeps worktree-collapse / duplicate-dispatch hazards out of the default path.                          |
-| D3  | Overdue-aware default; `--all` forces full sweep                                   | Reuses cron schedules (registry) + last-run timestamps (`history.json`) already on disk to compute neglected maintenance — directly solving the originating pain. |
-| D4  | Thread a `mode: 'report' \| 'fix'` through the existing `TaskRunner` (default `fix`) rather than build a second executor | Exactly one executor and one registry; CLI runs with no orchestrator/gateway coupling; `fix` default leaves the scheduler call site unchanged. |
-| D5  | Human sweep excludes git-mutating housekeeping + one-shot backfills                | Those are infra hygiene, not developer-facing health signals; including them adds risk and noise.                                                              |
+| #   | Decision                                                                                                                 | Rationale                                                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Layer = CLI engine + thin skill wrapper (not a standalone fan-out skill)                                                 | Keeps `task-registry.ts` as the single source of truth; a pure skill would be a third definition of "maintenance" and drift.                                      |
+| D2  | Report-first by default; `--fix` opts into AI-dispatch / PRs                                                             | An on-demand human sweep must be safe and non-surprising; keeps worktree-collapse / duplicate-dispatch hazards out of the default path.                           |
+| D3  | Overdue-aware default; `--all` forces full sweep                                                                         | Reuses cron schedules (registry) + last-run timestamps (`history.json`) already on disk to compute neglected maintenance — directly solving the originating pain. |
+| D4  | Thread a `mode: 'report' \| 'fix'` through the existing `TaskRunner` (default `fix`) rather than build a second executor | Exactly one executor and one registry; CLI runs with no orchestrator/gateway coupling; `fix` default leaves the scheduler call site unchanged.                    |
+| D5  | Human sweep excludes git-mutating housekeeping + one-shot backfills                                                      | Those are infra hygiene, not developer-facing health signals; including them adds risk and noise.                                                                 |
 
 ## Technical Design
 
@@ -145,7 +136,7 @@ new result type is introduced — the CLI consolidates over existing `RunResult`
 export function selectTasks(
   tasks: TaskDefinition[],
   history: HistoryEntry[], // from .harness/maintenance/history.json
-  filter: { mode: 'overdue' | 'all' | 'ids'; ids?: string[]; now: Date },
+  filter: { mode: 'overdue' | 'all' | 'ids'; ids?: string[]; now: Date }
 ): TaskDefinition[];
 ```
 

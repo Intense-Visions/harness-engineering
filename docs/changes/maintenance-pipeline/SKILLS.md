@@ -4,28 +4,29 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-testing-types` | Stack: typescript; Domain: data, testing | Testing | 0.49 |
-| `ts-zod-integration` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.49 |
-| `gof-builder-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.48 |
-| `gof-memento-pattern` | Stack: typescript; Domain: data, testing | Testing | 0.48 |
-| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation | 0.48 |
-| `ts-type-guards` | Stack: typescript; Domain: data, testing | During implementation | 0.47 |
-| `zod-async-validation` | Stack: typescript; Domain: data, testing | During implementation | 0.41 |
-| `node-streams-pattern` | Stack: typescript; Domain: data, testing | During implementation | 0.4 |
-| `gof-state-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.39 |
-| `ts-satisfies-operator` | Stack: typescript; Domain: data, testing | During implementation | 0.39 |
+| Skill                     | Purpose                                  | When                   | Relevance |
+| ------------------------- | ---------------------------------------- | ---------------------- | --------- |
+| `ts-testing-types`        | Stack: typescript; Domain: data, testing | Testing                | 0.49      |
+| `ts-zod-integration`      | Stack: typescript; Domain: data, testing | Architecture decisions | 0.49      |
+| `gof-builder-pattern`     | Stack: typescript; Domain: data, testing | Architecture decisions | 0.48      |
+| `gof-memento-pattern`     | Stack: typescript; Domain: data, testing | Testing                | 0.48      |
+| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation  | 0.48      |
+| `ts-type-guards`          | Stack: typescript; Domain: data, testing | During implementation  | 0.47      |
+| `zod-async-validation`    | Stack: typescript; Domain: data, testing | During implementation  | 0.41      |
+| `node-streams-pattern`    | Stack: typescript; Domain: data, testing | During implementation  | 0.4       |
+| `gof-state-pattern`       | Stack: typescript; Domain: data, testing | Architecture decisions | 0.39      |
+| `ts-satisfies-operator`   | Stack: typescript; Domain: data, testing | During implementation  | 0.39      |
 
 ## Consider
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `angular-pipe-pattern` | Stack: typescript; Domain: data, testing | During implementation | 0.35 |
-| `test-tdd-workflow` | Stack: vitest; Domain: data, testing | Testing | 0.35 |
-| `a11y-form-patterns` | Stack: typescript; Domain: data, testing | After styling | 0.34 |
-| `angular-reactive-forms` | Stack: typescript; Domain: data, testing | During implementation | 0.34 |
-| `drizzle-filtering-pattern` | Stack: typescript; Domain: data, testing | During implementation | 0.34 |
+| Skill                       | Purpose                                  | When                  | Relevance |
+| --------------------------- | ---------------------------------------- | --------------------- | --------- |
+| `angular-pipe-pattern`      | Stack: typescript; Domain: data, testing | During implementation | 0.35      |
+| `test-tdd-workflow`         | Stack: vitest; Domain: data, testing     | Testing               | 0.35      |
+| `a11y-form-patterns`        | Stack: typescript; Domain: data, testing | After styling         | 0.34      |
+| `angular-reactive-forms`    | Stack: typescript; Domain: data, testing | During implementation | 0.34      |
+| `drizzle-filtering-pattern` | Stack: typescript; Domain: data, testing | During implementation | 0.34      |
 
 ---
-*Scanned 751 skills in 261ms. Signals: 0 keywords, 2 stack markers, 2 domains.*
+
+_Scanned 751 skills in 261ms. Signals: 0 keywords, 2 stack markers, 2 domains._
