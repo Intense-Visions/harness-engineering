@@ -141,6 +141,14 @@ execution start. Writing an assignee at selection makes the orchestrator treat t
 item as already-claimed and silently skip it (the bug this skill must not reintroduce).
 The item stays `planned`/`backlog` with `Assignee: —` and remains orchestrator-eligible.
 
+**Sharded mode + auto-done.** When the claim is later written (at execution start),
+in sharded mode (`docs/roadmap.d/` present) it patches the **single row's shard**
+and appends an assignment record to the shared `_meta.md`, then regenerates the
+`docs/roadmap.md` aggregate — stage both. And there is **no manual done-marking
+step**: a row reaches `done` automatically when the implementing PR merges
+(merge-triggered auto-done via `External-ID`; the reconciler clears the assignee per
+RMH005). See knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowledge/roadmap/merge-triggered-auto-done.md).
+
 1. Determine the transition target:
    - If the feature has a `spec` field (non-null): transition to `harness:autopilot`
    - If the feature has no `spec`: transition to `harness:brainstorming`
