@@ -1,9 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import {
-  parseRoadmap,
-  serializeRoadmap,
+  resolveRoadmapStoreForFile,
+  applyRoadmapDiff,
   loadProjectRoadmapMode,
   loadTrackerClientConfigFromProject,
   createTrackerClient,
@@ -119,14 +118,19 @@ export function handleRoadmapActionsRoute(
         return;
       }
 
-      const content = await fs.readFile(roadmapPath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
-      if (!roadmapResult.ok) {
+      // Read + write roadmap content through the store: in sharded mode the new
+      // backlog row is written as a single shard (+ aggregate regenerated); in
+      // monolith mode it stays a whole-file rewrite. Anchored on the configured
+      // roadmap file path (its sibling roadmap.d/ selects the shard backend).
+      const store = resolveRoadmapStoreForFile({ roadmapPath });
+      const loaded = await store.load();
+      if (!loaded.ok) {
         sendJSON(res, 500, { error: 'Failed to parse roadmap file' });
         return;
       }
 
-      const roadmap = roadmapResult.value;
+      const roadmap = loaded.value;
+      const before = structuredClone(roadmap);
 
       // Find or create backlog milestone
       let backlog = roadmap.milestones.find((m) => m.isBacklog);
@@ -156,11 +160,11 @@ export function handleRoadmapActionsRoute(
 
       roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-      // Atomic write: write to temp file then rename
-      const tmpPath = roadmapPath + '.tmp';
-      const serialized = serializeRoadmap(roadmap);
-      await fs.writeFile(tmpPath, serialized, 'utf-8');
-      await fs.rename(tmpPath, roadmapPath);
+      const persisted = await applyRoadmapDiff(store, before, roadmap);
+      if (!persisted.ok) {
+        sendJSON(res, 500, { error: persisted.error.message });
+        return;
+      }
 
       sendJSON(res, 201, { ok: true, featureName: parsed.title });
     } catch (err) {

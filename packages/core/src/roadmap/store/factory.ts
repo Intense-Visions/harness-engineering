@@ -70,9 +70,40 @@ export function roadmapAggregatePath(projectRoot: string): string {
 }
 
 export function resolveRoadmapStore(options: ResolveRoadmapStoreOptions): RoadmapStore {
-  const { projectRoot } = options;
-  const shardDir = path.join(projectRoot, 'docs', 'roadmap.d');
-  const roadmapPath = path.join(projectRoot, 'docs', 'roadmap.md');
+  const forFile: ResolveRoadmapStoreForFileOptions = {
+    roadmapPath: roadmapAggregatePath(options.projectRoot),
+  };
+  if (options.io !== undefined) forFile.io = options.io;
+  if (options.exists !== undefined) forFile.exists = options.exists;
+  return resolveRoadmapStoreForFile(forFile);
+}
+
+/** Options for {@link resolveRoadmapStoreForFile}. */
+export interface ResolveRoadmapStoreForFileOptions {
+  /**
+   * Path to the aggregate roadmap file (e.g. `docs/roadmap.md`). The shard
+   * directory is its sibling `roadmap.d/`. May be relative or absolute.
+   */
+  roadmapPath: string;
+  /** Filesystem IO; defaults to a node-fs adapter. */
+  io?: ShardIO;
+  /** Existence probe for the shard dir; defaults to `fs.existsSync`. */
+  exists?: (target: string) => boolean;
+}
+
+/**
+ * Resolve a {@link RoadmapStore} anchored on an explicit aggregate FILE path
+ * rather than the conventional `<root>/docs/roadmap.md`. The shard backend is
+ * chosen when a sibling `roadmap.d/` exists next to the file. For callers whose
+ * configured roadmap path is not guaranteed to follow the `docs/` layout — e.g.
+ * the orchestrator's roadmap tracker adapter, whose `TrackerConfig.filePath`
+ * points directly at the roadmap file. {@link resolveRoadmapStore} delegates here.
+ */
+export function resolveRoadmapStoreForFile(
+  options: ResolveRoadmapStoreForFileOptions
+): RoadmapStore {
+  const { roadmapPath } = options;
+  const shardDir = path.join(path.dirname(roadmapPath), 'roadmap.d');
   const io = options.io ?? createNodeRoadmapIO();
   const exists = options.exists ?? ((target: string) => fs.existsSync(target));
 

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'node:path';
-import { resolveRoadmapStore } from '../../../src/roadmap/store/factory';
+import {
+  resolveRoadmapStore,
+  resolveRoadmapStoreForFile,
+} from '../../../src/roadmap/store/factory';
 import type { ShardIO } from '../../../src/roadmap/store/shard-store';
 import { assembleRoadmap } from '../../../src/roadmap/store/assembler';
 import { serializeShard } from '../../../src/roadmap/store/shard';
@@ -108,5 +111,67 @@ describe('resolveRoadmapStore', () => {
       expect(writes).toEqual([ROADMAP_PATH]);
       expect(files.get(ROADMAP_PATH)).toMatch(/done/);
     }
+  });
+});
+
+describe('resolveRoadmapStoreForFile', () => {
+  // An aggregate FILE that does NOT follow the <root>/docs/roadmap.md layout —
+  // the shard dir is resolved as the sibling roadmap.d/ next to the file.
+  const FILE_PATH = '/some/where/ROADMAP.md';
+  const SIBLING_SHARD_DIR = path.join(path.dirname(FILE_PATH), 'roadmap.d');
+
+  it('uses the sibling roadmap.d/ as the shard dir when present', async () => {
+    const files = new Map<string, string>();
+    for (const shard of ASSEMBLER_SHARDS) {
+      files.set(`${SIBLING_SHARD_DIR}/${shard.slug}.md`, serializeShard(shard));
+    }
+    files.set(`${SIBLING_SHARD_DIR}/_meta.md`, serializeMeta(ASSEMBLER_META));
+    const writes: string[] = [];
+    const io: ShardIO = {
+      listDir: async (dir) =>
+        [...files.keys()].filter((p) => p.startsWith(`${dir}/`)).map(basename),
+      readFile: async (p) => {
+        const v = files.get(p);
+        if (v === undefined) throw new Error(`ENOENT: ${p}`);
+        return v;
+      },
+      writeFile: async (p, d) => void (files.set(p, d), writes.push(p)),
+      deleteFile: async (p) => void files.delete(p),
+    };
+    const store = resolveRoadmapStoreForFile({
+      roadmapPath: FILE_PATH,
+      io,
+      exists: (p) => p === SIBLING_SHARD_DIR,
+    });
+    const loaded = await store.load();
+    expect(loaded.ok).toBe(true);
+    const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+    expect(r.ok).toBe(true);
+    // Single shard written + the aggregate regenerated at the explicit file path.
+    expect(writes).toContain(`${SIBLING_SHARD_DIR}/a-feature.md`);
+    expect(writes).toContain(FILE_PATH);
+  });
+
+  it('falls back to a MonolithStore over the explicit file when no sibling shard dir', async () => {
+    const files = new Map<string, string>([[FILE_PATH, MONOLITH_ROADMAP_MD]]);
+    const writes: string[] = [];
+    const io: ShardIO = {
+      listDir: async () => [],
+      readFile: async (p) => {
+        const v = files.get(p);
+        if (v === undefined) throw new Error(`ENOENT: ${p}`);
+        return v;
+      },
+      writeFile: async (p, d) => void (files.set(p, d), writes.push(p)),
+      deleteFile: async (p) => void files.delete(p),
+    };
+    const store = resolveRoadmapStoreForFile({ roadmapPath: FILE_PATH, io, exists: () => false });
+    const loaded = await store.load();
+    expect(loaded.ok).toBe(true);
+    const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+    expect(r.ok).toBe(true);
+    // Whole-file rewrite at the explicit aggregate path (no docs/ assumption).
+    expect(writes).toEqual([FILE_PATH]);
+    expect(files.get(FILE_PATH)).toMatch(/done/);
   });
 });
