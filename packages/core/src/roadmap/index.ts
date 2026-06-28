@@ -58,7 +58,7 @@ export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
  * auto-done reconciler edges to map issue numbers ↔ roadmap rows without
  * format drift.
  */
-export { parseExternalId, buildExternalId } from './adapters/github-issues';
+export { parseExternalId, buildExternalId } from './external-id';
 
 /**
  * Shared tracker config loader for harness.config.json.

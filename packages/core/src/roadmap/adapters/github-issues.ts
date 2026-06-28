@@ -9,25 +9,11 @@ import type {
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
 import { pushAssigneeToExternal } from '../assignee-lifecycle';
-
-/**
- * Parse "github:owner/repo#42" into { owner, repo, number }.
- * Returns null if the format is invalid.
- */
-export function parseExternalId(
-  externalId: string
-): { owner: string; repo: string; number: number } | null {
-  const match = externalId.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
-  if (!match) return null;
-  return { owner: match[1]!, repo: match[2]!, number: parseInt(match[3]!, 10) };
-}
-
-/**
- * Build the externalId string from parts.
- */
-export function buildExternalId(owner: string, repo: string, number: number): string {
-  return `github:${owner}/${repo}#${number}`;
-}
+// External-ID parse/build live in one canonical module (../external-id) so the
+// `github:owner/repo#NNN` format never drifts between the sync and reconcile edges.
+// Re-exported here so this adapter's existing import site stays stable.
+import { parseExternalId, buildExternalId } from '../external-id';
+export { parseExternalId, buildExternalId } from '../external-id';
 
 /**
  * Determine which labels to apply based on status and config.
@@ -41,6 +27,18 @@ function labelsForStatus(status: string, config: TrackerSyncConfig): string[] {
     return [...base, status];
   }
   return [...base];
+}
+
+/**
+ * Narrow GitHub's raw `state_reason` (a nullable free string in the REST payload)
+ * to the known closed-reason union, or `undefined` when absent/unrecognized.
+ * Keeping the field absent (rather than guessing) lets consumers apply their own
+ * conservative default for issues whose reason GitHub does not report.
+ */
+function normalizeStateReason(
+  raw: string | null | undefined
+): 'completed' | 'not_planned' | 'reopened' | undefined {
+  return raw === 'completed' || raw === 'not_planned' || raw === 'reopened' ? raw : undefined;
 }
 
 /** Default retry settings for rate-limited requests. */
@@ -355,6 +353,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       const data = (await response.json()) as {
         title: string;
         state: string;
+        state_reason?: string | null;
         labels: Array<{ name: string }>;
         assignee: { login: string } | null;
       };
@@ -363,6 +362,9 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         externalId,
         title: data.title,
         status: data.state,
+        ...(normalizeStateReason(data.state_reason)
+          ? { stateReason: normalizeStateReason(data.state_reason)! }
+          : {}),
         labels: data.labels.map((l) => l.name),
         assignee: data.assignee ? `@${data.assignee.login}` : null,
       });
@@ -382,13 +384,16 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     number: number;
     title: string;
     state: string;
+    state_reason?: string | null;
     labels: Array<{ name: string }>;
     assignee: { login: string } | null;
   }): ExternalTicketState {
+    const stateReason = normalizeStateReason(issue.state_reason);
     return {
       externalId: buildExternalId(this.owner, this.repo, issue.number),
       title: issue.title,
       status: issue.state,
+      ...(stateReason ? { stateReason } : {}),
       labels: issue.labels.map((l) => l.name),
       assignee: issue.assignee ? `@${issue.assignee.login}` : null,
     };
@@ -423,6 +428,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
           number: number;
           title: string;
           state: string;
+          state_reason?: string | null;
           labels: Array<{ name: string }>;
           assignee: { login: string } | null;
           pull_request?: unknown;

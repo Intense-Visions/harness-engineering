@@ -21,6 +21,15 @@ export interface ExternalTicketState {
   title: string;
   /** External status (e.g., "open", "closed") */
   status: string;
+  /**
+   * Why the ticket reached its current status, when the tracker distinguishes it.
+   * GitHub issues expose `state_reason`: `completed` | `not_planned` | `reopened`.
+   * Optional — adapters that cannot supply it leave it `undefined`, and consumers
+   * must treat absence conservatively (do not assume a non-`completed` close).
+   * Used by the offline auto-done reconciler to avoid flipping a row to `done`
+   * when its issue was closed as `not_planned`/`wontfix` rather than completed.
+   */
+  stateReason?: 'completed' | 'not_planned' | 'reopened';
   /** External labels (used for status disambiguation on GitHub) */
   labels: string[];
   /** Current assignee in the external service, or null */

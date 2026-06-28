@@ -51,8 +51,11 @@ export function roadmapSourceExists(
   projectRoot: string,
   exists: (target: string) => boolean = (target) => fs.existsSync(target)
 ): boolean {
+  // Delegate the shard-dir probe to the single detection authority so the
+  // `roadmap.d` directory name lives in exactly one place (`load-mode.ts`); only
+  // the aggregate path is named here, in this already-sanctioned store module.
   return (
-    exists(path.join(projectRoot, 'docs', 'roadmap.d')) ||
+    detectRoadmapStorageMode(projectRoot, exists) === 'sharded' ||
     exists(path.join(projectRoot, 'docs', 'roadmap.md'))
   );
 }
