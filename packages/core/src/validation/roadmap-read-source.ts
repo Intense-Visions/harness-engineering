@@ -27,6 +27,9 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/core/src/roadmap/store/regenerator.ts',
   'packages/core/src/roadmap/store/monolith-store.ts',
   'packages/core/src/roadmap/store/index.ts',
+  // Names the aggregate path as a constant for mode detection / regen target —
+  // not a content read; permitted under invariant R.
+  'packages/core/src/roadmap/store/factory.ts',
   // ── Permanent: Phase-3 git/merge tooling (names the path, not a parse-read) ─
   'packages/cli/src/commands/roadmap/regen.ts',
   'packages/cli/src/commands/roadmap/shard.ts',
