@@ -10,6 +10,77 @@ function run(code: string, file: string, contents: string) {
   return pattern.detect(file, contents, null);
 }
 
+const fires = (code: string, src: string) => run(code, 'F.tsx', src).length === 1;
+
+describe('ANAT-P catalog completeness', () => {
+  it('ships at least 10 patterns with unique codes and slugs', () => {
+    expect(PATTERN_CHECKS.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(PATTERN_CHECKS.map((p) => p.code)).size).toBe(PATTERN_CHECKS.length);
+    expect(new Set(PATTERN_CHECKS.map((p) => p.id)).size).toBe(PATTERN_CHECKS.length);
+    for (const p of PATTERN_CHECKS) expect(p.code).toMatch(/^ANAT-P\d{3}$/);
+  });
+});
+
+describe('ANAT-P003..P010 fire / suppress', () => {
+  it('P003 fetch-without-error: fires on fetch with no error handling, suppressed by catch', () => {
+    expect(fires('ANAT-P003', `useEffect(() => { fetch('/x').then(setData); }, []);`)).toBe(true);
+    expect(fires('ANAT-P003', `try { await fetch('/x'); } catch (e) { setError(e); }`)).toBe(false);
+  });
+
+  it('P004 conditional-render-without-fallback: fires on `{data && <…>}`, suppressed by ternary', () => {
+    expect(fires('ANAT-P004', `return <div>{data && <Profile user={data} />}</div>;`)).toBe(true);
+    expect(fires('ANAT-P004', `return <div>{data ? <Profile/> : <EmptyState/>}</div>;`)).toBe(
+      false
+    );
+  });
+
+  it('P005 form-without-submit-feedback: fires on onSubmit, suppressed by isSubmitting', () => {
+    expect(fires('ANAT-P005', `<form onSubmit={save}><button>Save</button></form>`)).toBe(true);
+    expect(
+      fires(
+        'ANAT-P005',
+        `<form onSubmit={save}><button disabled={isSubmitting}>Save</button></form>`
+      )
+    ).toBe(false);
+  });
+
+  it('P006 modal-without-dismiss: fires on <Modal> with no close, suppressed by onClose', () => {
+    expect(fires('ANAT-P006', `return <Modal><Body/></Modal>;`)).toBe(true);
+    expect(fires('ANAT-P006', `return <Modal onClose={hide}><Body/></Modal>;`)).toBe(false);
+  });
+
+  it('P007 async-action-without-pending: fires on async handler, suppressed by disabled', () => {
+    expect(fires('ANAT-P007', `<button onClick={async () => { await save(); }}>Go</button>`)).toBe(
+      true
+    );
+    expect(
+      fires(
+        'ANAT-P007',
+        `<button disabled={pending} onClick={async () => { await save(); }}>Go</button>`
+      )
+    ).toBe(false);
+  });
+
+  it('P008 list-without-key: fires on keyless map, suppressed by key=', () => {
+    expect(fires('ANAT-P008', `{items.map((i) => <Row data={i} />)}`)).toBe(true);
+    expect(fires('ANAT-P008', `{items.map((i) => <Row key={i.id} data={i} />)}`)).toBe(false);
+  });
+
+  it('P009 router-without-not-found: fires on <Routes> with no catch-all, suppressed by path="*"', () => {
+    expect(fires('ANAT-P009', `<Routes><Route path="/" element={<Home/>} /></Routes>`)).toBe(true);
+    expect(fires('ANAT-P009', `<Routes><Route path="*" element={<NotFound/>} /></Routes>`)).toBe(
+      false
+    );
+  });
+
+  it('P010 destructive-action-without-confirm: fires on delete handler, suppressed by confirm', () => {
+    expect(fires('ANAT-P010', `const onDelete = () => api.remove(id);`)).toBe(true);
+    expect(
+      fires('ANAT-P010', `const onDelete = () => { if (confirm('Sure?')) api.remove(id); };`)
+    ).toBe(false);
+  });
+});
+
 describe('ANAT-P001 map-without-empty', () => {
   it('flags a .map render with no empty-state branch', () => {
     const findings = run(

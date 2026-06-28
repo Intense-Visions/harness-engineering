@@ -419,7 +419,7 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 
 ### `audit_anatomy`
 
-Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the component conventions, plus ANAT-P* composition patterns (map-without-empty, fetch-without-loading) in full mode.
+Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the component conventions, plus 10 ANAT-P* composition patterns (missing empty/loading/error states, modal dismiss, submit feedback, list keys, route 404, destructive-action confirm, …) in full mode.
 
 **Parameters:**
 
