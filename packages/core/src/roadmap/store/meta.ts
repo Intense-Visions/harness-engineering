@@ -96,9 +96,17 @@ export function serializeMeta(meta: RoadmapMeta): string {
   if (fm.updated) lines.push(`updated: ${quoteYamlScalar(fm.updated)}`);
   lines.push(`last_synced: ${quoteYamlScalar(fm.lastSynced)}`);
   lines.push(`last_manual_edit: ${quoteYamlScalar(fm.lastManualEdit)}`);
-  lines.push('milestones:');
-  for (const name of milestones) {
-    lines.push(`  - ${quoteYamlScalar(name)}`);
+  // Empty roadmaps (e.g. a freshly scaffolded `harness init`) must emit an explicit
+  // flow-style empty list `milestones: []` — a bare `milestones:` parses as YAML
+  // null and `parseMeta` rejects it, so the scaffolded `_meta.md` would not round-trip
+  // / load. Non-empty roadmaps keep the block sequence (byte-stable with Phase 1).
+  if (milestones.length === 0) {
+    lines.push('milestones: []');
+  } else {
+    lines.push('milestones:');
+    for (const name of milestones) {
+      lines.push(`  - ${quoteYamlScalar(name)}`);
+    }
   }
   lines.push('---');
   // Optional `## Assignment History` body: a blank line then the verbatim

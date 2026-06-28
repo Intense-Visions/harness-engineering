@@ -63,6 +63,21 @@ describe('serializeMeta()', () => {
       ]);
     }
   });
+
+  // Init scaffold case: a freshly initialized project has an empty roadmap. The
+  // empty milestones list must serialize as an explicit `milestones: []` so it
+  // round-trips (a bare `milestones:` is YAML null and parseMeta rejects it).
+  it('round-trips an empty milestones list (init scaffold) byte-stably', () => {
+    const meta: RoadmapMeta = { frontmatter: META.frontmatter, milestones: [] };
+    const md = serializeMeta(meta);
+    expect(md).toContain('milestones: []');
+    const r = parseMeta(md);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.milestones).toEqual([]);
+      expect(serializeMeta(r.value)).toBe(md);
+    }
+  });
 });
 
 describe('_meta.md assignment-history body (Phase 2)', () => {
