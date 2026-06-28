@@ -62,7 +62,8 @@ There is no per-finding severity in the report, so triage by **status** then **f
 
 - **Failed to execute** — `status === 'failure'`. The check itself crashed; surface `summary`/`error`. These are the most urgent: a finding you cannot see is worse than one you can.
 - **Needs attention** — `findings > 0` (and not a failure). Order by `findings` descending. Derive a coarse domain from the task id (e.g. `dead-code`, `doc-drift`, `dependency-health`, `security`, `hotspots`, `project-health`).
-- **Clean** — `status` is `no-issues`/`success`/`skipped` with `findings === 0`. Summarize as a count ("8 checks clean"); do not enumerate unless asked.
+- **Skipped (couldn't run)** — `status === 'skipped'`. A precondition gate was not met, so the check **never ran** — it is NOT clean, it has simply told you nothing. Report these distinctly from clean tasks so the human knows coverage was incomplete (and can decide whether the precondition is worth satisfying). Summarize as a count and, if useful, surface `summary` for why it was gated.
+- **Clean** — `status` is `no-issues`/`success` with `findings === 0`. The check ran and found nothing. Summarize as a count ("8 checks clean"); do not enumerate unless asked. Do NOT fold `skipped` tasks in here — a gated check that never ran is not a clean result.
 
 Render a compact summary, for example:
 
@@ -77,7 +78,9 @@ Needs attention (3):
   doc-drift           —  4 finding(s)
   dependency-health   —  1 finding(s)
 
-Clean (14): project-health, hotspots, security, …
+Skipped — couldn't run (1): license-audit (precondition not met)
+
+Clean (13): project-health, hotspots, security, …
 ```
 
 If `overdueNowCurrent` is non-empty, add a one-line footer: "N tasks were overdue and are now marked current."
@@ -90,24 +93,26 @@ If `overdueNowCurrent` is non-empty, add a one-line footer: "N tasks were overdu
 
    Then stop and wait for the human's reply. Do not proceed to a fix without an explicit answer.
 
-2. **If the human picks tasks**, re-invoke the CLI in fix mode, scoped to exactly those ids:
+2. **If the human picks tasks**, re-invoke the CLI in fix mode, scoped to exactly those ids — and capture **both** streams separately:
 
    ```bash
-   harness maintenance run --only <comma,separated,ids> --fix
+   harness maintenance run --only <comma,separated,ids> --fix --json
    ```
 
-3. **Relay the result honestly.** `--fix` currently threads fix mode through the same executor but the AI fix-agent dispatch is a documented repo-wide stub: no PRs are opened. The CLI prints a warning to stderr:
+   stdout stays a clean, parseable `ConsolidatedReport` (parse it as JSON, same shape as the sweep). The stub warning is written to **stderr**, NOT stdout — so capture stderr too (e.g. redirect to a separate file/buffer) and inspect it. If you only read stdout you will silently drop the honesty warning; if you merge stderr into stdout you will break `JSON.parse`. Keep them apart: JSON ← stdout, warning ← stderr.
+
+3. **Relay the result honestly.** `--fix` currently threads fix mode through the same executor but the AI fix-agent dispatch is a documented repo-wide stub: no PRs are opened. The CLI prints this warning to **stderr** (which is why step 2 captures stderr separately):
 
    > `--fix: AI fix-agent dispatch is not yet wired (executor dispatcher is a stub repo-wide); checks ran, no PRs were opened.`
 
-   Surface that warning verbatim. Report what the CLI actually did (`fixed` counts, any `prUrl`) — never claim a fix was applied or a PR opened when the report does not show one.
+   Inspect the captured stderr for that line and surface it verbatim. Report what the CLI actually did (the stdout report's `fixed` counts, any `prUrl`) — never claim a fix was applied or a PR opened when the report does not show one.
 
 4. **If the human picks "none"**, stop. The report stands on its own.
 
 ## Harness Integration
 
 - **`harness maintenance run --json`** — the report-mode sweep this skill wraps. Runs overdue, sweep-eligible tasks only and emits the `ConsolidatedReport` to stdout (also written to `.harness/maintenance/last-run-summary.json`). This is the single entry point — the skill adds no execution path of its own.
-- **`harness maintenance run --only <ids> --fix`** — the opt-in fix leg, scoped to the ids the human picked. Threads `mode: 'fix'` through the same `TaskRunner`; AI fix-agent dispatch is currently a documented repo-wide stub, so it prints the no-PR warning to stderr that this skill relays verbatim.
+- **`harness maintenance run --only <ids> --fix --json`** — the opt-in fix leg, scoped to the ids the human picked. Threads `mode: 'fix'` through the same `TaskRunner`. Capture stdout (the JSON report) and stderr **separately**: AI fix-agent dispatch is currently a documented repo-wide stub, so it prints the no-PR warning to stderr (stdout stays clean JSON) — inspect that captured stderr and relay the warning verbatim.
 - **`harness maintenance list` / `harness maintenance show <id>`** — inspect the registry (the 22-task source of truth) when the human wants to know what a task id means before choosing to fix it.
 - **Read tool on `.harness/maintenance/last-run-summary.json`** — the documented fallback parse path if capturing `--json` stdout is awkward on a given platform. The skill never writes this file; the CLI owns it.
 
@@ -156,7 +161,7 @@ The human invokes the skill before tagging a release.
 
 ### Example: Nothing overdue
 
-Run `harness maintenance run --json`; `tasks` is empty. Tell the human "All maintenance is current — nothing overdue." and stop. Do not invent work or run `--fix`.
+Run `harness maintenance run --json`. On the nothing-overdue happy path stdout is still a parseable `ConsolidatedReport` whose `tasks` is an **empty array** (`tasks: []`, `exitCode: 0`) — NOT a plain `All maintenance current.` sentinel (that human string is emitted only on the non-`--json` path). So `JSON.parse(stdout)` succeeds; read `tasks.length === 0`. Tell the human "All maintenance is current — nothing overdue." and stop. Do not invent work or run `--fix`.
 
 ## Rationalizations to Reject
 
