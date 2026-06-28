@@ -29,3 +29,14 @@ if git diff --cached --name-only | grep -qE '^(agents/skills/|scripts/(generate-
     git add .claude-plugin .cursor-plugin .gemini-extension .codex-plugin 2>/dev/null
   fi
 fi
+
+# Regenerate the roadmap aggregate when any shard is staged, so docs/roadmap.md
+# (merge=ours) never drifts from docs/roadmap.d/. No-op when no shard is staged
+# (e.g. before this repo is sharded). Output is deterministic + prettier-clean
+# (writeRegeneratedRoadmap), so it never trips the pre-push format:check.
+# This is intentionally a GIT hook, not an agent hook (profiles.ts/STANDARD_HOOKS
+# register Claude Code tool-use hooks, which cannot fire on git commit/merge).
+if git diff --cached --name-only | grep -qE '^docs/roadmap\.d/'; then
+  node packages/cli/dist/bin/harness.js roadmap regen >/dev/null 2>&1 || true
+  git add docs/roadmap.md 2>/dev/null || true
+fi
