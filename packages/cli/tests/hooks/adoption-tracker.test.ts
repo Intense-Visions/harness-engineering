@@ -22,11 +22,16 @@ function runHook(stdinData: string, cwd: string): { exitCode: number; stderr: st
   };
 }
 
+// GH-580 D5: the skill-telemetry stream was relocated to .harness/metrics/skill-events.jsonl.
+function skillEventsPath(cwd: string): string {
+  return join(cwd, '.harness', 'metrics', 'skill-events.jsonl');
+}
+
 function writeEventsJsonl(cwd: string, events: object[]): void {
-  const harnessDir = join(cwd, '.harness');
-  mkdirSync(harnessDir, { recursive: true });
+  const metricsDir = join(cwd, '.harness', 'metrics');
+  mkdirSync(metricsDir, { recursive: true });
   const content = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
-  writeFileSync(join(harnessDir, 'events.jsonl'), content);
+  writeFileSync(skillEventsPath(cwd), content);
 }
 
 function readAdoptionRecords(cwd: string): object[] {
@@ -189,23 +194,42 @@ describe('adoption-tracker', { timeout: 60000 }, () => {
     expect(skills).toContain('harness-execution');
   });
 
-  it('exits 0 when events.jsonl is missing', () => {
+  it('exits 0 when skill-events.jsonl is missing', () => {
     const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
     expect(result.exitCode).toBe(0);
     expect(readAdoptionRecords(tmpDir)).toHaveLength(0);
   });
 
-  it('exits 0 when events.jsonl is empty', () => {
+  it('reads the relocated metrics path, not the legacy events.jsonl (GH-580 D5)', () => {
+    // A legacy events.jsonl must be ignored; only the relocated metrics file is read.
     mkdirSync(join(tmpDir, '.harness'), { recursive: true });
-    writeFileSync(join(tmpDir, '.harness', 'events.jsonl'), '');
+    writeFileSync(
+      join(tmpDir, '.harness', 'events.jsonl'),
+      JSON.stringify(SAMPLE_EVENTS[0]) + '\n'
+    );
+    const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    expect(result.exitCode).toBe(0);
+    // No skill-events.jsonl → nothing processed, even though a legacy file exists.
+    expect(readAdoptionRecords(tmpDir)).toHaveLength(0);
+
+    // Now write the relocated file and confirm it IS read.
+    writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
+    const result2 = runHook(JSON.stringify({ session_id: 'test2' }), tmpDir);
+    expect(result2.exitCode).toBe(0);
+    expect(readAdoptionRecords(tmpDir).length).toBeGreaterThan(0);
+  });
+
+  it('exits 0 when skill-events.jsonl is empty', () => {
+    mkdirSync(join(tmpDir, '.harness', 'metrics'), { recursive: true });
+    writeFileSync(skillEventsPath(tmpDir), '');
     const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
     expect(result.exitCode).toBe(0);
     expect(readAdoptionRecords(tmpDir)).toHaveLength(0);
   });
 
-  it('exits 0 when events.jsonl contains only malformed lines', () => {
-    mkdirSync(join(tmpDir, '.harness'), { recursive: true });
-    writeFileSync(join(tmpDir, '.harness', 'events.jsonl'), 'not json\nalso bad\n');
+  it('exits 0 when skill-events.jsonl contains only malformed lines', () => {
+    mkdirSync(join(tmpDir, '.harness', 'metrics'), { recursive: true });
+    writeFileSync(skillEventsPath(tmpDir), 'not json\nalso bad\n');
     const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
     expect(result.exitCode).toBe(0);
     expect(readAdoptionRecords(tmpDir)).toHaveLength(0);
@@ -291,8 +315,8 @@ describe('adoption-tracker', { timeout: 60000 }, () => {
     runHook(JSON.stringify({ session_id: 'session-001' }), tmpDir);
     expect(readAdoptionRecords(tmpDir)).toHaveLength(1);
 
-    // Append a new event to events.jsonl
-    const eventsPath = join(tmpDir, '.harness', 'events.jsonl');
+    // Append a new event to the relocated skill-events.jsonl
+    const eventsPath = skillEventsPath(tmpDir);
     const newEvent = JSON.stringify({
       timestamp: '2026-04-09T14:00:00.000Z',
       skill: 'harness-execution',
@@ -310,7 +334,7 @@ describe('adoption-tracker', { timeout: 60000 }, () => {
     expect(records[1].skill).toBe('harness-execution');
   });
 
-  it('resets cursor when events.jsonl is rewritten shorter', () => {
+  it('resets cursor when skill-events.jsonl is rewritten shorter', () => {
     writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
     runHook(JSON.stringify({ session_id: 'session-001' }), tmpDir);
     expect(readAdoptionRecords(tmpDir)).toHaveLength(1);

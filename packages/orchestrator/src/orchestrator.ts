@@ -35,6 +35,9 @@ import { PromptRenderer } from './prompt/renderer';
 import { LocalModelResolver } from './agent/local-model-resolver';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { createBackend } from './agent/backend-factory';
+import { createAgentDispatcher } from './maintenance/agent-dispatcher';
+import { execFileSync } from 'node:child_process';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { toArray } from './agent/backend-router';
 import { RoutingDecisionBus } from './routing/decision-bus.js';
@@ -57,6 +60,12 @@ import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
+import {
+  persistLane,
+  readPersistedLanes,
+  type OrchestratorLaneSignal,
+  type PersistedLanes,
+} from './core/lane-persistence';
 import { ClaimManager } from './core/claim-manager';
 import { PRDetector, type ExecFileFn } from './core/pr-detector';
 import { MaintenanceScheduler } from './maintenance/scheduler';
@@ -261,6 +270,11 @@ export class Orchestrator extends EventEmitter {
     new Map();
   /** Guards against overlapping ticks when a tick takes longer than the polling interval */
   private tickInProgress = false;
+  /** Phase 4 (DLane-5): lanes read back from the durable log on first tick, for
+   *  observability only — NOT fed into reconciliation. Empty until the first tick. */
+  private persistedLanes: PersistedLanes = { tasks: {} };
+  /** Ensures the lane read-back diagnostic runs at most once (first tick). */
+  private laneReadbackDone = false;
   /** Timestamp of the last stale branch sweep (at most once per hour) */
   private lastBranchSweepMs = 0;
   /** Current tick-phase activity visible to the dashboard */
@@ -700,20 +714,17 @@ export class Orchestrator extends EventEmitter {
       },
     };
 
-    const agentDispatcher: AgentDispatcher = {
-      dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
-        logger.info(
-          'Maintenance agent dispatcher invoked (stub — skill dispatch integration pending)',
-          {
-            skill,
-            branch,
-            backendName,
-            cwd,
-          }
-        );
-        return { producedCommits: false, fixed: 0 };
-      },
+    // Resolve a configured backend by name into a live AgentBackend; null when
+    // the maintenance task references a backend that isn't in agent.backends.
+    const resolveBackend = (backendName: string) => {
+      const def = this.getBackends()?.[backendName];
+      return def ? createBackend(def) : null;
     };
+    const agentDispatcher: AgentDispatcher = createAgentDispatcher({
+      resolveBackend,
+      git: (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf-8' }).toString().trim(),
+      logger,
+    });
 
     const commandExecutor: CommandExecutor = {
       exec: async (command: string[], cwd: string) => {
@@ -907,6 +918,14 @@ export class Orchestrator extends EventEmitter {
     // Load persisted data on first tick (can't await in constructor)
     await this.intelligenceRunner.loadPersistedData();
 
+    // Phase 4 (DLane-5): on the first tick, read persisted task lanes back from
+    // the durable log (Truth #9 — lane state survives across processes). This is
+    // a diagnostic for observability only; it is NOT fed into reconciliation.
+    if (!this.laneReadbackDone) {
+      this.laneReadbackDone = true;
+      await this.readBackPersistedLanes();
+    }
+
     const nowMs = Date.now();
 
     // 1. Fetch candidates from tracker
@@ -1098,11 +1117,55 @@ export class Orchestrator extends EventEmitter {
         break;
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
+        // Phase 4 (DLane-5): escalation hands the issue off to a human — the
+        // orchestrator abandons autonomous progress, so the lane moves to the
+        // terminal `canceled`. On the failure→max-retries path this follows the
+        // `blocked` set by emitWorkerExit('error'); `blocked→canceled` is
+        // on-table. Pre-claim triage escalations move `planned→canceled`.
+        await this.persistLaneSafe((effect as EscalateEffect).issueId, 'abandon');
         break;
       case 'claim':
         await this.handleClaimEffect(effect as ClaimEffect);
         break;
     }
+  }
+
+  /**
+   * Phase 4 (DLane-5): persist an orchestrator lane transition to the durable
+   * core event log at the effect boundary. NEVER throws — `persistLane` returns
+   * an `Err` Result on failure, which is logged and swallowed here so a
+   * lane-persistence failure can never break orchestrator dispatch.
+   */
+  private async persistLaneSafe(issueId: string, signal: OrchestratorLaneSignal): Promise<void> {
+    const r = await persistLane(this.projectRoot, issueId, signal);
+    if (!r.ok) {
+      this.logger.warn(`lane persist failed for ${issueId} (${signal}): ${r.error.message}`);
+    }
+  }
+
+  /**
+   * Phase 4 (DLane-5): read persisted task lanes back from the durable log and
+   * log a one-line summary. Stores the projection on `this.persistedLanes` for
+   * observability. Read-only — never feeds reconciliation, never throws.
+   */
+  private async readBackPersistedLanes(): Promise<void> {
+    const lanes = await readPersistedLanes(this.projectRoot);
+    this.persistedLanes = lanes;
+    const entries = Object.keys(lanes.tasks).map((id) => `${id}:${lanes.tasks[id]?.lane}`);
+    const nonTerminal = entries.filter((e) => !e.endsWith(':done') && !e.endsWith(':canceled'));
+    this.logger.info(
+      `Lane read-back on startup: ${entries.length} persisted task(s), ${nonTerminal.length} non-terminal`,
+      { nonTerminal }
+    );
+  }
+
+  /**
+   * Phase 4 (DLane-5): the task lanes most recently read back from the durable
+   * log on startup, exposed for external observability. Read-only — a fresh
+   * `{ tasks: {} }` until the first tick's read-back has run.
+   */
+  public getPersistedLanes(): PersistedLanes {
+    return this.persistedLanes;
   }
 
   /**
@@ -1312,7 +1375,10 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
-    // Claim succeeded — post claim comment to GitHub issue, then dispatch
+    // Claim succeeded — persist the lane (planned→claimed), post claim comment
+    // to the GitHub issue, then dispatch. Lane persistence is best-effort and
+    // never blocks dispatch.
+    await this.persistLaneSafe(effect.issue.id, 'claim');
     await this.postClaimComment(effect.issue);
     await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
   }
@@ -1391,6 +1457,10 @@ export class Orchestrator extends EventEmitter {
     this.logger.info(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`, {
       issueId: issue.id,
     });
+
+    // Phase 4 (DLane-5): a worker is about to start → lane `claimed→in_progress`
+    // (or `blocked→in_progress` on a retry dispatch). Best-effort, never blocks.
+    await this.persistLaneSafe(issue.id, 'dispatch');
 
     try {
       // 1. Ensure workspace
@@ -1697,6 +1767,11 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     error?: string
   ): Promise<void> {
+    // Phase 4 (DLane-5): worker completion is the authoritative success/failure
+    // signal — success→in_review, failure→blocked. Persist BEFORE handing off to
+    // the completion handler (whose downstream cleanWorkspace/releaseClaim/escalate
+    // effects must not be treated as the completion signal). Best-effort.
+    await this.persistLaneSafe(issueId, reason === 'normal' ? 'success' : 'failure');
     await this.completionHandler.handleWorkerExit(issueId, reason, attempt, error, (effect) =>
       this.handleEffect(effect)
     );

@@ -29,7 +29,7 @@ export async function autoSyncRoadmap(projectPath: string): Promise<void> {
     if (!parseResult.ok) return;
 
     const roadmap = parseResult.value;
-    const syncResult = syncRoadmap({ projectPath, roadmap });
+    const syncResult = await syncRoadmap({ projectPath, roadmap });
     if (!syncResult.ok || syncResult.value.length === 0) {
       // Even if no local changes, still attempt external sync
       await triggerExternalSync(projectPath, roadmapFile);

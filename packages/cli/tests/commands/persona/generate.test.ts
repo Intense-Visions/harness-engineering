@@ -94,6 +94,14 @@ describe('persona generate command', () => {
       const opt = cmd.options.find((o) => o.long === '--only');
       expect(opt).toBeDefined();
     });
+
+    it('has --platform option defaulting to github', () => {
+      const cmd = createGenerateCommand();
+      const opt = cmd.options.find((o) => o.long === '--platform');
+      expect(opt).toBeDefined();
+      expect(opt?.defaultValue).toBe('github');
+      expect(opt?.argChoices).toEqual(['github', 'gitlab']);
+    });
   });
 
   describe('action handler', () => {
@@ -190,6 +198,35 @@ describe('persona generate command', () => {
       expect(mockedGenerateRuntime).not.toHaveBeenCalled();
       expect(mockedGenerateAgentsMd).not.toHaveBeenCalled();
       expect(mockedGenerateCIWorkflow).toHaveBeenCalled();
+    });
+
+    it('passes --platform gitlab through and writes a .gitlab-ci.yml fragment', async () => {
+      mockedLoadPersona.mockReturnValue({ ok: true, value: mockPersona } as any);
+      mockedGenerateCIWorkflow.mockReturnValue({ ok: true, value: 'enforce: {}' } as any);
+      const { writeFileSync } = await import('fs');
+
+      const program = createProgram();
+      await expect(
+        program.parseAsync([
+          'node',
+          'test',
+          'persona',
+          'generate',
+          'arch-enforcer',
+          '--only',
+          'ci',
+          '--platform',
+          'gitlab',
+        ])
+      ).rejects.toThrow('process.exit');
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+      expect(mockedGenerateCIWorkflow).toHaveBeenCalledWith(mockPersona, 'gitlab');
+      const writtenPaths = vi.mocked(writeFileSync).mock.calls.map((c) => String(c[0]));
+      expect(writtenPaths.some((p) => p.endsWith('architecture-enforcer.gitlab-ci.yml'))).toBe(
+        true
+      );
+      expect(writtenPaths.some((p) => p.includes('.github/workflows'))).toBe(false);
     });
 
     it('suppresses output when --quiet is set', async () => {

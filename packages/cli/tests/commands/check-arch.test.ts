@@ -378,7 +378,7 @@ describe('check-arch command', () => {
       fsSync.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('handles --update-baseline with JSON output', async () => {
+    it('handles --update-baseline with JSON output', { timeout: 60_000 }, async () => {
       const fsSync = await import('node:fs');
       const osModule = await import('node:os');
       const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-json-'));

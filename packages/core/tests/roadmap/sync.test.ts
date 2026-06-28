@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { syncRoadmap } from '../../src/roadmap/sync';
+import { emitEvent } from '../../src/state/event-sourcing';
 import type { Roadmap } from '@harness-engineering/types';
 
 function makeTmpDir(): string {
@@ -12,6 +13,22 @@ function makeTmpDir(): string {
 function writeJson(filePath: string, data: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+/**
+ * Seed root core-state progress via the authoritative event log (one
+ * `progress_set` event per task). This replaces the old habit of writing
+ * `.harness/state.json` directly: sync now infers root progress from
+ * `eventSourcing.readSnapshot` + `toHarnessState`, not the legacy state file.
+ */
+async function seedProgress(
+  projectPath: string,
+  progress: Record<string, 'pending' | 'in_progress' | 'complete'>
+): Promise<void> {
+  for (const [task, status] of Object.entries(progress)) {
+    const r = await emitEvent(projectPath, { type: 'progress_set', payload: { task, status } });
+    if (!r.ok) throw r.error;
+  }
 }
 
 function baseRoadmap(overrides?: Partial<Roadmap>): Roadmap {
@@ -53,87 +70,71 @@ describe('syncRoadmap()', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  describe('state.json-based inference', () => {
-    it('proposes done when all tasks in state.json are complete', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: { phase: 'complete' },
-        progress: { 'Task 1': 'complete', 'Task 2': 'complete' },
-      });
+  describe('event-sourced progress inference', () => {
+    it('proposes done when all tasks in the event log are complete', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'complete', 'Task 2': 'complete' });
       // Create an empty plan file so the plan path resolves
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
 
       const roadmap = baseRoadmap();
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
     });
 
-    it('proposes in-progress when some tasks are complete', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: {},
-        progress: { 'Task 1': 'complete', 'Task 2': 'pending' },
-      });
+    it('proposes in-progress when some tasks are complete', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'complete', 'Task 2': 'pending' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
 
       const roadmap = baseRoadmap();
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'in-progress' }]);
     });
 
-    it('proposes in-progress when a task is in_progress', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: {},
-        progress: { 'Task 1': 'in_progress' },
-      });
+    it('proposes in-progress when a task is in_progress', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'in_progress' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
 
       const roadmap = baseRoadmap();
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'in-progress' }]);
     });
 
-    it('returns no changes when feature has no linked plans', () => {
+    it('returns no changes when feature has no linked plans', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features[0]!.plans = [];
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 
-    it('returns no changes when no state files exist', () => {
+    it('returns no changes when no state files exist', async () => {
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
 
       const roadmap = baseRoadmap();
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 
-    it('does not propose change when status is already correct', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: { phase: 'complete' },
-        progress: { 'Task 1': 'complete' },
-      });
+    it('does not propose change when status is already correct', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'complete' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
@@ -141,7 +142,7 @@ describe('syncRoadmap()', () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features[0]!.status = 'done';
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
@@ -149,7 +150,7 @@ describe('syncRoadmap()', () => {
   });
 
   describe('autopilot-state.json-based inference', () => {
-    it('proposes done when all linked phases are complete', () => {
+    it('proposes done when all linked phases are complete', async () => {
       const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
       writeJson(path.join(sessionDir, 'autopilot-state.json'), {
         schemaVersion: 2,
@@ -171,13 +172,13 @@ describe('syncRoadmap()', () => {
       fs.writeFileSync(planPath, '# Plan\n');
 
       const roadmap = baseRoadmap();
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
     });
 
-    it('proposes in-progress when some phases are not complete', () => {
+    it('proposes in-progress when some phases are not complete', async () => {
       const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
       writeJson(path.join(sessionDir, 'autopilot-state.json'), {
         schemaVersion: 2,
@@ -208,7 +209,7 @@ describe('syncRoadmap()', () => {
         'docs/plans/feature-a-phase2-plan.md',
       ];
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'in-progress' }]);
@@ -216,7 +217,7 @@ describe('syncRoadmap()', () => {
   });
 
   describe('blocker inference', () => {
-    it('proposes blocked when a blocker feature is not done', () => {
+    it('proposes blocked when a blocker feature is not done', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -237,13 +238,13 @@ describe('syncRoadmap()', () => {
         },
       ];
       // Feature A is done, so Feature B should NOT be blocked
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 
-    it('proposes blocked when blocker is in-progress', () => {
+    it('proposes blocked when blocker is in-progress', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -263,7 +264,7 @@ describe('syncRoadmap()', () => {
           summary: 'Blocked feature',
         },
       ];
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature B', from: 'planned', to: 'blocked' }]);
@@ -271,12 +272,8 @@ describe('syncRoadmap()', () => {
   });
 
   describe('directional guard (human-always-wins)', () => {
-    it('allows forward progression even after manual edits', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: { phase: 'complete' },
-        progress: { 'Task 1': 'complete' },
-      });
+    it('allows forward progression even after manual edits', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'complete' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
@@ -290,18 +287,14 @@ describe('syncRoadmap()', () => {
         },
       });
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
     });
 
-    it('blocks regression (done -> in-progress) without forceSync', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: {},
-        progress: { 'Task 1': 'in_progress' },
-      });
+    it('blocks regression (done -> in-progress) without forceSync', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'in_progress' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
@@ -309,13 +302,13 @@ describe('syncRoadmap()', () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features[0]!.status = 'done';
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]); // regression blocked
     });
 
-    it('unblocks blocked feature when its blocker is now done', () => {
+    it('unblocks blocked feature when its blocker is now done', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -335,13 +328,13 @@ describe('syncRoadmap()', () => {
           summary: 'Was blocked, blocker now done',
         },
       ];
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([{ feature: 'Feature B', from: 'blocked', to: 'planned' }]);
     });
 
-    it('unblocks only when ALL blockers are done (multi-blocker)', () => {
+    it('unblocks only when ALL blockers are done (multi-blocker)', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -369,13 +362,13 @@ describe('syncRoadmap()', () => {
           summary: 'still blocked by Dep Two',
         },
       ];
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 
-    it('does not unblock features that were already non-blocked', () => {
+    it('does not unblock features that were already non-blocked', async () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -395,18 +388,14 @@ describe('syncRoadmap()', () => {
           summary: 'Already planned, not blocked',
         },
       ];
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value).toEqual([]);
     });
 
-    it('allows regression when forceSync is true', () => {
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: {},
-        progress: { 'Task 1': 'in_progress' },
-      });
+    it('allows regression when forceSync is true', async () => {
+      await seedProgress(tmpDir, { 'Task 1': 'in_progress' });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
@@ -414,7 +403,7 @@ describe('syncRoadmap()', () => {
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features[0]!.status = 'done';
 
-      const result = syncRoadmap({
+      const result = await syncRoadmap({
         projectPath: tmpDir,
         roadmap,
         forceSync: true,
@@ -426,14 +415,11 @@ describe('syncRoadmap()', () => {
   });
 
   describe('multi-feature isolation', () => {
-    it('does not apply state.json progress to unrelated features', () => {
-      // state.json tracks tasks for Feature A's plan but Feature B has different plans
-      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
-        schemaVersion: 1,
-        position: { phase: 'complete' },
-        progress: { 'Task 1': 'complete', 'Task 2': 'complete' },
-        lastSession: { planPath: 'docs/plans/feature-a-plan.md' },
-      });
+    it('does not apply root event-sourced progress to unrelated features', async () => {
+      // Root core-state tracks tasks for Feature A's plan but Feature B has
+      // different plans. With multiple plan-linked features, root progress is
+      // ambiguous (no planPath) and must be skipped.
+      await seedProgress(tmpDir, { 'Task 1': 'complete', 'Task 2': 'complete' });
       const planPathA = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       const planPathB = path.join(tmpDir, 'docs', 'plans', 'feature-b-plan.md');
       fs.mkdirSync(path.dirname(planPathA), { recursive: true });
@@ -460,10 +446,10 @@ describe('syncRoadmap()', () => {
         },
       ];
 
-      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      // Root state.json is skipped when multiple features have linked plans
+      // Root progress is skipped when multiple features have linked plans
       // because it has no planPath field and would produce ambiguous inferences.
       // Only autopilot session state (with precise planPath matching) is used.
       expect(result.value).toEqual([]);

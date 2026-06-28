@@ -45,6 +45,20 @@ describe('extractHeadlines', () => {
     // Must NOT include the next section's content.
     expect(headlines).not.toContain('## Usage');
   });
+
+  it('adds a quality headline when a QualitySummary is present', () => {
+    const withQuality: OrchestratorResult = {
+      ...baseResult,
+      quality: { dimension: 'sentiment', distribution: { good: 5, bad: 1 }, total: 6, sources: 2 },
+    };
+    const headlines = extractHeadlines(assembleReport(withQuality, 'TestProduct', '24h'));
+    expect(headlines).toContain('quality[sentiment]: 6 sampled across 2 source(s)');
+  });
+
+  it('omits the quality headline when no QualitySummary is present', () => {
+    const headlines = extractHeadlines(assembleReport(baseResult, 'TestProduct', '24h'));
+    expect(headlines).not.toContain('quality[');
+  });
 });
 
 describe('assembleReport', () => {

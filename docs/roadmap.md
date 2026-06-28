@@ -49,8 +49,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Make protect-config fail-closed in ambiguous cases
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/protect-config-fail-closed/proposal.md
 - **Summary:** `packages/cli/src/hooks/protect-config.js:36,41,49` — three branches currently fail-open (parse error → allow, empty stdin → allow, missing `file_path` → allow). The security-flavored hook that protects config silently yields whenever its input is malformed. Change to fail-closed with a clear error message. Defense-in-depth. Source: Pass 5 #2.
 - **Blockers:** —
 - **Plan:** —
@@ -590,7 +590,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Append-Only Session Audit Trail
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Session-scoped append-only audit log capturing raw user input verbatim plus every approval prompt/response with ISO timestamps, written at the emit_interaction/state-write level. Compliance-grade provenance complementing .harness/state.json machine state. Session-scoped per the handoff-deprecation lesson. Adapted from AI-DLC's audit.md mandate. Adoption #2 from docs/research/aidlc-comparison-analysis.md [AIDLC-2]
 - **Blockers:** —
@@ -601,8 +601,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Event-Sourced State Model with Deterministic Reducer
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/event-sourced-state-model/proposal.md
 - **Summary:** Replace harness's mutated .harness/state.json with an append-only event log + pure deterministic reducer + materialized snapshot, plus an explicit guarded state machine for autopilot/orchestrator task lanes (forced-transition rules, dependency guards, mandatory evidence to reach terminal states). Highest-leverage hardening of harness's weakest subsystem (state/provenance); subsumes and complements the Append-Only Session Audit Trail (#580). Modeled on Spec Kitty's status/{emit,store,reducer,transitions}.py. Adoption #1 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-1]
 - **Blockers:** —
 - **Plan:** —
