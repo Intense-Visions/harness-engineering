@@ -142,7 +142,7 @@ Complete guide to the harness roadmap system — structure, management, sync, an
 Run the harness maintenance registry on demand, without an orchestrator, using `harness maintenance run`:
 
 - The overdue-aware default vs `--all`, and which infra tasks are excluded from the sweep
-- Report-first by default vs `--fix` (and the honest fix-dispatch stub caveat)
+- Report-first by default vs `--fix` (real dispatch when a backend is configured; honest no-backend skip otherwise)
 - Reading the consolidated report and `last-run-summary.json`, plus CI exit codes
 - The `/harness:maintenance-pipeline` skill and how on-demand complements the cron scheduler
 

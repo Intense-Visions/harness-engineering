@@ -104,10 +104,12 @@ CI-friendly: `0` ran to completion (findings are NOT failures), `1` at least
 one task failed to execute, `2` invalid invocation.
 
 `--fix` threads `mode: 'fix'` through the same executor (sequential, to avoid
-duplicate-dispatch / worktree-collapse hazards), but real AI fix-agent dispatch
-does not yet exist anywhere in the repo — the dispatcher is a documented
-repo-wide stub, so `--fix` runs the checks and opens no PRs today. The CLI
-prints that honesty warning to **stderr** (stdout stays clean JSON).
+duplicate-dispatch / worktree-collapse hazards) and dispatches the real
+`createAgentDispatcher` (#679) — resolving the configured `agent.backends`
+backend, driving an `AgentRunner` session, and counting commits via a `HEAD`
+diff. When no agent backend is configured for the repo, the CLI skips dispatch
+and prints `NO_BACKEND_FIX_WARNING` to **stderr** (stdout stays clean JSON),
+reporting `fixed: 0` rather than implying anything was changed.
 
 ## See also
 

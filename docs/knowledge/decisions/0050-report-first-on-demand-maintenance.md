@@ -39,9 +39,10 @@ construct real dispatch in that phase — there was nothing to construct.
 
 ## Decision
 
-**The on-demand sweep is report-first by default; `--fix` opts into the
-fix-mode seam, and in this phase that seam is a documented no-op-dispatch with
-no `PRManager`.**
+**The on-demand sweep is report-first by default; `--fix` opts into fix mode,
+which dispatches the real `createAgentDispatcher` (#679) when an agent backend
+is configured and otherwise skips honestly. The CLI constructs no `PRManager`:
+the dispatcher commits fixes in the worktree rather than opening PRs.**
 
 - **Default = report mode.** `harness maintenance run` (no `--fix`) threads
   `mode: 'report'` into `TaskRunner`. Report mode runs each task's check step,
