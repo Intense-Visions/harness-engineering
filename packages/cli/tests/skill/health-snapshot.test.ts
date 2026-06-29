@@ -21,6 +21,7 @@ import {
   deriveSignals,
 } from '../../src/skill/health-snapshot';
 import type { HealthSnapshot } from '../../src/skill/health-snapshot';
+import { reconcilePassed } from '@harness-engineering/core';
 
 function makeSnapshot(overrides: Partial<HealthSnapshot> = {}): HealthSnapshot {
   return {
@@ -477,7 +478,11 @@ describe('runGraphMetrics', () => {
     vi.doMock('../../src/mcp/utils/graph-loader', () => ({
       loadGraphStore: vi.fn().mockResolvedValue(fakeStore),
     }));
-    vi.doMock('@harness-engineering/graph', () => ({
+    vi.doMock('@harness-engineering/graph', async (importOriginal) => ({
+      // Spread the real module so core's eager imports (e.g. skipDirGlobs) still
+      // resolve now that health-snapshot.ts loads core at runtime; override only
+      // the graph adapters this test exercises.
+      ...(await importOriginal<typeof import('@harness-engineering/graph')>()),
       GraphCouplingAdapter: class {
         computeCouplingData() {
           return {
@@ -700,6 +705,93 @@ describe('captureHealthSnapshot', () => {
       expect(snapshot.signals).toContain('dead-code');
       expect(snapshot.signals).toContain('drift');
       expect(snapshot.signals).toContain('doc-gaps');
+      expect(snapshot.signals).toContain('security-findings');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('flips a check that assess passed but a signal contradicts (SC1 reconcile wiring)', async () => {
+    // Genuine true->false flip: assess_project reports `deps` as passed:true, but
+    // check_dependencies surfaces a CIRCULAR_DEP violation. deriveSignals emits
+    // 'circular-deps', which CHECK_SIGNAL_MAP maps to `deps`, so reconcilePassed
+    // MUST demote deps.passed from true to false. This test fails if the reconcile
+    // call is removed from captureHealthSnapshot — the raw check would stay true.
+    const realCP = await import('child_process');
+    vi.doMock('child_process', () => ({
+      ...realCP,
+      execSync: vi.fn().mockReturnValue('feed00d\n'),
+    }));
+
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              healthy: true,
+              checks: [
+                // deps PASSES at the assess layer — the contradiction comes solely
+                // from the granular check_dependencies mock below.
+                { name: 'deps', passed: true, issueCount: 0 },
+                { name: 'entropy', passed: true, issueCount: 0 },
+                { name: 'security', passed: true, issueCount: 0 },
+                { name: 'perf', passed: true, issueCount: 0 },
+                { name: 'docs', passed: true, issueCount: 0 },
+                { name: 'lint', passed: true, issueCount: 0 },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              valid: false,
+              violations: [
+                {
+                  reason: 'CIRCULAR_DEP',
+                  file: 'a.ts',
+                  imports: 'b.ts',
+                  fromLayer: 'x',
+                  toLayer: 'y',
+                  line: 1,
+                  suggestion: '',
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/security', () => ({
+      handleRunSecurityScan: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ findings: [] }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/utils/graph-loader', () => ({
+      loadGraphStore: vi.fn().mockResolvedValue(null),
+    }));
+
+    const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
+    const tmpDir = path.join(os.tmpdir(), `snapshot-flip-${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+
+    try {
+      const snapshot = await captureHealthSnapshot(tmpDir);
+      // The contradicting signal is present...
+      expect(snapshot.signals).toContain('circular-deps');
+      // ...and it genuinely demoted the deps check from assess's passed:true to false.
+      expect(snapshot.checks.deps.passed).toBe(false);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -725,5 +817,30 @@ describe('captureHealthSnapshot', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('reconcilePassed wiring (snapshot honesty)', () => {
+  it('demotes a check that passed assess but has a contradicting signal (SC1)', () => {
+    const checks = {
+      security: { passed: true, findingCount: 16, criticalCount: 16 },
+      docs: { passed: true, undocumentedCount: 27481 },
+    };
+    const out = reconcilePassed(checks, ['security-findings', 'doc-gaps']);
+    expect(out.security.passed).toBe(false);
+    expect(out.docs.passed).toBe(false);
+  });
+
+  it('preserves a lint assess-failure that has no signal (SC2 conjunction)', () => {
+    const out = reconcilePassed({ lint: { passed: false, issueCount: 3 } }, []);
+    expect(out.lint.passed).toBe(false);
+  });
+
+  it('does not let metrics-only signals change passed (SC3)', () => {
+    const out = reconcilePassed(
+      { deps: { passed: true, issueCount: 0, circularDeps: 0, layerViolations: 0 } },
+      ['high-coupling', 'low-coverage']
+    );
+    expect(out.deps.passed).toBe(true);
   });
 });

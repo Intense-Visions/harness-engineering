@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
+import type { Result, RoadmapMeta } from '@harness-engineering/core';
+import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
 import {
@@ -16,6 +16,7 @@ import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
 import { setupMcp } from './setup-mcp';
 import { generateCIConfig } from './ci/init';
+import { configureMergeOursDriver } from '../git/merge-driver-setup';
 
 interface InitOptions {
   cwd?: string;
@@ -109,7 +110,7 @@ function resolveLanguage(
   return undefined;
 }
 
-function scaffoldProject(
+async function scaffoldProject(
   engine: TemplateEngine,
   ctx: {
     cwd: string;
@@ -118,7 +119,7 @@ function scaffoldProject(
     language: string | undefined;
     options: InitOptions;
   }
-): Result<InitResult, CLIError> {
+): Promise<Result<InitResult, CLIError>> {
   const { cwd, name, force, language, options } = ctx;
   const isNonJs = language && language !== 'typescript';
   const level = isNonJs ? undefined : (options.level ?? 'basic');
@@ -171,10 +172,57 @@ function scaffoldProject(
   appendFrameworkAgents(cwd, options.framework, language);
   ensureHarnessGitignore(cwd);
 
+  // Sharded-by-default (D5): a brand-new project gets a sharded roadmap — an empty
+  // `docs/roadmap.d/_meta.md` and NO monolith aggregate. Per-row shards are the
+  // canonical source; the aggregate is generated on demand by `harness roadmap
+  // regen`. Existing adopters are left untouched (they opt in via `harness roadmap
+  // shard`). `_meta.md` is emitted via the core serializer so it round-trips
+  // through the ShardStore parser byte-for-byte (the format is parser-sensitive).
+  const roadmapFiles: string[] = [];
+  if (!existingProject) {
+    roadmapFiles.push(...scaffoldShardedRoadmap(cwd, name));
+  }
+
+  // Configure the `ours` merge driver so generated-file merge=ours entries
+  // (e.g. the regenerated aggregate) take effect. Non-fatal: warns and continues
+  // if git is unavailable or cwd is not a repo.
+  const mergeDriver = await configureMergeOursDriver(cwd);
+  if (mergeDriver.warning) {
+    logger.warn(mergeDriver.warning);
+  }
+
   return Ok({
-    filesCreated: writeResult.value.written,
+    filesCreated: [...writeResult.value.written, ...roadmapFiles],
     skippedConfigs: writeResult.value.skippedConfigs,
   });
+}
+
+/**
+ * Scaffold an empty sharded roadmap for a fresh project: `docs/roadmap.d/_meta.md`
+ * with empty-roadmap frontmatter and no milestones, and crucially NO monolith
+ * aggregate (the aggregate is a generated view, produced by `harness roadmap
+ * regen`). Returns the created file paths (project-relative) for the success log.
+ */
+function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
+  // Gate on ACTUAL filesystem state, independent of --force: never scaffold an
+  // empty sharded roadmap when a roadmap source already exists. Under --force the
+  // caller's `!existingProject` gate no longer protects this path, so without this
+  // guard a re-init would `mkdir docs/roadmap.d/` + write an empty `_meta.md` over
+  // a populated project — orphaning the real roadmap behind empty shards (mode
+  // detection would then report sharded and readers would read the empty shards).
+  // `roadmapSourceExists` is the single presence authority (it checks both the
+  // shard dir and the aggregate), so "one place decides sharded" stays literally
+  // true here as well.
+  if (roadmapSourceExists(cwd)) return [];
+  const shardDir = path.join(cwd, 'docs', 'roadmap.d');
+  fs.mkdirSync(shardDir, { recursive: true });
+  const nowIso = new Date().toISOString();
+  const meta: RoadmapMeta = {
+    frontmatter: { project: name, version: 1, lastSynced: nowIso, lastManualEdit: nowIso },
+    milestones: [],
+  };
+  fs.writeFileSync(path.join(shardDir, '_meta.md'), serializeMeta(meta), 'utf-8');
+  return [path.join('docs', 'roadmap.d', '_meta.md')];
 }
 
 function printInitSuccess(filesCreated: string[], mcpConfigured: string[]): void {

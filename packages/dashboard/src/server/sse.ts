@@ -11,6 +11,14 @@ import type { GatherCache } from './gather-cache';
 
 /** Minimal context interface used by SSEManager — avoids circular import with context.ts. */
 export interface SSEContext {
+  /**
+   * C7 (display-only): the aggregate path, used ONLY as a file-watch target,
+   * serialization lock key, and display/link path. It MUST NOT be used to READ
+   * roadmap content — content is read and written through `resolveRoadmapStore`
+   * (sharded mode reads the shards, not this aggregate; read-source invariant R,
+   * ADR 0050). Retained rather than dropped because the dashboard still needs to
+   * name an aggregate path for watch/links.
+   */
   roadmapPath: string;
   projectPath: string;
   pollIntervalMs: number;
@@ -118,7 +126,7 @@ export class SSEManager {
 
   private async _tick(ctx: SSEContext): Promise<void> {
     const [roadmap, health, graph] = await Promise.all([
-      gatherRoadmap(ctx.roadmapPath),
+      gatherRoadmap(ctx.projectPath),
       gatherHealth(ctx.projectPath),
       gatherGraph(ctx.projectPath),
     ]);

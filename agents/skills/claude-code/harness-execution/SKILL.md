@@ -186,40 +186,37 @@ Three checkpoint types. Each requires pausing execution.
 
 **`[checkpoint:human-verify]` — Show and Confirm**
 
-Stop. Present via `emit_interaction`:
+Stop. Present the confirmation in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "confirmation",
-  confirmation: {
-    text: "Task N complete. Output: <summary>. Continue to Task N+1?",
-    context: "<test output or diff summary>",
-    impact: "Continuing proceeds to next task. Declining pauses for review.",
-    risk: "low"
-  }
-})
+```markdown
+Task N complete. Output: <summary>. Continue to Task N+1?
+
+Context: <test output or diff summary>
+Impact: Continuing proceeds to next task. Declining pauses for review.
+Risk: low
+
+Proceed? (yes/no)
 ```
 
 Wait for human confirmation.
 
 **`[checkpoint:decision]` — Present Options and Wait**
 
-Stop. Present via `emit_interaction`:
+Stop. Present the decision in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "question",
-  question: {
-    text: "Task N requires a decision: <description>",
-    options: [
-      { label: "<option A>", pros: ["..."], cons: ["..."], risk: "low", effort: "low" },
-      { label: "<option B>", pros: ["..."], cons: ["..."], risk: "medium", effort: "medium" }
-    ],
-    recommendation: { optionIndex: 0, reason: "<why>", confidence: "medium" }
-  }
-})
+Present the options as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
+
+```markdown
+### Decision needed: Task N requires a decision: <description>
+
+|            | A) <option A>   | B) <option B>   |
+| ---------- | --------------- | --------------- |
+| **Pros**   | <option A pros> | <option B pros> |
+| **Cons**   | <option A cons> | <option B cons> |
+| **Risk**   | low             | medium          |
+| **Effort** | low             | medium          |
+
+**Recommendation:** A) <option A> (confidence: medium) — <why>.
 ```
 
 Wait for human choice.
@@ -378,6 +375,7 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - **`harness state learn "<message>"`** — Append a learning from CLI.
 - **State/Learnings files** — Session-scoped when session known, otherwise `.harness/`. State updated after every task; learnings append-only.
 - **Roadmap claim** — Phase 2 Step 0: `manage_roadmap update` with `status: in-progress` + `assignee: <currentUser>` claims the item at execution start (the assignee = "who is executing" invariant). Stop if `currentUser` is unresolvable. Marking the row `done` later auto-clears the assignee via the lifecycle `setStatus` chokepoint — never leave a non-in-progress row assigned (RMH005).
+- **Auto-done (do NOT hand-mark rows done)** — A row reaches `done` automatically when the implementing PR merges and closes its linked issue: the merge-triggered auto-done reconciler flips exactly that shard via `External-ID` (CI Action authoritative; `harness roadmap reconcile` is the offline fallback). Execution should claim the row `in-progress` and let the merge drive it to `done` — do not call `manage_roadmap update status:done` by hand. See knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowledge/roadmap/merge-triggered-auto-done.md). In sharded mode (`docs/roadmap.d/` present) the claim writes one shard and regenerates the aggregate.
 - **Roadmap sync** — After plan completion, `manage_roadmap sync` with `apply: true`. Mandatory when roadmap exists. No `force_sync: true`.
 - **`emit_interaction`** — Auto-transition to harness-verification at plan completion.
 

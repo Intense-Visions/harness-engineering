@@ -1,8 +1,11 @@
-import * as fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import {
-  parseRoadmap,
-  serializeRoadmap,
+  // Roadmap CONTENT is read + written through the store so sharded mode rewrites
+  // only the changed row's shard (the contention this feature targets) while
+  // monolith mode stays a whole-file rewrite. The adapter's TrackerConfig.filePath
+  // points directly at the aggregate, so the file-anchored resolver is used.
+  resolveRoadmapStoreForFile,
+  applyRoadmapDiff,
   // The assignee-lifecycle authority owns the claim transition + invariant.
   claim as claimFeature,
   // setStatus is the status-change chokepoint: moving away from in-progress
@@ -64,8 +67,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
   async fetchIssuesByStates(stateNames: string[]): Promise<Result<Issue[], Error>> {
     try {
       if (!this.config.filePath) return Err(new Error('Missing filePath'));
-      const content = await fs.readFile(this.config.filePath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
+      const roadmapResult = await this.loadRoadmap();
       if (!roadmapResult.ok) return roadmapResult as unknown as Result<Issue[], Error>;
 
       const issues: Issue[] = [];
@@ -100,11 +102,12 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Err(new Error('Tracker config has no terminalStates; cannot mark complete'));
       }
 
-      const content = await fs.readFile(this.config.filePath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
+      const store = this.resolveStore();
+      const roadmapResult = await store.load();
       if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
 
       const roadmap = roadmapResult.value;
+      const before = structuredClone(roadmap);
       const target = this.findFeatureById(roadmap.milestones, issueId);
 
       // Missing target (removed between dispatch and completion) and
@@ -120,7 +123,8 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       // carrying `assignee = orchestrator-*`, violating RMH005.
       const now = new Date().toISOString();
       setFeatureStatus(roadmap, target, terminal as FeatureStatus, now.slice(0, 10));
-      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      const persisted = await applyRoadmapDiff(store, before, roadmap);
+      if (!persisted.ok) return persisted;
       return Ok(undefined);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
@@ -136,11 +140,12 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     try {
       if (!this.config.filePath) return Err(new Error('Missing filePath'));
 
-      const content = await fs.readFile(this.config.filePath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
+      const store = this.resolveStore();
+      const roadmapResult = await store.load();
       if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
 
       const roadmap = roadmapResult.value;
+      const before = structuredClone(roadmap);
       const target = this.findFeatureById(roadmap.milestones, issueId);
       if (!target) return Ok(undefined);
 
@@ -167,7 +172,8 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       const now = new Date().toISOString();
       claimFeature(roadmap, target, orchestratorId, now.slice(0, 10));
       target.updatedAt = now;
-      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      const persisted = await applyRoadmapDiff(store, before, roadmap);
+      if (!persisted.ok) return persisted;
       return Ok(undefined);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
@@ -187,11 +193,12 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         return Err(new Error('Tracker config has no activeStates; cannot release'));
       }
 
-      const content = await fs.readFile(this.config.filePath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
+      const store = this.resolveStore();
+      const roadmapResult = await store.load();
       if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
 
       const roadmap = roadmapResult.value;
+      const before = structuredClone(roadmap);
       const target = this.findFeatureById(roadmap.milestones, issueId);
       if (!target) return Ok(undefined);
 
@@ -208,11 +215,27 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       const now = new Date().toISOString();
       setFeatureStatus(roadmap, target, activeState as FeatureStatus, now.slice(0, 10));
       target.updatedAt = null;
-      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      const persisted = await applyRoadmapDiff(store, before, roadmap);
+      if (!persisted.ok) return persisted;
       return Ok(undefined);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Resolve the roadmap store anchored on the configured aggregate file path.
+   * The shard backend is chosen when a sibling `roadmap.d/` exists next to the
+   * file; otherwise the monolith file is read/written whole. Callers guard
+   * `this.config.filePath` before invoking.
+   */
+  private resolveStore() {
+    return resolveRoadmapStoreForFile({ roadmapPath: this.config.filePath! });
+  }
+
+  /** Load the roadmap via the store (sharded or monolith), returning a Result. */
+  private loadRoadmap() {
+    return this.resolveStore().load();
   }
 
   private findFeatureById(
@@ -235,8 +258,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
   async fetchIssueStatesByIds(issueIds: string[]): Promise<Result<Map<string, Issue>, Error>> {
     try {
       if (!this.config.filePath) return Err(new Error('Missing filePath'));
-      const content = await fs.readFile(this.config.filePath, 'utf-8');
-      const roadmapResult = parseRoadmap(content);
+      const roadmapResult = await this.loadRoadmap();
       if (!roadmapResult.ok) return roadmapResult as unknown as Result<Map<string, Issue>, Error>;
 
       const issueMap = new Map<string, Issue>();

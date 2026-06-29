@@ -3,67 +3,12 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadState, saveState, appendLearning } from '../../src/state';
+import { appendLearning } from '../../src/state';
 
-describe('loadState', () => {
-  it('returns default state when .harness/state.json missing', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
-    const result = await loadState(tmpDir);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.schemaVersion).toBe(1);
-      expect(result.value.decisions).toEqual([]);
-    }
-    fs.rmSync(tmpDir, { recursive: true });
-  });
-
-  it('loads existing state', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
-    const harnessDir = path.join(tmpDir, '.harness');
-    fs.mkdirSync(harnessDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(harnessDir, 'state.json'),
-      JSON.stringify({
-        schemaVersion: 1,
-        position: { phase: 'test' },
-        decisions: [],
-        blockers: [],
-        progress: { 'task-1': 'complete' },
-      })
-    );
-    const result = await loadState(tmpDir);
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.progress['task-1']).toBe('complete');
-    fs.rmSync(tmpDir, { recursive: true });
-  });
-
-  it('returns error for corrupted JSON', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
-    const harnessDir = path.join(tmpDir, '.harness');
-    fs.mkdirSync(harnessDir, { recursive: true });
-    fs.writeFileSync(path.join(harnessDir, 'state.json'), 'not json{{{');
-    const result = await loadState(tmpDir);
-    expect(result.ok).toBe(false);
-    fs.rmSync(tmpDir, { recursive: true });
-  });
-});
-
-describe('saveState', () => {
-  it('creates .harness directory and writes state', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
-    const state = {
-      schemaVersion: 1 as const,
-      position: { phase: 'test' },
-      decisions: [],
-      blockers: [],
-      progress: {},
-    };
-    const result = await saveState(tmpDir, state);
-    expect(result.ok).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.harness', 'state.json'))).toBe(true);
-    fs.rmSync(tmpDir, { recursive: true });
-  });
-});
+// Note: loadState/saveState describe blocks were removed in Phase 6 — those
+// deprecated persistence functions are deleted (event-sourced state model).
+// State read/write behavior is now covered by event-sourcing/migrate.test.ts and
+// the core-state projection tests.
 
 describe('appendLearning', () => {
   it('creates learnings.md and appends', async () => {

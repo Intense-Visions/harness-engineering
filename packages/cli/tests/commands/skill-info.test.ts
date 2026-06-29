@@ -9,7 +9,10 @@ const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
 let mockSkillsDir = '';
 vi.mock('../../src/utils/paths', () => ({
-  resolveSkillsDir: () => mockSkillsDir,
+  resolveSkillDir: (name: string) => {
+    const dir = path.join(mockSkillsDir, name);
+    return fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? dir : null;
+  },
 }));
 
 import { createInfoCommand } from '../../src/commands/skill/info';

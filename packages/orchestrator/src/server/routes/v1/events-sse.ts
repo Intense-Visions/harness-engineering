@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { EventEmitter } from 'node:events';
-import { randomBytes } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 
 /**
  * Event-bus topics the SSE handler subscribes to. Mirrors the WebSocket
@@ -24,8 +23,97 @@ const SSE_TOPICS = [
 
 const HEARTBEAT_MS = 15_000;
 
-function newEventId(): string {
-  return `evt_${randomBytes(8).toString('hex')}`;
+/** Default ring-buffer capacity for `Last-Event-ID` replay. */
+const DEFAULT_REPLAY_BUFFER = 1024;
+
+interface SseEvent {
+  /** Monotonic, gap-free sequence id (1-based). Serialized as the SSE `id:`. */
+  id: number;
+  topic: string;
+  data: unknown;
+}
+
+/**
+ * Per-bus event recorder backing `Last-Event-ID` reconnection.
+ *
+ * The original handler stamped each frame with a *random* id, so a reconnecting
+ * client's `Last-Event-ID` pointed at nothing replayable. This log is the single
+ * subscriber to the bus: it assigns every event a monotonic id, keeps the most
+ * recent `cap` events in a ring buffer, and fans them out to connected streams.
+ * A reconnecting client replays the buffered tail strictly after its last id,
+ * then resumes live — with no gap and no duplicate.
+ *
+ * The buffer is in-memory and bounded, so a server restart (or an outage longer
+ * than `cap` events) drops history: such a client simply resumes live from the
+ * next event, exactly as a first-time connection would. A durable store can
+ * replace the ring buffer later without changing the wire contract.
+ */
+export class SseEventLog {
+  private seq = 0;
+  private readonly buffer: SseEvent[] = [];
+  private readonly subscribers = new Set<(e: SseEvent) => void>();
+
+  constructor(bus: EventEmitter, cap: number = DEFAULT_REPLAY_BUFFER) {
+    this.cap = cap;
+    for (const topic of SSE_TOPICS) {
+      bus.on(topic, (data: unknown) => this.record(topic, data));
+    }
+  }
+
+  private readonly cap: number;
+
+  private record(topic: string, data: unknown): void {
+    const event: SseEvent = { id: ++this.seq, topic, data };
+    this.buffer.push(event);
+    if (this.buffer.length > this.cap) this.buffer.shift();
+    for (const fn of this.subscribers) fn(event);
+  }
+
+  /** Highest assigned id (0 when nothing has been recorded yet). */
+  currentSeq(): number {
+    return this.seq;
+  }
+
+  /** Buffered events strictly newer than `lastId`, oldest-first. */
+  replayFrom(lastId: number): SseEvent[] {
+    return this.buffer.filter((e) => e.id > lastId);
+  }
+
+  /** Register a live listener; returns an unsubscribe function. */
+  subscribe(fn: (e: SseEvent) => void): () => void {
+    this.subscribers.add(fn);
+    return () => {
+      this.subscribers.delete(fn);
+    };
+  }
+}
+
+// One log per bus instance — the bus is the orchestrator and lives for the
+// server's lifetime, so the log (and its single set of bus listeners) is a
+// per-server singleton. WeakMap lets test buses be GC'd with their logs.
+const logsByBus = new WeakMap<EventEmitter, SseEventLog>();
+
+/** Get (or lazily create) the replay log for a bus. Exposed for tests. */
+export function getSseEventLog(bus: EventEmitter): SseEventLog {
+  let log = logsByBus.get(bus);
+  if (!log) {
+    log = new SseEventLog(bus);
+    logsByBus.set(bus, log);
+  }
+  return log;
+}
+
+/**
+ * Parse a client's `Last-Event-ID` into a numeric sequence id. Returns null when
+ * absent or non-numeric (e.g. a client that connected before monotonic ids
+ * existed) — such a client resumes live without replay.
+ */
+function parseLastEventId(req: IncomingMessage): number | null {
+  const raw = req.headers['last-event-id'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === undefined) return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 /**
@@ -34,10 +122,11 @@ function newEventId(): string {
  * Spec D1: SSE stream alongside legacy /ws WebSocket. Each event is framed as:
  *   event: <type>
  *   data: <json>
- *   id: <evt_…>
+ *   id: <seq>
  *
- * Reconnection-via-Last-Event-ID is deferred to Phase 4 when the SQLite
- * webhook queue lands (re-uses the same persistence layer).
+ * Reconnection: a client that sends `Last-Event-ID: <seq>` (the browser
+ * `EventSource` does this automatically) replays every buffered event after that
+ * id before live delivery resumes (see {@link SseEventLog}).
  *
  * Scope: read-telemetry (enforced by dispatchAuthedRequest).
  */
@@ -58,20 +147,31 @@ export function handleV1EventsSseRoute(
   // Initial comment frame opens the stream for the client.
   res.write(`: harness gateway SSE — connected at ${new Date().toISOString()}\n\n`);
 
-  const listeners: Array<{ topic: string; fn: (data: unknown) => void }> = [];
-  for (const topic of SSE_TOPICS) {
-    const fn = (data: unknown): void => {
-      try {
-        const frame =
-          `event: ${topic}\n` + `data: ${JSON.stringify(data)}\n` + `id: ${newEventId()}\n\n`;
-        res.write(frame);
-      } catch {
-        // Connection write failure → unsubscribe on close handler below.
-      }
-    };
-    bus.on(topic, fn);
-    listeners.push({ topic, fn });
+  const log = getSseEventLog(bus);
+
+  const send = (e: SseEvent): void => {
+    try {
+      res.write(`event: ${e.topic}\n` + `data: ${JSON.stringify(e.data)}\n` + `id: ${e.id}\n\n`);
+    } catch {
+      // Connection write failure → unsubscribe on close handler below.
+    }
+  };
+
+  // Replay buffered history after the client's last seen id (if any). Everything
+  // up to and including `replayedThrough` has been sent; the live subscriber
+  // forwards only strictly-newer events, so there is no duplicate and no gap.
+  const lastId = parseLastEventId(req);
+  let replayedThrough = lastId ?? log.currentSeq();
+  if (lastId !== null) {
+    for (const e of log.replayFrom(lastId)) {
+      send(e);
+      replayedThrough = e.id;
+    }
   }
+
+  const unsubscribe = log.subscribe((e) => {
+    if (e.id > replayedThrough) send(e);
+  });
 
   const heartbeat = setInterval(() => {
     try {
@@ -84,7 +184,7 @@ export function handleV1EventsSseRoute(
 
   const cleanup = (): void => {
     clearInterval(heartbeat);
-    for (const { topic, fn } of listeners) bus.removeListener(topic, fn);
+    unsubscribe();
   };
   res.on('close', cleanup);
   res.on('finish', cleanup);

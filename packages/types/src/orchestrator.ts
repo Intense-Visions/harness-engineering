@@ -278,10 +278,11 @@ export interface WorkspaceConfig {
    * they do NOT inherit uncommitted artifacts that live only in the root
    * working tree. The brainstorm → orchestrator handoff produces exactly such
    * artifacts: a proposal under `.harness/proposals/` and a promoted row in
-   * `docs/roadmap.md`, both written uncommitted. Without seeding, a dispatched
+   * the roadmap aggregate, both written uncommitted. Without seeding, a dispatched
    * agent sees a roadmap entry but cannot find its proposal and stalls.
    *
-   * When unset, defaults to `['.harness/proposals', 'docs/roadmap.md']`. Each
+   * When unset, defaults to seeding `.harness/proposals` and the roadmap
+   * aggregate. Each
    * path is copied best-effort: missing sources are skipped and copy failures
    * never block dispatch. Set explicitly to override (e.g. a non-default
    * roadmap location).

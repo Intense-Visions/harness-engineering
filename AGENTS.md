@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 12 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, intelligence, dashboard, orchestrator), 741 skills (claude-code, gemini-cli, codex, and cursor), 16 personas, 19 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Strategic Anchor
 
@@ -80,9 +80,10 @@ checks shape when the file exists.
 - `/harness:strategy` — run interview / update STRATEGY.md.
 - `/harness:ideate` — generate ranked candidate ideas grounded in strategy.
 - `initialize-harness-project` Phase 3 — 3-way yes/no/later question on
-  capturing strategy at project init. Decline persists in
-  `.harness/state.json` as `init.strategy.declined: true` so re-runs
-  respect prior decision.
+  capturing strategy at project init. Decline persists to the event-sourced
+  `.harness` state (recorded as an event, read back via the snapshot
+  projection) as `init.strategy.declined: true` so re-runs respect the prior
+  decision.
 
 ## Repository Structure
 
@@ -106,7 +107,7 @@ harness-engineering/
 │   ├── skills/codex/         # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/cursor/        # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
-│   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
+│   └── personas/             # 16 personas (adversarial-reviewer, architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, frontend-races-reviewer, graph-maintainer, harness-pm, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, typescript-strict-reviewer, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more) — plus the opt-in `ci-required-review` template that `harness init` renders into a GitHub Actions workflow + branch-protection ruleset wiring the `harness review-ci` required check
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
@@ -218,11 +219,21 @@ Each package has a clear responsibility:
   - `aggregator.ts` — Aggregates records by skill (`aggregateBySkill`) and by day (`aggregateByDay`); exports `DailyAdoption` type
 
 - **state** (`packages/core/src/state/`): Session state and learnings lifecycle management.
+  - `event-sourcing/` — **Event-sourced core state.** An authoritative append-only log (`state.events.jsonl`) is the single source of truth; a deterministic reducer composes three pure projections — `projectCoreState`, `projectLanes`, `projectAudit` — into a materialized snapshot (`state.snapshot.json`, derived cache). Includes the guarded lane state machine (`lane-machine.ts`) and `transitionLane`. The `toHarnessState` adapter bridges `coreState` back to the legacy `HarnessState` shape so readers migrate by swapping `loadState(...)` for `toHarnessState(readSnapshot(...).coreState)`. See [`docs/knowledge/core/event-sourced-state.md`](docs/knowledge/core/event-sourced-state.md) and ADRs [0048](docs/knowledge/decisions/0048-event-log-authoritative-snapshot-derived.md) / [0049](docs/knowledge/decisions/0049-guarded-lane-state-machine.md).
   - `session-sections.ts` — Loader for session-state.json managing accumulative sections (terminology, decisions, constraints, risks, openQuestions, evidence)
   - `session-archive.ts` — Archives completed sessions by moving directory to `.harness/archive/sessions/<slug>-<date>`
   - `learnings-loader.ts` — Mtime-based cache loader for learnings files; leaf module preventing circular dependencies
   - `learnings-lifecycle.ts` — Archive/prune/promotion/counting operations on learnings with pattern analysis
   - `learnings-content.ts` — Content deduplication via normalization, content hashing, and hash index management
+
+  **On-disk layout** (resolved per `getStateDir` scope — global / stream / session):
+  - `state.events.jsonl` — authoritative append-only event log.
+  - `state.events.blobs/<hash>.json` — spilled oversized event payloads (kept out of the log line so each line stays within one atomic append).
+  - `state.snapshot.json` — derived materialized snapshot (`schemaVersion: 2`, `{ coreState, lanes, audit, meta.lastSeq }`); never authoritative, recomputed on staleness.
+  - `metrics/skill-events.jsonl` — relocated skill-lifecycle telemetry.
+  - The legacy `events.jsonl` is **retired** — it was born-deduplicated and observability-only; its entries are discarded (not imported), and the timeline is now derived from the `audit` projection.
+
+  **`manage_state` MCP tool** (`packages/cli/src/mcp/tools/state.ts`): mutating actions **append events** to the log; read actions read the **snapshot/projection** (`toHarnessState(readSnapshot(...).coreState)`). The `task-transition` action wraps `transitionLane` (`taskId`, `toLane`, `dependsOn?`, `evidence?`, and `force?` + `actor?` + `reason?` for off-table moves), applying the dependency / evidence-for-terminal / forced-transition guards.
 
 - **code-nav** (`packages/core/src/code-nav/`): Tree-sitter-based code navigation and symbol extraction.
   - `outline.ts` — Extracts top-level code symbols (functions, classes, interfaces, types) with locations
@@ -260,6 +271,7 @@ Each package has a clear responsibility:
 - **constraints** (`packages/core/src/constraints/`): Validates architectural layers, detects circular dependencies, and enforces boundary rules across modules.
 - **context** (`packages/core/src/context/`): Documentation coverage analysis, knowledge map validation, and progressive skill loading with token budgets.
 - **entropy** (`packages/core/src/entropy/`): Detects and remediates codebase entropy including dead code, drift, complexity violations, and coupling problems.
+- **health-signals** (`packages/core/src/health-signals/`): Canonical signal<->check contract. `SIGNAL_REGISTRY` is the single source of truth from which `SignalName`, `CHECK_SIGNAL_MAP`, `SIGNAL_CATEGORY_MAP`, and `HEALTH_SIGNAL_NAMES` are derived; `reconcilePassed(checks, signals)` keeps a check's `passed` true only if assess passed and no contradicting signal is present (never flips false→true). Consumed by the cli health-snapshot/dispatch surface and core `strength-007`. See [ADR-0047](docs/knowledge/decisions/0047-canonical-signal-check-contract-in-core.md) and [`docs/knowledge/core/health-signal-contract.md`](docs/knowledge/core/health-signal-contract.md).
 - **feedback** (`packages/core/src/feedback/`): Self-review, peer review, telemetry, and action tracking for code change analysis and agent feedback loops.
 - **interaction** (`packages/core/src/interaction/`): Schemas and types for structured agent-to-human interactions (questions, confirmations, transitions).
 - **locks** (`packages/core/src/locks/`): Compound locking mechanisms for coordinating concurrent access to shared resources.
@@ -436,7 +448,7 @@ _Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-
 
 _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`, `search`, `insights`
 
-_Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
+_Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`; maintenance-pipeline Phase 3: `run [taskId...]` — on-demand, report-first sweep of overdue sweep-eligible tasks, `--all` / `--only` / `--skip` / `--fix` / `--concurrency` / `--json`, infra-free with no orchestrator), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
 
 _Content & Generation:_ `blueprint`, `create-skill`, `generate-agent-definitions`, `generate-slash-commands`, `knowledge-pipeline`, `share`
 
@@ -492,9 +504,9 @@ _Infrastructure:_ `middleware/injection-guard.ts` — wraps tool handlers with i
 **Skill Dispatch** (`packages/cli/src/skill/`): Intelligent skill recommendation and dispatch.
 
 - `recommendation-engine.ts` — Three-layer system combining hard rules, health scoring, and topological sequencing
-- `recommendation-types.ts` — Standardized health signal identifiers and recommendation result types
+- `recommendation-types.ts` — Standardized health signal identifiers and recommendation result types; the health portion of `HEALTH_SIGNALS` is single-sourced from core's `HEALTH_SIGNAL_NAMES`
 - `recommendation-rules.ts` — Fallback address rules for bundled skills without declared addresses
-- `health-snapshot.ts` — Captures and caches codebase health state with checks, metrics, and freshness validation
+- `health-snapshot.ts` — Captures and caches codebase health state with checks, metrics, and freshness validation; reconciles each check's `passed` flag against active signals (via core's `reconcilePassed`) so a check can never report passing while a contradicting signal is present
 - `dispatch-types.ts` — Types for enriched dispatch context combining snapshots with change-type and domain signals
 - `dispatch-session.ts` — Session-start dispatch integration that detects HEAD delta and returns skill recommendations
 - `dispatch-engine.ts` — Enriches health snapshots with change-type and domain signals for recommendation engine
@@ -670,7 +682,7 @@ The dashboard `Maintenance` page renders a candidate-count badge on `compound-ca
 
 `RunResult.origin: RunOrigin` is a discriminated provenance tag (`'cron' | 'cli' | { kind: 'api', tokenName } | { kind: 'chain', upstreamTaskId }`) set by the entry point and never configurable. `TaskOutputStore` persists one JSON file per run at `.harness/maintenance/<task-id>/outputs/<iso>.json` (one-file-per-run trades inode count for clarity; retention-bounded).
 
-CLI: `harness maintenance list` shows the resolved task list (built-in + custom); `harness maintenance show <task-id> --limit N` reads from the output store. The `harness maintenance run <task-id>` subcommand and the `/api/v1/jobs/maintenance/{taskId}/trigger` API are deferred to a follow-up alongside the Phase 0 Gateway API contracts.
+CLI: `harness maintenance list` shows the resolved task list (built-in + custom); `harness maintenance show <task-id> --limit N` reads from the output store. `harness maintenance run [taskId...]` (maintenance-pipeline Phase 3) runs an on-demand, report-first sweep of overdue sweep-eligible tasks through the same `TaskRunner` the cron scheduler uses — no orchestrator, gateway, or `ClaimManager` constructed (ADR [0050](docs/knowledge/decisions/0050-report-first-on-demand-maintenance.md)). Default is overdue + report mode (parallel, no PRs); `--all` / `--only` / `--skip` scope selection, `--fix` threads fix mode (sequential) and dispatches the real `createAgentDispatcher` (#679) when an `agent.backends` backend is configured, otherwise skips with an honest `NO_BACKEND_FIX_WARNING` and `fixed: 0`, `--json` emits the consolidated report also written to `.harness/maintenance/last-run-summary.json`. Exit codes: `0` completed (findings are not failures), `1` a task failed to execute, `2` invalid invocation. The `/api/v1/jobs/maintenance/{taskId}/trigger` API remains deferred to a follow-up alongside the Phase 0 Gateway API contracts.
 
 #### Pre-launch OSV Malware Guard (Hermes Phase 2 / A8)
 
@@ -751,7 +763,7 @@ The tier is estimated during planning and confirmed from execution results. The 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
 - **Tier 1 (Workflow, 14 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component, harness-integration, harness-router, initialize-test-suite-project.
-- **Tier 2 (Maintenance, 24 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot, harness-compound, harness-knowledge-pipeline, harness-pulse.
+- **Tier 2 (Maintenance, 25 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot, harness-compound, harness-knowledge-pipeline, harness-pulse, maintenance-pipeline.
 - **Tier 3 (Catalog, 697 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
 - **Internal (6 skills):** Dependency-only, never surfaced. Invoked by other skills as part of pipelines.
 
@@ -770,6 +782,8 @@ The project roadmap lives at `docs/roadmap.md` and tracks features across milest
 **External tracker sync** — Bidirectional sync between `roadmap.md` and GitHub Issues via `TrackerSyncAdapter` (`packages/core/src/roadmap/tracker-sync.ts`). The `GitHubIssuesSyncAdapter` (`packages/core/src/roadmap/adapters/github-issues.ts`) uses label-based status disambiguation for the open/closed limitation. The sync engine (`packages/core/src/roadmap/sync-engine.ts`) provides `syncToExternal` (push planning fields), `syncFromExternal` (pull execution fields with directional guard via `status-rank.ts`), and `fullSync` (mutex-serialized read-push-pull-write cycle). Configuration via `roadmap.tracker` in `harness.config.json` (validated by `TrackerConfigSchema` in `packages/cli/src/config/schema.ts`). Auto-sync fires on 6 state transitions via `triggerExternalSync` in `packages/cli/src/mcp/tools/roadmap-auto-sync.ts`.
 
 **File-less mode (opt-in)** — Setting `roadmap.mode: "file-less"` in `harness.config.json` makes the configured GitHub Issues tracker the canonical roadmap; `docs/roadmap.md` must not exist. All consumers (CLI, dashboard, MCP `manage_roadmap`, orchestrator, `harness:roadmap-pilot`) branch on the mode flag at runtime. Migrate with `harness roadmap migrate --to=file-less`. See `docs/guides/roadmap-sync.md` §"File-less mode" and ADRs 0008–0010 for the design rationale. See [docs/changes/roadmap-tracker-only/migration.md](docs/changes/roadmap-tracker-only/migration.md) for the operator walkthrough.
+
+**Sharded mode (default for new projects)** — Storage layout is an axis orthogonal to file-backed/file-less mode, auto-detected by `detectRoadmapStorageMode` (`packages/core/src/roadmap/load-mode.ts`): when `docs/roadmap.d/` exists the roadmap is **sharded**, otherwise **monolith**. In sharded mode the per-row shards `docs/roadmap.d/<slug>.md` (plus `_meta.md`) are canonical and `docs/roadmap.md` is a generated `merge=ours` aggregate; every harness tool reads/writes through `RoadmapStore` (`resolveRoadmapStore`), never the aggregate directly — the **read-source invariant R** (ADR [0050](docs/knowledge/decisions/0050-roadmap-read-source-invariant.md), enforced by `validation/roadmap-read-source.ts`). `harness init` scaffolds a sharded roadmap for **new** projects; existing adopters opt in via `harness roadmap shard` (reverse with `harness roadmap unshard`), and `harness roadmap regen` regenerates the aggregate. **Auto-done on merge:** a merged PR closing a roadmap-linked issue flips exactly that shard to `done` via `External-ID` — **agents stop hand-marking rows done** (ADR [0051](docs/knowledge/decisions/0051-slug-identity-external-id-sync-key.md); knowledge [`merge-triggered-auto-done.md`](docs/knowledge/roadmap/merge-triggered-auto-done.md)). Freshness is kept by the husky `pre-commit`/`post-merge` regen hooks plus the per-clone one-time `git config merge.ours.driver true` (the `.gitattributes docs/roadmap.md merge=ours` entry is inert without it; `harness validate` warns clones that have not run it, and also warns when the committed aggregate has drifted from the shards). See knowledge [`roadmap-store-abstraction.md`](docs/knowledge/roadmap/roadmap-store-abstraction.md) and the adoption guide [`docs/guides/roadmap-sharding.md`](docs/guides/roadmap-sharding.md).
 
 **Auto-pick pilot** — The `harness-roadmap-pilot` skill (`agents/skills/claude-code/harness-roadmap-pilot/`) selects the next highest-impact unblocked item using a two-tier sort: explicit priority first (P0–P3), then weighted score (position 0.5, dependents 0.3, affinity 0.2). Scoring algorithm and `assignFeature` function in `packages/core/src/roadmap/pilot-scoring.ts`. Routes to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists). Assignment updates the feature's `Assignee` field, appends to the `## Assignment History` section, and syncs to the external tracker.
 

@@ -360,6 +360,17 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
 
 ## Other
 
+### `acceptance_eval`
+
+Pre-execution LLM-judgment: does a spec carry measurable, testable, complete acceptance criteria? The upstream twin of outcome_eval. Reads the spec's success/acceptance section, emits a confidence-rated AcceptanceVerdict (MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE) with criteriaFindings (a, advisory), coverageFindings (b, advisory) and a rationale. Authority is DERIVED in TypeScript, never trusted from the LLM: a high-confidence NOT_MEASURABLE is blocking; every other verdict is advisory. testGlobs/testContent are optional evidence for (b) — omitting them degrades coverage findings to advisory-empty but never affects the measurability gate.
+
+**Parameters:**
+
+- `specPath` (string, required) — Absolute or repo-relative path to the spec markdown to judge
+- `testGlobs` (array, optional) — Optional globs locating test files; their contents supply the (b) coverage evidence. Ignored when testContent is provided. Absolute globs are recommended; relative globs resolve against the MCP server cwd.
+- `testContent` (string, optional) — Optional pre-collected test snippets (the (b) evidence). Takes precedence over testGlobs.
+- `model` (string, optional) — Optional model override for the acceptance-eval LLM call
+
 ### `acquire_compound_lock`
 
 Acquire a per-category compound lock at `.harness/locks/compound-<category>.lock` under the project root. Returns `{ acquired, token, lockPath }` on success or `{ acquired: false, error, holderPid, lockPath }` on contention. The returned token must be passed to release_compound_lock when the write completes. Categories must be one of the documented bug-track/knowledge-track categories.
@@ -408,12 +419,12 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 
 ### `audit_anatomy`
 
-Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the Button convention only; pattern-presence checks (ANAT-P*) return empty pending follow-up.
+Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the component conventions, plus 10 ANAT-P* composition patterns (missing empty/loading/error states, modal dismiss, submit feedback, list keys, route 404, destructive-action confirm, …) in full mode.
 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast = conventions only (cheap AST scan). full = conventions + patterns. In v1 both modes run conventions only because pattern engine is not yet wired.
+- `mode` (string, optional) — fast = conventions only (cheap AST scan); full additionally runs the ANAT-P\* composition patterns.
 - `files` (array, optional) — Optional explicit file list (paths or globs) to scope the audit.
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `catalog` (array, optional) — Optional subset of catalog entries to run.
@@ -489,12 +500,14 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.
+- `mode` (string, optional) — fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
 - `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
-- `autoCapture` (string, optional) — B' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.
+- `autoCapture` (string, optional) — Deep-mode capture behavior when no `captures` are supplied. "skip" never runs the capture command; "prompt"/"auto" run `captureCommand` when one is configured.
+- `captureCommand` (string, optional) — Deep-mode render+screenshot command. Receives the candidate files via the HARNESS_DESIGN_CRAFT_FILES env var (JSON array) and must print a JSON array of { file, image, component? } to stdout. Used to obtain captures without a built-in browser.
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 - `benchmarkTargets` (array, optional) — BENCHMARK target descriptors. Each entry needs at minimum { file, component }; optional componentType narrows exemplar selection.
+- `captures` (array, optional) — Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" and the critique phase runs. Each entry: { file, image, component? }, where `image` is a path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).
 
 ### `dispatch_skills`
 
@@ -1038,7 +1051,7 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.
+Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.
 
 **Parameters:**
 
@@ -1077,5 +1090,12 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `content` (string, optional) — Entry content text (required for append_entry)
 - `entryId` (string, optional) — ID of the entry to update (required for update_entry_status)
 - `newStatus` (string, optional) — New status for the entry: active, resolved, or superseded (required for update_entry_status)
+- `taskId` (string, optional) — Task id (required for task-transition)
+- `toLane` (string, optional) — Target lane (required for task-transition)
+- `dependsOn` (array, optional) — Dependency task ids; when set, the task is registered before transitioning
+- `evidence` (array, optional) — PR/commit/test refs (required to enter done)
+- `force` (boolean, optional) — Force an off-table transition (requires actor+reason)
+- `actor` (string, optional) — Actor for a forced transition
+- `reason` (string, optional) — Reason for a forced transition
 
 **CLI equivalent:** [`harness state show`](cli-commands.md#harness-state-show)

@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
 import { createScanCommand } from './scan.js';
+import { createQueryCommand } from './query.js';
+import { createIngestCommand } from './ingest.js';
 import * as path from 'path';
 
 function resolveProjectPath(globalOpts: { config?: string }): string {
@@ -61,13 +63,18 @@ async function runExportAction(opts: { format: string }, cmd: Command): Promise<
  */
 export function createGraphCommand(): Command {
   const graph = new Command('graph').description('Knowledge graph management');
-  graph.addCommand(createScanCommand());
   graph.command('status').description('Show graph statistics').action(runStatusAction);
   graph
     .command('export')
     .description('Export graph')
     .requiredOption('--format <format>', 'Output format (json, mermaid)')
     .action(runExportAction);
+  // Graph operations are also reachable under the `graph` group, mirroring the
+  // top-level `scan`/`query`/`ingest` commands. The update hook and docs refer
+  // to `harness graph scan` (see #644); keeping both forms avoids breakage.
+  graph.addCommand(createScanCommand());
+  graph.addCommand(createQueryCommand());
+  graph.addCommand(createIngestCommand());
   return graph;
 }
 

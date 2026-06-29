@@ -6,12 +6,19 @@ import {
   Ok,
   Err,
   parseRoadmap,
+  serializeRoadmap,
   loadProjectRoadmapMode,
   loadTrackerClientConfigFromProject,
   createTrackerClient,
   migrate,
 } from '@harness-engineering/core';
-import type { Result, RoadmapTrackerClient, TrackedFeature } from '@harness-engineering/core';
+import type {
+  Result,
+  RoadmapTrackerClient,
+  TrackedFeature,
+  Roadmap,
+  RoadmapFeature,
+} from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 import { acquireMigrateLock, isRefusal } from './migrate-lock';
@@ -230,15 +237,10 @@ export async function runRoadmapMigrate(
   if (!opts.to) {
     return Err(new CLIError('missing required argument: --to <target>', ExitCode.ERROR));
   }
-  // REV-P5-S5: accept --to=file-backed as a recognized-but-not-yet-implemented
-  // target so the flag validator does not bury the failure as "unsupported
-  // target". Reverse migration (file-less -> file-backed) is a future spec.
+  // Reverse migration: file-less -> file-backed (reconstruct docs/roadmap.md
+  // from the tracker and flip the config mode back).
   if (opts.to === 'file-backed') {
-    return Err(
-      new CLIError(
-        '--to=file-backed reverse migration is not yet implemented; track in a future spec'
-      )
-    );
+    return runReverseMigrate(opts);
   }
   if (opts.to !== 'file-less') {
     return Err(
@@ -348,10 +350,204 @@ export async function runRoadmapMigrate(
   }
 }
 
+/**
+ * Reconstruct a file-backed Roadmap from tracker features. `TrackedFeature` is
+ * nearly a superset of `RoadmapFeature`; the only structural work is grouping by
+ * milestone (a null milestone becomes the special Backlog section) in first-seen
+ * order, with Backlog sorted last for a conventional layout.
+ */
+export function featuresToRoadmap(
+  features: TrackedFeature[],
+  project: string,
+  nowIso: string
+): Roadmap {
+  const order: string[] = [];
+  const byMilestone = new Map<string, RoadmapFeature[]>();
+  for (const f of features) {
+    const key = f.milestone ?? 'Backlog';
+    let bucket = byMilestone.get(key);
+    if (!bucket) {
+      bucket = [];
+      byMilestone.set(key, bucket);
+      order.push(key);
+    }
+    bucket.push({
+      name: f.name,
+      status: f.status,
+      spec: f.spec,
+      plans: f.plans,
+      blockedBy: f.blockedBy,
+      summary: f.summary,
+      assignee: f.assignee,
+      priority: f.priority,
+      externalId: f.externalId,
+      updatedAt: f.updatedAt,
+    });
+  }
+  // Array.sort is stable in V8, so non-Backlog milestones keep first-seen order
+  // while Backlog is pushed to the end.
+  order.sort((a, b) => (a === 'Backlog' ? 1 : b === 'Backlog' ? -1 : 0));
+  const milestones = order.map((name) => ({
+    name,
+    isBacklog: name === 'Backlog',
+    features: byMilestone.get(name) ?? [],
+  }));
+  return {
+    frontmatter: { project, version: 1, lastSynced: nowIso, lastManualEdit: nowIso },
+    milestones,
+    assignmentHistory: [],
+  };
+}
+
+/** Read the project name from harness.config.json (`name`), defaulting to "Roadmap". */
+function readProjectName(configPath: string): string {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { name?: unknown };
+    return typeof parsed.name === 'string' && parsed.name.length > 0 ? parsed.name : 'Roadmap';
+  } catch {
+    return 'Roadmap';
+  }
+}
+
+function emitReverseReport(
+  report: migrate.MigrationReport,
+  count: number,
+  isJson: boolean,
+  dryRun: boolean
+): void {
+  if (isJson) {
+    console.log(
+      JSON.stringify(buildJsonOutput(undefined, report, undefined, MigrateExitCode.SUCCESS))
+    );
+    return;
+  }
+  if (dryRun) {
+    console.log(`${chalk.cyan('DRY RUN ')}Reverse migration plan:`);
+    console.log(`  Would write docs/roadmap.md with ${count} feature(s)`);
+    console.log('  Would set roadmap.mode = "file-backed"');
+    return;
+  }
+  printReport(report);
+}
+
+/**
+ * Reverse migration: file-less -> file-backed.
+ *
+ * Inverse of the forward migration — instead of pushing roadmap.md into the
+ * tracker, it pulls the tracker's features back into a freshly serialized
+ * `docs/roadmap.md` and flips `roadmap.mode` to `file-backed` (byte-identical
+ * config backup first, mirroring the forward path). Refuses to clobber an
+ * existing roadmap.md (the file-less invariant is that it must not exist).
+ */
+export async function runReverseMigrate(
+  opts: RoadmapMigrateOptions
+): Promise<Result<migrate.MigrationReport, CLIError>> {
+  const cwd = opts.cwd ?? process.cwd();
+  const isJson = (opts.format ?? 'human') === 'json';
+
+  // Already file-backed -> nothing to reverse.
+  if (loadProjectRoadmapMode(cwd) === 'file-backed') {
+    const report: migrate.MigrationReport = {
+      created: 0,
+      updated: 0,
+      unchanged: 0,
+      historyAppended: 0,
+      archivedFrom: null,
+      archivedTo: null,
+      configBackup: null,
+      mode: 'already-migrated',
+    };
+    if (isJson) {
+      console.log(
+        JSON.stringify(buildJsonOutput(undefined, report, undefined, MigrateExitCode.SUCCESS))
+      );
+    } else {
+      logger.success('Already file-backed; nothing to do.');
+    }
+    return Ok(report);
+  }
+
+  const lockResult = acquireMigrateLock(cwd);
+  if (isRefusal(lockResult)) return Err(new CLIError(lockResult.message));
+  try {
+    // The file-less invariant is that docs/roadmap.md does not exist; refuse to
+    // overwrite a stray one rather than silently clobbering manual edits.
+    const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
+    if (fs.existsSync(roadmapPath)) {
+      return Err(
+        new CLIError(`docs/roadmap.md already exists; refusing to overwrite (${roadmapPath})`)
+      );
+    }
+
+    // Tracker client (injected for tests, else built from project config).
+    let client: RoadmapTrackerClient;
+    if (opts.client) {
+      client = opts.client;
+    } else {
+      const cfgR = loadTrackerClientConfigFromProject(cwd);
+      if (!cfgR.ok) return Err(new CLIError(cfgR.error.message));
+      const clientR = createTrackerClient(cfgR.value);
+      if (!clientR.ok) return Err(new CLIError(clientR.error.message));
+      client = clientR.value;
+    }
+
+    const fetchR = await client.fetchAll();
+    if (!fetchR.ok) {
+      return Err(new CLIError(`failed to fetch tracker features: ${fetchR.error.message}`));
+    }
+    const features = fetchR.value.features;
+
+    const configPath = path.join(cwd, 'harness.config.json');
+    const project = readProjectName(configPath);
+    const nowIso = new Date().toISOString();
+    const markdown = serializeRoadmap(featuresToRoadmap(features, project, nowIso));
+
+    const report: migrate.MigrationReport = {
+      created: features.length,
+      updated: 0,
+      unchanged: 0,
+      historyAppended: 0,
+      archivedFrom: null,
+      archivedTo: null,
+      configBackup: null,
+      mode: opts.dryRun ? 'dry-run' : 'applied',
+    };
+
+    if (opts.dryRun) {
+      emitReverseReport(report, features.length, isJson, true);
+      return Ok(report);
+    }
+
+    // Write the reconstructed roadmap.
+    fs.mkdirSync(path.dirname(roadmapPath), { recursive: true });
+    fs.writeFileSync(roadmapPath, markdown);
+    report.archivedTo = roadmapPath;
+
+    // Config: backup, then flip roadmap.mode -> file-backed (mirrors forward).
+    if (fs.existsSync(configPath)) {
+      const original = fs.readFileSync(configPath, 'utf-8');
+      const configBackupPath = path.join(cwd, 'harness.config.json.pre-migration');
+      fs.writeFileSync(configBackupPath, original);
+      report.configBackup = configBackupPath;
+      const parsed = JSON.parse(original) as Record<string, unknown>;
+      const roadmapSection: Record<string, unknown> =
+        (parsed.roadmap as Record<string, unknown> | undefined) ?? {};
+      roadmapSection.mode = 'file-backed';
+      parsed.roadmap = roadmapSection;
+      fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2) + '\n');
+    }
+
+    emitReverseReport(report, features.length, isJson, false);
+    return Ok(report);
+  } finally {
+    lockResult.release();
+  }
+}
+
 export function createRoadmapMigrateCommand(): Command {
   return new Command('migrate')
     .description('Migrate the project roadmap to a different storage mode')
-    .requiredOption('--to <target>', 'Migration target (only "file-less" supported today)')
+    .requiredOption('--to <target>', 'Migration target: "file-less" or "file-backed"')
     .option('--dry-run', 'Print the migration plan without making any changes', false)
     .option(
       '--format <fmt>',

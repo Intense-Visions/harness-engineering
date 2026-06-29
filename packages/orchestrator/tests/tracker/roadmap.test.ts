@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as fs from 'node:fs/promises';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { RoadmapTrackerAdapter } from '../../src/tracker/adapters/roadmap';
 import { TrackerConfig } from '@harness-engineering/types';
@@ -14,15 +16,45 @@ function idFor(name: string): string {
   return `${sanitized}-${hash}`;
 }
 
-vi.mock('node:fs/promises');
-
+/**
+ * The adapter reads + writes roadmap CONTENT through the store
+ * (`resolveRoadmapStoreForFile` → `applyRoadmapDiff`), so these tests drive a REAL
+ * monolith roadmap file under a temp dir rather than `node:fs` mocks. The
+ * configured `filePath` points at the file; with no sibling `roadmap.d/` the store
+ * resolves a monolith backend over it. Assertions read the file back after the
+ * call rather than inspecting a write spy, since `applyRoadmapDiff` may issue more
+ * than one underlying write (row + assignment-history) in monolith mode.
+ */
 describe('RoadmapTrackerAdapter', () => {
-  const mockConfig: TrackerConfig = {
-    kind: 'roadmap',
-    filePath: 'ROADMAP.md',
-    activeStates: ['planned', 'in-progress'],
-    terminalStates: ['done'],
-  };
+  let tmpDir: string;
+  let filePath: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(tmpdir(), 'orch-roadmap-adapter-'));
+    filePath = path.join(tmpDir, 'roadmap.md');
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  function makeConfig(overrides: Partial<TrackerConfig> = {}): TrackerConfig {
+    return {
+      kind: 'roadmap',
+      filePath,
+      activeStates: ['planned', 'in-progress'],
+      terminalStates: ['done'],
+      ...overrides,
+    };
+  }
+
+  async function seed(content: string): Promise<void> {
+    await writeFile(filePath, content, 'utf-8');
+  }
+
+  function readBack(): Promise<string> {
+    return readFile(filePath, 'utf-8');
+  }
 
   const mockRoadmapContent = `---
 project: Test Project
@@ -48,13 +80,9 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 - **Blocked by:** none
 `;
 
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
-
   it('fetches candidate issues based on active states', async () => {
-    vi.mocked(fs.readFile).mockResolvedValue(mockRoadmapContent);
-    const adapter = new RoadmapTrackerAdapter(mockConfig);
+    await seed(mockRoadmapContent);
+    const adapter = new RoadmapTrackerAdapter(makeConfig());
     const result = await adapter.fetchCandidateIssues();
 
     expect(result.ok).toBe(true);
@@ -66,8 +94,8 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
   });
 
   it('fetches issues by specific states', async () => {
-    vi.mocked(fs.readFile).mockResolvedValue(mockRoadmapContent);
-    const adapter = new RoadmapTrackerAdapter(mockConfig);
+    await seed(mockRoadmapContent);
+    const adapter = new RoadmapTrackerAdapter(makeConfig());
     const result = await adapter.fetchIssuesByStates(['done']);
 
     expect(result.ok).toBe(true);
@@ -96,11 +124,10 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 - **Summary:** Needs human review
 - **Blocked by:** none
 `;
-    vi.mocked(fs.readFile).mockResolvedValue(roadmapWithNeedsHuman);
-    const adapter = new RoadmapTrackerAdapter({
-      ...mockConfig,
-      activeStates: ['planned', 'needs-human'],
-    });
+    await seed(roadmapWithNeedsHuman);
+    const adapter = new RoadmapTrackerAdapter(
+      makeConfig({ activeStates: ['planned', 'needs-human'] })
+    );
     const result = await adapter.fetchCandidateIssues();
 
     expect(result.ok).toBe(true);
@@ -113,8 +140,8 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
   });
 
   it('fetches issue states by ids', async () => {
-    vi.mocked(fs.readFile).mockResolvedValue(mockRoadmapContent);
-    const adapter = new RoadmapTrackerAdapter(mockConfig);
+    await seed(mockRoadmapContent);
+    const adapter = new RoadmapTrackerAdapter(makeConfig());
 
     // Get real IDs first
     const candidates = await adapter.fetchCandidateIssues();
@@ -137,7 +164,7 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 
   describe('markIssueComplete', () => {
     // Uses the serializer's canonical markdown shape so round-tripping works
-    // end-to-end (parseRoadmap -> set status -> serializeRoadmap).
+    // end-to-end (load -> set status -> applyRoadmapDiff).
     const writableRoadmap = `---
 project: Test Project
 version: 1
@@ -159,45 +186,38 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 `;
 
     it('transitions matching feature to the first terminal state and writes back', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(writableRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.markIssueComplete(idFor('Task 1'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).toHaveBeenCalledTimes(1);
-      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const written = await readBack();
       // Task 1's status line flipped to the first configured terminal state.
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
     });
 
     it('is a no-op when the feature is already terminal', async () => {
       const alreadyDone = writableRoadmap.replace('**Status:** in-progress', '**Status:** done');
-      vi.mocked(fs.readFile).mockResolvedValue(alreadyDone);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(alreadyDone);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.markIssueComplete(idFor('Task 1'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(alreadyDone);
     });
 
     it('is a no-op when the feature is not found (removed between dispatch and completion)', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(writableRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.markIssueComplete(idFor('Deleted Feature'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(writableRoadmap);
     });
 
     it('returns Err when terminalStates is empty', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
-      const adapter = new RoadmapTrackerAdapter({ ...mockConfig, terminalStates: [] });
+      await seed(writableRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig({ terminalStates: [] }));
       const result = await adapter.markIssueComplete(idFor('Task 1'));
 
       expect(result.ok).toBe(false);
@@ -210,22 +230,18 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       // The completed row must NOT carry a stale machine claim — a `done` row
       // with `assignee = orchestrator-*` is exactly the RMH005 violation the
       // assignee-execution-lifecycle feature forbids.
-      const inProgressClaimed = writableRoadmap
-        .replace('**Status:** in-progress', '**Status:** in-progress')
-        .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orchestrator-5c895000');
-      vi.mocked(fs.readFile).mockResolvedValue(inProgressClaimed);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const inProgressClaimed = writableRoadmap.replace(
+        '- **Plan:** —',
+        '- **Plan:** —\n- **Assignee:** orchestrator-5c895000'
+      );
+      await seed(inProgressClaimed);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.markIssueComplete(idFor('Task 1'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).toHaveBeenCalledTimes(1);
-      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const written = await readBack();
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
       // setStatus auto-cleared the assignee on the move away from in-progress.
-      // The field is either omitted or rendered as the null em-dash, but it
-      // must no longer name the orchestrator (the RMH005 violation).
       expect(written).not.toContain('**Assignee:** orchestrator-5c895000');
       // The release is recorded as an `unassigned` history entry.
       expect(written).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
@@ -235,22 +251,19 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       // Round-trip through the real adapter methods so the fix is exercised
       // end-to-end: claim writes orchestrator-* assignee, complete clears it.
       const planned = writableRoadmap.replace('**Status:** in-progress', '**Status:** planned');
+      await seed(planned);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
 
       // 1. Claim: planned -> in-progress + assignee.
-      vi.mocked(fs.readFile).mockResolvedValue(planned);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
       const claimResult = await adapter.claimIssue(idFor('Task 1'), 'orchestrator-5c895000');
       expect(claimResult.ok).toBe(true);
-      const claimed = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const claimed = await readBack();
       expect(claimed).toContain('**Assignee:** orchestrator-5c895000');
 
-      // 2. Complete: feed the claimed roadmap back in; expect no assignee.
-      vi.mocked(fs.writeFile).mockClear();
-      vi.mocked(fs.readFile).mockResolvedValue(claimed);
+      // 2. Complete: same file; expect no assignee.
       const completeResult = await adapter.markIssueComplete(idFor('Task 1'));
       expect(completeResult.ok).toBe(true);
-      const completed = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const completed = await readBack();
       expect(completed).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
       expect(completed).not.toContain('**Assignee:** orchestrator-5c895000');
       expect(completed).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
@@ -279,15 +292,12 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 `;
 
     it('transitions feature to in-progress and writes orchestratorId as assignee', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(writableRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).toHaveBeenCalledTimes(1);
-      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const written = await readBack();
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* in-progress/);
       expect(written).toContain('**Assignee:** orch-abc123');
     });
@@ -296,14 +306,12 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       const alreadyClaimed = writableRoadmap
         .replace('**Status:** planned', '**Status:** in-progress')
         .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orch-abc123');
-      vi.mocked(fs.readFile).mockResolvedValue(alreadyClaimed);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(alreadyClaimed);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(alreadyClaimed);
     });
 
     it('does not overwrite when another orchestrator currently holds the claim', async () => {
@@ -313,14 +321,12 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       const claimedByOther = writableRoadmap
         .replace('**Status:** planned', '**Status:** in-progress')
         .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orch-other');
-      vi.mocked(fs.readFile).mockResolvedValue(claimedByOther);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(claimedByOther);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(claimedByOther);
     });
 
     it('does not overwrite when a human currently holds the assignment', async () => {
@@ -328,25 +334,21 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
         '- **Plan:** —',
         '- **Plan:** —\n- **Assignee:** @alice'
       );
-      vi.mocked(fs.readFile).mockResolvedValue(claimedByHuman);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(claimedByHuman);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(claimedByHuman);
     });
 
     it('is a no-op when the feature is not found', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(writableRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.claimIssue(idFor('Nonexistent'), 'orch-abc123');
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(writableRoadmap);
     });
   });
 
@@ -375,15 +377,12 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
 `;
 
     it('transitions feature back to first active state and clears assignee', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(claimedRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.releaseIssue(idFor('Task 1'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).toHaveBeenCalledTimes(1);
-      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      const written = await readBack();
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* planned/);
       // Assignee cleared to null; with Priority and External-ID also null,
       // the serializer omits the entire extended-fields group.
@@ -394,19 +393,17 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
     });
 
     it('is a no-op when the feature is not found', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-
-      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      await seed(claimedRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig());
       const result = await adapter.releaseIssue(idFor('Nonexistent'));
 
       expect(result.ok).toBe(true);
-      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(await readBack()).toBe(claimedRoadmap);
     });
 
     it('returns Err when activeStates is empty', async () => {
-      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
-      const adapter = new RoadmapTrackerAdapter({ ...mockConfig, activeStates: [] });
+      await seed(claimedRoadmap);
+      const adapter = new RoadmapTrackerAdapter(makeConfig({ activeStates: [] }));
       const result = await adapter.releaseIssue(idFor('Task 1'));
 
       expect(result.ok).toBe(false);

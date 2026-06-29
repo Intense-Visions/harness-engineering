@@ -376,10 +376,10 @@ describe('SC13: hook profile includes sentinel', () => {
     expect(PROFILES.strict).toContain('sentinel-post');
   });
 
-  it('standard profile does not include sentinel', async () => {
+  it('standard profile includes sentinel-pre and sentinel-post', async () => {
     const { PROFILES } = await import('../../src/hooks/profiles');
-    expect(PROFILES.standard).not.toContain('sentinel-pre');
-    expect(PROFILES.standard).not.toContain('sentinel-post');
+    expect(PROFILES.standard).toContain('sentinel-pre');
+    expect(PROFILES.standard).toContain('sentinel-post');
   });
 
   it('minimal profile does not include sentinel', async () => {

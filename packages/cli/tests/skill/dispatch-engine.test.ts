@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { SIGNAL_CATEGORY_MAP } from '@harness-engineering/core';
 import { detectDomainsFromFiles } from '../../src/skill/stack-profile';
 import {
   SIGNAL_CATEGORIES,
@@ -146,6 +147,30 @@ describe('SIGNAL_CATEGORIES', () => {
 
   it('returns null for unknown signals', () => {
     expect(getSignalCategory('unknown-signal')).toBeNull();
+  });
+
+  it('returns null for the uncategorized health signals (metrics-only)', () => {
+    expect(getSignalCategory('high-complexity')).toBeNull();
+    expect(getSignalCategory('anomaly-outlier')).toBeNull();
+    expect(getSignalCategory('articulation-point')).toBeNull();
+  });
+
+  it('is byte-identical to the legacy literal (same keys and values)', () => {
+    expect({ ...SIGNAL_CATEGORIES }).toEqual({
+      'circular-deps': 'structure',
+      'layer-violations': 'structure',
+      'high-coupling': 'structure',
+      'dead-code': 'quality',
+      drift: 'quality',
+      'doc-gaps': 'quality',
+      'security-findings': 'security',
+      'perf-regression': 'performance',
+      'low-coverage': 'coverage',
+    });
+  });
+
+  it('is single-sourced from core SIGNAL_CATEGORY_MAP (SC4)', () => {
+    expect(SIGNAL_CATEGORIES).toBe(SIGNAL_CATEGORY_MAP);
   });
 });
 

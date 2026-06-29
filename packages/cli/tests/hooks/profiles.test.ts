@@ -19,6 +19,8 @@ describe('profiles', () => {
     expect(PROFILES.standard).toContain('pre-compact-state');
     expect(PROFILES.standard).toContain('adoption-tracker');
     expect(PROFILES.standard).toContain('telemetry-reporter');
+    expect(PROFILES.standard).toContain('sentinel-pre');
+    expect(PROFILES.standard).toContain('sentinel-post');
     expect(PROFILES.standard).not.toContain('cost-tracker');
     // The blocking gate is strict-only.
     expect(PROFILES.standard).not.toContain('strict-quality-gate');

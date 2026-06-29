@@ -5,7 +5,7 @@
 
 import { execSync } from 'node:child_process';
 import type { ChangeType, DiffInfo } from '@harness-engineering/core';
-import { detectChangeType } from '@harness-engineering/core';
+import { detectChangeType, SIGNAL_CATEGORY_MAP } from '@harness-engineering/core';
 import type { HealthSnapshot } from './health-snapshot.js';
 import { loadCachedSnapshot, isSnapshotFresh, captureHealthSnapshot } from './health-snapshot.js';
 import { detectDomainsFromFiles } from './stack-profile.js';
@@ -17,17 +17,11 @@ import type { DispatchContext, DispatchResult, DispatchedSkill } from './dispatc
 // Signal categories for parallel-safe detection
 // ---------------------------------------------------------------------------
 
-export const SIGNAL_CATEGORIES: Record<string, string> = {
-  'circular-deps': 'structure',
-  'layer-violations': 'structure',
-  'high-coupling': 'structure',
-  'dead-code': 'quality',
-  drift: 'quality',
-  'doc-gaps': 'quality',
-  'security-findings': 'security',
-  'perf-regression': 'performance',
-  'low-coverage': 'coverage',
-};
+// Single-sourced from core's SIGNAL_REGISTRY (SC4): the registry owns the
+// signal -> category mapping; this is a re-export, not a second hand-maintained
+// list. Only signals with a non-null category appear here (change-type, domain,
+// and metrics-only signals like high-complexity stay absent → category null).
+export const SIGNAL_CATEGORIES = SIGNAL_CATEGORY_MAP;
 
 /**
  * Get the parallel-safety category for a signal.

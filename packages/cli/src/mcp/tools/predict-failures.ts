@@ -69,7 +69,7 @@ export async function handlePredictFailures(input: {
     };
     if (input.horizon !== undefined) opts.horizon = input.horizon as number;
     if (input.category) opts.categories = [input.category] as typeof opts.categories;
-    const result = engine.predict(opts);
+    const result = await engine.predict(opts);
 
     return {
       content: [

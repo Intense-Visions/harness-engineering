@@ -18,6 +18,15 @@
             "command": "node \"./.harness/hooks/protect-config.js\""
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./.harness/hooks/sentinel-pre.js\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -27,6 +36,15 @@
           {
             "type": "command",
             "command": "node \"./.harness/hooks/quality-warner.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./.harness/hooks/sentinel-post.js\""
           }
         ]
       }

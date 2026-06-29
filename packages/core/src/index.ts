@@ -213,6 +213,11 @@ export type {
 export * from './harness-strength';
 
 /**
+ * Health-signals module.
+ */
+export * from './health-signals';
+
+/**
  * Insights module.
  */
 export * from './insights';

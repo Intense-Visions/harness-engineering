@@ -42,6 +42,36 @@ describe('manage_state tool', () => {
     expect(parsed.blockers).toEqual([]);
   });
 
+  it('show returns the populated legacy state via the snapshot projection (R1 parity)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-show-'));
+    try {
+      const harnessDir = path.join(tmpDir, '.harness');
+      fs.mkdirSync(harnessDir, { recursive: true });
+      const legacy = {
+        schemaVersion: 1,
+        position: { phase: 'execute', task: 'Task 12' },
+        decisions: [
+          { date: '2026-06-27', decision: 'cut over reads', context: 'harness-execution' },
+        ],
+        blockers: [],
+        progress: { 'Task 11': 'complete' },
+      };
+      fs.writeFileSync(path.join(harnessDir, 'state.json'), JSON.stringify(legacy));
+
+      const response = await handleManageState({ path: tmpDir, action: 'show' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      // Parity: same HarnessState shape the legacy loadState path returned for this file.
+      expect(parsed.schemaVersion).toBe(1);
+      expect(parsed.position).toEqual({ phase: 'execute', task: 'Task 12' });
+      expect(parsed.decisions).toEqual(legacy.decisions);
+      expect(parsed.progress).toEqual({ 'Task 11': 'complete' });
+      expect(parsed.blockers).toEqual([]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('learn action returns error when learning is missing', async () => {
     const response = await handleManageState({ path: '/nonexistent/project', action: 'learn' });
     expect(response.isError).toBe(true);
@@ -166,7 +196,7 @@ describe('manage_state tool', () => {
     expect(response.content[0].text).toContain('content is required');
   });
 
-  it('append_entry without session falls back to global state for decisions section', async () => {
+  it('append_entry without session falls back to global state for decisions section (W1 parity)', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-fallback-'));
     const harnessDir = path.join(tmpDir, '.harness');
     fs.mkdirSync(harnessDir, { recursive: true });
@@ -185,13 +215,64 @@ describe('manage_state tool', () => {
     expect(response.isError).toBeFalsy();
     expect(response.content[0].text).toContain('global-state');
 
-    // Verify the decision was appended to state.json
-    const state = JSON.parse(fs.readFileSync(path.join(harnessDir, 'state.json'), 'utf-8'));
-    expect(state.decisions).toHaveLength(1);
-    expect(state.decisions[0].decision).toBe('Test decision content');
-    expect(state.decisions[0].context).toBe('harness-brainstorming');
+    // Parity: the decision is observable through the new event-sourced read path with the
+    // same { decision, context, date } shape the legacy saveState→loadState path produced.
+    const { readHarnessState } = await import('../../../src/shared/state-events');
+    const state = await readHarnessState(tmpDir);
+    expect(state.ok).toBe(true);
+    if (state.ok) {
+      expect(state.value.decisions).toHaveLength(1);
+      expect(state.value.decisions[0].decision).toBe('Test decision content');
+      expect(state.value.decisions[0].context).toBe('harness-brainstorming');
+      expect(state.value.decisions[0].date).toMatch(/^\d{4}-\d{2}-\d{2}T/); // non-empty ISO
+    }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reset truncates the event log and re-genesises to DEFAULT_STATE (W3 parity)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-reset-'));
+    try {
+      const harnessDir = path.join(tmpDir, '.harness');
+      fs.mkdirSync(harnessDir, { recursive: true });
+      // Seed a populated legacy state so there is real content for reset to discard.
+      fs.writeFileSync(
+        path.join(harnessDir, 'state.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          position: { phase: 'execute', task: 'Task 9' },
+          decisions: [{ date: '2026-06-27', decision: 'keep', context: 'ctx' }],
+          blockers: [],
+          progress: { 'Task 1': 'complete' },
+        })
+      );
+
+      // Materialise the genesis import (and a snapshot) via a read first.
+      const { readHarnessState } = await import('../../../src/shared/state-events');
+      const before = await readHarnessState(tmpDir);
+      expect(before.ok).toBe(true);
+      if (before.ok) expect(before.value.decisions).toHaveLength(1);
+
+      const response = await handleManageState({ path: tmpDir, action: 'reset' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.reset).toBe(true);
+
+      // Parity: after reset the projected state deep-equals DEFAULT_STATE (the legacy
+      // wholesale saveState({...DEFAULT_STATE}) wipe, observed through the new read path).
+      const { DEFAULT_STATE, eventSourcing } = await import('@harness-engineering/core');
+      const after = await readHarnessState(tmpDir);
+      expect(after.ok).toBe(true);
+      if (after.ok) expect(after.value).toEqual(DEFAULT_STATE);
+
+      // A subsequent genesis import is a no-op: the re-genesis event is present, so a
+      // lingering legacy state.json (if any) is NOT re-imported.
+      const reimport = await eventSourcing.importLegacyState(tmpDir);
+      expect(reimport.ok).toBe(true);
+      if (reimport.ok) expect(reimport.value.imported).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it('append_entry without session returns error for non-decisions sections', async () => {
@@ -456,5 +537,85 @@ describe('manage_state session section actions', () => {
     // Archive dir should exist
     const archiveBase = path.join(tmpDir, '.harness', 'archive', 'sessions');
     expect(fs.existsSync(archiveBase)).toBe(true);
+  });
+});
+
+describe('manage_state task-transition action', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-task-transition-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('has task-transition in the action enum and the lane fields', () => {
+    const props = manageStateDefinition.inputSchema.properties as Record<string, unknown>;
+    const actionProp = props.action as { enum: string[] };
+    expect(actionProp.enum).toContain('task-transition');
+    expect(props.taskId).toBeDefined();
+    expect(props.toLane).toBeDefined();
+    expect(props.dependsOn).toBeDefined();
+    expect(props.evidence).toBeDefined();
+  });
+
+  it('registers then transitions a task and returns the new lane', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'claimed',
+      dependsOn: [],
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.taskId).toBe('t1');
+    expect(parsed.lane).toBe('claimed');
+
+    // The transition is durable: a follow-up snapshot read shows the new lane.
+    const { eventSourcing } = await import('@harness-engineering/core');
+    const snap = await eventSourcing.readSnapshot(tmpDir);
+    expect(snap.ok).toBe(true);
+    if (snap.ok) expect(snap.value.lanes.tasks.t1.lane).toBe('claimed');
+  });
+
+  it('returns the guard error for an off-table transition without force', async () => {
+    await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'claimed',
+      dependsOn: [],
+    });
+    // claimed→done is off-table.
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+      toLane: 'done',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/not allowed|forceGuard/);
+  });
+
+  it('errors when taskId is missing', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      toLane: 'claimed',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/taskId is required/);
+  });
+
+  it('errors when toLane is missing', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'task-transition',
+      taskId: 't1',
+    });
+    expect(response.isError).toBeTruthy();
+    expect(response.content[0].text).toMatch(/toLane is required/);
   });
 });

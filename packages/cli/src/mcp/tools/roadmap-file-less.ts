@@ -72,7 +72,7 @@ export async function handleManageRoadmapFileLess(
     case 'sync':
       return handleSync();
     case 'groom':
-      return err('Error: groom is only supported in file-based roadmap mode (docs/roadmap.md).');
+      return err('Error: groom is only supported in file-based roadmap mode.');
     default:
       return err(`Error: unknown action`);
   }

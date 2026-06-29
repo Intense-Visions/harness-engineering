@@ -6,6 +6,8 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { SignalName } from '@harness-engineering/core';
+import { reconcilePassed } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 
 /** Granular check results from assess_project and related tools. */
@@ -101,7 +103,7 @@ export function saveCachedSnapshot(snapshot: HealthSnapshot, projectPath: string
 // ---------------------------------------------------------------------------
 
 /** Signal derivation rules: [signalName, predicate]. */
-const SIGNAL_RULES: Array<[string, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
+const SIGNAL_RULES: Array<[SignalName, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
   ['circular-deps', (c) => c.deps.circularDeps > 0],
   ['layer-violations', (c) => c.deps.layerViolations > 0],
   ['dead-code', (c) => c.entropy.deadExports > 0 || c.entropy.deadFiles > 0],
@@ -120,8 +122,8 @@ const SIGNAL_RULES: Array<[string, (c: HealthChecks, m: HealthMetrics) => boolea
  * Derive active signal identifiers from health checks and metrics.
  * Uses threshold-based rules to map numeric values to named signals.
  */
-export function deriveSignals(checks: HealthChecks, metrics: HealthMetrics): string[] {
-  const signals = new Set<string>();
+export function deriveSignals(checks: HealthChecks, metrics: HealthMetrics): SignalName[] {
+  const signals = new Set<SignalName>();
   for (const [name, predicate] of SIGNAL_RULES) {
     if (predicate(checks, metrics)) signals.add(name);
   }
@@ -380,11 +382,15 @@ export async function captureHealthSnapshot(projectPath: string): Promise<Health
   // Derive signals
   const signals = deriveSignals(checks, metrics);
 
+  // Reconcile: demote any check that passed assess but has a contradicting signal.
+  // Conjunction, monotonic toward fail — never promotes a real failure to green.
+  const reconciledChecks = reconcilePassed(checks, signals);
+
   const snapshot: HealthSnapshot = {
     capturedAt: new Date().toISOString(),
     gitHead,
     projectPath,
-    checks,
+    checks: reconciledChecks,
     metrics,
     signals,
   };

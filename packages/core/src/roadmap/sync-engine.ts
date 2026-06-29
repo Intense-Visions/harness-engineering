@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import type {
   Roadmap,
   RoadmapFeature,
@@ -7,8 +6,8 @@ import type {
   TrackerSyncConfig,
   ExternalTicketState,
 } from '@harness-engineering/types';
-import { parseRoadmap } from './parse';
-import { serializeRoadmap } from './serialize';
+import { resolveRoadmapStore } from './store/factory';
+import { applyRoadmapDiff } from './store/apply-diff';
 import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
 import { resolveReverseStatus } from './tracker-sync';
 import { isRegression } from './status-rank';
@@ -222,16 +221,22 @@ export async function syncFromExternal(
 
 /**
  * In-process mutex for serializing fullSync calls.
- * Prevents concurrent writes to roadmap.md.
+ * Prevents concurrent writes to the roadmap source.
  */
 let syncMutex: Promise<void> = Promise.resolve();
 
 /**
- * Full bidirectional sync: read roadmap, push, pull, write back.
- * Serialized by in-process mutex.
+ * Full bidirectional sync: load roadmap via the store, push, pull, write back.
+ * Serialized by an in-process mutex.
+ *
+ * Takes the project root (not a single file path) so it works in both modes:
+ * `resolveRoadmapStore` loads from shards when `docs/roadmap.d/` exists, else the
+ * monolith aggregate. Writeback is per-shard via `applyRoadmapDiff` — only the
+ * rows whose planning/execution fields changed are rewritten (each its own shard
+ * in sharded mode); monolith stays a whole-file rewrite.
  */
 export async function fullSync(
-  roadmapPath: string,
+  projectRoot: string,
   adapter: TrackerSyncAdapter,
   config: TrackerSyncConfig,
   options?: ExternalSyncOptions
@@ -246,36 +251,38 @@ export async function fullSync(
   await previousSync;
 
   try {
-    const raw = fs.readFileSync(roadmapPath, 'utf-8');
-    const parseResult = parseRoadmap(raw);
-    if (!parseResult.ok) {
+    const store = resolveRoadmapStore({ projectRoot });
+    const loaded = await store.load();
+    if (!loaded.ok) {
       return {
         ...emptySyncResult(),
-        errors: [{ featureOrId: '*', error: parseResult.error }],
+        errors: [{ featureOrId: '*', error: loaded.error }],
       };
     }
 
-    const roadmap = parseResult.value;
+    const roadmap = loaded.value;
+    const before = structuredClone(roadmap);
 
     // Fetch tickets for push (dedup) phase
     const fetchResult = await adapter.fetchAllTickets();
     const tickets = fetchResult.ok ? fetchResult.value : undefined;
 
-    // Push first (planning fields out)
+    // Push first (planning fields out) — mutates roadmap (stores externalIds)
     const pushResult = await syncToExternal(roadmap, adapter, config, tickets);
 
     // Pull with fresh data (push may have changed issue states)
     const pullResult = await syncFromExternal(roadmap, adapter, config, options);
 
-    // Write updated roadmap back to disk
-    fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');
+    // Per-shard writeback: exactly the changed rows are rewritten.
+    const persisted = await applyRoadmapDiff(store, before, roadmap);
 
-    // Merge results
+    // Merge results (surface a writeback failure under the '*' envelope)
+    const writebackErrors = persisted.ok ? [] : [{ featureOrId: '*', error: persisted.error }];
     return {
       created: pushResult.created,
       updated: pushResult.updated,
       assignmentChanges: pullResult.assignmentChanges,
-      errors: [...pushResult.errors, ...pullResult.errors],
+      errors: [...pushResult.errors, ...pullResult.errors, ...writebackErrors],
     };
   } finally {
     releaseMutex!();

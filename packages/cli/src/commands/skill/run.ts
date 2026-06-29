@@ -7,7 +7,7 @@ import { detectComplexity, type Complexity } from '../../skill/complexity';
 import { buildPreamble } from './preamble';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-import { resolveSkillsDir } from '../../utils/paths';
+import { resolveSkillDir } from '../../utils/paths';
 
 type SkillMetadata = ReturnType<typeof SkillMetadataSchema.parse>;
 
@@ -83,16 +83,20 @@ function resolvePhaseState(
   return { priorState, stateWarning };
 }
 
-function appendProjectState(
+async function appendProjectState(
   content: string,
   metadata: SkillMetadata | null,
   projectPath: string,
   hasPathOpt: boolean
-): string {
+): Promise<string> {
   if (!metadata?.state.persistent || !hasPathOpt) return content;
-  const stateFile = path.join(projectPath, '.harness', 'state.json');
-  if (!fs.existsSync(stateFile)) return content;
-  const stateContent = fs.readFileSync(stateFile, 'utf-8');
+  // Event-sourced: read via the snapshot projection (the legacy .harness/state.json is gone after
+  // genesis import). Gate on a non-empty projection to preserve the prior "only inject when state
+  // exists" behavior.
+  const { readHarnessState, isEmptyHarnessState } = await import('../../shared/state-events.js');
+  const stateResult = await readHarnessState(projectPath);
+  if (!stateResult.ok || isEmptyHarnessState(stateResult.value)) return content;
+  const stateContent = JSON.stringify(stateResult.value, null, 2);
   return content + `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
 }
 
@@ -100,10 +104,9 @@ async function runSkill(
   name: string,
   opts: { path?: string; complexity?: string; phase?: string; party?: boolean; backend?: string }
 ): Promise<void> {
-  const skillsDir = resolveSkillsDir();
-  const skillDir = path.join(skillsDir, name);
+  const skillDir = resolveSkillDir(name);
 
-  if (!fs.existsSync(skillDir)) {
+  if (!skillDir) {
     logger.error(`Skill not found: ${name}`);
     process.exit(ExitCode.ERROR);
     return;
@@ -147,7 +150,7 @@ async function runSkill(
     return;
   }
 
-  const content = appendProjectState(
+  const content = await appendProjectState(
     fs.readFileSync(skillMdPath, 'utf-8'),
     metadata,
     projectPath,

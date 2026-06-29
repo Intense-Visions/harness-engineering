@@ -6,10 +6,11 @@ import {
   loadProjectRoadmapMode,
   loadTrackerClientConfigFromProject,
   createTrackerClient,
-  parseRoadmap,
-  serializeRoadmap,
+  resolveRoadmapStore,
+  applyRoadmapDiff,
+  setStatus,
 } from '@harness-engineering/core';
-import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
+import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
 import { resolveIdentity } from '../identity';
 import { gatherSecurity } from '../gather/security';
@@ -52,77 +53,46 @@ let validating = false;
 const MAX_OUTPUT_BYTES = 512 * 1024;
 const VALIDATE_TIMEOUT_MS = 30_000;
 
-type RoadmapUpdateResult = { updated: string } | { error: string; code: number };
+type RoadmapUpdateResult = { ok: true } | { error: string; code: number };
 
+/**
+ * Set one feature's status through the roadmap store. Reads via
+ * `resolveRoadmapStore().load()` and persists via `applyRoadmapDiff` over a
+ * `structuredClone` of the loaded roadmap, so in sharded mode only the edited
+ * row's shard is rewritten (and the aggregate regenerated), while monolith mode
+ * stays a whole-file rewrite. No direct aggregate read/write (invariant R).
+ */
 async function updateRoadmapContent(
-  roadmapPath: string,
+  projectPath: string,
   feature: string,
   status: string
 ): Promise<RoadmapUpdateResult> {
-  let content: string;
-  try {
-    content = await readFile(roadmapPath, 'utf-8');
-  } catch {
+  const store = resolveRoadmapStore({ projectRoot: projectPath });
+  const loaded = await store.load();
+  if (!loaded.ok) {
     return { error: 'Could not read roadmap file', code: 500 };
   }
 
-  // Finding 12 + ReDoS fix: use indexOf instead of regex to avoid catastrophic backtracking
-  // Find the heading line that matches "### <feature>" with a word boundary
-  const headingPrefix = '### ';
-  let headingIdx = -1;
-  let searchFrom = 0;
-  while (searchFrom < content.length) {
-    const idx = content.indexOf(headingPrefix, searchFrom);
-    if (idx === -1) break;
-    const nameStart = idx + headingPrefix.length;
-    // Allow optional extra whitespace between ### and feature name
-    let nameActual = nameStart;
-    while (nameActual < content.length && content[nameActual] === ' ') nameActual++;
-    if (content.startsWith(feature, nameActual)) {
-      const afterFeature = nameActual + feature.length;
-      // Ensure word boundary: next char must be whitespace, newline, or end of string
-      if (
-        afterFeature >= content.length ||
-        content[afterFeature] === ' ' ||
-        content[afterFeature] === '\n' ||
-        content[afterFeature] === '\r'
-      ) {
-        headingIdx = idx;
-        break;
-      }
-    }
-    // Move past this heading line
-    const nextNewline = content.indexOf('\n', idx);
-    searchFrom = nextNewline === -1 ? content.length : nextNewline + 1;
-  }
-
-  if (headingIdx === -1) {
+  const roadmap = loaded.value;
+  const before = structuredClone(roadmap);
+  const feat = findFeature(roadmap, feature);
+  if (!feat) {
     return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
   }
 
-  // From the heading, find the next "**Status:**" marker
-  const statusMarker = '**Status:**';
-  const statusIdx = content.indexOf(statusMarker, headingIdx);
-  if (statusIdx === -1) {
-    return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
-  }
+  // Route through the assignee-lifecycle authority (the same chokepoint the MCP
+  // and orchestrator paths use) so a transition away from in-progress clears any
+  // assignee — preserving assignee !== null <=> in-progress (RMH005). A bare
+  // `feat.status = status` would leave a stale assignee on a done/planned row.
+  const date = new Date().toISOString().split('T')[0]!;
+  setStatus(roadmap, feat, status as FeatureStatus, date);
 
-  // Skip past the marker and any trailing whitespace (but not newlines)
-  let valueStart = statusIdx + statusMarker.length;
-  while (valueStart < content.length && content[valueStart] === ' ') valueStart++;
-
-  // Find the end of the status value (next newline or end of string)
-  let valueEnd = content.indexOf('\n', valueStart);
-  if (valueEnd === -1) valueEnd = content.length;
-
-  const updated = content.slice(0, valueStart) + status + content.slice(valueEnd);
-  try {
-    await writeFile(roadmapPath, updated, 'utf-8');
-  } catch {
+  const persisted = await applyRoadmapDiff(store, before, roadmap);
+  if (!persisted.ok) {
     return { error: 'Could not write roadmap file', code: 500 };
   }
 
-  return { updated };
+  return { ok: true };
 }
 
 async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Response> {
@@ -162,8 +132,8 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
 
   let result: Response | undefined;
 
-  await withFileLock(ctx.roadmapPath, async () => {
-    const outcome = await updateRoadmapContent(ctx.roadmapPath, feature, status);
+  await withFileLock(ctx.projectPath, async () => {
+    const outcome = await updateRoadmapContent(ctx.projectPath, feature, status);
     if ('error' in outcome) {
       result = c.json({ error: outcome.error }, outcome.code as 404 | 500);
       return;
@@ -421,22 +391,18 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
   let externalId: string | null = null;
   let workflow: ClaimWorkflow = 'brainstorming';
 
-  await withFileLock(ctx.roadmapPath, async () => {
-    let content: string;
-    try {
-      content = await readFile(ctx.roadmapPath, 'utf-8');
-    } catch {
+  await withFileLock(ctx.projectPath, async () => {
+    const store = resolveRoadmapStore({ projectRoot: ctx.projectPath });
+    const loaded = await store.load();
+    if (!loaded.ok) {
       result = c.json({ error: 'Could not read roadmap file' }, 500);
       return;
     }
 
-    const parsed = parseRoadmap(content);
-    if (!parsed.ok) {
-      result = c.json({ error: 'Failed to parse roadmap' }, 500);
-      return;
-    }
-
-    const roadmap = parsed.value;
+    const roadmap = loaded.value;
+    // Capture the pre-mutation snapshot so applyRoadmapDiff writes only the
+    // claimed row's shard (sharded) / the whole file (monolith).
+    const before = structuredClone(roadmap);
     const feat = findFeature(roadmap, feature);
     if (!feat) {
       result = c.json({ error: `Feature '${feature}' not found` }, 404);
@@ -453,9 +419,8 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
     externalId = feat.externalId ?? null;
     workflow = applyClaimToRoadmap(roadmap, feat, assignee);
 
-    try {
-      await writeFile(ctx.roadmapPath, serializeRoadmap(roadmap), 'utf-8');
-    } catch {
+    const persisted = await applyRoadmapDiff(store, before, roadmap);
+    if (!persisted.ok) {
       result = c.json({ error: 'Could not write roadmap file' }, 500);
       return;
     }

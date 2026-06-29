@@ -32,10 +32,10 @@ describe('buildSettingsHooks', () => {
     expect(hooks.Stop).toBeUndefined();
   });
 
-  it('builds standard profile with 6 hooks across 4 events', () => {
+  it('builds standard profile with 8 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('standard');
-    expect(hooks.PreToolUse).toHaveLength(2);
-    expect(hooks.PostToolUse).toHaveLength(1);
+    expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre
+    expect(hooks.PostToolUse).toHaveLength(2); // quality-warner, sentinel-post
     expect(hooks.PreCompact).toHaveLength(1);
     expect(hooks.Stop).toHaveLength(2);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
@@ -44,8 +44,8 @@ describe('buildSettingsHooks', () => {
 
   it('builds strict profile with all 10 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('strict');
-    expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config (from standard), sentinel-pre
-    expect(hooks.PostToolUse).toHaveLength(3); // quality-warner (from standard), strict-quality-gate, sentinel-post
+    expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre (all from standard)
+    expect(hooks.PostToolUse).toHaveLength(3); // quality-warner, sentinel-post (from standard), strict-quality-gate
     expect(hooks.PreCompact).toHaveLength(1);
     expect(hooks.Stop).toHaveLength(3);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');

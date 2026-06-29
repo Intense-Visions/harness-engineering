@@ -142,4 +142,64 @@ describe('runPulse orchestrator', () => {
     expect(order.indexOf('d-start')).toBeGreaterThan(order.indexOf('a-end'));
     expect(order.indexOf('d-start')).toBeGreaterThan(order.indexOf('t-end'));
   });
+
+  const withDist = (event: string, dist: SanitizedResult['distributions']): SanitizedResult => ({
+    fields: { event_name: event, count: 1 },
+    distributions: dist,
+  });
+
+  it('omits quality when qualityScoring is disabled', async () => {
+    registerPulseAdapter('mock', {
+      query: async () => ({}),
+      sanitize: () => withDist('x', { sentiment: { good: 3 } }),
+    });
+    const result = await runPulse(
+      { ...baseConfig, qualityScoring: false, qualityDimension: 'sentiment' },
+      computeWindow(new Date(), '24h')
+    );
+    expect(result.quality).toBeUndefined();
+  });
+
+  it('aggregates the configured dimension distribution across sources when enabled', async () => {
+    registerPulseAdapter('a', {
+      query: async () => ({}),
+      sanitize: () => withDist('a', { sentiment: { good: 3, bad: 1 } }),
+    });
+    registerPulseAdapter('t', {
+      query: async () => ({}),
+      sanitize: () => withDist('t', { sentiment: { good: 2 }, other: { x: 9 } }),
+    });
+    const result = await runPulse(
+      {
+        ...baseConfig,
+        qualityScoring: true,
+        qualityDimension: 'sentiment',
+        sources: { analytics: 'a', tracing: 't', payments: null, db: { enabled: false } },
+      },
+      computeWindow(new Date(), '24h')
+    );
+    expect(result.quality).toEqual({
+      dimension: 'sentiment',
+      distribution: { good: 5, bad: 1 },
+      total: 6,
+      sources: 2,
+    });
+  });
+
+  it('returns an empty quality summary when no source reports the dimension', async () => {
+    registerPulseAdapter('mock', {
+      query: async () => ({}),
+      sanitize: () => withDist('x', { other: { x: 1 } }),
+    });
+    const result = await runPulse(
+      { ...baseConfig, qualityScoring: true, qualityDimension: 'sentiment' },
+      computeWindow(new Date(), '24h')
+    );
+    expect(result.quality).toEqual({
+      dimension: 'sentiment',
+      distribution: {},
+      total: 0,
+      sources: 0,
+    });
+  });
 });

@@ -269,7 +269,7 @@ describe('v1 bridge primitives — HTTP integration through dispatchAuthedReques
             // Once we've seen at least one framed event, we're done.
             if (buf.includes('event: state_change')) {
               expect(buf).toContain('"ping":"integration-test"');
-              expect(buf).toMatch(/id: evt_[a-f0-9]+/);
+              expect(buf).toMatch(/id: \d+/);
               r.destroy(); // close the SSE stream
               resolve();
             }

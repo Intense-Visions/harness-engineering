@@ -20,7 +20,13 @@ export type {
 } from './client';
 export { ConflictError } from './client';
 export { createTrackerClient } from './factory';
-export type { TrackerClientConfig } from './factory';
+export type {
+  TrackerClientConfig,
+  GitHubTrackerClientConfig,
+  LinearTrackerClientConfig,
+} from './factory';
+export { LinearTrackerAdapter } from './adapters/linear';
+export type { LinearTrackerOptions } from './adapters/linear';
 export { ETagStore } from './etag-store';
 export { makeTrackerConflictBody } from './conflict-body';
 export type { TrackerConflictBody, MakeTrackerConflictBodyOptions } from './conflict-body';

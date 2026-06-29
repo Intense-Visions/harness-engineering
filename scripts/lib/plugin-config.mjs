@@ -21,8 +21,7 @@ export const PLUGIN_CONFIGS = {
     // Hook scripts live in the repo at .harness/hooks/. Plugin install
     // copies the whole repo, so the scripts are at <plugin-root>/.harness/hooks/.
     // Claude exposes the install dir as ${CLAUDE_PLUGIN_ROOT}.
-    hooksCommandTemplate: (name) =>
-      `node "\${CLAUDE_PLUGIN_ROOT}/.harness/hooks/${name}.js"`,
+    hooksCommandTemplate: (name) => `node "\${CLAUDE_PLUGIN_ROOT}/.harness/hooks/${name}.js"`,
     cursorMode: undefined,
     commandExt: '.md',
     generateCommands: true,
@@ -97,6 +96,8 @@ export const STANDARD_HOOKS = [
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*' },
   { name: 'adoption-tracker', event: 'Stop', matcher: '*' },
   { name: 'telemetry-reporter', event: 'Stop', matcher: '*' },
+  { name: 'sentinel-pre', event: 'PreToolUse', matcher: '*' },
+  { name: 'sentinel-post', event: 'PostToolUse', matcher: '*' },
 ];
 
 export function getConfig(target) {

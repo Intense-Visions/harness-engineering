@@ -1,5 +1,184 @@
 # Changelog
 
+## 0.32.0
+
+### Minor Changes
+
+- 854b142: Event-sourced state model with a deterministic reducer (#598).
+
+  Replaces the mutated `.harness/state.json` with an append-only event log
+  (`state.events.jsonl`) + a deterministic reducer composed of pure projections
+  (`coreState` / `lanes` / `audit`) + a materialized snapshot (`state.snapshot.json`).
+  Concurrent writers append lock-free with a collision-free `(seq, writerId)` total
+  order, eliminating the last-write-wins clobbering of the previous read-modify-write
+  model. Legacy `state.json` is migrated via a one-time `state_imported` genesis event.
+
+  Adds an explicit guarded lane state machine for orchestrator/autopilot task lanes
+  (`planned → claimed → in_progress → in_review → done`, plus `blocked`/`canceled`)
+  with dependency, evidence-for-terminal, and forced-transition guards; the
+  orchestrator persists lane transitions durably via the core log.
+
+  Subsumes the Append-Only Session Audit Trail (GH-580): verbatim user input and
+  approval prompt/response pairs are captured as audit events. The born-deduplicated
+  `events.jsonl` is retired — the observability timeline now derives from the audit
+  projection, and skill-lifecycle telemetry is relocated to
+  `.harness/metrics/skill-events.jsonl`.
+
+  BREAKING (internal): the deprecated `saveState`/`loadState` exports are removed;
+  all state reads/writes now flow through the event-sourced store.
+
+- 09524aa: Reconcile health-snapshot `passed` flags with active signals (#528). A captured snapshot could report a check as `passed: true` while `signals[]` listed a contradicting problem, so the harness's own self-model — consumed by skill dispatch, recommendation, and insights — reported false-green.
+
+  `core` gains a canonical `health-signals` contract: a single `SIGNAL_REGISTRY` from which `CHECK_SIGNAL_MAP`, `SIGNAL_CATEGORY_MAP`, `SignalName`, and `HEALTH_SIGNAL_NAMES` are all derived, plus a pure `reconcilePassed` (conjunction, monotonic toward fail). `cli` wires `reconcilePassed` into `captureHealthSnapshot` so a check's `passed` can no longer be `true` against an active contradicting signal, and unifies `HEALTH_SIGNALS`/`SIGNAL_CATEGORIES` onto the registry. The `strength-007` strength rule now consumes the derived map, closing a silent entropy/deps/docs false-negative.
+
+  Behavior change: health snapshots and the dispatch/recommendation output they feed will now surface failures that were previously hidden behind false-green flags.
+
+- c68b780: Add a `linear` roadmap tracker kind — a `LinearTrackerAdapter` implementing the full `RoadmapTrackerClient` interface over Linear's GraphQL API, wired into `createTrackerClient({ kind: 'linear', teamId, token })` (falls back to `LINEAR_API_KEY`). This builds on the standalone Linear GraphQL client added earlier; the adapter ships its own transport because `core` cannot depend on `orchestrator`.
+
+  Mapping: `externalId` is `linear:<issue-uuid>`; `status` maps via Linear's fixed workflow-state **type** enum (`backlog|unstarted|started|completed`) rather than team-defined state names; `spec`/`plans`/`blockedBy`/`priority`/`milestone`/`summary` round-trip through the shared `<!-- harness-meta -->` body block (same encoding as the GitHub adapter); priority maps P0–P3 ↔ Linear 1–4; history events are stored as marked issue comments. Writes resolve the team's workflow states and assignee user ids on demand, and `update` supports optimistic-concurrency via `ifMatch` (→ `ConflictError`).
+
+  ⚠️ **Best-effort, not yet validated against a live Linear workspace.** Query/mutation shapes follow Linear's documented schema and the mapping is unit-tested with a mocked transport, but field-level behavior (custom workflow states, priority semantics, user resolution) should be verified against a real workspace before production use. `blocked`/`needs-human` statuses have no native Linear state type and are treated as `started` on write.
+
+- 863df8f: Roadmap-shard follow-ups: correctness + CLI parity.
+  - **Offline reconcile honors `state_reason` (correctness).** `harness roadmap
+reconcile` no longer flips a row whose linked issue was closed as
+    `not_planned`/`wontfix` — only a `completed` close (or a close whose reason the
+    tracker does not report, a conservative back-compat default) drives an auto-done
+    flip. `ExternalTicketState` now carries an optional `stateReason`, populated by
+    the GitHub adapter.
+  - **Cross-repo issue mis-map fixed (correctness).** A PR can close an issue in a
+    different repo; the prior path built External-IDs from bare numbers against the
+    configured repo, so a colliding number could flip the wrong local row. New
+    `harness roadmap reconcile --from-refs owner/repo#number` builds each External-ID
+    from the ref's own `owner/repo` and matches the full External-ID; the auto-done
+    Action now fetches `repository.nameWithOwner` per closing issue and passes refs
+    through. `--from-issues` (configured-repo numbers) is retained.
+  - **`regen`/`unshard` gain `--dry-run` and `--format json`** for parity with
+    `shard` (unshard can now preview before the destructive shard-dir deletion).
+  - **Internal cleanup:** the `github:owner/repo#NNN` parser is consolidated into one
+    canonical module (`roadmap/external-id.ts`); `roadmapSourceExists` shares the
+    shard-dir probe with the storage-mode detector.
+
+- 863df8f: Roadmap shard store — Phase 3 (git and hook integration). Make `docs/roadmap.md`
+  a self-healing, conflict-free generated aggregate of the per-row shards under
+  `docs/roadmap.d/`:
+  - **Regen git hooks (husky):** a pre-commit block regenerates and re-stages
+    `docs/roadmap.md` whenever any shard is staged (no-op otherwise), and a new
+    `.husky/post-merge` clears `merge=ours` staleness by regenerating after a
+    merge. Both are thin wrappers over the deterministic `harness roadmap regen`.
+    These are intentionally git hooks, not Claude Code tool-use hooks (those
+    registries cannot model `git commit` / `git merge`).
+  - **`merge=ours` declaration:** `.gitattributes` now declares
+    `docs/roadmap.md merge=ours` so disjoint row edits never re-conflict.
+  - **Merge-driver setup + doctor:** `harness init` now runs
+    `git config merge.ours.driver true` (non-fatal if git is unavailable), and
+    `harness validate` warns when `merge=ours` is declared but the driver is unset
+    in the current clone (the one-time per-clone fix).
+  - **Read-source invariant (R):** a new core detector
+    (`findRoadmapReadSourceViolations` + `ROADMAP_READ_ALLOWLIST`) plus a repo
+    guard test fail when any new source file starts reading the generated
+    `docs/roadmap.md` aggregate instead of the shard store. The allowlist enumerates
+    today's legacy readers and shrinks as writers migrate onto `RoadmapStore`.
+
+- 863df8f: Phase 6 of the roadmap shard store: make sharding discoverable, documented, and
+  the default for new projects.
+  - **Single detection authority.** `detectRoadmapStorageMode` (and the
+    `RoadmapStorageMode` type) now live in `packages/core/src/roadmap/load-mode.ts`
+    as the one place that decides `monolith` vs `sharded` (by the presence of
+    `docs/roadmap.d/`). `store/factory.ts` delegates to it instead of carrying its
+    own inline existence check, so the formal storage mode and the chosen store
+    backend can never disagree. Storage mode is modelled as an axis orthogonal to
+    `RoadmapMode` (file-backed vs file-less), so the ~28 existing mode consumers are
+    unaffected.
+  - **Sharded-by-default `harness init`.** A brand-new project is scaffolded with an
+    empty `docs/roadmap.d/_meta.md` (emitted via the core `serializeMeta` serializer
+    for byte-stable round-tripping) and NO monolith `docs/roadmap.md`. Existing
+    projects are left untouched and opt in via `harness roadmap shard`.
+  - **Aggregate-drift doctor.** `harness validate` now warns when `docs/roadmap.d/`
+    exists but the committed aggregate is stale versus `regenerate(shards)` — the
+    CI-checkable freshness contract for adopters, fixed by `harness roadmap regen`.
+    No-ops for monolith projects.
+  - **Documentation.** ADRs 0050 (read-source invariant R) and 0051 (slug identity +
+    External-ID sync key), knowledge entries for the roadmap-store abstraction,
+    read-source invariant, slug↔issue identity, and merge-triggered auto-done, an
+    adoption/rollout guide, the AGENTS.md roadmap section, and the harness skills
+    (agents stop hand-marking rows; promote stages shard + regenerated aggregate).
+
+- 863df8f: Phase 4 of the roadmap shard store: route every roadmap writer and content
+  reader through `RoadmapStore`.
+
+  In sharded mode (`docs/roadmap.d/` present) each logical mutation now rewrites
+  exactly one shard file (conflict-free by construction) and regenerates the
+  aggregate; in monolith mode the on-disk `docs/roadmap.md` is byte-for-byte
+  unchanged. Every writer captures `before = structuredClone(roadmap)` and
+  persists via `applyRoadmapDiff(store, before, after)`, so only the rows that
+  actually changed are written.
+
+  Migrated onto the store:
+  - `manage_roadmap` (add / update / remove / promote / sync / groom) and the
+    show/query readers, preserving the unblock-only cascade, async external sync,
+    and first-claim-wins refusal.
+  - `autoSyncRoadmap` and `sync-engine` `fullSync` (now takes a project root) with
+    per-shard writeback; the assignee-lifecycle invariant holds on every write.
+  - Content readers: `prediction-engine`, `publish-analyses`, `sync-analyses`.
+  - Dashboard roadmap reader (`gather/roadmap`) and content writers
+    (`routes/actions` claim + status).
+  - Orchestrator roadmap writers (`/api/roadmap/append` and the
+    `RoadmapTrackerAdapter` claim / release / mark-complete), preserving
+    compare-and-set, idempotency, and the RMH005 assignee invariant.
+
+  Behavioral note — prediction engine: routing the roadmap read through the store
+  also corrected the path it reads from (`<root>/roadmap.md` →
+  `<root>/docs/roadmap.md`). Previously `computeSpecImpacts` always failed to load
+  and returned no impacts, so spec-impact adjustments were effectively dead; the
+  engine now folds spec impacts into the adjusted forecasts (and warning
+  severities) as originally designed.
+
+  New core APIs: `RoadmapStore.removeFeature`, `resolveRoadmapStore` /
+  `resolveRoadmapStoreForFile` (mode-detection factories), `applyRoadmapDiff`,
+  `roadmapAggregatePath`, and a node-fs roadmap IO adapter.
+
+  The read-source guard (invariant R) is tightened to also catch DYNAMIC-path
+  readers/writers — code that threads a `roadmapPath`/`roadmapFile` variable into a
+  raw filesystem read/write rather than spelling the `roadmap.md` literal — and its
+  allowlist has shrunk to its permanent floor (store + regenerator + factory, the
+  git/merge tooling, and non-content path references).
+
+- 863df8f: Phase 5 of the roadmap shard store: auto-done reconciler (D6).
+
+  When a merged PR closes a roadmap row's linked GitHub issue
+  (`External-ID: github:owner/repo#NNN`), the matching row is flipped to `done`
+  automatically — conflict-free, idempotent, and store-routed.
+  - **Core:** `reconcileDoneFromClosedIssues(store, closedExternalIds)` — a pure,
+    store-routed function that maps each closed `External-ID` to its row and flips
+    non-`done` matches to `done` via `setStatus` (the assignee-lifecycle authority,
+    which auto-clears a live assignee and appends one `unassigned` history record),
+    persisting through `applyRoadmapDiff` (one shard per matched issue; `_meta.md`
+    only when an assignee was cleared). Already-`done` rows are no-ops; unmatched
+    ids are reported, not written. Works in both sharded and monolith modes and
+    adds no new `roadmap.md` reader (invariant R untouched). Also re-exports the
+    `parseExternalId` / `buildExternalId` `External-ID` helpers.
+  - **CLI:** `harness roadmap reconcile` — an offline fallback that fetches issue
+    state from the configured tracker and reconciles closed issues, plus an
+    authoritative `--from-issues <n,...>` path that reconciles exact issue numbers
+    with no network fetch. (Offline mode treats any closed issue as done; it cannot
+    distinguish a `completed` close from a `not planned`/`wontfix` close — the
+    PR-merge workflow path is authoritative.)
+  - **CI:** a `pull_request: closed` workflow that, only when the PR is merged,
+    resolves the PR's `closingIssuesReferences`, no-ops when none are
+    roadmap-linked, runs `harness roadmap reconcile --from-issues`, and commits the
+    changed shard(s) + regenerated aggregate back to the base branch.
+
+  Both surfaces share the one store-routed core function.
+
+### Patch Changes
+
+- 645f21e: Wire the `pulse.qualityScoring` runtime path, which was accepted in config but silently ignored (a `TODO(phase-4.5)` no-op in the orchestrator). When `qualityScoring` is enabled and `qualityDimension` is set, `runPulse` now aggregates that dimension's distribution across every successfully-queried source into a `QualitySummary` (`dimension`, merged bucket→count `distribution`, `total`, contributing `sources`) on the orchestrator result, and the pulse report adds a `quality[<dimension>]: <total> sampled across <n> source(s)` headline. When no source reports the dimension the summary is empty (`total: 0, sources: 0`) rather than crashing. The aggregation deliberately surfaces what the data says about the dimension without imposing a good/bad verdict — the consuming skill or human interprets the distribution. When `qualityScoring` is off, behavior is unchanged (`quality` is absent). Exposes `computeQuality` and the `QualitySummary` type.
+- Updated dependencies [4df8934]
+- Updated dependencies [863df8f]
+  - @harness-engineering/types@0.16.2
+  - @harness-engineering/graph@0.11.2
+
 ## 0.31.0
 
 ### Minor Changes

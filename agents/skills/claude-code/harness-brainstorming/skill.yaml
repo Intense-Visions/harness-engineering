@@ -53,4 +53,5 @@ state:
   files: []
 depends_on:
   - harness-planning
+  - harness-autopilot
   - harness-soundness-review

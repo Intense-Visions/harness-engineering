@@ -1,11 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 
 // ── Shared mock state (hoisted so vi.mock factories can reference them) ───
 
 const {
   _loadTrackerSyncConfig,
-  _existsSync,
-  _readFileSync,
   _renderAnalysisComment,
   _loadPublishedIndex,
   _savePublishedIndex,
@@ -17,8 +15,6 @@ const {
   _loggerDim,
 } = vi.hoisted(() => ({
   _loadTrackerSyncConfig: vi.fn(),
-  _existsSync: vi.fn(),
-  _readFileSync: vi.fn(),
   _renderAnalysisComment: vi.fn(() => '## Harness Analysis'),
   _loadPublishedIndex: vi.fn(() => ({})),
   _savePublishedIndex: vi.fn(),
@@ -32,21 +28,12 @@ const {
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-vi.mock('fs', async (importOriginal) => {
-  const original = await importOriginal<typeof import('fs')>();
-  return {
-    ...original,
-    existsSync: _existsSync,
-    readFileSync: _readFileSync,
-  };
-});
-
 // NOTE: The source uses both `import { loadTrackerSyncConfig }` (ESM, top-level)
 // and `require('@harness-engineering/core')` (CJS, in buildNameToExternalIdMap)
 // and `await import('@harness-engineering/core')` (dynamic ESM, in runPublishAnalyses).
-// In vitest ESM mode, `require()` bypasses vi.mock and loads the REAL module.
-// So we mock `loadTrackerSyncConfig` and `GitHubIssuesSyncAdapter` via vi.mock,
-// and feed valid roadmap markdown to `readFileSync` so the real `parseRoadmap` works.
+// In vitest ESM mode, `require()` bypasses vi.mock and loads the REAL module — so the
+// real `resolveRoadmapStore` reads from a REAL temp-dir roadmap (we do not mock fs).
+// We mock `loadTrackerSyncConfig` and `GitHubIssuesSyncAdapter` via vi.mock.
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const original = await importOriginal<typeof import('@harness-engineering/core')>();
   return {
@@ -79,16 +66,25 @@ vi.mock('../../src/output/logger', () => ({
 
 // ── Imports after mocks ────────────────────────────────────────────────────
 
+import * as nodeFs from 'node:fs';
+import * as os from 'node:os';
+import * as nodePath from 'node:path';
 import { createPublishAnalysesCommand } from '../../src/commands/publish-analyses';
 
 // Use a non-throwing mock for process.exit
 const mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
 
 const ORIGINAL_ENV = { ...process.env };
+let projectDir: string;
 
 beforeEach(() => {
   vi.clearAllMocks();
   process.env = { ...ORIGINAL_ENV };
+  projectDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), 'publish-analyses-'));
+});
+
+afterEach(() => {
+  nodeFs.rmSync(projectDir, { recursive: true, force: true });
 });
 
 afterAll(() => {
@@ -96,10 +92,16 @@ afterAll(() => {
   mockExit.mockRestore();
 });
 
+/** Write a real docs/roadmap.md the store can load. */
+function writeRoadmap(features: Array<{ name: string; externalId: string }>) {
+  nodeFs.mkdirSync(nodePath.join(projectDir, 'docs'), { recursive: true });
+  nodeFs.writeFileSync(nodePath.join(projectDir, 'docs', 'roadmap.md'), makeRoadmapMd(features));
+}
+
 function invokeCommand(args: string[] = []) {
   const cmd = createPublishAnalysesCommand();
   cmd.exitOverride();
-  return cmd.parseAsync(['node', 'publish-analyses', '--dir', '/fake/project', ...args]);
+  return cmd.parseAsync(['node', 'publish-analyses', '--dir', projectDir, ...args]);
 }
 
 /** Valid roadmap markdown that the real parseRoadmap can parse. */
@@ -158,7 +160,6 @@ describe('bootstrapTrackerCommand (via runPublishAnalyses)', () => {
 
   it('exits when no GITHUB_TOKEN is set', async () => {
     _loadTrackerSyncConfig.mockReturnValue({ kind: 'github' });
-    _existsSync.mockReturnValue(false);
     delete process.env.GITHUB_TOKEN;
 
     await invokeCommand();
@@ -168,24 +169,24 @@ describe('bootstrapTrackerCommand (via runPublishAnalyses)', () => {
 });
 
 describe('buildNameToExternalIdMap (via runPublishAnalyses)', () => {
-  it('exits when roadmap.md is not found', async () => {
+  it('exits when no roadmap source is found', async () => {
     _loadTrackerSyncConfig.mockReturnValue({ kind: 'github' });
-    _existsSync.mockReturnValue(false);
     process.env.GITHUB_TOKEN = 'ghp_test123';
+    // No docs/roadmap.md or docs/roadmap.d/ written.
 
     await invokeCommand();
-    expect(_loggerError).toHaveBeenCalledWith(expect.stringContaining('No docs/roadmap.md'));
+    expect(_loggerError).toHaveBeenCalledWith(expect.stringContaining('No roadmap source found'));
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
-  it('exits when roadmap parse fails (bad frontmatter)', async () => {
+  it('exits when roadmap read fails (bad frontmatter)', async () => {
     _loadTrackerSyncConfig.mockReturnValue({ kind: 'github' });
-    _existsSync.mockImplementation((p: unknown) => String(p).endsWith('roadmap.md'));
-    _readFileSync.mockReturnValue('not a valid roadmap');
+    nodeFs.mkdirSync(nodePath.join(projectDir, 'docs'), { recursive: true });
+    nodeFs.writeFileSync(nodePath.join(projectDir, 'docs', 'roadmap.md'), 'not a valid roadmap');
     process.env.GITHUB_TOKEN = 'ghp_test123';
 
     await invokeCommand();
-    expect(_loggerError).toHaveBeenCalledWith(expect.stringContaining('Failed to parse'));
+    expect(_loggerError).toHaveBeenCalledWith(expect.stringContaining('Failed to read roadmap'));
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });
@@ -193,8 +194,7 @@ describe('buildNameToExternalIdMap (via runPublishAnalyses)', () => {
 describe('publishUnpublishedAnalyses (via runPublishAnalyses)', () => {
   function setupHappyPath(features: Array<{ name: string; externalId: string }>) {
     _loadTrackerSyncConfig.mockReturnValue({ kind: 'github' });
-    _existsSync.mockImplementation((p: unknown) => String(p).endsWith('roadmap.md'));
-    _readFileSync.mockReturnValue(makeRoadmapMd(features));
+    writeRoadmap(features);
     process.env.GITHUB_TOKEN = 'ghp_test123';
   }
 

@@ -4,7 +4,10 @@ export default defineConfig({
   title: 'Harness Engineering',
   description: 'AI Harness Engineering & Agent-First Development',
   ignoreDeadLinks: true,
-  srcExclude: ['plans/**', 'changes/**', 'research/**'],
+  // roadmap.md + roadmap.d/** are machine-managed roadmap data (not doc pages, not
+  // in the nav); the deterministic serializer emits raw text like "<slug>" that the
+  // Vue/markdown compiler would choke on. Exclude them like plans/changes/research.
+  srcExclude: ['plans/**', 'changes/**', 'research/**', 'roadmap.md', 'roadmap.d/**'],
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },

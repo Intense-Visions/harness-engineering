@@ -73,6 +73,42 @@ describe('migrateToStreams', () => {
     fs.rmSync(tmp, { recursive: true });
   });
 
+  it('moves event-log files (log, snapshot, blobs dir) into streams/default/', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'migrate-test-'));
+    const hDir = path.join(tmp, '.harness');
+    fs.mkdirSync(hDir, { recursive: true });
+    // Pre-stream-index event-log artifacts at the harness root.
+    const logContent = '{"seq":1,"writerId":"w","type":"state_imported"}\n';
+    const snapContent = '{"schemaVersion":2,"meta":{"lastSeq":1}}';
+    fs.writeFileSync(path.join(hDir, 'state.events.jsonl'), logContent);
+    fs.writeFileSync(path.join(hDir, 'state.snapshot.json'), snapContent);
+    const blobsDir = path.join(hDir, 'state.events.blobs');
+    fs.mkdirSync(blobsDir, { recursive: true });
+    const blobContent = '{"payload":"spilled"}';
+    fs.writeFileSync(path.join(blobsDir, 'abc123.json'), blobContent);
+
+    const result = await migrateToStreams(tmp);
+    expect(result.ok).toBe(true);
+
+    const defaultDir = path.join(hDir, 'streams', 'default');
+    // Flat files moved with contents preserved.
+    expect(fs.readFileSync(path.join(defaultDir, 'state.events.jsonl'), 'utf-8')).toBe(logContent);
+    expect(fs.readFileSync(path.join(defaultDir, 'state.snapshot.json'), 'utf-8')).toBe(
+      snapContent
+    );
+    // Blobs directory moved with its file.
+    expect(
+      fs.readFileSync(path.join(defaultDir, 'state.events.blobs', 'abc123.json'), 'utf-8')
+    ).toBe(blobContent);
+
+    // Gone from the harness root.
+    expect(fs.existsSync(path.join(hDir, 'state.events.jsonl'))).toBe(false);
+    expect(fs.existsSync(path.join(hDir, 'state.snapshot.json'))).toBe(false);
+    expect(fs.existsSync(path.join(hDir, 'state.events.blobs'))).toBe(false);
+
+    fs.rmSync(tmp, { recursive: true });
+  });
+
   it('preserves file contents during migration', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'migrate-test-'));
     const hDir = path.join(tmp, '.harness');

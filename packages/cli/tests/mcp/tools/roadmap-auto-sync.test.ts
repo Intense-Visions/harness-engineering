@@ -3,7 +3,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { autoSyncRoadmap } from '../../../src/mcp/tools/roadmap-auto-sync';
-import { loadTrackerSyncConfig as loadTrackerConfig } from '@harness-engineering/core';
+import {
+  loadTrackerSyncConfig as loadTrackerConfig,
+  parseRoadmap,
+  roadmapToShards,
+  serializeShard,
+  serializeMeta,
+} from '@harness-engineering/core';
 
 // Minimal valid roadmap
 const TEST_ROADMAP = `---
@@ -132,5 +138,25 @@ describe('autoSyncRoadmap()', () => {
     } finally {
       if (origToken) process.env.GITHUB_TOKEN = origToken;
     }
+  });
+
+  it('loads via the store and completes in SHARDED mode (no roadmap.md aggregate seeded)', async () => {
+    // Build a sharded project with ONLY docs/roadmap.d/ (no monolith aggregate yet).
+    const parsed = parseRoadmap(TEST_ROADMAP);
+    if (!parsed.ok) throw parsed.error;
+    const { shards, meta } = roadmapToShards(parsed.value);
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    for (const shard of shards) {
+      fs.writeFileSync(path.join(shardDir, `${shard.slug}.md`), serializeShard(shard), 'utf-8');
+    }
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), serializeMeta(meta), 'utf-8');
+
+    // No tracker config → external sync is a no-op; autoSync must still complete.
+    await autoSyncRoadmap(tmpDir);
+
+    // Shards remain intact (no feature shard corrupted/deleted by the sync path).
+    expect(fs.existsSync(path.join(shardDir, 'auth.md'))).toBe(true);
+    expect(fs.existsSync(path.join(shardDir, '_meta.md'))).toBe(true);
   });
 });

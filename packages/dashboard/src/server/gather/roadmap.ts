@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { parseRoadmap } from '@harness-engineering/core';
+import { resolveRoadmapStore } from '@harness-engineering/core';
 import type {
   RoadmapResult,
   MilestoneProgress,
@@ -9,13 +8,14 @@ import type {
 } from '../../shared/types';
 
 /**
- * Read and parse the roadmap file, computing per-milestone progress.
- * Returns an error object instead of throwing on failure.
+ * Load the roadmap through the store (sharded when `docs/roadmap.d/` exists, else
+ * the monolith aggregate) and compute per-milestone progress. Reads go through
+ * `resolveRoadmapStore` so the dashboard never parses the aggregate directly
+ * (invariant R). Returns an error object instead of throwing on failure.
  */
-export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult> {
+export async function gatherRoadmap(projectPath: string): Promise<RoadmapResult> {
   try {
-    const content = await readFile(roadmapPath, 'utf-8');
-    const result = parseRoadmap(content);
+    const result = await resolveRoadmapStore({ projectRoot: projectPath }).load();
 
     if (!result.ok) {
       return { error: result.error.message };

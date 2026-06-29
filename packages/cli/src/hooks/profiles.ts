@@ -3,8 +3,12 @@
  *
  * Profiles are additive: each higher tier includes all hooks from lower tiers.
  * - minimal: safety floor (block-no-verify only)
- * - standard: + protect-config, quality-warner (warns, never blocks), pre-compact-state (default)
- * - strict: + strict-quality-gate (blocks on violations), cost-tracker, sentinel-pre, sentinel-post
+ * - standard: + protect-config, quality-warner (quality gates warn, never block),
+ *   pre-compact-state, adoption-tracker, telemetry-reporter, plus the security floor:
+ *   sentinel-pre (exit-2 blocks a destructive op in an already-tainted session — the
+ *   same safety-floor class as block-no-verify) and sentinel-post (detection only;
+ *   always exit 0, never blocks). Quality gates warn-never-block here. (default)
+ * - strict: + strict-quality-gate (blocks on quality violations), cost-tracker
  */
 
 export type HookProfile = 'minimal' | 'standard' | 'strict';
@@ -34,8 +38,8 @@ export const HOOK_SCRIPTS: HookScript[] = [
     minProfile: 'strict',
   },
   { name: 'cost-tracker', event: 'Stop', matcher: '*', minProfile: 'strict' },
-  { name: 'sentinel-pre', event: 'PreToolUse', matcher: '*', minProfile: 'strict' },
-  { name: 'sentinel-post', event: 'PostToolUse', matcher: '*', minProfile: 'strict' },
+  { name: 'sentinel-pre', event: 'PreToolUse', matcher: '*', minProfile: 'standard' },
+  { name: 'sentinel-post', event: 'PostToolUse', matcher: '*', minProfile: 'standard' },
 ];
 
 const PROFILE_ORDER: HookProfile[] = ['minimal', 'standard', 'strict'];

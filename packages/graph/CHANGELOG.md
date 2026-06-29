@@ -1,5 +1,13 @@
 # @harness-engineering/graph
 
+## 0.11.2
+
+### Patch Changes
+
+- Updated dependencies [4df8934]
+- Updated dependencies [863df8f]
+  - @harness-engineering/types@0.16.2
+
 ## 0.11.1
 
 ### Patch Changes

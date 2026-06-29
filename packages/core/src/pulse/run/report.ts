@@ -57,11 +57,17 @@ function totalCount(s: SanitizedResult): number {
 
 function buildHeadlines(r: OrchestratorResult): string {
   const total = r.sources.reduce((sum, s) => sum + totalCount(s.result), 0);
-  return [
+  const lines = [
     `- ${r.sourcesQueried.length} source(s) queried in ${r.durationMs}ms`,
     `- ${total} total events recorded`,
     `- ${r.sourcesSkipped.length} source(s) skipped`,
-  ].join('\n');
+  ];
+  if (r.quality) {
+    lines.push(
+      `- quality[${r.quality.dimension}]: ${r.quality.total} sampled across ${r.quality.sources} source(s)`
+    );
+  }
+  return lines.join('\n');
 }
 
 function buildUsage(r: OrchestratorResult): string {

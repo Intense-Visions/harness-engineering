@@ -1,0 +1,43 @@
+name: harness-maintenance-pipeline
+version: '1.0.0'
+description: On-demand, report-first maintenance sweep — runs overdue checks via `harness maintenance run`, triages findings, and asks the human in plain text before dispatching any fix
+stability: draft
+cognitive_mode: analytical-reporter
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - cursor
+  - codex
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+cli:
+  command: harness skill run harness-maintenance-pipeline
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-maintenance-pipeline
+    path: string
+type: flexible
+tier: 2
+phases:
+  - name: sweep
+    description: Run `harness maintenance run --json` (overdue, report mode) and parse the consolidated report
+    required: true
+  - name: triage
+    description: Present a human-readable summary bucketed by status and findings count
+    required: true
+  - name: fix
+    description: Ask the human in plain text which tasks to fix, then re-invoke `--only <ids> --fix` and relay the result
+    required: false
+state:
+  persistent: false
+  files: []
+depends_on: []

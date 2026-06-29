@@ -137,6 +137,17 @@ Complete guide to the harness roadmap system — structure, management, sync, an
 
 **Best for:** Teams using `docs/roadmap.md` for project tracking and planning
 
+### [Running Maintenance On Demand](./on-demand-maintenance.md)
+
+Run the harness maintenance registry on demand, without an orchestrator, using `harness maintenance run`:
+
+- The overdue-aware default vs `--all`, and which infra tasks are excluded from the sweep
+- Report-first by default vs `--fix` (real dispatch when a backend is configured; honest no-backend skip otherwise)
+- Reading the consolidated report and `last-run-summary.json`, plus CI exit codes
+- The `/harness:maintenance-pipeline` skill and how on-demand complements the cron scheduler
+
+**Best for:** Developers who want to answer "which maintenance did I forget to run?" without standing up an orchestrator
+
 ### [Graph Query Guide](./graph-queries.md)
 
 Query the knowledge graph to understand code structure, trace dependencies, and analyze impact:

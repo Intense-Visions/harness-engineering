@@ -154,7 +154,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      const result = runPredict({ cwd: '/tmp/fake-project' });
+      const result = await runPredict({ cwd: '/tmp/fake-project' });
       expect(result).toEqual(mockPredictionResult);
       expect(core.TimelineManager).toHaveBeenCalledWith('/tmp/fake-project');
       expect(core.SpecImpactEstimator).toHaveBeenCalledWith('/tmp/fake-project');
@@ -165,7 +165,7 @@ describe('predict command', () => {
       const configError = new Error('No config found');
       vi.mocked(resolveConfig).mockReturnValue({ ok: false, error: configError } as any);
 
-      expect(() => runPredict({ cwd: '/tmp/fake-project' })).toThrow('No config found');
+      await expect(runPredict({ cwd: '/tmp/fake-project' })).rejects.toThrow('No config found');
     });
 
     it('skips SpecImpactEstimator when noRoadmap is true', async () => {
@@ -174,7 +174,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project', noRoadmap: true });
+      await runPredict({ cwd: '/tmp/fake-project', noRoadmap: true });
       expect(core.SpecImpactEstimator).not.toHaveBeenCalled();
       expect(core.PredictionEngine).toHaveBeenCalledWith(
         '/tmp/fake-project',
@@ -189,7 +189,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project', noRoadmap: false });
+      await runPredict({ cwd: '/tmp/fake-project', noRoadmap: false });
       expect(core.SpecImpactEstimator).toHaveBeenCalledWith('/tmp/fake-project');
     });
 
@@ -198,7 +198,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project', category: 'complexity' });
+      await runPredict({ cwd: '/tmp/fake-project', category: 'complexity' });
       expect(mockPredict).toHaveBeenCalledWith(
         expect.objectContaining({ categories: ['complexity'] })
       );
@@ -209,7 +209,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project', horizon: 8 });
+      await runPredict({ cwd: '/tmp/fake-project', horizon: 8 });
       expect(mockPredict).toHaveBeenCalledWith(expect.objectContaining({ horizon: 8 }));
     });
 
@@ -218,7 +218,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project' });
+      await runPredict({ cwd: '/tmp/fake-project' });
       const callArg = mockPredict.mock.calls[0][0];
       expect(callArg).not.toHaveProperty('horizon');
     });
@@ -228,7 +228,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ cwd: '/tmp/fake-project' });
+      await runPredict({ cwd: '/tmp/fake-project' });
       expect(mockPredict).toHaveBeenCalledWith(expect.objectContaining({ includeRoadmap: true }));
     });
 
@@ -238,7 +238,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({});
+      await runPredict({});
       expect(core.TimelineManager).toHaveBeenCalledWith('/tmp/fake-project');
     });
 
@@ -247,7 +247,7 @@ describe('predict command', () => {
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      runPredict({ configPath: '/custom/config.json' });
+      await runPredict({ configPath: '/custom/config.json' });
       expect(resolveConfig).toHaveBeenCalledWith('/custom/config.json');
     });
   });

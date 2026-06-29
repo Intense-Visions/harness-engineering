@@ -11,6 +11,13 @@ pnpm-lock.yaml
 # Generated slash commands (YAML frontmatter must not be reformatted)
 agents/commands/**
 
+# Machine-managed roadmap: the deterministic serializer owns the format of the
+# generated aggregate and the per-row shards (double-quoted YAML frontmatter is a
+# deliberate safety choice). Prettier would re-pad tables / single-quote YAML,
+# fighting the regenerator forever and tripping the aggregate-drift check.
+docs/roadmap.md
+docs/roadmap.d/**
+
 # Generated/local harness state files
 .harness/health-snapshot.json
 .harness/skills-index.json

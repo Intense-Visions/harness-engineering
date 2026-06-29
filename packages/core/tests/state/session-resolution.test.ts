@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { resolveSessionDir, updateSessionIndex } from '../../src/state/session-resolver';
 import { appendLearning, loadRelevantLearnings } from '../../src/state';
-import { saveState, loadState } from '../../src/state';
+import { emitEvent, readSnapshot, toHarnessState } from '../../src/state/event-sourcing';
 import { saveHandoff, loadHandoff } from '../../src/state';
 import { appendFailure, loadFailures } from '../../src/state';
 
@@ -143,21 +143,21 @@ describe('session-scoped state round-trip', () => {
     }
   });
 
-  it('saveState and loadState use session directory', async () => {
-    const state = {
-      schemaVersion: 1 as const,
-      position: { phase: 'execute', task: 'Task 1' },
-      progress: {},
-      decisions: [],
-      blockers: [],
-    };
-    const saveResult = await saveState(tmpDir, state, undefined, 'my-session');
-    expect(saveResult.ok).toBe(true);
+  it('event-sourced core state resolves the session directory', async () => {
+    // Append a position event scoped to the session, then read it back via the
+    // session-scoped snapshot projection (replaces the deprecated
+    // saveState/loadState round-trip).
+    const emit = await emitEvent(
+      tmpDir,
+      { type: 'position_set', payload: { phase: 'execute', task: 'Task 1' } },
+      { session: 'my-session' }
+    );
+    expect(emit.ok).toBe(true);
 
-    const loadResult = await loadState(tmpDir, undefined, 'my-session');
-    expect(loadResult.ok).toBe(true);
-    if (loadResult.ok) {
-      expect(loadResult.value.position?.task).toBe('Task 1');
+    const snap = await readSnapshot(tmpDir, { session: 'my-session' });
+    expect(snap.ok).toBe(true);
+    if (snap.ok) {
+      expect(toHarnessState(snap.value.coreState).position?.task).toBe('Task 1');
     }
   });
 

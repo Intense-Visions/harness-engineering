@@ -121,7 +121,13 @@ describe('run_skill tool', () => {
       fs.mkdirSync(path.join(projectDir, '.harness'), { recursive: true });
       fs.writeFileSync(
         path.join(projectDir, '.harness', 'state.json'),
-        JSON.stringify({ phase: 'plan' })
+        JSON.stringify({
+          schemaVersion: 1,
+          position: { phase: 'plan' },
+          progress: {},
+          decisions: [],
+          blockers: [],
+        })
       );
 
       const result = await handleRunSkill({ skill: 'state-skill', path: projectDir });

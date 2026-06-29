@@ -1,5 +1,5 @@
 import type { MaintenanceConfig } from '@harness-engineering/types';
-import type { TaskDefinition, RunResult, RunOrigin } from './types';
+import type { TaskDefinition, RunResult, RunOrigin, RunMode } from './types';
 import type { CheckScriptRunner, CheckScriptResult } from './check-script-runner';
 import type { ContextResolver } from './context-resolver';
 import type { TaskOutputStore, PersistedOutputEntry } from './output-store';
@@ -23,6 +23,18 @@ export interface CheckCommandResult {
   findings: number;
   /** Raw output for logging/reporting */
   output: string;
+  /**
+   * True when the check command could NOT be executed to a usable result —
+   * the process failed to spawn (ENOENT), the subcommand was unknown, or it
+   * crashed with no parseable findings count. This is distinct from a check
+   * that ran fine and legitimately reported findings (`passed: false`,
+   * `findings > 0`). The TaskRunner maps `executionFailed` onto
+   * `status: 'failure'` so an un-runnable check is never masked as a
+   * successful 1-finding run (ADR 0050 — exit-1-on-check-crash). Omitted /
+   * `undefined` is treated as `false` for backward compatibility with runners
+   * that predate this field.
+   */
+  executionFailed?: boolean;
 }
 
 /**
@@ -170,20 +182,24 @@ export class TaskRunner {
    * @param origin - Hermes Phase 2 trigger-source tag; defaults to `'cron'`
    *                 when called from the scheduler path.
    */
-  async run(task: TaskDefinition, origin: RunOrigin = 'cron'): Promise<RunResult> {
+  async run(
+    task: TaskDefinition,
+    origin: RunOrigin = 'cron',
+    mode: RunMode = 'fix'
+  ): Promise<RunResult> {
     const startedAt = new Date().toISOString();
     let result: RunResult;
     let captured: CapturedCheck | undefined;
     try {
       switch (task.type) {
         case 'mechanical-ai': {
-          const out = await this.runMechanicalAI(task, startedAt);
+          const out = await this.runMechanicalAI(task, startedAt, mode);
           result = out.result;
           captured = out.captured;
           break;
         }
         case 'pure-ai':
-          result = await this.runPureAI(task, startedAt);
+          result = await this.runPureAI(task, startedAt, mode);
           break;
         case 'report-only': {
           const out = await this.runReportOnly(task, startedAt);
@@ -192,7 +208,7 @@ export class TaskRunner {
           break;
         }
         case 'housekeeping': {
-          const out = await this.runHousekeeping(task, startedAt);
+          const out = await this.runHousekeeping(task, startedAt, mode);
           result = out.result;
           captured = out.captured;
           break;
@@ -266,6 +282,7 @@ export class TaskRunner {
         stdout: r.output,
         stderr: r.stderr,
         structured: r.structured ? (r.structured as unknown as Record<string, unknown>) : null,
+        executionFailed: false,
       };
     }
     if (!task.checkCommand || task.checkCommand.length === 0) {
@@ -278,6 +295,7 @@ export class TaskRunner {
       stdout: r.output,
       stderr: '',
       structured: null,
+      executionFailed: r.executionFailed ?? false,
     };
   }
 
@@ -304,7 +322,11 @@ export class TaskRunner {
    * only if fixable findings exist; persist captured stdout/stderr/context
    * via the output store on the way out.
    */
-  private async runMechanicalAI(task: TaskDefinition, startedAt: string): Promise<RunOutcome> {
+  private async runMechanicalAI(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunOutcome> {
     if (!task.fixSkill) {
       return wrap(this.failureResult(task.id, startedAt, 'mechanical-ai task missing fixSkill'));
     }
@@ -328,6 +350,35 @@ export class TaskRunner {
       return wrap(this.failureResult(task.id, startedAt, String(err)));
     }
 
+    // A check the runner flagged `executionFailed` (non-zero exit / spawn error
+    // with no parseable count) is re-classified here into one of three honest
+    // outcomes (ADR 0050). Only a genuinely `unrunnable` check is a `failure` —
+    // a precondition refusal is `skipped`, and a check that ran and signaled
+    // drift without a count is a real (recovered) finding, never masked as
+    // 'no-issues'.
+    if (check.executionFailed) {
+      const cls = classifyCheckExecutionFailure(`${check.stdout}\n${check.stderr}`);
+      if (cls.kind === 'unrunnable') {
+        return wrap(
+          this.failureResult(task.id, startedAt, checkExecutionError(check)),
+          captureFromCheck(check)
+        );
+      }
+      if (cls.kind === 'precondition') {
+        return wrap(
+          this.skippedResult(task.id, startedAt, cls.reason ?? 'precondition not met'),
+          captureFromCheck(check)
+        );
+      }
+      // 'ran-no-count': recover a count from the output (or assume ≥1) and let
+      // the normal fixable-findings path proceed.
+      check = {
+        ...check,
+        executionFailed: false,
+        findings: check.findings > 0 ? check.findings : recoverFindingsCount(check.stdout),
+      };
+    }
+
     const promptContext = await this.composePromptContext(task);
     const baseCaptured: CapturedCheck = {
       stdout: check.stdout,
@@ -344,13 +395,25 @@ export class TaskRunner {
       check.structured !== null &&
       typeof check.structured === 'object' &&
       (check.structured as { wakeAgent?: unknown }).wakeAgent === false;
-    if (check.findings === 0 || wakeAgentExplicitlyFalse) {
+    if (check.findings === 0 || wakeAgentExplicitlyFalse || mode === 'report') {
+      // Report-mode status is aligned with the sibling `runReportOnly`
+      // convention rather than reusing 'no-issues': a report sweep that ran
+      // the check and surfaced N findings did real, successful work and must
+      // NOT claim 'no-issues' while carrying `findings: N` (that disagrees with
+      // runReportOnly's `status: 'success'` + real count for the same "ran a
+      // check, found N, did not fix" semantics, and would mislead the Phase 3
+      // CLI). Chosen over a new RunResult discriminator because it is the
+      // minimal change — zero type/consumer churn — and reuses the existing
+      // report-only contract Phase 3 already reads. Only a genuine zero-findings
+      // report reports 'no-issues'. Fix-mode no-issues paths (findings === 0 or
+      // wakeAgent:false) keep returning 'no-issues' unchanged.
+      const reportedWithFindings = mode === 'report' && check.findings > 0;
       return {
         result: {
           taskId: task.id,
           startedAt,
           completedAt: new Date().toISOString(),
-          status: 'no-issues',
+          status: reportedWithFindings ? 'success' : 'no-issues',
           findings: check.findings,
           fixed: 0,
           prUrl: null,
@@ -429,7 +492,24 @@ export class TaskRunner {
   /**
    * Pure-AI: always dispatch agent with configured skill.
    */
-  private async runPureAI(task: TaskDefinition, startedAt: string): Promise<RunResult> {
+  private async runPureAI(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunResult> {
+    if (mode === 'report') {
+      // Report mode: pure-ai has no check step and never dispatches.
+      return {
+        taskId: task.id,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: 'no-issues',
+        findings: 0,
+        fixed: 0,
+        prUrl: null,
+        prUpdated: false,
+      };
+    }
     if (!task.fixSkill) {
       return this.failureResult(task.id, startedAt, 'pure-ai task missing fixSkill');
     }
@@ -513,6 +593,35 @@ export class TaskRunner {
     }
     const parsed = parseStatusLine(check.stdout);
 
+    // Execution-honesty (ADR 0050): a check that emitted no JSON status line
+    // AND could not run is re-classified rather than blanket-failed. A CLI that
+    // emits an explicit JSON status (`parsed !== null`) spawned and ran — its
+    // contract status wins, even on a non-zero exit, so we only re-classify
+    // when there is no JSON status line.
+    if (parsed === null && check.executionFailed) {
+      const cls = classifyCheckExecutionFailure(`${check.stdout}\n${check.stderr}`);
+      if (cls.kind === 'unrunnable') {
+        return wrap(
+          this.failureResult(task.id, startedAt, checkExecutionError(check)),
+          captureFromCheck(check)
+        );
+      }
+      if (cls.kind === 'precondition') {
+        return wrap(
+          this.skippedResult(task.id, startedAt, cls.reason ?? 'precondition not met'),
+          captureFromCheck(check)
+        );
+      }
+      // 'ran-no-count': the check ran and signaled drift without a parseable
+      // count. Report it as a successful run carrying the recovered finding
+      // count (success-with-unknown-count), never a failure.
+      check = {
+        ...check,
+        executionFailed: false,
+        findings: check.findings > 0 ? check.findings : recoverFindingsCount(check.stdout),
+      };
+    }
+
     const status: RunResult['status'] = parsed?.status ?? 'success';
     // Findings precedence:
     //   - If a CLI emitted a JSON status line, the contract is that
@@ -562,7 +671,30 @@ export class TaskRunner {
    * Hermes Phase 2: a `checkScript` may replace `checkCommand` for housekeeping
    * tasks; the runner falls through to the same JSON-status parsing path.
    */
-  private async runHousekeeping(task: TaskDefinition, startedAt: string): Promise<RunOutcome> {
+  private async runHousekeeping(
+    task: TaskDefinition,
+    startedAt: string,
+    mode: RunMode = 'fix'
+  ): Promise<RunOutcome> {
+    // Defense-in-depth for report mode (D4). Housekeeping execs its command
+    // directly and may mutate git (e.g. `main-sync`), so a read-only report
+    // sweep must never run it. The Phase 2 `excludeFromHumanSweep` selection
+    // layer is the primary guard; this executor-level skip ensures a
+    // misrouted housekeeping task still cannot mutate under mode === 'report'.
+    if (mode === 'report') {
+      return wrap({
+        taskId: task.id,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: 'skipped',
+        findings: 0,
+        fixed: 0,
+        prUrl: null,
+        prUpdated: false,
+        error: 'skipped in report mode: housekeeping may mutate and report runs are read-only',
+      });
+    }
+
     if (!task.checkCommand && !task.checkScript) {
       return wrap(
         this.failureResult(
@@ -633,6 +765,27 @@ export class TaskRunner {
       error,
     };
   }
+
+  /**
+   * A precondition-gated check (e.g. `predict` with <3 snapshots, or a
+   * graph-backed check before `harness scan`). The command is correctly
+   * configured; the repo just lacks the state it needs. Reported as `skipped`
+   * — distinct from a hard `failure` — carrying the refusal line as the reason
+   * (surfaced in the run-report summary column). ADR 0050.
+   */
+  private skippedResult(taskId: string, startedAt: string, reason: string): RunResult {
+    return {
+      taskId,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      status: 'skipped',
+      findings: 0,
+      fixed: 0,
+      prUrl: null,
+      prUpdated: false,
+      error: reason,
+    };
+  }
 }
 
 /**
@@ -658,6 +811,8 @@ interface CheckOutcome {
   stdout: string;
   stderr: string;
   structured: Record<string, unknown> | null;
+  /** True when the check command could not be executed to a usable result. */
+  executionFailed: boolean;
 }
 
 /**
@@ -671,6 +826,171 @@ interface RunOutcome {
 
 function wrap(result: RunResult, captured?: CapturedCheck): RunOutcome {
   return captured ? { result, captured } : { result };
+}
+
+/** Build a human-readable error for a check that could not execute, preferring
+ * stderr, then stdout, then a generic fallback. */
+function checkExecutionError(check: CheckOutcome): string {
+  const detail = (check.stderr || check.stdout || '').trim();
+  return detail ? `check command failed to execute: ${detail}` : 'check command failed to execute';
+}
+
+/** Preserve a failed check's captured output so the output store records what
+ * (little) the broken check produced. */
+function captureFromCheck(check: CheckOutcome): CapturedCheck {
+  return { stdout: check.stdout, stderr: check.stderr, structured: check.structured };
+}
+
+/**
+ * Classification of a check that a `CheckCommandRunner` flagged
+ * `executionFailed` (non-zero exit / spawn error with no parseable finding
+ * count). The runners cannot tell these three cases apart with a single
+ * boolean, so the TaskRunner re-classifies the captured output here — keeping
+ * the logic in ONE shared place consumed by BOTH the cron orchestrator and the
+ * on-demand CLI (they each own a thin `CheckCommandRunner` but share this
+ * `TaskRunner`). See ADR 0050 (report-first / execution-honesty).
+ *
+ * - `unrunnable`  → the subcommand could not execute at all (unknown command,
+ *                   ENOENT, missing module, empty output). Maps to `failure`.
+ * - `precondition`→ the subcommand ran but refused because required state is
+ *                   absent in this repo (e.g. `predict` needs ≥3 snapshots;
+ *                   graph-backed checks need `harness scan` first). This is NOT
+ *                   a misconfiguration or a breakage — maps to `skipped` with a
+ *                   reason so dashboards/cron don't cry wolf.
+ * - `ran-no-count`→ the subcommand ran and exited non-zero to SIGNAL drift but
+ *                   emitted no machine-parseable count (e.g. `cleanup`,
+ *                   `check-docs`). A check that ran and flagged work is not an
+ *                   execution failure — maps to a real (recovered or assumed)
+ *                   finding count, never `failure`.
+ */
+export type CheckFailureKind = 'unrunnable' | 'precondition' | 'ran-no-count';
+
+export interface CheckFailureClassification {
+  kind: CheckFailureKind;
+  /** Human-readable reason, populated for `precondition` (the refusal line). */
+  reason?: string;
+}
+
+/**
+ * Output signatures that mean "the command ran but a required precondition was
+ * not met" — a `skipped`, not a `failure`. Curated and conservative: only these
+ * well-known refusal lines downgrade to `skipped`; everything else that could
+ * not run stays a hard failure.
+ *
+ *   - PredictionEngine: "requires at least N snapshots" / "Run \"harness snapshot\""
+ *   - Graph-backed checks (traceability, future stale-constraints CLI):
+ *     "No knowledge graph found. Run `harness scan` first." / "no graph available"
+ */
+const PRECONDITION_PATTERNS: RegExp[] = [
+  /requires at least \d+ snapshots?/i,
+  /Run ["'`]?harness snapshot/i,
+  /no knowledge graph found/i,
+  /Run ["'`]?harness scan/i,
+  /no graph (?:available|found)/i,
+];
+
+/**
+ * Output signatures that mean "the subcommand could not execute at all" — a
+ * hard `failure`. Distinguishes a genuinely broken/misconfigured checkCommand
+ * (e.g. an MCP tool name like `assess_project` that is not a CLI subcommand)
+ * from a check that ran and merely signaled drift.
+ */
+const UNRUNNABLE_PATTERNS: RegExp[] = [
+  /unknown command/i,
+  /unknown option/i,
+  /\bENOENT\b/,
+  /command not found/i,
+  /cannot find module/i,
+  // A timed-out check did not complete — it is a hard failure, never a
+  // "ran-no-count" success. The runners synthesize this message on SIGTERM.
+  /timed out/i,
+  /\bETIMEDOUT\b/,
+];
+
+/**
+ * Distinct timeout marker the maintenance check runners synthesize on SIGTERM /
+ * ETIMEDOUT (see `runHarnessCheck`). Classified ahead of `explicitFindingsCount`
+ * and matched across the FULL output (not just the head): a timed-out check may
+ * have flushed PARTIAL parseable output ("5 issues") before being killed, with
+ * the marker appended after it. That partial count is truncated and untrustworthy,
+ * so the timeout always wins — the check did not complete and is `unrunnable`.
+ */
+const TIMEOUT_SIGNATURE = /check timed out after \d+\s*ms/i;
+
+/**
+ * Parse an EXPLICIT finding count from output the primary `N keyword` parser in
+ * the `CheckCommandRunner` missed — it only matches "45 issues", not the
+ * "Entropy issues: 32264" (count-after-keyword) shape. Returns `null` when no
+ * explicit count is present (vs `recoverFindingsCount`, which defaults to 1).
+ *
+ * A recoverable explicit count is the strongest possible signal that a check
+ * actually RAN and produced findings, so the classifier trusts it over any
+ * scary-looking words ("ENOENT", "not found") buried in the findings body.
+ */
+export function explicitFindingsCount(output: string): number | null {
+  const after = output.match(/(?:findings?|issues?|violations?|errors?)\s*[:=]\s*(\d+)/i);
+  if (after) return parseInt(after[1]!, 10);
+  const before = output.match(/(\d+)\s+(?:findings?|issues?|violations?|errors?)\b/i);
+  if (before) return parseInt(before[1]!, 10);
+  return null;
+}
+
+/**
+ * Recover a finding count from a `ran-no-count` output, falling back to 1 — the
+ * check ran and flagged something, exact count unknown.
+ */
+export function recoverFindingsCount(output: string): number {
+  return explicitFindingsCount(output) ?? 1;
+}
+
+/** First meaningful (non-empty) line of an output, stripped of a leading
+ * status glyph (`x`, `✗`, `✓`, `!`) so a skip reason reads cleanly. */
+function firstMeaningfulLine(output: string): string {
+  const line = output
+    .split('\n')
+    .map((l) => l.trim())
+    .find(Boolean);
+  if (!line) return 'precondition not met';
+  return line.replace(/^[x✗✓!-]\s*/u, '').trim();
+}
+
+/**
+ * Re-classify a check that a `CheckCommandRunner` flagged `executionFailed`.
+ * Precondition signatures win first (they may co-exist with a non-zero exit),
+ * then hard-unrunnable signatures, else the check ran and signaled drift
+ * without a parseable count.
+ *
+ * Signatures are matched ONLY against the leading lines of the output, never
+ * the whole blob: a genuine "could not run" / "precondition" error is short and
+ * emitted at the very top, whereas a check that ran can produce megabytes of
+ * legitimate findings that incidentally contain words like "not found" or
+ * "ENOENT" (e.g. `cleanup`'s symbol-drift report). Scanning the full output
+ * would false-positive those into a `failure`.
+ */
+const CLASSIFY_HEAD_LINES = 3;
+
+export function classifyCheckExecutionFailure(output: string): CheckFailureClassification {
+  const text = (output ?? '').trim();
+  if (text.length === 0) return { kind: 'unrunnable' };
+  // Timeout provenance wins ahead of the explicit-count fast path: a timed-out
+  // check is truncated and unreliable even if it flushed a parseable count
+  // ("5 issues") before SIGTERM, so it must never be trusted as ran-no-count.
+  if (TIMEOUT_SIGNATURE.test(text)) return { kind: 'unrunnable' };
+  // Strongest signal next: an explicit finding count proves the check RAN and
+  // produced results, regardless of any alarming words deep in the findings.
+  if (explicitFindingsCount(text) !== null) return { kind: 'ran-no-count' };
+  const head = text
+    .split('\n')
+    .filter((l) => l.trim())
+    .slice(0, CLASSIFY_HEAD_LINES)
+    .join('\n');
+  for (const re of PRECONDITION_PATTERNS) {
+    if (re.test(head)) return { kind: 'precondition', reason: firstMeaningfulLine(text) };
+  }
+  for (const re of UNRUNNABLE_PATTERNS) {
+    if (re.test(head)) return { kind: 'unrunnable' };
+  }
+  return { kind: 'ran-no-count' };
 }
 
 /**

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { HEALTH_SIGNAL_NAMES } from '@harness-engineering/core';
 import {
   HEALTH_SIGNALS,
+  CHANGE_SIGNALS,
+  DOMAIN_SIGNALS,
   type HealthSignal,
   type Recommendation,
   type RecommendationResult,
@@ -64,6 +67,58 @@ describe('HEALTH_SIGNALS', () => {
     const domainSignal: HealthSignal = 'domain-database';
     expect(changeSignal).toBe('change-feature');
     expect(domainSignal).toBe('domain-database');
+  });
+
+  it('is the exact 28-name list in order (12 health, 4 change, 12 domain) — unchanged', () => {
+    expect([...HEALTH_SIGNALS]).toEqual([
+      'circular-deps',
+      'layer-violations',
+      'high-coupling',
+      'high-complexity',
+      'low-coverage',
+      'dead-code',
+      'drift',
+      'security-findings',
+      'doc-gaps',
+      'perf-regression',
+      'anomaly-outlier',
+      'articulation-point',
+      'change-feature',
+      'change-bugfix',
+      'change-refactor',
+      'change-docs',
+      'domain-database',
+      'domain-containerization',
+      'domain-deployment',
+      'domain-infrastructure-as-code',
+      'domain-api-design',
+      'domain-secrets',
+      'domain-e2e',
+      'domain-mutation-test',
+      'domain-load-testing',
+      'domain-data-pipeline',
+      'domain-mobile-patterns',
+      'domain-incident-response',
+    ]);
+  });
+
+  it('single-sources its health portion from core HEALTH_SIGNAL_NAMES (SC4)', () => {
+    expect(HEALTH_SIGNALS.slice(0, HEALTH_SIGNAL_NAMES.length)).toEqual([...HEALTH_SIGNAL_NAMES]);
+  });
+
+  it('keeps change/domain signals cli-local (core stays unaware)', () => {
+    expect([...CHANGE_SIGNALS]).toEqual([
+      'change-feature',
+      'change-bugfix',
+      'change-refactor',
+      'change-docs',
+    ]);
+    expect(DOMAIN_SIGNALS).toHaveLength(12);
+    expect([...HEALTH_SIGNALS]).toEqual([
+      ...HEALTH_SIGNAL_NAMES,
+      ...CHANGE_SIGNALS,
+      ...DOMAIN_SIGNALS,
+    ]);
   });
 });
 

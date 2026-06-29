@@ -4,7 +4,11 @@ import {
   loadProjectRoadmapMode,
   createTrackerClient,
   loadTrackerClientConfigFromProject,
+  resolveRoadmapStore,
+  applyRoadmapDiff,
+  roadmapSourceExists,
 } from '@harness-engineering/core';
+import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { triggerExternalSync } from './roadmap-auto-sync.js';
@@ -13,7 +17,7 @@ import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes docs/roadmap.md. The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.',
+    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -93,24 +97,29 @@ interface ManageRoadmapInput {
   force_sync?: boolean;
 }
 
-function roadmapPath(projectRoot: string): string {
-  return path.join(projectRoot, 'docs', 'roadmap.md');
+/**
+ * Read the roadmap through the store seam: `ShardStore` when `docs/roadmap.d/`
+ * exists, else the monolith aggregate. Store parity guarantees an identical
+ * in-memory `Roadmap` in both modes. `roadmapSourceExists` (from core) preserves
+ * the distinct "roadmap not found" response vs a parse error.
+ */
+async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
+  return resolveRoadmapStore({ projectRoot }).load();
 }
 
-function readRoadmapFile(projectRoot: string): string | null {
-  const filePath = roadmapPath(projectRoot);
-  try {
-    return fs.readFileSync(filePath, 'utf-8');
-  } catch {
-    return null;
-  }
-}
-
-function writeRoadmapFile(projectRoot: string, content: string): void {
-  const filePath = roadmapPath(projectRoot);
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, content, 'utf-8');
+/**
+ * Persist an in-memory mutation as the minimal set of single-feature store
+ * writes: in sharded mode exactly the changed shard(s) are rewritten (+ aggregate
+ * regenerated); in monolith mode it is a whole-file rewrite. `before` must be a
+ * structuredClone captured right after `loadRoadmap`.
+ */
+async function persistRoadmap(
+  projectRoot: string,
+  before: Roadmap,
+  after: Roadmap
+): Promise<Result<void>> {
+  const store = resolveRoadmapStore({ projectRoot });
+  return applyRoadmapDiff(store, before, after);
 }
 
 import { type McpResponse } from '../utils.js';
@@ -182,24 +191,23 @@ function roadmapNotFoundError(): McpResponse {
     content: [
       {
         type: 'text' as const,
-        text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+        text: 'Error: roadmap not found. Create a roadmap first.',
       },
     ],
     isError: true,
   };
 }
 
-function handleShow(
+async function handleShow(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   let roadmap = result.value;
@@ -267,19 +275,23 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
   };
 }
 
-function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: RoadmapDeps): McpResponse {
-  const { parseRoadmap, serializeRoadmap, Ok } = deps;
+async function handleAdd(
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   const validationError = validateAddFields(input);
   if (validationError) return validationError;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   const milestone = roadmap.milestones.find(
     (m) => m.name.toLowerCase() === input.milestone!.toLowerCase()
   );
@@ -295,7 +307,8 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
   // Update last_manual_edit timestamp
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 
@@ -329,12 +342,12 @@ function claimRefusedResponse(
   };
 }
 
-function handleUpdate(
+async function handleUpdate(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok } = deps;
+): Promise<McpResponse> {
+  const { syncRoadmap, applySyncChanges, Ok } = deps;
 
   if (!input.feature) {
     return {
@@ -343,13 +356,13 @@ function handleUpdate(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   let found = false;
   for (const m of roadmap.milestones) {
     const feature = m.features.find((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
@@ -397,23 +410,37 @@ function handleUpdate(
 
   // Cascade: when this update marks a feature done (or otherwise resolves a
   // blocker), flip dependents from blocked → planned in the same write.
-  const cascade = syncRoadmap({ projectPath, roadmap });
-  if (cascade.ok && cascade.value.length > 0) {
-    applySyncChanges(roadmap, cascade.value);
+  //
+  // This is an unblock-only cascade. syncRoadmap also re-derives `blocked` for
+  // any planned feature with an unfinished blocker (sync.ts inferStatus); since
+  // planned/blocked are lateral in STATUS_RANK that move is not a regression, so
+  // applying it verbatim re-blocks unrelated bystanders on every single update
+  // (#610). Drop any transition *into* blocked here — re-blocking is the explicit
+  // `sync` action's job, not a side-effect of editing one feature.
+  //
+  // `syncRoadmap` is async since the event-sourced cutover (#598): inferStatus now
+  // reads progress from the snapshot projection rather than a mutated state.json.
+  const cascade = await syncRoadmap({ projectPath, roadmap });
+  if (cascade.ok) {
+    const unblocking = cascade.value.filter((change) => change.to !== 'blocked');
+    if (unblocking.length > 0) {
+      applySyncChanges(roadmap, unblocking);
+    }
   }
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 
-function handleRemove(
+async function handleRemove(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   if (!input.feature) {
     return {
@@ -422,13 +449,13 @@ function handleRemove(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
+  const before = structuredClone(roadmap);
   let found = false;
   for (const m of roadmap.milestones) {
     const idx = m.features.findIndex((f) => f.name.toLowerCase() === input.feature!.toLowerCase());
@@ -448,7 +475,8 @@ function handleRemove(
 
   roadmap.frontmatter.lastManualEdit = new Date().toISOString();
 
-  writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
   return resultToMcpResponse(Ok(roadmap));
 }
 
@@ -465,12 +493,12 @@ function promoteEnvelopeResponse(
   };
 }
 
-function handlePromote(
+async function handlePromote(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, promoteFeature } = deps;
+): Promise<McpResponse> {
+  const { promoteFeature } = deps;
 
   if (!input.feature) {
     return {
@@ -485,11 +513,10 @@ function handlePromote(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
   // D4: no roadmap → silent skip. The skill still commits the spec; no envelope.
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   // A malformed roadmap surfaces as a write-failed envelope (D4): promotion
   // cannot proceed against a broken file and the human must repair it.
   if (!result.ok) {
@@ -501,6 +528,7 @@ function handlePromote(
     });
   }
 
+  const before = structuredClone(result.value);
   const { result: envelope, nextRoadmap } = promoteFeature(result.value, {
     feature: input.feature,
     spec: input.spec,
@@ -510,14 +538,13 @@ function handlePromote(
   // Only a mutating success touches the file; noop and refusals leave it byte-identical.
   if (envelope.ok && envelope.transitioned !== 'noop') {
     nextRoadmap.frontmatter.lastManualEdit = new Date().toISOString();
-    try {
-      writeRoadmapFile(projectPath, serializeRoadmap(nextRoadmap));
-    } catch (error) {
+    const persisted = await persistRoadmap(projectPath, before, nextRoadmap);
+    if (!persisted.ok) {
       return promoteEnvelopeResponse({
         ok: false,
         reason: 'write-failed',
         feature: input.feature,
-        detail: error instanceof Error ? error.message : String(error),
+        detail: persisted.error.message,
       });
     }
   }
@@ -526,12 +553,12 @@ function handlePromote(
   return promoteEnvelopeResponse(envelope);
 }
 
-function handleQuery(
+async function handleQuery(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { Ok } = deps;
 
   if (!input.filter) {
     return {
@@ -540,10 +567,9 @@ function handleQuery(
     };
   }
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
@@ -565,21 +591,21 @@ function handleQuery(
   return resultToMcpResponse(Ok(filtered));
 }
 
-function handleSync(
+async function handleSync(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, syncRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { syncRoadmap, Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
   const roadmap = result.value;
-  const syncResult = syncRoadmap({
+  const before = structuredClone(roadmap);
+  const syncResult = await syncRoadmap({
     projectPath,
     roadmap,
     forceSync: input.force_sync ?? false,
@@ -594,26 +620,27 @@ function handleSync(
 
   if (input.apply) {
     deps.applySyncChanges(roadmap, changes);
-    writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+    const persisted = await persistRoadmap(projectPath, before, roadmap);
+    if (!persisted.ok) return resultToMcpResponse(persisted);
     return resultToMcpResponse(Ok({ changes, applied: true, roadmap }));
   }
 
   return resultToMcpResponse(Ok({ changes, applied: false }));
 }
 
-function handleGroom(
+async function handleGroom(
   projectPath: string,
   _input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
-  const { parseRoadmap, serializeRoadmap, groomRoadmap, Ok } = deps;
+): Promise<McpResponse> {
+  const { groomRoadmap, Ok } = deps;
 
-  const raw = readRoadmapFile(projectPath);
-  if (raw === null) return roadmapNotFoundError();
+  if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
 
-  const result = parseRoadmap(raw);
+  const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
 
+  const before = structuredClone(result.value);
   const { roadmap: groomed, archived, changes } = groomRoadmap(result.value);
 
   if (changes.length === 0) {
@@ -622,9 +649,12 @@ function handleGroom(
     );
   }
 
+  // The archive stays a whole-file write (docs/roadmap-archive.md is NOT sharded).
   appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
   groomed.frontmatter.lastManualEdit = new Date().toISOString();
-  writeRoadmapFile(projectPath, serializeRoadmap(groomed));
+  // Per-shard: archived rows are removeFeature'd, demoted rows patchFeature'd.
+  const persisted = await persistRoadmap(projectPath, before, groomed);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
 
   const demoted = changes.filter((c) => c.kind === 'demoted').length;
   return resultToMcpResponse(
@@ -639,12 +669,12 @@ function handleGroom(
 
 const readOnlyActions = new Set(['show', 'query']);
 
-function dispatchAction(
+async function dispatchAction(
   action: ManageRoadmapInput['action'],
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
-): McpResponse {
+): Promise<McpResponse> {
   switch (action) {
     case 'show':
       return handleShow(projectPath, input, deps);
@@ -671,7 +701,7 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   if (response.isError || readOnlyActions.has(input.action)) return false;
   if (input.action === 'sync') return input.apply === true;
   // Groom is a local reorganization (demote/archive). Mirroring it would read
-  // archived rows leaving roadmap.md as deletions; run `sync` explicitly instead.
+  // archived rows leaving the aggregate as deletions; run `sync` explicitly instead.
   if (input.action === 'groom') return false;
   return true;
 }
@@ -733,10 +763,10 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       groomRoadmap,
       Ok,
     };
-    const response = dispatchAction(input.action, projectPath, input, deps);
+    const response = await dispatchAction(input.action, projectPath, input, deps);
 
     if (shouldTriggerExternalSync(input, response)) {
-      await triggerExternalSync(projectPath, roadmapPath(projectPath)).catch(() => {});
+      await triggerExternalSync(projectPath).catch(() => {});
     }
 
     return response;

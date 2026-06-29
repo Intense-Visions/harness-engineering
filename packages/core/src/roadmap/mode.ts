@@ -1,8 +1,8 @@
 /**
  * Roadmap storage mode.
  *
- * - `file-backed` — `docs/roadmap.md` is canonical (today's behavior).
- * - `file-less` — the configured external tracker is canonical; `docs/roadmap.md`
+ * - `file-backed` — the roadmap aggregate is canonical (today's behavior).
+ * - `file-less` — the configured external tracker is canonical; the aggregate
  *   must not exist. Activated explicitly via `roadmap.mode: "file-less"` in
  *   `harness.config.json` and validated by `validateRoadmapMode`.
  *

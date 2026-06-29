@@ -251,3 +251,59 @@ export async function runCritique(args: CritiqueArgs): Promise<CraftFinding[]> {
   }
   return findings;
 }
+
+/** A rendered component screenshot to critique in deep (vision) mode. */
+export interface VisionCritiqueTarget {
+  /** Path to the source file the screenshot renders (for finding attribution). */
+  file: string;
+  /** Optional component identifier (display name in the finding). */
+  component?: string;
+  /** Path to the rendered screenshot (PNG / JPEG / WebP). */
+  image: string;
+}
+
+export interface VisionCritiqueArgs {
+  targets: VisionCritiqueTarget[];
+  rubrics: RubricDefinition[];
+  provider: LlmProvider;
+}
+
+function readImage(imagePath: string): {
+  imageBuffer: Buffer;
+  mediaType: 'image/png' | 'image/jpeg' | 'image/webp';
+} {
+  const resolved = path.isAbsolute(imagePath) ? imagePath : path.resolve(process.cwd(), imagePath);
+  const imageBuffer = fs.readFileSync(resolved);
+  const ext = path.extname(resolved).toLowerCase();
+  const mediaType =
+    ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png';
+  return { imageBuffer, mediaType };
+}
+
+/**
+ * Run the CRITIQUE phase in deep (vision) mode over `targets × rubrics`. Mirrors
+ * {@link runCritique} but judges the *rendered screenshot* via the provider's
+ * vision channel instead of the source code — the difference that distinguishes
+ * `mode: 'deep'` from `mode: 'fast'`. Each (target, rubric) pair yields exactly
+ * one finding (real or low-confidence parse-failure sentinel), row-major stable.
+ */
+export async function runVisionCritique(args: VisionCritiqueArgs): Promise<CraftFinding[]> {
+  const findings: CraftFinding[] = [];
+  for (const target of args.targets) {
+    const image = readImage(target.image);
+    const targetId = target.component ?? target.file;
+    for (const rubric of args.rubrics) {
+      const prompt = formatPrompt(
+        rubric.prompt,
+        targetId,
+        '(the rendered component is attached as an image — judge the visual result, not source code)'
+      );
+      const raw = await args.provider.callVision(prompt, image);
+      const parsed = parseFindingResponse(raw);
+      findings.push(
+        parsed ? buildFinding(target, rubric, parsed) : buildSentinelFinding(target, rubric, raw)
+      );
+    }
+  }
+  return findings;
+}

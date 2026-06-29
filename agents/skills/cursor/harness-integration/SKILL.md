@@ -66,7 +66,7 @@ Before running sub-phases, resolve the effective integration tier:
    Tier escalated from `small` to `medium`: 8 new exports detected.
    ```
 
-   Use `emit_interaction` with type `confirmation` to inform and get acknowledgment.
+   Inform the human and get acknowledgment in plain text in your reply (do NOT route this through `emit_interaction` or `AskUserQuestion` — they record the prompt but do not display it to the human, so they won't see it).
 
 ---
 
@@ -213,7 +213,7 @@ Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers
    <What follows from this decision -- positive, negative, and neutral?>
    ```
 
-   d. **Present for review.** In `thorough` rigor, present each ADR draft via `emit_interaction` (type: `confirmation`) and wait for human approval. In `standard` rigor, auto-approve but log the draft for review.
+   d. **Present for review.** In `thorough` rigor, present each ADR draft in plain text in your reply and wait for human approval — do NOT route it through `emit_interaction` or `AskUserQuestion`, which record the prompt but do not display it to the human (the client collapses the call to "Called harness" and the text only returns to the model). In `standard` rigor, auto-approve but log the draft for review.
 
 #### Knowledge Graph Enrichment (medium + large tiers)
 
@@ -266,7 +266,7 @@ Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers
 
 ---
 
-### Sub-Phase 3: UPDATE (medium + large tiers)
+### Sub-Phase 3: UPDATE (medium and large tiers)
 
 Report progress: `**[UPDATE]** Checking project metadata updates`
 
@@ -364,22 +364,24 @@ After all applicable sub-phases complete, produce the combined integration repor
 
    Immediately invoke harness-code-review without waiting for user input.
 
-4. **On FAIL:** Do NOT emit a transition. Report incomplete items with fix instructions. Present options via `emit_interaction`:
+4. **On FAIL:** Do NOT emit a transition. Report incomplete items with fix instructions, then ask the human how to proceed in plain text.
 
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "question",
-     question: {
-       text: "Integration failed. <N> items incomplete. How to proceed?",
-       options: [
-         { "label": "fix -- Re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE", "risk": "low", "effort": "medium" },
-         { "label": "skip -- Record decision and proceed to REVIEW (human override)", "risk": "medium", "effort": "low" },
-         { "label": "stop -- Save state and exit", "risk": "low", "effort": "low" }
-       ],
-       recommendation: { "optionIndex": 0, "reason": "Fixing integration gaps now prevents review rework.", "confidence": "high" }
-     }
-   })
+   **Ask directly in your reply. Do NOT route the question through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the prompt but does not display it to the human — the client collapses the call to "Called harness" and the rendered text only returns to the model, so the human sees nothing and you end up narrating a question they cannot answer. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
+
+   Present the options as a markdown table, state your recommendation, then STOP and wait for the human's reply:
+
+   ```markdown
+   ### Decision needed: Integration failed. <N> items incomplete. How to proceed?
+
+   |            | fix                                                                                | skip                                                   | stop                      |
+   | ---------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------- |
+   | **What**   | Re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE | Record decision and proceed to REVIEW (human override) | Save state and exit       |
+   | **Pros**   | Closes gaps before review                                                          | Unblocks progress immediately                          | Preserves state for later |
+   | **Cons**   | Another execute/verify cycle                                                       | Ships with known gaps                                  | No forward progress       |
+   | **Risk**   | Low                                                                                | Medium                                                 | Low                       |
+   | **Effort** | Medium                                                                             | Low                                                    | Low                       |
+
+   **Recommendation:** fix (confidence: high) — fixing integration gaps now prevents review rework.
    ```
 
    - **fix:** Record fix tasks in handoff. The autopilot re-enters EXECUTE with those tasks.
@@ -449,7 +451,7 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 - **`harness check-deps`** -- Run during WIRE if new modules were added.
 - **`ingest_source`** -- Run during MATERIALIZE to enrich knowledge graph with decision nodes.
 - **`manage_roadmap`** -- Run during UPDATE to sync roadmap status. Use `sync` with `apply: true`.
-- **`emit_interaction`** -- Tier escalation notification, ADR review (thorough mode), fail/skip/stop decision, transition to REVIEW on pass.
+- **`emit_interaction`** -- Used only for the transition to REVIEW on pass. Tier escalation, ADR review (thorough mode), and fail/skip/stop decisions are asked in plain text in your reply.
 - **Session directory** -- `.harness/sessions/<slug>/` contains all report files. Do not write to global `.harness/` when session slug is known.
 
 ## Success Criteria

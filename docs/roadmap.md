@@ -2,18 +2,30 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-06-25
+updated: 2026-06-26
 last_synced: 2026-06-23T18:05:08.357Z
-last_manual_edit: 2026-06-26T01:25:24.050Z
+last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
 # Roadmap
 
 ## Intake
 
+### Shard the roadmap into per-row files with a generated aggregate view
+
+- **Status:** done
+- **Spec:** docs/changes/roadmap-shard-store/proposal.md
+- **Summary:** Shard docs/roadmap.md into per-row docs/roadmap.d/<slug>.md files (the sole authoritative source) with a generated merge=ours aggregate view, eliminating branch/worktree/PR contention by construction. A RoadmapStore abstraction lets sharded and monolith modes coexist (new projects sharded by default; existing adopters migrate via reversible `harness roadmap shard`). The conflict-free single-shard writeback unlocks auto-done on PR merge via a CI Action plus a `harness roadmap reconcile` fallback, keyed off the External-ID each row already carries. Invariant R: only the regenerator reads roadmap.md; all tools read the shard directory.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-06-27T00:00:00.000Z
+
 ### Assignee means who is executing — set at execution, not selection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/assignee-execution-lifecycle/proposal.md
 - **Summary:** Establish the invariant assignee ≠ null ⟺ in-progress via a centralized core authority: roadmap-pilot stops assigning at selection, harness-execution claims at execution start, machine claims never use the GitHub assignee field, inbound sync never clobbers a live machine claim, and RMH005 + groom enforce/migrate. Fixes the orchestrator silently skipping pilot-touched items.
 - **Blockers:** —
@@ -21,6 +33,15 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#640
+- **Updated-At:** 2026-06-26T17:46:10.000Z
+
+### On-Demand Maintenance Pipeline
+
+- **Status:** done
+- **Spec:** docs/changes/maintenance-pipeline/proposal.md
+- **Summary:** Build the deferred `harness maintenance run` (overdue-aware, report-first, `--fix` opt-in) on the existing 22-task maintenance registry by threading a `mode: report|fix` through `TaskRunner`, plus a thin `/harness:maintenance-pipeline` skill on top. One executor, one registry — gives developers an on-demand way to run the maintenance that is actually overdue without a running orchestrator. Source: /harness:brainstorming.
+- **Blockers:** —
+- **Plan:** —
 
 ## v5.0 — Enforcement Hardening
 
@@ -38,8 +59,8 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 
 ### Make protect-config fail-closed in ambiguous cases
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/protect-config-fail-closed/proposal.md
 - **Summary:** `packages/cli/src/hooks/protect-config.js:36,41,49` — three branches currently fail-open (parse error → allow, empty stdin → allow, missing `file_path` → allow). The security-flavored hook that protects config silently yields whenever its input is malformed. Change to fail-closed with a clear error message. Defense-in-depth. Source: Pass 5 #2.
 - **Blockers:** —
 - **Plan:** —
@@ -49,14 +70,15 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 
 ### Reconcile health-snapshot.json passed flags with active signals
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/health-snapshot-signal-honesty/proposal.md
 - **Summary:** `.harness/health-snapshot.json` reports `entropy.passed: true` while listing "dead-code" in `signals[]`; same for docs (`passed: true`, `undocumentedCount: 27481`) and security (`passed: true`, `findingCount: 16`). The harness's own dogfooded output says all checks "passed" while listing seven active drift signals. Make `checks.X.passed` return `false` when `signals[]` includes the corresponding signal name. Source: Pass 1 #2.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#528
+- **Updated-At:** 2026-06-26T23:31:52.000Z
 
 ### Audit and cap the pre-commit --skip list
 
@@ -172,8 +194,8 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 
 ### Promote harness:strategy to gateway position in init
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/strategy-init-gateway/proposal.md
 - **Summary:** `initialize-harness-project/SKILL.md` currently asks the strategy question as Phase 3, step 5c — buried after scaffolding and configuration. The article's gear item #1 is "specs operated FROM," and strategy is the foundational spec. Move the strategy prompt to the FIRST question init asks, not the fifth. Adopters who skip it end up with no strategic anchor, which means brainstorming/ideate/roadmap-pilot start cold. Source: Pass 3 #13.
 - **Blockers:** —
 - **Plan:** —
@@ -309,7 +331,7 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 ### Move sentinel-pre/post to standard hook profile
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/sentinel-standard-profile/proposal.md
 - **Summary:** `packages/cli/src/hooks/profiles.ts:31-32` — `sentinel-pre` and `sentinel-post` (prompt-injection defense covering zero-width chars, RTL/LTR overrides, role-reassignment, permission-escalation, base64 exfiltration, destructive-bash in tainted sessions) currently ship at STRICT profile only. Default-profile adopters get NONE of this defense. Move to standard. Cost-tracker can remain strict-only as a separate concern. Source: Pass 6 #1.
 - **Blockers:** —
 - **Plan:** —
@@ -432,7 +454,7 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 ### Build harness-pm persona for eval suite and acceptance criteria ownership
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/harness-pm-persona/proposal.md
 - **Summary:** The companion article "AI Ate My Role" defines three surviving Project Manager lanes: Taste PM (product thesis), **Harness PM (eval suite design + acceptance criteria)**, Boundary PM (compliance). The project ships 15 personas — all engineering-shaped (code-reviewer, architecture-enforcer, security-reviewer, performance-guardian, planner, task-executor, etc.). **Zero PM-shaped personas exist.** Build `harness-pm` persona that owns: (a) reviewing every spec's acceptance criteria for observability/testability/completeness, (b) ensuring eval suite coverage matches the spec's user-visible behavior section, (c) catching specs that ship without measurable success criteria. Pairs with `harness:outcome-eval` (which produces the eval verdicts) to give that eval an organizational owner. The article: "Quality became something that happened _to_ the work, not something that lived _inside_ the work. The new role sits at parity with engineering, not downstream." Source: Pass 8 (AI Ate My Role + Anatomy companion articles).
 - **Blockers:** Build harness:outcome-eval skill
 - **Plan:** —
@@ -483,6 +505,39 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#570
+
+### Wire outcome-eval into the lifecycle as an automatic spec-satisfaction gate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** outcome-eval is the harness's first blocking post-execution spec-satisfaction gate, but nothing invokes it automatically — verified 2026-06 it is absent from .husky/, .github/workflows/, AND the harness-autopilot VERIFY/INTEGRATE/REVIEW loop. Its blocking authority (high-confidence NOT_SATISFIED) only bites when a human or agent chooses to run /harness:outcome-eval or mcp**harness**outcome_eval. Wire it in: (a) call outcome_eval in harness-autopilot after REVIEW (post-execution, before PHASE_COMPLETE), gathering diff+testOutput from the session and halting on a blocking verdict; (b) add a pre-merge CI job (sibling to .github/workflows/required-review.yml) that runs it on PRs and surfaces the verdict, blocking only on high-confidence NOT_SATISFIED. This makes the #1-gap gate actually load-bearing and unblocks the assumptions baked into #569 (pre-merge-brief surfaces 'outcome-eval result when available'), #533 (post-merge rollback on failed eval), and #552 (Holiday Confidence KPI measures 'outcome-eval passed'). Recommended priority: P1.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#662
+
+### Honor persona-declared triggers — emit and commit persona CI workflows and scheduled jobs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Persona YAMLs (agents/personas/\*.yaml) declare on_pr/on_commit/scheduled(cron) triggers and outputs.ci-workflow: true, and a generator exists (packages/cli/src/persona/generators/ci-workflow.ts), but — verified 2026-06 — NO generated persona workflow is committed and nothing honors the triggers; they are dead declarations. Make them real: run the persona CI-workflow generator and commit the resulting .github/workflows/ so declared triggers actually fire, plus a check that fails when a persona's declared trigger has no committed workflow (drift guard, mirrors generate:plugin:check). First consumer: the new harness-pm persona (#566) auto-runs acceptance-eval on PRs touching docs/changes/\*\* — closing the manual-only gap for the upstream acceptance-criteria gate. Also lights up the currently-dormant declarations on codebase-health-analyst (dependency-health, hotspot-detector, cleanup-dead-code — weekly sweep), performance-guardian (perf), entropy-cleaner (cleanup), graph-maintainer, and security-reviewer (on_pr deep OWASP/threat-model review beyond CI's lightweight security-scan). Today the project's strongest gear is opt-in; this makes it load-bearing without a human remembering to invoke each persona. Recommended priority: P1.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#663
+
+### Auto-wire standalone drift and audit pipelines on PRs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Several high-value checks have no owning persona, so the persona-trigger work (above) does not cover them, and — verified 2026-06 — none runs automatically on PRs: detect-design-drift / design-pipeline (design-system drift), detect-doc-drift / docs-pipeline (doc drift; only a lightweight slice runs today inside the entropy check in harness.yml), supply-chain-audit (6-factor dependency risk), and test-advisor (test-strategy/coverage advice). Add PR-scoped CI jobs (path-filtered where sensible: design-drift on UI/token paths, supply-chain-audit on dependency-manifest changes, doc-drift on docs/source changes, test-advisor on test/source changes) that run these and surface findings, advisory-by-default with opt-in blocking. Note the agent-runtime constraint: the full LLM-judgment pipelines need an agent runner (the required-review.yml 'harness review-ci' pattern), not just the lightweight CLI validators GitHub Actions can run unaided. Recommended priority: P2.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#664
 
 ## Craft Pipeline
 
@@ -545,7 +600,7 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 
 ### Append-Only Session Audit Trail
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Session-scoped append-only audit log capturing raw user input verbatim plus every approval prompt/response with ISO timestamps, written at the emit_interaction/state-write level. Compliance-grade provenance complementing .harness/state.json machine state. Session-scoped per the handoff-deprecation lesson. Adapted from AI-DLC's audit.md mandate. Adoption #2 from docs/research/aidlc-comparison-analysis.md [AIDLC-2]
 - **Blockers:** —
@@ -556,8 +611,8 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 
 ### Event-Sourced State Model with Deterministic Reducer
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/event-sourced-state-model/proposal.md
 - **Summary:** Replace harness's mutated .harness/state.json with an append-only event log + pure deterministic reducer + materialized snapshot, plus an explicit guarded state machine for autopilot/orchestrator task lanes (forced-transition rules, dependency guards, mandatory evidence to reach terminal states). Highest-leverage hardening of harness's weakest subsystem (state/provenance); subsumes and complements the Append-Only Session Audit Trail (#580). Modeled on Spec Kitty's status/{emit,store,reducer,transitions}.py. Adoption #1 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-1]
 - **Blockers:** —
 - **Plan:** —
@@ -1420,7 +1475,7 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 - **Plan:** docs/changes/hermes-phase-0-gateway-api/plans/2026-05-15-phase-6-reference-slack-bridge-plan.md
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#645
 
 ### Hermes Phase 0.2: Gateway Tunnel Guide
 
@@ -1937,23 +1992,22 @@ last_manual_edit: 2026-06-26T01:25:24.050Z
 - **Updated-At:** 2026-04-24T11:23:48.933Z
 
 ## Assignment History
-
-| Feature                                                          | Assignee                      | Action     | Date       |
-| ---------------------------------------------------------------- | ----------------------------- | ---------- | ---------- |
-| Performance Engineering Knowledge Skills                         | @chadjw                       | assigned   | 2026-04-09 |
-| Phase 2: Code Signal Extractors                                  | @chadjw                       | assigned   | 2026-04-23 |
-| Phase 3: Connector Enhancement                                   | @chadjw                       | assigned   | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams                           | @chadjw                       | assigned   | 2026-04-23 |
-| Hermes Phase 0.1: Reference Slack Bridge                         | @cwarner                      | assigned   | 2026-05-15 |
-| design-pipeline sub-project #2: audit-component-anatomy          | @chadjw                       | assigned   | 2026-05-23 |
-| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw                       | assigned   | 2026-05-23 |
-| design-pipeline sub-project #3: audit-brand-compliance           | @chadjw                       | assigned   | 2026-06-02 |
-| Init design + roadmap polish follow-ups                          | @chadjw                       | assigned   | 2026-06-03 |
-| Build harness:outcome-eval skill                                 | chad.warner@capillarytech.com | assigned   | 2026-06-22 |
-| Build harness:audit-harness-strength self-audit skill            | chad.warner@capillarytech.com | assigned   | 2026-06-23 |
-| Ship the 5-signal dashboard panel and signals.md doc             | chad.warner@capillarytech.com | assigned   | 2026-06-22 |
-| Ship a required-review GitHub Action template                    | chad.warner@gmail.com         | assigned   | 2026-06-23 |
-| Stop the pre-commit auto-baseline-update for arch                | chad.warner@gmail.com         | assigned   | 2026-06-23 |
-| Add architecture thresholds to basic and intermediate templates  | chad.warner@gmail.com         | assigned   | 2026-06-23 |
-| Add architecture thresholds to basic and intermediate templates  | @chadjw                       | assigned   | 2026-06-25 |
-| Add architecture thresholds to basic and intermediate templates  | @chadjw                       | unassigned | 2026-06-25 |
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
+| Performance Engineering Knowledge Skills | @chadjw | assigned | 2026-04-09 |
+| Phase 2: Code Signal Extractors | @chadjw | assigned | 2026-04-23 |
+| Phase 3: Connector Enhancement | @chadjw | assigned | 2026-04-22 |
+| Phase 4: Knowledge Pipeline & Diagrams | @chadjw | assigned | 2026-04-23 |
+| Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |
+| design-pipeline sub-project #2: audit-component-anatomy | @chadjw | assigned | 2026-05-23 |
+| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw | assigned | 2026-05-23 |
+| design-pipeline sub-project #3: audit-brand-compliance | @chadjw | assigned | 2026-06-02 |
+| Init design + roadmap polish follow-ups | @chadjw | assigned | 2026-06-03 |
+| Build harness:outcome-eval skill | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Build harness:audit-harness-strength self-audit skill | chad.warner@capillarytech.com | assigned | 2026-06-23 |
+| Ship the 5-signal dashboard panel and signals.md doc | chad.warner@capillarytech.com | assigned | 2026-06-22 |
+| Ship a required-review GitHub Action template | chad.warner@gmail.com | assigned | 2026-06-23 |
+| Stop the pre-commit auto-baseline-update for arch | chad.warner@gmail.com | assigned | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates | chad.warner@gmail.com | assigned | 2026-06-23 |
+| Add architecture thresholds to basic and intermediate templates | @chadjw | assigned | 2026-06-25 |
+| Add architecture thresholds to basic and intermediate templates | @chadjw | unassigned | 2026-06-25 |

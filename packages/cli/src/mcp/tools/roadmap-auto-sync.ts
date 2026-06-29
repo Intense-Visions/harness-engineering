@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { loadTrackerSyncConfig } from '@harness-engineering/core';
+import {
+  loadTrackerSyncConfig,
+  resolveRoadmapStore,
+  applyRoadmapDiff,
+  roadmapSourceExists,
+} from '@harness-engineering/core';
 
 /**
  * Automatically sync the roadmap after state transitions.
@@ -18,29 +23,33 @@ import { loadTrackerSyncConfig } from '@harness-engineering/core';
  */
 export async function autoSyncRoadmap(projectPath: string): Promise<void> {
   try {
-    const roadmapFile = path.join(projectPath, 'docs', 'roadmap.md');
-    if (!fs.existsSync(roadmapFile)) return; // no roadmap — nothing to sync
+    // Resolve the roadmap SOURCE (shards when docs/roadmap.d/ exists, else the
+    // monolith aggregate). No source → nothing to sync.
+    if (!roadmapSourceExists(projectPath)) return;
 
-    const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges } =
-      await import('@harness-engineering/core');
+    const { syncRoadmap, applySyncChanges } = await import('@harness-engineering/core');
 
-    const raw = fs.readFileSync(roadmapFile, 'utf-8');
-    const parseResult = parseRoadmap(raw);
-    if (!parseResult.ok) return;
+    const store = resolveRoadmapStore({ projectRoot: projectPath });
+    const loaded = await store.load();
+    if (!loaded.ok) return;
 
-    const roadmap = parseResult.value;
-    const syncResult = syncRoadmap({ projectPath, roadmap });
+    const roadmap = loaded.value;
+    const before = structuredClone(roadmap);
+
+    // syncRoadmap reads execution progress from the event-sourced snapshot (issue 667).
+    const syncResult = await syncRoadmap({ projectPath, roadmap });
     if (!syncResult.ok || syncResult.value.length === 0) {
-      // Even if no local changes, still attempt external sync
-      await triggerExternalSync(projectPath, roadmapFile);
+      // Even if no local changes, still attempt external sync.
+      await triggerExternalSync(projectPath);
       return;
     }
 
     applySyncChanges(roadmap, syncResult.value);
-    fs.writeFileSync(roadmapFile, serializeRoadmap(roadmap), 'utf-8');
+    // Per-shard writeback (+ aggregate regen in sharded mode); whole-file in monolith.
+    await applyRoadmapDiff(store, before, roadmap);
 
-    // Fire external sync after local sync completes
-    await triggerExternalSync(projectPath, roadmapFile);
+    // Fire external sync after local sync completes.
+    await triggerExternalSync(projectPath);
   } catch {
     // Best-effort: never let roadmap sync failures break state operations
   }
@@ -50,7 +59,7 @@ export async function autoSyncRoadmap(projectPath: string): Promise<void> {
  * Detect tracker config in harness.config.json and fire fullSync if present.
  * Fire-and-forget: errors are logged to stderr but never propagated.
  */
-export async function triggerExternalSync(projectPath: string, roadmapFile: string): Promise<void> {
+export async function triggerExternalSync(projectPath: string): Promise<void> {
   try {
     const trackerConfig = loadTrackerSyncConfig(projectPath);
     if (!trackerConfig) return;
@@ -76,7 +85,7 @@ export async function triggerExternalSync(projectPath: string, roadmapFile: stri
       config: trackerConfig,
     });
 
-    const result = await fullSync(roadmapFile, adapter, trackerConfig);
+    const result = await fullSync(projectPath, adapter, trackerConfig);
 
     if (result.errors.length > 0) {
       for (const err of result.errors) {

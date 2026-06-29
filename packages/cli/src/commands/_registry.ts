@@ -24,6 +24,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
+import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
 import { createDoctorCommand } from './doctor';
@@ -73,6 +74,7 @@ import { createShareCommand } from './share';
 import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createSpecCraftCommand } from './spec-craft';
+import { createStaleConstraintsCommand } from './stale-constraints';
 import { createStateCommand } from './state';
 import { createSyncAnalysesCommand } from './sync-analyses';
 import { createSyncMainCommand } from './sync-main';
@@ -114,6 +116,7 @@ export const commandCreators: Array<() => Command> = [
   createCompoundCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
+  createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
   createDoctorCommand,
@@ -163,6 +166,7 @@ export const commandCreators: Array<() => Command> = [
   createSkillCommand,
   createSnapshotCommand,
   createSpecCraftCommand,
+  createStaleConstraintsCommand,
   createStateCommand,
   createSyncAnalysesCommand,
   createSyncMainCommand,

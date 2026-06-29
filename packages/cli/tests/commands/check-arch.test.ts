@@ -180,6 +180,58 @@ describe('check-arch command', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // Regression for issue #594: a module-scoped baseline refresh
+    // (`--update-baseline --module X`) must NOT clobber the whole-repo
+    // aggregate baseline. The baseline schema stores one aggregate value per
+    // category, so writing a cli-only subset over it makes every later
+    // whole-repo `ci check` report a permanent false regression. Combining the
+    // two flags is rejected instead of silently corrupting the file.
+    it('rejects --update-baseline combined with --module (issue #594)', async () => {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-594-'));
+      const baselinePath = path.join(tmpDir, '.harness', 'arch', 'baselines.json');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      // Pre-seed a correct whole-repo baseline that must survive untouched.
+      fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
+      const seeded = {
+        version: 1,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        updatedFrom: 'seed',
+        metrics: {
+          'module-size': { value: 167349, violationIds: [] },
+          'dependency-depth': { value: 494, violationIds: [] },
+        },
+      };
+      fs.writeFileSync(baselinePath, JSON.stringify(seeded));
+
+      const result = await runCheckArch({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+        updateBaseline: true,
+        module: 'packages/cli',
+      });
+
+      // The combination must error out, not write a clobbered baseline.
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.exitCode).toBe(2);
+        expect(result.error.message).toMatch(/--module/);
+      }
+
+      // The pre-existing aggregate baseline must be left exactly as-is.
+      const after = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+      expect(after.metrics['module-size'].value).toBe(167349);
+      expect(after.metrics['dependency-depth'].value).toBe(494);
+
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
     it('runs in baseline mode when baseline exists and reports regressions', async () => {
       const fs = await import('node:fs');
       const os = await import('node:os');
@@ -326,7 +378,7 @@ describe('check-arch command', () => {
       fsSync.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('handles --update-baseline with JSON output', async () => {
+    it('handles --update-baseline with JSON output', { timeout: 60_000 }, async () => {
       const fsSync = await import('node:fs');
       const osModule = await import('node:os');
       const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-json-'));

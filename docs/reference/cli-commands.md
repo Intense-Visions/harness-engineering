@@ -174,6 +174,15 @@ Scaffold a new skill with skill.yaml and SKILL.md
 - `--pre-checks` — Pre-check commands
 - `--post-checks` — Post-check commands
 
+### `harness cross-check`
+
+Check cross-artifact consistency (plan-to-implementation coverage and staleness)
+
+**Options:**
+
+- `--specs-dir` — Specs directory relative to project root (default: docs/specs)
+- `--plans-dir` — Plans directory relative to project root (default: docs/plans)
+
 ### `harness dashboard`
 
 Start the Harness local web dashboard
@@ -422,8 +431,8 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--runner` — claude | gemini | antigravity | codex | cursor | local (omit = floor-only)
 - `--block-on` — approve | comment | request-changes | none (default: "request-changes")
 - `--diff` — git range (default: origin/<base>...HEAD)
-- `--comment` — post verdict as a PR review (stubbed in this phase)
-- `--json` — write the verdict artifact to this path
+- `--comment` — post the verdict as a comment on the current branch's PR via gh
+- `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
 
 ### `harness scan-config`
 
@@ -498,6 +507,15 @@ LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline 
 - `-s, --sections` — Restrict to specific canonical section names
 - `--max-files` — Cap doc count (default: 50)
 - `--max-sections-per-file` — Cap per-doc section critique (default: 10)
+
+### `harness stale-constraints`
+
+Detect architectural constraints not violated within a window (candidates for removal)
+
+**Options:**
+
+- `--window` — Days without violation to consider a constraint stale (default: 30)
+- `--category` — Filter by category (circular-deps, layer-violations, complexity, coupling, forbidden-imports, module-size, dependency-depth)
 
 ### `harness sync-analyses`
 
@@ -724,6 +742,31 @@ Export graph
 
 - `--format` — Output format (json, mermaid)
 
+### `harness graph ingest`
+
+Ingest data into the knowledge graph
+
+**Options:**
+
+- `--source` — Source to ingest (code, knowledge, git, requirements, business-signals, jira, slack, ci, confluence, figma, miro)
+- `--all` — Run all sources (code, knowledge, git, and configured connectors)
+- `--full` — Force full re-ingestion
+
+### `harness graph query <rootNodeId>`
+
+Query the knowledge graph
+
+**Arguments:**
+
+- `rootNodeId` (required) — Starting node ID
+
+**Options:**
+
+- `--depth` — Max traversal depth (default: "3")
+- `--types` — Comma-separated node types to include
+- `--edges` — Comma-separated edge types to include
+- `--bidirectional` — Traverse both directions
+
 ### `harness graph scan [path]`
 
 Scan project and build knowledge graph
@@ -848,6 +891,20 @@ List all resolved maintenance tasks (built-in + customTasks)
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
 
+### `harness maintenance run [taskId]`
+
+Run overdue (default) / selected maintenance tasks; report-first unless --fix
+
+**Options:**
+
+- `--all` — Run all sweep-eligible tasks (not just overdue)
+- `--only` — Comma-separated task ids to run
+- `--skip` — Comma-separated task ids to exclude
+- `--fix` — Dispatch fixes per task type (default: report-only)
+- `--concurrency` — Max parallel tasks (report mode); --fix forces 1
+- `--json` — Emit machine-readable consolidated report
+- `--path` — Project root path (default: ".")
+
 ### `harness maintenance show <task-id>`
 
 Show last N persisted runs for a task (from .harness/maintenance/[id]/outputs/)
@@ -967,6 +1024,7 @@ Generate artifacts from a persona config
 
 - `--output-dir` — Output directory (default: ".")
 - `--only` — Generate only: ci, agents-md, runtime
+- `--platform` — CI platform for the ci artifact (default: "github")
 
 ### `harness persona list`
 
@@ -1025,8 +1083,49 @@ Migrate the project roadmap to a different storage mode
 
 **Options:**
 
-- `--to` — Migration target (only "file-less" supported today)
+- `--to` — Migration target: "file-less" or "file-backed"
 - `--dry-run` — Print the migration plan without making any changes
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap reconcile`
+
+Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode flips only issues closed as 'completed' (a 'not planned'/'wontfix' close is left untouched); the PR-merge auto-done workflow remains authoritative for cross-repo correctness.
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--from-issues` — comma-separated issue numbers to reconcile against the configured repo (authoritative; skips the network fetch)
+- `--from-refs` — comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)
+
+### `harness roadmap regen`
+
+Regenerate the aggregate from the shard directory (docs/roadmap.d)
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Report what would be regenerated without writing anything
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap shard`
+
+Migrate docs/roadmap.md to per-row shards under docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Report the migration plan without writing anything
+- `--force` — Proceed even if docs/roadmap.d already exists
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
+### `harness roadmap unshard`
+
+Reassemble the aggregate from shards and remove docs/roadmap.d
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--dry-run` — Preview the reassembly without writing or deleting the shard dir
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
 ## Routing Commands
@@ -1185,7 +1284,7 @@ Append a learning to .harness/learnings.md
 
 ### `harness state reset`
 
-Reset project state (deletes .harness/state.json)
+Reset project state (truncates the event log to a fresh default)
 
 **Options:**
 

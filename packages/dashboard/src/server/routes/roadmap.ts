@@ -14,7 +14,7 @@ const CACHE_KEY = 'roadmap';
 async function getOrFetch(ctx: ServerContext): Promise<RoadmapResult> {
   const cached = ctx.cache.get<RoadmapResult>(CACHE_KEY);
   if (cached) return cached.data;
-  const data = await gatherRoadmap(ctx.roadmapPath);
+  const data = await gatherRoadmap(ctx.projectPath);
   ctx.cache.set(CACHE_KEY, data);
   return data;
 }

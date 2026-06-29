@@ -3,7 +3,7 @@ import { assigneeInvariantHolds } from './assignee-lifecycle';
 
 /**
  * Roadmap maintenance: health checks (read-only diagnostics) and grooming
- * (pure state transitions) that keep `docs/roadmap.md` tidy over time.
+ * (pure state transitions) that keep the roadmap aggregate tidy over time.
  *
  * The same predicates power two consumers:
  *  - `checkRoadmapHealth` — surfaced by `harness validate` as a regression guard.

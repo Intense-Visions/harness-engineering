@@ -31,6 +31,9 @@ export type { LeaderElector } from './leader-elector';
 
 export { cronMatchesNow } from './cron-matcher';
 
+export { selectTasks, previousFireTime } from './overdue';
+export type { TaskSelectionFilter } from './overdue';
+
 export { TaskRunner } from './task-runner';
 export type {
   CheckCommandRunner,

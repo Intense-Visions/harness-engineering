@@ -203,13 +203,47 @@ describe('design-craft MCP handler (MVP)', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('rejects deep mode in MVP with a clear error', async () => {
+  it('deep mode without captures returns a clear error', async () => {
     const result = await handleDesignCraft({
       path: '/tmp/fake-project',
       mode: 'deep',
     });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toMatch(/deep mode .* not implemented/i);
+    expect(result.content[0].text).toMatch(/deep mode critiques rendered screenshots/i);
+  });
+
+  it('deep mode critiques provided captures via the vision channel', async () => {
+    // A provider that answers vision calls (the base mock throws on callVision).
+    class VisionMockProvider extends MockLlmProvider {
+      async callVision(prompt: string): Promise<string> {
+        return this.callText(prompt);
+      }
+    }
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'design-craft-vision-'));
+    const imagePath = path.join(tmpDir, 'Hero.png');
+    fs.writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47])); // minimal PNG magic
+
+    const result = await handleDesignCraft({
+      path: tmpDir,
+      mode: 'deep',
+      phases: ['critique'],
+      captures: [{ file: 'src/Hero.tsx', component: 'Hero', image: imagePath }],
+      __testProvider: new VisionMockProvider(),
+      __recordMeasurement: false,
+    });
+
+    expect(result.isError).toBeFalsy();
+    const payload = JSON.parse(result.content[0].text) as {
+      findings: unknown[];
+      summary: { mode: string; phaseRun: string[]; catalog: { rubricsApplied: string[] } };
+    };
+    expect(payload.summary.mode).toBe('deep');
+    // 10 seed rubrics × 1 capture, judged through the vision channel.
+    expect(payload.findings).toHaveLength(10);
+    expect(payload.summary.catalog.rubricsApplied).toHaveLength(10);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('rejects missing path argument', async () => {

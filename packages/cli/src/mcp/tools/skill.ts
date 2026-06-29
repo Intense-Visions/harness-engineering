@@ -97,12 +97,15 @@ export async function handleRunSkill(input: {
     // Progressive loading failure must never block skill loading
   }
 
-  // Optionally inject project state context
+  // Optionally inject project state context (event-sourced: read via the snapshot projection,
+  // not the now-renamed .harness/state.json). Gate on a non-empty projection to preserve the
+  // legacy "only inject when there is state" behavior.
   if (input.path) {
     const projectPath = sanitizePath(input.path);
-    const stateFile = path.join(projectPath, '.harness', 'state.json');
-    if (fs.existsSync(stateFile)) {
-      const stateContent = fs.readFileSync(stateFile, 'utf-8');
+    const { readHarnessState, isEmptyHarnessState } = await import('../../shared/state-events.js');
+    const stateResult = await readHarnessState(projectPath);
+    if (stateResult.ok && !isEmptyHarnessState(stateResult.value)) {
+      const stateContent = JSON.stringify(stateResult.value, null, 2);
       content += `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
     }
   }

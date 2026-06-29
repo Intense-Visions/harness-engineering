@@ -71,7 +71,13 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix cross-check violations',
     schedule: '0 6 * * 1',
     branch: 'harness-maint/cross-check-fixes',
-    checkCommand: ['validate-cross-check'],
+    // `harness cross-check` is a dedicated read-only CLI subcommand that surfaces
+    // JUST cross-artifact consistency (plan→implementation coverage + staleness),
+    // mirroring the `validate_cross_check` MCP tool's core (`runCrossCheck`)
+    // WITHOUT running the full `harness validate` suite. It prints a parseable
+    // `Cross-check: N issues` line and exits 0 (clean) / 1 (N issues), so the
+    // maintenance runner reports real results instead of an honest `failure`.
+    checkCommand: ['cross-check'],
     fixSkill: 'harness-cross-check-fix',
   },
 
@@ -132,7 +138,10 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Assess overall project health',
     schedule: '0 6 * * *',
     branch: null,
-    checkCommand: ['assess_project'],
+    // `assess_project` is an MCP tool name, not a CLI subcommand. The CLI
+    // composite project-health report is `harness insights` (health, entropy,
+    // decay, attention, impact) — a read-only report that records metrics.
+    checkCommand: ['insights'],
   },
   {
     id: 'stale-constraints',
@@ -140,7 +149,14 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect stale architectural constraints',
     schedule: '0 2 1 * *',
     branch: null,
-    checkCommand: ['detect_stale_constraints'],
+    // `harness stale-constraints` is a dedicated read-only CLI subcommand that
+    // surfaces the `detect_stale_constraints` MCP tool's core in-process. It is
+    // precondition-gated on the knowledge graph: with no graph it emits the
+    // "No knowledge graph found. Run `harness scan` first." signature and exits
+    // non-zero, which the runner classifies as `skipped` (not failure). With a
+    // graph it prints a parseable `Stale constraints: N findings` line and exits
+    // 0 (clean) / 1 (N stale), recorded as report-only metrics.
+    checkCommand: ['stale-constraints'],
   },
   {
     id: 'graph-refresh',
@@ -175,6 +191,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 0 * * *',
     branch: null,
     checkCommand: ['cleanup-sessions'],
+    excludeFromHumanSweep: true,
   },
   {
     id: 'perf-baselines',
@@ -183,6 +200,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 7 * * *',
     branch: null,
     checkCommand: ['perf', 'baselines', 'update'],
+    excludeFromHumanSweep: true,
   },
   {
     id: 'main-sync',
@@ -191,6 +209,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '*/15 * * * *',
     branch: null,
     checkCommand: ['harness', 'sync-main', '--json'],
+    excludeFromHumanSweep: true,
   },
   // Hermes Phase 4 — one-shot backfill that stamps `provenance: user-authored`
   // on every existing catalog skill. Schedule is Feb 31 (a date that never
@@ -205,5 +224,6 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     schedule: '0 0 31 2 *',
     branch: null,
     checkCommand: ['backfill-skill-provenance'],
+    excludeFromHumanSweep: true,
   },
 ] as const;

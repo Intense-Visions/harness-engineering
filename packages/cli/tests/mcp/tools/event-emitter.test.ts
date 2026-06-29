@@ -7,6 +7,10 @@ import { emitSkillEvent } from '../../../src/mcp/tools/event-emitter';
 describe('emitSkillEvent', () => {
   let tmpDir: string;
 
+  // GH-580 D5: emitSkillEvent now writes to the relocated .harness/metrics/skill-events.jsonl.
+  const eventsFilePath = (cwd: string): string =>
+    path.join(cwd, '.harness', 'metrics', 'skill-events.jsonl');
+
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-emitter-test-'));
     fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
@@ -16,7 +20,7 @@ describe('emitSkillEvent', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('writes event to events.jsonl', async () => {
+  it('writes event to the relocated metrics/skill-events.jsonl (not events.jsonl)', async () => {
     await emitSkillEvent(tmpDir, {
       skill: 'harness-tdd',
       type: 'phase_transition',
@@ -24,8 +28,10 @@ describe('emitSkillEvent', () => {
       data: { from: 'investigate', to: 'fix' },
     });
 
-    const eventsPath = path.join(tmpDir, '.harness', 'events.jsonl');
+    const eventsPath = eventsFilePath(tmpDir);
     expect(fs.existsSync(eventsPath)).toBe(true);
+    // The legacy events.jsonl is never created.
+    expect(fs.existsSync(path.join(tmpDir, '.harness', 'events.jsonl'))).toBe(false);
 
     const content = fs.readFileSync(eventsPath, 'utf-8').trim();
     const event = JSON.parse(content);
@@ -34,7 +40,6 @@ describe('emitSkillEvent', () => {
     expect(event.summary).toBe('test phase transition');
     expect(event.data).toEqual({ from: 'investigate', to: 'fix' });
     expect(event.timestamp).toBeTruthy();
-    expect(event.contentHash).toBeTruthy();
   });
 
   it('writes multiple events as separate lines', async () => {
@@ -52,7 +57,7 @@ describe('emitSkillEvent', () => {
       data: { passed: true, checks: [{ name: 'test', passed: true }] },
     });
 
-    const eventsPath = path.join(tmpDir, '.harness', 'events.jsonl');
+    const eventsPath = eventsFilePath(tmpDir);
     const lines = fs.readFileSync(eventsPath, 'utf-8').trim().split('\n');
     expect(lines).toHaveLength(2);
 
@@ -63,7 +68,7 @@ describe('emitSkillEvent', () => {
     expect(event2.type).toBe('gate_result');
   });
 
-  it('deduplicates identical events', async () => {
+  it('appends each event as its own line (cursor-based reader handles repeats — no born-dedup)', async () => {
     const event = {
       skill: 'harness-tdd',
       type: 'error' as const,
@@ -73,9 +78,9 @@ describe('emitSkillEvent', () => {
     await emitSkillEvent(tmpDir, event);
     await emitSkillEvent(tmpDir, event);
 
-    const eventsPath = path.join(tmpDir, '.harness', 'events.jsonl');
+    const eventsPath = eventsFilePath(tmpDir);
     const lines = fs.readFileSync(eventsPath, 'utf-8').trim().split('\n');
-    expect(lines).toHaveLength(1);
+    expect(lines).toHaveLength(2);
   });
 
   it('silently handles errors for invalid paths', async () => {
@@ -104,7 +109,7 @@ describe('emitSkillEvent', () => {
       data: { fromSkill: 'harness-debugging' },
     });
 
-    const eventsPath = path.join(tmpDir, '.harness', 'events.jsonl');
+    const eventsPath = eventsFilePath(tmpDir);
     const lines = fs.readFileSync(eventsPath, 'utf-8').trim().split('\n');
 
     // Each event must have skill, type, timestamp (adoption-tracker requirements)

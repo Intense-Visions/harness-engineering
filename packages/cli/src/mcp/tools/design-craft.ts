@@ -11,14 +11,14 @@
 //     called out as a separate coordination commit by the user's scope
 //     statement, mirroring the same posture the user took for
 //     harness.config.json schema extension and DesignConstraintAdapter.
-//   - CRITIQUE phase invoked end-to-end against the one seeded rubric
-//     (hierarchy-clarity). POLISH and BENCHMARK are stubs returning [].
-//   - Mode arg accepts 'fast' | 'deep' but only 'fast' is implemented;
-//     'deep' returns a friendly "unimplemented in MVP" error.
-//   - autoCapture arg accepts 'prompt' | 'auto' | 'skip' but only 'skip'
-//     has fully defined behavior in this MVP (no detect-and-offer yet);
-//     'prompt' and 'auto' are accepted and currently behave like 'skip'
-//     with a TODO marker.
+//   - CRITIQUE / POLISH / BENCHMARK phases all run end-to-end over the
+//     seeded rubrics / patterns / exemplars.
+//   - Mode 'fast' critiques source code; mode 'deep' critiques rendered
+//     screenshots (`captures`) via the provider's vision channel. The CLI
+//     does not render components itself — captures are caller-supplied.
+//   - autoCapture 'prompt'/'auto' run a caller-configured `captureCommand`
+//     (render+screenshot step) to obtain deep-mode captures when none are
+//     supplied; 'skip' never runs it. The CLI ships no browser of its own.
 //
 // Honors:
 //   - ADR 0018: phase selection respected; cost surfaced in summary.
@@ -31,12 +31,13 @@
 //   section "MCP tool API" (lines ~205–221).
 
 import * as crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { Ok, Err } from '@harness-engineering/core';
 import type { Result } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
-import { runCritique } from '../../design-craft/phases/critique.js';
-import type { CritiqueTarget } from '../../design-craft/phases/critique.js';
+import { runCritique, runVisionCritique } from '../../design-craft/phases/critique.js';
+import type { CritiqueTarget, VisionCritiqueTarget } from '../../design-craft/phases/critique.js';
 import { runPolish } from '../../design-craft/phases/polish.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark } from '../../design-craft/phases/benchmark.js';
@@ -87,6 +88,28 @@ export interface DesignCraftInput {
     componentType?: string;
   }>;
   /**
+   * Deep-mode (vision) captures: rendered screenshots of components to critique
+   * visually. Required when `mode: 'deep'` and the critique phase runs — the CLI
+   * does not render components itself (no browser), so the screenshots are
+   * supplied by the caller (e.g. a Storybook/Playwright capture step).
+   */
+  captures?: VisionCritiqueTarget[];
+  /**
+   * Deep-mode auto-capture command. When `mode: 'deep'` needs captures and none
+   * are supplied, this command is invoked (unless `autoCapture: 'skip'`) to
+   * render the components and emit captures. The CLI has no browser of its own,
+   * so the caller supplies the render+screenshot step (Storybook, Playwright,
+   * etc.). Contract: the command receives the candidate file list via the
+   * `HARNESS_DESIGN_CRAFT_FILES` env var (a JSON array) and must print a JSON
+   * array of `{ file, image, component? }` to stdout.
+   */
+  captureCommand?: string;
+  /**
+   * Test seam — replace the capture-command executor. Receives `(command,
+   * files)` and returns the command's stdout. NOT in the MCP schema.
+   */
+  __runCapture?: (command: string, files: string[]) => string;
+  /**
    * Test seam — inject an LlmProvider directly (e.g. MockLlmProvider).
    * NOT documented in the MCP tool schema; used by integration tests so
    * deterministic CI works without touching the live provider factory.
@@ -115,7 +138,8 @@ export const designCraftToolDefinition = {
         type: 'string',
         enum: ['fast', 'deep'],
         description:
-          'fast (code-only LLM critique) or deep (render + vision). MVP supports fast only.',
+          'fast (code-only LLM critique) or deep (vision critique of rendered screenshots — ' +
+          'requires `captures`).',
       },
       phases: {
         type: 'array',
@@ -131,7 +155,15 @@ export const designCraftToolDefinition = {
         type: 'string',
         enum: ['prompt', 'auto', 'skip'],
         description:
-          'B\' detect-and-offer behavior when preconditions are missing. MVP: only "skip" is fully implemented.',
+          'Deep-mode capture behavior when no `captures` are supplied. "skip" never runs the ' +
+          'capture command; "prompt"/"auto" run `captureCommand` when one is configured.',
+      },
+      captureCommand: {
+        type: 'string',
+        description:
+          'Deep-mode render+screenshot command. Receives the candidate files via the ' +
+          'HARNESS_DESIGN_CRAFT_FILES env var (JSON array) and must print a JSON array of ' +
+          '{ file, image, component? } to stdout. Used to obtain captures without a built-in browser.',
       },
       designStrictness: {
         type: 'string',
@@ -150,6 +182,22 @@ export const designCraftToolDefinition = {
             componentType: { type: 'string' },
           },
           required: ['file', 'component'],
+        },
+      },
+      captures: {
+        type: 'array',
+        description:
+          'Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" ' +
+          'and the critique phase runs. Each entry: { file, image, component? }, where `image` is a ' +
+          'path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).',
+        items: {
+          type: 'object',
+          properties: {
+            file: { type: 'string' },
+            image: { type: 'string' },
+            component: { type: 'string' },
+          },
+          required: ['file', 'image'],
         },
       },
     },
@@ -214,23 +262,96 @@ export async function runDesignCraft(
   return runPipeline(input);
 }
 
+/**
+ * Invoke the caller-configured capture command and parse its `{ file, image }`
+ * manifest. The command is the project's render+screenshot step (Storybook,
+ * Playwright, etc.) — it receives the candidate files via the
+ * `HARNESS_DESIGN_CRAFT_FILES` env var and prints a JSON array to stdout. This
+ * is how deep mode obtains screenshots without the CLI owning a browser.
+ */
+export function runCaptureCommand(
+  command: string,
+  files: string[],
+  exec?: (command: string, files: string[]) => string
+): Result<VisionCritiqueTarget[], { message: string }> {
+  let stdout: string;
+  try {
+    stdout = exec
+      ? exec(command, files)
+      : execSync(command, {
+          encoding: 'utf-8',
+          env: { ...process.env, HARNESS_DESIGN_CRAFT_FILES: JSON.stringify(files) },
+          maxBuffer: 16 * 1024 * 1024,
+        });
+  } catch (err) {
+    return Err({
+      message: `design-craft capture command failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return Err({
+      message:
+        'design-craft capture command did not emit valid JSON. Expected `[{ "file": "...", "image": "..." }]` on stdout.',
+    });
+  }
+  if (!Array.isArray(parsed)) {
+    return Err({
+      message: 'design-craft capture command output must be a JSON array of { file, image }.',
+    });
+  }
+
+  const captures: VisionCritiqueTarget[] = [];
+  for (const item of parsed) {
+    if (
+      item !== null &&
+      typeof item === 'object' &&
+      typeof (item as { file?: unknown }).file === 'string' &&
+      typeof (item as { image?: unknown }).image === 'string'
+    ) {
+      const entry = item as { file: string; image: string; component?: unknown };
+      const capture: VisionCritiqueTarget = { file: entry.file, image: entry.image };
+      if (typeof entry.component === 'string') capture.component = entry.component;
+      captures.push(capture);
+    }
+  }
+  if (captures.length === 0) {
+    return Err({
+      message: 'design-craft capture command produced no valid { file, image } entries.',
+    });
+  }
+  return Ok(captures);
+}
+
 async function runPipeline(
   input: DesignCraftInput
 ): Promise<Result<DesignCraftOutput, { message: string }>> {
   const mode: Mode = input.mode ?? 'fast';
-  if (mode === 'deep') {
-    return Err({
-      message:
-        'design-craft deep mode (render + vision LLM) is not implemented in the Phase 1 MVP. Use mode: "fast".',
-    });
+  const phases = selectPhases(input.phases);
+
+  // Deep mode critiques rendered screenshots via the provider's vision channel.
+  // The CLI does not render components itself, so captures are either supplied
+  // explicitly (`captures`) or produced by a caller-configured `captureCommand`.
+  const autoCapture: AutoCapture = input.autoCapture ?? 'prompt';
+  let captures = input.captures ?? [];
+  const needsCaptures = mode === 'deep' && phases.includes('critique') && captures.length === 0;
+
+  if (needsCaptures && input.captureCommand && autoCapture !== 'skip') {
+    const captured = runCaptureCommand(input.captureCommand, input.files ?? [], input.__runCapture);
+    if (!captured.ok) return captured;
+    captures = captured.value;
   }
 
-  const phases = selectPhases(input.phases);
-  const autoCapture: AutoCapture = input.autoCapture ?? 'prompt';
-  if (autoCapture !== 'skip') {
-    // TODO (next task): implement resolvers/preconditions + resolvers/offer
-    // to populate `upgradeOffer`. For MVP we behave like 'skip' to avoid
-    // emitting a half-finished detect-and-offer payload.
+  if (mode === 'deep' && phases.includes('critique') && captures.length === 0) {
+    return Err({
+      message:
+        'design-craft deep mode critiques rendered screenshots — supply `captures` ' +
+        '([{ file, image }]) or configure `captureCommand` to render them (the CLI does not ' +
+        'render components itself). Or use mode: "fast".',
+    });
   }
 
   const provider = input.__testProvider ?? getProvider();
@@ -245,12 +366,21 @@ async function runPipeline(
   const scores: BenchmarkScore[] = [];
 
   let rubricsApplied: string[] = [];
-  if (phases.includes('critique') && critiqueTargets.length > 0) {
+  if (phases.includes('critique')) {
     const rubrics = [...SEED_RUBRICS];
-    rubricsApplied = rubrics.map((r) => r.id);
-    const critiqueFindings = await runCritique({ targets: critiqueTargets, rubrics, provider });
+    // Deep mode → vision critique over the rendered captures; fast mode → the
+    // code-only critique over the source files.
+    const critiqueFindings =
+      mode === 'deep'
+        ? await runVisionCritique({ targets: captures, rubrics, provider })
+        : critiqueTargets.length > 0
+          ? await runCritique({ targets: critiqueTargets, rubrics, provider })
+          : [];
+    if (critiqueFindings.length > 0 || mode === 'deep') {
+      rubricsApplied = rubrics.map((r) => r.id);
+    }
     findings.push(...critiqueFindings);
-    if (recordMeasurement) {
+    if (recordMeasurement && critiqueFindings.length > 0) {
       for (const rubric of rubrics) recordTrigger(rubric.id, measurementRoot);
       for (const f of critiqueFindings) recordSignalEvent(f, measurementRoot, measurementRoot);
     }

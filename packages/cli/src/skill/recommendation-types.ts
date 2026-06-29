@@ -1,26 +1,19 @@
+import { HEALTH_SIGNAL_NAMES, type SignalName } from '@harness-engineering/core';
+
 /**
- * Standardized health signal identifiers.
- * Used in SkillAddress.signal, HealthSnapshot.signals, and Recommendation.triggeredBy.
+ * Change-type signals (exactly one active per dispatch). cli-LOCAL: these are a
+ * dispatch concern, not a health-vocabulary concern, so core must stay unaware
+ * of them (layer rule: core ⇏ cli).
  */
-export const HEALTH_SIGNALS = [
-  'circular-deps',
-  'layer-violations',
-  'high-coupling',
-  'high-complexity',
-  'low-coverage',
-  'dead-code',
-  'drift',
-  'security-findings',
-  'doc-gaps',
-  'perf-regression',
-  'anomaly-outlier',
-  'articulation-point',
-  // Change-type signals (exactly one active per dispatch)
+export const CHANGE_SIGNALS = [
   'change-feature',
   'change-bugfix',
   'change-refactor',
   'change-docs',
-  // Domain signals (zero or more active per dispatch)
+] as const;
+
+/** Domain signals (zero or more active per dispatch). cli-LOCAL — see CHANGE_SIGNALS. */
+export const DOMAIN_SIGNALS = [
   'domain-database',
   'domain-containerization',
   'domain-deployment',
@@ -35,8 +28,24 @@ export const HEALTH_SIGNALS = [
   'domain-incident-response',
 ] as const;
 
+/**
+ * Standardized signal identifiers used in SkillAddress.signal,
+ * HealthSnapshot.signals, and Recommendation.triggeredBy.
+ *
+ * The health portion is single-sourced from core's `HEALTH_SIGNAL_NAMES` (SC4);
+ * the cli-local change/domain signals follow. Order: 12 health, 4 change, 12 domain.
+ */
+export const HEALTH_SIGNALS = [
+  ...HEALTH_SIGNAL_NAMES,
+  ...CHANGE_SIGNALS,
+  ...DOMAIN_SIGNALS,
+] as const;
+
 /** A single health signal identifier. */
-export type HealthSignal = (typeof HEALTH_SIGNALS)[number];
+export type HealthSignal =
+  | SignalName
+  | (typeof CHANGE_SIGNALS)[number]
+  | (typeof DOMAIN_SIGNALS)[number];
 
 /** Urgency classification for a recommendation. */
 export type RecommendationUrgency = 'critical' | 'recommended' | 'nice-to-have';

@@ -15,7 +15,7 @@ import type { MigrationPlan } from './types';
  * Build a migration plan from a parsed roadmap and the current tracker state.
  *
  * Inputs:
- * - `roadmap` — parsed local `docs/roadmap.md`.
+ * - `roadmap` — parsed local roadmap aggregate.
  * - `existingFeatures` — `client.fetchAll().value.features` from the tracker.
  * - `fetchHistoryHashes` — given an externalId, returns the set of `harness-history`
  *   comment hashes already on that issue. Used for history-event dedup (D-P5-C).

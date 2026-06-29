@@ -123,14 +123,6 @@ export class GitHubHttp {
   }
 }
 
-export function parseExternalId(
-  externalId: string
-): { owner: string; repo: string; number: number } | null {
-  const m = externalId.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
-  if (!m) return null;
-  return { owner: m[1]!, repo: m[2]!, number: parseInt(m[3]!, 10) };
-}
-
-export function buildExternalId(owner: string, repo: string, n: number): string {
-  return `github:${owner}/${repo}#${n}`;
-}
+// External-ID parse/build come from the one canonical module (../../external-id);
+// re-exported here so this adapter's importers keep a single import site.
+export { parseExternalId, buildExternalId } from '../../external-id';

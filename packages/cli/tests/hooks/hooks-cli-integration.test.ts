@@ -31,8 +31,8 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
       fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
     );
     expect(settings.hooks).toBeDefined();
-    expect(settings.hooks.PreToolUse).toHaveLength(2); // block-no-verify + protect-config
-    expect(settings.hooks.PostToolUse).toHaveLength(1); // quality-warner
+    expect(settings.hooks.PreToolUse).toHaveLength(3); // block-no-verify + protect-config + sentinel-pre
+    expect(settings.hooks.PostToolUse).toHaveLength(2); // quality-warner + sentinel-post
     expect(settings.hooks.PreCompact).toHaveLength(1); // pre-compact-state
     expect(settings.hooks.Stop).toHaveLength(2); // adoption-tracker + telemetry-reporter
 
@@ -40,7 +40,7 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     const listResult = listHooks(tmpDir);
     expect(listResult.installed).toBe(true);
     expect(listResult.profile).toBe('standard');
-    expect(listResult.hooks).toHaveLength(6);
+    expect(listResult.hooks).toHaveLength(8);
 
     // 5. Remove cleans everything
     const removeResult = removeHooks(tmpDir);
