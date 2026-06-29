@@ -250,6 +250,13 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     return Ok(r.value.users?.nodes?.[0]?.id ?? null);
   }
 
+  /** Resolve an assignee to a Linear user id, or null when absent/unresolved. */
+  private async assigneeIdFor(assignee: string | null | undefined): Promise<string | null> {
+    if (!assignee) return null;
+    const userR = await this.resolveUserId(assignee);
+    return userR.ok && userR.value ? userR.value : null;
+  }
+
   // ── Reads ──────────────────────────────────────────────────────────────
 
   async fetchAll(): Promise<Result<{ features: TrackedFeature[]; etag: string | null }, Error>> {
@@ -295,10 +302,8 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
       stateId: stateR.value,
       priority: linearFromPriority(feature.priority),
     };
-    if (feature.assignee) {
-      const userR = await this.resolveUserId(feature.assignee);
-      if (userR.ok && userR.value) input.assigneeId = userR.value;
-    }
+    const assigneeId = await this.assigneeIdFor(feature.assignee);
+    if (assigneeId) input.assigneeId = assigneeId;
     const r = await this.gql<{ issueCreate?: { issue?: LinearIssue } }>(
       `mutation($input:IssueCreateInput!){ issueCreate(input:$input){ issue { ${ISSUE_FIELDS} } } }`,
       { input }
@@ -340,6 +345,30 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     return Ok(this.featureFromIssue(issue));
   }
 
+  /**
+   * Merge body-backed patch fields into the current issue's harness-meta block,
+   * returning the serialized description (so the meta block isn't clobbered).
+   */
+  private async mergedDescription(
+    externalId: string,
+    patch: FeaturePatch
+  ): Promise<Result<string, Error>> {
+    const cur = await this.fetchById(externalId);
+    if (!cur.ok) return cur;
+    if (!cur.value) return Err(new Error(`Linear issue not found: ${externalId}`));
+    const f = cur.value.feature;
+    const merged: NewFeatureInput = {
+      name: patch.name ?? f.name,
+      summary: patch.summary ?? f.summary,
+      spec: patch.spec !== undefined ? patch.spec : f.spec,
+      plans: patch.plans !== undefined ? patch.plans : f.plans,
+      blockedBy: patch.blockedBy !== undefined ? patch.blockedBy : f.blockedBy,
+      priority: patch.priority !== undefined ? patch.priority : f.priority,
+      milestone: patch.milestone !== undefined ? patch.milestone : f.milestone,
+    };
+    return Ok(serializeBodyBlock(merged.summary ?? '', metaFrom(merged)));
+  }
+
   async update(
     externalId: string,
     patch: FeaturePatch,
@@ -364,20 +393,9 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
       'milestone',
     ];
     if (bodyFields.some((k) => patch[k] !== undefined)) {
-      const cur = await this.fetchById(externalId);
-      if (!cur.ok) return cur;
-      if (!cur.value) return Err(new Error(`Linear issue not found: ${externalId}`));
-      const f = cur.value.feature;
-      const merged: NewFeatureInput = {
-        name: patch.name ?? f.name,
-        summary: patch.summary ?? f.summary,
-        spec: patch.spec !== undefined ? patch.spec : f.spec,
-        plans: patch.plans !== undefined ? patch.plans : f.plans,
-        blockedBy: patch.blockedBy !== undefined ? patch.blockedBy : f.blockedBy,
-        priority: patch.priority !== undefined ? patch.priority : f.priority,
-        milestone: patch.milestone !== undefined ? patch.milestone : f.milestone,
-      };
-      input.description = serializeBodyBlock(merged.summary ?? '', metaFrom(merged));
+      const descR = await this.mergedDescription(externalId, patch);
+      if (!descR.ok) return descR;
+      input.description = descR.value;
     }
     if (patch.assignee !== undefined) {
       if (patch.assignee === null) {
@@ -443,18 +461,25 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     if (!r.ok) return r;
     const events: HistoryEvent[] = [];
     for (const c of r.value.issue?.comments?.nodes ?? []) {
-      if (!c.body || !c.body.includes(HISTORY_MARKER)) continue;
-      const m = /```json\s*([\s\S]*?)\s*```/.exec(c.body);
-      if (!m?.[1]) continue;
-      try {
-        const parsed = JSON.parse(m[1]) as HistoryEvent;
-        if (parsed && typeof parsed.type === 'string') events.push(parsed);
-      } catch {
-        // skip malformed history comment
-      }
+      const parsed = parseHistoryComment(c.body);
+      if (parsed) events.push(parsed);
     }
     return Ok(typeof limit === 'number' ? events.slice(0, limit) : events);
   }
+}
+
+/** Parse a single Linear comment body into a HistoryEvent, or null if it isn't one. */
+function parseHistoryComment(body: string | null | undefined): HistoryEvent | null {
+  if (!body || !body.includes(HISTORY_MARKER)) return null;
+  const m = /```json\s*([\s\S]*?)\s*```/.exec(body);
+  if (!m?.[1]) return null;
+  try {
+    const parsed = JSON.parse(m[1]) as HistoryEvent;
+    if (parsed && typeof parsed.type === 'string') return parsed;
+  } catch {
+    // skip malformed history comment
+  }
+  return null;
 }
 
 export type { HistoryEventType };

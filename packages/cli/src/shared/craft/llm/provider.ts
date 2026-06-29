@@ -12,6 +12,12 @@ import {
 } from '@harness-engineering/intelligence';
 import { findConfigFile, loadConfig } from '../../../config/loader.js';
 import { readBackendsFromOrchestratorMd } from './orchestrator-md.js';
+import type { LlmCallCost, LlmProvider } from './contracts.js';
+
+// Core provider contracts live in ./contracts.ts (import-free) so the
+// provider implementations can depend on them without importing back from
+// this hub module. Re-exported here so provider.js stays the stable surface.
+export type { LlmCallCost, VisionInput, LlmProvider } from './contracts.js';
 
 export { InSessionLlmProvider, PromptDeferredError } from './in-session.js';
 export type { DeferredPrompt } from './in-session.js';
@@ -60,42 +66,6 @@ export type { LazyLocalAdapterOptions } from './lazy-local-adapter.js';
 //     surfaces aggregate cost.
 //   - `callText` and `callVision` are separate so vision calls can be
 //     gated on `mode: 'deep'` and tracked as a distinct cost line.
-
-/** Aggregate cost / token usage for one LLM call. */
-export interface LlmCallCost {
-  provider: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd: number;
-}
-
-/** Optional vision input (image bytes or URL) for `callVision`. */
-export interface VisionInput {
-  imageUrl?: string;
-  imageBuffer?: Buffer;
-  mediaType?: 'image/png' | 'image/jpeg' | 'image/webp';
-}
-
-export interface LlmProvider {
-  readonly providerId: string;
-  readonly model: string;
-
-  /**
-   * Free-form text completion. Returns the raw assistant text — the caller
-   * is responsible for parsing fenced JSON / structured content.
-   */
-  callText(prompt: string, opts?: { systemPrompt?: string }): Promise<string>;
-
-  /**
-   * Vision-capable completion. Phase 1 MVP does not wire this through;
-   * the mock throws so consumers in fast mode never accidentally hit it.
-   */
-  callVision(prompt: string, image: VisionInput, opts?: { systemPrompt?: string }): Promise<string>;
-
-  /** Side-effect: append a cost entry. */
-  recordCost(cost: LlmCallCost): void;
-}
 
 /**
  * Deterministic mock provider used by tests + as the default `getProvider`

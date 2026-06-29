@@ -221,6 +221,60 @@ function logSummary(result: {
   );
 }
 
+/**
+ * Parse the `--from-refs` CLI flag into a trimmed, non-empty ref list. Fails
+ * loudly (logs + exits) rather than silently falling back to the network path
+ * when the flag is provided but contains no valid references.
+ */
+function parseFromRefsFlag(raw: string): string[] {
+  const refs = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  // Fail loudly rather than silently falling back to the network path.
+  if (refs.length === 0) {
+    logger.error(
+      `--from-refs was provided ("${raw}") but contained no valid ` +
+        'references; expected a comma-separated list of owner/repo#number'
+    );
+    process.exit(ExitCode.ERROR);
+  }
+  return refs;
+}
+
+/**
+ * Parse the `--from-issues` CLI flag into a list of integer issue numbers. Fails
+ * loudly (logs + exits) rather than silently falling back to the network path:
+ * `--from-issues` with no parseable issue number is an operator mistake.
+ */
+function parseFromIssuesFlag(raw: string): number[] {
+  const parsed = raw
+    .split(',')
+    .map((s) => Number.parseInt(s.trim(), 10))
+    .filter((n) => Number.isInteger(n));
+  if (parsed.length === 0) {
+    logger.error(
+      `--from-issues was provided ("${raw}") but contained no valid ` +
+        'issue numbers; expected a comma-separated list of integers'
+    );
+    process.exit(ExitCode.ERROR);
+  }
+  return parsed;
+}
+
+/** Translate the raw Commander options into {@link RoadmapReconcileOptions}. */
+function buildReconcileOptions(options: { cwd?: string; fromIssues?: string; fromRefs?: string }): {
+  cwd?: string;
+  fromIssues?: number[];
+  fromRefs?: string[];
+} {
+  const opts: { cwd?: string; fromIssues?: number[]; fromRefs?: string[] } = {};
+  if (options.cwd) opts.cwd = options.cwd;
+  if (options.fromRefs !== undefined) opts.fromRefs = parseFromRefsFlag(options.fromRefs);
+  if (options.fromIssues !== undefined) opts.fromIssues = parseFromIssuesFlag(options.fromIssues);
+  return opts;
+}
+
 /** Commander wrapper for `harness roadmap reconcile`. */
 export function createRoadmapReconcileCommand(): Command {
   return new Command('reconcile')
@@ -239,40 +293,7 @@ export function createRoadmapReconcileCommand(): Command {
       'comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)'
     )
     .action(async (options: { cwd?: string; fromIssues?: string; fromRefs?: string }) => {
-      const opts: { cwd?: string; fromIssues?: number[]; fromRefs?: string[] } = {};
-      if (options.cwd) opts.cwd = options.cwd;
-      if (options.fromRefs !== undefined) {
-        const refs = options.fromRefs
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-        // Fail loudly rather than silently falling back to the network path.
-        if (refs.length === 0) {
-          logger.error(
-            `--from-refs was provided ("${options.fromRefs}") but contained no valid ` +
-              'references; expected a comma-separated list of owner/repo#number'
-          );
-          process.exit(ExitCode.ERROR);
-        }
-        opts.fromRefs = refs;
-      }
-      if (options.fromIssues !== undefined) {
-        const parsed = options.fromIssues
-          .split(',')
-          .map((s) => Number.parseInt(s.trim(), 10))
-          .filter((n) => Number.isInteger(n));
-        // Fail loudly rather than silently falling back to the network path:
-        // `--from-issues` with no parseable issue number is an operator mistake.
-        if (parsed.length === 0) {
-          logger.error(
-            `--from-issues was provided ("${options.fromIssues}") but contained no valid ` +
-              'issue numbers; expected a comma-separated list of integers'
-          );
-          process.exit(ExitCode.ERROR);
-        }
-        opts.fromIssues = parsed;
-      }
-      const result = await runRoadmapReconcile(opts);
+      const result = await runRoadmapReconcile(buildReconcileOptions(options));
       if (!result.ok) {
         logger.error(result.error.message);
         process.exit(result.error.exitCode);

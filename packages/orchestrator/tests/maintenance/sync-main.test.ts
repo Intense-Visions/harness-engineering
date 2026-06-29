@@ -19,6 +19,50 @@ interface Script {
   result: ScriptedHandler;
 }
 
+/** Finds the matching scripted handler for an argv and resolves its outcome. */
+function resolveScript(scripts: Script[], argv: string[]): ScriptedOutcome {
+  const script = scripts.find((s) => s.match(argv));
+  if (!script) {
+    return {
+      error: new Error(`Unexpected git call: ${argv.join(' ')}`) as NodeJS.ErrnoException,
+    };
+  }
+  return typeof script.result === 'function' ? script.result() : script.result;
+}
+
+/** Callback-style invocation mirroring `child_process.execFile`. */
+function invokeScriptedCallback(
+  scripts: Script[],
+  file: string,
+  args: readonly string[],
+  callback: (err: NodeJS.ErrnoException | null, stdout: string, stderr: string) => void
+): void {
+  expect(file).toBe('git');
+  const argv = [...(args ?? [])];
+  const result = resolveScript(scripts, argv);
+  if ('error' in result) {
+    callback(result.error, '', '');
+  } else {
+    callback(null, result.stdout ?? '', result.stderr ?? '');
+  }
+}
+
+/** Promise-style invocation mirroring `promisify(execFile)`. */
+function invokeScriptedPromise(
+  scripts: Script[],
+  file: string,
+  args: readonly string[]
+): Promise<{ stdout: string; stderr: string }> {
+  expect(file).toBe('git');
+  const argv = [...(args ?? [])];
+  const result = resolveScript(scripts, argv);
+  if ('error' in result) return Promise.reject(result.error);
+  return Promise.resolve({
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  });
+}
+
 /**
  * Builds an `execFile`-compatible mock from a list of scripted handlers.
  * Each handler matches against the argv array and returns either
@@ -30,29 +74,13 @@ interface Script {
  * code path (`promisify(execFileFn)`) works against the mock unchanged.
  */
 function makeGitMock(scripts: Script[]): ExecFileFn {
-  function resolveScript(argv: string[]): ScriptedOutcome {
-    const script = scripts.find((s) => s.match(argv));
-    if (!script) {
-      return {
-        error: new Error(`Unexpected git call: ${argv.join(' ')}`) as NodeJS.ErrnoException,
-      };
-    }
-    return typeof script.result === 'function' ? script.result() : script.result;
-  }
   const fn = ((file: string, args: readonly string[], _opts: unknown, cb: unknown) => {
     const callback = cb as (
       err: NodeJS.ErrnoException | null,
       stdout: string,
       stderr: string
     ) => void;
-    expect(file).toBe('git');
-    const argv = [...(args ?? [])];
-    const result = resolveScript(argv);
-    if ('error' in result) {
-      callback(result.error, '', '');
-    } else {
-      callback(null, result.stdout ?? '', result.stderr ?? '');
-    }
+    invokeScriptedCallback(scripts, file, args, callback);
     return undefined as never;
   }) as unknown as ExecFileFn;
   // Attach the promisify.custom symbol so `promisify(fn)` returns
@@ -61,16 +89,7 @@ function makeGitMock(scripts: Script[]): ExecFileFn {
     file: string,
     args: readonly string[],
     _opts?: unknown
-  ) => {
-    expect(file).toBe('git');
-    const argv = [...(args ?? [])];
-    const result = resolveScript(argv);
-    if ('error' in result) return Promise.reject(result.error);
-    return Promise.resolve({
-      stdout: result.stdout ?? '',
-      stderr: result.stderr ?? '',
-    });
-  };
+  ) => invokeScriptedPromise(scripts, file, args);
   return fn;
 }
 

@@ -16,9 +16,10 @@
 
 import { lookupDriftCode } from '../catalog/index.js';
 
-export type DriftFindingCode = `DRIFT-T${string}` | `DRIFT-P${string}`;
-export type DriftSeverity = 'error' | 'warn' | 'info';
-export type DriftStrictness = 'strict' | 'standard' | 'permissive';
+// Shared type contracts live in ./types.ts (import-free) so the catalog can
+// reference the finding codes without importing back from this module.
+export type { DriftFindingCode, DriftSeverity, DriftStrictness } from './types.js';
+import type { DriftFindingCode, DriftSeverity, DriftStrictness } from './types.js';
 
 export interface DriftFinding {
   code: DriftFindingCode;

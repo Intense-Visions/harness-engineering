@@ -70,70 +70,102 @@ export function createWebhookServer(opts: HandlerOptions): Server {
     res.end(payload);
   }
 
-  return createNodeServer((req, res) => {
-    void (async () => {
-      if (req.method !== 'POST' || req.url !== path) {
-        sendJson(res, 404, { error: 'not found' });
+  // Read the body, translating an oversized payload into a 413 response.
+  // Returns null when a response has already been sent and the caller
+  // should stop; rethrows any non-size stream error to the outer handler.
+  async function readBodyOrRespond(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deliveryId: string
+  ): Promise<Buffer | null> {
+    try {
+      return await readBody(req);
+    } catch (err) {
+      if (err instanceof BodyTooLargeError) {
+        log.warn('webhook.body_too_large', { deliveryId, bytes: err.bytes });
+        sendJson(res, 413, { error: 'payload too large' });
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  // Parse the raw body as a GatewayEvent, translating bad JSON into a 400.
+  // Returns null when a response has already been sent.
+  function parseEventOrRespond(
+    res: ServerResponse,
+    rawBody: Buffer,
+    deliveryId: string
+  ): GatewayEvent | null {
+    try {
+      return JSON.parse(rawBody.toString('utf8')) as GatewayEvent;
+    } catch (err) {
+      log.warn('webhook.body.parse_failed', { deliveryId, error: String(err) });
+      sendJson(res, 400, { error: 'invalid json body' });
+      return null;
+    }
+  }
+
+  // Forward a verified maintenance.completed event to Slack, responding
+  // 200 on success and 502 if Slack delivery fails.
+  async function dispatchToSlack(
+    res: ServerResponse,
+    event: GatewayEvent,
+    deliveryId: string
+  ): Promise<void> {
+    try {
+      await opts.slack.postMaintenanceCompleted(event.data as MaintenanceCompletedData);
+      log.info('webhook.delivered', { deliveryId, id: event.id });
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      log.error('slack.postMessage.failed', {
+        deliveryId,
+        eventType: event.type,
+        slackError: String(err),
+      });
+      sendJson(res, 502, { error: 'slack delivery failed', detail: String(err) });
+    }
+  }
+
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.method !== 'POST' || req.url !== path) {
+      sendJson(res, 404, { error: 'not found' });
+      return;
+    }
+    const deliveryId = String(req.headers['x-harness-delivery-id'] ?? '');
+    const eventType = String(req.headers['x-harness-event-type'] ?? '');
+    const sigHeader = req.headers['x-harness-signature'];
+    const sig = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
+
+    try {
+      const rawBody = await readBodyOrRespond(req, res, deliveryId);
+      if (rawBody === null) return;
+
+      if (!verify(opts.secret, rawBody, sig)) {
+        log.warn('webhook.signature.mismatch', { deliveryId, eventType });
+        sendJson(res, 401, { error: 'signature mismatch' });
         return;
       }
-      const deliveryId = String(req.headers['x-harness-delivery-id'] ?? '');
-      const eventType = String(req.headers['x-harness-event-type'] ?? '');
-      const sigHeader = req.headers['x-harness-signature'];
-      const sig = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
 
-      try {
-        let rawBody: Buffer;
-        try {
-          rawBody = await readBody(req);
-        } catch (err) {
-          if (err instanceof BodyTooLargeError) {
-            log.warn('webhook.body_too_large', { deliveryId, bytes: err.bytes });
-            sendJson(res, 413, { error: 'payload too large' });
-            return;
-          }
-          throw err;
-        }
+      const event = parseEventOrRespond(res, rawBody, deliveryId);
+      if (event === null) return;
 
-        if (!verify(opts.secret, rawBody, sig)) {
-          log.warn('webhook.signature.mismatch', { deliveryId, eventType });
-          sendJson(res, 401, { error: 'signature mismatch' });
-          return;
-        }
-
-        let event: GatewayEvent;
-        try {
-          event = JSON.parse(rawBody.toString('utf8')) as GatewayEvent;
-        } catch (err) {
-          log.warn('webhook.body.parse_failed', { deliveryId, error: String(err) });
-          sendJson(res, 400, { error: 'invalid json body' });
-          return;
-        }
-
-        if (event.type !== 'maintenance.completed') {
-          log.warn('webhook.event.unsupported', { deliveryId, eventType: event.type });
-          sendJson(res, 400, { error: `unsupported event type: ${event.type}` });
-          return;
-        }
-
-        log.info('webhook.received', { deliveryId, eventType: event.type, id: event.id });
-
-        try {
-          await opts.slack.postMaintenanceCompleted(event.data as MaintenanceCompletedData);
-          log.info('webhook.delivered', { deliveryId, id: event.id });
-          sendJson(res, 200, { ok: true });
-        } catch (err) {
-          log.error('slack.postMessage.failed', {
-            deliveryId,
-            eventType: event.type,
-            slackError: String(err),
-          });
-          sendJson(res, 502, { error: 'slack delivery failed', detail: String(err) });
-        }
-      } catch (err) {
-        log.error('webhook.unexpected_error', { deliveryId, error: String(err) });
-        sendJson(res, 500, { error: 'internal error' });
+      if (event.type !== 'maintenance.completed') {
+        log.warn('webhook.event.unsupported', { deliveryId, eventType: event.type });
+        sendJson(res, 400, { error: `unsupported event type: ${event.type}` });
+        return;
       }
-    })();
+
+      log.info('webhook.received', { deliveryId, eventType: event.type, id: event.id });
+      await dispatchToSlack(res, event, deliveryId);
+    } catch (err) {
+      log.error('webhook.unexpected_error', { deliveryId, error: String(err) });
+      sendJson(res, 500, { error: 'internal error' });
+    }
+  }
+
+  return createNodeServer((req, res) => {
+    void handleRequest(req, res);
   });
 }
 

@@ -152,6 +152,12 @@ interface ParsedStreamLine {
   total?: number;
 }
 
+/** Terminal disposition of a single pull-stream line within the read loop. */
+type PullLineOutcome =
+  | { kind: 'continue' }
+  | { kind: 'success' }
+  | { kind: 'error'; result: InstallResult };
+
 function parseStreamLine(line: string): ParsedStreamLine | undefined {
   try {
     const parsed = JSON.parse(line) as unknown;
@@ -203,17 +209,7 @@ export class OllamaInstallAdapter implements InstallAdapter {
     }
 
     if (response.status < 200 || response.status >= 300) {
-      const detail = await readDetail(response);
-      if (response.status === 404) {
-        return errorResult(
-          'failed_target_missing',
-          `ollama pull 404 for ${request.name}${detail ? `: ${detail}` : ''}`
-        );
-      }
-      return errorResult(
-        'installer_unavailable',
-        `ollama pull ${response.status}${detail ? `: ${detail}` : ''}`
-      );
+      return this.pullHttpErrorResult(response, request.name);
     }
 
     if (!response.body) {
@@ -225,31 +221,14 @@ export class OllamaInstallAdapter implements InstallAdapter {
 
     try {
       for await (const rawLine of response.body) {
-        const parsed = parseStreamLine(rawLine);
-        if (!parsed) continue;
-        if (parsed.error) {
-          const code = classifyStreamError(parsed.error);
-          safeEmit(request.onEvent, { kind: 'error', code, message: parsed.error }, this.onWarn);
-          terminalError = errorResult(code, parsed.error);
+        const outcome = this.handlePullLine(rawLine, request);
+        if (outcome.kind === 'error') {
+          terminalError = outcome.result;
           break;
         }
-        if (parsed.status === 'success') {
-          safeEmit(request.onEvent, { kind: 'success' }, this.onWarn);
+        if (outcome.kind === 'success') {
           sawSuccess = true;
           break;
-        }
-        if (parsed.completed !== undefined && parsed.total !== undefined) {
-          const progress: InstallEvent = {
-            kind: 'progress',
-            completedBytes: parsed.completed,
-            totalBytes: parsed.total,
-          };
-          if (parsed.status) progress.message = parsed.status;
-          safeEmit(request.onEvent, progress, this.onWarn);
-          continue;
-        }
-        if (parsed.status) {
-          safeEmit(request.onEvent, { kind: 'pulling', message: parsed.status }, this.onWarn);
         }
       }
     } catch (err) {
@@ -260,16 +239,68 @@ export class OllamaInstallAdapter implements InstallAdapter {
     }
 
     if (terminalError) return terminalError;
-    if (!sawSuccess) {
-      const code = 'install_failed' as const;
-      const message = request.signal?.aborted
-        ? 'pull canceled'
-        : 'pull stream ended without success';
-      safeEmit(request.onEvent, { kind: 'error', code, message }, this.onWarn);
-      return errorResult(code, message);
-    }
+    if (!sawSuccess) return this.pullEndedWithoutSuccessResult(request);
 
     return { status: 'success', name: request.name };
+  }
+
+  /** Map a non-2xx `/api/pull` response to a stable in-band error result. */
+  private async pullHttpErrorResult(
+    response: InstallerFetchResponse,
+    name: string
+  ): Promise<InstallResult> {
+    const detail = await readDetail(response);
+    if (response.status === 404) {
+      return errorResult(
+        'failed_target_missing',
+        `ollama pull 404 for ${name}${detail ? `: ${detail}` : ''}`
+      );
+    }
+    return errorResult(
+      'installer_unavailable',
+      `ollama pull ${response.status}${detail ? `: ${detail}` : ''}`
+    );
+  }
+
+  /**
+   * Process a single NDJSON line from the pull stream, emitting the matching
+   * install event. Returns the loop's terminal disposition: `error` / `success`
+   * break the loop, `continue` keeps reading.
+   */
+  private handlePullLine(rawLine: string, request: InstallRequest): PullLineOutcome {
+    const parsed = parseStreamLine(rawLine);
+    if (!parsed) return { kind: 'continue' };
+    if (parsed.error) {
+      const code = classifyStreamError(parsed.error);
+      safeEmit(request.onEvent, { kind: 'error', code, message: parsed.error }, this.onWarn);
+      return { kind: 'error', result: errorResult(code, parsed.error) };
+    }
+    if (parsed.status === 'success') {
+      safeEmit(request.onEvent, { kind: 'success' }, this.onWarn);
+      return { kind: 'success' };
+    }
+    if (parsed.completed !== undefined && parsed.total !== undefined) {
+      const progress: InstallEvent = {
+        kind: 'progress',
+        completedBytes: parsed.completed,
+        totalBytes: parsed.total,
+      };
+      if (parsed.status) progress.message = parsed.status;
+      safeEmit(request.onEvent, progress, this.onWarn);
+      return { kind: 'continue' };
+    }
+    if (parsed.status) {
+      safeEmit(request.onEvent, { kind: 'pulling', message: parsed.status }, this.onWarn);
+    }
+    return { kind: 'continue' };
+  }
+
+  /** Emit and build the result for a pull stream that ended without a success line. */
+  private pullEndedWithoutSuccessResult(request: InstallRequest): InstallResult {
+    const code = 'install_failed' as const;
+    const message = request.signal?.aborted ? 'pull canceled' : 'pull stream ended without success';
+    safeEmit(request.onEvent, { kind: 'error', code, message }, this.onWarn);
+    return errorResult(code, message);
   }
 
   async evict(request: EvictRequest): Promise<InstallResult> {

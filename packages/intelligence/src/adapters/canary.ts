@@ -130,57 +130,71 @@ function degradedRecommendation(): FrameworkRecommendation {
   };
 }
 
-export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
-  /**
-   * Run a canary subcommand. Never throws — classifies failure into a degrade reason:
-   *  - `not-installed`  spawn failed (ENOENT): the launcher/package isn't on PATH.
-   *  - `binary-missing` launcher ran but exited 1 with "canary binary not found"
-   *                     (postinstall skipped / offline / unsupported platform).
-   *  - `exec-failed`    any other non-zero exit.
-   */
-  async function execCanary(subArgs: string[]): Promise<ExecOk | ExecErr> {
-    const [cmd, args] = canaryInvocation(subArgs);
-    try {
-      const { stdout } = await exec(cmd, args);
-      return { ok: true, stdout };
-    } catch (err) {
-      const e = err as { code?: string | number; stderr?: string };
-      if (e.code === 'ENOENT') return { ok: false, reason: 'not-installed' };
-      if (e.code === 1 && /canary binary not found/i.test(e.stderr ?? '')) {
-        return { ok: false, reason: 'binary-missing' };
-      }
-      return { ok: false, reason: 'exec-failed' };
+/**
+ * Run a canary subcommand. Never throws — classifies failure into a degrade reason:
+ *  - `not-installed`  spawn failed (ENOENT): the launcher/package isn't on PATH.
+ *  - `binary-missing` launcher ran but exited 1 with "canary binary not found"
+ *                     (postinstall skipped / offline / unsupported platform).
+ *  - `exec-failed`    any other non-zero exit.
+ */
+async function execCanary(exec: CanaryExec, subArgs: string[]): Promise<ExecOk | ExecErr> {
+  const [cmd, args] = canaryInvocation(subArgs);
+  try {
+    const { stdout } = await exec(cmd, args);
+    return { ok: true, stdout };
+  } catch (err) {
+    const e = err as { code?: string | number; stderr?: string };
+    if (e.code === 'ENOENT') return { ok: false, reason: 'not-installed' };
+    if (e.code === 1 && /canary binary not found/i.test(e.stderr ?? '')) {
+      return { ok: false, reason: 'binary-missing' };
     }
+    return { ok: false, reason: 'exec-failed' };
   }
+}
 
+async function probeCanary(exec: CanaryExec): Promise<CanaryProbe> {
+  const res = await execCanary(exec, ['version']);
+  if (!res.ok) return { status: 'degraded', reason: res.reason };
+  // Zero exit but no usable output — the CLI ran but told us nothing.
+  if (res.stdout.trim() === '') return { status: 'degraded', reason: 'bad-output' };
+  // Omit `version` entirely when unparseable (exactOptionalPropertyTypes).
+  const version = parseVersion(res.stdout);
+  return version ? { status: 'available', version } : { status: 'available' };
+}
+
+async function recommendFrameworkCanary(
+  exec: CanaryExec,
+  prompt: string
+): Promise<FrameworkRecommendation> {
+  const res = await execCanary(exec, ['recommend', prompt, '--json']);
+  if (!res.ok) return degradedRecommendation();
+  const parsed = frameworkRecommendationSchema.safeParse(safeJson(res.stdout));
+  return parsed.success ? parsed.data : degradedRecommendation();
+}
+
+async function reviewTestCanary(
+  exec: CanaryExec,
+  path: string,
+  framework?: string
+): Promise<CanaryFinding[]> {
+  const args = ['review-test', path, '--json'];
+  if (framework) args.push('--framework', framework);
+  const res = await execCanary(exec, args);
+  if (!res.ok) return [];
+  const parsed = canaryFindingsSchema.safeParse(safeJson(res.stdout));
+  return parsed.success ? parsed.data : [];
+}
+
+export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
   let cachedProbe: Promise<CanaryProbe> | undefined;
 
-  const probe = (): Promise<CanaryProbe> =>
-    (cachedProbe ??= (async (): Promise<CanaryProbe> => {
-      const res = await execCanary(['version']);
-      if (!res.ok) return { status: 'degraded', reason: res.reason };
-      // Zero exit but no usable output — the CLI ran but told us nothing.
-      if (res.stdout.trim() === '') return { status: 'degraded', reason: 'bad-output' };
-      // Omit `version` entirely when unparseable (exactOptionalPropertyTypes).
-      const version = parseVersion(res.stdout);
-      return version ? { status: 'available', version } : { status: 'available' };
-    })());
+  const probe = (): Promise<CanaryProbe> => (cachedProbe ??= probeCanary(exec));
 
-  const recommendFramework = async (prompt: string): Promise<FrameworkRecommendation> => {
-    const res = await execCanary(['recommend', prompt, '--json']);
-    if (!res.ok) return degradedRecommendation();
-    const parsed = frameworkRecommendationSchema.safeParse(safeJson(res.stdout));
-    return parsed.success ? parsed.data : degradedRecommendation();
-  };
+  const recommendFramework = (prompt: string): Promise<FrameworkRecommendation> =>
+    recommendFrameworkCanary(exec, prompt);
 
-  const reviewTest = async (path: string, framework?: string): Promise<CanaryFinding[]> => {
-    const args = ['review-test', path, '--json'];
-    if (framework) args.push('--framework', framework);
-    const res = await execCanary(args);
-    if (!res.ok) return [];
-    const parsed = canaryFindingsSchema.safeParse(safeJson(res.stdout));
-    return parsed.success ? parsed.data : [];
-  };
+  const reviewTest = (path: string, framework?: string): Promise<CanaryFinding[]> =>
+    reviewTestCanary(exec, path, framework);
 
   return { probe, recommendFramework, reviewTest };
 }
