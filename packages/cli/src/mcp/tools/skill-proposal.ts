@@ -76,6 +76,79 @@ interface EmitSkillProposalInput {
   };
 }
 
+/**
+ * Cross-field validation for new-skill proposals. Matches the new-skill branch
+ * of SkillProposalSchema superRefine in packages/types/src/proposals.ts.
+ * Returns a focused error message, or null when valid.
+ */
+function validateNewSkillProposal(input: EmitSkillProposalInput): string | null {
+  if (!input.content.skillYaml || !input.content.skillMd) {
+    return 'new-skill proposals require both skillYaml and skillMd';
+  }
+  if (input.targetSkill) {
+    return 'targetSkill is forbidden on new-skill proposals';
+  }
+  if (input.content.diff) {
+    return 'diff is forbidden on new-skill proposals (use skillYaml/skillMd)';
+  }
+  return null;
+}
+
+/**
+ * Cross-field validation for refinement proposals. Matches the refinement
+ * branch of SkillProposalSchema superRefine in packages/types/src/proposals.ts.
+ * Returns a focused error message, or null when valid.
+ */
+function validateRefinementProposal(input: EmitSkillProposalInput): string | null {
+  if (!input.targetSkill) {
+    return 'refinement proposals require targetSkill';
+  }
+  if (!input.content.diff) {
+    return 'refinement proposals require a unified diff';
+  }
+  if (input.content.skillYaml || input.content.skillMd) {
+    return 'skillYaml/skillMd are forbidden on refinement proposals (encode in diff)';
+  }
+  return null;
+}
+
+/**
+ * Cross-field validation matrix. Surfacing here gives a focused message before
+ * Zod's structural errors. Returns an error message, or null when valid.
+ */
+function validateProposalCrossFields(input: EmitSkillProposalInput): string | null {
+  if (input.kind === 'new-skill') {
+    return validateNewSkillProposal(input);
+  }
+  if (input.kind === 'refinement') {
+    return validateRefinementProposal(input);
+  }
+  return null;
+}
+
+interface CoreProposalApi {
+  createProposal: typeof import('@harness-engineering/core').createProposal;
+  ProposalConflictError: typeof import('@harness-engineering/core').ProposalConflictError;
+}
+
+/**
+ * Lazily loads the proposal store from core. Returns the API on success, or an
+ * error response when the dynamic import fails.
+ */
+async function loadCoreProposalApi(): Promise<CoreProposalApi | McpResponse> {
+  try {
+    const core = await import('@harness-engineering/core');
+    return {
+      createProposal: core.createProposal,
+      ProposalConflictError: core.ProposalConflictError,
+    };
+  } catch (err) {
+    return mcpError(
+      `Failed to load proposal store: ${err instanceof Error ? err.message : 'unknown error'}`
+    );
+  }
+}
+
 export async function handleEmitSkillProposal(input: EmitSkillProposalInput): Promise<McpResponse> {
   let projectPath: string;
   try {
@@ -84,42 +157,16 @@ export async function handleEmitSkillProposal(input: EmitSkillProposalInput): Pr
     return mcpError(err instanceof Error ? err.message : 'Invalid path');
   }
 
-  // Cross-field validation matrix matches SkillProposalSchema superRefine in
-  // packages/types/src/proposals.ts. Surfacing here gives a focused message
-  // before Zod's structural errors.
-  if (input.kind === 'new-skill') {
-    if (!input.content.skillYaml || !input.content.skillMd) {
-      return mcpError('new-skill proposals require both skillYaml and skillMd');
-    }
-    if (input.targetSkill) {
-      return mcpError('targetSkill is forbidden on new-skill proposals');
-    }
-    if (input.content.diff) {
-      return mcpError('diff is forbidden on new-skill proposals (use skillYaml/skillMd)');
-    }
-  } else if (input.kind === 'refinement') {
-    if (!input.targetSkill) {
-      return mcpError('refinement proposals require targetSkill');
-    }
-    if (!input.content.diff) {
-      return mcpError('refinement proposals require a unified diff');
-    }
-    if (input.content.skillYaml || input.content.skillMd) {
-      return mcpError('skillYaml/skillMd are forbidden on refinement proposals (encode in diff)');
-    }
+  const validationError = validateProposalCrossFields(input);
+  if (validationError) {
+    return mcpError(validationError);
   }
 
-  let createProposal: typeof import('@harness-engineering/core').createProposal;
-  let ProposalConflictError: typeof import('@harness-engineering/core').ProposalConflictError;
-  try {
-    const core = await import('@harness-engineering/core');
-    createProposal = core.createProposal;
-    ProposalConflictError = core.ProposalConflictError;
-  } catch (err) {
-    return mcpError(
-      `Failed to load proposal store: ${err instanceof Error ? err.message : 'unknown error'}`
-    );
+  const core = await loadCoreProposalApi();
+  if ('content' in core) {
+    return core;
   }
+  const { createProposal, ProposalConflictError } = core;
 
   try {
     const proposal = await createProposal(projectPath, {

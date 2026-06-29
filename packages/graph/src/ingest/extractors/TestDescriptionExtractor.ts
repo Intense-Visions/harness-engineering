@@ -14,6 +14,14 @@ const PATTERNS: Record<Language, RegExp[]> = {
   ],
 };
 
+/** Matches a Rust `fn` declaration following a `#[test]` attribute. */
+const RUST_FN_RE = /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/;
+/** Matches a JUnit `@DisplayName("...")` annotation. */
+const JAVA_DISPLAY_RE = /@DisplayName\s*\(\s*"([^"]+)"\s*\)/;
+/** Matches a Java method declaration (the test method name). */
+const JAVA_METHOD_RE =
+  /^\s*(?:(?:public|private|protected)\s+)?(?:static\s+)?(?:void|[\w<>[\]]+)\s+(\w+)\s*\(/;
+
 /**
  * Extracts business rules from test descriptions.
  * Finds describe/it/test blocks (TS/JS), test_ functions (Python),
@@ -65,45 +73,59 @@ export class TestDescriptionExtractor implements SignalExtractor {
     const describeStack: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-
-      // Track describe blocks
-      const describeMatch = line.match(/describe\s*\(\s*(['"`])((?:(?!\1).)*)\1/);
-      if (describeMatch) {
-        describeStack.push(describeMatch[2]!);
-      }
-
-      // Extract it/test descriptions
-      const itMatch = line.match(/(?:it|test)\s*\(\s*(['"`])((?:(?!\1).)*)\1/);
-      if (itMatch) {
-        const testName = itMatch[2]!;
-        const fullPath = [...describeStack, testName].join(' > ');
-        const patternKey = fullPath;
-
-        records.push({
-          id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
-          extractor: 'test-descriptions',
-          language,
-          filePath,
-          line: i + 1,
-          nodeType: 'business_rule',
-          name: testName,
-          content: fullPath,
-          confidence: 0.7,
-          metadata: {
-            suite: describeStack.length > 0 ? describeStack[describeStack.length - 1] : undefined,
-            framework: 'vitest',
-          },
-        });
-      }
-
-      // Pop describe on closing — simplified heuristic: count closing parens after describe
-      if (line.match(/^\s*\}\s*\)\s*;?\s*$/) && describeStack.length > 0) {
-        describeStack.pop();
-      }
+      this.scanJsTsLine(lines[i]!, i, language, filePath, describeStack, records);
     }
 
     return records;
+  }
+
+  private scanJsTsLine(
+    line: string,
+    index: number,
+    language: Language,
+    filePath: string,
+    describeStack: string[],
+    records: ExtractionRecord[]
+  ): void {
+    // Track describe blocks
+    const describeMatch = line.match(/describe\s*\(\s*(['"`])((?:(?!\1).)*)\1/);
+    if (describeMatch) describeStack.push(describeMatch[2]!);
+
+    // Extract it/test descriptions
+    const itMatch = line.match(/(?:it|test)\s*\(\s*(['"`])((?:(?!\1).)*)\1/);
+    if (itMatch) {
+      records.push(this.buildJsTsRecord(itMatch[2]!, index, language, filePath, describeStack));
+    }
+
+    // Pop describe on closing — simplified heuristic: count closing parens after describe
+    if (/^\s*\}\s*\)\s*;?\s*$/.test(line) && describeStack.length > 0) describeStack.pop();
+  }
+
+  private buildJsTsRecord(
+    testName: string,
+    index: number,
+    language: Language,
+    filePath: string,
+    describeStack: string[]
+  ): ExtractionRecord {
+    const fullPath = [...describeStack, testName].join(' > ');
+    const patternKey = fullPath;
+
+    return {
+      id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
+      extractor: 'test-descriptions',
+      language,
+      filePath,
+      line: index + 1,
+      nodeType: 'business_rule',
+      name: testName,
+      content: fullPath,
+      confidence: 0.7,
+      metadata: {
+        suite: describeStack.length > 0 ? describeStack[describeStack.length - 1] : undefined,
+        framework: 'vitest',
+      },
+    };
   }
 
   private extractPython(
@@ -119,58 +141,68 @@ export class TestDescriptionExtractor implements SignalExtractor {
       const line = lines[i]!;
 
       const classMatch = line.match(/^class\s+(Test\w+)/);
-      if (classMatch) {
-        currentClass = classMatch[1]!;
-      }
+      if (classMatch) currentClass = classMatch[1]!;
 
       const funcMatch = line.match(/^\s*def\s+(test_\w+)\s*\(/);
       if (funcMatch) {
-        const testName = funcMatch[1]!;
-        const humanName = testName.replace(/^test_/, '').replace(/_/g, ' ');
-
-        // Look for docstring on next line
-        let docstring: string | undefined;
-        if (i + 1 < lines.length) {
-          const nextLine = lines[i + 1]!.trim();
-          const docMatch = nextLine.match(/^"""(.+?)"""/);
-          if (docMatch) {
-            docstring = docMatch[1];
-          }
-        }
-
-        const patternKey = currentClass ? `${currentClass}.${testName}` : testName;
-
-        records.push({
-          id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
-          extractor: 'test-descriptions',
-          language,
-          filePath,
-          line: i + 1,
-          nodeType: 'business_rule',
-          name: docstring ?? humanName,
-          content: patternKey,
-          confidence: docstring ? 0.7 : 0.5,
-          metadata: {
-            suite: currentClass,
-            framework: 'pytest',
-            functionName: testName,
-          },
-        });
+        records.push(
+          this.buildPythonRecord(funcMatch[1]!, i, language, filePath, currentClass, lines)
+        );
       }
 
       // Reset class context on unindented non-class line
-      if (
-        currentClass &&
-        /^\S/.test(line) &&
-        !line.startsWith('class ') &&
-        !line.startsWith('#') &&
-        line.trim() !== ''
-      ) {
-        currentClass = undefined;
-      }
+      if (this.isPythonClassReset(line, currentClass)) currentClass = undefined;
     }
 
     return records;
+  }
+
+  private isPythonClassReset(line: string, currentClass: string | undefined): boolean {
+    return Boolean(
+      currentClass &&
+      /^\S/.test(line) &&
+      !line.startsWith('class ') &&
+      !line.startsWith('#') &&
+      line.trim() !== ''
+    );
+  }
+
+  private findPythonDocstring(lines: string[], index: number): string | undefined {
+    // Look for docstring on next line
+    if (index + 1 >= lines.length) return undefined;
+    const nextLine = lines[index + 1]!.trim();
+    const docMatch = nextLine.match(/^"""(.+?)"""/);
+    return docMatch ? docMatch[1] : undefined;
+  }
+
+  private buildPythonRecord(
+    testName: string,
+    index: number,
+    language: Language,
+    filePath: string,
+    currentClass: string | undefined,
+    lines: string[]
+  ): ExtractionRecord {
+    const humanName = testName.replace(/^test_/, '').replace(/_/g, ' ');
+    const docstring = this.findPythonDocstring(lines, index);
+    const patternKey = currentClass ? `${currentClass}.${testName}` : testName;
+
+    return {
+      id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
+      extractor: 'test-descriptions',
+      language,
+      filePath,
+      line: index + 1,
+      nodeType: 'business_rule',
+      name: docstring ?? humanName,
+      content: patternKey,
+      confidence: docstring ? 0.7 : 0.5,
+      metadata: {
+        suite: currentClass,
+        framework: 'pytest',
+        functionName: testName,
+      },
+    };
   }
 
   private extractGo(
@@ -242,46 +274,52 @@ export class TestDescriptionExtractor implements SignalExtractor {
     const records: ExtractionRecord[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-
-      if (line.trim() === '#[test]') {
-        // Next non-empty line should be the fn declaration
-        for (let j = i + 1; j < lines.length && j <= i + 3; j++) {
-          const fnLine = lines[j]!;
-          const fnMatch = fnLine.match(/(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/);
-          if (fnMatch) {
-            const testName = fnMatch[1]!;
-            const humanName = testName.replace(/^test_/, '').replace(/_/g, ' ');
-
-            // Look for doc comment above #[test]
-            let docComment: string | undefined;
-            if (i > 0) {
-              const prevLine = lines[i - 1]!.trim();
-              const docMatch = prevLine.match(/^\/\/\/\s*(.+)/);
-              if (docMatch) {
-                docComment = docMatch[1];
-              }
-            }
-
-            records.push({
-              id: `extracted:test-descriptions:${hash(filePath + ':' + testName)}`,
-              extractor: 'test-descriptions',
-              language,
-              filePath,
-              line: j + 1,
-              nodeType: 'business_rule',
-              name: docComment ?? humanName,
-              content: testName,
-              confidence: docComment ? 0.7 : 0.5,
-              metadata: { framework: 'rust-test' },
-            });
-            break;
-          }
-        }
-      }
+      if (lines[i]!.trim() !== '#[test]') continue;
+      const record = this.buildRustRecord(lines, i, language, filePath);
+      if (record) records.push(record);
     }
 
     return records;
+  }
+
+  private buildRustRecord(
+    lines: string[],
+    testIdx: number,
+    language: Language,
+    filePath: string
+  ): ExtractionRecord | undefined {
+    // Next non-empty line should be the fn declaration
+    for (let j = testIdx + 1; j < lines.length && j <= testIdx + 3; j++) {
+      const fnMatch = lines[j]!.match(RUST_FN_RE);
+      if (!fnMatch) continue;
+
+      const testName = fnMatch[1]!;
+      const humanName = testName.replace(/^test_/, '').replace(/_/g, ' ');
+      const docComment = this.findRustDocComment(lines, testIdx);
+
+      return {
+        id: `extracted:test-descriptions:${hash(filePath + ':' + testName)}`,
+        extractor: 'test-descriptions',
+        language,
+        filePath,
+        line: j + 1,
+        nodeType: 'business_rule',
+        name: docComment ?? humanName,
+        content: testName,
+        confidence: docComment ? 0.7 : 0.5,
+        metadata: { framework: 'rust-test' },
+      };
+    }
+
+    return undefined;
+  }
+
+  private findRustDocComment(lines: string[], testIdx: number): string | undefined {
+    // Look for doc comment above #[test]
+    if (testIdx <= 0) return undefined;
+    const prevLine = lines[testIdx - 1]!.trim();
+    const docMatch = prevLine.match(/^\/\/\/\s*(.+)/);
+    return docMatch ? docMatch[1] : undefined;
   }
 
   private extractJava(
@@ -291,57 +329,75 @@ export class TestDescriptionExtractor implements SignalExtractor {
     lines: string[]
   ): ExtractionRecord[] {
     const records: ExtractionRecord[] = [];
+
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-
-      const testMatch = line.match(/@Test\s*$/);
-      if (testMatch) {
-        // Scan nearby lines for @DisplayName and method declaration
-        let displayName: string | undefined;
-
-        // Look backward for @DisplayName (up to 3 lines before @Test)
-        for (let k = Math.max(0, i - 3); k < i; k++) {
-          const prevLine = lines[k]!;
-          const dm = prevLine.match(/@DisplayName\s*\(\s*"([^"]+)"\s*\)/);
-          if (dm) displayName = dm[1]!;
-        }
-
-        // Look forward for @DisplayName and method declaration
-        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
-          const scanLine = lines[j]!;
-
-          const adjacentDisplay = scanLine.match(/@DisplayName\s*\(\s*"([^"]+)"\s*\)/);
-          if (adjacentDisplay) {
-            displayName = adjacentDisplay[1]!;
-            continue;
-          }
-
-          const methodMatch = scanLine.match(
-            /^\s*(?:(?:public|private|protected)\s+)?(?:static\s+)?(?:void|[\w<>[\]]+)\s+(\w+)\s*\(/
-          );
-          if (methodMatch) {
-            const methodName = methodMatch[1]!;
-            const name = displayName ?? methodName;
-            const patternKey = displayName ?? methodName;
-
-            records.push({
-              id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
-              extractor: 'test-descriptions',
-              language,
-              filePath,
-              line: j + 1,
-              nodeType: 'business_rule',
-              name,
-              content: patternKey,
-              confidence: displayName ? 0.7 : 0.5,
-              metadata: { framework: 'junit5' },
-            });
-            break;
-          }
-        }
-      }
+      if (!/@Test\s*$/.test(lines[i]!)) continue;
+      const record = this.buildJavaRecord(lines, i, language, filePath);
+      if (record) records.push(record);
     }
 
     return records;
+  }
+
+  private buildJavaRecord(
+    lines: string[],
+    testIdx: number,
+    language: Language,
+    filePath: string
+  ): ExtractionRecord | undefined {
+    // Scan nearby lines for @DisplayName and method declaration
+    let displayName = this.findJavaDisplayNameBefore(lines, testIdx);
+
+    // Look forward for @DisplayName and method declaration
+    for (let j = testIdx + 1; j < lines.length && j <= testIdx + 5; j++) {
+      const scanLine = lines[j]!;
+
+      const adjacentDisplay = scanLine.match(JAVA_DISPLAY_RE);
+      if (adjacentDisplay) {
+        displayName = adjacentDisplay[1]!;
+        continue;
+      }
+
+      const methodMatch = scanLine.match(JAVA_METHOD_RE);
+      if (methodMatch) {
+        return this.buildJavaRecordFromMethod(methodMatch[1]!, displayName, j, language, filePath);
+      }
+    }
+
+    return undefined;
+  }
+
+  private findJavaDisplayNameBefore(lines: string[], testIdx: number): string | undefined {
+    // Look backward for @DisplayName (up to 3 lines before @Test)
+    let displayName: string | undefined;
+    for (let k = Math.max(0, testIdx - 3); k < testIdx; k++) {
+      const dm = lines[k]!.match(JAVA_DISPLAY_RE);
+      if (dm) displayName = dm[1]!;
+    }
+    return displayName;
+  }
+
+  private buildJavaRecordFromMethod(
+    methodName: string,
+    displayName: string | undefined,
+    index: number,
+    language: Language,
+    filePath: string
+  ): ExtractionRecord {
+    const name = displayName ?? methodName;
+    const patternKey = displayName ?? methodName;
+
+    return {
+      id: `extracted:test-descriptions:${hash(filePath + ':' + patternKey)}`,
+      extractor: 'test-descriptions',
+      language,
+      filePath,
+      line: index + 1,
+      nodeType: 'business_rule',
+      name,
+      content: patternKey,
+      confidence: displayName ? 0.7 : 0.5,
+      metadata: { framework: 'junit5' },
+    };
   }
 }

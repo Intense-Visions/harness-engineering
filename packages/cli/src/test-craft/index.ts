@@ -59,64 +59,17 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
 
   const files = collectTestFiles(projectRoot, input.files).slice(0, maxFiles);
 
-  const allTests: ExtractedTest[] = [];
-  const frameworksDetected: Record<TestFramework, number> = {
-    vitest: 0,
-    jest: 0,
-    mocha: 0,
-    playwright: 0,
-    unknown: 0,
-  };
-  let testsSkippedOrTodo = 0;
-  let sourcePairedCount = 0;
-  const sourcePairCache = new Map<string, ReturnType<typeof resolveSourceFile>>();
-
-  for (const file of files) {
-    let source: string;
-    try {
-      source = fs.readFileSync(file, 'utf-8');
-    } catch {
-      continue;
-    }
-    const framework = detectFramework(source);
-    if (frameworksFilter !== null && !frameworksFilter.has(framework)) continue;
-    frameworksDetected[framework]++;
-
-    const extracted = extractTests({ file, source, framework });
-    // Cap per-file at maxTestsPerFile
-    const capped = extracted.slice(0, maxTestsPerFile);
-    for (const test of capped) {
-      if (test.todo) {
-        testsSkippedOrTodo++;
-        continue;
-      }
-      allTests.push(test);
-    }
-
-    if (sourcePairEnabled && !sourcePairCache.has(file)) {
-      const result = resolveSourceFile(file);
-      sourcePairCache.set(file, result);
-      if (result !== null) sourcePairedCount++;
-    }
-  }
+  const extraction = extractTestsFromFiles(files, {
+    frameworksFilter,
+    maxTestsPerFile,
+    sourcePairEnabled,
+  });
 
   // Critique loop
   const findings: TestFinding[] = [];
-  for (const test of allTests) {
-    const pair = sourcePairEnabled ? (sourcePairCache.get(test.file) ?? null) : null;
-    for (const rubric of rubrics) {
-      try {
-        const finding = await critiqueOne({
-          test,
-          rubric,
-          provider,
-          ...(pair !== null ? { sourcePair: pair } : {}),
-        });
-        if (finding !== null) findings.push(finding);
-      } catch {
-        /* swallow per-(test, rubric) errors */
-      }
-    }
+  for (const test of extraction.allTests) {
+    const pair = sourcePairEnabled ? (extraction.sourcePairCache.get(test.file) ?? null) : null;
+    findings.push(...(await critiqueTest(test, rubrics, provider, pair)));
   }
 
   const totalCost = sumCosts(provider);
@@ -135,14 +88,113 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
       counts: {
         filesScanned: files.length,
-        testsExtracted: allTests.length,
-        testsSkippedOrTodo,
-        sourcePaired: sourcePairedCount,
+        testsExtracted: extraction.allTests.length,
+        testsSkippedOrTodo: extraction.testsSkippedOrTodo,
+        sourcePaired: extraction.sourcePairedCount,
       },
-      frameworksDetected,
+      frameworksDetected: extraction.frameworksDetected,
       runId: randomUUID(),
     },
   };
+}
+
+interface ExtractionResult {
+  allTests: ExtractedTest[];
+  frameworksDetected: Record<TestFramework, number>;
+  testsSkippedOrTodo: number;
+  sourcePairedCount: number;
+  sourcePairCache: Map<string, ReturnType<typeof resolveSourceFile>>;
+}
+
+/** Read a file, returning null when it cannot be read. */
+function readFileOrNull(file: string): string | null {
+  try {
+    return fs.readFileSync(file, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/** Push non-todo tests onto `out`, returning the count of skipped/todo tests. */
+function collectNonTodoTests(tests: readonly ExtractedTest[], out: ExtractedTest[]): number {
+  let skipped = 0;
+  for (const test of tests) {
+    if (test.todo) skipped++;
+    else out.push(test);
+  }
+  return skipped;
+}
+
+/** Walk the candidate test files, extracting tests and source-pair metadata. */
+function extractTestsFromFiles(
+  files: readonly string[],
+  opts: {
+    frameworksFilter: Set<TestFramework> | null;
+    maxTestsPerFile: number;
+    sourcePairEnabled: boolean;
+  }
+): ExtractionResult {
+  const allTests: ExtractedTest[] = [];
+  const frameworksDetected: Record<TestFramework, number> = {
+    vitest: 0,
+    jest: 0,
+    mocha: 0,
+    playwright: 0,
+    unknown: 0,
+  };
+  let testsSkippedOrTodo = 0;
+  let sourcePairedCount = 0;
+  const sourcePairCache = new Map<string, ReturnType<typeof resolveSourceFile>>();
+
+  for (const file of files) {
+    const source = readFileOrNull(file);
+    if (source === null) continue;
+    const framework = detectFramework(source);
+    if (opts.frameworksFilter !== null && !opts.frameworksFilter.has(framework)) continue;
+    frameworksDetected[framework]++;
+
+    // Cap per-file at maxTestsPerFile
+    const capped = extractTests({ file, source, framework }).slice(0, opts.maxTestsPerFile);
+    testsSkippedOrTodo += collectNonTodoTests(capped, allTests);
+
+    if (opts.sourcePairEnabled && !sourcePairCache.has(file)) {
+      const result = resolveSourceFile(file);
+      sourcePairCache.set(file, result);
+      if (result !== null) sourcePairedCount++;
+    }
+  }
+
+  return {
+    allTests,
+    frameworksDetected,
+    testsSkippedOrTodo,
+    sourcePairedCount,
+    sourcePairCache,
+  };
+}
+
+/** Critique a single test against every rubric, swallowing per-rubric errors. */
+async function critiqueTest(
+  test: ExtractedTest,
+  rubrics: ReadonlyArray<TestRubric>,
+  provider: LlmProvider,
+  pair: ReturnType<typeof resolveSourceFile> | null
+): Promise<TestFinding[]> {
+  const findings: TestFinding[] = [];
+  for (const rubric of rubrics) {
+    try {
+      const finding = await critiqueOne({
+        test,
+        rubric,
+        provider,
+        ...(pair !== null ? { sourcePair: pair } : {}),
+      });
+      if (finding !== null) findings.push(finding);
+    } catch {
+      /* swallow per-(test, rubric) errors */
+    }
+  }
+  return findings;
 }
 
 /**
@@ -172,19 +224,7 @@ export async function critiqueTestsInFile(
 
   const findings: TestFinding[] = [];
   for (const test of tests) {
-    for (const rubric of rubrics) {
-      try {
-        const finding = await critiqueOne({
-          test,
-          rubric,
-          provider,
-          ...(pair !== null ? { sourcePair: pair } : {}),
-        });
-        if (finding !== null) findings.push(finding);
-      } catch {
-        /* swallow */
-      }
-    }
+    findings.push(...(await critiqueTest(test, rubrics, provider, pair)));
   }
   return findings;
 }

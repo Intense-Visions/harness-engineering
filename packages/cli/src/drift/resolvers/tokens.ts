@@ -119,23 +119,7 @@ function walkForPaths(
   idx: TokenPathIndex
 ): void {
   if ('$value' in node) {
-    const tokenPath = breadcrumb.join('.');
-    const $type = typeof node.$type === 'string' ? (node.$type as string) : undefined;
-    const $value = node.$value;
-    if ($type === 'color' && typeof $value === 'string') {
-      pushPath(idx.colorPath, $value.toLowerCase(), tokenPath);
-    } else if ($type === 'fontFamily' && typeof $value === 'string') {
-      pushPath(idx.fontFamilyPath, $value.toLowerCase(), tokenPath);
-    } else if ($type === 'fontFamily' && Array.isArray($value)) {
-      for (const f of $value) {
-        if (typeof f === 'string') pushPath(idx.fontFamilyPath, f.toLowerCase(), tokenPath);
-      }
-    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'string') {
-      const px = parsePxValue($value);
-      if (px !== null) pushPath(idx.spacingPath, px, tokenPath);
-    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'number') {
-      pushPath(idx.spacingPath, $value, tokenPath);
-    }
+    collectPathInto(node, breadcrumb, idx);
     return;
   }
   for (const [key, value] of Object.entries(node)) {
@@ -144,6 +128,20 @@ function walkForPaths(
       walkForPaths(value as Record<string, unknown>, [...breadcrumb, key], idx);
     }
   }
+}
+
+function collectPathInto(
+  node: Record<string, unknown>,
+  breadcrumb: string[],
+  idx: TokenPathIndex
+): void {
+  const tokenPath = breadcrumb.join('.');
+  const $type = typeof node.$type === 'string' ? (node.$type as string) : undefined;
+  const $value = node.$value;
+  const parts = classifyTokenValue($type, $value);
+  for (const c of parts.colors) pushPath(idx.colorPath, c, tokenPath);
+  for (const f of parts.fontFamilies) pushPath(idx.fontFamilyPath, f, tokenPath);
+  for (const px of parts.spacingPx) pushPath(idx.spacingPath, px, tokenPath);
 }
 
 function pushPath<K>(map: Map<K, string[]>, key: K, path: string): void {
@@ -155,32 +153,7 @@ function pushPath<K>(map: Map<K, string[]>, key: K, path: string): void {
 function walk(node: Record<string, unknown>, breadcrumb: string[], set: TokenSet): void {
   // A DTCG token has a $value field. If present, this object is a token, not a group.
   if ('$value' in node) {
-    const tokenPath = breadcrumb.join('.');
-    const $type = typeof node.$type === 'string' ? (node.$type as string) : undefined;
-    const $value = node.$value;
-
-    // Deprecated detection: either standard $deprecated or harness extension.
-    if (
-      node.$deprecated === true ||
-      isHarnessDeprecated(node.$extensions as Record<string, unknown> | undefined)
-    ) {
-      set.deprecatedTokens.add(tokenPath);
-    }
-
-    if ($type === 'color' && typeof $value === 'string') {
-      set.colors.add($value.toLowerCase());
-    } else if ($type === 'fontFamily' && typeof $value === 'string') {
-      set.fontFamilies.add($value.toLowerCase());
-    } else if ($type === 'fontFamily' && Array.isArray($value)) {
-      for (const f of $value) {
-        if (typeof f === 'string') set.fontFamilies.add(f.toLowerCase());
-      }
-    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'string') {
-      const px = parsePxValue($value);
-      if (px !== null) set.spacingPx.add(px);
-    } else if (($type === 'dimension' || $type === 'spacing') && typeof $value === 'number') {
-      set.spacingPx.add($value);
-    }
+    collectTokenInto(node, breadcrumb, set);
     return;
   }
 
@@ -191,6 +164,73 @@ function walk(node: Record<string, unknown>, breadcrumb: string[], set: TokenSet
       walk(value as Record<string, unknown>, [...breadcrumb, key], set);
     }
   }
+}
+
+function collectTokenInto(
+  node: Record<string, unknown>,
+  breadcrumb: string[],
+  set: TokenSet
+): void {
+  const tokenPath = breadcrumb.join('.');
+  const $type = typeof node.$type === 'string' ? (node.$type as string) : undefined;
+  const $value = node.$value;
+
+  // Deprecated detection: either standard $deprecated or harness extension.
+  if (
+    node.$deprecated === true ||
+    isHarnessDeprecated(node.$extensions as Record<string, unknown> | undefined)
+  ) {
+    set.deprecatedTokens.add(tokenPath);
+  }
+
+  const parts = classifyTokenValue($type, $value);
+  for (const c of parts.colors) set.colors.add(c);
+  for (const f of parts.fontFamilies) set.fontFamilies.add(f);
+  for (const px of parts.spacingPx) set.spacingPx.add(px);
+}
+
+/**
+ * Classified, value-equivalent token contributions for a DTCG token's
+ * ($type, $value) pair. Each category is gated on a distinct $type, so the
+ * per-category helpers are a mechanical equivalent of the original mutually
+ * exclusive if/else-if chain shared by both walkers.
+ */
+interface TokenValueParts {
+  colors: string[];
+  fontFamilies: string[];
+  spacingPx: number[];
+}
+
+function classifyTokenValue($type: string | undefined, $value: unknown): TokenValueParts {
+  return {
+    colors: colorValues($type, $value),
+    fontFamilies: fontFamilyValues($type, $value),
+    spacingPx: spacingValues($type, $value),
+  };
+}
+
+function colorValues($type: string | undefined, $value: unknown): string[] {
+  if ($type === 'color' && typeof $value === 'string') return [$value.toLowerCase()];
+  return [];
+}
+
+function fontFamilyValues($type: string | undefined, $value: unknown): string[] {
+  if ($type !== 'fontFamily') return [];
+  if (typeof $value === 'string') return [$value.toLowerCase()];
+  if (Array.isArray($value)) {
+    return $value.filter((f): f is string => typeof f === 'string').map((f) => f.toLowerCase());
+  }
+  return [];
+}
+
+function spacingValues($type: string | undefined, $value: unknown): number[] {
+  if ($type !== 'dimension' && $type !== 'spacing') return [];
+  if (typeof $value === 'string') {
+    const px = parsePxValue($value);
+    return px !== null ? [px] : [];
+  }
+  if (typeof $value === 'number') return [$value];
+  return [];
 }
 
 function isHarnessDeprecated(extensions: Record<string, unknown> | undefined): boolean {

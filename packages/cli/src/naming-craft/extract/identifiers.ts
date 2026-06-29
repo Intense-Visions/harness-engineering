@@ -35,69 +35,108 @@ export function extractIdentifiers(file: string, source: string): ExtractedIdent
   const sourceLines = source.split('\n');
 
   function visit(node: ts.Node, parentBodyLineSize: number | null): void {
-    // function declarations
-    if (ts.isFunctionDeclaration(node) && node.name !== undefined) {
-      pushIdentifier(
-        node.name.text,
-        'function',
-        node,
-        sourceFile,
-        sourceLines,
-        out,
-        parentBodyLineSize
-      );
-    }
-    // interface / type alias / class declarations
-    if (
-      (ts.isInterfaceDeclaration(node) ||
-        ts.isTypeAliasDeclaration(node) ||
-        ts.isClassDeclaration(node)) &&
-      node.name !== undefined
-    ) {
-      pushIdentifier(
-        node.name.text,
-        'type',
-        node,
-        sourceFile,
-        sourceLines,
-        out,
-        parentBodyLineSize
-      );
-    }
-    // const / let variable declarations (also handles destructuring binders)
-    if (ts.isVariableStatement(node)) {
-      for (const decl of node.declarationList.declarations) {
-        for (const binding of collectBindingNames(decl.name)) {
-          // Detect if the init is a function expression → kind=function
-          const kind: 'variable' | 'function' =
-            decl.initializer !== undefined &&
-            (ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer))
-              ? 'function'
-              : 'variable';
-          pushIdentifier(binding, kind, decl, sourceFile, sourceLines, out, parentBodyLineSize);
-        }
-      }
-    }
+    collectDeclaredIdentifiers(node, sourceFile, sourceLines, out, parentBodyLineSize);
 
     // recurse — compute body line size if entering a function body
-    let nextParentBodyLineSize = parentBodyLineSize;
-    if (
-      (ts.isFunctionDeclaration(node) ||
-        ts.isFunctionExpression(node) ||
-        ts.isArrowFunction(node) ||
-        ts.isMethodDeclaration(node)) &&
-      node.body !== undefined
-    ) {
-      const start = sourceFile.getLineAndCharacterOfPosition(node.body.getStart(sourceFile)).line;
-      const end = sourceFile.getLineAndCharacterOfPosition(node.body.getEnd()).line;
-      nextParentBodyLineSize = end - start + 1;
-    }
-
+    const nextParentBodyLineSize = computeChildBodyLineSize(node, sourceFile, parentBodyLineSize);
     ts.forEachChild(node, (child) => visit(child, nextParentBodyLineSize));
   }
 
   visit(sourceFile, null);
   return out;
+}
+
+// Collect the declared identifier(s) for a single node (function / type / variable
+// declarations). Node kinds are mutually exclusive, so each branch is independent.
+function collectDeclaredIdentifiers(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  sourceLines: string[],
+  out: ExtractedIdentifier[],
+  parentBodyLineSize: number | null
+): void {
+  // function declarations
+  if (ts.isFunctionDeclaration(node) && node.name !== undefined) {
+    pushIdentifier(
+      node.name.text,
+      'function',
+      node,
+      sourceFile,
+      sourceLines,
+      out,
+      parentBodyLineSize
+    );
+    return;
+  }
+  // interface / type alias / class declarations
+  if (isTypeLikeDeclaration(node) && node.name !== undefined) {
+    pushIdentifier(node.name.text, 'type', node, sourceFile, sourceLines, out, parentBodyLineSize);
+    return;
+  }
+  // const / let variable declarations (also handles destructuring binders)
+  if (ts.isVariableStatement(node)) {
+    pushVariableIdentifiers(node, sourceFile, sourceLines, out, parentBodyLineSize);
+  }
+}
+
+type NamedTypeDeclaration = ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.ClassDeclaration;
+
+function isTypeLikeDeclaration(node: ts.Node): node is NamedTypeDeclaration {
+  return (
+    ts.isInterfaceDeclaration(node) ||
+    ts.isTypeAliasDeclaration(node) ||
+    ts.isClassDeclaration(node)
+  );
+}
+
+function pushVariableIdentifiers(
+  node: ts.VariableStatement,
+  sourceFile: ts.SourceFile,
+  sourceLines: string[],
+  out: ExtractedIdentifier[],
+  parentBodyLineSize: number | null
+): void {
+  for (const decl of node.declarationList.declarations) {
+    for (const binding of collectBindingNames(decl.name)) {
+      const kind = variableInitializerKind(decl.initializer);
+      pushIdentifier(binding, kind, decl, sourceFile, sourceLines, out, parentBodyLineSize);
+    }
+  }
+}
+
+// Detect if the init is a function expression → kind=function
+function variableInitializerKind(initializer: ts.Expression | undefined): 'variable' | 'function' {
+  return initializer !== undefined &&
+    (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer))
+    ? 'function'
+    : 'variable';
+}
+
+// Compute the body line size to propagate to children: the entered function
+// body's span when the node is function-like, otherwise the inherited value.
+function computeChildBodyLineSize(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  parentBodyLineSize: number | null
+): number | null {
+  const body = functionBodyOf(node);
+  if (body === undefined) return parentBodyLineSize;
+  const start = sourceFile.getLineAndCharacterOfPosition(body.getStart(sourceFile)).line;
+  const end = sourceFile.getLineAndCharacterOfPosition(body.getEnd()).line;
+  return end - start + 1;
+}
+
+function functionBodyOf(node: ts.Node): ts.Node | undefined {
+  if (
+    (ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node)) &&
+    node.body !== undefined
+  ) {
+    return node.body;
+  }
+  return undefined;
 }
 
 function pushIdentifier(

@@ -111,22 +111,39 @@ function sliceAroundLine(source: string, line: number, maxChars: number): string
   if (source.length <= maxChars) return source;
   const lines = source.split('\n');
   const targetIdx = Math.max(0, Math.min(lines.length - 1, line - 1));
-  // Expand outward from the target line until we exceed maxChars.
+  const { lo, hi } = expandWindow(lines, targetIdx, maxChars);
+  return lines.slice(lo, hi + 1).join('\n');
+}
+
+/** Length of the line at `idx`, treating a missing line as length 0. */
+function lineLen(lines: string[], idx: number): number {
+  return lines[idx]?.length ?? 0;
+}
+
+/**
+ * Expands outward from `targetIdx` until the accumulated character count
+ * (lines plus joining newlines) reaches `maxChars` or both ends are pinned.
+ */
+function expandWindow(
+  lines: string[],
+  targetIdx: number,
+  maxChars: number
+): { lo: number; hi: number } {
   let lo = targetIdx;
   let hi = targetIdx;
-  let len = lines[targetIdx]?.length ?? 0;
+  let len = lineLen(lines, targetIdx);
   while (len < maxChars && (lo > 0 || hi < lines.length - 1)) {
     if (lo > 0) {
       lo--;
-      len += (lines[lo]?.length ?? 0) + 1;
+      len += lineLen(lines, lo) + 1;
       if (len >= maxChars) break;
     }
     if (hi < lines.length - 1) {
       hi++;
-      len += (lines[hi]?.length ?? 0) + 1;
+      len += lineLen(lines, hi) + 1;
     }
   }
-  return lines.slice(lo, hi + 1).join('\n');
+  return { lo, hi };
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {

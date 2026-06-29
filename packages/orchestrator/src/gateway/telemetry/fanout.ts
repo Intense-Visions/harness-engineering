@@ -214,6 +214,180 @@ function buildAttributes(
   return attrs;
 }
 
+/** Resolved span identifiers for one telemetry event. */
+interface SpanPlan {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  statusCode?: 0 | 1 | 2;
+}
+
+/** Pull the optional `correlationId` / `taskId` string keys off a payload. */
+function extractIds(payload: Record<string, unknown>): {
+  correlationId: string | undefined;
+  taskId: string | undefined;
+} {
+  const correlationId =
+    typeof payload['correlationId'] === 'string' ? payload['correlationId'] : undefined;
+  const taskId = typeof payload['taskId'] === 'string' ? payload['taskId'] : undefined;
+  return { correlationId, taskId };
+}
+
+/** Look up an active run by correlationId (preferred) then taskId. */
+function resolveActiveRun(
+  registry: ActiveRunRegistry,
+  correlationId?: string,
+  taskId?: string
+): { traceId: string; spanId: string } | undefined {
+  return registry.resolve({
+    ...(correlationId !== undefined ? { correlationId } : {}),
+    ...(taskId !== undefined ? { taskId } : {}),
+  });
+}
+
+/** `maintenance:started` opens a new parent span and registers it. */
+function openMaintenanceSpan(
+  registry: ActiveRunRegistry,
+  correlationId?: string,
+  taskId?: string
+): SpanPlan {
+  const traceId = newTraceId();
+  const spanId = newSpanId();
+  const key = correlationId ?? taskId ?? `run_${spanId}`;
+  registry.open(key, { traceId, spanId });
+  return { traceId, spanId };
+}
+
+/**
+ * `maintenance:completed` / `maintenance:error` close-event spans inherit
+ * traceId from the parent; spanId is the parent itself (the parent open/close
+ * pair forms one span on OTel collectors that key on (traceId, spanId)). An
+ * orphaned close still emits — with a fresh trace — so collectors see it.
+ */
+function closeMaintenanceSpan(
+  registry: ActiveRunRegistry,
+  topic: typeof TOPICS.MAINTENANCE_COMPLETED | typeof TOPICS.MAINTENANCE_ERROR,
+  correlationId?: string,
+  taskId?: string
+): SpanPlan {
+  const existing = resolveActiveRun(registry, correlationId, taskId);
+  const traceId = existing?.traceId ?? newTraceId();
+  const spanId = existing?.spanId ?? newSpanId();
+  const statusCode: 0 | 1 | 2 = topic === TOPICS.MAINTENANCE_ERROR ? 2 : 1;
+  const key = correlationId ?? taskId ?? '';
+  if (key) registry.close(key);
+  return { traceId, spanId, statusCode };
+}
+
+/** Child span (skill_invocation / dispatch:decision) rides an open parent. */
+function childSpan(registry: ActiveRunRegistry, correlationId?: string, taskId?: string): SpanPlan {
+  const parent = resolveActiveRun(registry, correlationId, taskId);
+  const plan: SpanPlan = {
+    traceId: parent?.traceId ?? newTraceId(),
+    spanId: newSpanId(),
+  };
+  if (parent?.spanId !== undefined) plan.parentSpanId = parent.spanId;
+  return plan;
+}
+
+/**
+ * Resolve span identifiers depending on whether this event opens, closes, or
+ * rides an existing maintenance run.
+ */
+function planSpan(
+  registry: ActiveRunRegistry,
+  topic: keyof typeof SPAN_NAME,
+  correlationId?: string,
+  taskId?: string
+): SpanPlan {
+  if (topic === TOPICS.MAINTENANCE_STARTED) {
+    return openMaintenanceSpan(registry, correlationId, taskId);
+  }
+  if (topic === TOPICS.MAINTENANCE_COMPLETED || topic === TOPICS.MAINTENANCE_ERROR) {
+    return closeMaintenanceSpan(registry, topic, correlationId, taskId);
+  }
+  return childSpan(registry, correlationId, taskId);
+}
+
+/** Build the OTLP {@link TraceSpan} for one event from its resolved plan. */
+function buildSpan(
+  topic: keyof typeof SPAN_NAME,
+  plan: SpanPlan,
+  payload: Record<string, unknown>
+): TraceSpan {
+  const startNs = nowNs();
+  return {
+    traceId: plan.traceId,
+    spanId: plan.spanId,
+    ...(plan.parentSpanId !== undefined ? { parentSpanId: plan.parentSpanId } : {}),
+    name: SPAN_NAME[topic],
+    kind: SpanKind.INTERNAL,
+    startTimeNs: startNs,
+    endTimeNs: startNs,
+    attributes: buildAttributes(payload, { 'harness.topic': topic }),
+    ...(plan.statusCode !== undefined ? { statusCode: plan.statusCode } : {}),
+  };
+}
+
+/** Build the `telemetry.<topic>` {@link GatewayEvent} for webhook fanout. */
+function buildGatewayEvent(
+  topic: keyof typeof SPAN_NAME,
+  payload: Record<string, unknown>,
+  correlationId?: string
+): GatewayEvent {
+  return {
+    id: newEventId(),
+    type: TELEMETRY_TYPE[topic],
+    timestamp: new Date().toISOString(),
+    data: payload,
+    ...(correlationId !== undefined ? { correlationId } : {}),
+  };
+}
+
+async function enqueueToMatchingSubs(
+  store: Pick<WebhookStore, 'listForEvent'>,
+  webhookDelivery: Pick<WebhookDelivery, 'enqueue'>,
+  event: GatewayEvent
+): Promise<void> {
+  // Use the same matcher the rest of the gateway uses — the Task 9 telemetry
+  // exclusion rule applies automatically so `*.*` subs do NOT receive this.
+  const subs = await store.listForEvent(event.type);
+  if (subs.length === 0) return;
+  // Belt-and-braces: re-filter with eventMatches in case the store ever
+  // changes the filter contract. The Task 9 rule lives in signer.ts; we
+  // import it directly so this fanout never drifts from the policy.
+  const filtered = subs.filter((sub) => sub.events.some((p) => eventMatches(p, event.type)));
+  for (const sub of filtered) {
+    webhookDelivery.enqueue(sub, event);
+  }
+}
+
+interface HandlerContext {
+  registry: ActiveRunRegistry;
+  exporter: Pick<OTLPExporter, 'push'>;
+  webhookDelivery: Pick<WebhookDelivery, 'enqueue'>;
+  store: Pick<WebhookStore, 'listForEvent'>;
+}
+
+/** Build the bus listener for one topic: push a span + fan the event out. */
+function makeTelemetryHandler(
+  ctx: HandlerContext,
+  topic: keyof typeof SPAN_NAME
+): (data: unknown) => void {
+  return (data: unknown): void => {
+    const payload = (data ?? {}) as Record<string, unknown>;
+    const { correlationId, taskId } = extractIds(payload);
+    const plan = planSpan(ctx.registry, topic, correlationId, taskId);
+    ctx.exporter.push(buildSpan(topic, plan, payload));
+    // Fire and forget — slow webhook subs MUST NOT block the producer.
+    void enqueueToMatchingSubs(
+      ctx.store,
+      ctx.webhookDelivery,
+      buildGatewayEvent(topic, payload, correlationId)
+    );
+  };
+}
+
 /**
  * Wire bus events into the OTLP exporter and the webhook delivery pipeline.
  *
@@ -224,101 +398,10 @@ export function wireTelemetryFanout(params: WireParams): () => void {
   const { bus, exporter, webhookDelivery, store } = params;
   const registry = new ActiveRunRegistry();
   const handlers: Array<{ topic: string; fn: (data: unknown) => void }> = [];
-
-  const enqueueToMatchingSubs = async (event: GatewayEvent): Promise<void> => {
-    // Use the same matcher the rest of the gateway uses — the Task 9 telemetry
-    // exclusion rule applies automatically so `*.*` subs do NOT receive this.
-    const subs = await store.listForEvent(event.type);
-    if (subs.length === 0) return;
-    // Belt-and-braces: re-filter with eventMatches in case the store ever
-    // changes the filter contract. The Task 9 rule lives in signer.ts; we
-    // import it directly so this fanout never drifts from the policy.
-    const filtered = subs.filter((sub) => sub.events.some((p) => eventMatches(p, event.type)));
-    for (const sub of filtered) {
-      webhookDelivery.enqueue(sub, event);
-    }
-  };
-
-  const makeHandler =
-    (topic: keyof typeof SPAN_NAME) =>
-    (data: unknown): void => {
-      const payload = (data ?? {}) as Record<string, unknown>;
-      const correlationId =
-        typeof payload['correlationId'] === 'string'
-          ? (payload['correlationId'] as string)
-          : undefined;
-      const taskId =
-        typeof payload['taskId'] === 'string' ? (payload['taskId'] as string) : undefined;
-
-      // Span construction depends on whether this opens, closes, or rides
-      // an existing maintenance run.
-      let traceId: string;
-      let spanId: string;
-      let parentSpanId: string | undefined;
-      let statusCode: 0 | 1 | 2 | undefined;
-
-      if (topic === TOPICS.MAINTENANCE_STARTED) {
-        traceId = newTraceId();
-        spanId = newSpanId();
-        const key = correlationId ?? taskId ?? `run_${spanId}`;
-        registry.open(key, { traceId, spanId });
-      } else if (topic === TOPICS.MAINTENANCE_COMPLETED || topic === TOPICS.MAINTENANCE_ERROR) {
-        // Close-event spans inherit traceId from the parent; spanId is the
-        // parent itself (the parent open/close pair forms one span on OTel
-        // collectors that key on (traceId, spanId)).
-        const existing = registry.resolve({
-          ...(correlationId !== undefined ? { correlationId } : {}),
-          ...(taskId !== undefined ? { taskId } : {}),
-        });
-        if (existing !== undefined) {
-          traceId = existing.traceId;
-          spanId = existing.spanId;
-        } else {
-          // Orphaned close — emit anyway so collectors see the event.
-          traceId = newTraceId();
-          spanId = newSpanId();
-        }
-        statusCode = topic === TOPICS.MAINTENANCE_ERROR ? 2 : 1;
-        const key = correlationId ?? taskId ?? '';
-        if (key) registry.close(key);
-      } else {
-        // Child span: skill_invocation or dispatch:decision.
-        const parent = registry.resolve({
-          ...(correlationId !== undefined ? { correlationId } : {}),
-          ...(taskId !== undefined ? { taskId } : {}),
-        });
-        traceId = parent?.traceId ?? newTraceId();
-        spanId = newSpanId();
-        parentSpanId = parent?.spanId;
-      }
-
-      const startNs = nowNs();
-      const span: TraceSpan = {
-        traceId,
-        spanId,
-        ...(parentSpanId !== undefined ? { parentSpanId } : {}),
-        name: SPAN_NAME[topic],
-        kind: SpanKind.INTERNAL,
-        startTimeNs: startNs,
-        endTimeNs: startNs,
-        attributes: buildAttributes(payload, { 'harness.topic': topic }),
-        ...(statusCode !== undefined ? { statusCode } : {}),
-      };
-      exporter.push(span);
-
-      const gatewayEvent: GatewayEvent = {
-        id: newEventId(),
-        type: TELEMETRY_TYPE[topic],
-        timestamp: new Date().toISOString(),
-        data: payload,
-        ...(correlationId !== undefined ? { correlationId } : {}),
-      };
-      // Fire and forget — slow webhook subs MUST NOT block the producer.
-      void enqueueToMatchingSubs(gatewayEvent);
-    };
+  const ctx: HandlerContext = { registry, exporter, webhookDelivery, store };
 
   for (const topic of Object.values(TOPICS) as Array<keyof typeof SPAN_NAME>) {
-    const fn = makeHandler(topic);
+    const fn = makeTelemetryHandler(ctx, topic);
     bus.on(topic, fn);
     handlers.push({ topic, fn });
   }
