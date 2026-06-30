@@ -16,6 +16,66 @@ export interface RetryOptions {
   maxDelayMs?: number;
 }
 
+/** Resolved retry configuration with all defaults applied. */
+interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+/** Exponential backoff with jitter; jitter prevents a thundering herd. */
+function computeBackoffDelay(config: RetryConfig, attempt: number): number {
+  const exponentialDelay = config.baseDelayMs * 2 ** attempt;
+  const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
+  return cappedDelay * (0.5 + Math.random() * 0.5);
+}
+
+/**
+ * Decide whether the loop should return `response` immediately: either it
+ * succeeded / is non-retryable, or it is retryable but no retries remain.
+ */
+function shouldReturnResponse(
+  response: Awaited<ReturnType<HttpClient>>,
+  attempt: number,
+  maxRetries: number
+): boolean {
+  if (response.ok || !RETRYABLE_STATUSES.has(response.status ?? 0)) {
+    return true;
+  }
+  return attempt === maxRetries;
+}
+
+/** Run the request with retries, sleeping between attempts. */
+async function executeWithRetry(
+  client: HttpClient,
+  url: Parameters<HttpClient>[0],
+  requestOptions: Parameters<HttpClient>[1],
+  config: RetryConfig
+): Promise<Awaited<ReturnType<HttpClient>>> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    try {
+      const response = await client(url, requestOptions);
+      if (shouldReturnResponse(response, attempt, config.maxRetries)) {
+        return response;
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Network error with no retries left — re-throw
+      if (attempt === config.maxRetries) {
+        throw lastError;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, computeBackoffDelay(config, attempt)));
+  }
+
+  // Unreachable — the loop always returns or throws on the last attempt.
+  // Satisfy TypeScript:
+  throw lastError ?? new Error('Request failed after retries');
+}
+
 /**
  * Wrap an HttpClient with exponential backoff + jitter.
  *
@@ -27,46 +87,13 @@ export interface RetryOptions {
  * After exhausting retries the last response is returned (or the last error thrown).
  */
 export function withRetry(client: HttpClient, options?: RetryOptions): HttpClient {
-  const maxRetries = options?.maxRetries ?? 3;
-  const baseDelayMs = options?.baseDelayMs ?? 1000;
-  const maxDelayMs = options?.maxDelayMs ?? 30_000;
-
-  return async (url, requestOptions) => {
-    let lastError: Error | undefined;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await client(url, requestOptions);
-
-        // Successful or non-retryable status — return immediately
-        if (response.ok || !RETRYABLE_STATUSES.has(response.status ?? 0)) {
-          return response;
-        }
-
-        // Retryable status but no retries left — return the failed response
-        if (attempt === maxRetries) {
-          return response;
-        }
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-
-        // Network error with no retries left — re-throw
-        if (attempt === maxRetries) {
-          throw lastError;
-        }
-      }
-
-      // Exponential backoff with jitter before next attempt
-      const exponentialDelay = baseDelayMs * 2 ** attempt;
-      const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
-      const jitteredDelay = cappedDelay * (0.5 + Math.random() * 0.5);
-      await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
-    }
-
-    // Unreachable — the loop always returns or throws on the last attempt.
-    // Satisfy TypeScript:
-    throw lastError ?? new Error('Request failed after retries');
+  const config: RetryConfig = {
+    maxRetries: options?.maxRetries ?? 3,
+    baseDelayMs: options?.baseDelayMs ?? 1000,
+    maxDelayMs: options?.maxDelayMs ?? 30_000,
   };
+
+  return (url, requestOptions) => executeWithRetry(client, url, requestOptions, config);
 }
 
 /**

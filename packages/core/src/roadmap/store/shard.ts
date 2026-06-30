@@ -8,6 +8,40 @@ import type { Shard } from './roadmap-store';
 
 const H3_NAME = /^###\s+(?:Feature:\s+)?(.+)$/m;
 
+/** Validated shard frontmatter fields (slug/milestone/order). */
+interface ShardFrontmatter {
+  slug: string;
+  milestone: string;
+  order: number;
+}
+
+/**
+ * Validate and coerce the `slug`/`milestone`/`order` fields from parsed shard
+ * frontmatter. Split out of `parseShard` so the field-by-field guards do not
+ * inflate the parser's branch count.
+ */
+function parseShardFrontmatter(data: Record<string, unknown>): Result<ShardFrontmatter> {
+  const slug = data.slug;
+  if (typeof slug !== 'string' || slug.length === 0) {
+    return Err(new Error('Shard frontmatter missing required field: slug'));
+  }
+
+  const milestone = data.milestone;
+  if (typeof milestone !== 'string' || milestone.length === 0) {
+    return Err(new Error('Shard frontmatter missing required field: milestone'));
+  }
+
+  const rawOrder = data.order;
+  const order = typeof rawOrder === 'number' ? rawOrder : Number(rawOrder);
+  if (rawOrder === undefined || rawOrder === null || Number.isNaN(order)) {
+    return Err(
+      new Error(`Shard "${slug}" has invalid order: "${String(rawOrder)}" (must be a number)`)
+    );
+  }
+
+  return Ok({ slug, milestone, order });
+}
+
 /**
  * Parse a per-row shard markdown string into a `Shard`.
  *
@@ -27,23 +61,9 @@ export function parseShard(md: string): Result<Shard> {
     return Err(new Error(`Shard frontmatter is not valid YAML: ${(err as Error).message}`));
   }
 
-  const slug = data.slug;
-  if (typeof slug !== 'string' || slug.length === 0) {
-    return Err(new Error('Shard frontmatter missing required field: slug'));
-  }
-
-  const milestone = data.milestone;
-  if (typeof milestone !== 'string' || milestone.length === 0) {
-    return Err(new Error('Shard frontmatter missing required field: milestone'));
-  }
-
-  const rawOrder = data.order;
-  const order = typeof rawOrder === 'number' ? rawOrder : Number(rawOrder);
-  if (rawOrder === undefined || rawOrder === null || Number.isNaN(order)) {
-    return Err(
-      new Error(`Shard "${slug}" has invalid order: "${String(rawOrder)}" (must be a number)`)
-    );
-  }
+  const frontmatterResult = parseShardFrontmatter(data);
+  if (!frontmatterResult.ok) return frontmatterResult;
+  const { slug, milestone, order } = frontmatterResult.value;
 
   const nameMatch = content.match(H3_NAME);
   if (!nameMatch) {

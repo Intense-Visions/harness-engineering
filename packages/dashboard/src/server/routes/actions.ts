@@ -361,6 +361,78 @@ function applyClaimToRoadmap(
   return workflow;
 }
 
+// Phase 4 / S3: dispatch on roadmap mode. The file-less branch calls
+// RoadmapTrackerClient.claim() and surfaces ConflictError as a 409 with
+// the standard TRACKER_CONFLICT body shape (D-P4-B).
+async function handleClaimFileLessDispatch(
+  c: Context,
+  ctx: ServerContext,
+  req: { feature: string; assignee: string }
+): Promise<Response> {
+  const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
+  if (!trackerCfg.ok) {
+    return c.json({ error: trackerCfg.error.message }, 500);
+  }
+  const clientResult = createTrackerClient(trackerCfg.value);
+  if (!clientResult.ok) {
+    return c.json({ error: clientResult.error.message }, 500);
+  }
+  return (await handleClaimFileLess(c, clientResult.value, req)) as Response;
+}
+
+type ClaimOutcome =
+  | { error: string; code: number }
+  | { externalId: string | null; workflow: ClaimWorkflow };
+
+async function runFileBackedClaim(
+  ctx: ServerContext,
+  feature: string,
+  assignee: string
+): Promise<ClaimOutcome> {
+  let outcome: ClaimOutcome | undefined;
+
+  await withFileLock(ctx.projectPath, async () => {
+    const store = resolveRoadmapStore({ projectRoot: ctx.projectPath });
+    const loaded = await store.load();
+    if (!loaded.ok) {
+      outcome = { error: 'Could not read roadmap file', code: 500 };
+      return;
+    }
+
+    const roadmap = loaded.value;
+    // Capture the pre-mutation snapshot so applyRoadmapDiff writes only the
+    // claimed row's shard (sharded) / the whole file (monolith).
+    const before = structuredClone(roadmap);
+    const feat = findFeature(roadmap, feature);
+    if (!feat) {
+      outcome = { error: `Feature '${feature}' not found`, code: 404 };
+      return;
+    }
+
+    const validationError = validateClaimable(feat);
+    if (validationError) {
+      outcome = { error: validationError, code: 409 };
+      return;
+    }
+
+    // Capture before mutation for GitHub sync outside the lock
+    const externalId = feat.externalId ?? null;
+    const workflow = applyClaimToRoadmap(roadmap, feat, assignee);
+
+    const persisted = await applyRoadmapDiff(store, before, roadmap);
+    if (!persisted.ok) {
+      outcome = { error: 'Could not write roadmap file', code: 500 };
+      return;
+    }
+
+    ctx.cache.invalidate('roadmap');
+    ctx.cache.invalidate('overview');
+    outcome = { externalId, workflow };
+  });
+
+  return outcome!;
+}
+
 async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
   const body = await c.req.json<ClaimRequest>();
   const { feature, assignee } = body;
@@ -371,71 +443,19 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
     return c.json({ error: 'feature or assignee exceeds maximum length' }, 400);
   }
 
-  // Phase 4 / S3: dispatch on roadmap mode. The file-less branch calls
-  // RoadmapTrackerClient.claim() and surfaces ConflictError as a 409 with
-  // the standard TRACKER_CONFLICT body shape (D-P4-B).
-  const mode = loadProjectRoadmapMode(ctx.projectPath);
-  if (mode === 'file-less') {
-    const trackerCfg = loadTrackerClientConfigFromProject(ctx.projectPath);
-    if (!trackerCfg.ok) {
-      return c.json({ error: trackerCfg.error.message }, 500);
-    }
-    const clientResult = createTrackerClient(trackerCfg.value);
-    if (!clientResult.ok) {
-      return c.json({ error: clientResult.error.message }, 500);
-    }
-    return (await handleClaimFileLess(c, clientResult.value, { feature, assignee })) as Response;
+  if (loadProjectRoadmapMode(ctx.projectPath) === 'file-less') {
+    return handleClaimFileLessDispatch(c, ctx, { feature, assignee });
   }
 
-  let result: Response | undefined;
-  let externalId: string | null = null;
-  let workflow: ClaimWorkflow = 'brainstorming';
-
-  await withFileLock(ctx.projectPath, async () => {
-    const store = resolveRoadmapStore({ projectRoot: ctx.projectPath });
-    const loaded = await store.load();
-    if (!loaded.ok) {
-      result = c.json({ error: 'Could not read roadmap file' }, 500);
-      return;
-    }
-
-    const roadmap = loaded.value;
-    // Capture the pre-mutation snapshot so applyRoadmapDiff writes only the
-    // claimed row's shard (sharded) / the whole file (monolith).
-    const before = structuredClone(roadmap);
-    const feat = findFeature(roadmap, feature);
-    if (!feat) {
-      result = c.json({ error: `Feature '${feature}' not found` }, 404);
-      return;
-    }
-
-    const validationError = validateClaimable(feat);
-    if (validationError) {
-      result = c.json({ error: validationError }, 409);
-      return;
-    }
-
-    // Capture before mutation for GitHub sync outside the lock
-    externalId = feat.externalId ?? null;
-    workflow = applyClaimToRoadmap(roadmap, feat, assignee);
-
-    const persisted = await applyRoadmapDiff(store, before, roadmap);
-    if (!persisted.ok) {
-      result = c.json({ error: 'Could not write roadmap file' }, 500);
-      return;
-    }
-
-    ctx.cache.invalidate('roadmap');
-    ctx.cache.invalidate('overview');
-  });
-
-  // If the lock callback set an error response, return it
-  if (result) return result;
+  const outcome = await runFileBackedClaim(ctx, feature, assignee);
+  if ('error' in outcome) {
+    return c.json({ error: outcome.error }, outcome.code as 404 | 409 | 500);
+  }
 
   // GitHub sync runs outside the file lock to avoid holding it during network I/O
   let githubSynced = false;
-  if (externalId) {
-    githubSynced = await assignGithubIssue(externalId, assignee);
+  if (outcome.externalId) {
+    githubSynced = await assignGithubIssue(outcome.externalId, assignee);
   }
 
   return c.json({
@@ -443,7 +463,7 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
     feature,
     status: 'in-progress',
     assignee,
-    workflow,
+    workflow: outcome.workflow,
     githubSynced,
   } satisfies ClaimResponse);
 }

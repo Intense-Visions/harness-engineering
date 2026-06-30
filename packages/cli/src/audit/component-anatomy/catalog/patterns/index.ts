@@ -62,6 +62,42 @@ interface PatternSpec {
   fix: string;
 }
 
+/** Construct the single finding emitted at a matched trigger offset. */
+function buildPresenceFinding(
+  spec: PatternSpec,
+  file: string,
+  contents: string,
+  componentType: string | null,
+  index: number
+): AnatomyFinding {
+  const line = lineAt(contents, index);
+  const snippet = (contents.split('\n')[line - 1] ?? '').trim();
+  return {
+    code: spec.code,
+    severity: 'warn',
+    file,
+    line,
+    componentType,
+    message: spec.message,
+    evidence: { snippet },
+    rule: { id: spec.code, source: `design-component-anatomy/pattern-${spec.id}` },
+    fix: { kind: 'manual', description: spec.fix },
+  };
+}
+
+/** Run a presence spec against one file: trigger present AND no mitigation. */
+function detectPresence(
+  spec: PatternSpec,
+  file: string,
+  contents: string,
+  componentType: string | null
+): AnatomyFinding[] {
+  const index = firstTrigger(contents, spec.triggers);
+  if (index === -1) return [];
+  if (anyMatch(contents, spec.mitigations)) return [];
+  return [buildPresenceFinding(spec, file, contents, componentType, index)];
+}
+
 /**
  * Build a {@link PatternCheck} from the common "trigger present AND no mitigation
  * in file" shape. Emits at most one finding per file, located at the first
@@ -72,26 +108,7 @@ function presencePattern(spec: PatternSpec): PatternCheck {
     code: spec.code,
     id: spec.id,
     source: `design-component-anatomy/pattern-${spec.id}`,
-    detect(file, contents, componentType) {
-      const index = firstTrigger(contents, spec.triggers);
-      if (index === -1) return [];
-      if (anyMatch(contents, spec.mitigations)) return [];
-      const line = lineAt(contents, index);
-      const snippet = (contents.split('\n')[line - 1] ?? '').trim();
-      return [
-        {
-          code: spec.code,
-          severity: 'warn',
-          file,
-          line,
-          componentType,
-          message: spec.message,
-          evidence: { snippet },
-          rule: { id: spec.code, source: `design-component-anatomy/pattern-${spec.id}` },
-          fix: { kind: 'manual', description: spec.fix },
-        },
-      ];
-    },
+    detect: (file, contents, componentType) => detectPresence(spec, file, contents, componentType),
   };
 }
 

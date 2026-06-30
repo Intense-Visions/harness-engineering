@@ -35,6 +35,90 @@ function makeGetModel(model: string | string[] | undefined): () => string | null
   return () => null;
 }
 
+/** Narrow a BackendDef to a specific discriminated variant by `type`. */
+type BackendDefOf<T extends BackendDef['type']> = Extract<BackendDef, { type: T }>;
+
+function createClaudeBackend(
+  def: BackendDefOf<'claude'>,
+  options: CreateBackendOptions
+): AgentBackend {
+  return new ClaudeBackend(def.command ?? 'claude', {
+    ...(options.cacheMetrics ? { cacheMetrics: options.cacheMetrics } : {}),
+  });
+}
+
+function createAnthropicBackend(def: BackendDefOf<'anthropic'>): AgentBackend {
+  return new AnthropicBackend({
+    model: def.model,
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+  });
+}
+
+function createOpenAIBackend(def: BackendDefOf<'openai'>): AgentBackend {
+  return new OpenAIBackend({
+    model: def.model,
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+  });
+}
+
+function createGeminiBackend(def: BackendDefOf<'gemini'>): AgentBackend {
+  return new GeminiBackend({
+    model: def.model,
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+  });
+}
+
+function createLocalBackend(def: BackendDefOf<'local'>): AgentBackend {
+  const isArray = Array.isArray(def.model);
+  return new LocalBackend({
+    endpoint: def.endpoint,
+    ...(typeof def.model === 'string' ? { model: def.model } : {}),
+    ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+    ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+  });
+}
+
+function createPiBackend(def: BackendDefOf<'pi'>): AgentBackend {
+  const isArray = Array.isArray(def.model);
+  return new PiBackend({
+    endpoint: def.endpoint,
+    ...(typeof def.model === 'string' ? { model: def.model } : {}),
+    ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+    ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+  });
+}
+
+function createSshBackend(def: BackendDefOf<'ssh'>): AgentBackend {
+  return new SshBackend({
+    host: def.host,
+    remoteCommand: def.remoteCommand,
+    ...(def.user !== undefined ? { user: def.user } : {}),
+    ...(def.port !== undefined ? { port: def.port } : {}),
+    ...(def.identityFile !== undefined ? { identityFile: def.identityFile } : {}),
+    ...(def.sshOptions !== undefined ? { sshOptions: def.sshOptions } : {}),
+    ...(def.sshBinary !== undefined ? { sshBinary: def.sshBinary } : {}),
+  });
+}
+
+function createServerlessBackend(def: BackendDefOf<'serverless'>): AgentBackend {
+  switch (def.adapter) {
+    case 'oci':
+      return new OciServerlessBackend({
+        image: def.image,
+        ...(def.registry !== undefined ? { registry: def.registry } : {}),
+        ...(def.pullPolicy !== undefined ? { pullPolicy: def.pullPolicy } : {}),
+        ...(def.envPassthrough !== undefined ? { envPassthrough: def.envPassthrough } : {}),
+        ...(def.runtime !== undefined ? { runtime: def.runtime } : {}),
+      });
+    default: {
+      const exhaustive: never = def.adapter;
+      throw new Error(`createBackend: unknown serverless adapter ${JSON.stringify(exhaustive)}`);
+    }
+  }
+}
+
 /**
  * Pure constructor: BackendDef -> concrete AgentBackend instance.
  * No side effects beyond the underlying class constructors.
@@ -49,73 +133,21 @@ export function createBackend(def: BackendDef, options: CreateBackendOptions = {
     case 'mock':
       return new MockBackend();
     case 'claude':
-      return new ClaudeBackend(def.command ?? 'claude', {
-        ...(options.cacheMetrics ? { cacheMetrics: options.cacheMetrics } : {}),
-      });
+      return createClaudeBackend(def, options);
     case 'anthropic':
-      return new AnthropicBackend({
-        model: def.model,
-        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-      });
+      return createAnthropicBackend(def);
     case 'openai':
-      return new OpenAIBackend({
-        model: def.model,
-        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-      });
+      return createOpenAIBackend(def);
     case 'gemini':
-      return new GeminiBackend({
-        model: def.model,
-        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-      });
-    case 'local': {
-      const isArray = Array.isArray(def.model);
-      return new LocalBackend({
-        endpoint: def.endpoint,
-        ...(typeof def.model === 'string' ? { model: def.model } : {}),
-        ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
-        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-        ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
-      });
-    }
-    case 'pi': {
-      const isArray = Array.isArray(def.model);
-      return new PiBackend({
-        endpoint: def.endpoint,
-        ...(typeof def.model === 'string' ? { model: def.model } : {}),
-        ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
-        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
-        ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
-      });
-    }
-    case 'ssh': {
-      return new SshBackend({
-        host: def.host,
-        remoteCommand: def.remoteCommand,
-        ...(def.user !== undefined ? { user: def.user } : {}),
-        ...(def.port !== undefined ? { port: def.port } : {}),
-        ...(def.identityFile !== undefined ? { identityFile: def.identityFile } : {}),
-        ...(def.sshOptions !== undefined ? { sshOptions: def.sshOptions } : {}),
-        ...(def.sshBinary !== undefined ? { sshBinary: def.sshBinary } : {}),
-      });
-    }
-    case 'serverless': {
-      switch (def.adapter) {
-        case 'oci':
-          return new OciServerlessBackend({
-            image: def.image,
-            ...(def.registry !== undefined ? { registry: def.registry } : {}),
-            ...(def.pullPolicy !== undefined ? { pullPolicy: def.pullPolicy } : {}),
-            ...(def.envPassthrough !== undefined ? { envPassthrough: def.envPassthrough } : {}),
-            ...(def.runtime !== undefined ? { runtime: def.runtime } : {}),
-          });
-        default: {
-          const exhaustive: never = def.adapter;
-          throw new Error(
-            `createBackend: unknown serverless adapter ${JSON.stringify(exhaustive)}`
-          );
-        }
-      }
-    }
+      return createGeminiBackend(def);
+    case 'local':
+      return createLocalBackend(def);
+    case 'pi':
+      return createPiBackend(def);
+    case 'ssh':
+      return createSshBackend(def);
+    case 'serverless':
+      return createServerlessBackend(def);
     default: {
       const exhaustive: never = def;
       throw new Error(`createBackend: unknown backend type ${JSON.stringify(exhaustive)}`);

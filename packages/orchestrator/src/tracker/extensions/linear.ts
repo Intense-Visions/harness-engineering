@@ -33,6 +33,11 @@ interface GraphQLEnvelope {
   errors?: Array<{ message?: string }>;
 }
 
+/** Normalize an unknown thrown value into a human-readable message. */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /**
  * Real Linear GraphQL client. Replaces {@link LinearGraphQLStub}, which only
  * logged the query and returned an empty object. POSTs the operation to Linear's
@@ -51,9 +56,31 @@ export class LinearGraphQLClient implements LinearGraphQLExtension {
   }
 
   async query(query: string, variables?: Record<string, unknown>): Promise<Result<unknown, Error>> {
-    let res: Response;
+    const sent = await this.sendRequest(query, variables);
+    if (!sent.ok) return sent;
+    const res = sent.value;
+
+    if (!res.ok) {
+      return Err(await this.httpError(res));
+    }
+
+    const parsed = await this.parseEnvelope(res);
+    if (!parsed.ok) return parsed;
+    const envelope = parsed.value;
+
+    const graphqlError = envelopeError(envelope);
+    if (graphqlError) return Err(graphqlError);
+
+    return Ok(envelope.data ?? {});
+  }
+
+  /** POST the operation to Linear, normalizing transport throws into an `Err`. */
+  private async sendRequest(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<Result<Response, Error>> {
     try {
-      res = await this.fetchFn(this.endpoint, {
+      const res = await this.fetchFn(this.endpoint, {
         method: 'POST',
         headers: {
           Authorization: this.apiKey,
@@ -61,40 +88,34 @@ export class LinearGraphQLClient implements LinearGraphQLExtension {
         },
         body: JSON.stringify({ query, variables: variables ?? {} }),
       });
+      return Ok(res);
     } catch (err) {
-      return Err(
-        new Error(
-          `Linear GraphQL request failed: ${err instanceof Error ? err.message : String(err)}`
-        )
-      );
+      return Err(new Error(`Linear GraphQL request failed: ${errorMessage(err)}`));
     }
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      const detail = body ? `: ${body.slice(0, 500)}` : '';
-      return Err(new Error(`Linear GraphQL HTTP ${res.status}${detail}`));
-    }
-
-    let envelope: GraphQLEnvelope;
-    try {
-      envelope = (await res.json()) as GraphQLEnvelope;
-    } catch (err) {
-      return Err(
-        new Error(
-          `Linear GraphQL response was not valid JSON: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        )
-      );
-    }
-
-    if (envelope.errors && envelope.errors.length > 0) {
-      const message = envelope.errors.map((e) => e.message ?? 'unknown error').join('; ');
-      return Err(new Error(`Linear GraphQL error: ${message}`));
-    }
-
-    return Ok(envelope.data ?? {});
   }
+
+  /** Build the error for a non-2xx HTTP response, including a truncated body. */
+  private async httpError(res: Response): Promise<Error> {
+    const body = await res.text().catch(() => '');
+    const detail = body ? `: ${body.slice(0, 500)}` : '';
+    return new Error(`Linear GraphQL HTTP ${res.status}${detail}`);
+  }
+
+  /** Parse the JSON envelope, normalizing parse failures into an `Err`. */
+  private async parseEnvelope(res: Response): Promise<Result<GraphQLEnvelope, Error>> {
+    try {
+      return Ok((await res.json()) as GraphQLEnvelope);
+    } catch (err) {
+      return Err(new Error(`Linear GraphQL response was not valid JSON: ${errorMessage(err)}`));
+    }
+  }
+}
+
+/** Build a combined error from a GraphQL `errors` array, or `undefined` if none. */
+function envelopeError(envelope: GraphQLEnvelope): Error | undefined {
+  if (!envelope.errors || envelope.errors.length === 0) return undefined;
+  const message = envelope.errors.map((e) => e.message ?? 'unknown error').join('; ');
+  return new Error(`Linear GraphQL error: ${message}`);
 }
 
 /**

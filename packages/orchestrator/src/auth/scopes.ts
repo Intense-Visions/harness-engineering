@@ -1,4 +1,3 @@
-/* eslint-disable @harness-engineering/no-hardcoded-path-separator -- file contains URL paths, not filesystem paths */
 import type { TokenScope } from '@harness-engineering/types';
 import { requiredBridgeScope } from '../server/v1-bridge-routes';
 
@@ -26,6 +25,53 @@ export function hasScope(held: TokenScope[], required: TokenScope): boolean {
 }
 
 /**
+ * Method-specific exact-match routes (auth admin + state endpoint). Returns null
+ * when the method/path pair does not match one of these explicit routes.
+ */
+function exactScopeForRoute(method: string, path: string): TokenScope | null {
+  // Auth admin routes
+  if (path === '/api/v1/auth/token' && method === 'POST') return 'admin';
+  if (path === '/api/v1/auth/tokens' && method === 'GET') return 'admin';
+  if (/^\/api\/v1\/auth\/tokens\/[^/]+$/.test(path) && method === 'DELETE') return 'admin';
+
+  // State endpoint (legacy + v1)
+  if ((path === '/api/state' || path === '/api/v1/state') && method === 'GET') return 'read-status';
+
+  return null;
+}
+
+/**
+ * Prefix-based default mapping (Phase 1). Ordered first-match-wins; entries are
+ * matched via startsWith except the exact `/api/chat` route, which must not also
+ * match `/api/chat-proxy`'s startsWith.
+ */
+const PREFIX_SCOPES: ReadonlyArray<readonly [string, TokenScope]> = [
+  ['/api/interactions', 'resolve-interaction'],
+  ['/api/plans', 'read-status'],
+  ['/api/analyze', 'read-status'],
+  ['/api/analyses', 'read-status'],
+  ['/api/roadmap-actions', 'modify-roadmap'],
+  ['/api/dispatch-actions', 'trigger-job'],
+  ['/api/local-model', 'read-status'],
+  ['/api/local-models', 'read-status'],
+  ['/api/maintenance', 'trigger-job'],
+  ['/api/streams', 'read-status'],
+  ['/api/sessions', 'read-status'],
+  ['/api/chat-proxy', 'trigger-job'],
+];
+
+/** Resolve a scope from the ordered prefix mapping; null when nothing matches. */
+function prefixScopeForPath(path: string): TokenScope | null {
+  // Exact `/api/chat` is not a prefix of any PREFIX_SCOPES entry, so checking it
+  // first preserves the original first-match-wins ordering.
+  if (path === '/api/chat') return 'trigger-job';
+  for (const [prefix, scope] of PREFIX_SCOPES) {
+    if (path.startsWith(prefix)) return scope;
+  }
+  return null;
+}
+
+/**
  * Resolve the scope required for a given method + path. Returns null for
  * unknown routes — callers MUST default-deny (return 403) on null.
  *
@@ -37,26 +83,8 @@ export function requiredScopeForRoute(method: string, path: string): TokenScope 
   const bridgeScope = requiredBridgeScope(method, path);
   if (bridgeScope) return bridgeScope;
 
-  // Auth admin routes
-  if (path === '/api/v1/auth/token' && method === 'POST') return 'admin';
-  if (path === '/api/v1/auth/tokens' && method === 'GET') return 'admin';
-  if (/^\/api\/v1\/auth\/tokens\/[^/]+$/.test(path) && method === 'DELETE') return 'admin';
+  const exactScope = exactScopeForRoute(method, path);
+  if (exactScope) return exactScope;
 
-  // State endpoint (legacy + v1)
-  if ((path === '/api/state' || path === '/api/v1/state') && method === 'GET') return 'read-status';
-
-  // Existing routes — Phase 1 default mapping
-  if (path.startsWith('/api/interactions')) return 'resolve-interaction';
-  if (path.startsWith('/api/plans')) return 'read-status';
-  if (path.startsWith('/api/analyze') || path.startsWith('/api/analyses')) return 'read-status';
-  if (path.startsWith('/api/roadmap-actions')) return 'modify-roadmap';
-  if (path.startsWith('/api/dispatch-actions')) return 'trigger-job';
-  if (path.startsWith('/api/local-model') || path.startsWith('/api/local-models'))
-    return 'read-status';
-  if (path.startsWith('/api/maintenance')) return 'trigger-job';
-  if (path.startsWith('/api/streams')) return 'read-status';
-  if (path.startsWith('/api/sessions')) return 'read-status';
-  if (path === '/api/chat' || path.startsWith('/api/chat-proxy')) return 'trigger-job';
-
-  return null;
+  return prefixScopeForPath(path);
 }

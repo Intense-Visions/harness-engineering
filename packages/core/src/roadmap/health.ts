@@ -193,6 +193,86 @@ export interface RoadmapGroomResult {
   changes: RoadmapGroomChange[];
 }
 
+/** Per-milestone classification shared by every feature in that milestone. */
+interface GroomMilestoneContext {
+  archiveDone: boolean;
+  archive: boolean;
+  isIntake: boolean;
+}
+
+/** Transform 1: demote an unactionable `planned` row (no spec & no plan) to `backlog`. */
+function demoteUnactionablePlanned(
+  feature: RoadmapFeature,
+  milestoneName: string,
+  changes: RoadmapGroomChange[]
+): void {
+  if (!isUnactionablePlanned(feature)) return;
+  feature.status = 'backlog';
+  changes.push({
+    kind: 'demoted',
+    feature: feature.name,
+    from: milestoneName,
+    to: 'backlog',
+  });
+}
+
+/** Transform 2: restore the assignee invariant (assignee ≠ null ⟺ in-progress). */
+function restoreAssigneeInvariant(
+  feature: RoadmapFeature,
+  milestoneName: string,
+  changes: RoadmapGroomChange[]
+): void {
+  if (feature.status !== 'in-progress' && feature.assignee !== null) {
+    changes.push({
+      kind: 'unassigned',
+      feature: feature.name,
+      from: milestoneName,
+      to: feature.assignee,
+    });
+    feature.assignee = null;
+  } else if (feature.status === 'in-progress' && feature.assignee === null) {
+    feature.status = 'planned';
+    changes.push({
+      kind: 'demoted',
+      feature: feature.name,
+      from: milestoneName,
+      to: 'planned',
+    });
+  }
+}
+
+/**
+ * Apply the three grooming transforms to one feature in place.
+ * Returns true to keep the feature in its milestone, false to drop it (archived).
+ */
+function groomFeature(
+  feature: RoadmapFeature,
+  milestoneName: string,
+  context: GroomMilestoneContext,
+  archived: RoadmapFeature[],
+  changes: RoadmapGroomChange[]
+): boolean {
+  // 1. Demote unactionable planned rows (applies everywhere).
+  demoteUnactionablePlanned(feature, milestoneName, changes);
+
+  // 2. Restore the assignee invariant (assignee ≠ null ⟺ in-progress).
+  restoreAssigneeInvariant(feature, milestoneName, changes);
+
+  // 3. Archive done work that sits in an active milestone.
+  if (context.archiveDone && feature.status === 'done' && !context.archive && !context.isIntake) {
+    archived.push(feature);
+    changes.push({
+      kind: 'archived',
+      feature: feature.name,
+      from: milestoneName,
+      to: 'Shipped',
+    });
+    return false; // drop from the active milestone
+  }
+
+  return true;
+}
+
 /**
  * Groom the active roadmap. Pure: clones input, never mutates it.
  *
@@ -216,57 +296,15 @@ export function groomRoadmap(roadmap: Roadmap, options?: RoadmapGroomOptions): R
   const changes: RoadmapGroomChange[] = [];
 
   for (const milestone of next.milestones) {
-    const archive = opts.isArchive(milestone.name);
-    const isIntake = milestone.name === opts.intakeMilestone;
-    const kept: RoadmapFeature[] = [];
+    const context: GroomMilestoneContext = {
+      archiveDone,
+      archive: opts.isArchive(milestone.name),
+      isIntake: milestone.name === opts.intakeMilestone,
+    };
 
-    for (const feature of milestone.features) {
-      // 1. Demote unactionable planned rows (applies everywhere).
-      if (isUnactionablePlanned(feature)) {
-        feature.status = 'backlog';
-        changes.push({
-          kind: 'demoted',
-          feature: feature.name,
-          from: milestone.name,
-          to: 'backlog',
-        });
-      }
-
-      // 2. Restore the assignee invariant (assignee ≠ null ⟺ in-progress).
-      if (feature.status !== 'in-progress' && feature.assignee !== null) {
-        changes.push({
-          kind: 'unassigned',
-          feature: feature.name,
-          from: milestone.name,
-          to: feature.assignee,
-        });
-        feature.assignee = null;
-      } else if (feature.status === 'in-progress' && feature.assignee === null) {
-        feature.status = 'planned';
-        changes.push({
-          kind: 'demoted',
-          feature: feature.name,
-          from: milestone.name,
-          to: 'planned',
-        });
-      }
-
-      // 3. Archive done work that sits in an active milestone.
-      if (archiveDone && feature.status === 'done' && !archive && !isIntake) {
-        archived.push(feature);
-        changes.push({
-          kind: 'archived',
-          feature: feature.name,
-          from: milestone.name,
-          to: 'Shipped',
-        });
-        continue; // drop from the active milestone
-      }
-
-      kept.push(feature);
-    }
-
-    milestone.features = kept;
+    milestone.features = milestone.features.filter((feature) =>
+      groomFeature(feature, milestone.name, context, archived, changes)
+    );
   }
 
   // Drop milestones that grooming emptied — but never the intake lane.

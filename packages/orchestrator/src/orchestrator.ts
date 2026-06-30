@@ -578,24 +578,7 @@ export class Orchestrator extends EventEmitter {
       // dispatch:decision) to both the exporter and the webhook delivery
       // worker. The telemetry.* GatewayEvents respect the Task 9 exclusion
       // (legacy *.* subscriptions do not receive them).
-      const otlpCfg = config.telemetry?.export?.otlp;
-      if (otlpCfg) {
-        this.otlpExporter = new OTLPExporter({
-          endpoint: otlpCfg.endpoint,
-          ...(otlpCfg.enabled !== undefined ? { enabled: otlpCfg.enabled } : {}),
-          ...(otlpCfg.headers !== undefined ? { headers: otlpCfg.headers } : {}),
-          ...(otlpCfg.flushIntervalMs !== undefined
-            ? { flushIntervalMs: otlpCfg.flushIntervalMs }
-            : {}),
-          ...(otlpCfg.batchSize !== undefined ? { batchSize: otlpCfg.batchSize } : {}),
-        });
-        this.telemetryFanoutOff = wireTelemetryFanout({
-          bus: this,
-          exporter: this.otlpExporter,
-          webhookDelivery,
-          store: webhookStore,
-        });
-      }
+      this.setupTelemetryExport(config, webhookStore, webhookDelivery);
 
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
@@ -619,30 +602,8 @@ export class Orchestrator extends EventEmitter {
         analysisArchive: this.analysisArchive,
         roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
-        getLocalModelStatus: () => {
-          // Deprecated alias for /api/v1/local-model/status (Spec 1 endpoint
-          // retained as a compat shim per spec line 35; superseded by
-          // getLocalModelStatuses for the multi-local UI). Returns the
-          // first-registered resolver's status.
-          const first = this.localResolvers.values().next();
-          return first.done ? null : first.value.getStatus();
-        },
-        getLocalModelStatuses: () => {
-          // SC38: build NamedLocalModelStatus[] from each registered resolver,
-          // tagged with its backendName + endpoint from the config.
-          const backends = this.config.agent.backends ?? {};
-          const out: import('@harness-engineering/types').NamedLocalModelStatus[] = [];
-          for (const [name, resolver] of this.localResolvers) {
-            const def = backends[name];
-            if (!def || (def.type !== 'local' && def.type !== 'pi')) continue;
-            out.push({
-              ...resolver.getStatus(),
-              backendName: name,
-              endpoint: def.endpoint,
-            });
-          }
-          return out;
-        },
+        getLocalModelStatus: () => this.getFirstLocalModelStatus(),
+        getLocalModelStatuses: () => this.buildLocalModelStatuses(),
       });
 
       this.server.setRecorder(this.recorder);
@@ -663,6 +624,65 @@ export class Orchestrator extends EventEmitter {
         this.server?.broadcastInteraction(interaction);
       });
     }
+  }
+
+  /**
+   * Phase 5: construct the OTLP/HTTP trace exporter and wire telemetry fanout.
+   * Only fires when the operator configures `telemetry.export.otlp` in
+   * harness.config.json. Extracted from the server-init block in the
+   * constructor to keep that block's cyclomatic complexity under threshold.
+   */
+  private setupTelemetryExport(
+    config: WorkflowConfig,
+    webhookStore: WebhookStore,
+    webhookDelivery: WebhookDelivery
+  ): void {
+    const otlpCfg = config.telemetry?.export?.otlp;
+    if (!otlpCfg) return;
+    this.otlpExporter = new OTLPExporter({
+      endpoint: otlpCfg.endpoint,
+      ...(otlpCfg.enabled !== undefined ? { enabled: otlpCfg.enabled } : {}),
+      ...(otlpCfg.headers !== undefined ? { headers: otlpCfg.headers } : {}),
+      ...(otlpCfg.flushIntervalMs !== undefined
+        ? { flushIntervalMs: otlpCfg.flushIntervalMs }
+        : {}),
+      ...(otlpCfg.batchSize !== undefined ? { batchSize: otlpCfg.batchSize } : {}),
+    });
+    this.telemetryFanoutOff = wireTelemetryFanout({
+      bus: this,
+      exporter: this.otlpExporter,
+      webhookDelivery,
+      store: webhookStore,
+    });
+  }
+
+  /**
+   * Deprecated alias for /api/v1/local-model/status (Spec 1 endpoint retained
+   * as a compat shim per spec line 35; superseded by getLocalModelStatuses for
+   * the multi-local UI). Returns the first-registered resolver's status.
+   */
+  private getFirstLocalModelStatus(): import('@harness-engineering/types').LocalModelStatus | null {
+    const first = this.localResolvers.values().next();
+    return first.done ? null : first.value.getStatus();
+  }
+
+  /**
+   * SC38: build NamedLocalModelStatus[] from each registered resolver, tagged
+   * with its backendName + endpoint from the config.
+   */
+  private buildLocalModelStatuses(): import('@harness-engineering/types').NamedLocalModelStatus[] {
+    const backends = this.config.agent.backends ?? {};
+    const out: import('@harness-engineering/types').NamedLocalModelStatus[] = [];
+    for (const [name, resolver] of this.localResolvers) {
+      const def = backends[name];
+      if (!def || (def.type !== 'local' && def.type !== 'pi')) continue;
+      out.push({
+        ...resolver.getStatus(),
+        backendName: name,
+        endpoint: def.endpoint,
+      });
+    }
+    return out;
   }
 
   private createTracker(): IssueTrackerClient {

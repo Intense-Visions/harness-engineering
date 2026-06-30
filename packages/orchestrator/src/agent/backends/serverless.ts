@@ -123,6 +123,24 @@ export interface OciServerlessBackendConfig {
 
 const DEFAULT_OCI_TIMEOUT_MS = 90_000;
 
+type ResolvedOciConfig = Required<
+  Pick<
+    OciServerlessBackendConfig,
+    'image' | 'pullPolicy' | 'runtime' | 'envPassthrough' | 'timeoutMs' | 'extraArgs'
+  >
+> &
+  Omit<
+    OciServerlessBackendConfig,
+    | 'image'
+    | 'pullPolicy'
+    | 'runtime'
+    | 'envPassthrough'
+    | 'timeoutMs'
+    | 'extraArgs'
+    | 'spawnImpl'
+    | 'envSource'
+  >;
+
 /**
  * Concrete serverless adapter using OCI images via `docker` (or
  * `podman`). Cold-starts a detached container per session, execs into
@@ -131,45 +149,14 @@ const DEFAULT_OCI_TIMEOUT_MS = 90_000;
  */
 export class OciServerlessBackend extends ServerlessBackend {
   readonly name = 'serverless:oci';
-  private readonly config: Required<
-    Pick<
-      OciServerlessBackendConfig,
-      'image' | 'pullPolicy' | 'runtime' | 'envPassthrough' | 'timeoutMs' | 'extraArgs'
-    >
-  > &
-    Omit<
-      OciServerlessBackendConfig,
-      | 'image'
-      | 'pullPolicy'
-      | 'runtime'
-      | 'envPassthrough'
-      | 'timeoutMs'
-      | 'extraArgs'
-      | 'spawnImpl'
-      | 'envSource'
-    >;
+  private readonly config: ResolvedOciConfig;
   private readonly spawnImpl: typeof spawn;
   private readonly envSource: NodeJS.ProcessEnv;
 
   constructor(config: OciServerlessBackendConfig) {
     super();
-    if (!config.image || typeof config.image !== 'string') {
-      throw new Error('OciServerlessBackend: `image` is required');
-    }
-    if (FORBIDDEN_IMAGE_CHARS.test(config.image) || config.image.startsWith('-')) {
-      throw new Error(
-        `OciServerlessBackend: invalid image '${config.image}' (contains shell metacharacters or starts with '-')`
-      );
-    }
-    this.config = {
-      image: config.image,
-      pullPolicy: config.pullPolicy ?? 'if-not-present',
-      runtime: config.runtime ?? 'docker',
-      envPassthrough: config.envPassthrough ?? [],
-      timeoutMs: config.timeoutMs ?? DEFAULT_OCI_TIMEOUT_MS,
-      extraArgs: sanitizeExtraArgs(config.extraArgs),
-      ...(config.registry !== undefined ? { registry: config.registry } : {}),
-    };
+    validateOciImage(config.image);
+    this.config = resolveOciConfig(config);
     this.spawnImpl = config.spawnImpl ?? spawn;
     this.envSource = config.envSource ?? process.env;
   }
@@ -352,6 +339,29 @@ export class OciServerlessBackend extends ServerlessBackend {
       });
     });
   }
+}
+
+function validateOciImage(image: string): void {
+  if (!image || typeof image !== 'string') {
+    throw new Error('OciServerlessBackend: `image` is required');
+  }
+  if (FORBIDDEN_IMAGE_CHARS.test(image) || image.startsWith('-')) {
+    throw new Error(
+      `OciServerlessBackend: invalid image '${image}' (contains shell metacharacters or starts with '-')`
+    );
+  }
+}
+
+function resolveOciConfig(config: OciServerlessBackendConfig): ResolvedOciConfig {
+  return {
+    image: config.image,
+    pullPolicy: config.pullPolicy ?? 'if-not-present',
+    runtime: config.runtime ?? 'docker',
+    envPassthrough: config.envPassthrough ?? [],
+    timeoutMs: config.timeoutMs ?? DEFAULT_OCI_TIMEOUT_MS,
+    extraArgs: sanitizeExtraArgs(config.extraArgs),
+    ...(config.registry !== undefined ? { registry: config.registry } : {}),
+  };
 }
 
 function sanitizeExtraArgs(extraArgs: string[] | undefined): string[] {

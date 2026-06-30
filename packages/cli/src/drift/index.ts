@@ -48,47 +48,118 @@ export type DetectDriftOutput = Verifier<
 const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
 
 /**
- * Run the detect-design-drift verifier.
+ * Resolved configuration for a single detect-design-drift run. Centralizes
+ * input defaulting and the loaded token/registry resources so the entry
+ * point stays declarative.
  */
-export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDriftOutput> {
-  const startedAt = Date.now();
+interface ResolvedDriftConfig {
+  projectRoot: string;
+  mode: DetectDriftMode;
+  strictness: DriftStrictness;
+  tokenBypassEnabled: boolean;
+  primitiveAdoptionEnabled: boolean;
+  tokens: ReturnType<typeof loadTokenSet>;
+  registry: ReturnType<typeof loadComponentRegistry>;
+}
+
+/**
+ * Resolve input defaults and load the token/registry resources.
+ */
+function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
   const projectRoot = sanitizePath(input.path);
-  const mode: DetectDriftMode = input.mode ?? 'fast';
-  const strictness: DriftStrictness = input.designStrictness ?? 'standard';
   const tokenBypassEnabled = input.rules?.tokenBypass !== false;
   const primitiveAdoptionEnabled = input.rules?.primitiveAdoption !== false;
+  return {
+    projectRoot,
+    mode: input.mode ?? 'fast',
+    strictness: input.designStrictness ?? 'standard',
+    tokenBypassEnabled,
+    primitiveAdoptionEnabled,
+    tokens: tokenBypassEnabled ? loadTokenSet(projectRoot) : null,
+    registry: primitiveAdoptionEnabled ? loadComponentRegistry(projectRoot) : null,
+  };
+}
 
-  const tokens = tokenBypassEnabled ? loadTokenSet(projectRoot) : null;
-  const registry = primitiveAdoptionEnabled ? loadComponentRegistry(projectRoot) : null;
-
+/**
+ * Derive the list of rules that actually ran (enabled AND resource loaded).
+ */
+function computeRulesApplied(config: ResolvedDriftConfig): string[] {
   const rulesApplied: string[] = [];
-  if (tokenBypassEnabled && tokens !== null) rulesApplied.push('token-bypass');
-  if (primitiveAdoptionEnabled && registry !== null) rulesApplied.push('primitive-adoption');
-
-  const filesToScan = await collectFiles(projectRoot, input.files);
-
-  const findings: DriftFinding[] = [];
-  for (const file of filesToScan) {
-    let source: string;
-    try {
-      source = fs.readFileSync(file, 'utf-8');
-    } catch {
-      continue;
-    }
-    if (tokenBypassEnabled && tokens !== null) {
-      findings.push(...runTokenBypassRule({ source, file, tokens, strictness }));
-    }
-    if (primitiveAdoptionEnabled && registry !== null) {
-      findings.push(...runPrimitiveAdoptionRule({ source, file, registry, strictness }));
-    }
+  if (config.tokenBypassEnabled && config.tokens !== null) rulesApplied.push('token-bypass');
+  if (config.primitiveAdoptionEnabled && config.registry !== null) {
+    rulesApplied.push('primitive-adoption');
   }
+  return rulesApplied;
+}
 
+/**
+ * Run the enabled rules against a single file's source. Returns an empty
+ * list when the file cannot be read.
+ */
+function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] {
+  let source: string;
+  try {
+    source = fs.readFileSync(file, 'utf-8');
+  } catch {
+    return [];
+  }
+  const findings: DriftFinding[] = [];
+  if (config.tokenBypassEnabled && config.tokens !== null) {
+    findings.push(
+      ...runTokenBypassRule({ source, file, tokens: config.tokens, strictness: config.strictness })
+    );
+  }
+  if (config.primitiveAdoptionEnabled && config.registry !== null) {
+    findings.push(
+      ...runPrimitiveAdoptionRule({
+        source,
+        file,
+        registry: config.registry,
+        strictness: config.strictness,
+      })
+    );
+  }
+  return findings;
+}
+
+/**
+ * Scan every candidate file and accumulate findings.
+ */
+function scanFiles(files: readonly string[], config: ResolvedDriftConfig): DriftFinding[] {
+  const findings: DriftFinding[] = [];
+  for (const file of files) {
+    findings.push(...scanFile(file, config));
+  }
+  return findings;
+}
+
+/**
+ * Aggregate findings into the severity/code count maps used by the summary.
+ */
+function summarizeFindings(findings: readonly DriftFinding[]): {
+  bySeverity: Record<DriftSeverity, number>;
+  byCode: Record<string, number>;
+} {
   const bySeverity: Record<DriftSeverity, number> = { error: 0, warn: 0, info: 0 };
   const byCode: Record<string, number> = {};
   for (const f of findings) {
     bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
     byCode[f.code] = (byCode[f.code] ?? 0) + 1;
   }
+  return { bySeverity, byCode };
+}
+
+/**
+ * Run the detect-design-drift verifier.
+ */
+export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDriftOutput> {
+  const startedAt = Date.now();
+  const config = resolveDriftConfig(input);
+  const rulesApplied = computeRulesApplied(config);
+
+  const filesToScan = await collectFiles(config.projectRoot, input.files);
+  const findings = scanFiles(filesToScan, config);
+  const { bySeverity, byCode } = summarizeFindings(findings);
 
   return {
     findings,
@@ -100,9 +171,9 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
     },
     catalog: { rulesApplied },
     meta: {
-      mode,
-      tokensLoaded: tokens !== null,
-      registryLoaded: registry !== null,
+      mode: config.mode,
+      tokensLoaded: config.tokens !== null,
+      registryLoaded: config.registry !== null,
     },
   };
 }

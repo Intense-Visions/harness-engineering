@@ -38,6 +38,15 @@ interface SshSession extends AgentSession {
   systemPrompt?: string;
 }
 
+/** Resolved internal config shape held by {@link SshBackend}. */
+type ResolvedSshConfig = Required<
+  Pick<SshBackendConfig, 'host' | 'remoteCommand' | 'sshBinary' | 'sshOptions' | 'timeoutMs'>
+> &
+  Omit<
+    SshBackendConfig,
+    'spawnImpl' | 'host' | 'remoteCommand' | 'sshBinary' | 'sshOptions' | 'timeoutMs'
+  >;
+
 /**
  * SSH agent dispatch backend (Hermes Phase 5).
  *
@@ -57,40 +66,12 @@ interface SshSession extends AgentSession {
  */
 export class SshBackend implements AgentBackend {
   readonly name = 'ssh';
-  private readonly config: Required<
-    Pick<SshBackendConfig, 'host' | 'remoteCommand' | 'sshBinary' | 'sshOptions' | 'timeoutMs'>
-  > &
-    Omit<
-      SshBackendConfig,
-      'spawnImpl' | 'host' | 'remoteCommand' | 'sshBinary' | 'sshOptions' | 'timeoutMs'
-    >;
+  private readonly config: ResolvedSshConfig;
   private readonly spawnImpl: typeof spawn;
 
   constructor(config: SshBackendConfig) {
-    if (!config.host || typeof config.host !== 'string') {
-      throw new Error('SshBackend: `host` is required');
-    }
-    if (FORBIDDEN_HOST_CHARS.test(config.host) || config.host.startsWith('-')) {
-      throw new Error(
-        `SshBackend: invalid host '${config.host}' (contains shell metacharacters or starts with '-')`
-      );
-    }
-    if (!config.remoteCommand || typeof config.remoteCommand !== 'string') {
-      throw new Error('SshBackend: `remoteCommand` is required');
-    }
-    if (config.user !== undefined && /[\s;&|`$]/.test(config.user)) {
-      throw new Error(`SshBackend: invalid user '${config.user}'`);
-    }
-    this.config = {
-      host: config.host,
-      remoteCommand: config.remoteCommand,
-      sshBinary: config.sshBinary ?? 'ssh',
-      sshOptions: config.sshOptions ?? [],
-      timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      ...(config.user !== undefined ? { user: config.user } : {}),
-      ...(config.port !== undefined ? { port: config.port } : {}),
-      ...(config.identityFile !== undefined ? { identityFile: config.identityFile } : {}),
-    };
+    validateSshConfig(config);
+    this.config = normalizeSshConfig(config);
     this.spawnImpl = config.spawnImpl ?? spawn;
   }
 
@@ -260,6 +241,44 @@ export class SshBackend implements AgentBackend {
       });
     });
   }
+}
+
+/**
+ * Validates an {@link SshBackendConfig}, throwing on any invalid field.
+ * Extracted from the constructor to keep its complexity bounded.
+ */
+function validateSshConfig(config: SshBackendConfig): void {
+  if (!config.host || typeof config.host !== 'string') {
+    throw new Error('SshBackend: `host` is required');
+  }
+  if (FORBIDDEN_HOST_CHARS.test(config.host) || config.host.startsWith('-')) {
+    throw new Error(
+      `SshBackend: invalid host '${config.host}' (contains shell metacharacters or starts with '-')`
+    );
+  }
+  if (!config.remoteCommand || typeof config.remoteCommand !== 'string') {
+    throw new Error('SshBackend: `remoteCommand` is required');
+  }
+  if (config.user !== undefined && /[\s;&|`$]/.test(config.user)) {
+    throw new Error(`SshBackend: invalid user '${config.user}'`);
+  }
+}
+
+/**
+ * Applies defaults and drops optional-unset fields, producing the
+ * resolved config shape held by {@link SshBackend}.
+ */
+function normalizeSshConfig(config: SshBackendConfig): ResolvedSshConfig {
+  return {
+    host: config.host,
+    remoteCommand: config.remoteCommand,
+    sshBinary: config.sshBinary ?? 'ssh',
+    sshOptions: config.sshOptions ?? [],
+    timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    ...(config.user !== undefined ? { user: config.user } : {}),
+    ...(config.port !== undefined ? { port: config.port } : {}),
+    ...(config.identityFile !== undefined ? { identityFile: config.identityFile } : {}),
+  };
 }
 
 function errResult(sessionId: string, message: string): TurnResult {
