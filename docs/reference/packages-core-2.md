@@ -60,7 +60,7 @@ Canonical External-ID (`github:owner/repo#NNN`) parse/build helpers.
 
 [`packages/core/src/roadmap/load-mode.ts`](/packages/core/src/roadmap/load-mode.ts)
 
-Resolve the project's roadmap mode from `<projectRoot>/harness.config.json`.
+Resolve the project's roadmap mode from `&lt;projectRoot&gt;/harness.config.json`.
 
 **Exports:** `loadProjectRoadmapMode`, `RoadmapStorageMode`, `detectRoadmapStorageMode`
 

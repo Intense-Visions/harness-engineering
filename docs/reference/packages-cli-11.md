@@ -62,7 +62,7 @@ Single compose point for the event-sourced core-state read/write path.
 
 [`packages/cli/src/shared/verifier.ts`](/packages/cli/src/shared/verifier.ts)
 
-Verifier<F, Cat, Meta> — formal interface for harness check-design's composed verifier shape.
+Verifier&lt;F, Cat, Meta&gt; — formal interface for harness check-design's composed verifier shape.
 
 **Exports:** `VerifierSeverity`, `VerifierSummary`, `Verifier`
 

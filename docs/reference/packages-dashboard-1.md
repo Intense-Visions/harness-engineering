@@ -108,6 +108,8 @@ Spec B Phase 7 — RoutingTraceCard.
 
 [`packages/dashboard/src/client/components/chat/blocks/format-tool-args.ts`](/packages/dashboard/src/client/components/chat/blocks/format-tool-args.ts)
 
+If we have a description, the command itself is now the "args preview"
+
 **Exports:** `formatToolArgs`
 
 ## packages/dashboard/src/client/components/kanban/KanbanCard.tsx

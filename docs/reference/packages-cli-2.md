@@ -142,6 +142,6 @@ Hermes Phase 4 one-shot migration: stamp `provenance: user-authored` on every ex
 
 [`packages/cli/src/commands/check-design.ts`](/packages/cli/src/commands/check-design.ts)
 
-CONVENTION (informal, extract to Verifier<F> interface on the 3rd check-\* command): Verifier output: { findings: F[], summary: { ..., bySeverity, byCode, durationMs }, ...
+CONVENTION (informal, extract to Verifier&lt;F&gt; interface on the 3rd check-\* command): Verifier output: { findings: F[], summary: { ..., bySeverity, byCode, durationMs }, ...
 
 **Exports:** `runCheckDesign`, `createCheckDesignCommand`

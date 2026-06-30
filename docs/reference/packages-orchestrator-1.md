@@ -68,7 +68,7 @@ Maintenance backend resolver: map a configured backend NAME to a live {@link Age
 
 [`packages/orchestrator/src/agent/triage-skill-mapping.ts`](/packages/orchestrator/src/agent/triage-skill-mapping.ts)
 
-Spec B Phase 3: map a {@link TriageSkill} (the coarse, hard-coded skill set the triage router produces) to a concrete catalog skill name + its declared cognitive_mode (if any), via the `harness-<triageSkill>` naming convention.
+Spec B Phase 3: map a {@link TriageSkill} (the coarse, hard-coded skill set the triage router produces) to a concrete catalog skill name + its declared cognitive_mode (if any), via the `harness-&lt;triageSkill&gt;` naming convention.
 
 **Exports:** `ResolvedTriageSkill`, `resolveSkillForTriage`
 
@@ -87,6 +87,8 @@ Spec B Phase 3: map a {@link TriageSkill} (the coarse, hard-coded skill set the 
 ## packages/orchestrator/src/auth/scopes.ts
 
 [`packages/orchestrator/src/auth/scopes.ts`](/packages/orchestrator/src/auth/scopes.ts)
+
+Pinned scope vocabulary.
 
 **Exports:** `SCOPE_VOCABULARY`, `hasScope`, `requiredScopeForRoute`
 

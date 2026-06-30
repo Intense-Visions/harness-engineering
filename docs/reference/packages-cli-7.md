@@ -30,7 +30,7 @@ POLISH phase implementation.
 
 [`packages/cli/src/design-pipeline/phases/audit.ts`](/packages/cli/src/design-pipeline/phases/audit.ts)
 
-Phase 4: AUDIT — invoke registered rule-based verifiers generically via the Verifier<F> registry.
+Phase 4: AUDIT — invoke registered rule-based verifiers generically via the Verifier&lt;F&gt; registry.
 
 **Exports:** `AuditInput`, `runAudit`
 
