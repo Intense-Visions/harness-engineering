@@ -1043,15 +1043,20 @@ function parseStatusObjectLine(line: string | undefined): ParsedStatus | null {
     // not JSON; keep scanning earlier lines
     return null;
   }
+  return classifyStatusObject(obj);
+}
+
+const PHASE_STATUSES = new Set(['success', 'skipped', 'failure', 'no-issues']);
+const SYNC_SUCCESS_STATUSES = new Set(['updated', 'no-op']);
+
+/** Map a parsed status object to a {@link ParsedStatus}, honoring both the Phase 4/5 and sync-main contracts. */
+function classifyStatusObject(obj: Record<string, unknown>): ParsedStatus | null {
   const s = obj.status;
+  if (typeof s !== 'string') return null;
   // Phase 4/5 contract: 'success' | 'skipped' | 'failure' | 'no-issues'
-  if (s === 'success' || s === 'skipped' || s === 'failure' || s === 'no-issues') {
-    return buildPhaseStatus(s, obj);
-  }
+  if (PHASE_STATUSES.has(s)) return buildPhaseStatus(s as RunResult['status'], obj);
   // sync-main contract: 'updated' | 'no-op' | 'skipped' | 'error'
-  if (s === 'updated' || s === 'no-op') {
-    return { status: 'success', rawStatus: s };
-  }
+  if (SYNC_SUCCESS_STATUSES.has(s)) return { status: 'success', rawStatus: s };
   if (s === 'error') {
     const message = typeof obj.message === 'string' ? obj.message : 'unknown error';
     return { status: 'failure', error: message, rawStatus: 'error' };

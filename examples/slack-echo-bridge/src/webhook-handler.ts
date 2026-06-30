@@ -132,10 +132,7 @@ export function createWebhookServer(opts: HandlerOptions): Server {
       sendJson(res, 404, { error: 'not found' });
       return;
     }
-    const deliveryId = String(req.headers['x-harness-delivery-id'] ?? '');
-    const eventType = String(req.headers['x-harness-event-type'] ?? '');
-    const sigHeader = req.headers['x-harness-signature'];
-    const sig = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
+    const { deliveryId, eventType, sig } = extractWebhookHeaders(req);
 
     try {
       const rawBody = await readBodyOrRespond(req, res, deliveryId);
@@ -167,6 +164,20 @@ export function createWebhookServer(opts: HandlerOptions): Server {
   return createNodeServer((req, res) => {
     void handleRequest(req, res);
   });
+}
+
+/** Pull the harness webhook headers (delivery id, event type, signature) off a request. */
+function extractWebhookHeaders(req: IncomingMessage): {
+  deliveryId: string;
+  eventType: string;
+  sig: string | undefined;
+} {
+  const sigHeader = req.headers['x-harness-signature'];
+  return {
+    deliveryId: String(req.headers['x-harness-delivery-id'] ?? ''),
+    eventType: String(req.headers['x-harness-event-type'] ?? ''),
+    sig: Array.isArray(sigHeader) ? sigHeader[0] : sigHeader,
+  };
 }
 
 /**
