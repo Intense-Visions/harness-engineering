@@ -51,6 +51,11 @@ async function generateCliReference() {
   const groups = new Map(); // groupName -> commands[]
 
   for (const cmd of program.commands) {
+    // Skip hidden commands (e.g. the deprecated top-level scan/query/ingest
+    // aliases). They are absent from `--help`, so they stay out of the
+    // reference too — the canonical `harness graph <op>` forms are documented
+    // under the Graph group instead.
+    if (cmd._hidden) continue;
     if (cmd.commands && cmd.commands.length > 0) {
       // This is a command group (e.g., skill, state, graph)
       groups.set(cmd.name(), { description: cmd.description(), commands: cmd.commands });
@@ -191,8 +196,8 @@ async function generateMcpReference(cliAnchorLookup = new Map()) {
     update_perf_baselines: 'harness perf baselines',
     get_critical_paths: 'harness perf critical-paths',
     list_streams: 'harness state streams',
-    query_graph: 'harness query',
-    ingest_source: 'harness ingest',
+    query_graph: 'harness graph query',
+    ingest_source: 'harness graph ingest',
   };
 
   // Group tools by category (inferred from name prefix)

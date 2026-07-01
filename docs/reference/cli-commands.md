@@ -270,16 +270,6 @@ Show blast radius of staged changes using the knowledge graph
 - `--per-file` — Show impact per staged file instead of aggregate
 - `--path` — Project root (default: cwd)
 
-### `harness ingest`
-
-Ingest data into the knowledge graph
-
-**Options:**
-
-- `--source` — Source to ingest (code, knowledge, git, requirements, business-signals, jira, slack, ci, confluence, figma, miro)
-- `--all` — Run all sources (code, knowledge, git, and configured connectors)
-- `--full` — Force full re-ingestion
-
 ### `harness init`
 
 Initialize a new harness-engineering project
@@ -397,21 +387,6 @@ Publishes locally generated intelligence analyses to the external issue tracker 
 **Options:**
 
 - `-d, --dir` — Workspace directory (default: current working directory)
-
-### `harness query <rootNodeId>`
-
-Query the knowledge graph
-
-**Arguments:**
-
-- `rootNodeId` (required) — Starting node ID
-
-**Options:**
-
-- `--depth` — Max traversal depth (default: "3")
-- `--types` — Comma-separated node types to include
-- `--edges` — Comma-separated edge types to include
-- `--bidirectional` — Traverse both directions
 
 ### `harness recommend`
 

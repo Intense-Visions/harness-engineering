@@ -69,9 +69,9 @@ export function createGraphCommand(): Command {
     .description('Export graph')
     .requiredOption('--format <format>', 'Output format (json, mermaid)')
     .action(runExportAction);
-  // Graph operations are also reachable under the `graph` group, mirroring the
-  // top-level `scan`/`query`/`ingest` commands. The update hook and docs refer
-  // to `harness graph scan` (see #644); keeping both forms avoids breakage.
+  // `scan`/`query`/`ingest` are canonical under the `graph` group — the update
+  // hook and docs refer to `harness graph scan` (see #644). The bare top-level
+  // forms remain only as hidden deprecated aliases (see deprecated-aliases.ts).
   graph.addCommand(createScanCommand());
   graph.addCommand(createQueryCommand());
   graph.addCommand(createIngestCommand());

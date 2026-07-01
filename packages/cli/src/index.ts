@@ -11,6 +11,7 @@
 import { Command } from 'commander';
 import { CLI_VERSION } from './version';
 import { commandCreators } from './commands/_registry';
+import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-aliases';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -37,6 +38,10 @@ export function createProgram(): Command {
   for (const creator of commandCreators) {
     program.addCommand(creator());
   }
+
+  // Legacy top-level scan/query/ingest, kept as hidden deprecated aliases of
+  // the canonical `harness graph <op>` commands (see #644).
+  registerDeprecatedGraphAliases(program);
 
   return program;
 }
