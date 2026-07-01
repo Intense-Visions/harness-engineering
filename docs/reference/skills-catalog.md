@@ -2,9 +2,9 @@
 
 # Skills Catalog
 
-759 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+760 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
-## Tier 1 — Workflow (14 skills)
+## Tier 1 — Workflow (15 skills)
 
 ### add-harness-component
 
@@ -140,6 +140,16 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
 - **Depends on:** initialize-harness-project
+
+### product-advisor
+
+Upstream client-inception skill. Ingests a diagram + client conversation notes, drafts a Business Requirements Document (BRD), detects gaps against a fixed completeness rubric, resolves them through a one-question-at-a-time interview with the solution architect, then fans the BRD out into candidate roadmap items and offers a STRATEGY.md seed. Reads but never writes STRATEGY.md; never authors specs (harness-brainstorming owns that). The pre-inception front door to the harness pipeline.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
+- **Depends on:** harness-strategy, harness-brainstorming
 
 ## Tier 2 — Maintenance (42 skills)
 
