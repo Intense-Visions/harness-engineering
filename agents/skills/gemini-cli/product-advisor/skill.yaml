@@ -1,0 +1,74 @@
+name: product-advisor
+version: "0.1.0"
+description: Upstream client-inception skill. Ingests a diagram + client conversation notes, drafts a Business Requirements Document (BRD), detects gaps against a fixed completeness rubric, resolves them through a one-question-at-a-time interview with the solution architect, then fans the BRD out into candidate roadmap items and offers a STRATEGY.md seed. Reads but never writes STRATEGY.md; never authors specs (harness-brainstorming owns that). The pre-inception front door to the harness pipeline.
+stability: static
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run product-advisor
+  args:
+    - name: engagement
+      description: Short name/slug for the client engagement. Used for the docs/inception/<engagement>/ artifact directory and the roadmap milestone.
+      required: false
+    - name: diagram
+      description: Path to a diagram (Mermaid/D2/PlantUML source or an image attachment) to ingest. Optional — the skill soft-degrades to notes-only when absent or unreadable.
+      required: false
+    - name: notes
+      description: Path to client conversation notes / call transcript to ingest.
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: product-advisor
+    path: string
+type: rigid
+tier: 1
+phases:
+  - name: ingest
+    description: Load diagram(s) + client conversation notes; reuse the business-knowledge diagram/vision path; normalize into a structured intake (entities, flows, notes). Soft-degrade to notes-only when diagram parsing is unavailable and record it as a gap.
+    required: true
+  - name: draft-brd
+    description: Synthesize a first BRD from intake into docs/inception/<engagement>/brd.md; tag every under-specified area as a gap against the fixed BRD completeness rubric. Behavioral requirements use EARS phrasing.
+    required: true
+  - name: gap-interview
+    description: Walk the solution architect through the gap queue one question at a time (plain-text tables); fold each answer back into the BRD; mark unresolved gaps as client-facing questions.
+    required: true
+  - name: finalize
+    description: Write brd.md + gaps.md (Resolved vs Open/client-facing); offer a STRATEGY.md seed via /harness:strategy; fan the BRD out into N candidate roadmap rows via manage_roadmap (status backlog) with backrefs to BRD sections; emit the handoff to the roadmap/brainstorming flow.
+    required: true
+state:
+  persistent: true
+  files:
+    - docs/inception/
+depends_on:
+  - harness-strategy
+  - harness-brainstorming
+related_skills:
+  - harness-strategy
+  - harness-brainstorming
+  - harness-ideate
+  - harness-roadmap-pilot
+keywords:
+  - product-advisor
+  - BRD
+  - business-requirements
+  - requirements-elicitation
+  - gap-analysis
+  - diagram-ingestion
+  - roadmap-decomposition
+  - pre-inception
+  - solution-architect
+  - upstream-grounding

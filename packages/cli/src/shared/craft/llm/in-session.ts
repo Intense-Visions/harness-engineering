@@ -14,7 +14,7 @@
 // a Claude Code chat: the host model performs the judgment in-conversation,
 // no API key is required, and no nested CLI invocation is spawned.
 
-import type { LlmCallCost, LlmProvider, VisionInput } from './provider.js';
+import type { LlmCallCost, LlmProvider, VisionInput } from './contracts.js';
 
 /** Sentinel thrown by InSessionLlmProvider.callText to defer the call. */
 export class PromptDeferredError extends Error {

@@ -132,6 +132,33 @@ function linearFromPriority(p: Priority | null | undefined): number {
   }
 }
 
+/** Build the body-meta-derived + assignee/timestamp fields of a TrackedFeature from a Linear issue. */
+function metaDerivedFields(
+  meta: BodyMeta,
+  issue: LinearIssue
+): Pick<
+  TrackedFeature,
+  'spec' | 'plans' | 'blockedBy' | 'assignee' | 'priority' | 'milestone' | 'createdAt' | 'updatedAt'
+> {
+  return {
+    spec: meta.spec ?? null,
+    plans: meta.plan ? [meta.plan] : [],
+    blockedBy: meta.blocked_by ?? [],
+    assignee: assigneeDisplayName(issue.assignee),
+    priority: meta.priority ?? priorityFromLinear(issue.priority),
+    milestone: meta.milestone ?? null,
+    createdAt: issue.createdAt ?? new Date(0).toISOString(),
+    updatedAt: issue.updatedAt ?? null,
+  };
+}
+
+/** Prefer the assignee's displayName, then name, else null. */
+function assigneeDisplayName(
+  assignee: { displayName?: string | null; name?: string | null } | null | undefined
+): string | null {
+  return assignee?.displayName ?? assignee?.name ?? null;
+}
+
 function metaFrom(feature: NewFeatureInput | FeaturePatch): BodyMeta {
   const meta: BodyMeta = {};
   if (feature.spec != null) meta.spec = feature.spec;
@@ -210,14 +237,7 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
       name: issue.title,
       status: statusFromStateType(issue.state?.type),
       summary,
-      spec: meta.spec ?? null,
-      plans: meta.plan ? [meta.plan] : [],
-      blockedBy: meta.blocked_by ?? [],
-      assignee: issue.assignee?.displayName ?? issue.assignee?.name ?? null,
-      priority: meta.priority ?? priorityFromLinear(issue.priority),
-      milestone: meta.milestone ?? null,
-      createdAt: issue.createdAt ?? new Date(0).toISOString(),
-      updatedAt: issue.updatedAt ?? null,
+      ...metaDerivedFields(meta, issue),
     };
   }
 
@@ -248,6 +268,13 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     );
     if (!r.ok) return r;
     return Ok(r.value.users?.nodes?.[0]?.id ?? null);
+  }
+
+  /** Resolve an assignee to a Linear user id, or null when absent/unresolved. */
+  private async assigneeIdFor(assignee: string | null | undefined): Promise<string | null> {
+    if (!assignee) return null;
+    const userR = await this.resolveUserId(assignee);
+    return userR.ok && userR.value ? userR.value : null;
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────
@@ -287,18 +314,9 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
   async create(feature: NewFeatureInput): Promise<Result<TrackedFeature, Error>> {
     const stateR = await this.resolveStateId(feature.status ?? 'backlog');
     if (!stateR.ok) return stateR;
-    const body = serializeBodyBlock(feature.summary ?? '', metaFrom(feature));
-    const input: Record<string, unknown> = {
-      teamId: this.teamId,
-      title: feature.name,
-      description: body,
-      stateId: stateR.value,
-      priority: linearFromPriority(feature.priority),
-    };
-    if (feature.assignee) {
-      const userR = await this.resolveUserId(feature.assignee);
-      if (userR.ok && userR.value) input.assigneeId = userR.value;
-    }
+    const input = this.buildCreateInput(feature, stateR.value);
+    const assigneeId = await this.assigneeIdFor(feature.assignee);
+    if (assigneeId) input.assigneeId = assigneeId;
     const r = await this.gql<{ issueCreate?: { issue?: LinearIssue } }>(
       `mutation($input:IssueCreateInput!){ issueCreate(input:$input){ issue { ${ISSUE_FIELDS} } } }`,
       { input }
@@ -307,6 +325,17 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     const issue = r.value.issueCreate?.issue;
     if (!issue) return Err(new Error('Linear issueCreate returned no issue'));
     return Ok(this.featureFromIssue(issue));
+  }
+
+  /** Assemble the IssueCreateInput payload for a new feature (sans assignee, which is resolved async). */
+  private buildCreateInput(feature: NewFeatureInput, stateId: string): Record<string, unknown> {
+    return {
+      teamId: this.teamId,
+      title: feature.name,
+      description: serializeBodyBlock(feature.summary ?? '', metaFrom(feature)),
+      stateId,
+      priority: linearFromPriority(feature.priority),
+    };
   }
 
   /** Shared issueUpdate with optional optimistic-concurrency check on updatedAt. */
@@ -340,6 +369,30 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
     return Ok(this.featureFromIssue(issue));
   }
 
+  /**
+   * Merge body-backed patch fields into the current issue's harness-meta block,
+   * returning the serialized description (so the meta block isn't clobbered).
+   */
+  private async mergedDescription(
+    externalId: string,
+    patch: FeaturePatch
+  ): Promise<Result<string, Error>> {
+    const cur = await this.fetchById(externalId);
+    if (!cur.ok) return cur;
+    if (!cur.value) return Err(new Error(`Linear issue not found: ${externalId}`));
+    const f = cur.value.feature;
+    const merged: NewFeatureInput = {
+      name: patch.name ?? f.name,
+      summary: patch.summary ?? f.summary,
+      spec: patch.spec !== undefined ? patch.spec : f.spec,
+      plans: patch.plans !== undefined ? patch.plans : f.plans,
+      blockedBy: patch.blockedBy !== undefined ? patch.blockedBy : f.blockedBy,
+      priority: patch.priority !== undefined ? patch.priority : f.priority,
+      milestone: patch.milestone !== undefined ? patch.milestone : f.milestone,
+    };
+    return Ok(serializeBodyBlock(merged.summary ?? '', metaFrom(merged)));
+  }
+
   async update(
     externalId: string,
     patch: FeaturePatch,
@@ -364,30 +417,26 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
       'milestone',
     ];
     if (bodyFields.some((k) => patch[k] !== undefined)) {
-      const cur = await this.fetchById(externalId);
-      if (!cur.ok) return cur;
-      if (!cur.value) return Err(new Error(`Linear issue not found: ${externalId}`));
-      const f = cur.value.feature;
-      const merged: NewFeatureInput = {
-        name: patch.name ?? f.name,
-        summary: patch.summary ?? f.summary,
-        spec: patch.spec !== undefined ? patch.spec : f.spec,
-        plans: patch.plans !== undefined ? patch.plans : f.plans,
-        blockedBy: patch.blockedBy !== undefined ? patch.blockedBy : f.blockedBy,
-        priority: patch.priority !== undefined ? patch.priority : f.priority,
-        milestone: patch.milestone !== undefined ? patch.milestone : f.milestone,
-      };
-      input.description = serializeBodyBlock(merged.summary ?? '', metaFrom(merged));
+      const descR = await this.mergedDescription(externalId, patch);
+      if (!descR.ok) return descR;
+      input.description = descR.value;
     }
-    if (patch.assignee !== undefined) {
-      if (patch.assignee === null) {
-        input.assigneeId = null;
-      } else {
-        const userR = await this.resolveUserId(patch.assignee);
-        if (userR.ok && userR.value) input.assigneeId = userR.value;
-      }
-    }
+    await this.applyAssigneeUpdate(patch, input);
     return this.issueUpdate(externalId, input, ifMatch);
+  }
+
+  /** Resolve `patch.assignee` (name → user id, or explicit null to unassign) into the update input. */
+  private async applyAssigneeUpdate(
+    patch: FeaturePatch,
+    input: Record<string, unknown>
+  ): Promise<void> {
+    if (patch.assignee === undefined) return;
+    if (patch.assignee === null) {
+      input.assigneeId = null;
+      return;
+    }
+    const userR = await this.resolveUserId(patch.assignee);
+    if (userR.ok && userR.value) input.assigneeId = userR.value;
   }
 
   async claim(
@@ -441,20 +490,33 @@ export class LinearTrackerAdapter implements RoadmapTrackerClient {
       { id: this.toIssueId(externalId) }
     );
     if (!r.ok) return r;
-    const events: HistoryEvent[] = [];
-    for (const c of r.value.issue?.comments?.nodes ?? []) {
-      if (!c.body || !c.body.includes(HISTORY_MARKER)) continue;
-      const m = /```json\s*([\s\S]*?)\s*```/.exec(c.body);
-      if (!m?.[1]) continue;
-      try {
-        const parsed = JSON.parse(m[1]) as HistoryEvent;
-        if (parsed && typeof parsed.type === 'string') events.push(parsed);
-      } catch {
-        // skip malformed history comment
-      }
-    }
+    const events = collectHistoryEvents(r.value.issue?.comments?.nodes);
     return Ok(typeof limit === 'number' ? events.slice(0, limit) : events);
   }
+}
+
+/** Parse each comment node into a HistoryEvent, dropping the ones that aren't history markers. */
+function collectHistoryEvents(nodes: Array<{ body?: string }> | undefined): HistoryEvent[] {
+  const events: HistoryEvent[] = [];
+  for (const c of nodes ?? []) {
+    const parsed = parseHistoryComment(c.body);
+    if (parsed) events.push(parsed);
+  }
+  return events;
+}
+
+/** Parse a single Linear comment body into a HistoryEvent, or null if it isn't one. */
+function parseHistoryComment(body: string | null | undefined): HistoryEvent | null {
+  if (!body || !body.includes(HISTORY_MARKER)) return null;
+  const m = /```json\s*([\s\S]*?)\s*```/.exec(body);
+  if (!m?.[1]) return null;
+  try {
+    const parsed = JSON.parse(m[1]) as HistoryEvent;
+    if (parsed && typeof parsed.type === 'string') return parsed;
+  } catch {
+    // skip malformed history comment
+  }
+  return null;
 }
 
 export type { HistoryEventType };

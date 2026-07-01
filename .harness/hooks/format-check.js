@@ -187,7 +187,7 @@ export function runFormatCheck(input, cwd) {
  * @param {number} fd  File descriptor to read (0 = stdin).
  */
 export function readHookInput(fd) {
-  let raw = '';
+  let raw;
   try {
     raw = readFileSync(fd, 'utf-8');
   } catch {

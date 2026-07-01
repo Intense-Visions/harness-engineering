@@ -1021,41 +1021,68 @@ function parseStatusLine(output: string): ParsedStatus | null {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
+  // Scan from the last line backward until a parseable status line is found.
   for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
-    if (!line || !line.startsWith('{') || !line.endsWith('}')) continue;
-    try {
-      const obj = JSON.parse(line) as Record<string, unknown>;
-      const s = obj.status;
-      // Phase 4/5 contract: 'success' | 'skipped' | 'failure' | 'no-issues'
-      if (s === 'success' || s === 'skipped' || s === 'failure' || s === 'no-issues') {
-        const parsed: ParsedStatus = { status: s, rawStatus: s };
-        if (typeof obj.candidatesFound === 'number') {
-          parsed.candidatesFound = obj.candidatesFound;
-        }
-        if (typeof obj.error === 'string') {
-          parsed.error = obj.error;
-        }
-        if (typeof obj.reason === 'string') {
-          parsed.reason = obj.reason;
-        }
-        if (typeof obj.detail === 'string' && !parsed.error) {
-          // sync-main skipped shape: { status: 'skipped', reason, detail, defaultBranch }
-          parsed.error = `${parsed.reason ?? 'skipped'}: ${obj.detail}`;
-        }
-        return parsed;
-      }
-      // sync-main contract: 'updated' | 'no-op' | 'skipped' | 'error'
-      if (s === 'updated' || s === 'no-op') {
-        return { status: 'success', rawStatus: s };
-      }
-      if (s === 'error') {
-        const message = typeof obj.message === 'string' ? obj.message : 'unknown error';
-        return { status: 'failure', error: message, rawStatus: 'error' };
-      }
-    } catch {
-      // not JSON; keep scanning earlier lines
-    }
+    const parsed = parseStatusObjectLine(lines[i]);
+    if (parsed) return parsed;
   }
   return null;
+}
+
+/**
+ * Parse a single candidate line into a {@link ParsedStatus}. Returns `null`
+ * when the line is not a JSON object, fails to parse, or carries an
+ * unrecognized `status` — the caller keeps scanning earlier lines in that case.
+ */
+function parseStatusObjectLine(line: string | undefined): ParsedStatus | null {
+  if (!line || !line.startsWith('{') || !line.endsWith('}')) return null;
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(line) as Record<string, unknown>;
+  } catch {
+    // not JSON; keep scanning earlier lines
+    return null;
+  }
+  return classifyStatusObject(obj);
+}
+
+const PHASE_STATUSES = new Set(['success', 'skipped', 'failure', 'no-issues']);
+const SYNC_SUCCESS_STATUSES = new Set(['updated', 'no-op']);
+
+/** Map a parsed status object to a {@link ParsedStatus}, honoring both the Phase 4/5 and sync-main contracts. */
+function classifyStatusObject(obj: Record<string, unknown>): ParsedStatus | null {
+  const s = obj.status;
+  if (typeof s !== 'string') return null;
+  // Phase 4/5 contract: 'success' | 'skipped' | 'failure' | 'no-issues'
+  if (PHASE_STATUSES.has(s)) return buildPhaseStatus(s as RunResult['status'], obj);
+  // sync-main contract: 'updated' | 'no-op' | 'skipped' | 'error'
+  if (SYNC_SUCCESS_STATUSES.has(s)) return { status: 'success', rawStatus: s };
+  if (s === 'error') {
+    const message = typeof obj.message === 'string' ? obj.message : 'unknown error';
+    return { status: 'failure', error: message, rawStatus: 'error' };
+  }
+  return null;
+}
+
+/**
+ * Build the {@link ParsedStatus} for a recognized Phase 4/5 status, copying the
+ * optional `candidatesFound` / `error` / `reason` fields and synthesizing an
+ * error from the sync-main `detail` shape when no explicit error is present.
+ */
+function buildPhaseStatus(status: RunResult['status'], obj: Record<string, unknown>): ParsedStatus {
+  const parsed: ParsedStatus = { status, rawStatus: status };
+  if (typeof obj.candidatesFound === 'number') {
+    parsed.candidatesFound = obj.candidatesFound;
+  }
+  if (typeof obj.error === 'string') {
+    parsed.error = obj.error;
+  }
+  if (typeof obj.reason === 'string') {
+    parsed.reason = obj.reason;
+  }
+  if (typeof obj.detail === 'string' && !parsed.error) {
+    // sync-main skipped shape: { status: 'skipped', reason, detail, defaultBranch }
+    parsed.error = `${parsed.reason ?? 'skipped'}: ${obj.detail}`;
+  }
+  return parsed;
 }

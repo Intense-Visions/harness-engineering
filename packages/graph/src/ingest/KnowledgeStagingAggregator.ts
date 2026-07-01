@@ -113,7 +113,45 @@ export class KnowledgeStagingAggregator {
   }
 
   async generateGapReport(knowledgeDir: string, store?: GraphStore): Promise<GapReport> {
-    // Step 1: Collect documented entries per domain (existing logic)
+    // Step 1-2: Collect documented entries (and names, when a store is present)
+    const { domainDocNames, domainEntryCounts, totalEntries } = await this.collectDocumentedEntries(
+      knowledgeDir,
+      store
+    );
+
+    // Step 3: If no store, return backward-compatible result
+    if (!store) {
+      return this.buildEntryOnlyReport(domainEntryCounts, totalEntries);
+    }
+
+    // Step 4: Query store for all business nodes, group by domain, deduplicate by name
+    const extractedByDomain = this.collectExtractedByDomain(store);
+
+    // Step 5: Build domain coverage with gap analysis
+    const { domains, totalExtracted, totalGaps } = this.buildDomainCoverage(
+      domainEntryCounts,
+      extractedByDomain,
+      domainDocNames
+    );
+
+    return {
+      domains,
+      totalEntries,
+      totalExtracted,
+      totalGaps,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  /** Step 1-2: count `.md` entries per domain, capturing normalized names when a store is present. */
+  private async collectDocumentedEntries(
+    knowledgeDir: string,
+    store?: GraphStore
+  ): Promise<{
+    domainDocNames: Map<string, string[]>;
+    domainEntryCounts: Map<string, number>;
+    totalEntries: number;
+  }> {
     const domainDocNames = new Map<string, string[]>(); // domain -> normalized names
     const domainEntryCounts = new Map<string, number>();
     let totalEntries = 0;
@@ -126,40 +164,52 @@ export class KnowledgeStagingAggregator {
         const domainPath = path.join(knowledgeDir, dir.name);
         const files = await fs.readdir(domainPath);
         const mdFiles = files.filter((f) => f.endsWith('.md'));
-        const entryCount = mdFiles.length;
-        totalEntries += entryCount;
-        domainEntryCounts.set(dir.name, entryCount);
+        totalEntries += mdFiles.length;
+        domainEntryCounts.set(dir.name, mdFiles.length);
 
-        // Step 2: Extract documented names for comparison
         if (store) {
-          const names: string[] = [];
-          for (const file of mdFiles) {
-            const name = await this.extractDocName(path.join(domainPath, file));
-            names.push(name.toLowerCase().trim());
-          }
-          domainDocNames.set(dir.name, names);
+          domainDocNames.set(dir.name, await this.extractDocNames(domainPath, mdFiles));
         }
       }
     } catch {
       // Knowledge directory doesn't exist — return empty report
     }
 
-    // Step 3: If no store, return backward-compatible result
-    if (!store) {
-      const domains: DomainCoverage[] = [];
-      for (const [domain, entryCount] of domainEntryCounts) {
-        domains.push({ domain, entryCount, extractedCount: 0, gapCount: 0, gapEntries: [] });
-      }
-      return {
-        domains,
-        totalEntries,
-        totalExtracted: 0,
-        totalGaps: 0,
-        generatedAt: new Date().toISOString(),
-      };
-    }
+    return { domainDocNames, domainEntryCounts, totalEntries };
+  }
 
-    // Step 4: Query store for all business nodes, group by domain, deduplicate by name
+  /** Extract and normalize the documented title from each markdown file in a domain. */
+  private async extractDocNames(domainPath: string, mdFiles: readonly string[]): Promise<string[]> {
+    const names: string[] = [];
+    for (const file of mdFiles) {
+      const name = await this.extractDocName(path.join(domainPath, file));
+      names.push(name.toLowerCase().trim());
+    }
+    return names;
+  }
+
+  /** Step 3: backward-compatible report when no store is available. */
+  private buildEntryOnlyReport(
+    domainEntryCounts: Map<string, number>,
+    totalEntries: number
+  ): GapReport {
+    const domains: DomainCoverage[] = [];
+    for (const [domain, entryCount] of domainEntryCounts) {
+      domains.push({ domain, entryCount, extractedCount: 0, gapCount: 0, gapEntries: [] });
+    }
+    return {
+      domains,
+      totalEntries,
+      totalExtracted: 0,
+      totalGaps: 0,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  /** Step 4: query store for all business nodes, group by domain, deduplicate by name. */
+  private collectExtractedByDomain(
+    store: GraphStore
+  ): Map<string, import('../types.js').GraphNode[]> {
     const extractedByDomain = new Map<string, import('../types.js').GraphNode[]>();
     for (const nodeType of BUSINESS_NODE_TYPES) {
       const nodes = store.findNodes({ type: nodeType });
@@ -175,17 +225,31 @@ export class KnowledgeStagingAggregator {
     // After materialization + re-ingestion, both extracted:* and bk:* nodes
     // can exist for the same concept. Keep the first occurrence per name.
     for (const [domain, nodes] of extractedByDomain) {
-      const seen = new Set<string>();
-      const deduped = nodes.filter((n) => {
-        const key = n.name.toLowerCase().trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      extractedByDomain.set(domain, deduped);
+      extractedByDomain.set(domain, this.dedupeByName(nodes));
     }
 
-    // Step 5: Build domain coverage with gap analysis
+    return extractedByDomain;
+  }
+
+  /** Keep the first occurrence of each normalized name, preserving order. */
+  private dedupeByName(
+    nodes: readonly import('../types.js').GraphNode[]
+  ): import('../types.js').GraphNode[] {
+    const seen = new Set<string>();
+    return nodes.filter((n) => {
+      const key = n.name.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  /** Step 5: build per-domain coverage with gap analysis and roll up totals. */
+  private buildDomainCoverage(
+    domainEntryCounts: Map<string, number>,
+    extractedByDomain: Map<string, import('../types.js').GraphNode[]>,
+    domainDocNames: Map<string, string[]>
+  ): { domains: DomainCoverage[]; totalExtracted: number; totalGaps: number } {
     const allDomains = new Set([...domainEntryCounts.keys(), ...extractedByDomain.keys()]);
     const domains: DomainCoverage[] = [];
     let totalExtracted = 0;
@@ -198,32 +262,34 @@ export class KnowledgeStagingAggregator {
       totalExtracted += extractedCount;
 
       const docNames = domainDocNames.get(domain) ?? [];
-      const gapEntries: GapEntry[] = [];
-
-      for (const node of extractedNodes) {
-        const normalizedName = node.name.toLowerCase().trim();
-        if (!docNames.includes(normalizedName)) {
-          gapEntries.push({
-            nodeId: node.id,
-            name: node.name,
-            nodeType: node.type,
-            source: (node.metadata?.source as string) ?? 'unknown',
-            hasContent: Boolean(node.content && node.content.trim().length >= 10),
-          });
-        }
-      }
+      const gapEntries = this.computeGapEntries(extractedNodes, docNames);
 
       totalGaps += gapEntries.length;
       domains.push({ domain, entryCount, extractedCount, gapCount: gapEntries.length, gapEntries });
     }
 
-    return {
-      domains,
-      totalEntries,
-      totalExtracted,
-      totalGaps,
-      generatedAt: new Date().toISOString(),
-    };
+    return { domains, totalExtracted, totalGaps };
+  }
+
+  /** Collect extracted nodes that have no matching documented name. */
+  private computeGapEntries(
+    extractedNodes: readonly import('../types.js').GraphNode[],
+    docNames: readonly string[]
+  ): GapEntry[] {
+    const gapEntries: GapEntry[] = [];
+    for (const node of extractedNodes) {
+      const normalizedName = node.name.toLowerCase().trim();
+      if (!docNames.includes(normalizedName)) {
+        gapEntries.push({
+          nodeId: node.id,
+          name: node.name,
+          nodeType: node.type,
+          source: (node.metadata?.source as string) ?? 'unknown',
+          hasContent: Boolean(node.content && node.content.trim().length >= 10),
+        });
+      }
+    }
+    return gapEntries;
   }
 
   async writeGapReport(report: GapReport): Promise<void> {

@@ -15,7 +15,7 @@
 
 import { OpenAICompatibleAnalysisProvider } from '@harness-engineering/intelligence';
 import { defaultFetchModels } from '@harness-engineering/orchestrator';
-import type { LlmCallCost, LlmProvider, VisionInput } from './provider.js';
+import type { LlmCallCost, LlmProvider, VisionInput } from './contracts.js';
 import { AnalysisProviderAdapter } from './adapters.js';
 
 export interface LazyLocalAdapterOptions {

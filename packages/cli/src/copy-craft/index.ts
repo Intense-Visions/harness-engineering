@@ -58,14 +58,6 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
   const enabledSurfaces = new Set<CopySurface>(input.surfaces ?? ALL_SURFACES);
 
   const items: ExtractedCopyItem[] = [];
-  const counts: Record<CopySurface, number> = {
-    error: 0,
-    log: 0,
-    'cli-output': 0,
-    commit: 0,
-    'pr-description': 0,
-    comment: 0,
-  };
   const skippedSurfaces: Array<{ surface: CopySurface; reason: string }> = [];
 
   // Source-side surfaces (error / log / cli-output / comment)
@@ -73,74 +65,23 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
     (s) => enabledSurfaces.has(s)
   );
   if (sourceSurfaces.length > 0) {
-    const files = collectSourceFiles(projectRoot, input.files).slice(0, maxFiles);
-    for (const file of files) {
-      let source: string;
-      try {
-        source = fs.readFileSync(file, 'utf-8');
-      } catch {
-        continue;
-      }
-      const extracted = extractFromSource({
-        file,
-        source,
-        surfaces: sourceSurfaces,
-        ...(input.cliOutputPaths !== undefined && { cliOutputPaths: input.cliOutputPaths }),
-      });
-      // Cap per-file at maxItemsPerFile across all surfaces
-      const capped = extracted.slice(0, maxItemsPerFile);
-      for (const item of capped) {
-        counts[item.surface]++;
-        items.push(item);
-      }
-    }
+    items.push(
+      ...collectSourceItems({
+        projectRoot,
+        files: input.files,
+        sourceSurfaces,
+        maxFiles,
+        maxItemsPerFile,
+        cliOutputPaths: input.cliOutputPaths,
+      })
+    );
   }
 
-  // Commit subjects (shell-out)
-  if (enabledSurfaces.has('commit')) {
-    const result = extractCommits({
-      projectRoot,
-      ...(input.commitsSince !== undefined && { since: input.commitsSince }),
-    });
-    if (result.skipReason !== undefined) {
-      skippedSurfaces.push({ surface: 'commit', reason: result.skipReason });
-    } else {
-      for (const item of result.items) {
-        counts.commit++;
-        items.push(item);
-      }
-    }
-  }
-
-  // PR descriptions (shell-out)
-  if (enabledSurfaces.has('pr-description')) {
-    const result = extractPRDescriptions({
-      projectRoot,
-      ...(input.prLimit !== undefined && { limit: input.prLimit }),
-    });
-    if (result.skipReason !== undefined) {
-      skippedSurfaces.push({ surface: 'pr-description', reason: result.skipReason });
-    } else {
-      for (const item of result.items) {
-        counts['pr-description']++;
-        items.push(item);
-      }
-    }
-  }
+  // Git-backed surfaces (commit subjects + PR descriptions; shell-out)
+  collectGitItems(input, projectRoot, enabledSurfaces, items, skippedSurfaces);
 
   // Critique loop
-  const findings: CopyFinding[] = [];
-  for (const item of items) {
-    for (const rubric of rubrics) {
-      if (!rubricApplies(rubric, item.surface)) continue;
-      try {
-        const finding = await critiqueOne({ item, rubric, provider });
-        if (finding !== null) findings.push(finding);
-      } catch {
-        /* swallow per-(item, rubric) errors */
-      }
-    }
-  }
+  const findings = await critiqueItems(items, rubrics, provider);
 
   const surfacesScanned = ALL_SURFACES.filter(
     (s) => enabledSurfaces.has(s) && !skippedSurfaces.some((sk) => sk.surface === s)
@@ -163,7 +104,7 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
         rubricsApplied: rubrics.map((r) => r.id),
         surfacesScanned,
       },
-      counts,
+      counts: tallyCounts(items),
       skippedSurfaces,
       runId: randomUUID(),
     },
@@ -195,6 +136,93 @@ export async function critiqueCopyInFile(
     surfaces,
     ...(opts.cliOutputPaths !== undefined && { cliOutputPaths: opts.cliOutputPaths }),
   });
+  return critiqueItems(items, rubrics, provider);
+}
+
+interface CollectSourceItemsArgs {
+  projectRoot: string;
+  files: string[] | undefined;
+  sourceSurfaces: CopySurface[];
+  maxFiles: number;
+  maxItemsPerFile: number;
+  cliOutputPaths: string[] | undefined;
+}
+
+/** Walk/read source files and extract capped per-file copy items. */
+function collectSourceItems(args: CollectSourceItemsArgs): ExtractedCopyItem[] {
+  const out: ExtractedCopyItem[] = [];
+  const files = collectSourceFiles(args.projectRoot, args.files).slice(0, args.maxFiles);
+  for (const file of files) {
+    let source: string;
+    try {
+      source = fs.readFileSync(file, 'utf-8');
+    } catch {
+      continue;
+    }
+    const extracted = extractFromSource({
+      file,
+      source,
+      surfaces: args.sourceSurfaces,
+      ...(args.cliOutputPaths !== undefined && { cliOutputPaths: args.cliOutputPaths }),
+    });
+    // Cap per-file at maxItemsPerFile across all surfaces
+    out.push(...extracted.slice(0, args.maxItemsPerFile));
+  }
+  return out;
+}
+
+/** Record an extractor result: either note the skip reason or collect its items. */
+function collectExtractionResult(
+  result: { skipReason?: string; items: ExtractedCopyItem[] },
+  surface: CopySurface,
+  items: ExtractedCopyItem[],
+  skippedSurfaces: Array<{ surface: CopySurface; reason: string }>
+): void {
+  if (result.skipReason !== undefined) {
+    skippedSurfaces.push({ surface, reason: result.skipReason });
+  } else {
+    items.push(...result.items);
+  }
+}
+
+/** Collect git-backed surfaces (commit subjects + PR descriptions). */
+function collectGitItems(
+  input: CopyCraftInput,
+  projectRoot: string,
+  enabledSurfaces: Set<CopySurface>,
+  items: ExtractedCopyItem[],
+  skippedSurfaces: Array<{ surface: CopySurface; reason: string }>
+): void {
+  if (enabledSurfaces.has('commit')) {
+    collectExtractionResult(
+      extractCommits({
+        projectRoot,
+        ...(input.commitsSince !== undefined && { since: input.commitsSince }),
+      }),
+      'commit',
+      items,
+      skippedSurfaces
+    );
+  }
+  if (enabledSurfaces.has('pr-description')) {
+    collectExtractionResult(
+      extractPRDescriptions({
+        projectRoot,
+        ...(input.prLimit !== undefined && { limit: input.prLimit }),
+      }),
+      'pr-description',
+      items,
+      skippedSurfaces
+    );
+  }
+}
+
+/** Run every applicable rubric against every item, swallowing per-pair errors. */
+async function critiqueItems(
+  items: ExtractedCopyItem[],
+  rubrics: ReadonlyArray<CopyRubric>,
+  provider: LlmProvider
+): Promise<CopyFinding[]> {
   const findings: CopyFinding[] = [];
   for (const item of items) {
     for (const rubric of rubrics) {
@@ -203,11 +231,25 @@ export async function critiqueCopyInFile(
         const finding = await critiqueOne({ item, rubric, provider });
         if (finding !== null) findings.push(finding);
       } catch {
-        /* swallow */
+        /* swallow per-(item, rubric) errors */
       }
     }
   }
   return findings;
+}
+
+/** Tally extracted items by surface for the summary counts block. */
+function tallyCounts(items: ExtractedCopyItem[]): Record<CopySurface, number> {
+  const counts: Record<CopySurface, number> = {
+    error: 0,
+    log: 0,
+    'cli-output': 0,
+    commit: 0,
+    'pr-description': 0,
+    comment: 0,
+  };
+  for (const item of items) counts[item.surface]++;
+  return counts;
 }
 
 function collectSourceFiles(

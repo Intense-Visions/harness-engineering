@@ -23,7 +23,7 @@
  *   (Technical Design → Code namespace).
  */
 
-import type { DriftFindingCode, DriftSeverity } from '../findings/finding.js';
+import type { DriftFindingCode, DriftSeverity } from '../findings/types.js';
 
 /**
  * One catalog entry per built-in DRIFT-* code. The `category` field

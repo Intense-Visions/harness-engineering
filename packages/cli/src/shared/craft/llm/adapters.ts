@@ -20,7 +20,7 @@ import type {
   ClaudeCliAnalysisProvider,
   OpenAICompatibleAnalysisProvider,
 } from '@harness-engineering/intelligence';
-import type { LlmCallCost, LlmProvider, VisionInput } from './provider.js';
+import type { LlmCallCost, LlmProvider, VisionInput } from './contracts.js';
 
 const RAW_SCHEMA = z.object({ raw: z.string() });
 

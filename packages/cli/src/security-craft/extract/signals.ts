@@ -381,26 +381,38 @@ function findSecretMarker(node: ts.Node): string | undefined {
   )
     return node.name.text;
   // Template literal interpolation
-  if (ts.isTemplateExpression(node)) {
-    for (const span of node.templateSpans) {
-      const sub = findSecretMarker(span.expression);
-      if (sub !== undefined) return sub;
-    }
-  }
+  if (ts.isTemplateExpression(node)) return findSecretInTemplate(node);
   // Object literal property whose key looks secret
-  if (ts.isObjectLiteralExpression(node)) {
-    for (const prop of node.properties) {
-      if (
-        ts.isPropertyAssignment(prop) &&
-        ts.isIdentifier(prop.name) &&
-        SECRET_NAME_PATTERN.test(prop.name.text)
-      ) {
-        return prop.name.text;
-      }
-      if (ts.isShorthandPropertyAssignment(prop) && SECRET_NAME_PATTERN.test(prop.name.text)) {
-        return prop.name.text;
-      }
-    }
+  if (ts.isObjectLiteralExpression(node)) return findSecretInObjectLiteral(node);
+  return undefined;
+}
+
+function findSecretInTemplate(node: ts.TemplateExpression): string | undefined {
+  for (const span of node.templateSpans) {
+    const sub = findSecretMarker(span.expression);
+    if (sub !== undefined) return sub;
+  }
+  return undefined;
+}
+
+function findSecretInObjectLiteral(node: ts.ObjectLiteralExpression): string | undefined {
+  for (const prop of node.properties) {
+    const marker = secretMarkerFromProperty(prop);
+    if (marker !== undefined) return marker;
+  }
+  return undefined;
+}
+
+function secretMarkerFromProperty(prop: ts.ObjectLiteralElementLike): string | undefined {
+  if (
+    ts.isPropertyAssignment(prop) &&
+    ts.isIdentifier(prop.name) &&
+    SECRET_NAME_PATTERN.test(prop.name.text)
+  ) {
+    return prop.name.text;
+  }
+  if (ts.isShorthandPropertyAssignment(prop) && SECRET_NAME_PATTERN.test(prop.name.text)) {
+    return prop.name.text;
   }
   return undefined;
 }

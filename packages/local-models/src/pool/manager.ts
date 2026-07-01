@@ -216,82 +216,142 @@ export class PoolManager {
       return { status: 'success', entry: existing, evicted: [], alreadyInstalled: true };
     }
 
-    let sizeOnDiskGb: number;
+    const sizeResult = await this.resolveSizeOnDisk(request);
+    if (!sizeResult.ok) return sizeResult.result;
+    const sizeOnDiskGb = sizeResult.sizeOnDiskGb;
+
+    const state = this.store.snapshot();
+    const evictionResult = await this.precommitEvict(request, sizeOnDiskGb, state);
+    if (!evictionResult.ok) return evictionResult.result;
+
+    return this.commitInstall(request, sizeOnDiskGb, evictionResult.evicted);
+  }
+
+  /**
+   * Resolve the on-disk size for a pending install. Returns the caller-supplied
+   * size when present, otherwise queries `installer.inspect`. A transport
+   * failure is mapped to an `install` error reply rather than thrown.
+   */
+  private async resolveSizeOnDisk(
+    request: InstallPoolRequest
+  ): Promise<{ ok: true; sizeOnDiskGb: number } | { ok: false; result: InstallPoolResult }> {
     if (request.sizeOnDiskGb !== undefined) {
-      sizeOnDiskGb = request.sizeOnDiskGb;
-    } else {
-      try {
-        const inspectRequest: InspectRequest = {
-          name: request.ollamaName,
-          ...(request.signal !== undefined ? { signal: request.signal } : {}),
-        };
-        const info = await this.installer.inspect(inspectRequest);
-        sizeOnDiskGb = info.sizeOnDiskGb;
-      } catch (err) {
-        const code: InstallErrorCode = isInstallError(err) ? err.code : 'installer_unavailable';
-        const message = err instanceof Error ? err.message : String(err);
-        return {
+      return { ok: true, sizeOnDiskGb: request.sizeOnDiskGb };
+    }
+    try {
+      const inspectRequest: InspectRequest = {
+        name: request.ollamaName,
+        ...(request.signal !== undefined ? { signal: request.signal } : {}),
+      };
+      const info = await this.installer.inspect(inspectRequest);
+      return { ok: true, sizeOnDiskGb: info.sizeOnDiskGb };
+    } catch (err) {
+      const code: InstallErrorCode = isInstallError(err) ? err.code : 'installer_unavailable';
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        result: {
           status: 'error',
           code,
           message: `installer.inspect failed for ${request.ollamaName}: ${message}`,
           evicted: [],
-        };
-      }
+        },
+      };
     }
+  }
 
-    const state = this.store.snapshot();
-    const available = state.diskBudgetGb - state.diskUsedGb;
+  /**
+   * Capacity check + pre-commit eviction (S5). When the pool already has room
+   * the returned `evicted` list is empty. If even the fully-evicted pool can't
+   * fit, returns a `budget_exceeded` error reply.
+   */
+  private async precommitEvict(
+    request: InstallPoolRequest,
+    sizeOnDiskGb: number,
+    state: PoolState
+  ): Promise<{ ok: true; evicted: PoolEntry[] } | { ok: false; result: InstallPoolResult }> {
     const evicted: PoolEntry[] = [];
+    const available = state.diskBudgetGb - state.diskUsedGb;
+    if (sizeOnDiskGb <= available) return { ok: true, evicted };
 
-    if (sizeOnDiskGb > available) {
-      const deficit = sizeOnDiskGb - available;
-      const plan = planEviction({ state, freeBudgetGb: deficit });
-      if (plan.remainingNeededGb > 0) {
-        return {
+    const deficit = sizeOnDiskGb - available;
+    const plan = planEviction({ state, freeBudgetGb: deficit });
+    if (plan.remainingNeededGb > 0) {
+      return {
+        ok: false,
+        result: {
           status: 'error',
           code: 'budget_exceeded',
           message: `install ${request.ollamaName} would exceed disk budget by ${plan.remainingNeededGb.toFixed(2)} GB after maximal eviction`,
           evicted: [],
-        };
-      }
-      for (const candidate of plan.evict) {
-        const evictRequest: EvictRequest = {
-          name: candidate.ollamaName,
-          ...(request.signal !== undefined ? { signal: request.signal } : {}),
-        };
-        let result: InstallResult;
-        try {
-          result = await this.installer.evict(evictRequest);
-        } catch (err) {
-          const code: InstallErrorCode = isInstallError(err) ? err.code : 'installer_unavailable';
-          const message = err instanceof Error ? err.message : String(err);
-          return {
-            status: 'error',
-            code,
-            message: `pre-commit evict failed for ${candidate.ollamaName}: ${message}`,
-            evicted,
-          };
-        }
-        if (result.status === 'error') {
-          if (result.code === 'not_in_pool') {
-            // Installer already lost the entry — D12 reconciliation. Treat as success
-            // for budget purposes and drop the entry from pool state.
-            this.removeEntry(candidate.ollamaName);
-            evicted.push(candidate);
-            continue;
-          }
-          return {
-            status: 'error',
-            code: result.code,
-            message: `pre-commit evict failed for ${candidate.ollamaName}: ${result.message}`,
-            evicted,
-          };
-        }
+        },
+      };
+    }
+    for (const candidate of plan.evict) {
+      const failure = await this.evictCandidate(candidate, request.signal, evicted);
+      if (failure !== undefined) return { ok: false, result: failure };
+    }
+    return { ok: true, evicted };
+  }
+
+  /**
+   * Evict a single planned candidate during pre-commit. On success (or D12
+   * `not_in_pool` reconciliation) the entry is dropped from pool state and
+   * pushed onto `evicted`, and `undefined` is returned to continue the loop.
+   * Any other outcome returns the `install` error reply to abort.
+   */
+  private async evictCandidate(
+    candidate: PoolEntry,
+    signal: AbortSignal | undefined,
+    evicted: PoolEntry[]
+  ): Promise<InstallPoolResult | undefined> {
+    const evictRequest: EvictRequest = {
+      name: candidate.ollamaName,
+      ...(signal !== undefined ? { signal } : {}),
+    };
+    let result: InstallResult;
+    try {
+      result = await this.installer.evict(evictRequest);
+    } catch (err) {
+      const code: InstallErrorCode = isInstallError(err) ? err.code : 'installer_unavailable';
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        status: 'error',
+        code,
+        message: `pre-commit evict failed for ${candidate.ollamaName}: ${message}`,
+        evicted,
+      };
+    }
+    if (result.status === 'error') {
+      if (result.code === 'not_in_pool') {
+        // Installer already lost the entry — D12 reconciliation. Treat as success
+        // for budget purposes and drop the entry from pool state.
         this.removeEntry(candidate.ollamaName);
         evicted.push(candidate);
+        return undefined;
       }
+      return {
+        status: 'error',
+        code: result.code,
+        message: `pre-commit evict failed for ${candidate.ollamaName}: ${result.message}`,
+        evicted,
+      };
     }
+    this.removeEntry(candidate.ollamaName);
+    evicted.push(candidate);
+    return undefined;
+  }
 
+  /**
+   * Final install step: invoke `installer.install`, handle the error paths
+   * (S7 partial-byte cleanup on `install_failed`), and on success append the
+   * new `PoolEntry` and persist once.
+   */
+  private async commitInstall(
+    request: InstallPoolRequest,
+    sizeOnDiskGb: number,
+    evicted: PoolEntry[]
+  ): Promise<InstallPoolResult> {
     const installRequest: InstallRequest = {
       name: request.ollamaName,
       ...(request.signal !== undefined ? { signal: request.signal } : {}),

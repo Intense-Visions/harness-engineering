@@ -35,3 +35,8 @@ docs/roadmap.d/**
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts
 packages/core/tests/fixtures/code-nav/syntax-error.ts
+
+# Empty changeset no-release marker: its frontmatter must stay `---\n\n---`
+# (blank line between delimiters) so scripts/check-changesets.mjs detects it as
+# empty. Prettier would collapse it to `---\n---`, which the gate rejects.
+.changeset/maint-arch-refactor-no-release.md

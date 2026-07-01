@@ -93,9 +93,7 @@ function promptYesNo(message: string): Promise<boolean> {
   });
 }
 
-export function createDeliveriesCommand(): Command {
-  const cmd = new Command('deliveries').description('Inspect and manage webhook delivery queue');
-
+function registerListCommand(cmd: Command): void {
   cmd
     .command('list')
     .description('List delivery queue entries (newest first; capped at 200 rows)')
@@ -113,7 +111,9 @@ export function createDeliveriesCommand(): Command {
         queue.close();
       }
     });
+}
 
+function registerRetryCommand(cmd: Command): void {
   cmd
     .command('retry <id>')
     .description('Re-enqueue a dead-lettered delivery by ID')
@@ -131,7 +131,29 @@ export function createDeliveriesCommand(): Command {
         queue.close();
       }
     });
+}
 
+function buildPurgeOptions(opts: {
+  deadOnly?: boolean;
+  olderThan?: string;
+  all?: boolean;
+}): PurgeOptions {
+  const purgeOpts: PurgeOptions = {};
+  if (opts.deadOnly) purgeOpts.deadOnly = true;
+  if (opts.olderThan !== undefined) purgeOpts.olderThanMs = Number(opts.olderThan);
+  if (opts.all) purgeOpts.all = true;
+  return purgeOpts;
+}
+
+function ttyPurgeConfirm(count: number): boolean | Promise<boolean> {
+  if (count === 0) {
+    console.log('No matching rows to delete.');
+    return false;
+  }
+  return promptYesNo(`Delete ${count} row(s)? [y/N] `);
+}
+
+function registerPurgeCommand(cmd: Command): void {
   cmd
     .command('purge')
     .description('Delete delivery rows from the queue (requires at least one filter)')
@@ -141,21 +163,11 @@ export function createDeliveriesCommand(): Command {
     .action(async (opts: { deadOnly?: boolean; olderThan?: string; all?: boolean }) => {
       const queue = getQueue();
       try {
-        const purgeOpts: PurgeOptions = {};
-        if (opts.deadOnly) purgeOpts.deadOnly = true;
-        if (opts.olderThan !== undefined) purgeOpts.olderThanMs = Number(opts.olderThan);
-        if (opts.all) purgeOpts.all = true;
-
+        const purgeOpts = buildPurgeOptions(opts);
         const isTty = Boolean(process.stdout.isTTY);
         const runOpts: PurgeRunOptions = {};
         if (isTty) {
-          runOpts.confirm = (count) => {
-            if (count === 0) {
-              console.log('No matching rows to delete.');
-              return false;
-            }
-            return promptYesNo(`Delete ${count} row(s)? [y/N] `);
-          };
+          runOpts.confirm = ttyPurgeConfirm;
         }
         const result = await runDeliveriesPurge(queue, purgeOpts, runOpts);
         if (result === -1) {
@@ -167,6 +179,14 @@ export function createDeliveriesCommand(): Command {
         queue.close();
       }
     });
+}
+
+export function createDeliveriesCommand(): Command {
+  const cmd = new Command('deliveries').description('Inspect and manage webhook delivery queue');
+
+  registerListCommand(cmd);
+  registerRetryCommand(cmd);
+  registerPurgeCommand(cmd);
 
   return cmd;
 }

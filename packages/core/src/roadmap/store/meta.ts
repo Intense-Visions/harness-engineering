@@ -20,6 +20,24 @@ const FRONTMATTER = /^---\n([\s\S]*?)\n---[ \t]*(?:\n([\s\S]*))?$/;
  * fallback in the Phase 1 plan's gray-matter assumption.
  */
 export function parseMeta(md: string): Result<RoadmapMeta> {
+  const block = parseFrontmatterBlock(md);
+  if (!block.ok) return Err(block.error);
+  const { data, body } = block.value;
+
+  const frontmatter = buildFrontmatter(data);
+  if (!frontmatter.ok) return Err(frontmatter.error);
+
+  const milestones = parseMilestones(data);
+  if (!milestones.ok) return Err(milestones.error);
+
+  const meta: RoadmapMeta = { frontmatter: frontmatter.value, milestones: milestones.value };
+  return attachAssignmentHistory(meta, body);
+}
+
+/** Match the frontmatter fence and parse its YAML; returns the YAML data and trailing body. */
+function parseFrontmatterBlock(
+  md: string
+): Result<{ data: Record<string, unknown>; body: string }> {
   const match = md.match(FRONTMATTER);
   if (!match) {
     return Err(new Error('_meta.md is missing or has malformed YAML frontmatter'));
@@ -33,6 +51,11 @@ export function parseMeta(md: string): Result<RoadmapMeta> {
     return Err(new Error(`_meta.md frontmatter is not valid YAML: ${(err as Error).message}`));
   }
 
+  return Ok({ data, body: match[2] ?? '' });
+}
+
+/** Validate and assemble the required + optional frontmatter fields. */
+function buildFrontmatter(data: Record<string, unknown>): Result<RoadmapFrontmatter> {
   const project = data.project;
   const rawVersion = data.version;
   const lastSynced = data.last_synced;
@@ -59,24 +82,29 @@ export function parseMeta(md: string): Result<RoadmapMeta> {
   const frontmatter: RoadmapFrontmatter = { project, version, lastSynced, lastManualEdit };
   if (typeof data.created === 'string') frontmatter.created = data.created;
   if (typeof data.updated === 'string') frontmatter.updated = data.updated;
+  return Ok(frontmatter);
+}
 
+/** Validate the `milestones:` block sequence as a list of strings. */
+function parseMilestones(data: Record<string, unknown>): Result<string[]> {
   const rawMilestones = data.milestones;
   if (!Array.isArray(rawMilestones) || !rawMilestones.every((m) => typeof m === 'string')) {
     return Err(new Error('_meta.md frontmatter `milestones` must be a list of strings'));
   }
+  return Ok(rawMilestones as string[]);
+}
 
-  const meta: RoadmapMeta = { frontmatter, milestones: rawMilestones as string[] };
-
-  // Optional trailing `## Assignment History` body. Reuse the exported roadmap
-  // parser; absence yields []. Only attach when records exist so history-free
-  // `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
-  const body = match[2] ?? '';
+/**
+ * Optional trailing `## Assignment History` body. Reuse the exported roadmap
+ * parser; absence yields []. Only attach when records exist so history-free
+ * `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
+ */
+function attachAssignmentHistory(meta: RoadmapMeta, body: string): Result<RoadmapMeta> {
   if (body.includes('## Assignment History')) {
     const history = parseAssignmentHistory(body);
     if (!history.ok) return Err(history.error);
     if (history.value.length > 0) meta.assignmentHistory = history.value;
   }
-
   return Ok(meta);
 }
 

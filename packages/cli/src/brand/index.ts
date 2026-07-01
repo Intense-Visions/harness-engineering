@@ -15,8 +15,8 @@ import * as path from 'node:path';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import type { Verifier } from '../shared/verifier.js';
 import type { BrandFinding, BrandSeverity, BrandStrictness } from './findings/finding.js';
-import { loadBrandRules } from './resolvers/design-md-brand.js';
-import { loadBrandTokenIndex } from './resolvers/token-extensions.js';
+import { loadBrandRules, type BrandRules } from './resolvers/design-md-brand.js';
+import { loadBrandTokenIndex, type BrandTokenIndex } from './resolvers/token-extensions.js';
 import { runTokenMisuseRule } from './rules/token-misuse-rule.js';
 import { runForbiddenPhrasesRule } from './rules/forbidden-phrases-rule.js';
 
@@ -41,62 +41,53 @@ export type AuditBrandOutput = Verifier<
 
 const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
 
+interface ResolvedOptions {
+  mode: AuditBrandMode;
+  strictness: BrandStrictness;
+  tokenMisuseEnabled: boolean;
+  voiceEnabled: boolean;
+}
+
+function resolveOptions(input: AuditBrandInput): ResolvedOptions {
+  return {
+    mode: input.mode ?? 'fast',
+    strictness: input.designStrictness ?? 'standard',
+    tokenMisuseEnabled: input.rules?.tokenMisuse !== false,
+    voiceEnabled: input.rules?.voice !== false,
+  };
+}
+
 export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
-  const mode: AuditBrandMode = input.mode ?? 'fast';
-  const strictness: BrandStrictness = input.designStrictness ?? 'standard';
-  const tokenMisuseEnabled = input.rules?.tokenMisuse !== false;
-  const voiceEnabled = input.rules?.voice !== false;
+  const { mode, strictness, tokenMisuseEnabled, voiceEnabled } = resolveOptions(input);
 
   const brandRules = voiceEnabled ? loadBrandRules(projectRoot) : null;
   const brandTokens = tokenMisuseEnabled ? loadBrandTokenIndex(projectRoot) : null;
 
+  const tokenActive = tokenMisuseEnabled && brandTokens !== null;
+  const voiceActive = isVoiceRuleActive(voiceEnabled, brandRules);
+
   const rulesApplied: string[] = [];
-  if (tokenMisuseEnabled && brandTokens !== null) rulesApplied.push('token-misuse');
-  if (voiceEnabled && brandRules?.voice && brandRules.voice.forbiddenPhrases.length > 0) {
-    rulesApplied.push('forbidden-phrases');
-  }
+  if (tokenActive) rulesApplied.push('token-misuse');
+  if (voiceActive) rulesApplied.push('forbidden-phrases');
 
   const filesToScan = collectFiles(projectRoot, input.files);
 
-  const findings: BrandFinding[] = [];
-  for (const file of filesToScan) {
-    let source: string;
-    try {
-      source = fs.readFileSync(file, 'utf-8');
-    } catch {
-      continue;
-    }
-    if (tokenMisuseEnabled && brandTokens !== null) {
-      findings.push(...runTokenMisuseRule({ source, file, brandTokens, strictness }));
-    }
-    if (voiceEnabled && brandRules?.voice && brandRules.voice.forbiddenPhrases.length > 0) {
-      findings.push(
-        ...runForbiddenPhrasesRule({
-          source,
-          file,
-          forbiddenPhrases: brandRules.voice.forbiddenPhrases,
-          strictness,
-        })
-      );
-    }
-  }
-
-  const bySeverity: Record<BrandSeverity, number> = { error: 0, warn: 0, info: 0 };
-  const byCode: Record<string, number> = {};
-  for (const f of findings) {
-    bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
-    byCode[f.code] = (byCode[f.code] ?? 0) + 1;
-  }
+  const findings = scanFiles(filesToScan, {
+    tokenActive,
+    voiceActive,
+    brandTokens,
+    brandRules,
+    strictness,
+  });
 
   return {
     findings,
     summary: {
       totalFiles: filesToScan.length,
       durationMs: Date.now() - startedAt,
-      bySeverity,
-      byCode,
+      ...tallyFindings(findings),
     },
     catalog: { rulesApplied },
     meta: {
@@ -105,6 +96,70 @@ export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandO
       brandTokensLoaded: brandTokens !== null,
     },
   };
+}
+
+interface ScanContext {
+  tokenActive: boolean;
+  voiceActive: boolean;
+  brandTokens: BrandTokenIndex | null;
+  brandRules: BrandRules | null;
+  strictness: BrandStrictness;
+}
+
+function isVoiceRuleActive(voiceEnabled: boolean, brandRules: BrandRules | null): boolean {
+  return voiceEnabled && brandRules?.voice != null && brandRules.voice.forbiddenPhrases.length > 0;
+}
+
+function scanFiles(files: readonly string[], ctx: ScanContext): BrandFinding[] {
+  const findings: BrandFinding[] = [];
+  for (const file of files) {
+    let source: string;
+    try {
+      source = fs.readFileSync(file, 'utf-8');
+    } catch {
+      continue;
+    }
+    findings.push(...scanSource(source, file, ctx));
+  }
+  return findings;
+}
+
+function scanSource(source: string, file: string, ctx: ScanContext): BrandFinding[] {
+  const findings: BrandFinding[] = [];
+  if (ctx.tokenActive && ctx.brandTokens !== null) {
+    findings.push(
+      ...runTokenMisuseRule({
+        source,
+        file,
+        brandTokens: ctx.brandTokens,
+        strictness: ctx.strictness,
+      })
+    );
+  }
+  if (ctx.voiceActive && ctx.brandRules?.voice) {
+    findings.push(
+      ...runForbiddenPhrasesRule({
+        source,
+        file,
+        forbiddenPhrases: ctx.brandRules.voice.forbiddenPhrases,
+        strictness: ctx.strictness,
+      })
+    );
+  }
+  return findings;
+}
+
+function tallyFindings(findings: readonly BrandFinding[]): {
+  bySeverity: Record<BrandSeverity, number>;
+  byCode: Record<string, number>;
+} {
+  const bySeverity: Record<BrandSeverity, number> = { error: 0, warn: 0, info: 0 };
+  const byCode: Record<string, number> = {};
+  for (const f of findings) {
+    bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
+    byCode[f.code] = (byCode[f.code] ?? 0) + 1;
+  }
+  return { bySeverity, byCode };
 }
 
 function collectFiles(projectRoot: string, explicitFiles: readonly string[] | undefined): string[] {
