@@ -1,7 +1,7 @@
 ---
 name: Harness Engineering
-last_updated: '2026-06-03'
-version: 1
+last_updated: '2026-07-01'
+version: 2
 ---
 
 # Harness Engineering Strategy
@@ -35,6 +35,7 @@ The substrate the agent runs on, not the agent itself, determines reliability. W
 - **Compounding feedback loops:** invest in mechanisms that make agents and skills _measurably improve_ over time rather than holding steady. Current: skill proposal loop, skill effectiveness baselines, trust scoring, prompt injection from historical outcomes.
 - **Multi-client portability:** keep the harness usable across Claude Code, Cursor, Codex, Gemini CLI, and OpenCode without forking the substrate. Current: marketplace plugins per client, per-skill / per-cognitive-mode backend routing, gateway API for external bridges.
 - **External adoption flywheel:** make the harness valuable enough off-repo that the constraints-as-code thesis gets tested at scale. Current: skill marketplace, constraint sharing bundles, harness:blueprint for codebase courseware, telemetry-driven adoption insights.
+- **Full-lifecycle reach:** the harness owns the build loop (design → plan → code → verify → review) deeply, but a toolset's value is capped by its narrowest human edge, not its deepest skill. Extend reliably to the two edges where non-engineers meet the pipeline — _authoring intent_ (client requirements upstream of the spec) and _adjudicating outcomes_ (user acceptance, sign-off, production signals feeding back into the graph) — and reach those edges through role-shaped front doors (guided interviews, dashboard lanes) rather than the CLI. Bet: once intent is the input and agents run the middle, completing the two human edges is what lets non-technical people drive real lifecycle work — and that, not more expert skills, is where the next unit of leverage is. Current: product-advisor (BRD / inception edge, first wedge); gaps at the product-requirements middle, UAT / sign-off edge, and post-ship enforcement (deployment, operations). See `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`.
 
 ## Marketing
 
