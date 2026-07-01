@@ -1,7 +1,7 @@
 // packages/cli/src/commands/cleanup.ts
 import { Command } from 'commander';
 import * as path from 'path';
-import type { Result, EntropyConfig } from '@harness-engineering/core';
+import type { Result, EntropyConfig, DriftConfig } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
@@ -52,12 +52,16 @@ export async function runCleanup(
 
   // Build entropy config — use configured entry points or let resolveEntryPoints discover them.
   // docPaths must be glob patterns (a bare directory yields zero matches from glob).
+  // Thread the project's drift config (entropy.drift) into analyze.drift so
+  // docPaths / ignorePatterns / checkApiSignatures etc. are honored (issue #723).
+  const driftEnabled = type === 'all' || type === 'drift';
+  const driftConfig = config.entropy?.drift as Partial<DriftConfig> | undefined;
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
     docPaths: [path.join(docsDir, '**/*.md')],
     analyze: {
-      drift: type === 'all' || type === 'drift',
+      drift: driftEnabled ? (driftConfig ?? true) : false,
       deadCode: type === 'all' || type === 'dead-code',
       patterns: type === 'all' || type === 'patterns' ? { patterns: [] } : false,
     },
