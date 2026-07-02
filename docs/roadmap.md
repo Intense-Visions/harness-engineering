@@ -241,7 +241,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Move sentinel-pre/post to standard hook profile
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/sentinel-standard-profile/proposal.md
 - **Summary:** `packages/cli/src/hooks/profiles.ts:31-32` — `sentinel-pre` and `sentinel-post` (prompt-injection defense covering zero-width chars, RTL/LTR overrides, role-reassignment, permission-escalation, base64 exfiltration, destructive-bash in tainted sessions) currently ship at STRICT profile only. Default-profile adopters get NONE of this defense. Move to standard. Cost-tracker can remain strict-only as a separate concern. Source: Pass 6 #1.
 - **Blockers:** —
