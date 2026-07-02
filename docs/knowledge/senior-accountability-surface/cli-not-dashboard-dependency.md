@@ -4,17 +4,25 @@ domain: senior-accountability-surface
 tags: [dependency-boundary, leaf-package, signals, cli, dashboard, d6]
 ---
 
-# CLI Must Not Depend on the Dashboard App (D6)
+# The Signals/Brief Path Must Not Route Through the Dashboard App (D6)
 
-The CLI must never depend on the dashboard application. Curated repo-health
-signals live in the shared leaf package `@harness-engineering/signals`, so any
-consumer — including the CLI — can gather signals without transitively pulling in
+Curated repo-health signals live in the shared leaf package
+`@harness-engineering/signals`, so any consumer — including the CLI's
+`pre-merge-brief` command — can gather signals without routing through the
+dashboard application. Signal computation must never depend on
 `@harness-engineering/dashboard`.
 
+**Precise scope:** the CLI package as a whole _does_ legitimately depend on
+`@harness-engineering/dashboard` (pre-existing on `main`) because the `harness
+dashboard` command launches the dashboard server. D6 is therefore NOT "the CLI
+must not depend on dashboard" — that edge already exists for a good reason. D6 is
+the narrower, load-bearing rule that **signal computation lives in a shared leaf,
+not behind the dashboard app**, so the brief can compute signals in CI without
+standing up the dashboard.
+
 This records **D6** from the spec's Decisions table
-(`docs/changes/senior-accountability-surface/proposal.md`). The full ADR for D6 is
-scheduled in Phase 5 (Docs + ADRs); this note lands the machine-readable graph fact
-so the dependency boundary is queryable now.
+(`docs/changes/senior-accountability-surface/proposal.md`); the accepted ADR is
+`docs/knowledge/decisions/0055-signals-shared-leaf-package.md`.
 
 ## The rule
 
