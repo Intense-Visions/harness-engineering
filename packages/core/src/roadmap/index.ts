@@ -54,6 +54,13 @@ export { STATUS_RANK, isRegression } from './status-rank';
 export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
 
 /**
+ * Extract GitHub issue references (`#N`, `Closes/Fixes/Resolves #N`,
+ * `owner/repo#N`) from arbitrary PR text. Backstop for auto-done when a PR's
+ * closing keyword is malformed and `closingIssuesReferences` is empty.
+ */
+export { parseReferencedIssues } from './referenced-issues';
+
+/**
  * External-ID (`github:owner/repo#NNN`) parse/build helpers, reused by the
  * auto-done reconciler edges to map issue numbers ↔ roadmap rows without
  * format drift.
