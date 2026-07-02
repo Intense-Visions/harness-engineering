@@ -9,6 +9,8 @@ import {
   readReview,
   gatherSignalsSafe,
   findOutcomeVerdict,
+  runPreMergeBrief,
+  createPreMergeBriefCommand,
 } from '../../src/commands/pre-merge-brief';
 import type { SignalsResult } from '@harness-engineering/signals';
 
@@ -385,5 +387,92 @@ describe('input readers (each degrades, never throws)', () => {
     };
     const store = { findNodes: () => [node] };
     expect(findOutcomeVerdict(store, 'abc123')).toBeUndefined();
+  });
+});
+
+describe('runPreMergeBrief orchestration', () => {
+  /** A minimal raw diff `git diff` might return for one changed file. */
+  const RAW_DIFF = [
+    'diff --git a/src/x.ts b/src/x.ts',
+    'index 000..111 100644',
+    '--- a/src/x.ts',
+    '+++ b/src/x.ts',
+    '@@ -1,1 +1,2 @@',
+    ' const a = 1;',
+    '+const b = 2;',
+  ].join('\n');
+
+  function baseOpts() {
+    const calls: { postBrief: string[]; logs: string[]; ranges: string[] } = {
+      postBrief: [],
+      logs: [],
+      ranges: [],
+    };
+    const runGit = (_args: string[]) => '';
+    const resolveRaw = (range: string) => {
+      calls.ranges.push(range);
+      return RAW_DIFF;
+    };
+    const gather = async () => ({ signals: [], generatedAt: '2026-07-02T00:00:00Z' });
+    const opts = {
+      cwd: '/proj',
+      runGit,
+      resolveRaw,
+      readFile: () => 'unused',
+      gather,
+      store: undefined,
+      headSha: undefined,
+      postBrief: (b: string) => calls.postBrief.push(b),
+      log: (m: string) => calls.logs.push(m),
+    };
+    return { opts, calls };
+  }
+
+  it('prints the brief to log when --comment absent; does not call postBrief; exit 0', async () => {
+    const { opts, calls } = baseOpts();
+    const res = await runPreMergeBrief({ ...opts, from: undefined, comment: false });
+    expect(calls.logs.join('\n')).toContain(BRIEF_MARKER);
+    expect(calls.postBrief).toHaveLength(0);
+    expect(res.body).toContain(BRIEF_MARKER);
+  });
+
+  it('calls postBrief once when --comment present', async () => {
+    const { opts, calls } = baseOpts();
+    await runPreMergeBrief({ ...opts, from: undefined, comment: true });
+    expect(calls.postBrief).toHaveLength(1);
+    expect(calls.postBrief[0]).toContain(BRIEF_MARKER);
+  });
+
+  it('honors --diff <range> via resolveDiffRange; else falls back to default range', async () => {
+    const withRange = baseOpts();
+    await runPreMergeBrief({ ...withRange.opts, diffRange: 'main...HEAD', comment: false });
+    expect(withRange.calls.ranges).toContain('main...HEAD');
+
+    const noRange = baseOpts();
+    await runPreMergeBrief({ ...noRange.opts, comment: false });
+    // default resolves to origin/<base>...HEAD (base=main when no symbolic-ref)
+    expect(noRange.calls.ranges[0]).toMatch(/origin\/.*\.\.\.HEAD/);
+  });
+
+  it('succeeds (exit 0) with no --from and empty signals/outcome; has all six headings', async () => {
+    const { opts } = baseOpts();
+    const res = await runPreMergeBrief({ ...opts, from: undefined, comment: false });
+    expect(res.body).toContain('Diff summary');
+    expect(res.body).toContain('Review verdict');
+    expect(res.body).toContain('Signal status');
+    expect(res.body).toContain('Outcome evaluation');
+    expect(res.body).toContain('👀 Worth your eyes');
+    expect(res.body).toContain(BRIEF_MARKER);
+  });
+});
+
+describe('createPreMergeBriefCommand', () => {
+  it('exposes --from, --comment, --diff options', () => {
+    const cmd = createPreMergeBriefCommand();
+    expect(cmd.name()).toBe('pre-merge-brief');
+    const names = cmd.options.map((o) => o.long);
+    expect(names).toContain('--from');
+    expect(names).toContain('--comment');
+    expect(names).toContain('--diff');
   });
 });

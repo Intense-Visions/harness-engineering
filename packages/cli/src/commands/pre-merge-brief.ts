@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { Command } from 'commander';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
 import { gatherSignals } from '@harness-engineering/signals';
 import type { SignalResult, SignalsResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
+import { buildDiffInfo, resolveDiffRange, type RunGit } from './review-ci';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
 export const BRIEF_MARKER = '<!-- harness:pre-merge-brief -->';
@@ -332,4 +334,94 @@ export function findOutcomeVerdict(
   } catch {
     return undefined;
   }
+}
+
+// ── Orchestration ────────────────────────────────────────────────────────────
+
+/** Resolve the raw unified-diff string for a range via the injectable git seam. */
+function defaultResolveRaw(range: string, _cwd: string, runGit: RunGit): string {
+  return runGit(['diff', range]);
+}
+
+/** Options for {@link runPreMergeBrief}. Every seam defaults to the real impl. */
+export interface PreMergeBriefOptions {
+  cwd?: string | undefined;
+  /** Explicit git range (`--diff`); resolved via `resolveDiffRange` otherwise. */
+  diffRange?: string | undefined;
+  /** Path to a `review-ci --json` artifact (`--from`). */
+  from?: string | undefined;
+  /** Head commit sha used for the best-effort outcome lookup. */
+  headSha?: string | undefined;
+  /** When true, upsert the brief as a sticky PR comment; otherwise print it. */
+  comment?: boolean | undefined;
+  // Injected seams (default to the real implementations):
+  runGit?: RunGit;
+  resolveRaw?: (range: string, cwd: string, runGit: RunGit) => string;
+  readFile?: ReadFile;
+  gather?: GatherSignals;
+  store?: OutcomeStore | undefined;
+  postBrief?: PostBrief;
+  log?: (message: string) => void;
+}
+
+/**
+ * Pure orchestration for `pre-merge-brief`: resolve the diff range, assemble the
+ * (independently degrading) inputs, render the brief, and either upsert it as a
+ * sticky comment (`--comment`) or print it. Returns the rendered `{ body }`.
+ *
+ * Contains NO `process.exit` — the commander action owns the exit code — so this
+ * stays fully unit-testable with injected seams.
+ */
+export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ body: string }> {
+  const cwd = opts.cwd ?? process.cwd();
+  const runGit =
+    opts.runGit ?? ((args) => execFileSync('git', args, { encoding: 'utf-8' }).toString().trim());
+  const range = resolveDiffRange({
+    ...(opts.diffRange ? { range: opts.diffRange } : {}),
+    cwd,
+    runGit,
+  });
+  // Diff degrades to undefined (→ "unavailable") when the range yields nothing.
+  let diff: DiffInfo | undefined;
+  try {
+    const rawDiff = (opts.resolveRaw ?? defaultResolveRaw)(range, cwd, runGit);
+    diff = rawDiff.trim() ? buildDiffInfo(rawDiff) : undefined;
+  } catch {
+    diff = undefined;
+  }
+
+  const review = readReview(opts.from, opts.readFile);
+  const signals = await gatherSignalsSafe(cwd, opts.gather);
+  const outcome = findOutcomeVerdict(opts.store, opts.headSha);
+
+  const body = buildBriefBody({ diff, review, signals, outcome });
+
+  if (opts.comment) {
+    (opts.postBrief ?? defaultPostBrief)(body);
+  } else {
+    (opts.log ?? ((m) => process.stdout.write(m + '\n')))(body);
+  }
+  return { body };
+}
+
+/** Build the top-level `harness pre-merge-brief` command. */
+export function createPreMergeBriefCommand(): Command {
+  return new Command('pre-merge-brief')
+    .description(
+      'Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")'
+    )
+    .option('--from <path>', 'review-ci --json verdict artifact')
+    .option('--comment', "upsert the brief as a sticky comment on the current branch's PR")
+    .option('--diff <range>', 'git range (default: origin/<base>...HEAD)')
+    .action(async (opts: Record<string, unknown>) => {
+      await runPreMergeBrief({
+        from: opts.from as string | undefined,
+        comment: opts.comment as boolean | undefined,
+        diffRange: opts.diff as string | undefined,
+      });
+      // process.exit is confined to the commander action so the pure functions
+      // above remain testable; every input degrades independently, so a
+      // successful render is always exit 0.
+      process.exit(0);
+    });
 }
