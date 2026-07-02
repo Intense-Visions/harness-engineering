@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import {
   assessProjectDefinition,
   handleAssessProject,
+  resolveLintCommand,
 } from '../../../src/mcp/tools/assess-project';
 
 describe('assess_project tool', () => {
@@ -136,6 +137,74 @@ describe('assess_project tool', () => {
       });
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.checks[0]).not.toHaveProperty('detailed');
+    });
+  });
+
+  // Regression: #702 — lint check hardcoded `turbo run lint`, ignoring
+  // `tooling.linter`, so every non-npm project got a spurious lint failure.
+  describe('resolveLintCommand honors tooling.linter (#702)', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-lint-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    function writeConfig(config: unknown): void {
+      fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), JSON.stringify(config));
+    }
+
+    it('runs ruff for a Python project instead of turbo', () => {
+      writeConfig({
+        version: 1,
+        template: { language: 'python', version: 1 },
+        tooling: { linter: 'ruff', formatter: 'ruff', testRunner: 'pytest' },
+      });
+      const resolved = resolveLintCommand(tmpDir);
+      expect(resolved).toEqual({ command: 'ruff', args: ['check', '.'] });
+      // The reported bug: it must NOT fall through to turbo.
+      expect(resolved.args).not.toContain('turbo');
+    });
+
+    it('runs golangci-lint for a Go project', () => {
+      writeConfig({ version: 1, tooling: { linter: 'golangci-lint' } });
+      expect(resolveLintCommand(tmpDir)).toEqual({ command: 'golangci-lint', args: ['run'] });
+    });
+
+    it('runs cargo clippy for a Rust project', () => {
+      writeConfig({ version: 1, tooling: { linter: 'clippy' } });
+      expect(resolveLintCommand(tmpDir)).toEqual({ command: 'cargo', args: ['clippy'] });
+    });
+
+    it('reads tooling.linter nested under template as a fallback', () => {
+      writeConfig({ version: 1, template: { tooling: { linter: 'ruff' } } });
+      expect(resolveLintCommand(tmpDir)).toEqual({ command: 'ruff', args: ['check', '.'] });
+    });
+
+    it('falls back to turbo when no linter is configured', () => {
+      writeConfig({ version: 1, name: 'ts-project' });
+      expect(resolveLintCommand(tmpDir)).toEqual({
+        command: 'npx',
+        args: ['turbo', 'run', 'lint', '--force'],
+      });
+    });
+
+    it('falls back to turbo for unknown/npm linters', () => {
+      writeConfig({ version: 1, tooling: { linter: 'eslint' } });
+      expect(resolveLintCommand(tmpDir)).toEqual({
+        command: 'npx',
+        args: ['turbo', 'run', 'lint', '--force'],
+      });
+    });
+
+    it('falls back to turbo when harness.config.json is missing', () => {
+      expect(resolveLintCommand(tmpDir)).toEqual({
+        command: 'npx',
+        args: ['turbo', 'run', 'lint', '--force'],
+      });
     });
   });
 
