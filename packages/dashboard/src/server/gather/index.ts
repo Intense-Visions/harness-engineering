@@ -8,4 +8,5 @@ export { gatherArch } from './arch';
 export { gatherAnomalies } from './anomalies';
 export { gatherBlastRadius } from './blast-radius';
 export { gatherCI } from './ci';
-export { gatherSignals } from './signals';
+export { gatherSignals } from '@harness-engineering/signals';
+export type { SignalsResult } from '@harness-engineering/signals';
