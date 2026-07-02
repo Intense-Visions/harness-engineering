@@ -1,7 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
+import { GraphStore } from '@harness-engineering/graph';
+import type { NodeType } from '@harness-engineering/graph';
 import { gatherSignals } from '@harness-engineering/signals';
 import type { SignalResult, SignalsResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
@@ -130,7 +133,10 @@ function deriveWorthYourEyes(inputs: BriefInputs): string[] {
   const flaggedSignals = (inputs.signals ?? []).filter(
     (s) => s.status === 'warn' || s.status === 'alert'
   );
-  const unmet = inputs.outcome?.unmetCriteria ?? [];
+  // Only surface unmet criteria when the outcome verdict is NOT_SATISFIED; a
+  // SATISFIED/other verdict may still carry a stale unmetCriteria array.
+  const unmet =
+    inputs.outcome?.verdict === 'NOT_SATISFIED' ? (inputs.outcome.unmetCriteria ?? []) : [];
 
   const bullets: string[] = [
     ...blocking.map((f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`),
@@ -189,7 +195,9 @@ export function upsertComment(
   patch: (id: number, body: string) => void,
   post: (body: string) => void
 ): void {
-  const marked = comments.find((c) => c.body.includes(BRIEF_MARKER));
+  // Anchor on the FIRST line: buildBriefBody always emits the marker as line 1,
+  // so this avoids PATCHing a human comment that merely quotes a prior brief.
+  const marked = comments.find((c) => c.body.trimStart().startsWith(BRIEF_MARKER));
   if (marked) {
     patch(marked.id, body);
   } else {
@@ -224,18 +232,13 @@ export const defaultPostBrief: PostBrief = (body) => {
     comments,
     body,
     (id, patchBody) => {
-      // PATCH the existing comment in place via the REST API.
+      // PATCH the existing comment in place via the REST API. The body is piped
+      // via stdin (`-F body=@-`) so a long brief never hits the shell
+      // arg-length limit (E2BIG) on the steady-state sticky-update path.
       execFileSync(
         'gh',
-        [
-          'api',
-          '-X',
-          'PATCH',
-          `/repos/{owner}/{repo}/issues/comments/${id}`,
-          '-f',
-          `body=${patchBody}`,
-        ],
-        { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8' }
+        ['api', '-X', 'PATCH', `/repos/{owner}/{repo}/issues/comments/${id}`, '-F', 'body=@-'],
+        { input: patchBody, stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8' }
       );
     },
     (postBody) => {
@@ -270,7 +273,10 @@ export function readReview(
   if (!path) return undefined;
   try {
     const parsed = JSON.parse(readFile(path)) as CiReviewResult;
-    return parsed.verdict;
+    // Light shape guard: only return a non-null object verdict so a truncated /
+    // garbage `--from` file degrades to "unavailable" rather than rendering
+    // undefined-riddled bullets.
+    return parsed?.verdict && typeof parsed.verdict === 'object' ? parsed.verdict : undefined;
   } catch {
     return undefined;
   }
@@ -297,7 +303,29 @@ export async function gatherSignalsSafe(
 
 /** The minimal graph-store surface the outcome lookup needs. */
 export interface OutcomeStore {
-  findNodes(query: { type: string }): Array<{ metadata: Record<string, unknown> }>;
+  findNodes(query: { type: NodeType }): Array<{ metadata: Record<string, unknown> }>;
+}
+
+/**
+ * Directory (relative to the project root) where the knowledge graph is
+ * persisted — the SAME path `gatherSignals` loads from (`.harness/graph`).
+ */
+const GRAPH_DIR = '.harness/graph';
+
+/**
+ * Best-effort graph load for the outcome lookup, mirroring
+ * `gatherSignals`' `loadGraphStore`: returns `undefined` (never throws) when the
+ * graph dir is absent or unloadable, preserving the "not yet evaluated"
+ * degradation contract.
+ */
+export async function loadOutcomeStore(projectPath: string): Promise<OutcomeStore | undefined> {
+  try {
+    const store = new GraphStore();
+    const loaded = await store.load(join(projectPath, GRAPH_DIR));
+    return loaded ? store : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -362,6 +390,8 @@ export interface PreMergeBriefOptions {
   store?: OutcomeStore | undefined;
   postBrief?: PostBrief;
   log?: (message: string) => void;
+  /** Warning sink (stderr by default) for best-effort delivery failures. */
+  warn?: (message: string) => void;
 }
 
 /**
@@ -396,10 +426,22 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
 
   const body = buildBriefBody({ diff, review, signals, outcome });
 
+  const log = opts.log ?? ((m: string) => process.stdout.write(m + '\n'));
   if (opts.comment) {
-    (opts.postBrief ?? defaultPostBrief)(body);
+    // Delivery is best-effort: if `gh` fails (no PR for the branch, gh
+    // unauthenticated, API error) we still print the rendered brief + a
+    // one-line warning to stderr and let the caller exit 0.
+    try {
+      (opts.postBrief ?? defaultPostBrief)(body);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      (opts.warn ?? ((m: string) => process.stderr.write(m + '\n')))(
+        `⚠️ pre-merge-brief: could not post sticky comment (${reason}); printing brief instead.`
+      );
+      log(body);
+    }
   } else {
-    (opts.log ?? ((m) => process.stdout.write(m + '\n')))(body);
+    log(body);
   }
   return { body };
 }
@@ -413,11 +455,35 @@ export function createPreMergeBriefCommand(): Command {
     .option('--from <path>', 'review-ci --json verdict artifact')
     .option('--comment', "upsert the brief as a sticky comment on the current branch's PR")
     .option('--diff <range>', 'git range (default: origin/<base>...HEAD)')
+    .option('--head <sha>', 'head commit sha for the outcome lookup (default: git rev-parse HEAD)')
     .action(async (opts: Record<string, unknown>) => {
+      const cwd = process.cwd();
+      // Reuse the RunGit seam pattern already used by the orchestrator instead
+      // of adding a new raw exec.
+      const runGit: RunGit = (args) =>
+        execFileSync('git', args, { encoding: 'utf-8' }).toString().trim();
+      // Resolve the head sha (default: `git rev-parse HEAD`), degrading to
+      // undefined (→ "not yet evaluated") if git can't resolve it.
+      let headSha = opts.head as string | undefined;
+      if (!headSha) {
+        try {
+          headSha = runGit(['rev-parse', 'HEAD']) || undefined;
+        } catch {
+          headSha = undefined;
+        }
+      }
+      // Construct the graph store from `.harness/graph` (same path as
+      // gatherSignals); undefined when absent/unloadable, preserving the
+      // "not yet evaluated" degradation contract.
+      const store = await loadOutcomeStore(cwd);
       await runPreMergeBrief({
+        cwd,
         from: opts.from as string | undefined,
         comment: opts.comment as boolean | undefined,
         diffRange: opts.diff as string | undefined,
+        headSha,
+        store,
+        runGit,
       });
       // process.exit is confined to the commander action so the pure functions
       // above remain testable; every input degrades independently, so a

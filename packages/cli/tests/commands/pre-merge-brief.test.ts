@@ -57,7 +57,7 @@ function makeFinding(over: Partial<Finding> = {}): Finding {
     lineRange: [10, 12],
     title: 'null deref',
     ...over,
-  } as Finding;
+  };
 }
 
 /** A review verdict fixture (not schema-validated; passed directly to the renderer). */
@@ -116,7 +116,7 @@ describe('buildBriefBody', () => {
     const f2 = makeFinding({
       id: 'f2',
       title: 'style nit',
-      severity: 'warning',
+      severity: 'suggestion',
       file: 'src/b.ts',
       lineRange: undefined,
     });
@@ -209,7 +209,7 @@ describe('worth your eyes derivation', () => {
 
   it('contains exactly the union of blocking findings, warn/alert signals, and unmet criteria', () => {
     const blocking = makeFinding({ id: 'b1', title: 'sql injection', severity: 'critical' });
-    const nonBlocking = makeFinding({ id: 'n1', title: 'style nit', severity: 'warning' });
+    const nonBlocking = makeFinding({ id: 'n1', title: 'style nit', severity: 'suggestion' });
     const signals: SignalResult[] = [
       makeSignal({ label: 'ok-sig', status: 'ok' }),
       makeSignal({ label: 'warn-sig', status: 'warn' }),
@@ -234,6 +234,25 @@ describe('worth your eyes derivation', () => {
     expect(section).not.toContain('ok-sig');
     expect(section).not.toContain('pending-sig');
     expect(section).not.toContain('error-sig');
+  });
+
+  it('excludes unmetCriteria when the outcome verdict is not NOT_SATISFIED', () => {
+    // A SATISFIED verdict may still carry a stale unmetCriteria array; it must
+    // NOT leak into "worth your eyes".
+    const body = buildBriefBody({
+      outcome: makeOutcome({ verdict: 'SATISFIED', unmetCriteria: ['stale crit'] }),
+    });
+    const section = worthSection(body);
+    expect(section).not.toContain('stale crit');
+    expect(section).toMatch(/nothing flagged/i);
+  });
+
+  it('includes unmetCriteria only when the verdict is NOT_SATISFIED', () => {
+    const body = buildBriefBody({
+      outcome: makeOutcome({ verdict: 'NOT_SATISFIED', unmetCriteria: ['real crit'] }),
+    });
+    const section = worthSection(body);
+    expect(section).toContain('real crit');
   });
 
   it('empty when nothing qualifies', () => {
@@ -304,6 +323,41 @@ describe('upsertComment (sticky)', () => {
     upsertComment(store, buildBriefBody({}), patch, post);
     expect(posted).toBe(1);
   });
+
+  it('does not match a human comment that merely quotes a prior brief (marker not first)', () => {
+    // A human reply that quotes the brief: the marker appears, but not on line 1.
+    const store: FakeComment[] = [{ id: 7, body: `> quoting:\n${BRIEF_MARKER}\n...body...` }];
+    let posted = 0;
+    const patch = () => {
+      throw new Error('should not PATCH a quoting comment');
+    };
+    const post = () => {
+      posted++;
+    };
+    upsertComment(store, buildBriefBody({}), patch, post);
+    // No marked-first comment → posts a fresh sticky rather than PATCHing.
+    expect(posted).toBe(1);
+  });
+
+  it('PATCHes a large (>200KB) body via the patch seam without building a huge argv', () => {
+    // Steady-state sticky update: a marked comment exists → PATCH path.
+    const bigBody = BRIEF_MARKER + '\n' + 'x'.repeat(220 * 1024);
+    const store: FakeComment[] = [{ id: 42, body: `${BRIEF_MARKER}\nold brief` }];
+    const patchArgs: Array<{ id: number; body: string }> = [];
+    // The fake `patch` stands in for the real `gh api ... -F body=@-` call and
+    // proves the large body flows through the seam (stdin in prod), never argv.
+    const patch = (id: number, body: string) => {
+      patchArgs.push({ id, body });
+    };
+    const post = () => {
+      throw new Error('should not post when a marked comment exists');
+    };
+    upsertComment(store, bigBody, patch, post);
+    expect(patchArgs).toHaveLength(1);
+    expect(patchArgs[0]!.id).toBe(42);
+    expect(patchArgs[0]!.body.length).toBeGreaterThan(200 * 1024);
+    expect(patchArgs[0]!.body).toBe(bigBody);
+  });
 });
 
 describe('input readers (each degrades, never throws)', () => {
@@ -327,6 +381,14 @@ describe('input readers (each degrades, never throws)', () => {
     };
     expect(readReview('missing.json', throwing)).toBeUndefined();
     expect(readReview('bad.json', () => 'not json{{')).toBeUndefined();
+  });
+
+  it('readReview returns undefined when the parsed verdict is not a non-null object', () => {
+    // A truncated / garbage `--from` file parses but lacks a proper verdict
+    // object → degrade to "unavailable" instead of rendering undefined bullets.
+    expect(readReview('a.json', () => JSON.stringify({ verdict: null }))).toBeUndefined();
+    expect(readReview('b.json', () => JSON.stringify({ verdict: 'oops' }))).toBeUndefined();
+    expect(readReview('c.json', () => JSON.stringify({}))).toBeUndefined();
   });
 
   it('gatherSignalsSafe returns result.signals from the injected gather', async () => {
@@ -443,6 +505,59 @@ describe('runPreMergeBrief orchestration', () => {
     expect(calls.postBrief[0]).toContain(BRIEF_MARKER);
   });
 
+  it('does not crash when postBrief throws; prints the brief + warns to stderr; exit 0', async () => {
+    const { opts } = baseOpts();
+    const logs: string[] = [];
+    const warns: string[] = [];
+    const throwingPost = () => {
+      throw new Error('no PR for branch / gh unauthenticated');
+    };
+    const res = await runPreMergeBrief({
+      ...opts,
+      from: undefined,
+      comment: true,
+      postBrief: throwingPost,
+      log: (m: string) => logs.push(m),
+      warn: (m: string) => warns.push(m),
+    });
+    // The body is still returned + printed, and a one-line warning is emitted.
+    expect(res.body).toContain(BRIEF_MARKER);
+    expect(logs.join('\n')).toContain(BRIEF_MARKER);
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toMatch(/could not post/i);
+  });
+
+  it('renders the outcome verdict (not the degraded line) when a matching node is in the store', async () => {
+    const { opts } = baseOpts();
+    // Fake OutcomeStore with a matching execution_outcome node for the head sha.
+    const store = {
+      findNodes: (_q: { type: string }) => [
+        {
+          metadata: {
+            commit: 'headsha123',
+            verdict: 'NOT_SATISFIED',
+            confidence: 'high',
+            rationale: 'criterion A is unmet: no test covers the empty case',
+            judgedAgainst: 'success-criteria',
+            unmetCriteria: ['crit A'],
+            authority: 'blocking',
+          },
+        },
+      ],
+    };
+    const res = await runPreMergeBrief({
+      ...opts,
+      from: undefined,
+      comment: false,
+      store,
+      headSha: 'headsha123',
+    });
+    const idx = res.body.search(/outcome/i);
+    expect(res.body.slice(idx)).not.toMatch(/not yet evaluated/i);
+    expect(res.body).toContain('NOT_SATISFIED');
+    expect(res.body).toContain('criterion A is unmet');
+  });
+
   it('honors --diff <range> via resolveDiffRange; else falls back to default range', async () => {
     const withRange = baseOpts();
     await runPreMergeBrief({ ...withRange.opts, diffRange: 'main...HEAD', comment: false });
@@ -467,12 +582,13 @@ describe('runPreMergeBrief orchestration', () => {
 });
 
 describe('createPreMergeBriefCommand', () => {
-  it('exposes --from, --comment, --diff options', () => {
+  it('exposes --from, --comment, --diff, --head options', () => {
     const cmd = createPreMergeBriefCommand();
     expect(cmd.name()).toBe('pre-merge-brief');
     const names = cmd.options.map((o) => o.long);
     expect(names).toContain('--from');
     expect(names).toContain('--comment');
     expect(names).toContain('--diff');
+    expect(names).toContain('--head');
   });
 });
