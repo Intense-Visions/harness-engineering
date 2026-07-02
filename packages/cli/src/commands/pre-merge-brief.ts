@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
 import type { SignalResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
@@ -163,3 +164,82 @@ export function buildBriefBody(inputs: BriefInputs): string {
   ];
   return lines.join('\n');
 }
+
+/** Seam for delivering the brief to a PR — real impl shells out to `gh`. */
+export type PostBrief = (body: string) => void;
+
+/** The minimal comment shape the upsert logic needs: an id and a body. */
+export interface MarkedComment {
+  id: number;
+  body: string;
+}
+
+/**
+ * Pure sticky-upsert core: find the comment carrying {@link BRIEF_MARKER} and
+ * PATCH it in place; otherwise post a new one. This is the single decision point
+ * the fake test drives — the real `gh` calls live only in {@link defaultPostBrief}.
+ */
+export function upsertComment(
+  comments: MarkedComment[],
+  body: string,
+  patch: (id: number, body: string) => void,
+  post: (body: string) => void
+): void {
+  const marked = comments.find((c) => c.body.includes(BRIEF_MARKER));
+  if (marked) {
+    patch(marked.id, body);
+  } else {
+    post(body);
+  }
+}
+
+/**
+ * Default poster: upsert the brief as a single sticky PR comment via `gh`.
+ *
+ * Lists the current PR's comments (`gh pr view --json comments`), finds the one
+ * carrying {@link BRIEF_MARKER}, and either PATCHes it in place
+ * (`gh api ... -X PATCH`) or posts a fresh one (`gh pr comment --body-file -`,
+ * piping the body via stdin so a long brief never hits the shell arg-length
+ * limit). Contains NO `process.exit`; the caller owns exit codes.
+ */
+export const defaultPostBrief: PostBrief = (body) => {
+  const raw = execFileSync('gh', ['pr', 'view', '--json', 'comments'], {
+    encoding: 'utf-8',
+  }).toString();
+  const parsed = JSON.parse(raw) as {
+    comments?: Array<{ id?: number; url?: string; body?: string }>;
+  };
+  const comments: MarkedComment[] = (parsed.comments ?? [])
+    .filter(
+      (c): c is { id: number; body: string } =>
+        typeof c.id === 'number' && typeof c.body === 'string'
+    )
+    .map((c) => ({ id: c.id, body: c.body }));
+
+  upsertComment(
+    comments,
+    body,
+    (id, patchBody) => {
+      // PATCH the existing comment in place via the REST API.
+      execFileSync(
+        'gh',
+        [
+          'api',
+          '-X',
+          'PATCH',
+          `/repos/{owner}/{repo}/issues/comments/${id}`,
+          '-f',
+          `body=${patchBody}`,
+        ],
+        { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8' }
+      );
+    },
+    (postBody) => {
+      execFileSync('gh', ['pr', 'comment', '--body-file', '-'], {
+        input: postBody,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+      });
+    }
+  );
+};

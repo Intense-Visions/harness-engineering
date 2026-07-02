@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
 import type { SignalResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
-import { BRIEF_MARKER, buildBriefBody } from '../../src/commands/pre-merge-brief';
+import { BRIEF_MARKER, buildBriefBody, upsertComment } from '../../src/commands/pre-merge-brief';
 
 /** An outcome-eval verdict fixture. */
 function makeOutcome(over: Partial<OutcomeVerdict> = {}): OutcomeVerdict {
@@ -247,5 +247,51 @@ describe('worth your eyes derivation', () => {
     const worthIdx = body.indexOf(WORTH_HEADING);
     expect(worthIdx).toBeGreaterThan(body.indexOf('Signal status'));
     expect(worthIdx).toBeGreaterThan(body.indexOf('Outcome evaluation'));
+  });
+});
+
+describe('upsertComment (sticky)', () => {
+  /** An in-memory comment record with an id and a body. */
+  interface FakeComment {
+    id: number;
+    body: string;
+  }
+
+  it('first run posts a new comment; second run on same PR updates it (not appends)', () => {
+    const store: FakeComment[] = [];
+    let nextId = 1;
+    const patch = (id: number, body: string) => {
+      const c = store.find((x) => x.id === id);
+      if (c) c.body = body;
+    };
+    const post = (body: string) => {
+      store.push({ id: nextId++, body });
+    };
+
+    // First run: no marked comment yet → posts.
+    const body1 = buildBriefBody({}) + '\n' + BRIEF_MARKER;
+    upsertComment(store, body1, patch, post);
+    expect(store).toHaveLength(1);
+
+    // Second run: a marked comment now exists → PATCHes (array length unchanged).
+    const body2 = buildBriefBody({ signals: [] }) + '\nUPDATED\n' + BRIEF_MARKER;
+    upsertComment(store, body2, patch, post);
+    const marked = store.filter((c) => c.body.includes(BRIEF_MARKER));
+    expect(store).toHaveLength(1);
+    expect(marked).toHaveLength(1);
+    expect(store[0]!.body).toContain('UPDATED');
+  });
+
+  it('posts new when no marked comment exists', () => {
+    const store: FakeComment[] = [{ id: 99, body: 'unrelated comment' }];
+    let posted = 0;
+    const patch = () => {
+      throw new Error('should not patch');
+    };
+    const post = () => {
+      posted++;
+    };
+    upsertComment(store, buildBriefBody({}), patch, post);
+    expect(posted).toBe(1);
   });
 });
