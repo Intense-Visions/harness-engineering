@@ -1,7 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
 import type { SignalResult } from '@harness-engineering/signals';
+import type { OutcomeVerdict } from '@harness-engineering/intelligence';
 import { BRIEF_MARKER, buildBriefBody } from '../../src/commands/pre-merge-brief';
+
+/** An outcome-eval verdict fixture. */
+function makeOutcome(over: Partial<OutcomeVerdict> = {}): OutcomeVerdict {
+  return {
+    verdict: 'NOT_SATISFIED',
+    confidence: 'high',
+    rationale: 'criterion A is unmet: no test covers the empty case',
+    judgedAgainst: 'success-criteria',
+    unmetCriteria: ['crit A'],
+    authority: 'blocking',
+    ...over,
+  };
+}
 
 /** A signal fixture with an overridable status/value. */
 function makeSignal(over: Partial<SignalResult> = {}): SignalResult {
@@ -150,5 +164,25 @@ describe('buildBriefBody', () => {
     const idx = body.indexOf('Signal status');
     expect(idx).toBeGreaterThanOrEqual(0);
     expect(body.slice(idx)).toMatch(/unavailable/i);
+  });
+
+  it('renders outcome verdict when present', () => {
+    const body = buildBriefBody({
+      outcome: makeOutcome({
+        verdict: 'NOT_SATISFIED',
+        rationale: 'criterion A is unmet',
+        unmetCriteria: ['crit A'],
+      }),
+    });
+    expect(body).toMatch(/outcome/i);
+    expect(body).toContain('NOT_SATISFIED');
+    expect(body).toContain('criterion A is unmet');
+  });
+
+  it("outcome section says 'not yet evaluated' when omitted", () => {
+    const body = buildBriefBody({});
+    const idx = body.search(/outcome/i);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(body.slice(idx)).toMatch(/not yet evaluated/i);
   });
 });

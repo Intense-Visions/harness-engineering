@@ -94,6 +94,26 @@ function renderSignalStatus(signals?: SignalResult[]): string[] {
 }
 
 /**
+ * Render the outcome-eval section. Pre-merge the `execution_outcome` node is
+ * commonly ABSENT, so an undefined verdict degrades to "not yet evaluated"
+ * (never an error).
+ */
+function renderOutcomeEval(outcome?: OutcomeVerdict): string[] {
+  const out: string[] = ['## Outcome evaluation', ''];
+  if (!outcome) {
+    out.push('> _not yet evaluated._');
+    return out;
+  }
+  out.push(
+    `**Verdict:** \`${outcome.verdict}\`  •  **Confidence:** \`${outcome.confidence}\`` +
+      `  •  **Authority:** \`${outcome.authority}\``,
+    '',
+    outcome.rationale
+  );
+  return out;
+}
+
+/**
  * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
  * section, in the order required by the spec: header, diff summary, review
  * verdict, Signal status, outcome-eval, "worth your eyes".
@@ -108,6 +128,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     ...renderReviewVerdict(inputs.review),
     '',
     ...renderSignalStatus(inputs.signals),
+    '',
+    ...renderOutcomeEval(inputs.outcome),
   ];
   return lines.join('\n');
 }
