@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/pre-merge-brief/SKILL.md
-@agents/skills/claude-code/pre-merge-brief/skill.yaml
+@agents/skills/cursor/pre-merge-brief/SKILL.md
+@agents/skills/cursor/pre-merge-brief/skill.yaml
 </execution_context>
 
 <process>

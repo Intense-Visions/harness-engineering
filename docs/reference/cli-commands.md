@@ -379,6 +379,7 @@ Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "wor
 - `--from` — review-ci --json verdict artifact
 - `--comment` — upsert the brief as a sticky comment on the current branch's PR
 - `--diff` — git range (default: origin/<base>...HEAD)
+- `--head` — head commit sha for the outcome lookup (default: git rev-parse HEAD)
 
 ### `harness predict`
 
