@@ -3,9 +3,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { GraphStore } from '@harness-engineering/graph';
 import type { GraphNode } from '@harness-engineering/graph';
-import { evalFailRateProvider } from '../../../../src/server/signals/providers/eval-fail-rate';
-import { SignalTimelineStore } from '../../../../src/server/signals/timeline-store';
-import type { SignalContext } from '../../../../src/server/signals/types';
+import { evalFailRateProvider } from '../../src/providers/eval-fail-rate';
+import { SignalTimelineStore } from '../../src/timeline-store';
+import type { SignalContext } from '../../src/types';
 
 // Real `execution_outcome` node shape as written by
 // `ExecutionOutcomeConnector.ingest` — verdict in metadata.result, ISO timestamp

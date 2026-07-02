@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { prReviewProvider } from '../../../../src/server/signals/providers/pr-review';
-import { SignalTimelineStore } from '../../../../src/server/signals/timeline-store';
-import type { SignalContext, CommandRunner } from '../../../../src/server/signals/types';
+import { prReviewProvider } from '../../src/providers/pr-review';
+import { SignalTimelineStore } from '../../src/timeline-store';
+import type { SignalContext, CommandRunner } from '../../src/types';
 
 function tmpDir() {
   return path.join(__dirname, '__test-tmp-pr-review__');

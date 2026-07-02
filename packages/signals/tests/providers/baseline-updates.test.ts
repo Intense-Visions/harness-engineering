@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { baselineUpdatesProvider } from '../../../../src/server/signals/providers/baseline-updates';
-import { SignalTimelineStore } from '../../../../src/server/signals/timeline-store';
-import type { SignalContext, CommandRunner } from '../../../../src/server/signals/types';
+import { baselineUpdatesProvider } from '../../src/providers/baseline-updates';
+import { SignalTimelineStore } from '../../src/timeline-store';
+import type { SignalContext, CommandRunner } from '../../src/types';
 
 const US = '\x1f'; // unit (field) separator within a record
 function logRecord(hash: string, author: string, subject: string, date: string) {

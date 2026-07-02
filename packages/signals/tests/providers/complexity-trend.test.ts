@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { complexityTrendProvider } from '../../../../src/server/signals/providers/complexity-trend';
-import { SignalTimelineStore } from '../../../../src/server/signals/timeline-store';
-import type { SignalContext } from '../../../../src/server/signals/types';
+import { complexityTrendProvider } from '../../src/providers/complexity-trend';
+import { SignalTimelineStore } from '../../src/timeline-store';
+import type { SignalContext } from '../../src/types';
 
 function tmpDir(): string {
   return path.join(__dirname, '__test-tmp-complexity-trend__');
