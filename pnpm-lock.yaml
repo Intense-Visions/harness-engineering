@@ -126,6 +126,9 @@ importers:
       '@harness-engineering/orchestrator':
         specifier: workspace:*
         version: link:../orchestrator
+      '@harness-engineering/signals':
+        specifier: workspace:*
+        version: link:../signals
       '@harness-engineering/types':
         specifier: workspace:*
         version: link:../types
