@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  defaultCommandRunner,
-  type CommandRunner,
-} from '../../../src/server/signals/command-runner';
+import { defaultCommandRunner, type CommandRunner } from '../src/command-runner';
 
 describe('defaultCommandRunner', () => {
   it('runs a command and returns trimmed stdout', async () => {
