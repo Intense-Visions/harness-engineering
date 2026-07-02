@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
-import type { SignalResult } from '@harness-engineering/signals';
+import { gatherSignals } from '@harness-engineering/signals';
+import type { SignalResult, SignalsResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
@@ -243,3 +245,91 @@ export const defaultPostBrief: PostBrief = (body) => {
     }
   );
 };
+
+// ── Input readers ────────────────────────────────────────────────────────────
+// Each reader owns its failure mode and degrades to the "unavailable" value so a
+// missing/broken input never aborts the brief (exit 0 is preserved). No I/O in
+// these bodies beyond the injected seams, and no `process.exit`.
+
+/** Injected file-read seam. Real impl reads UTF-8 from disk. */
+export type ReadFile = (path: string) => string;
+
+const defaultReadFile: ReadFile = (path) => readFileSync(path, 'utf-8');
+
+/**
+ * Read + `JSON.parse` a `review-ci --json` artifact and return its verdict.
+ * Returns `undefined` (never throws) when `path` is undefined or the read/parse
+ * fails — the review section then renders "unavailable".
+ */
+export function readReview(
+  path: string | undefined,
+  readFile: ReadFile = defaultReadFile
+): CiReviewResult['verdict'] | undefined {
+  if (!path) return undefined;
+  try {
+    const parsed = JSON.parse(readFile(path)) as CiReviewResult;
+    return parsed.verdict;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Injected signals-gather seam. Defaults to the real `gatherSignals`. */
+export type GatherSignals = (projectPath: string) => Promise<SignalsResult>;
+
+/**
+ * Gather a fresh signal snapshot, degrading to `[]` (never throwing) when the
+ * gather rejects — the Signal-status section then renders "unavailable".
+ */
+export async function gatherSignalsSafe(
+  projectPath: string,
+  gather: GatherSignals = gatherSignals
+): Promise<SignalResult[]> {
+  try {
+    const result = await gather(projectPath);
+    return result.signals;
+  } catch {
+    return [];
+  }
+}
+
+/** The minimal graph-store surface the outcome lookup needs. */
+export interface OutcomeStore {
+  findNodes(query: { type: string }): Array<{ metadata: Record<string, unknown> }>;
+}
+
+/**
+ * Best-effort lookup of the `execution_outcome` verdict for `headSha`.
+ *
+ * `ExecutionOutcome` carries no guaranteed sha, so we match on a
+ * `metadata.commit` / `metadata.headSha` field when present. Pre-merge the node
+ * is commonly ABSENT (or unmatched) — the common case — so this returns
+ * `undefined` (→ "not yet evaluated") when there is no store, no `headSha`, or
+ * no matching node. Never throws.
+ */
+export function findOutcomeVerdict(
+  store: OutcomeStore | undefined,
+  headSha: string | undefined
+): OutcomeVerdict | undefined {
+  if (!store || !headSha) return undefined;
+  try {
+    const nodes = store.findNodes({ type: 'execution_outcome' });
+    const match = nodes.find((n) => {
+      const m = n.metadata ?? {};
+      return m.commit === headSha || m.headSha === headSha;
+    });
+    if (!match) return undefined;
+    const m = match.metadata;
+    // Map the node's metadata to the OutcomeVerdict shape defensively.
+    return {
+      verdict: m.verdict as OutcomeVerdict['verdict'],
+      confidence: (m.confidence as OutcomeVerdict['confidence']) ?? 'low',
+      rationale: (m.rationale as string) ?? '',
+      judgedAgainst: (m.judgedAgainst as OutcomeVerdict['judgedAgainst']) ?? 'success-criteria',
+      unmetCriteria: Array.isArray(m.unmetCriteria) ? (m.unmetCriteria as string[]) : [],
+      authority: (m.authority as OutcomeVerdict['authority']) ?? 'advisory',
+    };
+  } catch {
+    return undefined;
+  }
+}

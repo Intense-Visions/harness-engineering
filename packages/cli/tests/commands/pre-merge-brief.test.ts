@@ -2,7 +2,15 @@ import { describe, it, expect } from 'vitest';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
 import type { SignalResult } from '@harness-engineering/signals';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
-import { BRIEF_MARKER, buildBriefBody, upsertComment } from '../../src/commands/pre-merge-brief';
+import {
+  BRIEF_MARKER,
+  buildBriefBody,
+  upsertComment,
+  readReview,
+  gatherSignalsSafe,
+  findOutcomeVerdict,
+} from '../../src/commands/pre-merge-brief';
+import type { SignalsResult } from '@harness-engineering/signals';
 
 /** An outcome-eval verdict fixture. */
 function makeOutcome(over: Partial<OutcomeVerdict> = {}): OutcomeVerdict {
@@ -293,5 +301,89 @@ describe('upsertComment (sticky)', () => {
     };
     upsertComment(store, buildBriefBody({}), patch, post);
     expect(posted).toBe(1);
+  });
+});
+
+describe('input readers (each degrades, never throws)', () => {
+  it('readReview parses a CiReviewResult and returns its verdict', () => {
+    const verdict = makeVerdict({ assessment: 'approve', findings: [], blockingFindings: [] });
+    // NB: an approve verdict must exit 0 to be schema-consistent; here we only
+    // exercise JSON.parse + field access, not zod validation.
+    const fixture = JSON.stringify({ verdict, exitCode: 0, terminalOutput: '', ranLlmTier: false });
+    const readFile = (_p: string) => fixture;
+    const out = readReview('some/path.json', readFile);
+    expect(out?.assessment).toBe('approve');
+  });
+
+  it('readReview returns undefined when path is undefined', () => {
+    expect(readReview(undefined, () => 'unused')).toBeUndefined();
+  });
+
+  it('readReview returns undefined (does not throw) when read/parse fails', () => {
+    const throwing = () => {
+      throw new Error('ENOENT');
+    };
+    expect(readReview('missing.json', throwing)).toBeUndefined();
+    expect(readReview('bad.json', () => 'not json{{')).toBeUndefined();
+  });
+
+  it('gatherSignalsSafe returns result.signals from the injected gather', async () => {
+    const result: SignalsResult = {
+      signals: [makeSignal({ status: 'warn', label: 'coverage' })],
+      generatedAt: '2026-07-02T00:00:00Z',
+    };
+    const gather = async (_p: string) => result;
+    const out = await gatherSignalsSafe('/proj', gather);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.label).toBe('coverage');
+  });
+
+  it('gatherSignalsSafe returns [] when gather rejects', async () => {
+    const gather = async (_p: string) => {
+      throw new Error('boom');
+    };
+    const out = await gatherSignalsSafe('/proj', gather);
+    expect(out).toEqual([]);
+  });
+
+  it('findOutcomeVerdict returns undefined when no store', () => {
+    expect(findOutcomeVerdict(undefined, 'abc123')).toBeUndefined();
+  });
+
+  it('findOutcomeVerdict returns undefined when headSha undefined', () => {
+    const store = { findNodes: () => [] };
+    expect(findOutcomeVerdict(store, undefined)).toBeUndefined();
+  });
+
+  it('findOutcomeVerdict maps a matching execution_outcome node to a verdict', () => {
+    const node = {
+      id: 'n1',
+      type: 'execution_outcome' as const,
+      name: 'outcome',
+      metadata: {
+        commit: 'abc123',
+        verdict: 'NOT_SATISFIED',
+        confidence: 'high',
+        rationale: 'unmet crit',
+        judgedAgainst: 'success-criteria',
+        unmetCriteria: ['crit A'],
+        authority: 'blocking',
+      },
+    };
+    const store = { findNodes: () => [node] };
+    const out = findOutcomeVerdict(store, 'abc123');
+    expect(out?.verdict).toBe('NOT_SATISFIED');
+    expect(out?.unmetCriteria).toEqual(['crit A']);
+  });
+
+  it('findOutcomeVerdict returns undefined when no node matches the headSha', () => {
+    const node = {
+      id: 'n1',
+      type: 'execution_outcome' as const,
+      name: 'outcome',
+      metadata: { commit: 'zzz999', verdict: 'SATISFIED' },
+    };
+    const store = { findNodes: () => [node] };
+    expect(findOutcomeVerdict(store, 'abc123')).toBeUndefined();
   });
 });
