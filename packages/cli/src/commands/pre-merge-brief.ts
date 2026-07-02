@@ -38,6 +38,40 @@ function renderDiffSummary(diff?: DiffInfo): string[] {
   return out;
 }
 
+/** A single validated finding as it appears on the verdict. */
+type ReviewFindingView = NonNullable<CiReviewResult['verdict']['findings']>[number];
+
+/** Render a finding as a one-line Markdown bullet: severity, location, title. */
+function findingLine(f: ReviewFindingView): string {
+  const loc = f.lineRange ? `${f.file}:${f.lineRange[0]}` : f.file;
+  return `- \`${f.severity}\` **${loc}** — ${f.title}`;
+}
+
+/**
+ * Render the review-verdict section. Degrades to an "unavailable" line when no
+ * `--from` verdict was supplied.
+ */
+function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
+  const out: string[] = ['## Review verdict', ''];
+  if (!verdict) {
+    out.push(UNAVAILABLE);
+    return out;
+  }
+  const findings = verdict.findings ?? [];
+  const blocking = verdict.blockingFindings ?? [];
+  out.push(
+    `**Assessment:** \`${verdict.assessment}\`  •  **Runner:** \`${verdict.runner}\`` +
+      `  •  **Findings:** ${findings.length} (blocking: ${blocking.length})`
+  );
+  if (verdict.skipped) {
+    out.push('', `> ⚠️ ${verdict.skipReason ?? 'A review tier was skipped.'}`);
+  }
+  if (blocking.length) out.push('', '### Blocking', ...blocking.map(findingLine));
+  const nonBlocking = findings.filter((f) => !blocking.some((b) => b.id === f.id));
+  if (nonBlocking.length) out.push('', '### Other findings', ...nonBlocking.map(findingLine));
+  return out;
+}
+
 /**
  * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
  * section, in the order required by the spec: header, diff summary, review
@@ -49,6 +83,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     '# 🧭 Pre-merge brief',
     '',
     ...renderDiffSummary(inputs.diff),
+    '',
+    ...renderReviewVerdict(inputs.review),
   ];
   return lines.join('\n');
 }
