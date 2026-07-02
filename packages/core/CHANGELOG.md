@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.32.1
+
+### Patch Changes
+
+- 52a2410: fix(entropy): honor `entropy.drift` config on the entropy/CI paths and resolve Python symbols
+
+  The api-signature doc-drift detector flooded non-TS projects with false
+  positives and offered no honored way to scope or disable it.
+  - **Config now threaded (issue #723).** `detect_entropy` (MCP), `run_ci_checks
+entropy`, and `harness cleanup` previously built the analyzer with
+    `analyze.drift` as a boolean, so it always fell back to
+    `DEFAULT_DRIFT_CONFIG`. The CLI config schema also had no place to put drift
+    settings. A new `entropy.drift` block (`checkApiSignatures`, `ignorePatterns`,
+    `forwardLookingPaths`, `checkStructure`, `docPaths`) is now validated and
+    threaded into `analyze.drift` at all three call sites. The MCP handler now
+    loads `harness.config.json`, which also fixes `assess_project`.
+  - **Python symbols now resolve.** The tree-sitter Python export extractor
+    matched raw node types on `module.children`, missing decorated classes
+    (`@dataclass`), top-level constants, and all class-body members (dataclass
+    fields, enum members, methods) — so documented references to them were
+    wrongly flagged as api-signature drift. Extraction now unwraps
+    `decorated_definition` / `expression_statement` and descends one level into
+    class bodies. Underscore-prefixed members stay private.
+
+- 0c3d8ed: fix: make `harness graph scan` the canonical graph command and deprecate the top-level aliases
+
+  `scan`/`query`/`ingest` are now canonical under the `graph` group
+  (`harness graph scan`, etc.) — the form the post-update hook, fallback hints,
+  and docs already reference. All user-facing hints now point at
+  `harness graph scan`.
+
+  The bare top-level `harness scan`/`query`/`ingest` commands are retained as
+  hidden, deprecated aliases: they still run (so existing scripts, CI jobs, and
+  muscle memory keep working) but print a one-line deprecation notice to stderr
+  directing users to the `harness graph <op>` form. They will be removed in the
+  next major. No command is removed in this release, so the change is
+  non-breaking.
+
 ## 0.32.0
 
 ### Minor Changes
