@@ -1083,6 +1083,10 @@ Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode flip
 - `--from-issues` — comma-separated issue numbers to reconcile against the configured repo (authoritative; skips the network fetch)
 - `--from-refs` — comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)
 
+### `harness roadmap referenced-issues`
+
+Parse issue references (#N, Closes/Fixes/Resolves #N, owner/repo#N) from stdin text (PR body + title) and print each issue number on its own line. Backstop for auto-done when a PR's closing keyword is malformed.
+
 ### `harness roadmap regen`
 
 Regenerate the aggregate from the shard directory (docs/roadmap.d)
