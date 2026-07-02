@@ -17,7 +17,38 @@ export interface BriefInputs {
   outcome?: OutcomeVerdict | undefined;
 }
 
-/** Pure Markdown render (no I/O, no process.exit). Filled in Tasks 3-7. */
-export function buildBriefBody(_inputs: BriefInputs): string {
-  return '';
+/** Standard degradation line for an input that could not be gathered. */
+const UNAVAILABLE = '> _unavailable / not configured._';
+
+/**
+ * Render the diff-summary section. Degrades to an "unavailable" line when no
+ * diff could be resolved (empty range, git failure, etc.).
+ */
+function renderDiffSummary(diff?: DiffInfo): string[] {
+  const out: string[] = ['## Diff summary', ''];
+  if (!diff) {
+    out.push(UNAVAILABLE);
+    return out;
+  }
+  out.push(
+    `**Files changed:** ${diff.changedFiles.length}` +
+      ` (new: ${diff.newFiles.length}, deleted: ${diff.deletedFiles.length})` +
+      `  •  **Diff lines:** ${diff.totalDiffLines}`
+  );
+  return out;
+}
+
+/**
+ * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
+ * section, in the order required by the spec: header, diff summary, review
+ * verdict, Signal status, outcome-eval, "worth your eyes".
+ */
+export function buildBriefBody(inputs: BriefInputs): string {
+  const lines: string[] = [
+    BRIEF_MARKER,
+    '# 🧭 Pre-merge brief',
+    '',
+    ...renderDiffSummary(inputs.diff),
+  ];
+  return lines.join('\n');
 }
