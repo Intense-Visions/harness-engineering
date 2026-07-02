@@ -364,7 +364,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Build harness-pm persona for eval suite and acceptance criteria ownership
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/harness-pm-persona/proposal.md
 - **Summary:** The companion article "AI Ate My Role" defines three surviving Project Manager lanes: Taste PM (product thesis), **Harness PM (eval suite design + acceptance criteria)**, Boundary PM (compliance). The project ships 15 personas — all engineering-shaped (code-reviewer, architecture-enforcer, security-reviewer, performance-guardian, planner, task-executor, etc.). **Zero PM-shaped personas exist.** Build `harness-pm` persona that owns: (a) reviewing every spec's acceptance criteria for observability/testability/completeness, (b) ensuring eval suite coverage matches the spec's user-visible behavior section, (c) catching specs that ship without measurable success criteria. Pairs with `harness:outcome-eval` (which produces the eval verdicts) to give that eval an organizational owner. The article: "Quality became something that happened _to_ the work, not something that lived _inside_ the work. The new role sits at parity with engineering, not downstream." Source: Pass 8 (AI Ate My Role + Anatomy companion articles).
 - **Blockers:** Build harness:outcome-eval skill
@@ -398,7 +398,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Build senior-engineer accountability surface for PR push
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/senior-accountability-surface/proposal.md
 - **Summary:** "The Tests We Skipped" companion article: _"the person who writes the code is the person who pushes it to production. Full stop."_ In the agent-shipping flow, the agent writes; the senior engineer pushes (merges). The accountability does not transfer to the agent — it stays with the human who clicks merge. The project today does not produce a senior-facing "you are pushing X; here's what you should look at before approving" surface. Build: (a) `harness:pre-merge-brief` skill that produces a senior-facing digest on every PR with the diff summary, multi-persona review verdict, outcome-eval result (when available), signal-deltas, and a "things specifically worth your eyes" section, (b) GitHub Action that posts this as a PR comment, (c) optional gating that the merge button requires the senior to acknowledge the brief. Closes the "harness for the human too" mandate Ajey states explicitly. The same gear that protects the agent also protects the senior who's accountable. Source: Pass 8 (The Tests We Skipped companion article).
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
 - **Plan:** —
@@ -449,6 +449,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#664
+
+### Add pre-merge-brief acknowledgment merge gate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up to the senior accountability surface (#569, D3): a hard merge gate requiring the senior to acknowledge the pre-merge brief. Needs an ack-observing webhook/bot and a branch-protection ruleset. Deferred from v1 (shipped non-blocking first, matching required-review's rollout). The brief it acks already exists once #569 ships.
+- **Blockers:** Build senior-engineer accountability surface for PR push
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#731
+
+### Graduate pre-merge-brief to adopter template + ruleset
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up to the senior accountability surface (#569, D5): ship the adopter-facing pre-merge-brief as a templates/ci/*.yml.hbs rendered by `harness init`, plus a ruleset for the eventual gate. Deferred so the brief's Markdown format bakes on dogfood PRs before adopters are locked in — mirrors how required-review graduated. Natural companion to fully extracting signal providers into shared core.
+- **Blockers:** Build senior-engineer accountability surface for PR push
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#732
 
 ## Craft Pipeline
 
