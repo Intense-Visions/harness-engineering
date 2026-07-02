@@ -21,10 +21,12 @@ on:
   pull_request:
     branches: [main]
 
-# Least privilege: the gate only reads the diff today (--comment PR posting is a
-# stub). Add `pull-requests: write` when comment posting is wired.
+# The review gate itself only reads the diff. The pre-merge-brief step (below)
+# upserts a sticky senior-facing PR comment, so the job needs pull-requests:write.
+# The brief step is continue-on-error and never affects the gate's own status.
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   required-review:
@@ -51,5 +53,17 @@ jobs:
       - run: pnpm build
       - name: Run required-review gate
         # Diff against the PR's real base (runtime github.base_ref). --runner claude
-        # degrades to floor-only if ANTHROPIC_API_KEY is unset.
-        run: node packages/cli/dist/bin/harness.js review-ci --runner claude --block-on request-changes --diff "origin/${{ github.base_ref }}...HEAD"
+        # degrades to floor-only if ANTHROPIC_API_KEY is unset. --json writes the
+        # verdict artifact the pre-merge-brief step reuses (no second review run).
+        run: node packages/cli/dist/bin/harness.js review-ci --runner claude --block-on request-changes --diff "origin/${{ github.base_ref }}...HEAD" --json /tmp/review.json
+      - name: Post senior pre-merge brief
+        # Dogfood (spec #569, D4/D5): compose the senior-facing brief from the
+        # review verdict above + live signals + outcome-eval, and upsert it as a
+        # sticky PR comment. continue-on-error so a brief failure never flips the
+        # gate's status; the command itself also degrades each section rather than
+        # failing. Reuses the review-ci --json artifact (no second review run).
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node packages/cli/dist/bin/harness.js pre-merge-brief --from /tmp/review.json --diff "origin/${{ github.base_ref }}...HEAD" --comment
