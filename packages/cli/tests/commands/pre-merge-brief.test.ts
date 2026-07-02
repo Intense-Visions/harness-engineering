@@ -186,3 +186,66 @@ describe('buildBriefBody', () => {
     expect(body.slice(idx)).toMatch(/not yet evaluated/i);
   });
 });
+
+describe('worth your eyes derivation', () => {
+  const WORTH_HEADING = '## 👀 Worth your eyes';
+
+  /** Extract only the "worth your eyes" section text (heading to end). */
+  function worthSection(body: string): string {
+    const idx = body.indexOf(WORTH_HEADING);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    return body.slice(idx);
+  }
+
+  it('contains exactly the union of blocking findings, warn/alert signals, and unmet criteria', () => {
+    const blocking = makeFinding({ id: 'b1', title: 'sql injection', severity: 'critical' });
+    const nonBlocking = makeFinding({ id: 'n1', title: 'style nit', severity: 'warning' });
+    const signals: SignalResult[] = [
+      makeSignal({ label: 'ok-sig', status: 'ok' }),
+      makeSignal({ label: 'warn-sig', status: 'warn' }),
+      makeSignal({ label: 'alert-sig', status: 'alert' }),
+      makeSignal({ label: 'pending-sig', status: 'pending' }),
+      makeSignal({ label: 'error-sig', status: 'error' }),
+    ];
+    const body = buildBriefBody({
+      review: makeVerdict({ findings: [blocking, nonBlocking], blockingFindings: [blocking] }),
+      signals,
+      outcome: makeOutcome({ verdict: 'NOT_SATISFIED', unmetCriteria: ['crit A', 'crit B'] }),
+    });
+    const section = worthSection(body);
+    // included: blocking finding + warn signal + alert signal + both unmet criteria
+    expect(section).toContain('sql injection');
+    expect(section).toContain('warn-sig');
+    expect(section).toContain('alert-sig');
+    expect(section).toContain('crit A');
+    expect(section).toContain('crit B');
+    // excluded: non-blocking finding + ok/pending/error signals
+    expect(section).not.toContain('style nit');
+    expect(section).not.toContain('ok-sig');
+    expect(section).not.toContain('pending-sig');
+    expect(section).not.toContain('error-sig');
+  });
+
+  it('empty when nothing qualifies', () => {
+    const body = buildBriefBody({
+      review: makeVerdict({
+        assessment: 'approve',
+        findings: [],
+        blockingFindings: [],
+      }),
+      signals: [makeSignal({ status: 'ok' })],
+      outcome: makeOutcome({ verdict: 'SATISFIED', unmetCriteria: [] }),
+    });
+    const section = worthSection(body);
+    expect(section).toMatch(/nothing flagged/i);
+  });
+
+  it('section appears last', () => {
+    const body = buildBriefBody({
+      signals: [makeSignal({ status: 'warn' })],
+    });
+    const worthIdx = body.indexOf(WORTH_HEADING);
+    expect(worthIdx).toBeGreaterThan(body.indexOf('Signal status'));
+    expect(worthIdx).toBeGreaterThan(body.indexOf('Outcome evaluation'));
+  });
+});

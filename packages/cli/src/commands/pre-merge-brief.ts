@@ -114,6 +114,34 @@ function renderOutcomeEval(outcome?: OutcomeVerdict): string[] {
 }
 
 /**
+ * Derive the **"👀 Worth your eyes"** section: EXACTLY the union of (a) review
+ * blocking findings, (b) signals with status `warn` or `alert`, and (c) unmet
+ * outcome criteria — no more, no fewer. Renders "nothing flagged" when the
+ * union is empty.
+ */
+function deriveWorthYourEyes(inputs: BriefInputs): string[] {
+  const out: string[] = ['## 👀 Worth your eyes', ''];
+  const blocking = inputs.review?.blockingFindings ?? [];
+  const flaggedSignals = (inputs.signals ?? []).filter(
+    (s) => s.status === 'warn' || s.status === 'alert'
+  );
+  const unmet = inputs.outcome?.unmetCriteria ?? [];
+
+  const bullets: string[] = [
+    ...blocking.map((f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`),
+    ...flaggedSignals.map((s) => `- 📊 ${signalLine(s).replace(/^- /, '')}`),
+    ...unmet.map((c) => `- 🎯 ${c}`),
+  ];
+
+  if (bullets.length === 0) {
+    out.push('_Nothing flagged — no blocking findings, no warn/alert signals, no unmet criteria._');
+    return out;
+  }
+  out.push(...bullets);
+  return out;
+}
+
+/**
  * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
  * section, in the order required by the spec: header, diff summary, review
  * verdict, Signal status, outcome-eval, "worth your eyes".
@@ -130,6 +158,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     ...renderSignalStatus(inputs.signals),
     '',
     ...renderOutcomeEval(inputs.outcome),
+    '',
+    ...deriveWorthYourEyes(inputs),
   ];
   return lines.join('\n');
 }
