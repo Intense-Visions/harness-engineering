@@ -56,6 +56,7 @@ import { createOrchestratorCommand } from './orchestrator';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
+import { createPreMergeBriefCommand } from './pre-merge-brief';
 import { createProposalsCommand } from './proposals';
 import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
@@ -146,6 +147,7 @@ export const commandCreators: Array<() => Command> = [
   createPerfCommand,
   createPersonaCommand,
   createPredictCommand,
+  createPreMergeBriefCommand,
   createProposalsCommand,
   createPublishAnalysesCommand,
   createPulseCommand,
