@@ -78,3 +78,27 @@ describe('roadmap-auto-done workflow', () => {
     expect(wf.concurrency!['cancel-in-progress']).toBe(false);
   });
 });
+
+describe('roadmap-auto-done fallback (malformed closing keyword)', () => {
+  it('has a fallback step gated on the primary closing refs being empty', () => {
+    const fallback = job.steps.find((s) => (s.run ?? '').includes('roadmap referenced-issues'));
+    expect(fallback).toBeDefined();
+    // Runs ONLY when the authoritative closingIssuesReferences list is empty.
+    expect(fallback!.if ?? '').toMatch(/steps\.closing\.outputs\.refs\s*==\s*''/);
+  });
+  it('filters referenced issues to closed + completed via gh before reconciling', () => {
+    expect(stepRuns).toMatch(/gh issue view/);
+    expect(stepRuns).toMatch(/state/);
+    expect(stepRuns).toMatch(/CLOSED/);
+  });
+  it('feeds the fallback refs into reconcile --from-refs', () => {
+    // Both primary and fallback ultimately drive `reconcile --from-refs`.
+    expect(stepRuns).toMatch(/roadmap reconcile --from-refs/);
+  });
+  it('runs regen and commit-push for the fallback path too (guards include fallback refs)', () => {
+    const commitStep = job.steps.find((s) => (s.run ?? '').includes('git push'));
+    expect(commitStep).toBeDefined();
+    // The commit/regen guards must fire when EITHER primary or fallback refs exist.
+    expect(commitStep!.if ?? '').toMatch(/fallback/);
+  });
+});

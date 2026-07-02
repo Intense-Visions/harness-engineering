@@ -87,20 +87,58 @@ jobs:
         if: steps.closing.outputs.refs != ''
         run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-refs "${{ steps.closing.outputs.refs }}"
 
+      - name: Fallback — parse referenced issues when no formal closing refs
+        id: fallback
+        if: steps.closing.outputs.refs == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The primary path (closingIssuesReferences) was empty — usually a
+          # malformed closing keyword in the PR body (e.g. "Closes roadmap #569":
+          # the intervening word breaks GitHub's parser). Fall back to references
+          # PARSED from the raw PR body+title, then keep only issues this repo
+          # closed as completed. SELF-CORRECTING RISK: a PR that merely mentions an
+          # unrelated closed-completed issue whose number matches a roadmap row's
+          # External-ID can flip that row. Requires BOTH a matching External-ID AND
+          # a closed-completed issue — an acceptable, scoped, self-correcting risk.
+          # We deliberately do NOT trigger a full offline sweep here.
+          PR=${{ github.event.pull_request.number }}
+          TEXT=$(gh pr view "$PR" --json body,title --jq '.body + "\n" + .title')
+          NUMS=$(printf '%s' "$TEXT" | node packages/cli/dist/bin/harness.js roadmap referenced-issues)
+          REFS=""
+          for n in $NUMS; do
+            STATE=$(gh issue view "$n" --json state --jq '.state' 2>/dev/null || echo "")
+            REASON=$(gh issue view "$n" --json stateReason --jq '.stateReason' 2>/dev/null || echo "")
+            if [ "$STATE" = "CLOSED" ] && { [ "$REASON" = "COMPLETED" ] || [ -z "$REASON" ] || [ "$REASON" = "null" ]; }; then
+              REF="${{ github.repository }}#$n"
+              REFS="${REFS:+$REFS,}$REF"
+            fi
+          done
+          echo "refs=$REFS" >> "$GITHUB_OUTPUT"
+          if [ -z "$REFS" ]; then
+            echo "Fallback found no closed-completed referenced issues; nothing to reconcile."
+          else
+            echo "Fallback closing issue refs: $REFS"
+          fi
+
+      - name: Reconcile auto-done (fallback)
+        if: steps.closing.outputs.refs == '' && steps.fallback.outputs.refs != ''
+        run: node packages/cli/dist/bin/harness.js roadmap reconcile --from-refs "${{ steps.fallback.outputs.refs }}"
+
       # In sharded mode the reconcile writes ONLY the changed shard(s); the
       # aggregate is generated, so it must be regenerated from the shards before
       # we commit (otherwise the committed aggregate would be stale). In monolith
       # mode the reconcile already wrote the aggregate directly, so there is no
       # shard dir and this step is skipped.
       - name: Regenerate the aggregate when sharded
-        if: steps.closing.outputs.refs != ''
+        if: steps.closing.outputs.refs != '' || steps.fallback.outputs.refs != ''
         run: |
           if [ -d docs/roadmap.d ]; then
             node packages/cli/dist/bin/harness.js roadmap regen
           fi
 
       - name: Commit and push the shard flip
-        if: steps.closing.outputs.refs != ''
+        if: steps.closing.outputs.refs != '' || steps.fallback.outputs.refs != ''
         run: |
           if [ -z "$(git status --porcelain docs/roadmap.d docs/roadmap.md)" ]; then
             echo "Reconcile produced no roadmap changes (rows already done); nothing to commit."
