@@ -370,6 +370,16 @@ LLM-judgment critique of identifier names (variables, functions, types, files). 
 - `--max-files` — Cap file count (default: 100)
 - `--max-identifiers-per-file` — Cap per-file identifier sampling (default: 15)
 
+### `harness pre-merge-brief`
+
+Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")
+
+**Options:**
+
+- `--from` — review-ci --json verdict artifact
+- `--comment` — upsert the brief as a sticky comment on the current branch's PR
+- `--diff` — git range (default: origin/<base>...HEAD)
+
 ### `harness predict`
 
 Predict which architectural constraints will break and when

@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-760 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+761 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (42 skills)
+## Tier 2 — Maintenance (43 skills)
 
 ### acceptance-eval
 
@@ -388,6 +388,16 @@ Performance enforcement and benchmark management
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
 - **Depends on:** harness-verify
+
+### harness-pre-merge-brief
+
+Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose and post the senior-facing pre-merge accountability brief — the diff summary, the multi-persona review verdict (from review-ci --json), the curated Signal status snapshot, the outcome-eval result, and a derived "Worth your eyes" section — as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; the skill orchestrates invocation, communicates which sections degraded to "unavailable", and hands off. Runs on on_pr and manual. The harness pointed at the human who clicks merge.
+
+- **Triggers:** on_pr, manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-code-review, outcome-eval
 
 ### harness-pulse
 

@@ -37,6 +37,9 @@ cli:
     - name: diff
       description: "git diff range for the diff summary (e.g. origin/main...HEAD)"
       required: false
+    - name: head
+      description: "head commit sha for the outcome-eval lookup (default: git rev-parse HEAD)"
+      required: false
 mcp:
   tool: run_skill
   input:
