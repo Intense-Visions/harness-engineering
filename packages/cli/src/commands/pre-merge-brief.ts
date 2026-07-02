@@ -59,18 +59,14 @@ function findingLine(f: ReviewFindingView): string {
  * Render the review-verdict section. Degrades to an "unavailable" line when no
  * `--from` verdict was supplied.
  */
-function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
-  const out: string[] = ['## Review verdict', ''];
-  if (!verdict) {
-    out.push(UNAVAILABLE);
-    return out;
-  }
+/** Render the body of a present verdict (extracted to keep the guard fn simple). */
+function renderPopulatedVerdict(verdict: CiReviewResult['verdict']): string[] {
   const findings = verdict.findings ?? [];
   const blocking = verdict.blockingFindings ?? [];
-  out.push(
+  const out: string[] = [
     `**Assessment:** \`${verdict.assessment}\`  •  **Runner:** \`${verdict.runner}\`` +
-      `  •  **Findings:** ${findings.length} (blocking: ${blocking.length})`
-  );
+      `  •  **Findings:** ${findings.length} (blocking: ${blocking.length})`,
+  ];
   if (verdict.skipped) {
     out.push('', `> ⚠️ ${verdict.skipReason ?? 'A review tier was skipped.'}`);
   }
@@ -78,6 +74,11 @@ function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
   const nonBlocking = findings.filter((f) => !blocking.some((b) => b.id === f.id));
   if (nonBlocking.length) out.push('', '### Other findings', ...nonBlocking.map(findingLine));
   return out;
+}
+
+function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
+  if (!verdict) return ['## Review verdict', '', UNAVAILABLE];
+  return ['## Review verdict', '', ...renderPopulatedVerdict(verdict)];
 }
 
 /** Render a single signal as a one-line Markdown bullet: status, label, value. */
@@ -127,29 +128,44 @@ function renderOutcomeEval(outcome?: OutcomeVerdict): string[] {
  * outcome criteria — no more, no fewer. Renders "nothing flagged" when the
  * union is empty.
  */
-function deriveWorthYourEyes(inputs: BriefInputs): string[] {
-  const out: string[] = ['## 👀 Worth your eyes', ''];
-  const blocking = inputs.review?.blockingFindings ?? [];
-  const flaggedSignals = (inputs.signals ?? []).filter(
-    (s) => s.status === 'warn' || s.status === 'alert'
+/**
+ * Collect the "Worth your eyes" bullets: the union of (a) review blocking
+ * findings, (b) signals with status `warn`/`alert`, and (c) unmet outcome
+ * criteria (only when the verdict is NOT_SATISFIED — a SATISFIED/other verdict
+ * may still carry a stale unmetCriteria array).
+ */
+function blockingBullets(inputs: BriefInputs): string[] {
+  return (inputs.review?.blockingFindings ?? []).map(
+    (f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`
   );
-  // Only surface unmet criteria when the outcome verdict is NOT_SATISFIED; a
-  // SATISFIED/other verdict may still carry a stale unmetCriteria array.
+}
+
+function signalBullets(inputs: BriefInputs): string[] {
+  return (inputs.signals ?? [])
+    .filter((s) => s.status === 'warn' || s.status === 'alert')
+    .map((s) => `- 📊 ${signalLine(s).replace(/^- /, '')}`);
+}
+
+function unmetBullets(inputs: BriefInputs): string[] {
   const unmet =
     inputs.outcome?.verdict === 'NOT_SATISFIED' ? (inputs.outcome.unmetCriteria ?? []) : [];
+  return unmet.map((c) => `- 🎯 ${c}`);
+}
 
-  const bullets: string[] = [
-    ...blocking.map((f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`),
-    ...flaggedSignals.map((s) => `- 📊 ${signalLine(s).replace(/^- /, '')}`),
-    ...unmet.map((c) => `- 🎯 ${c}`),
-  ];
+function collectWorthYourEyesBullets(inputs: BriefInputs): string[] {
+  return [...blockingBullets(inputs), ...signalBullets(inputs), ...unmetBullets(inputs)];
+}
 
+function deriveWorthYourEyes(inputs: BriefInputs): string[] {
+  const bullets = collectWorthYourEyesBullets(inputs);
   if (bullets.length === 0) {
-    out.push('_Nothing flagged — no blocking findings, no warn/alert signals, no unmet criteria._');
-    return out;
+    return [
+      '## 👀 Worth your eyes',
+      '',
+      '_Nothing flagged — no blocking findings, no warn/alert signals, no unmet criteria._',
+    ];
   }
-  out.push(...bullets);
-  return out;
+  return ['## 👀 Worth your eyes', '', ...bullets];
 }
 
 /**
