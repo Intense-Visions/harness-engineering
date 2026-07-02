@@ -72,6 +72,27 @@ function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
   return out;
 }
 
+/** Render a single signal as a one-line Markdown bullet: status, label, value. */
+function signalLine(s: SignalResult): string {
+  const value = s.value === null ? '—' : `${s.value}${s.unit ?? ''}`;
+  return `- \`${s.status}\` **${s.label}** — ${value}`;
+}
+
+/**
+ * Render the **Signal status** section. The heading literal is exactly
+ * `Signal status` (a point-in-time snapshot, NOT deltas). Degrades to an
+ * "unavailable" line when the snapshot is empty/undefined.
+ */
+function renderSignalStatus(signals?: SignalResult[]): string[] {
+  const out: string[] = ['## Signal status', ''];
+  if (!signals || signals.length === 0) {
+    out.push(UNAVAILABLE);
+    return out;
+  }
+  out.push(...signals.map(signalLine));
+  return out;
+}
+
 /**
  * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
  * section, in the order required by the spec: header, diff summary, review
@@ -85,6 +106,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     ...renderDiffSummary(inputs.diff),
     '',
     ...renderReviewVerdict(inputs.review),
+    '',
+    ...renderSignalStatus(inputs.signals),
   ];
   return lines.join('\n');
 }

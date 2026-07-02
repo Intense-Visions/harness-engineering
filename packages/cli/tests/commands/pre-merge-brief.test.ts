@@ -1,6 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
+import type { SignalResult } from '@harness-engineering/signals';
 import { BRIEF_MARKER, buildBriefBody } from '../../src/commands/pre-merge-brief';
+
+/** A signal fixture with an overridable status/value. */
+function makeSignal(over: Partial<SignalResult> = {}): SignalResult {
+  return {
+    id: 'coverage-trend-down-30d',
+    label: 'Coverage trend (30d)',
+    value: 82,
+    unit: '%',
+    trend: 'flat',
+    betterDirection: 'up',
+    status: 'ok',
+    threshold: { warn: 80, alert: 70 },
+    history: [],
+    detail: 'coverage holding steady',
+    source: 'arch/timeline.json',
+    ...over,
+  } as SignalResult;
+}
 
 type Verdict = CiReviewResult['verdict'];
 type Finding = Verdict['findings'][number];
@@ -92,6 +111,43 @@ describe('buildBriefBody', () => {
   it('review section unavailable when review omitted', () => {
     const body = buildBriefBody({});
     const idx = body.search(/review/i);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(body.slice(idx)).toMatch(/unavailable/i);
+  });
+
+  it('renders Signal status with each signal current value + status', () => {
+    const signals: SignalResult[] = [
+      makeSignal({ id: 'coverage-trend-down-30d', label: 'Coverage', value: 82, status: 'ok' }),
+      makeSignal({ id: 'complexity-trend-up-30d', label: 'Complexity', value: 15, status: 'warn' }),
+      makeSignal({ id: 'eval-fail-rate', label: 'Eval fail rate', value: 40, status: 'alert' }),
+      makeSignal({
+        id: 'baseline-auto-update-count',
+        label: 'Baseline auto-updates',
+        value: null,
+        status: 'pending',
+      }),
+      makeSignal({
+        id: 'pr-merged-without-multi-persona-review',
+        label: 'Unreviewed merges',
+        value: null,
+        status: 'error',
+      }),
+    ];
+    const body = buildBriefBody({ signals });
+    // heading is EXACTLY "Signal status" (not "deltas")
+    expect(body).toContain('Signal status');
+    expect(body).not.toMatch(/deltas/i);
+    // each label + status appears
+    expect(body).toContain('Coverage');
+    expect(body).toContain('Complexity');
+    expect(body).toContain('Eval fail rate');
+    expect(body).toContain('warn');
+    expect(body).toContain('alert');
+  });
+
+  it('Signal status unavailable when signals empty/omitted', () => {
+    const body = buildBriefBody({ signals: [] });
+    const idx = body.indexOf('Signal status');
     expect(idx).toBeGreaterThanOrEqual(0);
     expect(body.slice(idx)).toMatch(/unavailable/i);
   });
