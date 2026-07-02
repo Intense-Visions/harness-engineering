@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { SignalProvider, SignalResult } from '../../../src/server/signals/types';
+import type { SignalProvider, SignalResult } from '../src/types';
 
 function fakeResult(id: SignalResult['id'], status: SignalResult['status'] = 'ok'): SignalResult {
   return {
@@ -32,7 +32,7 @@ const throwingProvider = (id: SignalResult['id']): SignalProvider => ({
 });
 
 // Default registry: all five OK. Individual tests override via vi.doMock + dynamic import.
-vi.mock('../../../src/server/signals/registry', () => ({
+vi.mock('../src/registry', () => ({
   signalRegistry: [
     okProvider('pr-merged-without-multi-persona-review'),
     okProvider('coverage-trend-down-30d'),
@@ -60,7 +60,7 @@ describe('gatherSignals', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns all five signals in registry order', async () => {
-    const { gatherSignals } = await import('../../../src/server/gather/signals');
+    const { gatherSignals } = await import('../src/gather');
     const result = await gatherSignals('/fake');
     expect(result.signals).toHaveLength(5);
     expect(result.signals.map((s) => s.id)).toEqual([
@@ -76,7 +76,7 @@ describe('gatherSignals', () => {
 
   it('isolates a throwing provider as a single error card; the other four still return', async () => {
     vi.resetModules();
-    vi.doMock('../../../src/server/signals/registry', () => ({
+    vi.doMock('../src/registry', () => ({
       signalRegistry: [
         okProvider('pr-merged-without-multi-persona-review'),
         throwingProvider('coverage-trend-down-30d'),
@@ -85,7 +85,7 @@ describe('gatherSignals', () => {
         okProvider('eval-fail-rate'),
       ],
     }));
-    const { gatherSignals } = await import('../../../src/server/gather/signals');
+    const { gatherSignals } = await import('../src/gather');
     const result = await gatherSignals('/fake');
     expect(result.signals).toHaveLength(5);
     const coverage = result.signals.find((s) => s.id === 'coverage-trend-down-30d')!;
