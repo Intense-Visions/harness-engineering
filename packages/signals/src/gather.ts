@@ -1,10 +1,16 @@
 import { join } from 'node:path';
 import { GraphStore } from '@harness-engineering/graph';
-import { GRAPH_DIR } from '../../shared/constants';
-import { signalRegistry } from '../signals/registry';
-import { SignalTimelineStore } from '../signals/timeline-store';
-import { defaultCommandRunner } from '../signals/command-runner';
-import type { SignalContext, SignalProvider, SignalResult } from '../signals/types';
+import { signalRegistry } from './registry';
+import { SignalTimelineStore } from './timeline-store';
+import { defaultCommandRunner } from './command-runner';
+import type { SignalContext, SignalProvider, SignalResult } from './types';
+
+/**
+ * Directory (relative to the project root) where the knowledge graph is
+ * persisted. Inlined here so this leaf package does not depend on any
+ * dashboard-internal constant (preserves the exact `.harness/graph` path).
+ */
+const GRAPH_DIR = '.harness/graph';
 
 /** Result of one signal-gather pass: the five (or fewer, on partial) cards + a stamp. */
 export interface SignalsResult {

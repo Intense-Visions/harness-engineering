@@ -597,6 +597,31 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(vite@6.4.2)
 
+  packages/signals:
+    dependencies:
+      '@harness-engineering/graph':
+        specifier: workspace:*
+        version: link:../graph
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.15
+        version: 22.19.15
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(vite@6.4.2)
+
   packages/types:
     dependencies:
       zod:
@@ -4593,7 +4618,7 @@ packages:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(vite@6.4.2)
+      vitest: 4.1.5(@vitest/coverage-v8@4.1.5)(vite@6.4.2)
     dev: true
 
   /@vitest/expect@4.1.5:
