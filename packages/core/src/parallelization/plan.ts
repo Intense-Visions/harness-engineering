@@ -123,12 +123,11 @@ export function validatePlanTasks(tasks: readonly PlanTask[]): PlanTaskValidatio
     }
   }
 
-  // Cycle detection reuses findParallelGroups over explicit dependsOn edges only.
-  const explicitNodes = tasks.map((t) => ({
-    id: t.id,
-    dependsOn: (t.dependsOn || []).filter((d) => index.has(d)),
-  }));
-  const { cyclic } = findParallelGroups(explicitNodes);
+  // Cycle detection reuses buildTaskGraph + findParallelGroups over the SAME
+  // combined graph the planner uses (explicit dependsOn ∪ implicit file/owns
+  // overlap edges), so validation and planParallelization agree on what a cycle
+  // is — a set the planner drops into `cyclic` is never validated as clean.
+  const { cyclic } = findParallelGroups(buildTaskGraph(tasks));
   if (cyclic.length > 0) {
     errors.push(`Dependency cycle detected among tasks: ${cyclic.join(', ')}.`);
   }

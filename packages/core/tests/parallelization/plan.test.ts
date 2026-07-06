@@ -86,6 +86,24 @@ describe('validatePlanTasks()', () => {
     expect(errors).toHaveLength(0);
     expect(warnings).toHaveLength(0);
   });
+
+  it('errors on a combined explicit+implicit cycle, consistent with plan.cyclic', () => {
+    // a explicitly depends on b; a and b share file f.ts, so buildTaskGraph
+    // also orients b->a (later depends on earlier). The union is a real cycle
+    // that the planner reports in cyclic[] and drops — validation must agree.
+    const tasks = [
+      { id: 'a', files: ['f.ts'], dependsOn: ['b'] },
+      { id: 'b', files: ['f.ts'] },
+    ];
+    const { errors } = validatePlanTasks(tasks);
+    const cycleErr = errors.find((e) => /cycle/i.test(e));
+    expect(cycleErr).toBeDefined();
+    expect(cycleErr).toContain('a');
+    expect(cycleErr).toContain('b');
+    // The planner and validator must name the same cyclic set.
+    const plan = planParallelization({ tasks, conflicts: noConflicts(['a', 'b']) });
+    expect(plan.cyclic.sort()).toEqual(['a', 'b']);
+  });
 });
 
 describe('deriveFiring()', () => {
