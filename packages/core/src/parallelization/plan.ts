@@ -1,5 +1,6 @@
 import type { ConflictPrediction, ConflictSeverity } from '@harness-engineering/graph';
 import type { PlanTask } from '@harness-engineering/types';
+import { findParallelGroups } from '../review/parallel-groups';
 import type { GraphNode } from '../review/types';
 
 /** Per-wave firing decision (Phase 1: basic derivation; Phase 2 refines). */
@@ -93,4 +94,44 @@ export function buildTaskGraph(tasks: readonly PlanTask[]): GraphNode[] {
   }
 
   return tasks.map((task) => toGraphNode(task, deps));
+}
+
+/**
+ * Validate plan-task dependency structure.
+ *
+ * Hard errors: `dependsOn` referencing an unknown task id; dependency cycles.
+ * Warning: a task depending on a task declared LATER in the input (consumer
+ * before producer) — the plan lists them out of natural order.
+ */
+export function validatePlanTasks(tasks: readonly PlanTask[]): PlanTaskValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const index = new Map<string, number>();
+  tasks.forEach((t, i) => index.set(t.id, i));
+
+  for (const t of tasks) {
+    for (const dep of t.dependsOn || []) {
+      if (!index.has(dep)) {
+        errors.push(`Task "${t.id}" depends on unknown task id "${dep}".`);
+        continue;
+      }
+      if (index.get(dep)! > index.get(t.id)!) {
+        warnings.push(
+          `Task "${t.id}" depends on "${dep}" which is declared later (consumer before producer).`
+        );
+      }
+    }
+  }
+
+  // Cycle detection reuses findParallelGroups over explicit dependsOn edges only.
+  const explicitNodes = tasks.map((t) => ({
+    id: t.id,
+    dependsOn: (t.dependsOn || []).filter((d) => index.has(d)),
+  }));
+  const { cyclic } = findParallelGroups(explicitNodes);
+  if (cyclic.length > 0) {
+    errors.push(`Dependency cycle detected among tasks: ${cyclic.join(', ')}.`);
+  }
+
+  return { errors, warnings };
 }

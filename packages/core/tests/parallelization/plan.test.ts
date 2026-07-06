@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTaskGraph } from '../../src/parallelization/plan';
+import { buildTaskGraph, validatePlanTasks } from '../../src/parallelization/plan';
 
 describe('buildTaskGraph()', () => {
   it('carries explicit dependsOn edges through', () => {
@@ -36,5 +36,38 @@ describe('buildTaskGraph()', () => {
     ]);
     const b = nodes.find((n) => n.id === 'b')!;
     expect(b.dependsOn.filter((d) => d === 'a')).toHaveLength(1);
+  });
+});
+
+describe('validatePlanTasks()', () => {
+  it('errors on an unknown dependsOn id', () => {
+    const { errors } = validatePlanTasks([{ id: 'a', files: [], dependsOn: ['ghost'] }]);
+    expect(errors.some((e) => e.includes('ghost'))).toBe(true);
+  });
+
+  it('errors on a dependency cycle', () => {
+    const { errors } = validatePlanTasks([
+      { id: 'a', files: [], dependsOn: ['b'] },
+      { id: 'b', files: [], dependsOn: ['a'] },
+    ]);
+    expect(errors.some((e) => /cycle/i.test(e))).toBe(true);
+  });
+
+  it('warns when a task depends on a later-declared task (consumer before producer)', () => {
+    const { warnings, errors } = validatePlanTasks([
+      { id: 'a', files: [], dependsOn: ['b'] }, // a declared before its producer b
+      { id: 'b', files: [] },
+    ]);
+    expect(errors).toHaveLength(0);
+    expect(warnings.some((w) => w.includes('a') && w.includes('b'))).toBe(true);
+  });
+
+  it('returns no errors/warnings for a well-ordered acyclic set', () => {
+    const { errors, warnings } = validatePlanTasks([
+      { id: 'a', files: [] },
+      { id: 'b', files: [], dependsOn: ['a'] },
+    ]);
+    expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 });
