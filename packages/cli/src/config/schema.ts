@@ -66,6 +66,27 @@ export const AgentConfigSchema = z.object({
 });
 
 /**
+ * Schema for documentation-drift detection tuning. Mirrors the core
+ * `DriftConfig` and is threaded into `EntropyConfig.analyze.drift` by the
+ * entropy, CI, and cleanup paths so projects can scope or disable individual
+ * drift checks (issue #723). Omit the block to use built-in defaults.
+ */
+export const DriftConfigSchema = z.object({
+  /** Glob patterns for docs to scan for drift (default: docs/**, README) */
+  docPaths: z.array(z.string()).optional(),
+  /** Flag doc references to code symbols that no longer exist (default: true) */
+  checkApiSignatures: z.boolean().optional(),
+  /** Check fenced code examples against the codebase (default: true) */
+  checkExamples: z.boolean().optional(),
+  /** Check documented structure against the filesystem (default: true) */
+  checkStructure: z.boolean().optional(),
+  /** Regexes matched against a reference to exclude it from drift reporting */
+  ignorePatterns: z.array(z.string()).optional(),
+  /** Doc-path prefixes whose symbols describe intended future code (ADRs, proposals) */
+  forwardLookingPaths: z.array(z.string()).optional(),
+});
+
+/**
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
@@ -75,6 +96,8 @@ export const EntropyConfigSchema = z.object({
   excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
   autoFix: z.boolean().default(false),
+  /** Documentation-drift detection tuning (scope/disable individual checks) */
+  drift: DriftConfigSchema.optional(),
 });
 
 /**

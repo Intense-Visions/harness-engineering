@@ -54,7 +54,7 @@ export async function getGraphResource(projectRoot: string): Promise<string> {
   if (!store) {
     return JSON.stringify({
       status: 'no_graph',
-      message: 'No knowledge graph found. Run harness scan to build one.',
+      message: 'No knowledge graph found. Run harness graph scan to build one.',
     });
   }
 

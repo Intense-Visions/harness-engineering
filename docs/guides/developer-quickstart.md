@@ -89,7 +89,7 @@ After onboarding, you will have a clear mental model of the project — its laye
 The knowledge graph powers test intelligence, impact analysis, dependency queries, and natural language exploration:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This builds a structural graph from your code, git history, and documentation. It enables the most powerful developer features like test advisor, impact analysis, and the `ask_graph` MCP tool.
@@ -113,7 +113,7 @@ This runs all mechanical checks in one pass — configuration, dependencies, lin
 | `/harness:onboarding`      | 4-phase automated codebase orientation    | First thing on a new project                          |
 | `ask_graph` (MCP tool)     | Natural language codebase queries         | "What depends on auth?", "What tests cover payments?" |
 | `/harness:impact-analysis` | Graph-based "if I change X, what breaks?" | Before making changes, understanding blast radius     |
-| `harness scan`             | Build/refresh the knowledge graph         | After cloning, after major changes                    |
+| `harness graph scan`       | Build/refresh the knowledge graph         | After cloning, after major changes                    |
 
 ### Daily Development
 
@@ -163,7 +163,7 @@ This runs all mechanical checks in one pass — configuration, dependencies, lin
 | `harness check-docs`     | Documentation coverage check                                                                               |
 | `harness check-perf`     | Performance budget enforcement                                                                             |
 | `harness validate`       | Configuration and structure validation                                                                     |
-| `harness scan`           | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan`     | Build/refresh the knowledge graph                                                                          |
 
 ---
 
@@ -194,7 +194,7 @@ For understanding the blast radius of a specific area before you touch it:
 
 This shows you what files, tests, and downstream consumers are affected by changes to a given file or module.
 
-> **Pro tip:** If `ask_graph` gives sparse results, run `harness scan` to rebuild the knowledge graph. The graph improves as it ingests more of the codebase.
+> **Pro tip:** If `ask_graph` gives sparse results, run `harness graph scan` to rebuild the knowledge graph. The graph improves as it ingests more of the codebase.
 
 ---
 
@@ -366,7 +366,7 @@ The `ask_graph` MCP tool lets you query the codebase in natural language. Some e
 If the graph is not built or is stale, rebuild it:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 ---
@@ -506,7 +506,7 @@ harness validate
 
 - Install harness CLI and run `harness setup`
 - Run `/harness:onboarding` to understand the project
-- Run `harness scan` to build the knowledge graph
+- Run `harness graph scan` to build the knowledge graph
 - Read AGENTS.md, harness.config.json, and .harness/learnings.md
 - Use `ask_graph` to explore the architecture ("What are the main entry points?", "What depends on the database layer?")
 - Run `/harness:verify` to confirm the project is healthy
@@ -580,7 +580,7 @@ Start with `hello-world` to see harness in action, then move to `task-api` for a
 | Write E2E tests                  | `harness skill run harness-e2e`                      | Domain skill        |
 | Write integration tests          | `harness skill run harness-integration-test`         | Domain skill        |
 | Write property-based tests       | `harness skill run harness-property-test`            | Domain skill        |
-| Build the knowledge graph        | `harness scan`                                       | CLI                 |
+| Build the knowledge graph        | `harness graph scan`                                 | CLI                 |
 | Ask questions about the codebase | `ask_graph` (MCP tool)                               | MCP tool            |
 
 ### Key Files to Know
@@ -599,7 +599,7 @@ Start with `hello-world` to see harness in action, then move to `task-api` for a
 
 ### I just joined the project. What should I do first?
 
-Run `/harness:onboarding`. It reads the project configuration, maps the architecture, determines the adoption level, and gives you a structured summary with concrete getting-started steps. Then run `harness scan` to build the knowledge graph.
+Run `/harness:onboarding`. It reads the project configuration, maps the architecture, determines the adoption level, and gives you a structured summary with concrete getting-started steps. Then run `harness graph scan` to build the knowledge graph.
 
 ### Do I need to memorize all these commands?
 
@@ -609,9 +609,9 @@ No. Start with three: `/harness:onboarding` (day one), `/harness:verify` (after 
 
 The pre-commit hook catches it before you can commit. If you need to understand why an import is forbidden, check `harness.config.json` for the layer definitions and allowed dependencies. Run `/harness:enforce-architecture` to see all violations and get auto-fix suggestions.
 
-### How does the knowledge graph work without running `harness scan`?
+### How does the knowledge graph work without running `harness graph scan`?
 
-Many features fall back to simpler strategies: filename convention matching (`auth.ts` -> `auth.test.ts`), import parsing, and git co-change analysis. This covers roughly 80% of what the full graph provides. Run `harness scan` to get the remaining 20% — transitive dependencies, structural queries, and accurate blast radius estimation.
+Many features fall back to simpler strategies: filename convention matching (`auth.ts` -> `auth.test.ts`), import parsing, and git co-change analysis. This covers roughly 80% of what the full graph provides. Run `harness graph scan` to get the remaining 20% — transitive dependencies, structural queries, and accurate blast radius estimation.
 
 ### Can I use harness with any programming language?
 

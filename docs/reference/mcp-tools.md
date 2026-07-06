@@ -175,7 +175,7 @@ Ingest sources into the project knowledge graph. Supports code analysis, knowled
 - `path` (string, required) — Path to project root
 - `source` (string, required) — Type of source to ingest
 
-**CLI equivalent:** [`harness ingest`](cli-commands.md#harness-ingest)
+**CLI equivalent:** [`harness graph ingest`](cli-commands.md#harness-graph-ingest)
 
 ### `update_perf_baselines`
 
@@ -852,7 +852,7 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 - `offset` (number, optional) — Number of nodes to skip (pagination). Default: 0. Nodes are sorted by connectivity (edge count desc).
 - `limit` (number, optional) — Max nodes to return (pagination). Default: 50.
 
-**CLI equivalent:** [`harness query`](cli-commands.md#harness-query-rootnodeid)
+**CLI equivalent:** [`harness graph query`](cli-commands.md#harness-graph-query-rootnodeid)
 
 ### `search_sessions`
 

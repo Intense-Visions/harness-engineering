@@ -292,7 +292,7 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
   if (stagedFiles.length === 0) return 'Impact Preview: no staged changes';
 
   if (!graphExists(projectPath)) {
-    return 'Impact Preview: skipped (no graph — run `harness scan` to enable)';
+    return 'Impact Preview: skipped (no graph — run `harness graph scan` to enable)';
   }
 
   const mode: 'summary' | 'detailed' = options.detailed ? 'detailed' : 'summary';

@@ -1,6 +1,22 @@
 import { Ok } from '@harness-engineering/core';
+import type { DriftConfig } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { findConfigFile, loadConfig } from '../../config/loader.js';
+
+/**
+ * Load the `entropy` section of the project's harness config, if present.
+ * Returns undefined when no config is found or it fails validation — callers
+ * fall back to built-in entropy defaults. Kept synchronous and best-effort so
+ * a missing config never breaks entropy analysis.
+ */
+function loadEntropyConfig(projectPath: string) {
+  const configFile = findConfigFile(projectPath);
+  if (!configFile.ok) return undefined;
+  const loaded = loadConfig(configFile.value);
+  if (!loaded.ok) return undefined;
+  return loaded.value.entropy;
+}
 
 async function loadEntropyGraphOptions(projectPath: string) {
   const { loadGraphStore } = await import('../utils/graph-loader.js');
@@ -142,17 +158,30 @@ export async function handleDetectEntropy(input: {
   try {
     const { EntropyAnalyzer } = await import('@harness-engineering/core');
     const typeFilter = input.type ?? 'all';
+    const projectPath = sanitizePath(input.path);
+
+    // Load the project's harness config (if present) so drift tuning
+    // (entropy.drift: checkApiSignatures / ignorePatterns / forwardLookingPaths
+    // / docPaths) and entry points / excludes are honored instead of silently
+    // falling back to DEFAULT_DRIFT_CONFIG — issue #723. Missing/invalid config
+    // is non-fatal: entropy runs with built-in defaults.
+    const entropy = loadEntropyConfig(projectPath);
+    const driftConfig = entropy?.drift as Partial<DriftConfig> | undefined;
+    const driftEnabled = typeFilter === 'all' || typeFilter === 'drift';
 
     const analyzer = new EntropyAnalyzer({
-      rootDir: sanitizePath(input.path),
+      rootDir: projectPath,
+      ...(entropy?.entryPoints && { entryPoints: entropy.entryPoints }),
+      ...(entropy?.excludePatterns && { exclude: entropy.excludePatterns }),
+      ...(driftConfig?.docPaths && { docPaths: driftConfig.docPaths }),
       analyze: {
-        drift: typeFilter === 'all' || typeFilter === 'drift',
+        drift: driftEnabled ? (driftConfig ?? true) : false,
         deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
         patterns: typeFilter === 'all' || typeFilter === 'patterns',
       },
     });
 
-    const graphOptions = await loadEntropyGraphOptions(sanitizePath(input.path));
+    const graphOptions = await loadEntropyGraphOptions(projectPath);
     const result = await analyzer.analyze(graphOptions);
 
     // Response density control

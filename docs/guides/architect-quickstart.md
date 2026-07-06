@@ -104,7 +104,7 @@ This walks you through setup interactively and scaffolds everything, including t
 The knowledge graph powers impact analysis, dependency health, hotspot detection, and blast radius estimation:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This builds a structural graph from your code, git history, and documentation. It enables the most powerful architecture features like impact analysis and decay trend tracking.
@@ -474,7 +474,7 @@ The knowledge graph is a structural model of your codebase -- 30 node types, 25 
 ### Build It
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 ### What It Enables for Architects
@@ -521,7 +521,7 @@ These tools are available through the MCP server and can be invoked directly in 
 
 - Install harness CLI and run `harness setup`
 - Run `/harness:verify` on your project to see where you stand
-- Run `harness scan` to build the knowledge graph
+- Run `harness graph scan` to build the knowledge graph
 - Define your layer architecture in `harness.config.json`
 - Run `/harness:enforce-architecture` to establish a violation baseline
 
@@ -577,7 +577,7 @@ These tools are available through the MCP server and can be invoked directly in 
 | Run the full docs pipeline          | `/harness:docs-pipeline`        | Slash command |
 | Review a PR for arch violations     | `/harness:code-review`          | Slash command |
 | Run all checks in CI                | `harness ci check`              | CLI           |
-| Build the knowledge graph           | `harness scan`                  | CLI           |
+| Build the knowledge graph           | `harness graph scan`            | CLI           |
 | Query the graph in natural language | `ask_graph` MCP tool            | MCP tool      |
 | Get blast radius analysis           | `compute_blast_radius` MCP tool | MCP tool      |
 | Track architecture stability        | `get_decay_trends` MCP tool     | MCP tool      |
@@ -605,7 +605,7 @@ Linters check syntax and style within a file. Architecture enforcement checks **
 
 ### Can I use this without the knowledge graph?
 
-Yes. Architecture enforcement (`/harness:enforce-architecture`), performance checks (`/harness:perf`), and the architecture advisor (`/harness:architecture-advisor`) all work without a graph. However, impact analysis, dependency health, hotspot detection, blast radius, and decay trends all require the graph. Run `harness scan` to get the full feature set.
+Yes. Architecture enforcement (`/harness:enforce-architecture`), performance checks (`/harness:perf`), and the architecture advisor (`/harness:architecture-advisor`) all work without a graph. However, impact analysis, dependency health, hotspot detection, blast radius, and decay trends all require the graph. Run `harness graph scan` to get the full feature set.
 
 ### How does the architecture advisor compare to just writing an ADR manually?
 
@@ -625,7 +625,7 @@ The core architecture enforcement, impact analysis, and dependency health work w
 
 ### How does predict_failures work?
 
-It requires at least 3 knowledge graph snapshots taken over time (from repeated `harness scan` runs). It analyzes the trend of constraint violations, coupling growth, and decay patterns to forecast which constraints are most likely to break in the near future. The more snapshots, the more accurate the prediction.
+It requires at least 3 knowledge graph snapshots taken over time (from repeated `harness graph scan` runs). It analyzes the trend of constraint violations, coupling growth, and decay patterns to forecast which constraints are most likely to break in the near future. The more snapshots, the more accurate the prediction.
 
 ### How does this integrate with existing CI?
 

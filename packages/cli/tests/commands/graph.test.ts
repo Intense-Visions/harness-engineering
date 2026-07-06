@@ -165,6 +165,7 @@ describe('graph commands', () => {
       const cmd = createGraphCommand();
       expect(cmd.name()).toBe('graph');
       const subcommands = cmd.commands.map((c) => c.name());
+      expect(subcommands).toContain('scan');
       expect(subcommands).toContain('status');
       expect(subcommands).toContain('export');
     });

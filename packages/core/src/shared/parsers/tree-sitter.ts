@@ -79,17 +79,92 @@ function extractPythonFromImport(child: Parser.SyntaxNode): Import {
   };
 }
 
-function extractPythonExport(child: Parser.SyntaxNode): Export | null {
-  if (child.type === 'function_definition' || child.type === 'class_definition') {
-    return makeNamedExport(child);
-  }
-  if (child.type === 'assignment') {
-    const left = child.childForFieldName('left') ?? child.children[0];
-    if (left && !left.text.startsWith('_')) {
-      return { name: left.text, type: 'named', location: makeLocation(child), isReExport: false };
-    }
+function makePythonExport(name: string, node: Parser.SyntaxNode): Export {
+  return { name, type: 'named', location: makeLocation(node), isReExport: false };
+}
+
+// Public name assigned by a Python `assignment` node. Handles `x = 1`,
+// annotated `x: int = 1`, and bare annotations `x: int`. Only simple
+// identifier targets are treated as named symbols (tuple/attribute targets
+// like `a, b = ...` or `self.x = ...` are skipped). Underscore-prefixed
+// names are private by convention.
+function pythonAssignmentName(assignment: Parser.SyntaxNode): string | null {
+  const left = assignment.childForFieldName('left') ?? assignment.children[0];
+  if (left && left.type === 'identifier' && !left.text.startsWith('_')) {
+    return left.text;
   }
   return null;
+}
+
+// A decorated definition (`@dataclass class X`) wraps the real def; unwrap to
+// the underlying function/class so decorated symbols aren't missed (issue #723).
+function unwrapPythonDefinition(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
+  return (
+    node.childForFieldName('definition') ??
+    node.namedChildren.find(
+      (c) => c.type === 'function_definition' || c.type === 'class_definition'
+    ) ??
+    null
+  );
+}
+
+// A named `def`/`class` whose name is public (not underscore-prefixed).
+function publicPythonDefName(node: Parser.SyntaxNode): string | null {
+  const name = node.childForFieldName('name');
+  return name && !name.text.startsWith('_') ? name.text : null;
+}
+
+// Assignment names declared directly inside an `expression_statement` wrapper
+// (module- and class-body assignments are wrapped this way in the grammar, so
+// matching `assignment` on the parent's children never fires).
+function collectExpressionStatementExports(node: Parser.SyntaxNode, out: Export[]): void {
+  for (const child of node.namedChildren) {
+    if (child.type !== 'assignment') continue;
+    const name = pythonAssignmentName(child);
+    if (name) out.push(makePythonExport(name, child));
+  }
+}
+
+// A class name plus, at one level of nesting, its body members (dataclass
+// fields, enum members, public methods) so they resolve as known symbols
+// instead of api-signature drift. Bounded to one level so nested classes don't
+// recursively flatten.
+function collectClassExports(
+  node: Parser.SyntaxNode,
+  out: Export[],
+  descendIntoClass: boolean
+): void {
+  const name = publicPythonDefName(node);
+  if (name) out.push(makePythonExport(name, node));
+  const body = descendIntoClass ? node.childForFieldName('body') : null;
+  if (!body) return;
+  for (const member of body.namedChildren) {
+    collectPythonExports(member, out, false);
+  }
+}
+
+// Collect exported symbols from a Python statement node into `out`, unwrapping
+// grammar wrappers (`decorated_definition`, `expression_statement`) that
+// otherwise hide real symbols. See helpers above for the per-node handling.
+function collectPythonExports(
+  node: Parser.SyntaxNode,
+  out: Export[],
+  descendIntoClass: boolean
+): void {
+  if (node.type === 'decorated_definition') {
+    const def = unwrapPythonDefinition(node);
+    if (def) collectPythonExports(def, out, descendIntoClass);
+  } else if (node.type === 'expression_statement') {
+    collectExpressionStatementExports(node, out);
+  } else if (node.type === 'function_definition') {
+    const name = publicPythonDefName(node);
+    if (name) out.push(makePythonExport(name, node));
+  } else if (node.type === 'class_definition') {
+    collectClassExports(node, out, descendIntoClass);
+  } else if (node.type === 'assignment') {
+    const name = pythonAssignmentName(node);
+    if (name) out.push(makePythonExport(name, node));
+  }
 }
 
 const pythonStrategy: ImportExtractionStrategy = {
@@ -108,8 +183,7 @@ const pythonStrategy: ImportExtractionStrategy = {
   extractExports(root) {
     const exports: Export[] = [];
     for (const child of root.children) {
-      const exp = extractPythonExport(child);
-      if (exp) exports.push(exp);
+      collectPythonExports(child, exports, true);
     }
     return exports;
   },

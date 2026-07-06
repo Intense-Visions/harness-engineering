@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import type { ServerContext } from '../../../src/server/context';
 import { DataCache } from '../../../src/server/cache';
 import { GatherCache } from '../../../src/server/gather-cache';
-import type { SignalsResult } from '../../../src/server/gather/signals';
+import type { SignalsResult } from '@harness-engineering/signals';
 
 const fakeSignals: SignalsResult = {
   signals: [
@@ -24,7 +24,7 @@ const fakeSignals: SignalsResult = {
   generatedAt: '2026-06-22T00:00:00.000Z',
 };
 
-vi.mock('../../../src/server/gather/signals', () => ({
+vi.mock('@harness-engineering/signals', () => ({
   gatherSignals: vi.fn(async () => fakeSignals),
 }));
 

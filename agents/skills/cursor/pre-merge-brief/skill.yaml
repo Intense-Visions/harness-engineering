@@ -1,0 +1,67 @@
+name: harness-pre-merge-brief
+version: "0.1.0"
+description: >-
+  Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose
+  and post the senior-facing pre-merge accountability brief — the diff summary,
+  the multi-persona review verdict (from review-ci --json), the curated Signal
+  status snapshot, the outcome-eval result, and a derived "Worth your eyes"
+  section — as a single sticky PR comment (upsert by marker). All composition and
+  degradation logic lives in the command; the skill orchestrates invocation,
+  communicates which sections degraded to "unavailable", and hands off. Runs on
+  on_pr and manual. The harness pointed at the human who clicks merge.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - on_pr
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness pre-merge-brief
+  args:
+    - name: from
+      description: Path to the review-ci --json CiReviewResult artifact to reuse
+      required: false
+    - name: comment
+      description: Upsert the brief as a sticky PR comment via gh (by marker)
+      required: false
+    - name: diff
+      description: "git diff range for the diff summary (e.g. origin/main...HEAD)"
+      required: false
+    - name: head
+      description: "head commit sha for the outcome-eval lookup (default: git rev-parse HEAD)"
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-pre-merge-brief
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: gather
+    description: Locate the review-ci --json artifact, resolve the diff range, confirm gh auth for --comment
+    required: true
+  - name: compose
+    description: Run `harness pre-merge-brief` with the resolved inputs; the command builds the brief and (with --comment) upserts the sticky PR comment
+    required: true
+  - name: report
+    description: Report which sections rendered and which degraded to "unavailable"; surface the "Worth your eyes" items
+    required: true
+  - name: handoff
+    description: Emit the transition; the brief is advisory (non-blocking) and never flips the review gate
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-code-review
+  - outcome-eval

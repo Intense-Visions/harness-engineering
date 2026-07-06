@@ -99,7 +99,7 @@ harness check-security --changed-only
 The knowledge graph powers impact analysis, blast radius estimation, and dependency mapping:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This builds a structural graph from your code, git history, and documentation. It enables features like "if I change this auth module, what else is affected?" -- critical for security impact assessment.

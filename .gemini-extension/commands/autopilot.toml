@@ -225,7 +225,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 ### DONE
 
 1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings.
-2. Ask "Create a PR? (yes / no)."
+2. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
 3. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
 4. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
 5. Write final `writeSessionSummary()`. Set `currentState: "DONE"` in autopilot-state.json.
@@ -275,13 +275,14 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Rationalizations to Reject
 
-| Rationalization                                                         | Reality                                                                                           |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| "Low complexity means I can skip APPROVE_PLAN"                          | Low complexity means auto-approval only when no signals fire. Signals override complexity.        |
-| "I can inline planning logic instead of dispatching to harness-planner" | Iron Law. Autopilot delegates, never reimplements. No exceptions.                                 |
-| "Retry budget exhausted but one more approach might work"               | 3-attempt budget prevents compounding failure. Exceeding it without human input is unrecoverable. |
-| "Keeping research in conversation is faster than scratchpad"            | Scratchpad gated by rigor level. At standard/thorough, >500 words must go to scratchpad.          |
-| "Plan auto-approved, so I can skip recording the decision"              | Every approval—auto or manual—is recorded in `decisions[]`. That array is the audit trail.        |
+| Rationalization                                                         | Reality                                                                                                                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Low complexity means I can skip APPROVE_PLAN"                          | Low complexity means auto-approval only when no signals fire. Signals override complexity.                                                                          |
+| "I can inline planning logic instead of dispatching to harness-planner" | Iron Law. Autopilot delegates, never reimplements. No exceptions.                                                                                                   |
+| "Retry budget exhausted but one more approach might work"               | 3-attempt budget prevents compounding failure. Exceeding it without human input is unrecoverable.                                                                   |
+| "Keeping research in conversation is faster than scratchpad"            | Scratchpad gated by rigor level. At standard/thorough, >500 words must go to scratchpad.                                                                            |
+| "Plan auto-approved, so I can skip recording the decision"              | Every approval—auto or manual—is recorded in `decisions[]`. That array is the audit trail.                                                                          |
+| "`Closes roadmap #123` reads fine, GitHub will figure out the issue"    | An intervening word breaks GitHub's closing-keyword parser: `closingIssuesReferences` stays empty and auto-done leaves the row `planned`. Use a bare `Closes #123`. |
 
 ## Success Criteria
 

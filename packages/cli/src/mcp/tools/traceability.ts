@@ -36,7 +36,7 @@ export async function handleCheckTraceability(input: {
         content: [
           {
             type: 'text' as const,
-            text: 'No graph found. Run `harness scan` or use `ingest_source` tool first.',
+            text: 'No graph found. Run `harness graph scan` or use `ingest_source` tool first.',
           },
         ],
         isError: true,
@@ -59,7 +59,7 @@ export async function handleCheckTraceability(input: {
             text: JSON.stringify({
               status: 'no-requirements',
               message:
-                'No requirement nodes found in graph. Run `harness scan` to ingest spec requirements.',
+                'No requirement nodes found in graph. Run `harness graph scan` to ingest spec requirements.',
             }),
           },
         ],

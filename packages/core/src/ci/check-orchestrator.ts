@@ -16,6 +16,7 @@ import { validateAgentsMap } from '../context/agents-map';
 import { validateDependencies, defineLayer } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
+import type { DriftConfig } from '../entropy/types';
 import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
 import { TypeScriptParser } from '../shared/parsers';
@@ -146,10 +147,15 @@ async function runEntropyCheck(
   // Fallback: use performance entry points if entropy section has none configured
   const entryPoints =
     (entropyConfig.entryPoints as string[]) ?? (perfConfig.entryPoints as string[]);
+  // Thread the project's drift tuning (entropy.drift) into analyze.drift so
+  // checkApiSignatures / ignorePatterns / forwardLookingPaths / docPaths are
+  // honored instead of falling back to DEFAULT_DRIFT_CONFIG — issue #723.
+  const driftConfig = entropyConfig.drift as Partial<DriftConfig> | undefined;
   const analyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
     ...(entryPoints ? { entryPoints } : {}),
-    analyze: { drift: true, deadCode: true, patterns: false },
+    ...(driftConfig?.docPaths ? { docPaths: driftConfig.docPaths } : {}),
+    analyze: { drift: driftConfig ?? true, deadCode: true, patterns: false },
   });
   const result = await analyzer.analyze();
   if (!result.ok) {

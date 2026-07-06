@@ -59,9 +59,11 @@ function buildFilterOptions(options: TraceabilityCommandOptions): Record<string,
 
 function handleNoStore(mode: OutputModeType): never {
   if (mode === OutputMode.JSON) {
-    console.log(JSON.stringify({ error: 'No knowledge graph found. Run `harness scan` first.' }));
+    console.log(
+      JSON.stringify({ error: 'No knowledge graph found. Run `harness graph scan` first.' })
+    );
   } else {
-    logger.error('No knowledge graph found. Run `harness scan` first.');
+    logger.error('No knowledge graph found. Run `harness graph scan` first.');
   }
   process.exit(ExitCode.ERROR);
 }
@@ -71,11 +73,14 @@ function handleEmptyResults(mode: OutputModeType): never {
     console.log(
       JSON.stringify({
         results: [],
-        message: 'No requirements found in graph. Run `harness scan` to ingest spec requirements.',
+        message:
+          'No requirements found in graph. Run `harness graph scan` to ingest spec requirements.',
       })
     );
   } else if (mode !== OutputMode.QUIET) {
-    logger.info('No requirements found in graph. Run `harness scan` to ingest spec requirements.');
+    logger.info(
+      'No requirements found in graph. Run `harness graph scan` to ingest spec requirements.'
+    );
   }
   process.exit(ExitCode.SUCCESS);
 }

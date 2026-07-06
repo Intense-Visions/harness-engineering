@@ -40,14 +40,14 @@ export async function runGraphStatus(projectPath: string): Promise<GraphStatusRe
 
   const metaResult = await loadGraphMetadata(graphDir);
   if (metaResult.status === 'not_found') {
-    return { status: 'no_graph', message: 'No graph found. Run `harness scan` first.' };
+    return { status: 'no_graph', message: 'No graph found. Run `harness graph scan` first.' };
   }
   if (metaResult.status === 'schema_mismatch') {
     return {
       status: 'schema_mismatch',
       message:
         `Graph schema version mismatch: file is v${metaResult.found}, CLI expects v${metaResult.expected}. ` +
-        'Run `harness scan` to rebuild.',
+        'Run `harness graph scan` to rebuild.',
     };
   }
 

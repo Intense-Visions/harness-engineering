@@ -98,7 +98,7 @@ export class ChecklistBuilder {
                 severity: 'info' as const,
                 details: graphData.graphExists
                   ? `Graph loaded: ${graphData.nodeCount} nodes, ${graphData.edgeCount} edges`
-                  : 'No graph available — run harness scan to build the knowledge graph',
+                  : 'No graph available — run harness graph scan to build the knowledge graph',
               })
             : undefined
         )

@@ -140,7 +140,7 @@ This runs all 9 checks in one pass. You will see a pass/fail summary for each:
 | `harness check-deps`           | Dependency and layer boundary validation only            |
 | `harness check-docs`           | Documentation coverage check only                        |
 | `harness validate`             | Configuration and structure validation only              |
-| `harness scan`                 | Build/refresh the knowledge graph                        |
+| `harness graph scan`           | Build/refresh the knowledge graph                        |
 | `harness perf bench`           | Run performance benchmarks                               |
 | `harness perf baselines`       | Manage performance baselines                             |
 
@@ -730,7 +730,7 @@ jobs:
 - Enable `harness check-deps` in CI (remove from `--skip` list)
 - Enable `harness check-arch` with baselines
 - Set up the `architecture-enforcer` persona to run on PRs
-- Run `harness scan` to build the knowledge graph
+- Run `harness graph scan` to build the knowledge graph
 
 ### Week 3: Performance and Security
 
@@ -782,7 +782,7 @@ jobs:
 | Scan only changed files                 | `harness check-security --changed-only`        | CLI       |
 | Validate dependency boundaries          | `harness check-deps`                           | CLI       |
 | Audit supply chain risk                 | `harness skill run harness-supply-chain-audit` | Skill     |
-| Build the knowledge graph               | `harness scan`                                 | CLI       |
+| Build the knowledge graph               | `harness graph scan`                           | CLI       |
 | Enforce architecture interactively      | `/harness:enforce-architecture`                | Slash cmd |
 | Analyze structural health               | `/harness:dependency-health`                   | Slash cmd |
 | Find high-risk areas                    | `/harness:hotspot-detector`                    | Slash cmd |

@@ -109,7 +109,7 @@ This walks you through setup interactively and scaffolds everything. For test su
 The knowledge graph powers test intelligence, impact analysis, and blast radius estimation:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This builds a structural graph from your code, git history, and documentation. It enables the most powerful QA features like test advisor and impact analysis.
@@ -171,7 +171,7 @@ This builds a structural graph from your code, git history, and documentation. I
 | `harness check-docs`     | Documentation coverage check                                                                               |
 | `harness check-perf`     | Performance budget enforcement                                                                             |
 | `harness validate`       | Configuration and structure validation                                                                     |
-| `harness scan`           | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan`     | Build/refresh the knowledge graph                                                                          |
 
 ---
 
@@ -250,7 +250,7 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 
 It also **flags coverage gaps**: "No tests found for src/services/auth.ts — consider adding tests before merging."
 
-> **Pro tip:** If no knowledge graph exists, the test advisor falls back to naming conventions, import parsing, and git co-change analysis (~80% coverage). Run `harness scan` to get the full graph-enhanced analysis.
+> **Pro tip:** If no knowledge graph exists, the test advisor falls back to naming conventions, import parsing, and git co-change analysis (~80% coverage). Run `harness graph scan` to get the full graph-enhanced analysis.
 
 ---
 
@@ -543,7 +543,7 @@ The knowledge graph is a structural model of your codebase — 30 node types, 25
 ### Build It
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 ### What It Enables for QA
@@ -575,7 +575,7 @@ harness scan
 
 - Install harness CLI and run `harness setup`
 - Run `/harness:verify` on your project to see where you stand
-- Run `harness scan` to build the knowledge graph
+- Run `harness graph scan` to build the knowledge graph
 - Start using `/harness:test-advisor` before pushing changes
 - Add `harness ci check` to your CI pipeline
 
@@ -632,7 +632,7 @@ harness scan
 | Find risky areas of the codebase   | `/harness:hotspot-detector`                          | Slash command       |
 | Check if docs match code           | `/harness:detect-doc-drift`                          | Slash command       |
 | Deep audit before a release        | `/harness:integrity`                                 | Slash command       |
-| Build the knowledge graph          | `harness scan`                                       | CLI                 |
+| Build the knowledge graph          | `harness graph scan`                                 | CLI                 |
 | Ask questions about the codebase   | `ask_graph` MCP tool                                 | MCP tool            |
 
 ### Exit Codes for CI
@@ -657,7 +657,7 @@ No. Harness **orchestrates** your existing tools. It wraps Vitest, Jest, Playwri
 
 ### How does the test advisor work without a knowledge graph?
 
-It falls back to three strategies: filename convention matching (`auth.ts` → `auth.test.ts`), import parsing (grep for imports in test files), and git co-change analysis (files that change in the same commits). This catches ~80% of what the graph catches. Run `harness scan` to get the full 100%.
+It falls back to three strategies: filename convention matching (`auth.ts` → `auth.test.ts`), import parsing (grep for imports in test files), and git co-change analysis (files that change in the same commits). This catches ~80% of what the graph catches. Run `harness graph scan` to get the full 100%.
 
 ### Can I use harness with any programming language?
 

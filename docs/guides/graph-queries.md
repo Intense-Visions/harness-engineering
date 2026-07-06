@@ -4,10 +4,10 @@ Query the harness knowledge graph to understand code structure, trace dependenci
 
 ## Prerequisites
 
-A knowledge graph must exist before you can query it. Run `harness scan` to build or refresh the graph:
+A knowledge graph must exist before you can query it. Run `harness graph scan` to build or refresh the graph:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This populates `.harness/graph/` with nodes (files, functions, classes, modules, etc.) and edges (imports, calls, contains, co-changes, etc.) extracted from your codebase and git history.

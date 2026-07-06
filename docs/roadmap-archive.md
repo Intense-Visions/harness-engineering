@@ -1059,3 +1059,1213 @@ last_manual_edit: 2026-06-25T18:09:53.192Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#574
+
+### Add architecture thresholds to basic and intermediate templates
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** Shipped in commit `0f8c6ef3` (2026-06-23, merged to main): `templates/basic` and `templates/intermediate` now ship full `architecture.thresholds` (complexity ≤ 20 basic / ≤ 15 intermediate), module-size caps, dependency-depth ≤ 8, plus security/entropy/performance blocks. Every adopter gets real gates from minute one. Source: Pass 2 #2 (CRITICAL).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P0
+- **External-ID:** github:Intense-Visions/harness-engineering#537
+
+### Agent Definition Generator
+
+- **Status:** done
+- **Spec:** docs/changes/agent-definition-generator/proposal.md
+- **Summary:** Generates agent definitions for persona-based routing in Claude Code and Gemini CLI
+- **Blockers:** —
+- **Plan:** docs/changes/agent-definition-generator/plans/2026-03-18-agent-definition-generator-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#29
+
+### Agent Effectiveness Introspection
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Domain-specific accuracy tracking and blind spot detection with automatic persona switching triggers. Identifies where agents consistently fail and routes to better-suited personas automatically. [L7]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#98
+
+### Agent Skills
+
+- **Status:** done
+- **Spec:** docs/changes/agent-skills/proposal.md
+- **Summary:** Skill system enabling AI agents to execute structured workflows
+- **Blockers:** —
+- **Plan:** docs/changes/agent-skills/plans/2026-03-13-agent-skills.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#9
+
+### Agent Workflow Acceleration
+
+- **Status:** done
+- **Spec:** docs/changes/agent-workflow-acceleration/proposal.md
+- **Summary:** Composite MCP tools, structured decision UX, and tool consolidation reducing agent round-trips from 10-15 to 3-5 calls
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#51
+
+### Anti-Pattern Inference
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Failure feature extraction and clustering to auto-discover constraints from project history. Identifies patterns like 'when files matching X are changed without updating Y, failures occur 80% of the time.' Learned constraints, not hand-coded ones. [D7]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#92
+
+### Append-Only Session Audit Trail
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** Session-scoped append-only audit log capturing raw user input verbatim plus every approval prompt/response with ISO timestamps, written at the emit_interaction/state-write level. Compliance-grade provenance complementing .harness/state.json machine state. Session-scoped per the handoff-deprecation lesson. Adapted from AI-DLC's audit.md mandate. Adoption #2 from docs/research/aidlc-comparison-analysis.md [AIDLC-2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#580
+
+### Architectural Debt Quantification
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Cost model mapping violation types to developer-hours based on historical fix times. Compound interest calculation for deferred fixes. ROI scoring that translates abstract code quality into concrete dollar amounts. [J4]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#93
+
+### Architecture Assertion Framework
+
+- **Status:** done
+- **Spec:** docs/changes/architecture-assertion-framework/proposal.md
+- **Summary:** Assertion library for structural testing — assert module size, coupling limits, complexity ceilings. Compare against baselines and fail CI on architectural regression. [L3]
+- **Blockers:** —
+- **Plan:** docs/changes/architecture-assertion-framework/plans/2026-03-23-arch-assertion-\*.md, docs/changes/architecture-assertion-framework/plans/2026-03-24-arch-assertion-integration-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#73
+
+### Architecture Decay Timeline
+
+- **Status:** done
+- **Spec:** docs/changes/architecture-decay-timeline/proposal.md
+- **Summary:** Time-series tracking of architectural health via standalone TimelineManager, category-level snapshots in `.harness/arch/timeline.json`, composite 0-100 stability score, CLI commands (`harness snapshot`), and `get_decay_trends` MCP tool. Weekly CI captures. [J1]
+- **Blockers:** —
+- **Plan:** docs/changes/architecture-decay-timeline/plans/2026-04-04-architecture-decay-timeline-phase1-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#79
+
+### Assignee means who is executing — set at execution, not selection
+
+- **Status:** done
+- **Spec:** docs/changes/assignee-execution-lifecycle/proposal.md
+- **Summary:** Establish the invariant assignee ≠ null ⟺ in-progress via a centralized core authority: roadmap-pilot stops assigning at selection, harness-execution claims at execution start, machine claims never use the GitHub assignee field, inbound sync never clobbers a live machine claim, and RMH005 + groom enforce/migrate. Fixes the orchestrator silently skipping pilot-touched items.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#640
+- **Updated-At:** 2026-06-26T17:46:10.000Z
+
+### Automatic Task Independence Detection
+
+- **Status:** done
+- **Spec:** docs/changes/task-independence-detection/proposal.md
+- **Summary:** Pairwise file-overlap, import-chain, and call-graph reachability analysis to verify parallel tasks won't conflict. New MCP tool: check_task_independence. [F5]
+- **Blockers:** —
+- **Plan:** docs/changes/task-independence-detection/plans/2026-03-23-phase1-core-analyzer-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#70
+
+### Autopilot Session Scoping
+
+- **Status:** done
+- **Spec:** docs/changes/autopilot-session-scoping/proposal.md
+- **Summary:** Per-spec session directories for isolated autopilot state management
+- **Blockers:** —
+- **Plan:** docs/changes/autopilot-session-scoping/plans/2026-03-19-autopilot-session-scoping-phase1-skill-md-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#37
+
+### Autopilot
+
+- **Status:** done
+- **Spec:** docs/changes/autopilot/proposal.md
+- **Summary:** Autonomous phase execution loop chaining planning, execution, verification, and review
+- **Blockers:** —
+- **Plan:** docs/changes/autopilot/plans/2026-03-19-autopilot-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#34
+
+### Branch Naming Convention and Compliance Verification
+
+- **Status:** done
+- **Spec:** docs/changes/branch-naming-convention/proposal.md
+- **Summary:** Standardize branch naming prefixes (feat/, fix/, etc.) and kebab-case slugs. Implement harness verify command and @harness-engineering/core validation logic.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#329
+
+### Cascading Failure Simulation
+
+- **Status:** done
+- **Spec:** docs/changes/cascading-failure-simulation/proposal.md
+- **Summary:** Probabilistic BFS traversal with failure probability annotations synthesized from change frequency. New tool: compute_blast_radius. Shows transitive downstream impact with confidence scores — not just direct dependencies but the full cascade chain. [C9]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#85
+
+### CLI Self-Update
+
+- **Status:** done
+- **Spec:** docs/changes/cli-self-update/proposal.md
+- **Summary:** Self-update command for the harness CLI to pull latest versions
+- **Blockers:** —
+- **Plan:** docs/changes/cli-self-update/plans/2026-03-17-cli-self-update.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#24
+
+### CLI & Tooling
+
+- **Status:** done
+- **Spec:** docs/changes/cli-tooling/proposal.md
+- **Summary:** CLI package for running harness commands and automation tooling
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-12-phase2-cli.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#8
+
+### Code Reviewer Persona
+
+- **Status:** done
+- **Spec:** docs/changes/code-reviewer-persona/proposal.md
+- **Summary:** Specialized AI persona for multi-phase code review with conditional steps
+- **Blockers:** —
+- **Plan:** docs/changes/code-reviewer-persona/plans/2026-03-18-code-reviewer-persona-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#27
+
+### Community Detection
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Label propagation algorithm over import/call graph to auto-discover natural module boundaries. Validates or challenges existing layer definitions by revealing the actual clustering in the codebase. [C6]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#86
+
+### Community Infrastructure
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Discord community server, built-with-harness showcase gallery, social media presence, educational content series, GitHub Sponsors/Open Collective, and contribution gamification with badges and milestones. [H2/H4-H8]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#99
+
+### Conflict Prediction
+
+- **Status:** done
+- **Spec:** docs/changes/conflict-prediction/proposal.md
+- **Summary:** Returns conflict matrix with reasoning before parallel agent dispatch. Integrates into harness-parallel-agents skill. [F9]
+- **Blockers:** —
+- **Plan:** docs/changes/conflict-prediction/plans/2026-03-23-conflict-predictor-core-plan.md, docs/changes/conflict-prediction/plans/2026-03-23-conflict-predictor-tests-plan.md, docs/changes/conflict-prediction/plans/2026-03-23-conflict-predictor-integration-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#71
+
+### Constraint Deprecation Detection
+
+- **Status:** done
+- **Spec:** docs/changes/constraint-deprecation-detection/proposal.md
+- **Summary:** First-class constraint rule nodes in the knowledge graph with lastViolatedAt timestamps, auto-populated from collectors via getRules(). New detect_stale_constraints MCP tool queries for constraints with no violations within a configurable window (default 30 days). [L2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#75
+
+### Constraint Emergence from Patterns
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#84
+- **Updated-At:** 2026-04-18T00:44:19.169Z
+
+### Constraint Sharing
+
+- **Status:** done
+- **Spec:** docs/changes/constraint-sharing/proposal.md
+- **Summary:** Export constraint subsets from harness.config.json as shareable bundles; import and merge with per-rule provenance tracking. [H3]
+- **Blockers:** —
+- **Plan:** docs/changes/constraint-sharing/plans/2026-03-24-constraint-sharing-types-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#78
+
+### Core Library Design & Modules
+
+- **Status:** done
+- **Spec:** docs/changes/core-library-design/proposal.md
+- **Summary:** Core library architecture with validation, context engineering, architectural constraints, entropy management, and agent feedback modules
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-11-phase1-foundation-and-docs.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2
+
+### Cross-Platform Enforcement
+
+- **Status:** done
+- **Spec:** docs/changes/cross-platform-enforcement/proposal.md
+- **Summary:** Cross-platform support with ESLint rules, platform parity tests, and 3-OS CI matrix enforcement
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#50
+
+### Day-to-Day Workflow Tutorial
+
+- **Status:** done
+- **Spec:** docs/changes/day-to-day-workflow-tutorial/proposal.md
+- **Summary:** Step-by-step tutorial for common developer workflows using harness
+- **Blockers:** —
+- **Plan:** docs/changes/day-to-day-workflow-tutorial/plans/2026-03-17-day-to-day-workflow-tutorial.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#23
+
+### Design System Skills
+
+- **Status:** done
+- **Spec:** docs/changes/design-system-skills/proposal.md
+- **Summary:** Design token generation, palette selection, typography, and component generation skills
+- **Blockers:** —
+- **Plan:** docs/changes/design-system-skills/plans/2026-03-19-design-system-phase1-shared-foundation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#36
+
+### Detection & Remediation
+
+- **Status:** done
+- **Spec:** docs/changes/detection-remediation-dead-code-architecture/proposal.md
+- **Summary:** Unified detection-to-remediation flow for dead code removal and architecture violation fixes
+- **Blockers:** —
+- **Plan:** docs/changes/detection-remediation-dead-code-architecture/plans/2026-03-21-detection-remediation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#42
+
+### Developer Velocity Analysis
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Git history temporal analysis, PR/review time integration, and friction zone identification. Identifies which codebase areas slow development most and quantifies the productivity gains from targeted refactoring. [K1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#94
+
+### Development Loop Chaining
+
+- **Status:** done
+- **Spec:** docs/changes/development-loop-chaining/proposal.md
+- **Summary:** Chaining development loops (brainstorm, plan, execute, review) into continuous workflows
+- **Blockers:** —
+- **Plan:** docs/changes/development-loop-chaining/plans/2026-03-21-development-loop-chaining-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#43
+
+### Domain Skill Tiers & Catalog System
+
+- **Status:** done
+- **Spec:** docs/changes/domain-skill-tiers/proposal.md
+- **Summary:** Three-tier skill loading (30 always-loaded slash commands, 43 catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
+- **Blockers:** —
+- **Plan:** docs/changes/domain-skill-tiers/plans/2026-03-27-tier-infrastructure-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#100
+
+### ESLint Plugin
+
+- **Status:** done
+- **Spec:** docs/changes/eslint-plugin/proposal.md
+- **Summary:** ESLint plugin for enforcing harness architectural constraints in code
+- **Blockers:** —
+- **Plan:** docs/changes/eslint-plugin/plans/2026-03-13-eslint-plugin.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#10
+
+### Event-Sourced State Model with Deterministic Reducer
+
+- **Status:** done
+- **Spec:** docs/changes/event-sourced-state-model/proposal.md
+- **Summary:** Replace harness's mutated .harness/state.json with an append-only event log + pure deterministic reducer + materialized snapshot, plus an explicit guarded state machine for autopilot/orchestrator task lanes (forced-transition rules, dependency guards, mandatory evidence to reach terminal states). Highest-leverage hardening of harness's weakest subsystem (state/provenance); subsumes and complements the Append-Only Session Audit Trail (#580). Modeled on Spec Kitty's status/{emit,store,reducer,transitions}.py. Adoption #1 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#598
+
+### Examples & Documentation
+
+- **Status:** done
+- **Spec:** docs/changes/examples-and-docs/proposal.md
+- **Summary:** Example projects and comprehensive documentation for onboarding
+- **Blockers:** —
+- **Plan:** docs/changes/examples-and-docs/plans/2026-03-15-examples-and-docs.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#16
+
+### Executor Personas
+
+- **Status:** done
+- **Spec:** docs/changes/executor-personas/proposal.md
+- **Summary:** Task executor and parallel coordinator personas for plan execution
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#28
+
+### Framework-Inspired Enhancements
+
+- **Status:** done
+- **Spec:** docs/changes/framework-inspired-enhancements/proposal.md
+- **Summary:** Enhancements drawn from competitor framework research (Spec Kit, BMAD, etc.)
+- **Blockers:** —
+- **Plan:** docs/changes/framework-inspired-enhancements/plans/2026-03-14-framework-inspired-enhancements.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#12
+
+### Framework Research Round 3
+
+- **Status:** done
+- **Spec:** docs/changes/framework-research-round-3/proposal.md
+- **Summary:** Third round of competitive framework analysis driving final v1 enhancements
+- **Blockers:** —
+- **Plan:** docs/changes/framework-research-round-3/plans/2026-03-15-framework-research-round-3.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#17
+
+### Graph Anomaly Detection
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Z-score outlier detection over complexity, coupling, fanIn/fanOut metrics plus articulation point identification via knowledge graph. New MCP tool: detect_anomalies. [C15]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#69
+
+### Graph Fallback Implementation
+
+- **Status:** done
+- **Spec:** docs/changes/graph-fallback-implementation/proposal.md
+- **Summary:** Graceful degradation when graph database is unavailable with file-based fallbacks
+- **Blockers:** —
+- **Plan:** docs/changes/graph-fallback-implementation/plans/2026-03-21-graph-fallback-implementation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#44
+
+### harness:blueprint — Automated Architectural Learning
+
+- **Status:** done
+- **Spec:** docs/changes/harness-blueprint/proposal.md
+- **Summary:** Generates interactive, offline-first HTML blueprints/courses of a codebase. Uses the Knowledge Graph for pedagogical ordering, impact-aware exercises, and code-to-English translations.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#76
+
+### Harness v2 Patterns
+
+- **Status:** done
+- **Spec:** docs/changes/harness-v2-patterns/proposal.md
+- **Summary:** Design patterns and conventions for harness v2 architecture
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#52
+
+### Health Analyst Security Integration
+
+- **Status:** done
+- **Spec:** docs/changes/health-analyst-security/proposal.md
+- **Summary:** Integrating security scanning into the codebase health analyst workflow
+- **Blockers:** —
+- **Plan:** docs/changes/health-analyst-security/plans/2026-03-19-health-analyst-security-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#33
+
+### Hermes Phase 0.1: Reference Slack Bridge
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
+- **Summary:** External test consumer `examples/slack-echo-bridge/` — ~150 LOC Node bridge that subscribes to `maintenance.completed` webhooks, verifies HMAC SHA-256 signatures, posts to Slack. Validates the Phase 0 API contract is usable from an external bridge author's perspective (anti-success #4). Deferred from Phase 0 to ship Phase 0 surface promptly.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-0-gateway-api/plans/2026-05-15-phase-6-reference-slack-bridge-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#645
+
+### Hermes Phase 0.2: Gateway Tunnel Guide
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-0-2-gateway-tunnel-guide/proposal.md
+- **Summary:** `docs/guides/gateway-tunnel.md` covering Cloudflare Tunnel, Tailscale, and ngrok as canonical bridge-exposure patterns. Completes the parent spec §D5 "localhost-by-default + tunnel-pattern guide" decision (parent: docs/changes/hermes-phase-0-gateway-api/proposal.md). Slack echo bridge is the worked end-to-end example.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-0-2-gateway-tunnel-guide/plans/2026-05-16-gateway-tunnel-guide-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#328
+
+### Hermes Phase 0: Gateway API + Telemetry
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-0-gateway-api/proposal.md
+- **Summary:** Versioned external REST API on orchestrator with token-scoped auth and outbound webhook fanout; OpenTelemetry/Langfuse exporter for skill_invocation events; prompt-cache hit-rate analytics. Foundation for Phases 3, 4, and observability across all subsequent phases. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#310
+
+### Hermes Phase 1: Session Search + Insights
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-1-session-search/proposal.md
+- **Summary:** SQLite FTS5 index over .harness/sessions/ with auto-LLM summarization on session close; harness search CLI and dashboard search; harness insights aggregator composing entropy/decay/attention/impact/health views. Independent of Phase 0 — can run in parallel. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-1-session-search/plans/2026-05-16-phase-1-foundation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#311
+
+### Hermes Phase 2: Custom Maintenance Jobs
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-2-custom-jobs/proposal.md
+- **Summary:** Extend MaintenanceScheduler beyond 21 built-in tasks: user-defined custom jobs with output persistence, context_from chaining, skill-content injection, origin tracking, arbitrary pre-check scripts. Plus pre-launch OSV malware guard on MCP/npx packages and expanded cleanup-sessions to general .harness disk hygiene. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-2-custom-jobs/plans/2026-05-17-main-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#312
+
+### Hermes Phase 3: Multi-Sink Notifications
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-3-notifications/proposal.md
+- **Summary:** Generalize CINotifier to NotificationSink interface with Slack-first concrete adapter; wrap_response envelope option for platform-shape delivery formatting; harden harness doctor with live pings, hook validity, baseline freshness, session corruption check. Requires Phase 0 webhook fanout. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-3-notifications/plans/main.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#313
+
+### Hermes Phase 4: Skill Proposal Loop
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-adoption/proposal.md
+- **Summary:** Agent-emitted skill proposals routed through review queue gated by harness:soundness-review; per-skill provenance (community/agent-proposed/user-authored) and usage telemetry; refinement deltas use same flow. Dashboard review queue page with approve/reject/edit actions. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#314
+- **Updated-At:** 2026-05-18T11:28:52.297Z
+
+### Hermes Phase 5: Dispatch Hardening
+
+- **Status:** done
+- **Spec:** docs/changes/hermes-phase-5-dispatch-hardening/proposal.md
+- **Summary:** SSH agent dispatch backend, serverless backend interface (Modal-style not Modal-coupled), isolation tier as fourth axis on BackendRouter (local/container/remote-sandbox), per-task cost ceiling with abort-on-exceed. Cost ceiling requires Phase 0 telemetry. From Hermes adoption meta-spec.
+- **Blockers:** —
+- **Plan:** docs/changes/hermes-phase-5-dispatch-hardening/plans/2026-05-16-main-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#315
+
+### i18n & Localization Skills
+
+- **Status:** done
+- **Spec:** docs/changes/i18n-localization-skills/proposal.md
+- **Summary:** Internationalization scanning, translation lifecycle management, and process injection
+- **Blockers:** —
+- **Plan:** docs/changes/i18n-localization-skills/plans/2026-03-20-i18n-core-skill-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#38
+
+### Intelligent Skill Dispatch
+
+- **Status:** done
+- **Spec:** docs/changes/intelligent-skill-dispatch/proposal.md
+- **Summary:** Change-triggered automatic skill selection via extended recommendation engine signals. New `dispatch_skills` MCP tool with session-start auto-invocation, annotated skill sequences with parallel-safe flags. [L4]
+- **Blockers:** Skill Recommendation Engine
+- **Plan:** docs/changes/intelligent-skill-dispatch/plans/2026-04-06-intelligent-skill-dispatch-phase1-signal-type-foundation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#83
+
+### Interaction Surface Abstraction
+
+- **Status:** done
+- **Spec:** docs/changes/interaction-surface-abstraction/proposal.md
+- **Summary:** Abstracting interaction surfaces to support Claude Code, Gemini CLI, and future platforms
+- **Blockers:** —
+- **Plan:** docs/changes/interaction-surface-abstraction/plans/2026-03-21-interaction-surface-abstraction-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#45
+
+### Knowledge Graph System
+
+- **Status:** done
+- **Spec:** none
+- **Summary:** 10-phase graph-based knowledge system replacing file-based context with structured relationships
+- **Blockers:** —
+- **Plan:** docs/changes/graph-context-system/plans/2026-03-18-graph-foundation-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#25
+
+### Knowledge Skills Category & Schema Enrichment
+
+- **Status:** done
+- **Spec:** docs/changes/knowledge-skills-schema-enrichment/proposal.md
+- **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: docs/architecture/patternsdev-skills-adoption/ADR-001.md
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#122
+
+### Linter Generator
+
+- **Status:** done
+- **Spec:** docs/changes/linter-generator/proposal.md
+- **Summary:** Dynamic linter configuration generation from harness project constraints
+- **Blockers:** —
+- **Plan:** docs/changes/linter-gen/plans/2026-03-13-linter-gen.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#11
+
+### Live Work-in-Flight Kanban for Parallel/Autopilot Runs
+
+- **Status:** done
+- **Spec:** docs/changes/work-in-flight-kanban/proposal.md
+- **Summary:** Add a live work-in-flight kanban to the harness dashboard fed by orchestrator/parallel-coordinator state: per-task lane, owning agent, worktree, blockers, and dependency edges — surfacing in-flight agent work rather than only retrospective health signals. Reuses the existing dashboard package and orchestrator state machine. Complements Dashboard v3: Team & Stakeholder Views (#124). Adapted from Spec Kitty's local kanban control plane. Adoption #2 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#599
+- **Updated-At:** 2026-06-25T22:03:47.094Z
+
+### Make protect-config fail-closed in ambiguous cases
+
+- **Status:** done
+- **Spec:** docs/changes/protect-config-fail-closed/proposal.md
+- **Summary:** `packages/cli/src/hooks/protect-config.js:36,41,49` — three branches currently fail-open (parse error → allow, empty stdin → allow, missing `file_path` → allow). The security-flavored hook that protects config silently yields whenever its input is malformed. Change to fail-closed with a clear error message. Defense-in-depth. Source: Pass 5 #2.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#527
+
+### MCP Server Expansion
+
+- **Status:** done
+- **Spec:** docs/changes/mcp-server-expansion/proposal.md
+- **Summary:** Expanding MCP server with additional harness tools and capabilities
+- **Blockers:** —
+- **Plan:** docs/changes/mcp-server-expansion/plans/2026-03-16-mcp-server-expansion.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#22
+
+### MCP Setup & Documentation
+
+- **Status:** done
+- **Spec:** docs/changes/mcp-setup/proposal.md
+- **Summary:** MCP server setup documentation and scaffolding for tool integration
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#20
+
+### Module 1: Validation
+
+- **Status:** done
+- **Spec:** docs/changes/core-library-design/proposal.md
+- **Summary:** Schema validation engine for harness configuration and project artifacts
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-11-module1-validation.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#3
+
+### Module 2: Context Engineering
+
+- **Status:** done
+- **Spec:** docs/changes/core-library-implementation/proposal.md
+- **Summary:** Context assembly and management for AI agent interactions
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-12-module2-context-engineering.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#4
+
+### Module 3: Architectural Constraints
+
+- **Status:** done
+- **Spec:** docs/changes/architectural-constraints/proposal.md
+- **Summary:** Layer boundary enforcement and dependency rule validation
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-12-module3-architectural-constraints.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#5
+
+### Module 4: Entropy Management
+
+- **Status:** done
+- **Spec:** docs/changes/entropy-management/proposal.md
+- **Summary:** Codebase entropy detection including dead code, drift, and pattern violations
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-12-module4-entropy-management.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#6
+
+### Module 5: Agent Feedback
+
+- **Status:** done
+- **Spec:** docs/changes/agent-feedback/proposal.md
+- **Summary:** Structured feedback loops between AI agents and harness validation
+- **Blockers:** —
+- **Plan:** docs/changes/agent-feedback/plans/2026-03-12-module5-agent-feedback.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#7
+
+### Multi-Language Support
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Tree-sitter integration for Python, Go, Rust, and Java parsing. Language-agnostic constraint enforcement. Cross-language dependency tracking in knowledge graph. Same architectural rules apply regardless of implementation language. [B1/B6]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#95
+
+### Natural Language Graph Queries
+
+- **Status:** done
+- **Spec:** docs/changes/natural-language-graph-queries/proposal.md
+- **Summary:** English-to-ContextQL translation via scored multi-signal classifier enabling conversational codebase exploration. Ask 'what breaks if I change auth?' and get graph-backed answers with NL summaries. New MCP tool: ask_graph. No external LLM dependency — works on both Claude Code and Gemini CLI. [K7]
+- **Blockers:** —
+- **Plan:** docs/changes/natural-language-graph-queries/plans/2026-03-23-nlq-\*.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#72
+
+### On-Demand Maintenance Pipeline
+
+- **Status:** done
+- **Spec:** docs/changes/maintenance-pipeline/proposal.md
+- **Summary:** Build the deferred `harness maintenance run` (overdue-aware, report-first, `--fix` opt-in) on the existing 22-task maintenance registry by threading a `mode: report|fix` through `TaskRunner`, plus a thin `/harness:maintenance-pipeline` skill on top. One executor, one registry — gives developers an on-demand way to run the maintenance that is actually overdue without a running orchestrator. Source: /harness:brainstorming.
+- **Blockers:** —
+- **Plan:** —
+
+### Pattern Adoption
+
+- **Status:** done
+- **Spec:** docs/changes/pattern-adoption/proposal.md
+- **Summary:** Adoption of proven patterns from framework research into harness core
+- **Blockers:** —
+- **Plan:** docs/changes/pattern-adoption/plans/2026-03-14-pattern-adoption.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#13
+
+### Performance Enforcement
+
+- **Status:** done
+- **Spec:** docs/changes/performance-enforcement/proposal.md
+- **Summary:** Performance budgets, benchmark management, and regression detection
+- **Blockers:** —
+- **Plan:** docs/changes/performance-enforcement/plans/2026-03-19-performance-enforcement-part1-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#32
+
+### Performance Pipeline Unification
+
+- **Status:** done
+- **Spec:** docs/changes/performance-pipeline-unification/proposal.md
+- **Summary:** Unifying performance checks into a single pipeline with budget enforcement
+- **Blockers:** —
+- **Plan:** docs/changes/performance-pipeline-unification/plans/2026-03-21-performance-pipeline-unification-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#46
+
+### Persistent Agent Specialization
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#96
+- **Updated-At:** 2026-04-18T11:43:48.349Z
+
+### Phase 1: Knowledge Foundation
+
+- **Status:** done
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Graph schema extensions (5 node types, 2 edge types), BusinessKnowledgeIngestor reading from docs/knowledge/, harness://business-knowledge MCP resource, gather_context integration, pilot authoring for 1-2 domains
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#225
+- **Updated-At:** 2026-04-21T14:12:28.459Z
+
+### Phase 2: Code Signal Extractors
+
+- **Status:** done
+- **Spec:** docs/changes/code-signal-extractors/proposal.md
+- **Summary:** Test description extractor, enum/constant extractor, validation rule extractor, API path extractor writing to .harness/knowledge/extracted/
+- **Blockers:** Phase 1: Knowledge Foundation
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#226
+- **Updated-At:** 2026-04-23T02:04:58.806Z
+
+### Phase 3: Connector Enhancement
+
+- **Status:** done
+- **Spec:** docs/changes/connector-enhancement/proposal.md
+- **Summary:** Configurable truncation limits with tiered LLM summarization, Jira comments/custom fields/acceptance criteria, Confluence full content/hierarchy/labels, Slack thread structure/reactions, KnowledgeLinker post-processing pass
+- **Blockers:** Phase 1: Knowledge Foundation
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#227
+- **Updated-At:** 2026-04-23T17:38:57.275Z
+
+### Phase 4: Knowledge Pipeline & Diagrams
+
+- **Status:** done
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** /harness:knowledge-pipeline skill (4-phase convergence loop), diagram-as-code parser (Mermaid/D2/PlantUML), staging workflow, drift detection and gap reporting
+- **Blockers:** —
+- **Plan:** docs/changes/business-knowledge-foundation/plans/2026-04-23-phase-4-knowledge-pipeline-diagrams-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#228
+- **Updated-At:** 2026-04-24T02:10:03.701Z
+
+### Phase 5: Visual & Advanced
+
+- **Status:** done
+- **Spec:** docs/architecture/business-knowledge-system/ADR-001.md
+- **Summary:** Vision model analysis of image attachments, design tool API connectors (Figma, Miro), cross-source contradiction detection, knowledge coverage scoring per domain
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#229
+- **Updated-At:** 2026-04-24T11:23:48.933Z
+
+### Platform Expansion
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** VS Code extension with sidebar and skill launcher, multi-CI recipes (GitLab, Jenkins, CircleCI, Azure DevOps), per-package config overrides for monorepos, and config inheritance chain (global to org to project to package). [B3/B7-B9]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#101
+
+### Pre-Commit Impact Preview
+
+- **Status:** done
+- **Spec:** docs/changes/pre-commit-impact-preview/proposal.md
+- **Summary:** CLI command `harness impact-preview` showing blast radius of staged changes (affected files, tests, docs) with compact/detailed/per-file modes. Integrated into harness-pre-commit-review skill. [J6]
+- **Blockers:** —
+- **Plan:** docs/changes/pre-commit-impact-preview/plans/2026-03-23-impact-preview-cli-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#74
+
+### Predictive Architecture Failure
+
+- **Status:** done
+- **Spec:** docs/changes/predictive-architecture-failure/proposal.md
+- **Summary:** Extrapolate decay trends from timeline plus planned roadmap features to predict which constraints will break and when. Warns before architectural violations become reality. [J2]
+- **Blockers:** Architecture Decay Timeline
+- **Plan:** docs/changes/predictive-architecture-failure/plans/2026-04-04-predictive-failure-phase1-regression-math-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#80
+
+### Project-Local Skill Discovery
+
+- **Status:** done
+- **Spec:** docs/changes/project-local-skill-discovery/proposal.md
+- **Summary:** Automatic discovery and loading of project-specific skills from local directories
+- **Blockers:** —
+- **Plan:** docs/changes/project-local-skill-discovery/plans/2026-03-18-project-local-skill-discovery-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#26
+
+### Promote harness:strategy to gateway position in init
+
+- **Status:** done
+- **Spec:** docs/changes/strategy-init-gateway/proposal.md
+- **Summary:** `initialize-harness-project/SKILL.md` currently asks the strategy question as Phase 3, step 5c — buried after scaffolding and configuration. The article's gear item #1 is "specs operated FROM," and strategy is the foundational spec. Move the strategy prompt to the FIRST question init asks, not the fifth. Adopters who skip it end up with no strategic anchor, which means brainstorming/ideate/roadmap-pilot start cold. Source: Pass 3 #13.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#543
+
+### Reconcile health-snapshot.json passed flags with active signals
+
+- **Status:** done
+- **Spec:** docs/changes/health-snapshot-signal-honesty/proposal.md
+- **Summary:** `.harness/health-snapshot.json` reports `entropy.passed: true` while listing "dead-code" in `signals[]`; same for docs (`passed: true`, `undocumentedCount: 27481`) and security (`passed: true`, `findingCount: 16`). The harness's own dogfooded output says all checks "passed" while listing seven active drift signals. Make `checks.X.passed` return `false` when `signals[]` includes the corresponding signal name. Source: Pass 1 #2.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P0
+- **External-ID:** github:Intense-Visions/harness-engineering#528
+- **Updated-At:** 2026-06-26T23:31:52.000Z
+
+### Release Readiness Skill
+
+- **Status:** done
+- **Spec:** docs/changes/release-readiness/proposal.md
+- **Summary:** Skill for auditing npm release readiness with maintenance checks and auto-fixes
+- **Blockers:** —
+- **Plan:** docs/changes/release-readiness/plans/2026-03-19-release-readiness-skill.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#35
+
+### Release Readiness
+
+- **Status:** done
+- **Spec:** docs/changes/release-readiness-prep/proposal.md
+- **Summary:** Audit and preparation for general consumption including packaging and docs
+- **Blockers:** —
+- **Plan:** docs/changes/release-readiness-prep/plans/2026-03-16-release-readiness.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#19
+
+### Rename quality-gate hook and ship a strict variant that blocks
+
+- **Status:** done
+- **Spec:** docs/changes/quality-warner-strict-gate/proposal.md
+- **Summary:** `packages/cli/src/hooks/quality-gate.js:4-6` is literally documented as "Never blocks (always exits 0). Warnings go to stderr." This hook ships in the default **standard** profile. The hook NAMED "quality-gate" gates nothing. Rename to `quality-warner` or `format-checker`. Add a `strict-quality-gate` hook variant for strict-profile adopters that exits 2 on lint/format failure. Source: Pass 5 #1.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P0
+- **External-ID:** github:Intense-Visions/harness-engineering#526
+- **Updated-At:** 2026-06-25T23:56:30.691Z
+
+### Research Roadmap Groups A-E
+
+- **Status:** done
+- **Spec:** docs/changes/research-roadmap/proposal.md
+- **Summary:** Implementation of 20 prioritized research recommendations across 5 theme groups
+- **Blockers:** —
+- **Plan:** docs/changes/research-roadmap/plans/2026-03-16-group-a-review-system.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#18
+
+### Rich Skill Format
+
+- **Status:** done
+- **Spec:** docs/changes/rich-skill-format/proposal.md
+- **Summary:** Structured skill format with YAML metadata, phases, gates, and cognitive modes
+- **Blockers:** —
+- **Plan:** docs/changes/rich-skill-format/plans/2026-03-14-rich-skill-format.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#15
+
+### Security: First-Class Concern
+
+- **Status:** done
+- **Spec:** docs/changes/security-first-class/proposal.md
+- **Summary:** Elevating code security to a first-class harness concern with scanning, review, and enforcement
+- **Blockers:** —
+- **Plan:** docs/changes/security-first-class/plans/2026-03-19-security-scanner-core-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#30
+
+### Security Pipeline Unification
+
+- **Status:** done
+- **Spec:** docs/changes/security-pipeline-unification/proposal.md
+- **Summary:** Unifying security scanning into a single pipeline with OWASP baseline
+- **Blockers:** —
+- **Plan:** docs/changes/security-pipeline-unification/plans/2026-03-21-security-pipeline-unification-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#47
+
+### Security Posture Timeline
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Security metric snapshots over time with supply chain monitoring and vulnerability time-to-fix analysis. Tracks whether the codebase is getting more or less secure over months with trend attribution. [L6]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#97
+
+### Self-Improving Agent Skills
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Outcome attribution mapping review findings to actual bugs via issue tracker. Skill effectiveness baselines (like perf baselines). Dynamic prompt injection into skill preamble based on historical outcomes. Skills measurably improve over time. [D4/D5]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#87
+
+### Shard the roadmap into per-row files with a generated aggregate view
+
+- **Status:** done
+- **Spec:** docs/changes/roadmap-shard-store/proposal.md
+- **Summary:** Shard docs/roadmap.md into per-row docs/roadmap.d/<slug>.md files (the sole authoritative source) with a generated merge=ours aggregate view, eliminating branch/worktree/PR contention by construction. A RoadmapStore abstraction lets sharded and monolith modes coexist (new projects sharded by default; existing adopters migrate via reversible `harness roadmap shard`). The conflict-free single-shard writeback unlocks auto-done on PR merge via a CI Action plus a `harness roadmap reconcile` fallback, keyed off the External-ID each row already carries. Invariant R: only the regenerator reads roadmap.md; all tools read the shard directory.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+- **Updated-At:** 2026-06-27T00:00:00.000Z
+
+### Skill Effectiveness Tracking
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Links review findings to actual bugs via git history and issue tracker. Builds effectiveness baselines per skill per task type. Feeds back into prompt selection. Quantifies which skills produce good outcomes and which need calibration. [D3/D9]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#91
+
+### Skill Marketplace
+
+- **Status:** done
+- **Spec:** docs/changes/skill-marketplace/proposal.md
+- **Summary:** Community skill registry via @harness-skills/\* npm namespace. harness install/uninstall with dependency resolution, semver version ranges, bundled skill collision prevention. harness skill search with platform/trigger filters, harness skill create with README generation, harness skill publish with 6-check validation pipeline. Community skills integrate into slash command generation (project > community > global priority). [H1]
+- **Blockers:** —
+- **Plan:** docs/changes/skill-marketplace/plans/2026-03-24-skill-marketplace-install-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#77
+
+### Skill Recommendation Engine
+
+- **Status:** done
+- **Spec:** docs/changes/skill-recommendation-engine/proposal.md
+- **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
+- **Blockers:** —
+- **Plan:** docs/changes/skill-recommendation-engine/plans/2026-04-04-skill-recommendation-engine-phase1-types-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#82
+
+### Slash Command Generation
+
+- **Status:** done
+- **Spec:** docs/changes/slash-command-generation/proposal.md
+- **Summary:** Automatic slash command generation for Claude Code and Gemini CLI from skills
+- **Blockers:** —
+- **Plan:** docs/changes/slash-command-generation/plans/2026-03-16-slash-command-generation.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#21
+
+### Spec & Plan Soundness Review
+
+- **Status:** done
+- **Spec:** docs/changes/spec-plan-soundness-review/proposal.md
+- **Summary:** Deep soundness analysis of specs and plans with auto-fix and convergence loops
+- **Blockers:** —
+- **Plan:** docs/changes/spec-plan-soundness-review/plans/2026-03-20-autofix-convergence-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#39
+
+### Spec-to-Code Semantic Verification
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** EARS grammar parser for machine-verifiable requirements. Test assertion semantic analysis via Claude API. Detects gaps between what the spec says and what the tests actually assert. Extends spec-to-implementation traceability with behavioral matching. [E1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#89
+
+### Spec-to-Implementation Traceability
+
+- **Status:** done
+- **Spec:** docs/changes/spec-to-implementation-traceability/proposal.md
+- **Summary:** Requirement-to-code-to-test mapping via knowledge graph — requirement nodes, requires/verified_by/tested_by edges, RequirementIngestor, coverage matrix CLI/MCP/CI, hybrid test linking with confidence signals. [E2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#81
+
+### State Streams
+
+- **Status:** done
+- **Spec:** docs/changes/state-streams/proposal.md
+- **Summary:** Multi-session isolation for independent work items with scoped state management
+- **Blockers:** —
+- **Plan:** docs/changes/state-streams/plans/2026-03-19-state-streams-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#31
+
+### Templates & Agents
+
+- **Status:** done
+- **Spec:** docs/changes/templates-and-agents/proposal.md
+- **Summary:** Project templates and agent persona definitions for common workflows
+- **Blockers:** —
+- **Plan:** docs/changes/framework-bootstrap/plans/2026-03-14-phase3-templates-and-agents.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#14
+
+### Trust Scoring for Agent Output
+
+- **Status:** done
+- **Spec:** docs/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Explicit confidence model per review finding: validation method (mechanical > graph > heuristic) x evidence quality x cross-agent agreement x historical accuracy. Every finding shows a visible confidence percentage for human triage. [E6]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#90
+- **Updated-At:** 2026-04-19T22:15:02.628Z
+
+### Unified Code Review Pipeline
+
+- **Status:** done
+- **Spec:** docs/changes/unified-code-review-pipeline/proposal.md
+- **Summary:** Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel agents
+- **Blockers:** —
+- **Plan:** docs/changes/unified-code-review-pipeline/plans/2026-03-20-pipeline-skeleton-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#41
+
+### Unified Documentation Pipeline
+
+- **Status:** done
+- **Spec:** docs/changes/unified-documentation-pipeline/proposal.md
+- **Summary:** Automated documentation drift detection, coverage validation, and alignment
+- **Blockers:** —
+- **Plan:** docs/changes/unified-documentation-pipeline/plans/2026-03-21-unified-documentation-pipeline-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#48
+
+### Unified Project Roadmap
+
+- **Status:** done
+- **Spec:** docs/changes/unified-project-roadmap/proposal.md
+- **Summary:** Roadmap management system with interactive creation, sync, and MCP integration
+- **Blockers:** —
+- **Plan:** docs/changes/unified-project-roadmap/plans/2026-03-21-roadmap-core-types-parser-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#49
+
+### Update Check Notification
+
+- **Status:** done
+- **Spec:** docs/changes/update-check-notification/proposal.md
+- **Summary:** Version update checking with CLI notification and configuration options
+- **Blockers:** —
+- **Plan:** docs/changes/update-check-notification/plans/2026-03-20-update-checker-core-plan.md
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#40

@@ -270,16 +270,6 @@ Show blast radius of staged changes using the knowledge graph
 - `--per-file` — Show impact per staged file instead of aggregate
 - `--path` — Project root (default: cwd)
 
-### `harness ingest`
-
-Ingest data into the knowledge graph
-
-**Options:**
-
-- `--source` — Source to ingest (code, knowledge, git, requirements, business-signals, jira, slack, ci, confluence, figma, miro)
-- `--all` — Run all sources (code, knowledge, git, and configured connectors)
-- `--full` — Force full re-ingestion
-
 ### `harness init`
 
 Initialize a new harness-engineering project
@@ -380,6 +370,17 @@ LLM-judgment critique of identifier names (variables, functions, types, files). 
 - `--max-files` — Cap file count (default: 100)
 - `--max-identifiers-per-file` — Cap per-file identifier sampling (default: 15)
 
+### `harness pre-merge-brief`
+
+Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")
+
+**Options:**
+
+- `--from` — review-ci --json verdict artifact
+- `--comment` — upsert the brief as a sticky comment on the current branch's PR
+- `--diff` — git range (default: origin/<base>...HEAD)
+- `--head` — head commit sha for the outcome lookup (default: git rev-parse HEAD)
+
 ### `harness predict`
 
 Predict which architectural constraints will break and when
@@ -397,21 +398,6 @@ Publishes locally generated intelligence analyses to the external issue tracker 
 **Options:**
 
 - `-d, --dir` — Workspace directory (default: current working directory)
-
-### `harness query <rootNodeId>`
-
-Query the knowledge graph
-
-**Arguments:**
-
-- `rootNodeId` (required) — Starting node ID
-
-**Options:**
-
-- `--depth` — Max traversal depth (default: "3")
-- `--types` — Comma-separated node types to include
-- `--edges` — Comma-separated edge types to include
-- `--bidirectional` — Traverse both directions
 
 ### `harness recommend`
 
@@ -433,14 +419,6 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--diff` — git range (default: origin/<base>...HEAD)
 - `--comment` — post the verdict as a comment on the current branch's PR via gh
 - `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
-
-### `harness scan [path]`
-
-Scan project and build knowledge graph
-
-**Arguments:**
-
-- `path` (optional) — Project root path
 
 ### `harness scan-config`
 
@@ -1104,6 +1082,10 @@ Flip roadmap rows whose linked GitHub issue is closed to done. Offline mode flip
 - `--cwd` — Project root (defaults to the current working directory)
 - `--from-issues` — comma-separated issue numbers to reconcile against the configured repo (authoritative; skips the network fetch)
 - `--from-refs` — comma-separated owner/repo#number closing-issue references (preferred; cross-repo safe; skips the network fetch)
+
+### `harness roadmap referenced-issues`
+
+Parse issue references (#N, Closes/Fixes/Resolves #N, owner/repo#N) from stdin text (PR body + title) and print each issue number on its own line. Backstop for auto-done when a PR's closing keyword is malformed.
 
 ### `harness roadmap regen`
 

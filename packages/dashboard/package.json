@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/dashboard",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
   "exports": {
@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/signals": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/orchestrator": "workspace:*",
     "@harness-engineering/types": "workspace:*",

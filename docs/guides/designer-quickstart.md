@@ -125,7 +125,7 @@ The design block in `harness.config.json` controls how harness enforces design s
 The knowledge graph powers token traceability, impact analysis, and design drift detection:
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 This builds a structural graph from your code, git history, and documentation. It creates `design_token` and `aesthetic_intent` nodes that enable the most powerful design features.
@@ -189,7 +189,7 @@ This builds a structural graph from your code, git history, and documentation. I
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `harness ci check`   | Run ALL checks in one pass (validate, deps, docs, entropy, security, perf, arch, phase-gate, traceability) |
 | `harness validate`   | Configuration and structure validation                                                                     |
-| `harness scan`       | Build/refresh the knowledge graph                                                                          |
+| `harness graph scan` | Build/refresh the knowledge graph                                                                          |
 | `harness check-docs` | Documentation coverage check                                                                               |
 
 ---
@@ -493,7 +493,7 @@ The knowledge graph is a structural model of your codebase -- 30 node types, 25 
 #### Build It
 
 ```bash
-harness scan
+harness graph scan
 ```
 
 #### Design-Specific Graph Nodes
@@ -610,7 +610,7 @@ harness ci check --json | jq '[.checks[].issues[] | select(.category == "design"
 - Run `/harness:verify` on your project to see where you stand
 - Configure the design block in `harness.config.json` (set strictness to `permissive` if migrating)
 - Run `harness skill run harness-design` to establish aesthetic direction and generate DESIGN.md
-- Run `harness scan` to build the knowledge graph with design nodes
+- Run `harness graph scan` to build the knowledge graph with design nodes
 
 ### Week 2: Tokens and Components
 
@@ -666,7 +666,7 @@ harness ci check --json | jq '[.checks[].issues[] | select(.category == "design"
 | See what breaks if I change a token    | `/harness:impact-analysis`                    | Slash command       |
 | Deep audit before a release            | `/harness:integrity`                          | Slash command       |
 | Handle RTL/LTR layout                  | `harness skill run design-i18n-design`        | Domain skill        |
-| Build the knowledge graph              | `harness scan`                                | CLI                 |
+| Build the knowledge graph              | `harness graph scan`                          | CLI                 |
 | Ask questions about token usage        | `ask_graph` MCP tool                          | MCP tool            |
 
 ### Exit Codes for CI

@@ -1,5 +1,120 @@
 # @harness-engineering/cli
 
+## 4.1.0
+
+### Minor Changes
+
+- 7abacd5: feat: senior-engineer pre-merge accountability brief (#569)
+
+  Adds a senior-facing "you are pushing X; here's what to look at" surface on PRs.
+  - **New package `@harness-engineering/signals`** — the curated repo-health signal
+    computation (`gatherSignals`, `signalRegistry`) extracted from the dashboard into
+    a shared leaf so any consumer can gather signals fresh without routing through the
+    dashboard app. The dashboard now consumes it (internal rewire, behavior unchanged).
+  - **New `harness pre-merge-brief` command** — composes the diff summary, the
+    `review-ci --json` verdict, a curated Signal-status snapshot, the outcome-eval
+    result, and a derived "👀 Worth your eyes" section into a single sticky PR comment
+    (upsert by marker). Each input degrades independently to an "unavailable" line;
+    never re-runs the review.
+  - **New `harness:pre-merge-brief` skill** (tier 2, `on_pr` + `manual`) wrapping the
+    command, plus dogfood wiring in `required-review.yml` (non-blocking).
+
+  The acknowledgment merge gate and the adopter CI template are deferred to tracked
+  follow-ups. See ADRs 0054 (composer-not-extension) and 0055 (signals shared leaf).
+
+### Patch Changes
+
+- abcd026: fix(roadmap): make merge-triggered auto-done resilient to malformed closing keywords
+
+  Roadmap rows stayed `planned` after their PR merged when the PR body's closing
+  keyword was malformed (e.g. `Closes roadmap #569` — the intervening word breaks
+  GitHub's parser), leaving `closingIssuesReferences` empty so auto-done had nothing
+  to reconcile.
+  - **Backstop:** `roadmap-auto-done.yml` now, when the formal closing references are
+    empty, parses issue references from the PR body+title, keeps only those closed as
+    completed, and feeds the existing `roadmap reconcile --from-refs` (rows flip only
+    on a matching `External-ID`; unmatched refs are ignored).
+  - **New pure parser** `parseReferencedIssues` (`@harness-engineering/core`) and a
+    testable `harness roadmap referenced-issues` CLI subcommand back the fallback.
+  - **Prevention:** autopilot's PR-creation guidance now emits a bare `Closes #<N>`
+    (keyword immediately before the ref) derived from the roadmap row's External-ID.
+
+- 52a2410: fix(entropy): honor `entropy.drift` config on the entropy/CI paths and resolve Python symbols
+
+  The api-signature doc-drift detector flooded non-TS projects with false
+  positives and offered no honored way to scope or disable it.
+  - **Config now threaded (issue #723).** `detect_entropy` (MCP), `run_ci_checks
+entropy`, and `harness cleanup` previously built the analyzer with
+    `analyze.drift` as a boolean, so it always fell back to
+    `DEFAULT_DRIFT_CONFIG`. The CLI config schema also had no place to put drift
+    settings. A new `entropy.drift` block (`checkApiSignatures`, `ignorePatterns`,
+    `forwardLookingPaths`, `checkStructure`, `docPaths`) is now validated and
+    threaded into `analyze.drift` at all three call sites. The MCP handler now
+    loads `harness.config.json`, which also fixes `assess_project`.
+  - **Python symbols now resolve.** The tree-sitter Python export extractor
+    matched raw node types on `module.children`, missing decorated classes
+    (`@dataclass`), top-level constants, and all class-body members (dataclass
+    fields, enum members, methods) — so documented references to them were
+    wrongly flagged as api-signature drift. Extraction now unwraps
+    `decorated_definition` / `expression_statement` and descends one level into
+    class bodies. Underscore-prefixed members stay private.
+
+- 0c3d8ed: fix: make `harness graph scan` the canonical graph command and deprecate the top-level aliases
+
+  `scan`/`query`/`ingest` are now canonical under the `graph` group
+  (`harness graph scan`, etc.) — the form the post-update hook, fallback hints,
+  and docs already reference. All user-facing hints now point at
+  `harness graph scan`.
+
+  The bare top-level `harness scan`/`query`/`ingest` commands are retained as
+  hidden, deprecated aliases: they still run (so existing scripts, CI jobs, and
+  muscle memory keep working) but print a one-line deprecation notice to stderr
+  directing users to the `harness graph <op>` form. They will be removed in the
+  next major. No command is removed in this release, so the change is
+  non-breaking.
+
+- 3fbe4fe: fix(assess): honor `tooling.linter` in the lint check (#702)
+
+  The `assess_project` lint check hardcoded `npx turbo run lint --force`, so every
+  non-npm project (Python, Go, Rust) got a spurious lint failure (`healthy: false`)
+  regardless of its configured linter — breaking the health gate and
+  `harness-release-readiness`.
+
+  The lint check now resolves its command from `harness.config.json`
+  `tooling.linter`: `ruff` → `ruff check .`, `golangci-lint` → `golangci-lint run`,
+  `clippy` → `cargo clippy`. npm/typescript, unconfigured, and unknown-linter
+  projects fall back to `turbo run lint`. The config is read as raw JSON because
+  `HarnessConfigSchema` declares `tooling` only under `template`, so `loadConfig`
+  strips the top-level `tooling` block that `harness init` actually writes.
+
+- Updated dependencies [abcd026]
+- Updated dependencies [52a2410]
+- Updated dependencies [0c3d8ed]
+- Updated dependencies [7abacd5]
+  - @harness-engineering/core@0.32.1
+  - @harness-engineering/dashboard@0.11.1
+  - @harness-engineering/signals@0.2.0
+  - @harness-engineering/orchestrator@0.9.1
+
+## 4.0.2
+
+### Patch Changes
+
+- 8971780: fix(sentinel): make sentinel-pre enforce-only so it no longer taints on the agent's own tool inputs
+
+  sentinel-pre previously ran injection detection and wrote taint on tool INPUTS,
+  contradicting its documented enforce-only role. Legitimate agent activity — commit-bypass
+  flags, base64/git-SHA tokens — tainted the 30-minute session window and then blocked the
+  agent's own git push/commit as "destructive". Detection now lives solely in sentinel-post
+  (which scans untrusted tool OUTPUT, the real prompt-injection vector); sentinel-pre only
+  enforces existing taint. A genuinely tainted session still blocks destructive operations.
+
+## 4.0.1
+
+### Patch Changes
+
+- 6e80e94: fix(cli): `check-perf` now loads the harness config so it resolves configured `entryPoints` on monorepos (previously failed with "Could not resolve entry points"). Also breaks two circular dependencies in the drift catalog and the craft LLM provider by extracting import-free type contracts (internal, no API change).
+
 ## 4.0.0
 
 ### Minor Changes

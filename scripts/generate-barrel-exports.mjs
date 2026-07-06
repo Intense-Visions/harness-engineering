@@ -29,12 +29,12 @@ const HEADER = '// AUTO-GENERATED — do not edit. Run `pnpm run generate-barrel
  * Sub-directory files that are registered as top-level CLI commands.
  * These are exceptions to the "index.ts only" rule for directories.
  * Format: relative path from commands/ → file to scan.
+ *
+ * Note: the legacy top-level `scan`/`query`/`ingest` commands are no longer
+ * promoted here. They are registered explicitly as hidden, deprecated aliases
+ * of `harness graph <op>` in commands/graph/deprecated-aliases.ts (see #644).
  */
-const EXTRA_TOP_LEVEL_COMMANDS = [
-  'graph/scan.ts',
-  'graph/ingest.ts',
-  'graph/query.ts',
-];
+const EXTRA_TOP_LEVEL_COMMANDS = [];
 
 /**
  * Extract createXXXCommand exports from a single file.

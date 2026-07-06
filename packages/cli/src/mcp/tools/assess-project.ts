@@ -1,7 +1,54 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { bigIntSafeReplacer } from '../utils/result-adapter.js';
 
 type CheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'security' | 'perf' | 'lint';
+
+/** Command + args pair for spawning the lint runner. */
+interface LintCommand {
+  command: string;
+  args: string[];
+}
+
+/** npm/turbo fallback used when no non-npm linter is configured. */
+const TURBO_LINT: LintCommand = { command: 'npx', args: ['turbo', 'run', 'lint', '--force'] };
+
+/**
+ * Resolve the lint command for a project by honoring `tooling.linter` from
+ * harness.config.json, instead of always running turbo. Non-npm linters map to
+ * their native check invocations (mirroring `stepsForLanguage` in
+ * `commands/ci/init.ts`); npm/turbo projects, unconfigured projects, and linters
+ * without a standalone runner fall back to `turbo run lint`.
+ *
+ * The raw config JSON is read directly because `HarnessConfigSchema` declares
+ * `tooling` only under `template`, so `loadConfig` strips the top-level
+ * `tooling` block that `harness init` actually writes.
+ */
+export function resolveLintCommand(projectPath: string): LintCommand {
+  let linter: string | undefined;
+  try {
+    const raw = fs.readFileSync(path.join(projectPath, 'harness.config.json'), 'utf-8');
+    const config = JSON.parse(raw) as {
+      tooling?: { linter?: string };
+      template?: { tooling?: { linter?: string } };
+    };
+    linter = config.tooling?.linter ?? config.template?.tooling?.linter;
+  } catch {
+    return TURBO_LINT;
+  }
+
+  switch (linter) {
+    case 'ruff':
+      return { command: 'ruff', args: ['check', '.'] };
+    case 'golangci-lint':
+      return { command: 'golangci-lint', args: ['run'] };
+    case 'clippy':
+      return { command: 'cargo', args: ['clippy'] };
+    default:
+      return TURBO_LINT;
+  }
+}
 
 export const assessProjectDefinition = {
   name: 'assess_project',
@@ -334,7 +381,8 @@ export async function handleAssessProject(input: {
       (async (): Promise<CheckResult> => {
         try {
           const { execFileSync } = await import('child_process');
-          const output = execFileSync('npx', ['turbo', 'run', 'lint', '--force'], {
+          const { command, args } = resolveLintCommand(projectPath);
+          const output = execFileSync(command, args, {
             cwd: projectPath,
             encoding: 'utf-8',
             timeout: 60_000,

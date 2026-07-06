@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { gatherSignals, type SignalsResult } from '../gather/signals';
+import { gatherSignals, type SignalsResult } from '@harness-engineering/signals';
 import type { ApiResponse } from '../../shared/types';
 import type { ServerContext } from '../context';
 
