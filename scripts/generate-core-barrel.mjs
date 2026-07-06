@@ -85,6 +85,7 @@ const SELECTIVE_EXPORTS = {
       comment: 'Adoption telemetry module for tracking and aggregating skill invocations.',
       lines: [
         "export {\n  readAdoptionRecords,\n  aggregateBySkill,\n  topSkills,\n  aggregateByDay as aggregateAdoptionByDay,\n  type DailyAdoption,\n} from './adoption';",
+        "export {\n  getCatalogRetrospectiveReport,\n  renderRetrospectiveMarkdown,\n  isAbandonedMidWorkflow,\n  type RetrospectiveOptions,\n  type RetrospectiveReport,\n  type RetrospectiveCoverage,\n  type SkillRetroStat,\n} from './adoption';",
       ],
     },
   ],

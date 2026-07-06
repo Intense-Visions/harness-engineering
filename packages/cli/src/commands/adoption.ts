@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import type { SkillAdoptionSummary } from '@harness-engineering/types';
 import { logger } from '../output/logger';
@@ -204,6 +206,78 @@ function registerSkillCommand(adoption: Command): void {
     });
 }
 
+/**
+ * Discovers catalog skill names for coverage context by scanning
+ * `agents/skills/claude-code/` under the project root. Returns undefined
+ * when that directory is absent (e.g. a consumer project), so the
+ * retrospective simply omits coverage rather than reporting a false zero.
+ */
+function discoverCatalogSkills(projectRoot: string): string[] | undefined {
+  const skillsDir = path.join(projectRoot, 'agents', 'skills', 'claude-code');
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  const names = entries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .filter((name) => fs.existsSync(path.join(skillsDir, name, 'skill.yaml')));
+  return names.length > 0 ? names : undefined;
+}
+
+function registerRetrospectiveCommand(adoption: Command): void {
+  adoption
+    .command('retrospective')
+    .description('Generate a catalog retrospective from adoption telemetry')
+    .option('--inactive-days <n>', 'Inactivity threshold in days (default: 90)', '90')
+    .option('--top <n>', 'Rows per ranked section (default: 10)', '10')
+    .option('--out <path>', 'Output file path (default: docs/retrospectives/<date>.md)')
+    .option('--no-write', 'Print the report to stdout instead of writing a file')
+    .action(async (opts, cmd) => {
+      const globalOpts = cmd.optsWithGlobals();
+      const cwd = process.cwd();
+
+      const { readAdoptionRecords, getCatalogRetrospectiveReport, renderRetrospectiveMarkdown } =
+        await import('@harness-engineering/core');
+      const records = readAdoptionRecords(cwd);
+      const catalogSkills = discoverCatalogSkills(cwd);
+
+      const report = getCatalogRetrospectiveReport(records, {
+        inactiveDays: Math.max(parseInt(opts.inactiveDays, 10) || 90, 1),
+        topN: Math.max(parseInt(opts.top, 10) || 10, 1),
+        ...(catalogSkills ? { catalogSkills } : {}),
+      });
+
+      if (globalOpts.json) {
+        console.log(JSON.stringify(report, null, 2));
+        return;
+      }
+
+      const markdown = renderRetrospectiveMarkdown(report);
+
+      // --no-write sets opts.write === false (commander negation semantics).
+      if (opts.write === false) {
+        console.log(markdown);
+        return;
+      }
+
+      const date = report.generatedAt.slice(0, 10);
+      const outPath = opts.out
+        ? path.resolve(cwd, opts.out)
+        : path.join(cwd, 'docs', 'retrospectives', `${date}.md`);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, markdown, 'utf-8');
+
+      const relPath = path.relative(cwd, outPath).replaceAll('\\', '/');
+      logger.info(`Catalog retrospective written to ${relPath}`);
+      logger.info(
+        `${report.totalRecords} records · ${report.distinctSkills} skills · window ${report.windowDays}d`
+      );
+    });
+}
+
 export function createAdoptionCommand(): Command {
   const adoption = new Command('adoption')
     .description('View skill adoption telemetry')
@@ -212,6 +286,7 @@ export function createAdoptionCommand(): Command {
   registerSkillsCommand(adoption);
   registerRecentCommand(adoption);
   registerSkillCommand(adoption);
+  registerRetrospectiveCommand(adoption);
 
   return adoption;
 }

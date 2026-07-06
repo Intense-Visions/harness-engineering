@@ -176,6 +176,15 @@ export {
   aggregateByDay as aggregateAdoptionByDay,
   type DailyAdoption,
 } from './adoption';
+export {
+  getCatalogRetrospectiveReport,
+  renderRetrospectiveMarkdown,
+  isAbandonedMidWorkflow,
+  type RetrospectiveOptions,
+  type RetrospectiveReport,
+  type RetrospectiveCoverage,
+  type SkillRetroStat,
+} from './adoption';
 
 /**
  * Compaction module for reducing MCP tool response token consumption.

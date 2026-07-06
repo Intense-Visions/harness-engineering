@@ -1,0 +1,48 @@
+name: harness-catalog-retrospective
+version: '1.0.0'
+description: Monthly retrospective over skill-adoption telemetry — ranks most-invoked, failing, and abandoned-mid-workflow skills, flags stale ones, and reports catalog telemetry coverage
+stability: static
+cognitive_mode: analytical-reporter
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-catalog-retrospective
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: inactive-days
+      description: 'Inactivity threshold in days for the stale-skills section (default: 90)'
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-catalog-retrospective
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: scan
+    description: Read adoption telemetry and derive the retrospective report
+    required: true
+  - name: interpret
+    description: Read the rankings and coverage, separating real signal from telemetry gaps
+    required: true
+  - name: report
+    description: Write the dated report and surface highlights plus recommendations
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

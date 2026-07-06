@@ -607,6 +607,17 @@ Show recent skill invocations
 
 - `--limit` — Number of invocations to show (default: 20) (default: "20")
 
+### `harness adoption retrospective`
+
+Generate a catalog retrospective from adoption telemetry
+
+**Options:**
+
+- `--inactive-days` — Inactivity threshold in days (default: 90) (default: "90")
+- `--top` — Rows per ranked section (default: 10) (default: "10")
+- `--out` — Output file path (default: docs/retrospectives/<date>.md)
+- `--no-write` — Print the report to stdout instead of writing a file
+
 ### `harness adoption skill <name>`
 
 Show detail for a specific skill
