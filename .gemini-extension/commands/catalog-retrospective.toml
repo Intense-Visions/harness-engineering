@@ -98,6 +98,38 @@ Read the report with these discriminations:
 | "n=1 abandonment is noise, ignore it."                                                 | A workflow skill users start and bail out of mid-way is a UX signal even at low n. Surface it; let the human weigh it.                                              |
 | "I'll prune the low-usage skills while I'm here."                                      | This skill reports; it does not prune. Pruning is a human/catalog-rationalization decision.                                                                         |
 
+## Examples
+
+### Example: Monthly retrospective on the dogfood repo
+
+**Context:** ~67 days of telemetry (3.2k records) across 50 invoked skills, run at month end.
+
+**Phase 1 — SCAN:**
+
+```bash
+harness adoption retrospective
+# → Catalog retrospective written to docs/retrospectives/2026-07-06.md
+#   3246 records · 50 skills · window 67d
+```
+
+**Phase 2 — INTERPRET:** The report's overview leads with `Telemetry coverage: 5/761 catalog skills have emitted telemetry (756 never invoked)`. Top-invoked is dominated by `cli/*` commands; `cli/ci.check` shows a 97% failure rate; the abandoned-mid-workflow section lists four workflow skills at n=1; the stale section is empty with the note that the 67-day window is shorter than the 90-day threshold.
+
+**Phase 3 — REPORT:**
+
+```
+Retrospective written to docs/retrospectives/2026-07-06.md. Findings that warrant action:
+
+1. Coverage is the headline: only 5/761 catalog skills emit any telemetry. The rankings
+   describe the instrumented slice, not the catalog. Top follow-up is instrumentation, not pruning.
+2. `cli/ci.check` failed 97% (721/741) — but it is a gate; non-zero on a real violation is
+   expected. Not flagged as a defect.
+3. `cli/review-ci` failed 23/23 (100%) — defect-shaped, worth a look. Routed to debugging.
+4. Four workflow skills were abandoned mid-run (n=1 each) — low volume, a UX signal to watch.
+5. Stale skills: none — the 67-day window can't satisfy the 90-day threshold yet.
+```
+
+No skills were pruned or edited — the pruning decision is left to the human.
+
 ## Gates
 
 - **No mutation of `adoption.jsonl`.** The telemetry file is read-only input.
