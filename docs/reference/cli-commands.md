@@ -615,7 +615,7 @@ Generate a catalog retrospective from adoption telemetry
 
 - `--inactive-days` — Inactivity threshold in days (default: 90) (default: "90")
 - `--top` — Rows per ranked section (default: 10) (default: "10")
-- `--out` — Output file path (default: docs/retrospectives/<date>.md)
+- `--out` — Output file path (default: docs/retrospectives/YYYY-MM-DD.md)
 - `--no-write` — Print the report to stdout instead of writing a file
 
 ### `harness adoption skill <name>`

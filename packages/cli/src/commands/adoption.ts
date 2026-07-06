@@ -233,7 +233,7 @@ function registerRetrospectiveCommand(adoption: Command): void {
     .description('Generate a catalog retrospective from adoption telemetry')
     .option('--inactive-days <n>', 'Inactivity threshold in days (default: 90)', '90')
     .option('--top <n>', 'Rows per ranked section (default: 10)', '10')
-    .option('--out <path>', 'Output file path (default: docs/retrospectives/<date>.md)')
+    .option('--out <path>', 'Output file path (default: docs/retrospectives/YYYY-MM-DD.md)')
     .option('--no-write', 'Print the report to stdout instead of writing a file')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
