@@ -46,27 +46,50 @@ type PlanParallelizationToolInput = {
   minWaveSize?: number;
 };
 
+/** MCP error result carrying human-readable validation messages. */
+function validationError(messages: readonly string[]) {
+  return {
+    content: [{ type: 'text' as const, text: `Validation failed: ${messages.join('; ')}` }],
+    isError: true,
+  };
+}
+
 export async function handlePlanParallelization(input: PlanParallelizationToolInput) {
   try {
     const projectPath = sanitizePath(input.path);
-    const store = await loadGraphStore(projectPath);
 
+    const { PlanTaskSchema } = await import('@harness-engineering/types');
+    const { planParallelization, validatePlanTasks } = await import('@harness-engineering/core');
+
+    // Trust boundary: parse the incoming tasks through the strict schema, then
+    // run validatePlanTasks. Hard errors (unknown dependsOn id, dependency
+    // cycle) are surfaced as an MCP error rather than silently dropping
+    // orphaned edges or returning a cyclic plan with isError:false.
+    const parsed = PlanTaskSchema.array().safeParse(input.tasks);
+    if (!parsed.success) {
+      return validationError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
+    }
+    const tasks = parsed.data;
+
+    const { errors } = validatePlanTasks(tasks);
+    if (errors.length > 0) return validationError(errors);
+
+    const store = await loadGraphStore(projectPath);
     const { ConflictPredictor } = await import('@harness-engineering/graph');
-    const { planParallelization } = await import('@harness-engineering/core');
 
     const predictor = new ConflictPredictor(store ?? undefined);
     const conflicts = predictor.predict({
-      tasks: input.tasks.map((t) => ({ id: t.id, files: t.files })),
+      tasks: tasks.map((t) => ({ id: t.id, files: t.files })),
       ...(input.depth !== undefined && { depth: input.depth }),
     });
 
     const plan = planParallelization({
-      tasks: input.tasks,
+      tasks,
       conflicts,
       ...(input.minWaveSize !== undefined && { minWaveSize: input.minWaveSize }),
     });
 
-    return { content: [{ type: 'text' as const, text: JSON.stringify(plan) }] };
+    return { content: [{ type: 'text' as const, text: JSON.stringify(plan) }], isError: false };
   } catch (error) {
     return {
       content: [
