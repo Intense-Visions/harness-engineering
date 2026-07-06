@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTaskGraph, validatePlanTasks } from '../../src/parallelization/plan';
+import { buildTaskGraph, deriveFiring, validatePlanTasks } from '../../src/parallelization/plan';
 
 describe('buildTaskGraph()', () => {
   it('carries explicit dependsOn edges through', () => {
@@ -69,5 +69,23 @@ describe('validatePlanTasks()', () => {
     ]);
     expect(errors).toHaveLength(0);
     expect(warnings).toHaveLength(0);
+  });
+});
+
+describe('deriveFiring()', () => {
+  it('serializes a wave with a high-severity member', () => {
+    expect(deriveFiring('high', 5, 3, 'graph-expanded')).toBe('serialize');
+  });
+  it('serializes a wave smaller than minWaveSize', () => {
+    expect(deriveFiring('none', 2, 3, 'graph-expanded')).toBe('serialize');
+  });
+  it('confirms a medium-severity wave at/above minWaveSize', () => {
+    expect(deriveFiring('medium', 3, 3, 'graph-expanded')).toBe('confirm');
+  });
+  it('confirms when analysis is file-only even with no conflicts', () => {
+    expect(deriveFiring('none', 3, 3, 'file-only')).toBe('confirm');
+  });
+  it('auto-dispatches a clean, large-enough, graph-expanded wave', () => {
+    expect(deriveFiring('none', 3, 3, 'graph-expanded')).toBe('auto-dispatch');
   });
 });

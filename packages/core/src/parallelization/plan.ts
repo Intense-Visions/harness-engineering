@@ -135,3 +135,47 @@ export function validatePlanTasks(tasks: readonly PlanTask[]): PlanTaskValidatio
 
   return { errors, warnings };
 }
+
+const SEVERITY_RANK: Record<WaveSeverity, number> = { none: 0, low: 1, medium: 2, high: 3 };
+
+/** Highest conflict severity among the given task ids, from the conflict result. */
+export function waveSeverity(
+  taskIds: readonly string[],
+  conflicts: ConflictPrediction
+): WaveSeverity {
+  const set = new Set(taskIds);
+  let max: WaveSeverity = 'none';
+  for (const c of conflicts.conflicts) {
+    if (!set.has(c.taskA) || !set.has(c.taskB)) continue;
+    if (SEVERITY_RANK[c.severity] > SEVERITY_RANK[max]) max = c.severity;
+  }
+  return max;
+}
+
+/**
+ * Basic Phase-1 firing derivation:
+ *   high severity                          -> serialize
+ *   wave smaller than minWaveSize          -> serialize
+ *   medium severity OR file-only analysis  -> confirm
+ *   otherwise                              -> auto-dispatch
+ */
+export function deriveFiring(
+  severity: WaveSeverity,
+  waveSize: number,
+  minWaveSize: number,
+  analysisLevel: 'graph-expanded' | 'file-only'
+): FiringDecision {
+  if (severity === 'high') return 'serialize';
+  if (waveSize < minWaveSize) return 'serialize';
+  if (severity === 'medium' || analysisLevel === 'file-only') return 'confirm';
+  return 'auto-dispatch';
+}
+
+/** Basic Phase-1 narration; Phase 2 enriches wording. */
+export function narrate(waves: readonly ParallelizationWave[], cyclic: readonly string[]): string {
+  const parts = waves.map(
+    (w, i) => `Wave ${i + 1}: [${w.tasks.join(', ')}] (${w.firing}, ${w.severity})`
+  );
+  if (cyclic.length > 0) parts.push(`Cyclic (blocked): [${cyclic.join(', ')}]`);
+  return `${waves.length} wave(s). ${parts.join('; ')}`;
+}
