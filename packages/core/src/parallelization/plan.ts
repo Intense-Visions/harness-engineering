@@ -17,10 +17,17 @@ export interface ParallelizationWave {
 }
 
 export interface ParallelizationPlan {
+  /**
+   * Auto/confirm-dispatch waves. Flattened `waves`, `serialized`, and `cyclic`
+   * are mutually disjoint: a task appears in exactly one channel.
+   */
   waves: ParallelizationWave[];
-  /** Tasks forced serial (high-severity group members / cycle members). */
+  /**
+   * Tasks forced serial (high-severity group members / cycle members). These
+   * are removed from `waves` — never dispatched in parallel.
+   */
   serialized: string[];
-  /** Dependency cycles (blocking). */
+  /** Dependency cycles (blocking). Disjoint from `waves` and `serialized`. */
   cyclic: string[];
   /** Human-readable DAG summary for announce-and-proceed. */
   narration: string;
@@ -199,6 +206,9 @@ function highRiskGroupMembers(conflicts: ConflictPrediction): string[] {
  *
  * Cycles are surfaced via `cyclic` (and folded into `serialized`); this
  * function does not throw. Use `validatePlanTasks` for hard-error reporting.
+ *
+ * Guarantees the dispatch channels are mutually disjoint: flattened `waves`,
+ * `serialized`, and `cyclic` never share a task id.
  */
 export function planParallelization(input: PlanParallelizationInput): ParallelizationPlan {
   const { tasks, conflicts } = input;
@@ -207,20 +217,28 @@ export function planParallelization(input: PlanParallelizationInput): Paralleliz
   const nodes = buildTaskGraph(tasks);
   const { waves: rawWaves, cyclic } = findParallelGroups(nodes);
 
-  const waves: ParallelizationWave[] = rawWaves.map((taskIds) => {
-    const severity = waveSeverity(taskIds, conflicts);
-    return {
-      tasks: taskIds,
-      severity,
-      firing: deriveFiring(severity, taskIds.length, minWaveSize, conflicts.analysisLevel),
-      analysisLevel: conflicts.analysisLevel,
-    };
-  });
-
   // serialized = members of high-severity groups (size > 1) ∪ cyclic members
   const serializedSet = new Set<string>(cyclic);
   for (const id of highRiskGroupMembers(conflicts)) serializedSet.add(id);
   const serialized = [...serializedSet].sort();
+
+  // Invariant: waves (flattened), `serialized`, and `cyclic` are MUTUALLY
+  // DISJOINT dispatch channels. Any task forced serial or in a cycle is
+  // removed from its wave; waves emptied by that removal are dropped. (Cyclic
+  // members are already absent from rawWaves, but excluding them keeps the
+  // invariant explicit and robust to changes in findParallelGroups.)
+  const waves: ParallelizationWave[] = rawWaves
+    .map((taskIds) => taskIds.filter((id) => !serializedSet.has(id)))
+    .filter((taskIds) => taskIds.length > 0)
+    .map((taskIds) => {
+      const severity = waveSeverity(taskIds, conflicts);
+      return {
+        tasks: taskIds,
+        severity,
+        firing: deriveFiring(severity, taskIds.length, minWaveSize, conflicts.analysisLevel),
+        analysisLevel: conflicts.analysisLevel,
+      };
+    });
 
   return { waves, serialized, cyclic, narration: narrate(waves, cyclic) };
 }

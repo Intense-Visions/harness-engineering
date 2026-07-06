@@ -174,4 +174,39 @@ describe('planParallelization()', () => {
     const plan = planParallelization({ tasks, conflicts });
     expect(plan.serialized).toEqual(expect.arrayContaining(['a', 'b']));
   });
+
+  it('keeps waves, serialized, and cyclic mutually disjoint (Truth #6)', () => {
+    // a,b share a file (implicit edge a->b) AND have a high-severity conflict
+    // so both are forced serial. c,d,e are independent and clean.
+    const tasks = [
+      { id: 'a', files: ['shared.ts'] },
+      { id: 'b', files: ['shared.ts'] },
+      { id: 'c', files: ['c.ts'] },
+      { id: 'd', files: ['d.ts'] },
+      { id: 'e', files: ['e.ts'] },
+    ];
+    const conflicts: ConflictPrediction = {
+      ...noConflicts(['a', 'b', 'c', 'd', 'e']),
+      conflicts: [
+        { taskA: 'a', taskB: 'b', severity: 'high', reason: '', mitigation: '', overlaps: [] },
+      ],
+      groups: [['a', 'b'], ['c'], ['d'], ['e']],
+      summary: { high: 1, medium: 0, low: 0, regrouped: true },
+    };
+    const plan = planParallelization({ tasks, conflicts });
+
+    const waveMembers = plan.waves.flatMap((w) => w.tasks);
+    const serializedSet = new Set(plan.serialized);
+    const cyclicSet = new Set(plan.cyclic);
+
+    // No task may appear in both a wave and serialized...
+    for (const id of waveMembers) expect(serializedSet.has(id)).toBe(false);
+    // ...nor in both a wave and cyclic.
+    for (const id of waveMembers) expect(cyclicSet.has(id)).toBe(false);
+    // The forced-serial pair is present exactly in serialized.
+    expect(plan.serialized).toEqual(['a', 'b']);
+    // Deterministic, sorted output preserved.
+    expect(waveMembers).toEqual([...waveMembers].sort());
+    expect(plan.serialized).toEqual([...plan.serialized].sort());
+  });
 });
