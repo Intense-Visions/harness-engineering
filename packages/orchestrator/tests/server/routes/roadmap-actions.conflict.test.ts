@@ -13,6 +13,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import type { AddressInfo } from 'node:net';
 
 // Hoist the conflict error fixture so the mock factory can reference it.
 const { fakeConflictError, fakeCreate } = vi.hoisted(() => {
@@ -115,9 +116,11 @@ describe('handleRoadmapActionsRoute — Phase 7 D-P7-A conflict path (S6)', () =
       '---\nlastManualEdit: 2026-01-01T00:00:00.000Z\n---\n\n# Roadmap\n\n## Milestone 1\n',
       'utf-8'
     );
-    port = Math.floor(Math.random() * 10000) + 41000;
     server = createServer(roadmapPath);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free ephemeral port (avoids
+    // EADDRINUSE races with sibling route tests under parallel runs).
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    port = (server.address() as AddressInfo).port;
   });
 
   afterEach(async () => {

@@ -3,6 +3,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import type { AddressInfo } from 'node:net';
 import { handleRoadmapActionsRoute } from '../../../src/server/routes/roadmap-actions';
 
 function createServer(roadmapPath: string | null): http.Server {
@@ -66,9 +67,12 @@ describe('handleRoadmapActionsRoute — Phase 4 file-less dispatch (S6)', () => 
       '---\nlastManualEdit: 2026-01-01T00:00:00.000Z\n---\n\n# Roadmap\n\n## Milestone 1\n',
       'utf-8'
     );
-    port = Math.floor(Math.random() * 10000) + 41000;
     server = createServer(roadmapPath);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free ephemeral port. Guessing a
+    // random port raced sibling route tests (same range) and flaked EADDRINUSE
+    // under parallel runs.
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    port = (server.address() as AddressInfo).port;
   });
 
   afterEach(async () => {

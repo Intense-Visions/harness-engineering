@@ -10,6 +10,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { AddressInfo } from 'node:net';
 import { handleRoadmapActionsRoute } from '../../../src/server/routes/roadmap-actions';
 
 function createServer(roadmapPath: string | null): http.Server {
@@ -77,9 +78,11 @@ describe('handleRoadmapActionsRoute — file-based append (S6)', () => {
     await fs.mkdir(docsDir, { recursive: true });
     roadmapPath = path.join(docsDir, 'roadmap.md');
     await fs.writeFile(roadmapPath, ROADMAP, 'utf-8');
-    port = Math.floor(Math.random() * 10000) + 42000;
     server = createServer(roadmapPath);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind to port 0 so the OS assigns a free ephemeral port (avoids
+    // EADDRINUSE races with sibling route tests under parallel runs).
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    port = (server.address() as AddressInfo).port;
   });
 
   afterEach(async () => {
@@ -110,8 +113,8 @@ describe('handleRoadmapActionsRoute — file-based append (S6)', () => {
 
   it('returns 503 when the roadmap path is not configured', async () => {
     const nullServer = createServer(null);
-    const nullPort = Math.floor(Math.random() * 10000) + 43000;
-    await new Promise<void>((r) => nullServer.listen(nullPort, '127.0.0.1', r));
+    await new Promise<void>((r) => nullServer.listen(0, '127.0.0.1', r));
+    const nullPort = (nullServer.address() as AddressInfo).port;
     const res = await request(nullPort, 'POST', '/api/roadmap/append', { title: 'X' });
     nullServer.close();
     expect(res.statusCode).toBe(503);
