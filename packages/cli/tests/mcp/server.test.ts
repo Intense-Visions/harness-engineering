@@ -11,9 +11,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 92 tools', () => {
+  it('registers all 93 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(92);
+    expect(tools).toHaveLength(93);
   });
 
   it('registers all 9 resources', () => {

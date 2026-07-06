@@ -99,6 +99,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'ask_graph',
   'check_task_independence',
   'predict_conflicts',
+  'plan_parallelization',
   'detect_stale_constraints',
   'search_skills',
   'code_outline',

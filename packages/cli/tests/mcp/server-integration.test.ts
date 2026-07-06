@@ -95,7 +95,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('acceptance_eval');
     expect(names).toContain('canary_probe');
     expect(names).toContain('canary_recommend_framework');
-    expect(tools).toHaveLength(92);
+    // standardize-parallel-execution Phase 1 — parallelization planner tool
+    expect(names).toContain('plan_parallelization');
+    expect(tools).toHaveLength(93);
   });
 
   it('all tool definitions have inputSchema', () => {

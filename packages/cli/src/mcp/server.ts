@@ -133,6 +133,10 @@ import {
 } from './tools/task-independence.js';
 import { predictConflictsDefinition, handlePredictConflicts } from './tools/conflict-prediction.js';
 import {
+  planParallelizationDefinition,
+  handlePlanParallelization,
+} from './tools/parallelization.js';
+import {
   detectStaleConstraintsDefinition,
   handleDetectStaleConstraints,
 } from './tools/stale-constraints.js';
@@ -289,6 +293,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   askGraphDefinition,
   checkTaskIndependenceDefinition,
   predictConflictsDefinition,
+  planParallelizationDefinition,
   detectStaleConstraintsDefinition,
   searchSkillsDefinition,
   codeOutlineDefinition,
@@ -383,6 +388,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ask_graph: handleAskGraph as ToolHandler,
   check_task_independence: handleCheckTaskIndependence as ToolHandler,
   predict_conflicts: handlePredictConflicts as ToolHandler,
+  plan_parallelization: handlePlanParallelization as ToolHandler,
   detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
   search_skills: handleSearchSkills as ToolHandler,
   code_outline: handleCodeOutline as ToolHandler,

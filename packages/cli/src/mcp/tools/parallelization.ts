@@ -39,12 +39,12 @@ export const planParallelizationDefinition = {
   },
 };
 
-interface PlanParallelizationToolInput {
+type PlanParallelizationToolInput = {
   path: string;
   tasks: Array<{ id: string; files: string[]; dependsOn?: string[]; owns?: string[] }>;
   depth?: number;
   minWaveSize?: number;
-}
+};
 
 export async function handlePlanParallelization(input: PlanParallelizationToolInput) {
   try {
