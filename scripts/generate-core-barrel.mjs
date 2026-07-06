@@ -98,6 +98,17 @@ const SELECTIVE_EXPORTS = {
       ],
     },
   ],
+
+  parallelization: [
+    {
+      comment:
+        'Parallelization planner — builds a task DAG and wave-groups it into a ParallelizationPlan.',
+      lines: [
+        "export { planParallelization, validatePlanTasks, buildTaskGraph } from './parallelization/plan';",
+        "export type {\n  ParallelizationPlan,\n  ParallelizationWave,\n  PlanParallelizationInput,\n  PlanTaskValidation,\n  FiringDecision,\n  WaveSeverity,\n} from './parallelization/plan';",
+      ],
+    },
+  ],
 };
 
 /** Directories that don't have their own index.ts and are handled via SELECTIVE_EXPORTS. */

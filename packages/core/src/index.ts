@@ -233,6 +233,19 @@ export * from './locks';
 export * from './notifications';
 
 /**
+ * Parallelization planner — builds a task DAG and wave-groups it into a ParallelizationPlan.
+ */
+export { planParallelization, validatePlanTasks, buildTaskGraph } from './parallelization/plan';
+export type {
+  ParallelizationPlan,
+  ParallelizationWave,
+  PlanParallelizationInput,
+  PlanTaskValidation,
+  FiringDecision,
+  WaveSeverity,
+} from './parallelization/plan';
+
+/**
  * Proposals module.
  */
 export * from './proposals';
