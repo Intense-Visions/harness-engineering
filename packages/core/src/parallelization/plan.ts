@@ -179,3 +179,49 @@ export function narrate(waves: readonly ParallelizationWave[], cyclic: readonly 
   if (cyclic.length > 0) parts.push(`Cyclic (blocked): [${cyclic.join(', ')}]`);
   return `${waves.length} wave(s). ${parts.join('; ')}`;
 }
+
+const DEFAULT_MIN_WAVE_SIZE = 3;
+
+/** Members of conflict groups larger than one task (i.e. flagged to co-serialize). */
+function highRiskGroupMembers(conflicts: ConflictPrediction): string[] {
+  const members: string[] = [];
+  for (const group of conflicts.groups) {
+    if (group.length > 1) members.push(...group);
+  }
+  return members;
+}
+
+/**
+ * Plan safe parallel execution for a set of plan tasks.
+ *
+ * Steps: build the task DAG (explicit dependsOn unioned with file/owns
+ * overlap) -> wave-group via findParallelGroups -> annotate each wave with
+ * highest conflict severity + a firing decision -> emit ParallelizationPlan.
+ *
+ * Cycles are surfaced via `cyclic` (and folded into `serialized`); this
+ * function does not throw. Use `validatePlanTasks` for hard-error reporting.
+ */
+export function planParallelization(input: PlanParallelizationInput): ParallelizationPlan {
+  const { tasks, conflicts } = input;
+  const minWaveSize = input.minWaveSize ?? DEFAULT_MIN_WAVE_SIZE;
+
+  const nodes = buildTaskGraph(tasks);
+  const { waves: rawWaves, cyclic } = findParallelGroups(nodes);
+
+  const waves: ParallelizationWave[] = rawWaves.map((taskIds) => {
+    const severity = waveSeverity(taskIds, conflicts);
+    return {
+      tasks: taskIds,
+      severity,
+      firing: deriveFiring(severity, taskIds.length, minWaveSize, conflicts.analysisLevel),
+      analysisLevel: conflicts.analysisLevel,
+    };
+  });
+
+  // serialized = members of high-severity groups (size > 1) ∪ cyclic members
+  const serializedSet = new Set<string>(cyclic);
+  for (const id of highRiskGroupMembers(conflicts)) serializedSet.add(id);
+  const serialized = [...serializedSet].sort();
+
+  return { waves, serialized, cyclic, narration: narrate(waves, cyclic) };
+}
