@@ -301,6 +301,10 @@ export type {
   LocalModelsConfig,
 } from './local-models';
 
+// --- Plan task (parallel execution data model) ---
+export { PlanTaskSchema } from './plan-task';
+export type { PlanTask } from './plan-task';
+
 // --- Skill Proposals (Hermes Phase 4) ---
 export {
   SkillProvenanceSchema,
