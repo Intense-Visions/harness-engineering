@@ -1,5 +1,49 @@
 # @harness-engineering/dashboard
 
+## 0.11.1
+
+### Patch Changes
+
+- 0c3d8ed: fix: make `harness graph scan` the canonical graph command and deprecate the top-level aliases
+
+  `scan`/`query`/`ingest` are now canonical under the `graph` group
+  (`harness graph scan`, etc.) — the form the post-update hook, fallback hints,
+  and docs already reference. All user-facing hints now point at
+  `harness graph scan`.
+
+  The bare top-level `harness scan`/`query`/`ingest` commands are retained as
+  hidden, deprecated aliases: they still run (so existing scripts, CI jobs, and
+  muscle memory keep working) but print a one-line deprecation notice to stderr
+  directing users to the `harness graph <op>` form. They will be removed in the
+  next major. No command is removed in this release, so the change is
+  non-breaking.
+
+- 7abacd5: feat: senior-engineer pre-merge accountability brief (#569)
+
+  Adds a senior-facing "you are pushing X; here's what to look at" surface on PRs.
+  - **New package `@harness-engineering/signals`** — the curated repo-health signal
+    computation (`gatherSignals`, `signalRegistry`) extracted from the dashboard into
+    a shared leaf so any consumer can gather signals fresh without routing through the
+    dashboard app. The dashboard now consumes it (internal rewire, behavior unchanged).
+  - **New `harness pre-merge-brief` command** — composes the diff summary, the
+    `review-ci --json` verdict, a curated Signal-status snapshot, the outcome-eval
+    result, and a derived "👀 Worth your eyes" section into a single sticky PR comment
+    (upsert by marker). Each input degrades independently to an "unavailable" line;
+    never re-runs the review.
+  - **New `harness:pre-merge-brief` skill** (tier 2, `on_pr` + `manual`) wrapping the
+    command, plus dogfood wiring in `required-review.yml` (non-blocking).
+
+  The acknowledgment merge gate and the adopter CI template are deferred to tracked
+  follow-ups. See ADRs 0054 (composer-not-extension) and 0055 (signals shared leaf).
+
+- Updated dependencies [abcd026]
+- Updated dependencies [52a2410]
+- Updated dependencies [0c3d8ed]
+- Updated dependencies [7abacd5]
+  - @harness-engineering/core@0.32.1
+  - @harness-engineering/signals@0.2.0
+  - @harness-engineering/orchestrator@0.9.1
+
 ## 0.11.0
 
 ### Minor Changes
