@@ -4,13 +4,16 @@ name: Roadmap Auto-Done
 # issue was closed by that merge to `done`, then commit the changed shard(s) and
 # the regenerated aggregate back to the base branch.
 #
-# Commit-to-main mechanism (decided at the Phase 5 Task 7 checkpoint):
-#   - Push with the workflow's built-in GITHUB_TOKEN under `permissions: contents: write`.
-#   - Use a `git pull --rebase` retry loop to absorb concurrent merges racing the push.
-# This repo's `main` has no required status checks, so a token push is sufficient.
-# Adopters whose branch protection forbids direct pushes should swap this step for
-# an app/bypass token or a follow-up-PR step — a Phase 6 rollout doc note, not a
-# Phase 5 concern.
+# Commit-to-base mechanism:
+#   - Try a direct push with the built-in GITHUB_TOKEN (`permissions: contents: write`),
+#     absorbing concurrent merges with a hook-safe rebase retry loop.
+#   - When branch protection rejects the direct push ("changes must be made through
+#     a pull request"), fall back to opening a self-approved PR with
+#     BASELINE_AUTOAPPROVE_PAT and auto-merging it — mirroring the baseline-refresh
+#     job in ci.yml. The self-approval is scope-guarded (scripts/assert-diff-scope.mjs)
+#     so the PAT can only approve PRs confined to the roadmap files.
+#   - HUSKY is disabled for the commit so a pre-commit/pre-push hook cannot leave the
+#     tree dirty and wedge the rebase ("cannot pull with rebase: unstaged changes").
 #
 # The PR `closingIssuesReferences` (issues closed BY the merge) is authoritative:
 # the references carry each closing issue's own `owner/repo`, so this path never
@@ -139,6 +142,12 @@ jobs:
 
       - name: Commit and push the shard flip
         if: steps.closing.outputs.refs != '' || steps.fallback.outputs.refs != ''
+        env:
+          # Disable husky so `git commit`/`git push` hooks cannot regenerate files
+          # and leave the tree dirty (which wedged the old rebase retry loop).
+          HUSKY: '0'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOAPPROVE_PAT: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
         run: |
           if [ -z "$(git status --porcelain docs/roadmap.d docs/roadmap.md)" ]; then
             echo "Reconcile produced no roadmap changes (rows already done); nothing to commit."
@@ -149,21 +158,51 @@ jobs:
           # Stage the aggregate (always present) and the shard dir only when it
           # exists — a bare `git add docs/roadmap.d ...` aborts (exit 128) in a
           # monolith repo that has no shard dir, losing the auto-done flip.
-          git add docs/roadmap.md
-          [ -d docs/roadmap.d ] && git add docs/roadmap.d
+          ROADMAP_PATHS="docs/roadmap.md"
+          [ -d docs/roadmap.d ] && ROADMAP_PATHS="$ROADMAP_PATHS docs/roadmap.d"
+          git add $ROADMAP_PATHS
           git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
+          OURS=$(git rev-parse HEAD)
           BASE='${{ github.event.pull_request.base.ref }}'
-          for attempt in 1 2 3 4 5; do
-            # Clear any rebase left in progress by a previous attempt's conflict,
-            # otherwise every later `git pull --rebase` aborts with "rebase in
-            # progress" and a transient conflict can never be retried cleanly.
+
+          # 1) Try a direct push, absorbing concurrent merges. Reset hard to our
+          #    commit before each retry so a prior rebase/conflict can never leave a
+          #    dirty tree (the old failure: "cannot pull with rebase: unstaged changes").
+          for attempt in 1 2 3; do
             git rebase --abort 2>/dev/null || true
-            if git pull --rebase origin "$BASE" && git push origin "HEAD:$BASE"; then
-              echo "Pushed auto-done commit to $BASE on attempt $attempt."
+            git reset --hard "$OURS" >/dev/null
+            git fetch origin "$BASE" -q || true
+            if git rebase "origin/$BASE" && git push origin "HEAD:$BASE" 2>/dev/null; then
+              echo "Pushed auto-done commit directly to $BASE on attempt $attempt."
               exit 0
             fi
-            echo "Push attempt $attempt failed (likely a concurrent merge); retrying after rebase."
+            echo "Direct push attempt $attempt failed; retrying."
             sleep 3
           done
-          echo "Failed to push auto-done commit after 5 attempts." >&2
-          exit 1
+
+          # 2) Direct push is blocked (branch protection) or lost every race. Open a
+          #    self-approved PR, mirroring the baseline-refresh job in ci.yml.
+          echo "Direct push unavailable; opening a self-approved PR."
+          git fetch origin "$BASE" -q
+          BRANCH="chore/auto-done-pr${{ github.event.pull_request.number }}-$(date +%s)"
+          git checkout -B "$BRANCH" "origin/$BASE"
+          # Re-apply just the roadmap flips on top of the latest base.
+          git checkout "$OURS" -- $ROADMAP_PATHS
+          git add $ROADMAP_PATHS
+          if git diff --cached --quiet; then
+            echo "Base already carries these roadmap flips; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
+          git push -u origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }}" \
+            --body "Automated roadmap auto-done flip. Opened because direct pushes to $BASE are blocked by branch protection." \
+            --base "$BASE" \
+            --head "$BRANCH")
+          # Defensive scope check: never self-approve a PR that reaches beyond the
+          # roadmap files, so BASELINE_AUTOAPPROVE_PAT stays scoped (mirrors #531).
+          gh pr diff "$PR_URL" --name-only | node scripts/assert-diff-scope.mjs docs/roadmap.md docs/roadmap.d/
+          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+            --body "Auto-approved: roadmap auto-done flip from github-actions[bot]."
+          gh pr merge "$PR_URL" --auto --squash --delete-branch

@@ -9,7 +9,9 @@
 //
 // The allowlist is an EXACT path set, not a glob: two of the files are bare
 // `baselines.json` (`.harness/arch/…`, `packages/cli/.harness/arch/…`), which a
-// `*-baselines.json` pattern would wrongly exclude.
+// `*-baselines.json` pattern would wrongly exclude. This is the exact-match case
+// of the shared `assertDiffScope` guard.
+import { assertDiffScope } from './diff-scope-guard.mjs';
 
 /**
  * @param {string[]} changedFiles paths from `gh pr diff --name-only`
@@ -19,9 +21,6 @@
  *   An empty diff is treated as NOT ok — a phantom/empty diff must never auto-approve.
  */
 export function assertBaselineOnly(changedFiles, allowlist) {
-  const changed = changedFiles.map((f) => f.trim()).filter(Boolean);
-  const allow = new Set(allowlist.map((f) => f.trim()).filter(Boolean));
-  const offending = changed.filter((f) => !allow.has(f));
-  const ok = changed.length > 0 && offending.length === 0;
-  return { ok, offending, changed };
+  // Baseline paths never end in `/`, so this is pure exact matching.
+  return assertDiffScope(changedFiles, allowlist);
 }
