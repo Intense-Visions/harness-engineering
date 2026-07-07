@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { runRefreshTick, type RefreshTickDeps } from '../../src/scheduler/refresh.js';
+import {
+  runRefreshTick,
+  RefreshScheduler,
+  MIN_INTERVAL_MS,
+  type RefreshTickDeps,
+  type TickResult,
+} from '../../src/scheduler/refresh.js';
 import { PoolManager } from '../../src/pool/manager.js';
 import { PoolStateStore, type PoolFilesystem } from '../../src/pool/state.js';
 import type { PoolState } from '../../src/pool/types.js';
@@ -162,5 +168,172 @@ describe('runRefreshTick (reconcile → rank → diff → emit)', () => {
     const result = await runRefreshTick(deps);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors.some((e) => /persist boom/.test(e))).toBe(true);
+  });
+});
+
+function makeLogger(): {
+  logger: { info: (m: string, c?: Record<string, unknown>) => void; warn: () => void };
+  infos: Array<[string, Record<string, unknown> | undefined]>;
+} {
+  const infos: Array<[string, Record<string, unknown> | undefined]> = [];
+  return {
+    infos,
+    logger: {
+      info: (m, c) => infos.push([m, c]),
+      warn: () => {},
+    },
+  };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+function emptyTick(): TickResult {
+  return { candidatesEvaluated: 0, proposalsEmitted: 0, reconciledRemoved: [], errors: [] };
+}
+
+const noopTimer = { setTimer: () => ({ unref() {} }), clearTimer: () => {} };
+
+describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
+  it('overlap guard: a second fire while a tick is in flight shares the in-flight promise', async () => {
+    const d = deferred<TickResult>();
+    let runs = 0;
+    const scheduler = new RefreshScheduler({
+      runTick: () => {
+        runs++;
+        return d.promise;
+      },
+      intervalMs: MIN_INTERVAL_MS,
+      jitterMs: 0,
+      logger: makeLogger().logger,
+      ...noopTimer,
+      now: () => 0,
+      random: () => 0.5,
+    });
+
+    const p1 = scheduler.forceRefresh();
+    const p2 = scheduler.forceRefresh();
+    expect(runs).toBe(1); // second fire suppressed (probeInFlight parity)
+
+    const tr: TickResult = {
+      candidatesEvaluated: 3,
+      proposalsEmitted: 1,
+      reconciledRemoved: [],
+      errors: [],
+    };
+    d.resolve(tr);
+    expect(await p1).toBe(tr);
+    expect(await p2).toBe(tr);
+  });
+
+  it('logs one structured O1 line per completed tick', async () => {
+    const { logger, infos } = makeLogger();
+    let t = 0;
+    const scheduler = new RefreshScheduler({
+      runTick: async () => ({
+        candidatesEvaluated: 5,
+        proposalsEmitted: 2,
+        reconciledRemoved: ['x'],
+        errors: [],
+      }),
+      intervalMs: MIN_INTERVAL_MS,
+      jitterMs: 0,
+      logger,
+      ...noopTimer,
+      now: () => {
+        t += 10;
+        return t;
+      },
+      random: () => 0.5,
+    });
+
+    await scheduler.forceRefresh();
+
+    expect(infos).toHaveLength(1);
+    const ctx = infos[0]![1]!;
+    for (const k of [
+      'tick',
+      'started',
+      'completed',
+      'durationMs',
+      'candidatesEvaluated',
+      'proposalsEmitted',
+      'errors',
+    ]) {
+      expect(ctx).toHaveProperty(k);
+    }
+    expect(ctx.candidatesEvaluated).toBe(5);
+    expect(ctx.proposalsEmitted).toBe(2);
+    expect(ctx.durationMs).toBe(10);
+  });
+
+  it('clamps the interval to the 1h floor and applies bounded jitter', () => {
+    const delays: number[] = [];
+    const mk = (random: number): RefreshScheduler =>
+      new RefreshScheduler({
+        runTick: async () => emptyTick(),
+        intervalMs: 1000, // below the 1h floor
+        jitterMs: 600_000,
+        logger: makeLogger().logger,
+        setTimer: (_cb, delay) => {
+          delays.push(delay);
+          return { unref() {} };
+        },
+        clearTimer: () => {},
+        now: () => 0,
+        random: () => random,
+      });
+
+    mk(1).start(); // jitter = +jitterMs
+    mk(0).start(); // jitter = -jitterMs
+    mk(0.5).start(); // jitter = 0
+
+    expect(delays[0]).toBe(MIN_INTERVAL_MS + 600_000);
+    expect(delays[1]).toBe(MIN_INTERVAL_MS - 600_000);
+    expect(delays[2]).toBe(MIN_INTERVAL_MS);
+  });
+
+  it('forceRefresh resolves with the TickResult', async () => {
+    const tr = emptyTick();
+    const scheduler = new RefreshScheduler({
+      runTick: async () => tr,
+      intervalMs: MIN_INTERVAL_MS,
+      jitterMs: 0,
+      logger: makeLogger().logger,
+      ...noopTimer,
+      now: () => 0,
+      random: () => 0.5,
+    });
+    expect(await scheduler.forceRefresh()).toEqual(tr);
+  });
+
+  it('start() is idempotent and stop() clears the timer', () => {
+    let scheduled = 0;
+    let cleared = 0;
+    const scheduler = new RefreshScheduler({
+      runTick: async () => emptyTick(),
+      intervalMs: MIN_INTERVAL_MS,
+      jitterMs: 0,
+      logger: makeLogger().logger,
+      setTimer: () => {
+        scheduled++;
+        return { unref() {} };
+      },
+      clearTimer: () => {
+        cleared++;
+      },
+      now: () => 0,
+      random: () => 0.5,
+    });
+    scheduler.start();
+    scheduler.start(); // idempotent — no second schedule
+    expect(scheduled).toBe(1);
+    scheduler.stop();
+    expect(cleared).toBe(1);
   });
 });

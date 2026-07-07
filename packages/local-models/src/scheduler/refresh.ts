@@ -177,3 +177,155 @@ function tryStageSync<T>(label: string, errors: string[], fn: () => T): T | unde
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/** Hard floor on the refresh interval — a tick never fires more than hourly. */
+export const MIN_INTERVAL_MS = 3_600_000;
+
+/** Opaque timer handle. The default seam returns a Node `Timeout`; tests fake it. */
+export interface SchedulerTimerHandle {
+  unref?: () => void;
+}
+
+/** Minimal structured logger the scheduler needs. */
+export interface SchedulerLogger {
+  info(message: string, context?: Record<string, unknown>): void;
+  warn(message: string, context?: unknown): void;
+}
+
+/** Constructor options for {@link RefreshScheduler}. */
+export interface RefreshSchedulerOptions {
+  /** The tick body — `runRefreshTick` bound to the orchestrator's deps. */
+  runTick: () => Promise<TickResult>;
+  /** Base interval in ms. Clamped up to {@link MIN_INTERVAL_MS}. */
+  intervalMs: number;
+  /** Symmetric jitter in ms applied to each scheduled delay (`±jitterMs`). */
+  jitterMs: number;
+  /** Structured logger for the O1 tick line. */
+  logger: SchedulerLogger;
+  /** Timer seam. Defaults to `setTimeout`. */
+  setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+  /** Timer-clear seam. Defaults to `clearTimeout`. */
+  clearTimer?: (handle: SchedulerTimerHandle) => void;
+  /** Monotonic clock in ms. Defaults to `Date.now`. */
+  now?: () => number;
+  /** Uniform `[0, 1)` source for jitter. Defaults to `Math.random`. */
+  random?: () => number;
+}
+
+/**
+ * Single per-instance interval timer that drives {@link runRefreshTick} on a
+ * jittered cadence with an overlap guard.
+ *
+ * The overlap guard mirrors `LocalModelResolver.probeInFlight`: a timer fire or
+ * `forceRefresh()` while a tick is already running shares the in-flight promise
+ * instead of starting a second, torn-state tick. Each completed tick emits one
+ * structured O1 `info` line. The interval is clamped up to {@link MIN_INTERVAL_MS}
+ * and jittered by `±jitterMs` so a fleet of instances does not stampede the HF
+ * API in lockstep.
+ *
+ * @see docs/changes/local-model-lifecycle-manager/proposal.md (Phase 6; O1)
+ */
+export class RefreshScheduler {
+  private readonly runTick: () => Promise<TickResult>;
+  private readonly intervalMs: number;
+  private readonly jitterMs: number;
+  private readonly logger: SchedulerLogger;
+  private readonly setTimer: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+  private readonly clearTimer: (handle: SchedulerTimerHandle) => void;
+  private readonly now: () => number;
+  private readonly random: () => number;
+
+  /** Overlap guard — the currently-running tick, shared by concurrent fires. */
+  private tickInFlight: Promise<TickResult> | null = null;
+  private handle: SchedulerTimerHandle | null = null;
+  private stopped = false;
+  private tickCounter = 0;
+
+  constructor(options: RefreshSchedulerOptions) {
+    this.runTick = options.runTick;
+    this.intervalMs = options.intervalMs;
+    this.jitterMs = options.jitterMs;
+    this.logger = options.logger;
+    this.setTimer =
+      options.setTimer ??
+      ((cb, delayMs) => setTimeout(cb, delayMs) as unknown as SchedulerTimerHandle);
+    this.clearTimer =
+      options.clearTimer ??
+      ((handle) => clearTimeout(handle as unknown as ReturnType<typeof setTimeout>));
+    this.now = options.now ?? (() => Date.now());
+    this.random = options.random ?? (() => Math.random());
+  }
+
+  /** Idempotently arm the interval. The first tick fires after the first jittered delay. */
+  start(): void {
+    if (this.handle !== null) return;
+    this.stopped = false;
+    this.scheduleNext();
+  }
+
+  /** Disarm the interval. Any in-flight tick still resolves; no further ticks are scheduled. */
+  stop(): void {
+    this.stopped = true;
+    if (this.handle !== null) {
+      this.clearTimer(this.handle);
+      this.handle = null;
+    }
+  }
+
+  /** Run a tick now (force-refresh path), respecting the overlap guard. */
+  forceRefresh(): Promise<TickResult> {
+    return this.runGuarded();
+  }
+
+  private scheduleNext(): void {
+    if (this.stopped) return;
+    const delay = this.nextDelay();
+    this.handle = this.setTimer(() => {
+      this.handle = null;
+      void this.runGuarded().finally(() => this.scheduleNext());
+    }, delay);
+    this.handle.unref?.();
+  }
+
+  private nextDelay(): number {
+    const base = Math.max(MIN_INTERVAL_MS, this.intervalMs);
+    return base + Math.round((this.random() * 2 - 1) * this.jitterMs);
+  }
+
+  private runGuarded(): Promise<TickResult> {
+    if (this.tickInFlight !== null) return this.tickInFlight;
+    const started = this.now();
+    const tick = ++this.tickCounter;
+    const inFlight = this.runTick()
+      .catch(
+        (err): TickResult => ({
+          candidatesEvaluated: 0,
+          proposalsEmitted: 0,
+          reconciledRemoved: [],
+          errors: [messageOf(err)],
+        })
+      )
+      .then((result) => {
+        this.logTick(tick, started, result);
+        return result;
+      })
+      .finally(() => {
+        this.tickInFlight = null;
+      });
+    this.tickInFlight = inFlight;
+    return inFlight;
+  }
+
+  private logTick(tick: number, started: number, result: TickResult): void {
+    const completed = this.now();
+    this.logger.info('local-models refresh tick', {
+      tick,
+      started,
+      completed,
+      durationMs: completed - started,
+      candidatesEvaluated: result.candidatesEvaluated,
+      proposalsEmitted: result.proposalsEmitted,
+      errors: result.errors,
+    });
+  }
+}
