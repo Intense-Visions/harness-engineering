@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import type { ConflictPrediction } from '@harness-engineering/graph';
 import {
   buildTaskGraph,
+  classifyFiring,
   deriveFiring,
   planParallelization,
   validatePlanTasks,
 } from '../../src/parallelization/plan';
+import type { FiringDecision, WaveSeverity } from '../../src/parallelization/plan';
 
 const noConflicts = (tasks: string[]): ConflictPrediction => ({
   tasks,
@@ -121,6 +123,43 @@ describe('deriveFiring()', () => {
   });
   it('auto-dispatches a clean, large-enough, graph-expanded wave', () => {
     expect(deriveFiring('none', 3, 3, 'graph-expanded')).toBe('auto-dispatch');
+  });
+});
+
+describe('classifyFiring() truth table', () => {
+  const MIN = 3;
+  const big = MIN; // wave size at/above minWaveSize so the size gate does not mask severity
+
+  // Every (severity × analysisLevel) combination at a large-enough wave.
+  const cases: Array<[WaveSeverity, 'graph-expanded' | 'file-only', FiringDecision]> = [
+    ['none', 'graph-expanded', 'auto-dispatch'],
+    ['none', 'file-only', 'confirm'],
+    ['low', 'graph-expanded', 'auto-dispatch'],
+    ['low', 'file-only', 'confirm'],
+    ['medium', 'graph-expanded', 'confirm'],
+    ['medium', 'file-only', 'confirm'],
+    ['high', 'graph-expanded', 'serialize'],
+    ['high', 'file-only', 'serialize'],
+  ];
+
+  it.each(cases)('%s severity + %s analysis => %s', (severity, analysisLevel, expected) => {
+    const { firing, reason } = classifyFiring(severity, big, MIN, analysisLevel);
+    expect(firing).toBe(expected);
+    expect(reason.length).toBeGreaterThan(0);
+  });
+
+  it('serializes any non-high severity below minWaveSize (size gate)', () => {
+    for (const sev of ['none', 'low', 'medium'] as WaveSeverity[]) {
+      expect(classifyFiring(sev, MIN - 1, MIN, 'graph-expanded').firing).toBe('serialize');
+    }
+  });
+
+  it('reason names the deciding factor', () => {
+    expect(classifyFiring('high', big, MIN, 'graph-expanded').reason).toMatch(/high-severity/i);
+    expect(classifyFiring('none', 1, MIN, 'graph-expanded').reason).toMatch(/wave size/i);
+    expect(classifyFiring('medium', big, MIN, 'graph-expanded').reason).toMatch(/medium-severity/i);
+    expect(classifyFiring('none', big, MIN, 'file-only').reason).toMatch(/file-only/i);
+    expect(classifyFiring('none', big, MIN, 'graph-expanded').reason).toMatch(/graph-expanded/i);
   });
 });
 

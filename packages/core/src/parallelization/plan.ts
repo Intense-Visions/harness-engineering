@@ -158,12 +158,67 @@ export function waveSeverity(
   return max;
 }
 
+/** A firing decision paired with its standardized, deterministic rationale. */
+export interface FiringRationale {
+  firing: FiringDecision;
+  /** Human-readable "why" phrase consumed by narrate(). Never empty. */
+  reason: string;
+}
+
 /**
- * Basic Phase-1 firing derivation:
- *   high severity                          -> serialize
- *   wave smaller than minWaveSize          -> serialize
- *   medium severity OR file-only analysis  -> confirm
- *   otherwise                              -> auto-dispatch
+ * Full risk-tiered firing policy (Decision 2), keyed off BOTH conflict
+ * severity and analysisLevel. Returns the decision AND a standardized
+ * rationale phrase. Decision order matches the Phase-1 deriveFiring so
+ * existing behavior is preserved and now locked by the truth table.
+ *
+ *   high severity              -> serialize (sequential)
+ *   waveSize < minWaveSize      -> serialize (too few to parallelize)
+ *   medium severity            -> confirm  (one confirmation)
+ *   analysisLevel 'file-only'  -> confirm  (transitive conflicts unknown)
+ *   none/low + graph-expanded  -> auto-dispatch
+ */
+export function classifyFiring(
+  severity: WaveSeverity,
+  waveSize: number,
+  minWaveSize: number,
+  analysisLevel: 'graph-expanded' | 'file-only'
+): FiringRationale {
+  if (severity === 'high') {
+    return {
+      firing: 'serialize',
+      reason: 'high-severity conflicts predicted — running these tasks sequentially',
+    };
+  }
+  if (waveSize < minWaveSize) {
+    return {
+      firing: 'serialize',
+      reason: `only ${waveSize} independent task(s), below minimum wave size ${minWaveSize} — running serially`,
+    };
+  }
+  if (severity === 'medium') {
+    return {
+      firing: 'confirm',
+      reason: 'medium-severity conflicts predicted — one confirmation before dispatch',
+    };
+  }
+  if (analysisLevel === 'file-only') {
+    return {
+      firing: 'confirm',
+      reason:
+        'graph unavailable (file-only analysis) — transitive conflicts unknown, one confirmation before dispatch',
+    };
+  }
+  return {
+    firing: 'auto-dispatch',
+    reason: `${waveSize} independent tasks, ${
+      severity === 'none' ? 'no' : severity
+    } conflict severity, graph-expanded analysis — dispatching in parallel`,
+  };
+}
+
+/**
+ * Firing decision only — thin wrapper preserving the Phase-1 signature.
+ * Delegates to classifyFiring so decision logic lives in exactly one place.
  */
 export function deriveFiring(
   severity: WaveSeverity,
@@ -171,10 +226,7 @@ export function deriveFiring(
   minWaveSize: number,
   analysisLevel: 'graph-expanded' | 'file-only'
 ): FiringDecision {
-  if (severity === 'high') return 'serialize';
-  if (waveSize < minWaveSize) return 'serialize';
-  if (severity === 'medium' || analysisLevel === 'file-only') return 'confirm';
-  return 'auto-dispatch';
+  return classifyFiring(severity, waveSize, minWaveSize, analysisLevel).firing;
 }
 
 /** Basic Phase-1 narration; Phase 2 enriches wording. */
