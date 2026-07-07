@@ -73,6 +73,14 @@ export interface InstallPoolRequest {
    * is non-empty; ignored otherwise.
    */
   family?: string;
+  /**
+   * `ollamaName` of the entry this install replaces (a swap). When set, the
+   * pre-commit capacity check credits the replaced entry's on-disk size to the
+   * available budget and excludes it from the eviction plan — the swap handler
+   * removes `replaces` itself, so counting it as still-occupied would
+   * over-evict an unrelated LRU member (P5-SUG-EVICT-b).
+   */
+  replaces?: string;
   /** Initial ranker score for the new pool entry. Defaults to 0. */
   initialScore?: number;
   /** Caller-supplied cancellation signal. */
@@ -264,6 +272,11 @@ export class PoolManager {
    * Capacity check + pre-commit eviction (S5). When the pool already has room
    * the returned `evicted` list is empty. If even the fully-evicted pool can't
    * fit, returns a `budget_exceeded` error reply.
+   *
+   * For a swap (`request.replaces` set), the replaced entry's on-disk size is
+   * credited to the available budget and it is excluded from the eviction plan
+   * — the swap handler removes it separately, so treating it as occupied would
+   * over-evict an unrelated LRU member (P5-SUG-EVICT-b).
    */
   private async precommitEvict(
     request: InstallPoolRequest,
@@ -271,11 +284,12 @@ export class PoolManager {
     state: PoolState
   ): Promise<{ ok: true; evicted: PoolEntry[] } | { ok: false; result: InstallPoolResult }> {
     const evicted: PoolEntry[] = [];
-    const available = state.diskBudgetGb - state.diskUsedGb;
+    const { credit, planState } = this.replacesCredit(request, state);
+    const available = state.diskBudgetGb - state.diskUsedGb + credit;
     if (sizeOnDiskGb <= available) return { ok: true, evicted };
 
     const deficit = sizeOnDiskGb - available;
-    const plan = planEviction({ state, freeBudgetGb: deficit });
+    const plan = planEviction({ state: planState, freeBudgetGb: deficit });
     if (plan.remainingNeededGb > 0) {
       return {
         ok: false,
@@ -292,6 +306,26 @@ export class PoolManager {
       if (failure !== undefined) return { ok: false, result: failure };
     }
     return { ok: true, evicted };
+  }
+
+  /**
+   * Compute the swap credit for a pre-commit capacity check. Returns the
+   * `replaces` entry's on-disk size (0 when there is no swap or the named entry
+   * is absent) and a `planState` with `replaces` excluded so the eviction
+   * planner never targets the entry the swap handler removes itself.
+   */
+  private replacesCredit(
+    request: InstallPoolRequest,
+    state: PoolState
+  ): { credit: number; planState: PoolState } {
+    if (request.replaces === undefined) return { credit: 0, planState: state };
+    const replacesName = request.replaces;
+    const replacesEntry = state.entries.find((e) => e.ollamaName === replacesName);
+    if (replacesEntry === undefined) return { credit: 0, planState: state };
+    return {
+      credit: replacesEntry.sizeOnDiskGb,
+      planState: { ...state, entries: state.entries.filter((e) => e.ollamaName !== replacesName) },
+    };
   }
 
   /**
