@@ -3,7 +3,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { createProposal } from '@harness-engineering/core';
-import { runModelsProposals, runModelsReject, runModelsApprove } from '../../src/commands/models';
+import {
+  runModelsProposals,
+  runModelsReject,
+  runModelsApprove,
+  runModelsRefresh,
+  refreshExitCode,
+} from '../../src/commands/models';
+import { ExitCode } from '../../src/utils/errors';
 
 const ORIG_PROJECT_ROOT = process.env['HARNESS_PROJECT_ROOT'];
 const ORIG_TOKEN = process.env['HARNESS_ADMIN_TOKEN'];
@@ -156,6 +163,70 @@ describe('harness models approve/reject (HTTP round-trip)', () => {
     const result = await runModelsApprove('proposal_model4');
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/HARNESS_ADMIN_TOKEN/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('harness models refresh (O4 exit semantics)', () => {
+  afterEach(() => {
+    if (ORIG_TOKEN !== undefined) process.env['HARNESS_ADMIN_TOKEN'] = ORIG_TOKEN;
+    else delete process.env['HARNESS_ADMIN_TOKEN'];
+    if (ORIG_URL !== undefined) process.env['HARNESS_ORCHESTRATOR_URL'] = ORIG_URL;
+    else delete process.env['HARNESS_ORCHESTRATOR_URL'];
+    vi.restoreAllMocks();
+  });
+
+  it('200 (HF down but snapshot loaded → soft warning) → ok, exit 0', async () => {
+    process.env['HARNESS_ADMIN_TOKEN'] = 'secret-token';
+    process.env['HARNESS_ORCHESTRATOR_URL'] = 'http://127.0.0.1:9999';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ emitted: 1, warnings: ['HuggingFace popularity probe failed'] }),
+          { status: 200 }
+        )
+      );
+
+    const result = await runModelsRefresh();
+
+    expect(result.ok).toBe(true);
+    expect(result.emitted).toBe(1);
+    expect(result.warnings).toEqual(['HuggingFace popularity probe failed']);
+    expect(refreshExitCode(result)).toBe(ExitCode.SUCCESS);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('http://127.0.0.1:9999/api/v1/local-models/refresh');
+    expect((init as RequestInit).method).toBe('POST');
+    expect((init as RequestInit).headers).toMatchObject({ authorization: 'Bearer secret-token' });
+  });
+
+  it('503 (HF unreachable AND no snapshot → hard failure) → not ok, exit non-zero', async () => {
+    process.env['HARNESS_ADMIN_TOKEN'] = 'secret-token';
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: 'refresh hard failure: HuggingFace unreachable and no benchmark snapshot loaded',
+        }),
+        { status: 503 }
+      )
+    );
+
+    const result = await runModelsRefresh();
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(503);
+    expect(result.error).toMatch(/hard failure/);
+    expect(refreshExitCode(result)).toBe(ExitCode.ERROR);
+    expect(refreshExitCode(result)).not.toBe(0);
+  });
+
+  it('fails without HARNESS_ADMIN_TOKEN and does not call fetch', async () => {
+    delete process.env['HARNESS_ADMIN_TOKEN'];
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const result = await runModelsRefresh();
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/HARNESS_ADMIN_TOKEN/);
+    expect(refreshExitCode(result)).toBe(ExitCode.ERROR);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

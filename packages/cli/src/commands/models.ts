@@ -4,9 +4,9 @@
 // a focused primitive that lets operators (and craft skills via the lazy
 // adapter) check what's loaded at a local backend's `/v1/models` endpoint.
 //
-// Future LMLM phases add `status`, `suggest`, `pool {...}`, `proposals`,
-// `approve`, `reject`, `install`, `evict`, `refresh` under this same group.
-// See docs/changes/local-model-lifecycle-manager/proposal.md.
+// Ships `probe`, `proposals`, `approve`, `reject`, and (Phase 6) `refresh`.
+// Future LMLM phases add `status`, `suggest`, `pool {...}`, `install`, `evict`
+// under this same group. See docs/changes/local-model-lifecycle-manager/proposal.md.
 
 import { Command } from 'commander';
 import { resolve } from 'node:path';
@@ -279,11 +279,82 @@ export async function runModelsReject(id: string, reason: string): Promise<Model
   }
 }
 
-export function createModelsCommand(): Command {
-  const cmd = new Command('models').description(
-    'Inspect and manage local LLM backends. Ships `probe` + model-proposal review (proposals/approve/reject).'
-  );
+/** Result of a force-refresh attempt (HTTP round-trip to the orchestrator). */
+export interface ModelsRefreshResult {
+  ok: boolean;
+  status?: number;
+  emitted?: number;
+  warnings?: string[];
+  error?: string;
+  body?: string;
+}
 
+/**
+ * Force a background-scheduler refresh tick via the orchestrator route and
+ * surface the O4 signal. The CLC deliberately reads the O4 hard-failure verdict
+ * from the HTTP status (`503` ⇒ HF unreachable AND no snapshot loaded) rather
+ * than importing the local-models predicate — the dependency-hygiene test
+ * forbids a local-models workspace dep, and the route already owns that mapping.
+ * A `200` (including the HF-down-but-snapshot-loaded soft-warning case) is a
+ * success; only a non-2xx sets a non-zero exit.
+ */
+export async function runModelsRefresh(): Promise<ModelsRefreshResult> {
+  const orchestratorUrl = process.env['HARNESS_ORCHESTRATOR_URL'] ?? 'http://127.0.0.1:4577';
+  const token = process.env['HARNESS_ADMIN_TOKEN'];
+  if (!token) {
+    return {
+      ok: false,
+      error: 'HARNESS_ADMIN_TOKEN is required to trigger a refresh (manage-proposals scope).',
+    };
+  }
+  try {
+    const res = await fetch(`${orchestratorUrl}/api/v1/local-models/refresh`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await res.text();
+    const parsed = safeParseObject(body);
+    const emitted =
+      typeof parsed?.['emitted'] === 'number' ? (parsed['emitted'] as number) : undefined;
+    const warnings = Array.isArray(parsed?.['warnings'])
+      ? (parsed['warnings'] as string[])
+      : undefined;
+    return {
+      ok: res.ok,
+      status: res.status,
+      ...(emitted !== undefined ? { emitted } : {}),
+      ...(warnings !== undefined ? { warnings } : {}),
+      ...(res.ok
+        ? {}
+        : {
+            error:
+              typeof parsed?.['error'] === 'string'
+                ? (parsed['error'] as string)
+                : `HTTP ${res.status}`,
+          }),
+      body,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Best-effort JSON object parse; returns undefined for non-object/invalid bodies. */
+function safeParseObject(body: string): Record<string, unknown> | undefined {
+  try {
+    const v = JSON.parse(body) as unknown;
+    return v !== null && typeof v === 'object' ? (v as Record<string, unknown>) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Map a refresh result to a process exit code (O4: hard failure ⇒ non-zero). */
+export function refreshExitCode(result: ModelsRefreshResult): number {
+  return result.ok ? ExitCode.SUCCESS : ExitCode.ERROR;
+}
+
+function addProbeCommand(cmd: Command): void {
   cmd
     .command('probe')
     .description(
@@ -310,7 +381,9 @@ export function createModelsCommand(): Command {
       }
       process.exit(result.exitCode);
     });
+}
 
+function addProposalsCommand(cmd: Command): void {
   cmd
     .command('proposals')
     .description('List model proposals in the local review queue (defaults to pending).')
@@ -319,7 +392,9 @@ export function createModelsCommand(): Command {
       const rows = await runModelsProposals(options.status ?? 'open');
       console.log(JSON.stringify(rows, null, 2));
     });
+}
 
+function addRejectCommand(cmd: Command): void {
   cmd
     .command('reject <id>')
     .description(
@@ -334,7 +409,9 @@ export function createModelsCommand(): Command {
       }
       console.log(result.body ?? '');
     });
+}
 
+function addApproveCommand(cmd: Command): void {
   cmd
     .command('approve <id>')
     .description(
@@ -348,6 +425,35 @@ export function createModelsCommand(): Command {
       }
       console.log(result.body ?? '');
     });
+}
 
+function addRefreshCommand(cmd: Command): void {
+  cmd
+    .command('refresh')
+    .description(
+      'Force a background-scheduler refresh tick now (emits any model proposals). Exits non-zero on an O4 hard failure (HuggingFace unreachable AND no benchmark snapshot). Requires the orchestrator running + HARNESS_ADMIN_TOKEN.'
+    )
+    .action(async () => {
+      const result = await runModelsRefresh();
+      if (!result.ok) {
+        logger.error(result.error ?? `HTTP ${result.status ?? '?'}: ${result.body ?? ''}`);
+      } else {
+        logger.info(`refresh: emitted ${result.emitted ?? 0} proposal(s)`);
+        for (const w of result.warnings ?? []) logger.warn(`  warning: ${w}`);
+      }
+      // O4: keep output clean — set the exit code rather than throwing.
+      process.exitCode = refreshExitCode(result);
+    });
+}
+
+export function createModelsCommand(): Command {
+  const cmd = new Command('models').description(
+    'Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), and `refresh` (force a scheduler tick).'
+  );
+  addProbeCommand(cmd);
+  addProposalsCommand(cmd);
+  addRejectCommand(cmd);
+  addApproveCommand(cmd);
+  addRefreshCommand(cmd);
   return cmd;
 }
