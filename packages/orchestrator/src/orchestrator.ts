@@ -33,8 +33,12 @@ import { PromptRenderer } from './prompt/renderer';
 // orchestrator no longer constructs backends directly — factory handles
 // dispatch-time materialization.
 import { LocalModelResolver } from './agent/local-model-resolver';
-import { PoolStateStore } from '@harness-engineering/local-models';
-import type { PoolStateProvider } from '@harness-engineering/local-models';
+import {
+  PoolStateStore,
+  PoolManager,
+  OllamaInstallAdapter,
+} from '@harness-engineering/local-models';
+import type { PoolStateProvider, InstallAdapter } from '@harness-engineering/local-models';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
@@ -201,6 +205,16 @@ export class Orchestrator extends EventEmitter {
   /** Phase 4 (D5): pool-state port shared by all local/pi resolvers. Null when LMLM disabled. */
   private poolStateProvider: PoolStateProvider | null = null;
   private poolStateStore: PoolStateStore | null = null;
+  /**
+   * LMLM Phase 6: live model pool + its installer. Constructed only when
+   * `localModels.enabled` and a real `PoolStateStore` exists (not a test
+   * override). Exposed to the server via `getModelPool()`, which retires the
+   * proposals-route 501 stub for `kind: 'model'` approve/reject. Null when LMLM
+   * is disabled. `PoolManager` reads `store.snapshot()` lazily, so constructing
+   * before `store.load()` (in initLocalModelAndPipeline) is safe.
+   */
+  private modelPool: PoolManager | null = null;
+  private modelInstaller: InstallAdapter | null = null;
   /**
    * Spec B Phase 3: skill catalog (name + cognitiveMode) read once at
    * construction from `projectRoot/agents/skills/`. Consulted by
@@ -442,6 +456,9 @@ export class Orchestrator extends EventEmitter {
           this.logger.warn(message, cause !== undefined ? { cause } : undefined),
       });
       this.poolStateProvider = this.poolStateStore;
+      // LMLM Phase 6: construct the live pool over the just-created store so the
+      // server's getModelPool() accessor reaches a real PoolManager.
+      this.initModelPool(this.poolStateStore);
     }
     const backendsMap = this.config.agent.backends ?? {};
     for (const [name, def] of Object.entries(backendsMap)) {
@@ -632,6 +649,9 @@ export class Orchestrator extends EventEmitter {
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
         getLocalModelStatus: () => this.getFirstLocalModelStatus(),
         getLocalModelStatuses: () => this.buildLocalModelStatuses(),
+        // LMLM Phase 6: expose the live pool so kind:'model' approve/reject
+        // reaches PoolManager (retiring the 501). Null when LMLM is disabled.
+        getModelPool: () => this.modelPool,
       });
 
       this.server.setRecorder(this.recorder);
@@ -1927,6 +1947,24 @@ export class Orchestrator extends EventEmitter {
    * before constructing the intelligence pipeline. Subscribes the dashboard
    * broadcast stub to status changes. Called exactly once from start().
    */
+  /**
+   * LMLM Phase 6: construct the live `PoolManager` (Ollama installer + the
+   * loaded pool-state store) and stash it for `getModelPool()`. Defensive
+   * config fallbacks: `ollamaEndpoint → http://localhost:11434`. The pool reads
+   * `store.snapshot()` lazily, so this runs safely at construction time before
+   * `store.load()`.
+   */
+  private initModelPool(store: PoolStateStore): void {
+    const onWarn = (message: string, cause?: unknown): void =>
+      this.logger.warn(message, cause !== undefined ? { cause } : undefined);
+    const installerCfg = this.config.localModels?.installer;
+    this.modelInstaller = new OllamaInstallAdapter({
+      baseUrl: installerCfg?.ollamaEndpoint ?? 'http://localhost:11434',
+      onWarn,
+    });
+    this.modelPool = new PoolManager({ store, installer: this.modelInstaller, onWarn });
+  }
+
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localResolvers.size > 0) {
       // Spec 2 Phase 5 (SC39): subscribe each resolver independently. Each
