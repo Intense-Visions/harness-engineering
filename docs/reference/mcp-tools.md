@@ -612,6 +612,17 @@ Post-execution LLM-judgment: did the implementation actually satisfy its spec? R
 - `model` (string, optional) — Optional model override for the outcome-eval LLM call
 - `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
 
+### `plan_parallelization`
+
+Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dependsOn plus file/owns overlap, wave-groups it, annotates each wave with conflict severity and a firing decision, and returns a ParallelizationPlan (waves, serialized, cyclic, narration).
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `tasks` (array, required) — Plan tasks. Each has id, files, and optional dependsOn/owns.
+- `depth` (number, optional) — Conflict expansion depth (0=file-only, 1=default)
+- `minWaveSize` (number, optional) — Minimum independent tasks in a wave to justify parallel dispatch. Default 3.
+
 ### `read_strategy`
 
 Read and parse STRATEGY.md at the project root. Returns { present, valid, doc?, error? } where doc is the parsed StrategyDoc when present and valid. Combines validate_strategy + parseStrategyDoc + asStrategyDoc in one call.
