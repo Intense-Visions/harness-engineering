@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.0
+
+### Minor Changes
+
+- fc0220f: feat(adoption): add `harness:catalog-retrospective` skill and `harness adoption retrospective` command. Reads `.harness/metrics/adoption.jsonl` and reports top-invoked, top-failing, and abandoned-mid-workflow skills, flags ever-invoked stale skills, and surfaces catalog telemetry coverage, writing a dated report to `docs/retrospectives/<date>.md`. Core adds `getCatalogRetrospectiveReport` / `renderRetrospectiveMarkdown` / `isAbandonedMidWorkflow`.
+- 3d772e9: Standardize parallel execution as an automatic part of the build loop. Adds a `PlanTask.dependsOn` schema (`@harness-engineering/types`), a `planParallelization` planner in `@harness-engineering/core` that composes the existing `findParallelGroups` wave-grouper and `predict_conflicts` into a `ParallelizationPlan` (dependency-DAG waves with risk-tiered firing — `auto-dispatch`/`confirm`/`serialize` — a cross-bucket ordering cap, and deterministic narration), and a `plan_parallelization` MCP tool (`@harness-engineering/cli`). The autopilot/execution/planning/parallel-agents skills now consume it to dispatch sound parallel waves without being asked, announce-and-proceed for clean waves and pausing only for genuinely uncertain ones. See ADRs 0056 (risk-tiered non-blocking dispatch) and 0057 (dependsOn plan-task schema).
+
+### Patch Changes
+
+- Updated dependencies [3d772e9]
+  - @harness-engineering/types@0.17.0
+  - @harness-engineering/graph@0.11.3
+
 ## 0.32.1
 
 ### Patch Changes
