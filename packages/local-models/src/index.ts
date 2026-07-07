@@ -25,4 +25,5 @@ export * from './hardware/index.js';
 export * from './huggingface/index.js';
 export * from './installer/index.js';
 export * from './pool/index.js';
+export * from './proposals/index.js';
 export * from './ranker/index.js';
