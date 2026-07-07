@@ -157,6 +157,16 @@ When multiple agents must work simultaneously on different milestones:
 
 This keeps the merge surface small: instead of N tasks creating N(N-1)/2 potential conflicts, you have M milestones (where M << N) with well-scoped boundaries.
 
+### Automatic dispatch uses this pattern
+
+This worktree-per-unit model is what the harness dispatches **automatically** during
+parallel execution. When `harness-autopilot` (EXECUTE) / `harness-execution` call the
+`plan_parallelization` MCP tool and a wave is cleared for `auto-dispatch`, each task in the
+wave runs in its own worktree per this guide, with sequential commits and squash-merge at
+integration. The firing policy that decides _whether_ a wave auto-dispatches is **ADR 0056**
+(`docs/knowledge/decisions/0056-risk-tiered-non-blocking-dispatch.md`); AGENTS.md
+("Parallel execution is standard") is the overview.
+
 ---
 
 ## Connection to Harness Engineering Principles
@@ -167,4 +177,4 @@ This keeps the merge surface small: instead of N tasks creating N(N-1)/2 potenti
 
 ---
 
-_Last Updated: 2026-03-16_
+_Last Updated: 2026-07-07_
