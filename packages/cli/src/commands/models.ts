@@ -11,12 +11,7 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import { defaultFetchModels } from '@harness-engineering/orchestrator';
-import {
-  listProposals,
-  updateProposal,
-  type ListProposalsOptions,
-  type Proposal,
-} from '@harness-engineering/core';
+import { listProposals, type ListProposalsOptions, type Proposal } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
@@ -187,12 +182,13 @@ function formatProbe(result: ProbeResult): string {
 
 // ── Model-proposal subcommands (Phase 5b) ──────────────────────────────────
 //
-// These consume the file-backed proposal store via @harness-engineering/core
-// (`listProposals` / `updateProposal`) and, for approve, the orchestrator's
-// kind-aware HTTP route. The CLI deliberately takes NO @harness-engineering/
-// local-models workspace dep — the model *content* schema lives in
-// @harness-engineering/types (re-exported through core), and pool/installer
-// wiring stays server-side.
+// `proposals` reads the file-backed store via @harness-engineering/core
+// (`listProposals`); `approve` and `reject` both go through the orchestrator's
+// kind-aware HTTP route so they share its terminal-state guard + bus events
+// (rather than writing the store directly). The CLI deliberately takes NO
+// local-models workspace dep (the dependency-hygiene test enforces this) — the
+// model *content* schema lives in @harness-engineering/types (re-exported
+// through core), and pool/installer wiring stays server-side.
 
 function projectRoot(): string {
   return resolve(process.env['HARNESS_PROJECT_ROOT'] ?? process.cwd());
@@ -222,29 +218,19 @@ export async function runModelsProposals(
   return proposals.map(summarizeModelProposal);
 }
 
-/** Reject a model proposal, recording the decision so the diff engine (F7) suppresses it. */
-export async function runModelsReject(id: string, reason: string): Promise<Proposal> {
-  const decision = {
-    decidedAt: new Date().toISOString(),
-    decidedBy: process.env['USER'] ?? 'cli',
-    action: 'rejected' as const,
-    reason,
-  };
-  // Cast: core's patch type intersects skill+model statuses; 'rejected' is
-  // common to both, but the decision object narrows to the shared shape.
-  return updateProposal(projectRoot(), id, { status: 'rejected', decision });
-}
-
-/** Result of an approve attempt (HTTP round-trip to the orchestrator). */
-export interface ModelsApproveResult {
+/** Result of an approve/reject attempt (HTTP round-trip to the orchestrator). */
+export interface ModelsMutationResult {
   ok: boolean;
   status?: number;
   body?: string;
   error?: string;
 }
 
+/** @deprecated Use {@link ModelsMutationResult}. Retained for call-site compat. */
+export type ModelsApproveResult = ModelsMutationResult;
+
 /** Approve a model proposal via the orchestrator's kind-aware approve route. */
-export async function runModelsApprove(id: string): Promise<ModelsApproveResult> {
+export async function runModelsApprove(id: string): Promise<ModelsMutationResult> {
   const orchestratorUrl = process.env['HARNESS_ORCHESTRATOR_URL'] ?? 'http://127.0.0.1:4577';
   const token = process.env['HARNESS_ADMIN_TOKEN'];
   if (!token) {
@@ -257,6 +243,35 @@ export async function runModelsApprove(id: string): Promise<ModelsApproveResult>
     const res = await fetch(`${orchestratorUrl}/api/v1/proposals/${id}/approve`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
+    });
+    return { ok: res.ok, status: res.status, body: await res.text() };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Reject a model proposal via the orchestrator's kind-aware reject route —
+ * symmetric with {@link runModelsApprove}. Routing through HTTP (rather than
+ * writing the store directly) means the CLI inherits the route's terminal-state
+ * guard (409 on an already approved/rejected/failed proposal, so decision
+ * history and the F7 rejected-pair signal cannot be corrupted) and the
+ * `local-models:proposal` bus event, which direct store writes bypassed.
+ */
+export async function runModelsReject(id: string, reason: string): Promise<ModelsMutationResult> {
+  const orchestratorUrl = process.env['HARNESS_ORCHESTRATOR_URL'] ?? 'http://127.0.0.1:4577';
+  const token = process.env['HARNESS_ADMIN_TOKEN'];
+  if (!token) {
+    return {
+      ok: false,
+      error: 'HARNESS_ADMIN_TOKEN is required to reject proposals (manage-proposals scope).',
+    };
+  }
+  try {
+    const res = await fetch(`${orchestratorUrl}/api/v1/proposals/${id}/reject`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
     });
     return { ok: res.ok, status: res.status, body: await res.text() };
   } catch (err) {
@@ -307,16 +322,17 @@ export function createModelsCommand(): Command {
 
   cmd
     .command('reject <id>')
-    .description('Reject a model proposal with a one-line reason (records the decision).')
+    .description(
+      'Reject a model proposal with a one-line reason (records the decision + fires the bus event). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.'
+    )
     .requiredOption('--reason <text>', 'Why the proposal is being rejected')
     .action(async (id: string, options: { reason: string }) => {
-      try {
-        const updated = await runModelsReject(id, options.reason);
-        console.log(JSON.stringify(summarizeModelProposal(updated), null, 2));
-      } catch (err) {
-        logger.error(err instanceof Error ? err.message : String(err));
+      const result = await runModelsReject(id, options.reason);
+      if (!result.ok) {
+        logger.error(result.error ?? `HTTP ${result.status ?? '?'}: ${result.body ?? ''}`);
         process.exit(ExitCode.ERROR);
       }
+      console.log(result.body ?? '');
     });
 
   cmd

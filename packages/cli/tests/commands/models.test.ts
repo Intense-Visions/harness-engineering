@@ -50,7 +50,7 @@ function writeModelProposal(dir: string, id: string): void {
   fs.writeFileSync(path.join(pdir, `${id}.json`), JSON.stringify(record, null, 2));
 }
 
-describe('harness models proposals/reject (disk-backed)', () => {
+describe('harness models proposals (disk-backed)', () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -78,23 +78,59 @@ describe('harness models proposals/reject (disk-backed)', () => {
       replaces: 'qwen2.5:32b',
     });
   });
-
-  it('reject records a rejected decision (F7 feeder) and transitions status', async () => {
-    writeModelProposal(tmpDir, 'proposal_model2');
-    const updated = await runModelsReject('proposal_model2', 'operator prefers current');
-    expect(updated.status).toBe('rejected');
-    expect(updated.decision?.action).toBe('rejected');
-    expect(updated.decision?.reason).toBe('operator prefers current');
-  });
 });
 
-describe('harness models approve (HTTP round-trip)', () => {
+describe('harness models approve/reject (HTTP round-trip)', () => {
   afterEach(() => {
     if (ORIG_TOKEN !== undefined) process.env['HARNESS_ADMIN_TOKEN'] = ORIG_TOKEN;
     else delete process.env['HARNESS_ADMIN_TOKEN'];
     if (ORIG_URL !== undefined) process.env['HARNESS_ORCHESTRATOR_URL'] = ORIG_URL;
     else delete process.env['HARNESS_ORCHESTRATOR_URL'];
     vi.restoreAllMocks();
+  });
+
+  it('reject POSTs to the kind-aware reject route with reason + bearer token', async () => {
+    process.env['HARNESS_ADMIN_TOKEN'] = 'secret-token';
+    process.env['HARNESS_ORCHESTRATOR_URL'] = 'http://127.0.0.1:9999';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{"status":"rejected"}', { status: 200 }));
+
+    const result = await runModelsReject('proposal_modelR', 'operator prefers current');
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('http://127.0.0.1:9999/api/v1/proposals/proposal_modelR/reject');
+    expect((init as RequestInit).method).toBe('POST');
+    expect((init as RequestInit).headers).toMatchObject({ authorization: 'Bearer secret-token' });
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      reason: 'operator prefers current',
+    });
+  });
+
+  it('reject surfaces the route 409 (terminal-state guard) instead of writing the store', async () => {
+    process.env['HARNESS_ADMIN_TOKEN'] = 'secret-token';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response('{"error":"proposal already approved; cannot reject"}', { status: 409 })
+      );
+
+    const result = await runModelsReject('proposal_already', 'too late');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(409);
+  });
+
+  it('reject fails without HARNESS_ADMIN_TOKEN and does not call fetch', async () => {
+    delete process.env['HARNESS_ADMIN_TOKEN'];
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const result = await runModelsReject('proposal_notoken', 'no reason');
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/HARNESS_ADMIN_TOKEN/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('POSTs to the kind-aware approve route with a bearer token', async () => {
