@@ -5,9 +5,16 @@ import { Socket } from 'node:net';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { createProposal } from '@harness-engineering/core';
+import { createProposal, getProposal } from '@harness-engineering/core';
+import type {
+  EvictPoolResult,
+  InstallPoolResult,
+  PoolEntry,
+  PoolState,
+} from '@harness-engineering/local-models';
 import { handleV1ProposalsRoute } from './proposals';
 import { runGate } from '../../../proposals/gate';
+import type { ModelPoolOps } from '../../../proposals/model-handlers';
 
 function makeReqRes(
   method: string,
@@ -179,6 +186,127 @@ describe('POST /api/v1/proposals/:id/reject', () => {
     handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus });
     await settle();
     expect(sent().status).toBe(400);
+  });
+});
+
+const POOLED: PoolEntry = {
+  ollamaName: 'qwen2.5:32b',
+  hfRepoId: 'Qwen/Qwen2.5-32B-GGUF',
+  sizeOnDiskGb: 20,
+  installedAt: '2026-01-01T00:00:00.000Z',
+  lastUsedAt: null,
+  currentScore: 71,
+};
+
+function writeModelProposal(dir: string, id: string): void {
+  const record = {
+    kind: 'model',
+    id,
+    createdAt: '2026-07-07T00:00:00.000Z',
+    proposedBy: 'orchestrator:lmlm',
+    status: 'open',
+    source: { justification: 'A newer model beats the current pool member by a wide margin.' },
+    model: {
+      action: 'swap',
+      target: { hfRepoId: 'Qwen/Qwen3-32B-GGUF', ollamaName: 'qwen3:32b' },
+      replaces: { ollamaName: 'qwen2.5:32b' },
+      scoreDelta: 7.4,
+      justification: {
+        summary: 's',
+        benchmarkBasis: ['b'],
+        hardwareFit: '27GB',
+        evidence: 'direct',
+        freshness: '2026-05-21',
+      },
+      diskImpactGb: 3.2,
+    },
+  };
+  const pdir = path.join(dir, '.harness', 'proposals');
+  fs.mkdirSync(pdir, { recursive: true });
+  fs.writeFileSync(path.join(pdir, `${id}.json`), JSON.stringify(record, null, 2));
+}
+
+function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }): {
+  ops: ModelPoolOps;
+  evictCalls: number;
+} {
+  let evictCalls = 0;
+  const state: PoolState = {
+    diskBudgetGb: 100,
+    diskUsedGb: 20,
+    entries: [POOLED],
+    allowedOrgs: ['Qwen'],
+    allowedFamilies: [],
+    lastRefreshAt: null,
+  };
+  const ops: ModelPoolOps = {
+    install: () =>
+      Promise.resolve(opts.install ?? { status: 'success', entry: POOLED, evicted: [] }),
+    evict: (r) => {
+      evictCalls += 1;
+      return Promise.resolve(
+        opts.evict ?? { status: 'success', name: r.ollamaName, removed: POOLED }
+      );
+    },
+    snapshot: () => state,
+  };
+  return {
+    ops,
+    get evictCalls() {
+      return evictCalls;
+    },
+  };
+}
+
+describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
+  it('stale target (HF 404) → failed_target_missing, pool snapshot unchanged', async () => {
+    writeModelProposal(tmpDir, 'proposal_model1');
+    const pool = fakePool({
+      install: { status: 'error', code: 'failed_target_missing', message: 'HF 404', evicted: [] },
+    });
+    const before = pool.ops.snapshot().entries.slice();
+    const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_model1/approve');
+    handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus, modelPool: pool.ops });
+    await settle();
+
+    expect(sent().status).toBe(200);
+    const out = JSON.parse(sent().body) as { status: string };
+    expect(out.status).toBe('failed_target_missing');
+    // Persisted transition
+    const stored = await getProposal(tmpDir, 'proposal_model1');
+    expect(stored?.status).toBe('failed_target_missing');
+    // Pool untouched
+    expect(pool.evictCalls).toBe(0);
+    expect(pool.ops.snapshot().entries).toEqual(before);
+  });
+
+  it('returns 501 when model handlers are not configured', async () => {
+    writeModelProposal(tmpDir, 'proposal_model2');
+    const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_model2/approve');
+    handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus });
+    await settle();
+    expect(sent().status).toBe(501);
+  });
+});
+
+describe('POST /api/v1/proposals/:id/reject (model kind)', () => {
+  it('records a rejection decision on the model proposal', async () => {
+    writeModelProposal(tmpDir, 'proposal_model3');
+    const pool = fakePool({});
+    const { req, res, sent } = makeReqRes(
+      'POST',
+      '/api/v1/proposals/proposal_model3/reject',
+      JSON.stringify({ reason: 'operator prefers the current pool member' })
+    );
+    handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus, modelPool: pool.ops });
+    await settle();
+
+    expect(sent().status).toBe(200);
+    const out = JSON.parse(sent().body) as { status: string; decision?: { action: string } };
+    expect(out.status).toBe('rejected');
+    expect(out.decision?.action).toBe('rejected');
+    const stored = await getProposal(tmpDir, 'proposal_model3');
+    expect(stored?.status).toBe('rejected');
   });
 });
 
