@@ -33,6 +33,8 @@ import { PromptRenderer } from './prompt/renderer';
 // orchestrator no longer constructs backends directly — factory handles
 // dispatch-time materialization.
 import { LocalModelResolver } from './agent/local-model-resolver';
+import { PoolStateStore } from '@harness-engineering/local-models';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
@@ -196,6 +198,9 @@ export class Orchestrator extends EventEmitter {
    * so this map is the single source of truth post-migration.
    */
   private localResolvers = new Map<string, LocalModelResolver>();
+  /** Phase 4 (D5): pool-state port shared by all local/pi resolvers. Null when LMLM disabled. */
+  private poolStateProvider: PoolStateProvider | null = null;
+  private poolStateStore: PoolStateStore | null = null;
   /**
    * Spec B Phase 3: skill catalog (name + cognitiveMode) read once at
    * construction from `projectRoot/agents/skills/`. Consulted by
@@ -294,7 +299,12 @@ export class Orchestrator extends EventEmitter {
   constructor(
     config: WorkflowConfig,
     promptTemplate: string,
-    overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend; execFileFn?: ExecFileFn }
+    overrides?: {
+      tracker?: IssueTrackerClient;
+      backend?: AgentBackend;
+      execFileFn?: ExecFileFn;
+      poolState?: PoolStateProvider;
+    }
   ) {
     super();
     // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
@@ -416,6 +426,23 @@ export class Orchestrator extends EventEmitter {
     // server fails fast rather than blocking the probe loop. If a
     // dedicated probe timeout is ever needed, add
     // `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
+    // Phase 4 (D5): resolve the shared pool-state provider once, before the
+    // per-backend loop. Precedence: an injected `overrides.poolState` (test
+    // seam) wins; otherwise, when `localModels.enabled`, construct a
+    // PoolStateStore whose on-disk state is loaded in
+    // initLocalModelAndPipeline() before the first probe. When neither
+    // applies, the provider stays null and every resolver keeps its static
+    // `configured` list (byte-identical to pre-Phase-4 behavior).
+    const localModelsEnabled = this.config.localModels?.enabled === true;
+    if (overrides?.poolState) {
+      this.poolStateProvider = overrides.poolState;
+    } else if (localModelsEnabled) {
+      this.poolStateStore = new PoolStateStore({
+        onWarn: (message, cause) =>
+          this.logger.warn(message, cause !== undefined ? { cause } : undefined),
+      });
+      this.poolStateProvider = this.poolStateStore;
+    }
     const backendsMap = this.config.agent.backends ?? {};
     for (const [name, def] of Object.entries(backendsMap)) {
       if (def.type === 'local' || def.type === 'pi') {
@@ -426,6 +453,7 @@ export class Orchestrator extends EventEmitter {
         };
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
         if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
         this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
       }
     }
@@ -1940,6 +1968,14 @@ export class Orchestrator extends EventEmitter {
       // independence): unreachable resolvers report `available: false`
       // while reachable ones report `available: true` without
       // cross-contamination.
+      // Phase 4 (D5): load the on-disk pool state before the first probe so
+      // pool-derived candidates are present when each resolver starts. An
+      // absent/malformed file degrades to EmptyPoolState (no throw) → empty
+      // candidates until the pool is populated. Skipped when the provider is a
+      // test override or LMLM is disabled (poolStateStore is null).
+      if (this.poolStateStore !== null) {
+        await this.poolStateStore.load();
+      }
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();
       }
