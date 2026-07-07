@@ -129,3 +129,38 @@ describe('diffPoolAgainstRanking (F7: rejected/pending dedup)', () => {
     expect(out[0]!.target.ollamaName).toBe('newmodel');
   });
 });
+
+describe('diffPoolAgainstRanking (P5-SUG-ENGINE: fall-through past suppressed best candidate)', () => {
+  const pool = poolOf([pe({ ollamaName: 'qwen3:8b', hfRepoId: 'org/qwen', currentScore: 60 })]);
+  const ranked = [
+    rm({ ollamaName: 'top:32b', hfRepoId: 'Org/Top', score: 80 }),
+    rm({ ollamaName: 'next:14b', hfRepoId: 'Org/Next', score: 75 }),
+  ];
+
+  it('falls through to the next-best NON-suppressed candidate when the top pick is rejected', () => {
+    const out = diffPoolAgainstRanking({
+      pool,
+      ranked,
+      proposalThreshold: 5,
+      vramGb: 32,
+      rejected: [{ target: 'top:32b', replaces: 'qwen3:8b' }],
+    });
+    // The entry is not skipped — it falls through to the next-best viable swap.
+    expect(out).toHaveLength(1);
+    expect(out[0]!.target.ollamaName).toBe('next:14b');
+  });
+
+  it('emits nothing when every viable candidate for the entry is suppressed', () => {
+    const out = diffPoolAgainstRanking({
+      pool,
+      ranked,
+      proposalThreshold: 5,
+      vramGb: 32,
+      rejected: [
+        { target: 'top:32b', replaces: 'qwen3:8b' },
+        { target: 'next:14b', replaces: 'qwen3:8b' },
+      ],
+    });
+    expect(out).toHaveLength(0);
+  });
+});

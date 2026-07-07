@@ -71,11 +71,16 @@ export function diffPoolAgainstRanking(input: DiffInput): ModelProposalContent[]
   const entries = [...pool.entries].sort((a, b) => a.ollamaName.localeCompare(b.ollamaName));
 
   for (const entry of entries) {
-    const candidate = bestCandidateFor(entry, ranked, { proposalThreshold, pooledNames, claimed });
+    // F7 fall-through: a suppressed (pending/rejected) top pick does not skip the
+    // entry — `bestCandidateFor` keeps scanning for the next-best NON-suppressed
+    // viable swap so a never-seen candidate is still surfaced (P5-SUG-ENGINE).
+    const candidate = bestCandidateFor(entry, ranked, {
+      proposalThreshold,
+      pooledNames,
+      claimed,
+      suppressed,
+    });
     if (candidate === undefined || candidate.ollamaName === undefined) continue;
-
-    // F7: never re-emit a pair already pending review or previously rejected.
-    if (suppressed.has(pairKey(candidate.ollamaName, entry.ollamaName))) continue;
 
     claimed.add(candidate.ollamaName);
     proposals.push({
@@ -100,12 +105,20 @@ export function diffPoolAgainstRanking(input: DiffInput): ModelProposalContent[]
 /**
  * Highest-scoring ranked candidate eligible to replace `entry`: fits hardware,
  * has an Ollama name, is not already pooled, has not been claimed by an earlier
- * entry this diff, and beats the entry by at least `proposalThreshold`.
+ * entry this diff, is not a suppressed (pending/rejected) pair for this entry
+ * (F7), and beats the entry by at least `proposalThreshold`. Suppression is
+ * evaluated per-candidate so a suppressed top pick falls through to the
+ * next-best viable candidate rather than skipping the entry (P5-SUG-ENGINE).
  */
 function bestCandidateFor(
   entry: PoolEntry,
   ranked: readonly RankedModel[],
-  ctx: { proposalThreshold: number; pooledNames: Set<string>; claimed: Set<string> }
+  ctx: {
+    proposalThreshold: number;
+    pooledNames: Set<string>;
+    claimed: Set<string>;
+    suppressed: Set<string>;
+  }
 ): RankedModel | undefined {
   let best: RankedModel | undefined;
   for (const c of ranked) {
@@ -113,6 +126,7 @@ function bestCandidateFor(
     if (c.ollamaName === undefined) continue;
     if (ctx.pooledNames.has(c.ollamaName)) continue;
     if (ctx.claimed.has(c.ollamaName)) continue;
+    if (ctx.suppressed.has(pairKey(c.ollamaName, entry.ollamaName))) continue;
     if (c.score - entry.currentScore < ctx.proposalThreshold) continue;
     if (best === undefined || c.score > best.score) best = c;
   }
