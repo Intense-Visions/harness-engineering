@@ -406,6 +406,33 @@ test(core): add tests for Result type
 
 ## Key Concepts
 
+### Parallel execution is standard
+
+Parallel execution is now a **standard, automatic** part of the build loop — not a mode a
+human has to ask for. During execution the harness derives the task dependency DAG from
+each task's `dependsOn` edges and `files`, decides the maximum _safe_ parallelism, and
+dispatches it **without being asked**, while keeping the human gate exactly where predicted
+risk warrants it (announce-and-proceed).
+
+- **How it decides:** the `plan_parallelization` MCP tool (core module
+  `packages/core/src/parallelization/plan.ts`) wraps `findParallelGroups` +
+  `predict_conflicts` to produce a `ParallelizationPlan` — parallel `waves`, `serialized`
+  and `cyclic` channels, and a `narration`. Each wave gets a risk-tiered firing decision:
+  `auto-dispatch` (clean / low-severity with graph) proceeds with no stop; `confirm`
+  (medium severity, or graph unavailable) takes one confirmation; `serialize` (high
+  severity, or too few tasks) runs sequentially. See **ADR 0056**
+  (`docs/knowledge/decisions/0056-risk-tiered-non-blocking-dispatch.md`).
+- **The data model:** tasks carry an optional `dependsOn: string[]` — the explicit
+  dependency edge — validated for cycles and unknown ids. See **ADR 0057**
+  (`docs/knowledge/decisions/0057-depends-on-plan-task-schema.md`).
+- **The skills:** `harness-planning` records `dependsOn`; `harness-autopilot` (EXECUTE) and
+  `harness-execution` call `plan_parallelization` pre-dispatch; `harness-parallel-agents`
+  dispatches each wave with worktree-per-unit isolation
+  (`docs/guides/agent-worktree-patterns.md`).
+- **Concepts:** `docs/knowledge/core/parallelization-plan.md`.
+- **Serial is still the safe default:** fewer than `minWaveSize` (default 3) independent
+  tasks, a declined `confirm`, or no graph + no confirmation all fall back to sequential.
+
 ### Result<T, E> Pattern
 
 We use a Result type (similar to Rust) for explicit error handling:
