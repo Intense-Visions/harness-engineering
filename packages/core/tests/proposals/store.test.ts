@@ -50,7 +50,7 @@ describe('createProposal', () => {
     const p = await createProposal(tmpDir, NEW_SKILL_INPUT);
     expect(p.id).toMatch(/^proposal_[a-f0-9]+$/);
     expect(p.status).toBe('open');
-    expect(p.kind).toBe('new-skill');
+    expect(p.skillKind).toBe('new-skill');
     const file = path.join(tmpDir, '.harness', 'proposals', `${p.id}.json`);
     expect(fs.existsSync(file)).toBe(true);
   });
@@ -74,7 +74,7 @@ describe('createProposal', () => {
       },
     });
     await expect(createProposal(tmpDir, REFINEMENT_INPUT)).resolves.toMatchObject({
-      kind: 'refinement',
+      skillKind: 'refinement',
     });
   });
 });
@@ -136,12 +136,12 @@ describe('updateProposal', () => {
       // @ts-expect-error — intentionally exercising the immutable guard
       createdAt: '1999-01-01T00:00:00.000Z',
       // @ts-expect-error — intentionally exercising the immutable guard
-      kind: 'refinement',
+      skillKind: 'refinement',
       status: 'gate-running',
     });
     expect(updated.id).toBe(p.id);
     expect(updated.createdAt).toBe(p.createdAt);
-    expect(updated.kind).toBe('new-skill');
+    expect(updated.skillKind).toBe('new-skill');
     expect(updated.status).toBe('gate-running');
   });
 });
