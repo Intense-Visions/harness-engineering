@@ -113,7 +113,10 @@ export async function sessionStartDispatch(projectPath: string): Promise<Session
   }
 
   try {
-    const result = await dispatchSkillsFromGit(projectPath, {});
+    // cachedOnly: this advisory banner must never block the CLI. Because it fires
+    // only on a HEAD delta — which also invalidates the health-snapshot cache — a
+    // fresh capture would run on every command and hang. Degrade to cached/neutral.
+    const result = await dispatchSkillsFromGit(projectPath, { cachedOnly: true });
     writeLastHead(projectPath, currentHead);
     return { dispatched: true, result, currentHead };
   } catch {
