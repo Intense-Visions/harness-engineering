@@ -158,6 +158,19 @@ RMH005 (`harness validate`).
 
    - If no roadmap row matches this plan (e.g. ad-hoc execution), skip the claim.
 
+#### Step 0.5: Plan parallelization (standard automatic parallelism)
+
+Before the per-task loop, decide the safe parallel structure so independent tasks dispatch concurrently by default (no human typing "in parallel").
+
+1. Collect this run's tasks with their `files` and `dependsOn` (from the plan's task headers) and call the `plan_parallelization` MCP tool (`{ path, tasks, depth: 1 }`). It returns `ParallelizationPlan` (`waves[]`, `serialized[]`, `cyclic[]`, `narration`).
+2. If `cyclic` is non-empty, STOP and escalate (dependency cycle = plan defect). Do not execute.
+3. Emit `narration` (announce-and-proceed — do not pause).
+4. Run `serialized` tasks first (serially, in order — cross-bucket prerequisites), then process `waves` **in array order** (topologically sorted; do not reorder, do not key off `firing` alone).
+5. Per wave: `auto-dispatch` (multi-task) → dispatch the wave via **harness-parallel-agents** with worktree-per-unit isolation (`docs/guides/agent-worktree-patterns.md`), announce and proceed; `confirm` → one plain-text confirmation, then parallel or serial per the answer; `serialize` / single-task → run through the per-task loop below serially.
+6. **Serial fallback preserved:** when independent tasks < `minWaveSize` (default 3), a `confirm` is declined, or no graph is available and the human does not confirm, run every task through the per-task loop below serially — the standing "when in doubt, run serially" default.
+
+Tasks dispatched into a parallel wave are executed by harness-parallel-agents' focused agents; tasks that fall to serial run through the loop below unchanged.
+
 For each task, starting from current position:
 
 1. **Read task instructions completely** before writing any code.
