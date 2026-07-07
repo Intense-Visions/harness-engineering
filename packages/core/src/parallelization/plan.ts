@@ -229,13 +229,56 @@ export function deriveFiring(
   return classifyFiring(severity, waveSize, minWaveSize, analysisLevel).firing;
 }
 
-/** Basic Phase-1 narration; Phase 2 enriches wording. */
-export function narrate(waves: readonly ParallelizationWave[], cyclic: readonly string[]): string {
-  const parts = waves.map(
-    (w, i) => `Wave ${i + 1}: [${w.tasks.join(', ')}] (${w.firing}, ${w.severity})`
-  );
-  if (cyclic.length > 0) parts.push(`Cyclic (blocked): [${cyclic.join(', ')}]`);
-  return `${waves.length} wave(s). ${parts.join('; ')}`;
+/**
+ * Rich, deterministic DAG summary for announce-and-proceed — the reproducible
+ * version of a hand-written "Phase 1 blocks 2&3, they're disjoint, dispatching
+ * 2∥3; Phase 4 integrates". Per wave: names the tasks, the upstream tasks it
+ * waits on (from the built DAG), and the firing decision with its reason.
+ *
+ * `reasons[i]` is the rationale for `waves[i]` (parallel arrays). Derived
+ * purely from sorted inputs, so output is deterministic.
+ */
+export function narrate(
+  waves: readonly ParallelizationWave[],
+  reasons: readonly string[],
+  serialized: readonly string[],
+  cyclic: readonly string[],
+  nodes: readonly GraphNode[]
+): string {
+  const depMap = new Map<string, readonly string[]>();
+  for (const node of nodes) depMap.set(node.id, node.dependsOn);
+
+  const lines: string[] = [
+    `Parallelization: ${waves.length} wave(s), ${serialized.length} serialized, ${cyclic.length} cyclic.`,
+  ];
+
+  waves.forEach((w, i) => {
+    const waveSet = new Set(w.tasks);
+    const blocking = [...new Set(w.tasks.flatMap((t) => depMap.get(t) ?? []))]
+      .filter((id) => !waveSet.has(id))
+      .sort();
+    const waitClause = blocking.length
+      ? `waits on ${blocking.join(', ')}`
+      : 'no upstream dependencies (root wave)';
+    lines.push(
+      `Wave ${i + 1} [${w.tasks.join(', ')}]: ${waitClause}; ${w.firing}: ${reasons[i] ?? ''}.`
+    );
+  });
+
+  if (serialized.length > 0) {
+    lines.push(
+      `Serialized (run sequentially): [${serialized.join(
+        ', '
+      )}] — high-severity conflict members or dependency-cycle members.`
+    );
+  }
+  if (cyclic.length > 0) {
+    lines.push(
+      `Cyclic (blocked): [${cyclic.join(', ')}] — dependency cycle; resolve before scheduling.`
+    );
+  }
+
+  return lines.join('\n');
 }
 
 const DEFAULT_MIN_WAVE_SIZE = 3;
@@ -279,18 +322,26 @@ export function planParallelization(input: PlanParallelizationInput): Paralleliz
   // removed from its wave; waves emptied by that removal are dropped. (Cyclic
   // members are already absent from rawWaves, but excluding them keeps the
   // invariant explicit and robust to changes in findParallelGroups.)
+  const reasons: string[] = [];
   const waves: ParallelizationWave[] = rawWaves
     .map((taskIds) => taskIds.filter((id) => !serializedSet.has(id)))
     .filter((taskIds) => taskIds.length > 0)
     .map((taskIds) => {
       const severity = waveSeverity(taskIds, conflicts);
-      return {
-        tasks: taskIds,
+      const { firing, reason } = classifyFiring(
         severity,
-        firing: deriveFiring(severity, taskIds.length, minWaveSize, conflicts.analysisLevel),
-        analysisLevel: conflicts.analysisLevel,
-      };
+        taskIds.length,
+        minWaveSize,
+        conflicts.analysisLevel
+      );
+      reasons.push(reason);
+      return { tasks: taskIds, severity, firing, analysisLevel: conflicts.analysisLevel };
     });
 
-  return { waves, serialized, cyclic, narration: narrate(waves, cyclic) };
+  return {
+    waves,
+    serialized,
+    cyclic,
+    narration: narrate(waves, reasons, serialized, cyclic, nodes),
+  };
 }

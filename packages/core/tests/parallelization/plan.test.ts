@@ -248,4 +248,72 @@ describe('planParallelization()', () => {
     expect(waveMembers).toEqual([...waveMembers].sort());
     expect(plan.serialized).toEqual([...plan.serialized].sort());
   });
+
+  it('narrates a multi-wave DAG: names tasks, waits-on, and firing reason (Truth #4)', () => {
+    // a is a root; b,c,d all depend on a (wave 2, size 3 => auto-dispatch);
+    // e depends on b (wave 3). All clean + graph-expanded.
+    const tasks = [
+      { id: 'a', files: [] },
+      { id: 'b', files: [], dependsOn: ['a'] },
+      { id: 'c', files: [], dependsOn: ['a'] },
+      { id: 'd', files: [], dependsOn: ['a'] },
+      { id: 'e', files: [], dependsOn: ['b'] },
+    ];
+    const plan = planParallelization({
+      tasks,
+      conflicts: noConflicts(['a', 'b', 'c', 'd', 'e']),
+    });
+    const n = plan.narration;
+    expect(n).toContain('Wave 1'); // legacy assertion preserved
+    expect(n).toContain('[b, c, d]'); // names the wave-2 tasks
+    expect(n).toMatch(/waits on[^\n]*a/); // wave 2 waits on a
+    expect(n).toContain('auto-dispatch');
+    expect(n).toContain('graph-expanded');
+  });
+
+  it('narration is deterministic across runs (Truth #5)', () => {
+    const tasks = [
+      { id: 'a', files: [] },
+      { id: 'b', files: [], dependsOn: ['a'] },
+      { id: 'c', files: [], dependsOn: ['a'] },
+    ];
+    const conflicts = noConflicts(['a', 'b', 'c']);
+    const first = planParallelization({ tasks, conflicts }).narration;
+    const second = planParallelization({ tasks, conflicts }).narration;
+    expect(first).toBe(second);
+  });
+
+  it('narrates a serialized high-severity group with its reason', () => {
+    const tasks = [
+      { id: 'a', files: ['x.ts'] },
+      { id: 'b', files: ['y.ts'] },
+    ];
+    const conflicts: ConflictPrediction = {
+      ...noConflicts(['a', 'b']),
+      conflicts: [
+        { taskA: 'a', taskB: 'b', severity: 'high', reason: '', mitigation: '', overlaps: [] },
+      ],
+      groups: [['a', 'b']],
+      summary: { high: 1, medium: 0, low: 0, regrouped: true },
+    };
+    const n = planParallelization({ tasks, conflicts }).narration;
+    expect(n).toContain('Serialized');
+    expect(n).toContain('a');
+    expect(n).toContain('b');
+  });
+
+  it('narrates the file-only confirm rationale', () => {
+    const tasks = [
+      { id: 'a', files: [] },
+      { id: 'b', files: [] },
+      { id: 'c', files: [] },
+    ];
+    const conflicts: ConflictPrediction = {
+      ...noConflicts(['a', 'b', 'c']),
+      analysisLevel: 'file-only',
+    };
+    const n = planParallelization({ tasks, conflicts }).narration;
+    expect(n).toContain('confirm');
+    expect(n).toContain('file-only');
+  });
 });
