@@ -2,9 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach, type TestOptions } fro
 
 const RETRY: TestOptions = { retry: 2 };
 import * as http from 'node:http';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { WebSocket } from 'ws';
 import { OrchestratorServer } from '../../src/server/http';
+import type { ModelPoolOps } from '../../src/proposals/model-handlers';
+import type { PoolEntry, PoolState } from '@harness-engineering/local-models';
+import type { TickResult } from '@harness-engineering/local-models';
 
 describe('OrchestratorServer', () => {
   let server: OrchestratorServer;
@@ -135,5 +141,153 @@ describe('OrchestratorServer', () => {
     expect(parsed.data.id).toBe('int-1');
 
     ws.close();
+  });
+});
+
+// ── LMLM Phase 6: getModelPool retires the 501 + refresh route registration ──
+
+const POOLED: PoolEntry = {
+  ollamaName: 'qwen2.5:32b',
+  hfRepoId: 'Qwen/Qwen2.5-32B-GGUF',
+  sizeOnDiskGb: 20,
+  installedAt: '2026-01-01T00:00:00.000Z',
+  lastUsedAt: null,
+  currentScore: 71,
+};
+
+function fakePool(): ModelPoolOps {
+  const state: PoolState = {
+    diskBudgetGb: 100,
+    diskUsedGb: 20,
+    entries: [POOLED],
+    allowedOrgs: ['Qwen'],
+    allowedFamilies: [],
+    lastRefreshAt: null,
+  };
+  return {
+    install: () => Promise.resolve({ status: 'success', entry: POOLED, evicted: [] }),
+    evict: (r) => Promise.resolve({ status: 'success', name: r.ollamaName, removed: POOLED }),
+    snapshot: () => state,
+  };
+}
+
+function writeModelProposal(projectPath: string, id: string): void {
+  const record = {
+    kind: 'model',
+    id,
+    createdAt: '2026-07-07T00:00:00.000Z',
+    proposedBy: 'orchestrator:lmlm',
+    status: 'open',
+    source: { justification: 'A newer model beats the current pool member by a wide margin.' },
+    model: {
+      action: 'swap',
+      target: { hfRepoId: 'Qwen/Qwen3-32B-GGUF', ollamaName: 'qwen3:32b' },
+      replaces: { ollamaName: 'qwen2.5:32b' },
+      scoreDelta: 7.4,
+      justification: {
+        summary: 'A newer model beats the current pool member by a wide margin.',
+        benchmarkBasis: ['mmlu'],
+        hardwareFit: '27GB',
+        evidence: 'direct',
+        freshness: '2026-05-21',
+      },
+      diskImpactGb: 3.2,
+    },
+  };
+  const pdir = path.join(projectPath, '.harness', 'proposals');
+  fs.mkdirSync(pdir, { recursive: true });
+  fs.writeFileSync(path.join(pdir, `${id}.json`), JSON.stringify(record, null, 2));
+}
+
+function post(port: number, url: string): Promise<{ statusCode: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: 'localhost', port, path: url, method: 'POST' }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => resolve({ statusCode: res.statusCode ?? 0, body: data }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+describe('OrchestratorServer LMLM Phase 6 wiring', () => {
+  let mockOrchestrator: EventEmitter & { getSnapshot: ReturnType<typeof vi.fn> };
+  let servers: OrchestratorServer[];
+  let tmpDir: string;
+
+  beforeEach(() => {
+    mockOrchestrator = Object.assign(new EventEmitter(), {
+      getSnapshot: vi.fn().mockReturnValue({ running: [], retryAttempts: [], claimed: [] }),
+    });
+    servers = [];
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lmlm-http-'));
+  });
+
+  afterEach(async () => {
+    for (const s of servers) s.stop();
+    await new Promise((r) => setTimeout(r, 50));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function makeServer(port: number, deps: ConstructorParameters<typeof OrchestratorServer>[2]) {
+    const s = new OrchestratorServer(mockOrchestrator, port, deps);
+    servers.push(s);
+    return s;
+  }
+
+  it('getModelPool wired → model approve reaches the live pool (no 501)', async () => {
+    writeModelProposal(tmpDir, 'proposal_model_live');
+    const port = Math.floor(Math.random() * 10000) + 20000;
+    const server = makeServer(port, { projectPath: tmpDir, getModelPool: () => fakePool() });
+    await server.start();
+
+    const res = await post(port, '/api/v1/proposals/proposal_model_live/approve');
+    // The 501 stub is retired: the request now reaches the pool handler (200 approved).
+    expect(res.statusCode).not.toBe(501);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).status).toBe('approved');
+  });
+
+  it('getModelPool absent → model approve still returns 501 (LMLM disabled)', async () => {
+    writeModelProposal(tmpDir, 'proposal_model_off');
+    const port = Math.floor(Math.random() * 10000) + 30000;
+    const server = makeServer(port, { projectPath: tmpDir, getModelPool: () => null });
+    await server.start();
+
+    const res = await post(port, '/api/v1/proposals/proposal_model_off/approve');
+    expect(res.statusCode).toBe(501);
+  });
+
+  it('registers POST /api/v1/local-models/refresh → 200 with emitted count', async () => {
+    const port = Math.floor(Math.random() * 10000) + 40000;
+    const tick: TickResult = {
+      candidatesEvaluated: 4,
+      proposalsEmitted: 2,
+      reconciledRemoved: [],
+      snapshotLoaded: true,
+      hfReachable: true,
+      warnings: [],
+      errors: [],
+    };
+    const server = makeServer(port, {
+      projectPath: tmpDir,
+      getRefreshScheduler: () => ({ forceRefresh: async () => tick }),
+    });
+    await server.start();
+
+    const res = await post(port, '/api/v1/local-models/refresh');
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).emitted).toBe(2);
+  });
+
+  it('refresh route returns 503 when the scheduler is absent (LMLM disabled)', async () => {
+    const port = Math.floor(Math.random() * 10000) + 50000;
+    const server = makeServer(port, { projectPath: tmpDir });
+    await server.start();
+
+    const res = await post(port, '/api/v1/local-models/refresh');
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body).error).toContain('LMLM disabled');
   });
 });

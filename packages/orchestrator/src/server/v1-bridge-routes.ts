@@ -109,6 +109,15 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'read-telemetry',
     description: 'Prompt-cache hit/miss snapshot (rolling window).',
   },
+  // ── LMLM Phase 6 — force-refresh (background scheduler tick, out of band) ──
+  // Reuses `manage-proposals`: a forced refresh emits model proposals, so the
+  // same write scope that governs approve/reject governs triggering the tick.
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/local-models\/refresh(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Force a background-scheduler refresh tick and return emitted proposals (O4).',
+  },
   // ── Spec B Phase 5 routing observability ──
   // D-OP-1: all three reuse `read-telemetry` — matches the cacheMetrics
   // precedent (read-only observability). A dedicated `read-routing`

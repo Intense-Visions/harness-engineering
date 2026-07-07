@@ -20,6 +20,9 @@ import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleV1WebhooksRoute } from './routes/v1/webhooks';
 import { handleV1TelemetryRoute } from './routes/v1/telemetry';
 import { handleV1ProposalsRoute } from './routes/v1/proposals';
+import { handleV1LocalModelsRoute } from './routes/v1/local-models';
+import type { RefreshSchedulerOps } from './routes/v1/local-models';
+import type { ModelPoolOps } from '../proposals/model-handlers';
 import { handleV1RoutingRoute } from './routes/v1/routing';
 import type { BackendRouter } from '../agent/backend-router';
 import type { RoutingDecisionBus } from '../routing/decision-bus';
@@ -161,6 +164,19 @@ export interface ServerDependencies {
    * Defaults to `process.cwd()`.
    */
   projectPath?: string;
+  /**
+   * LMLM Phase 6: accessor for the live model pool. When it returns a pool,
+   * `kind: 'model'` proposal approve/reject reaches the real `PoolManager`
+   * instead of returning `501` (retiring the Phase 5b stub). Null/absent keeps
+   * the 501 (LMLM disabled). A closure so the route always sees current state.
+   */
+  getModelPool?: () => ModelPoolOps | null;
+  /**
+   * LMLM Phase 6: accessor for the background refresh scheduler. Drives
+   * `POST /api/v1/local-models/refresh`. Null/absent → the route returns `503`
+   * (LMLM disabled). A closure so the route always sees current lifecycle state.
+   */
+  getRefreshScheduler?: () => RefreshSchedulerOps | null;
 }
 
 export class OrchestratorServer {
@@ -197,6 +213,9 @@ export class OrchestratorServer {
   private getRoutingDecisionBusFn: (() => RoutingDecisionBus | null) | null = null;
   private getRoutingConfigFn: (() => RoutingConfig | null) | null = null;
   private getBackendsFn: (() => Record<string, BackendDef> | null) | null = null;
+  // LMLM Phase 6 — live model pool + refresh scheduler accessors.
+  private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
+  private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
   private routingDecisionUnsubscribe: (() => void) | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
@@ -251,6 +270,9 @@ export class OrchestratorServer {
     this.getRoutingDecisionBusFn = deps?.getRoutingDecisionBus ?? null;
     this.getRoutingConfigFn = deps?.getRoutingConfig ?? null;
     this.getBackendsFn = deps?.getBackends ?? null;
+    // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
+    this.getModelPoolFn = deps?.getModelPool ?? null;
+    this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
   }
 
   private wireEvents(): void {
@@ -481,10 +503,22 @@ export class OrchestratorServer {
       // upstream by V1_BRIDGE_ROUTES; this dispatcher only handles
       // business logic. `projectPath` defaults to process.cwd() — that is
       // where `.harness/proposals/` lives in every deployment we ship.
-      (req, res) =>
-        handleV1ProposalsRoute(req, res, {
+      (req, res) => {
+        // LMLM Phase 6: thread the live pool so `kind: 'model'` approve/reject
+        // reaches the real PoolManager (retires the 501 stub) when enabled.
+        // Absent modelPool → the route keeps its 501 (LMLM disabled).
+        const modelPool = this.getModelPoolFn?.() ?? null;
+        return handleV1ProposalsRoute(req, res, {
           projectPath: this.projectPath,
           bus: this.orchestrator as unknown as EventEmitter,
+          ...(modelPool ? { modelPool } : {}),
+        });
+      },
+      // LMLM Phase 6 — POST /api/v1/local-models/refresh (force-refresh + O4).
+      // Registered before the chat-proxy fallback so it owns the path.
+      (req, res) =>
+        handleV1LocalModelsRoute(req, res, {
+          getRefreshScheduler: this.getRefreshSchedulerFn ?? (() => null),
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
