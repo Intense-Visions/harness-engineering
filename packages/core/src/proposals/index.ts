@@ -1,6 +1,7 @@
 export {
   proposalsDir,
   createProposal,
+  createModelProposal,
   getProposal,
   listProposals,
   updateProposal,

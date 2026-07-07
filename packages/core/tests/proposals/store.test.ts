@@ -3,12 +3,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   createProposal,
+  createModelProposal,
   getProposal,
   listProposals,
   updateProposal,
   ProposalNotFoundError,
   ProposalConflictError,
 } from '../../src/proposals/store';
+import type { ModelProposalContent } from '@harness-engineering/types';
 
 const tmpDir = path.join(__dirname, '__proposals_tmp__');
 
@@ -76,6 +78,46 @@ describe('createProposal', () => {
     await expect(createProposal(tmpDir, REFINEMENT_INPUT)).resolves.toMatchObject({
       skillKind: 'refinement',
     });
+  });
+});
+
+const MODEL_CONTENT: ModelProposalContent = {
+  action: 'swap',
+  target: { hfRepoId: 'org/next-14b-gguf', ollamaName: 'next:14b' },
+  replaces: { ollamaName: 'qwen3:8b' },
+  scoreDelta: 15,
+  justification: {
+    summary: 'Swap qwen3:8b for the higher-scoring next:14b given the current hardware fit.',
+    benchmarkBasis: ['mmlu', 'gsm8k'],
+    hardwareFit: 'Fits within the 24GB VRAM budget with headroom.',
+    evidence: 'Frozen snapshot rank places next:14b above qwen3:8b for this profile.',
+    freshness: 'Snapshot dated 2026-07-01.',
+  },
+  diskImpactGb: 9.2,
+};
+
+describe('createModelProposal', () => {
+  beforeEach(() => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('persists a kind=model record retrievable by listProposals kind filter', async () => {
+    const rec = await createModelProposal(tmpDir, MODEL_CONTENT);
+    expect(rec.id).toMatch(/^proposal_[a-f0-9]+$/);
+    expect(rec.kind).toBe('model');
+    expect(rec.status).toBe('open');
+    expect(rec.model.target.ollamaName).toBe('next:14b');
+
+    const models = await listProposals(tmpDir, { kind: 'model' });
+    expect(models).toHaveLength(1);
+    expect(models[0]!.kind).toBe('model');
+    expect((models[0] as typeof rec).model.target.ollamaName).toBe('next:14b');
+
+    const file = path.join(tmpDir, '.harness', 'proposals', `${rec.id}.json`);
+    expect(fs.existsSync(file)).toBe(true);
   });
 });
 

@@ -8,6 +8,8 @@ import {
   type Proposal,
   type SkillProposal,
   type ModelProposalRecord,
+  type ModelProposalContent,
+  type ProposalSource,
   type EmitSkillProposalInput,
   type ProposalStatus,
   type ProposalType,
@@ -89,6 +91,33 @@ export async function createProposal(
   ensureDir(dir);
   writeAtomic(proposalPath(projectPath, id), JSON.stringify(proposal, null, 2));
   return proposal;
+}
+
+/**
+ * Persist a model-pool recommendation as a `kind: 'model'` proposal record.
+ * Generates an id, wraps the content in the discriminated record shape, and
+ * writes `.harness/proposals/<id>.json` atomically. The scheduler's
+ * `emitProposal` seam calls this once per diff proposal.
+ */
+export async function createModelProposal(
+  projectPath: string,
+  content: ModelProposalContent,
+  opts: { proposedBy?: string; source?: ProposalSource } = {}
+): Promise<ModelProposalRecord> {
+  const id = `proposal_${randomUUID().replace(/-/g, '')}`;
+  const record = ProposalSchema.parse({
+    id,
+    createdAt: new Date().toISOString(),
+    kind: 'model',
+    proposedBy: opts.proposedBy ?? 'orchestrator',
+    source: opts.source ?? { justification: content.justification.summary },
+    model: content,
+    status: 'open',
+  }) as ModelProposalRecord;
+  const dir = proposalsDir(projectPath);
+  ensureDir(dir);
+  writeAtomic(proposalPath(projectPath, id), JSON.stringify(record, null, 2));
+  return record;
 }
 
 export async function getProposal(projectPath: string, id: string): Promise<Proposal | null> {
