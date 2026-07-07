@@ -541,6 +541,9 @@ importers:
       '@harness-engineering/intelligence':
         specifier: workspace:*
         version: link:../intelligence
+      '@harness-engineering/local-models':
+        specifier: workspace:*
+        version: link:../local-models
       '@harness-engineering/types':
         specifier: workspace:*
         version: link:../types

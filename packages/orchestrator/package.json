@@ -56,6 +56,7 @@
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/intelligence": "workspace:*",
+    "@harness-engineering/local-models": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.10.0",
