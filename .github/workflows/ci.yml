@@ -196,6 +196,11 @@ jobs:
             --body "Auto-generated baseline refresh. Created because direct pushes to main are blocked by branch protection. Branch is based on the current tip of main to avoid concurrent-refresh conflicts." \
             --base main \
             --head "$BRANCH")
+          # Defensive scope check (#531): the branch is constructed to contain only
+          # baseline files, but never self-approve a PR whose diff reaches beyond
+          # them. $BASELINE_FILES is the single source of truth for the allowlist.
+          # Fails closed — any unexpected path (or an empty diff) aborts before approval.
+          gh pr diff "$PR_URL" --name-only | node scripts/assert-baseline-only-diff.mjs $BASELINE_FILES
           # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
           # workflow runs, so a separate auto-approve workflow on pull_request_target
           # would never fire for this PR.
