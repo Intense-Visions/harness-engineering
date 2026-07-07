@@ -116,7 +116,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Retire ~350 shelf-ware skills
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** Pass 4 catalog audit: 598 of 755 SKILL.md files (79%) self-declare `Type: knowledge — not a procedural workflow, no tools or state`; 493 of 755 (65%) end with the identical copy-paste Process boilerplate "Read / Apply / Verify"; only ~9% are genuine gear (Iron Law + gates + MCP calls). Concrete retire list: all 23 `gof-*` (LLM-prior, 1994 design patterns), pre-2020 `react-*` (`react-hoc-pattern`, `react-render-props-pattern`, `react-container-presentational`), most `otel-*` (duplicates OpenTelemetry docs), generic `astro-*`/`nuxt-*`/`svelte-*` unless actively shipped. Pair retire with item below (catalog-retrospective skill) to surface candidates and item further below (catalog tiering) to reorganize the remainder. Source: Pass 4 action 1.
 - **Blockers:** Build harness:catalog-retrospective skill
@@ -173,7 +173,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Build harness:catalog-retrospective skill
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Monthly retrospective that reads `.harness/metrics/adoption.jsonl` (1319 records in dogfood across 80+ days, captures skill+session+startedAt+duration+outcome+phasesReached) and produces a structured report: top-10-most-invoked, top-10-failing, top-10-abandoned-mid-workflow, skills inactive 90+ days. Compounding-via-learning at the catalog grain — the loop the article calls Honnold's "internal harness" applied to the skill catalog. Feeds into catalog cleanup items below. Source: Pass 5 #6.
 - **Blockers:** —
@@ -184,7 +184,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Extend skill-effectiveness scorer to skill grain (not just personas)
 
-- **Status:** blocked
+- **Status:** planned
 - **Spec:** —
 - **Summary:** `packages/intelligence/src/effectiveness/scorer.ts` currently scores personas using graph-attributed `execution_outcome` nodes. Extend the same Bayesian approach to score skills using `.harness/metrics/adoption.jsonl` data (skill+outcome+duration+phasesReached). Identify failing skills and skills abandoned mid-workflow. Feed into `harness:catalog-retrospective`. Closes the gap: the project has 1319 adoption records but no loop that uses them to improve the catalog. Source: Pass 5 #4.
 - **Blockers:** Build harness:catalog-retrospective skill
