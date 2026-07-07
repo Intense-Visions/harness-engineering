@@ -127,7 +127,34 @@ export async function onApproveModelProposal(
   const evicted: PoolEntry[] = [...installResult.evicted];
   if (model.action === 'swap' && model.replaces !== undefined) {
     const evictResult = await deps.pool.evict({ ollamaName: model.replaces.ollamaName });
-    if (evictResult.status === 'success' && evictResult.removed !== null) {
+    if (evictResult.status === 'error') {
+      // Partial-swap failure: the target install succeeded (pool now holds it),
+      // but evicting `replaces` failed (e.g. installer_unavailable / ollama
+      // delete error). The swap is therefore incomplete — the pool holds BOTH
+      // target and replaces.
+      //
+      // Recovery (spec S7 best-effort + D13 explicit-approval): do NOT mark the
+      // proposal `approved` and do NOT emit a completed-swap event that claims
+      // `replaces` was evicted. We deliberately do NOT roll back the installed
+      // target: `PoolManager.install` is idempotent (returns `alreadyInstalled`
+      // on the target already present), so leaving the proposal pending lets a
+      // later re-approve safely retry only the failed evict. Rolling the target
+      // back would discard genuine, sanctioned work and risk a compounding
+      // second failure on a pool the operator approved adding to.
+      //
+      // We still emit a `local-models:pool` event because the pool DID change
+      // (target added), but it reflects the ACTUAL state: `installed: target`
+      // with NO `evicted` field and `phase: 'swap_evict_failed'` so consumers
+      // see the truthful partial outcome rather than a phantom completed swap.
+      deps.bus.emit(MODEL_POOL_TOPIC, {
+        id: proposal.id,
+        action: model.action,
+        installed: model.target.ollamaName,
+        phase: 'swap_evict_failed',
+      });
+      return { status: 'error', code: evictResult.code, message: evictResult.message };
+    }
+    if (evictResult.removed !== null) {
       evicted.push(evictResult.removed);
     }
   }
