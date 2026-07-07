@@ -26,12 +26,15 @@ Verify task independence, create focused agent briefs, dispatch Task Executor in
 
 > Dispatch independent tasks to concurrent agents, integrate results, and verify no conflicts. Only for truly independent problems.
 
+**Invoked automatically by `harness-autopilot` (and standalone `harness-execution`), not only manually.** When a plan's phase has an auto-dispatch wave, the execution loop calls this skill to run that wave. In that mode the caller supplies worktree-per-unit isolation per `docs/guides/agent-worktree-patterns.md` (one worktree per task, sequential commits, squash-merge on integrate) and has already verified independence via `plan_parallelization`; this skill still owns the focused agent briefs (Step 2), concurrent dispatch (Step 3), and integration/verification (Steps 4–5). Manual invocation (a human asking to "work in parallel") continues to work unchanged.
+
 ## When to Use
 
 - When 3 or more tasks are truly independent (no shared state, no shared files, different subsystems)
 - When tasks involve investigation or implementation in separate parts of the codebase
 - When parallel execution would meaningfully reduce wall-clock time
 - When a plan has tasks explicitly marked as parallelizable
+- When `harness-autopilot`/`harness-execution` reaches an `auto-dispatch` (or confirmed) wave from `plan_parallelization` — this skill is the wave's dispatcher
 - NOT when failures across tasks might be related (investigate serially to find the common cause)
 - NOT when tasks need full system understanding to complete correctly
 - NOT when agents would modify the same files or shared state
