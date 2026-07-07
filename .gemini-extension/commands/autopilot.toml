@@ -129,6 +129,37 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 
 ### EXECUTE
 
+**Pre-dispatch: plan parallelization (standard automatic parallelism).** Before dispatching tasks, decide the safe parallel structure. This is orchestration, not reimplementation — autopilot chooses HOW to dispatch; the persona agents still do the work.
+
+1. Collect the phase's tasks with their `files` and `dependsOn` (from the plan's task headers). Call the `plan_parallelization` MCP tool:
+
+   ```json
+   {
+     "path": "<project-root>",
+     "tasks": [{ "id": "task-1", "files": ["..."], "dependsOn": [] }],
+     "depth": 1
+   }
+   ```
+
+   It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`.
+
+2. **If `cyclic` is non-empty:** STOP. Surface the cycle and route back to PLAN/APPROVE_PLAN (a dependency cycle is a plan defect). Do not dispatch.
+
+3. **Announce (announce-and-proceed):** emit `narration` verbatim. Do NOT pause here — announcing is not a gate.
+
+4. **Dispatch in dependency order — prerequisites first, then waves in array order:**
+   - First, run every task in `serialized` (high-severity-group / cycle-adjacent members) **serially**, one `harness-task-executor` per task, in listed order. These are cross-bucket prerequisites: they MUST complete before any wave that depends on them.
+   - Then process `waves` **in array order**. The `waves` array is already topologically sorted (earlier waves are prerequisites of later ones). Do NOT reorder waves and do NOT key dispatch off the `firing` field alone — the Phase-2 cross-bucket cap (a wave depending on a serialized/cyclic task is downgraded to `confirm` and marked "cross-bucket prerequisite gates this wave" in `narration`) is only sound if serialized/cyclic ran first and waves run in order.
+
+5. **For each wave, honor its `firing`:**
+   - `auto-dispatch` (multi-task): emit that wave's line from `narration`, then dispatch the wave via the **harness-parallel-agents** skill with **worktree-per-unit isolation** per `docs/guides/agent-worktree-patterns.md` ("Worktree-per-Milestone" / "Parallel Agent Work": one worktree per task, sequential commits, squash-merge at integrate). **Announce and proceed — do NOT stop for confirmation.**
+   - `confirm`: surface the wave and its `narration` line, then take exactly ONE plain-text confirmation — "Dispatch wave [{tasks}] in parallel? (yes / serial)". `yes` → dispatch via harness-parallel-agents (worktree-per-unit). `serial` or decline → run the wave's tasks serially (`harness-task-executor` each). Record the choice in `decisions[]`.
+   - `serialize`, or any single-task wave: run serially via `harness-task-executor`, exactly as today.
+
+6. **Serial fallback is preserved** when a phase has fewer than `minWaveSize` (default 3) independent tasks, when a `confirm` is declined, or when no graph is available and the human does not confirm — honoring the standing "when in doubt, run serially" default.
+
+Each dispatched unit (parallel wave or serial task) then follows the existing per-task contract below (state.json per task, checkpoints, retry budget).
+
 Dispatch harness-task-executor:
 
 ```
