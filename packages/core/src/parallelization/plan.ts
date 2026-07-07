@@ -248,6 +248,17 @@ export function narrate(
   const depMap = new Map<string, readonly string[]>();
   for (const node of nodes) depMap.set(node.id, node.dependsOn);
 
+  // Channel labels so a cross-bucket prerequisite (a task dispatched via the
+  // serialized/cyclic channel) reads differently from a plain earlier-wave
+  // dependency. `serialized` already folds in `cyclic`, so test `cyclic` first.
+  const cyclicSet = new Set(cyclic);
+  const serializedSet = new Set(serialized);
+  const labelDep = (id: string): string => {
+    if (cyclicSet.has(id)) return `${id} (cyclic)`;
+    if (serializedSet.has(id)) return `${id} (serialized)`;
+    return id;
+  };
+
   const lines: string[] = [
     `Parallelization: ${waves.length} wave(s), ${serialized.length} serialized, ${cyclic.length} cyclic.`,
   ];
@@ -257,8 +268,11 @@ export function narrate(
     const blocking = [...new Set(w.tasks.flatMap((t) => depMap.get(t) ?? []))]
       .filter((id) => !waveSet.has(id))
       .sort();
+    const crossBucket = blocking.some((id) => serializedSet.has(id));
     const waitClause = blocking.length
-      ? `waits on ${blocking.join(', ')}`
+      ? `waits on ${blocking.map(labelDep).join(', ')}${
+          crossBucket ? ' (cross-bucket prerequisite gates this wave)' : ''
+        }`
       : 'no upstream dependencies (root wave)';
     lines.push(
       `Wave ${i + 1} [${w.tasks.join(', ')}]: ${waitClause}; ${w.firing}: ${reasons[i] ?? ''}.`
@@ -312,10 +326,20 @@ export function planParallelization(input: PlanParallelizationInput): Paralleliz
   const nodes = buildTaskGraph(tasks);
   const { waves: rawWaves, cyclic } = findParallelGroups(nodes);
 
-  // serialized = members of high-severity groups (size > 1) ∪ cyclic members
+  // serialized = members of high-severity groups (size > 1) ∪ cyclic members.
+  // `serializedSet` therefore IS exactly `serialized ∪ cyclic` — the set of
+  // tasks dispatched through a NON-wave channel — and is reused below as the
+  // cross-bucket membership test.
   const serializedSet = new Set<string>(cyclic);
   for (const id of highRiskGroupMembers(conflicts)) serializedSet.add(id);
   const serialized = [...serializedSet].sort();
+
+  // Direct-dependency lookup over the SAME combined graph the waves came from
+  // (explicit dependsOn ∪ implicit file/owns overlap). Used to detect
+  // cross-bucket prerequisites: a wave task depending on a task that runs in
+  // the serialized/cyclic channel rather than in an earlier wave.
+  const depMap = new Map<string, readonly string[]>();
+  for (const node of nodes) depMap.set(node.id, node.dependsOn);
 
   // Invariant: waves (flattened), `serialized`, and `cyclic` are MUTUALLY
   // DISJOINT dispatch channels. Any task forced serial or in a cycle is
@@ -328,12 +352,30 @@ export function planParallelization(input: PlanParallelizationInput): Paralleliz
     .filter((taskIds) => taskIds.length > 0)
     .map((taskIds) => {
       const severity = waveSeverity(taskIds, conflicts);
-      const { firing, reason } = classifyFiring(
+      let { firing, reason } = classifyFiring(
         severity,
         taskIds.length,
         minWaveSize,
         conflicts.analysisLevel
       );
+
+      // Cross-bucket ordering guard (P2-IMP-1). If any direct upstream of this
+      // wave runs in the serialized/cyclic channel, that prerequisite is NOT
+      // dispatched as a parallel-safe wave — a human / Phase-3 gate must stand
+      // between them. Cap an otherwise auto-dispatch wave at `confirm` (never
+      // weaker; never forced all the way to `serialize`). Waves already at
+      // confirm/serialize are left untouched — they are already gated.
+      const waveSet = new Set(taskIds);
+      const crossBucketUpstream = [...new Set(taskIds.flatMap((t) => depMap.get(t) ?? []))]
+        .filter((id) => !waveSet.has(id) && serializedSet.has(id))
+        .sort();
+      if (crossBucketUpstream.length > 0 && firing === 'auto-dispatch') {
+        firing = 'confirm';
+        reason = `depends on ${crossBucketUpstream.join(
+          ', '
+        )} running in the serialized/cyclic channel — cross-bucket prerequisite not parallel-safe, one confirmation before dispatch`;
+      }
+
       reasons.push(reason);
       return { tasks: taskIds, severity, firing, analysisLevel: conflicts.analysisLevel };
     });

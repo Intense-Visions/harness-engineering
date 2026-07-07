@@ -154,6 +154,24 @@ describe('classifyFiring() truth table', () => {
     }
   });
 
+  it('attributes a high-severity below-min wave to severity, not wave size (P2-SUG-4)', () => {
+    // Precedence guard: the high-severity branch runs BEFORE the size gate, so
+    // a small high-severity wave serializes and its reason cites severity.
+    const { firing, reason } = classifyFiring('high', MIN - 1, MIN, 'graph-expanded');
+    expect(firing).toBe('serialize');
+    expect(reason).toMatch(/high-severity/i);
+    expect(reason).not.toMatch(/wave size/i);
+  });
+
+  it('attributes a medium-severity below-min wave to wave size, not severity (P2-SUG-4)', () => {
+    // Precedence guard: the size gate runs BEFORE the medium branch, so a small
+    // medium wave serializes and its reason cites wave size, not severity.
+    const { firing, reason } = classifyFiring('medium', MIN - 1, MIN, 'graph-expanded');
+    expect(firing).toBe('serialize');
+    expect(reason).toMatch(/wave size/i);
+    expect(reason).not.toMatch(/medium-severity/i);
+  });
+
   it('reason names the deciding factor', () => {
     expect(classifyFiring('high', big, MIN, 'graph-expanded').reason).toMatch(/high-severity/i);
     expect(classifyFiring('none', 1, MIN, 'graph-expanded').reason).toMatch(/wave size/i);
@@ -271,6 +289,21 @@ describe('planParallelization()', () => {
     expect(n).toContain('graph-expanded');
   });
 
+  it('narrates the root-wave clause and the summary/count header (P2-SUG-5)', () => {
+    // Three independent, clean, graph-expanded tasks => a single auto-dispatch
+    // root wave with no upstream dependencies.
+    const tasks = [
+      { id: 'a', files: [] },
+      { id: 'b', files: [] },
+      { id: 'c', files: [] },
+    ];
+    const n = planParallelization({ tasks, conflicts: noConflicts(['a', 'b', 'c']) }).narration;
+    // Summary/count header line (wave/serialized/cyclic counts).
+    expect(n).toContain('Parallelization: 1 wave(s), 0 serialized, 0 cyclic.');
+    // Root-wave clause for a wave with no upstream.
+    expect(n).toContain('no upstream dependencies (root wave)');
+  });
+
   it('narration is deterministic across runs (Truth #5)', () => {
     const tasks = [
       { id: 'a', files: [] },
@@ -281,6 +314,61 @@ describe('planParallelization()', () => {
     const first = planParallelization({ tasks, conflicts }).narration;
     const second = planParallelization({ tasks, conflicts }).narration;
     expect(first).toBe(second);
+  });
+
+  it('caps a wave at confirm when it depends on a serialized (cross-bucket) task (P2-IMP-1)', () => {
+    // High-severity group [a,x] => both land in `serialized`. b,c,d each depend
+    // on a. Without the cross-bucket guard, [b,c,d] is a clean size-3
+    // graph-expanded wave => auto-dispatch, and a Phase-3 scheduler keying off
+    // `firing` alone would fire b,c,d before a (which runs in the serialized
+    // channel, NOT as a wave) ever ran.
+    const tasks = [
+      { id: 'a', files: ['a.ts'] },
+      { id: 'x', files: ['x.ts'] },
+      { id: 'b', files: ['b.ts'], dependsOn: ['a'] },
+      { id: 'c', files: ['c.ts'], dependsOn: ['a'] },
+      { id: 'd', files: ['d.ts'], dependsOn: ['a'] },
+    ];
+    const conflicts: ConflictPrediction = {
+      ...noConflicts(['a', 'x', 'b', 'c', 'd']),
+      conflicts: [
+        { taskA: 'a', taskB: 'x', severity: 'high', reason: '', mitigation: '', overlaps: [] },
+      ],
+      groups: [['a', 'x'], ['b'], ['c'], ['d']],
+      summary: { high: 1, medium: 0, low: 0, regrouped: true },
+    };
+    const plan = planParallelization({ tasks, conflicts });
+
+    // a,x are forced serial and removed from waves; the dependent wave is [b,c,d].
+    expect(plan.serialized).toEqual(['a', 'x']);
+    const depWave = plan.waves.find((w) => w.tasks.includes('b'));
+    expect(depWave).toBeDefined();
+    expect(depWave!.tasks).toEqual(['b', 'c', 'd']);
+    // The guard downgrades auto-dispatch -> confirm (capped, never below confirm).
+    expect(depWave!.firing).toBe('confirm');
+    // Narration names the serialized upstream explicitly as a cross-bucket wait,
+    // distinct from a plain earlier-wave dependency.
+    expect(plan.narration).toContain('a (serialized)');
+  });
+
+  it('does not downgrade a wave whose upstream runs in an earlier wave, not the serialized channel', () => {
+    // b,c,d depend on a, but a is a clean root wave (not serialized/cyclic), so
+    // the cross-bucket guard must NOT fire — [b,c,d] stays auto-dispatch and the
+    // wait is a plain (unlabeled) earlier-wave dependency.
+    const tasks = [
+      { id: 'a', files: [] },
+      { id: 'b', files: [], dependsOn: ['a'] },
+      { id: 'c', files: [], dependsOn: ['a'] },
+      { id: 'd', files: [], dependsOn: ['a'] },
+    ];
+    const plan = planParallelization({
+      tasks,
+      conflicts: noConflicts(['a', 'b', 'c', 'd']),
+    });
+    const depWave = plan.waves.find((w) => w.tasks.includes('b'))!;
+    expect(depWave.firing).toBe('auto-dispatch');
+    expect(plan.narration).not.toContain('a (serialized)');
+    expect(plan.narration).not.toContain('a (cyclic)');
   });
 
   it('narrates a serialized high-severity group with its reason', () => {
