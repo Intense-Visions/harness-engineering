@@ -102,6 +102,7 @@ export async function onApproveModelProposal(
   const installResult = await deps.pool.install({
     hfRepoId: model.target.hfRepoId,
     ollamaName: model.target.ollamaName,
+    ...(model.replaces !== undefined ? { replaces: model.replaces.ollamaName } : {}),
     ...(model.diskImpactGb > 0 ? { sizeOnDiskGb: model.diskImpactGb } : {}),
   });
 
@@ -163,11 +164,18 @@ export async function onApproveModelProposal(
     status: 'approved',
     decision: decisionOf(deps, 'approved'),
   });
+  // Surface EVERY entry the install removed: the budget-driven auto-evictions
+  // the pool reported (P5-SUG-EVICT-c) plus the swap's `replaces` the handler
+  // evicted itself. `install` no longer double-counts `replaces` (P5-SUG-EVICT-b).
+  const evictedNames = [
+    ...installResult.evicted.map((e) => e.ollamaName),
+    ...(model.replaces !== undefined ? [model.replaces.ollamaName] : []),
+  ];
   deps.bus.emit(MODEL_POOL_TOPIC, {
     id: proposal.id,
     action: model.action,
     installed: model.target.ollamaName,
-    ...(model.replaces !== undefined ? { evicted: model.replaces.ollamaName } : {}),
+    ...(evictedNames.length > 0 ? { evicted: evictedNames } : {}),
   });
   return { status: 'approved', proposal: updated as ModelProposalRecord, evicted };
 }

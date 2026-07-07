@@ -165,6 +165,36 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(h.events.some((e) => e.topic === 'local-models:pool')).toBe(true);
   });
 
+  it('threads replaces to install and lists BOTH auto-evictions and replaces in the pool event (P5-SUG-EVICT-b/c)', async () => {
+    const LRU: PoolEntry = {
+      ollamaName: 'lru:3b',
+      hfRepoId: 'Qwen/Qwen3-3B-GGUF',
+      sizeOnDiskGb: 4,
+      installedAt: '2026-01-01T00:00:00.000Z',
+      lastUsedAt: null,
+      currentScore: 12,
+    };
+    // install auto-evicts an unrelated budget-driven LRU member (lru:3b),
+    // distinct from the swap's `replaces` (qwen2.5:32b, evicted by the handler).
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [LRU] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const h = harness(pool, proposal);
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    expect(outcome.status).toBe('approved');
+    // install received the swap's `replaces` so its pre-commit credit applies.
+    expect(pool.installCalls[0]!.replaces).toBe('qwen2.5:32b');
+    // The pool event lists BOTH the budget auto-eviction and the replaced entry.
+    const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
+    expect(poolEvt).toBeDefined();
+    const evicted = (poolEvt!.data as { evicted?: string[] }).evicted;
+    expect(Array.isArray(evicted)).toBe(true);
+    expect([...(evicted ?? [])].sort()).toEqual(['lru:3b', 'qwen2.5:32b']);
+  });
+
   it('swap evict-failure: does NOT approve, surfaces the evict error, event shows no completed swap', async () => {
     // Install of the target succeeds, but evicting `replaces` errors. The swap
     // is incomplete: the pool holds BOTH target and replaces. The handler must
