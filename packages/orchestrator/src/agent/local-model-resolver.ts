@@ -179,7 +179,7 @@ export class LocalModelResolver {
    * `configured` list is returned unchanged (byte-identical to pre-Phase-4).
    */
   private candidates(): string[] {
-    return this.poolState ? poolStateToCandidates(this.poolState.snapshot()) : this.configured;
+    return this.poolState ? poolStateToCandidates(this.poolState.snapshot()) : [...this.configured];
   }
 
   onStatusChange(handler: (status: LocalModelStatus) => void): () => void {
