@@ -353,6 +353,41 @@ describe('enrichSnapshotForDispatch', () => {
     expect(mockCaptureHealthSnapshot).toHaveBeenCalled();
   });
 
+  // Regression: the session-start advisory dispatch (`cachedOnly: true`) must NEVER
+  // run a fresh capture. It fires only on a HEAD delta — which also invalidates the
+  // cache — so a fresh capture would run on every command and hang the CLI. See the
+  // roadmap-regen-hang debug session.
+  it('cachedOnly: does NOT capture fresh when the cached snapshot is stale', async () => {
+    vi.mocked(mockCaptureHealthSnapshot).mockClear();
+    vi.mocked(mockIsSnapshotFresh).mockReturnValue(false);
+    vi.mocked(mockCaptureHealthSnapshot).mockResolvedValue(STUB_SNAPSHOT);
+    const ctx = await enrichSnapshotForDispatch('/tmp/test', {
+      files: ['src/index.ts'],
+      commitMessage: 'refactor: cleanup',
+      cachedOnly: true,
+    });
+    expect(mockCaptureHealthSnapshot).not.toHaveBeenCalled();
+    expect(ctx.snapshotFreshness).toBe('cached');
+  });
+
+  it('cachedOnly: does NOT capture fresh when no cached snapshot exists (neutral fallback)', async () => {
+    vi.mocked(mockCaptureHealthSnapshot).mockClear();
+    vi.mocked(mockLoadCachedSnapshot).mockReturnValue(null);
+    vi.mocked(mockCaptureHealthSnapshot).mockResolvedValue(STUB_SNAPSHOT);
+    const ctx = await enrichSnapshotForDispatch('/tmp/test', {
+      files: ['migrations/001.sql'],
+      commitMessage: 'feat: add migration',
+      cachedOnly: true,
+    });
+    expect(mockCaptureHealthSnapshot).not.toHaveBeenCalled();
+    expect(ctx.snapshotFreshness).toBe('cached');
+    // Neutral snapshot carries no health signals — the banner still derives
+    // change-type/domain signals from the diff.
+    expect(ctx.allSignals).not.toContain('circular-deps');
+    expect(ctx.allSignals).toContain('change-feature');
+    expect(ctx.allSignals).toContain('domain-database');
+  });
+
   it('derives bugfix changeType from commit prefix', async () => {
     const ctx = await enrichSnapshotForDispatch('/tmp/test', {
       files: [],

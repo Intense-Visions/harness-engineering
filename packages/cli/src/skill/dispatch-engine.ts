@@ -153,9 +153,41 @@ export function buildDiffInfoFromGit(projectPath: string): DiffInfo | null {
  * Build an enriched DispatchContext by combining a health snapshot with
  * change-type and domain signals derived from git diff information.
  */
+/**
+ * A neutral, all-clear health snapshot with no active health signals. Used by the
+ * `cachedOnly` dispatch path when no cached snapshot exists, so the banner can still
+ * derive change-type/domain signals from the diff WITHOUT an expensive fresh capture.
+ */
+function neutralSnapshot(projectPath: string): HealthSnapshot {
+  return {
+    capturedAt: new Date().toISOString(),
+    gitHead: '',
+    projectPath,
+    checks: {
+      deps: { passed: true, issueCount: 0, circularDeps: 0, layerViolations: 0 },
+      entropy: { passed: true, deadExports: 0, deadFiles: 0, driftCount: 0 },
+      security: { passed: true, findingCount: 0, criticalCount: 0 },
+      perf: { passed: true, violationCount: 0 },
+      docs: { passed: true, undocumentedCount: 0 },
+      lint: { passed: true, issueCount: 0 },
+    },
+    metrics: {
+      avgFanOut: 0,
+      maxFanOut: 0,
+      avgCyclomaticComplexity: 0,
+      maxCyclomaticComplexity: 0,
+      avgCouplingRatio: 0,
+      testCoverage: null,
+      anomalyOutlierCount: 0,
+      articulationPointCount: 0,
+    },
+    signals: [],
+  };
+}
+
 export async function enrichSnapshotForDispatch(
   projectPath: string,
-  options: { files?: string[]; commitMessage?: string; fresh?: boolean }
+  options: { files?: string[]; commitMessage?: string; fresh?: boolean; cachedOnly?: boolean }
 ): Promise<DispatchContext> {
   // 1. Get snapshot (cached or fresh)
   let snapshot: HealthSnapshot | null = null;
@@ -164,6 +196,15 @@ export async function enrichSnapshotForDispatch(
   if (!options.fresh) {
     snapshot = loadCachedSnapshot(projectPath);
     if (snapshot && isSnapshotFresh(snapshot, projectPath)) {
+      snapshotFreshness = 'cached';
+    } else if (options.cachedOnly) {
+      // Advisory hot path (session-start banner): NEVER run a fresh full capture.
+      // captureHealthSnapshot is expensive, and this path only fires on a HEAD
+      // delta — which is exactly what invalidates the cache — so a fresh capture
+      // would run on EVERY command and block the CLI indefinitely. Degrade to the
+      // stale cached snapshot if present, else a neutral all-clear one; the banner
+      // still derives change-type/domain signals from the diff.
+      snapshot = snapshot ?? neutralSnapshot(projectPath);
       snapshotFreshness = 'cached';
     } else {
       snapshot = null; // stale, will recapture
@@ -333,6 +374,7 @@ export async function dispatchSkillsFromGit(
   projectPath: string,
   options: {
     fresh?: boolean;
+    cachedOnly?: boolean;
     limit?: number;
     trigger?: string;
     skillTriggers?: Map<string, string[]>;
@@ -363,9 +405,15 @@ export async function dispatchSkillsFromGit(
   const files = diffInfo.changedFiles;
 
   // Enrich and dispatch
-  const enrichOpts: { files?: string[]; commitMessage?: string; fresh?: boolean } = { files };
+  const enrichOpts: {
+    files?: string[];
+    commitMessage?: string;
+    fresh?: boolean;
+    cachedOnly?: boolean;
+  } = { files };
   if (commitMessage) enrichOpts.commitMessage = commitMessage;
   if (options.fresh) enrichOpts.fresh = options.fresh;
+  if (options.cachedOnly) enrichOpts.cachedOnly = true;
   const ctx = await enrichSnapshotForDispatch(projectPath, enrichOpts);
 
   const dispatchOpts: { limit?: number; trigger?: string; skillTriggers?: Map<string, string[]> } =
