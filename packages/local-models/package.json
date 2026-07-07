@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/local-models",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Hardware-aware local-model recommender, pool manager, and proposal engine for Harness Engineering (LMLM)",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

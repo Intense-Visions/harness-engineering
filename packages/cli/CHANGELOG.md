@@ -1,5 +1,26 @@
 # @harness-engineering/cli
 
+## 4.2.0
+
+### Minor Changes
+
+- fc0220f: feat(adoption): add `harness:catalog-retrospective` skill and `harness adoption retrospective` command. Reads `.harness/metrics/adoption.jsonl` and reports top-invoked, top-failing, and abandoned-mid-workflow skills, flags ever-invoked stale skills, and surfaces catalog telemetry coverage, writing a dated report to `docs/retrospectives/<date>.md`. Core adds `getCatalogRetrospectiveReport` / `renderRetrospectiveMarkdown` / `isAbandonedMidWorkflow`.
+- 3d772e9: Standardize parallel execution as an automatic part of the build loop. Adds a `PlanTask.dependsOn` schema (`@harness-engineering/types`), a `planParallelization` planner in `@harness-engineering/core` that composes the existing `findParallelGroups` wave-grouper and `predict_conflicts` into a `ParallelizationPlan` (dependency-DAG waves with risk-tiered firing — `auto-dispatch`/`confirm`/`serialize` — a cross-bucket ordering cap, and deterministic narration), and a `plan_parallelization` MCP tool (`@harness-engineering/cli`). The autopilot/execution/planning/parallel-agents skills now consume it to dispatch sound parallel waves without being asked, announce-and-proceed for clean waves and pausing only for genuinely uncertain ones. See ADRs 0056 (risk-tiered non-blocking dispatch) and 0057 (dependsOn plan-task schema).
+
+### Patch Changes
+
+- 1dcea58: Fix the session-start skill-dispatch advisory that could hang every `harness` command indefinitely. The banner fires only on a git HEAD delta — which is exactly what invalidates the health-snapshot cache — so `enrichSnapshotForDispatch` always ran a fresh, expensive full `captureHealthSnapshot` (deps/entropy/graph analysis) and `main()` awaited it unbounded, blocking the CLI after any commit on a large repo. The session-start path is now `cachedOnly`, honoring its documented "always uses cached health snapshot for speed" contract: it degrades to the stale cached snapshot (or a neutral all-clear one) instead of capturing fresh, so the banner never blocks command completion.
+- 06a26ee: fix(cli): `check-perf` now loads the harness config so it resolves configured `entryPoints` on monorepos (previously failed with "Could not resolve entry points"). Also breaks two circular dependencies in the drift catalog and the craft LLM provider by extracting import-free type contracts (internal, no API change).
+- Updated dependencies [fc0220f]
+- Updated dependencies [3d772e9]
+  - @harness-engineering/core@0.33.0
+  - @harness-engineering/types@0.17.0
+  - @harness-engineering/dashboard@0.11.2
+  - @harness-engineering/orchestrator@0.9.2
+  - @harness-engineering/graph@0.11.3
+  - @harness-engineering/intelligence@0.4.1
+  - @harness-engineering/signals@0.2.1
+
 ## 4.1.0
 
 ### Minor Changes
