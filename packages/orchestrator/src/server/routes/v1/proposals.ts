@@ -9,6 +9,7 @@ import {
 } from '@harness-engineering/core';
 import {
   EditProposalInputSchema,
+  type Proposal,
   type SkillProposal,
   type ProposalStatus,
 } from '@harness-engineering/types';
@@ -121,7 +122,7 @@ async function handleApprove(
   try {
     const result = await promote(deps.projectPath, id, decidedBy);
     const proposal = await getProposal(deps.projectPath, id);
-    if (proposal) emitProposalApproved(deps.bus, proposal);
+    if (proposal && proposal.kind === 'skill') emitProposalApproved(deps.bus, proposal);
     sendJSON(res, 200, { promotion: result, proposal });
   } catch (err) {
     if (err instanceof ProposalNotFoundError) {
@@ -182,7 +183,7 @@ async function handleReject(
   }
 
   const decidedBy = getDecidedBy(req, deps);
-  const updated: SkillProposal = await updateProposal(deps.projectPath, id, {
+  const updated: Proposal = await updateProposal(deps.projectPath, id, {
     status: 'rejected',
     decision: {
       decidedAt: new Date().toISOString(),
@@ -191,7 +192,7 @@ async function handleReject(
       reason: parsed.data.reason,
     },
   });
-  emitProposalRejected(deps.bus, updated);
+  if (updated.kind === 'skill') emitProposalRejected(deps.bus, updated);
   sendJSON(res, 200, updated);
 }
 
@@ -224,6 +225,10 @@ async function handleEdit(
   const existing = await getProposal(deps.projectPath, id);
   if (!existing) {
     sendJSON(res, 404, { error: 'Proposal not found' });
+    return;
+  }
+  if (existing.kind !== 'skill') {
+    sendJSON(res, 422, { error: 'edit applies to skill proposals only' });
     return;
   }
   if (existing.status === 'approved' || existing.status === 'rejected') {
