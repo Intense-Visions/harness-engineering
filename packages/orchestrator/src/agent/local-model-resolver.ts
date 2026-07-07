@@ -1,4 +1,6 @@
 import type { LocalModelStatus } from '@harness-engineering/types';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
+import { poolStateToCandidates } from '@harness-engineering/local-models';
 
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
@@ -15,6 +17,13 @@ export interface LocalModelResolverOptions {
   apiKey?: string;
   /** Normalized candidate list (already turned from string|string[] into string[]). */
   configured: string[];
+  /**
+   * Phase 4 (D5): optional read-only pool-state port. When provided, the
+   * candidate list derives from pool entries (currentScore desc → ollamaName)
+   * instead of `configured`. When absent (default), behavior is byte-identical
+   * to the pre-Phase-4 resolver.
+   */
+  poolState?: PoolStateProvider;
   /** Probe cadence in ms; default 30_000, minimum 1_000. */
   probeIntervalMs?: number;
   /**
@@ -101,6 +110,7 @@ export class LocalModelResolver {
   private readonly endpoint: string;
   private readonly apiKey?: string;
   private readonly configured: string[];
+  private readonly poolState?: PoolStateProvider;
   private readonly probeIntervalMs: number;
   private readonly fetchModels: (endpoint: string, apiKey?: string) => Promise<string[]>;
   private readonly logger: ResolverLogger;
@@ -132,6 +142,9 @@ export class LocalModelResolver {
       this.apiKey = opts.apiKey;
     }
     this.configured = [...opts.configured];
+    if (opts.poolState !== undefined) {
+      this.poolState = opts.poolState;
+    }
     const interval = opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS;
     this.probeIntervalMs = Math.max(MIN_PROBE_INTERVAL_MS, interval);
     const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
@@ -152,12 +165,21 @@ export class LocalModelResolver {
     return {
       available: this.available,
       resolved: this.resolved,
-      configured: [...this.configured],
+      configured: this.candidates(),
       detected: [...this.detected],
       lastProbeAt: this.lastProbeAt,
       lastError: this.lastError,
       warnings: [...this.warnings],
     };
+  }
+
+  /**
+   * Effective candidate list. With a poolState port present the list derives
+   * from pool entries (currentScore desc → ollamaName); otherwise the static
+   * `configured` list is returned unchanged (byte-identical to pre-Phase-4).
+   */
+  private candidates(): string[] {
+    return this.poolState ? poolStateToCandidates(this.poolState.snapshot()) : this.configured;
   }
 
   onStatusChange(handler: (status: LocalModelStatus) => void): () => void {
@@ -189,13 +211,14 @@ export class LocalModelResolver {
       this.detected = [...detected];
       this.lastError = null;
       this.lastProbeAt = new Date().toISOString();
-      const match = this.configured.find((id) => detected.includes(id)) ?? null;
+      const candidates = this.candidates();
+      const match = candidates.find((id) => detected.includes(id)) ?? null;
       this.resolved = match;
       this.available = match !== null;
       this.warnings = match
         ? []
         : [
-            `No configured local model is loaded. Configured: [${this.configured.join(', ')}]. Detected: [${detected.join(', ')}].`,
+            `No configured local model is loaded. Configured: [${candidates.join(', ')}]. Detected: [${detected.join(', ')}].`,
           ];
     } catch (err) {
       const message = err instanceof Error ? err.message : 'probe failed';
@@ -253,7 +276,7 @@ export class LocalModelResolver {
     return JSON.stringify({
       available: this.available,
       resolved: this.resolved,
-      configured: this.configured,
+      configured: this.candidates(),
       detected: this.detected,
       lastError: this.lastError,
       warnings: this.warnings,
