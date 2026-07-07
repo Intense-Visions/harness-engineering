@@ -312,31 +312,26 @@ export async function runModelsRefresh(): Promise<ModelsRefreshResult> {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
     });
-    const body = await res.text();
-    const parsed = safeParseObject(body);
-    const emitted =
-      typeof parsed?.['emitted'] === 'number' ? (parsed['emitted'] as number) : undefined;
-    const warnings = Array.isArray(parsed?.['warnings'])
-      ? (parsed['warnings'] as string[])
-      : undefined;
-    return {
-      ok: res.ok,
-      status: res.status,
-      ...(emitted !== undefined ? { emitted } : {}),
-      ...(warnings !== undefined ? { warnings } : {}),
-      ...(res.ok
-        ? {}
-        : {
-            error:
-              typeof parsed?.['error'] === 'string'
-                ? (parsed['error'] as string)
-                : `HTTP ${res.status}`,
-          }),
-      body,
-    };
+    return buildRefreshResult(res, await res.text());
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** Assemble a {@link ModelsRefreshResult} from the route response. */
+function buildRefreshResult(res: Response, body: string): ModelsRefreshResult {
+  const parsed = safeParseObject(body);
+  const emitted = parsed?.['emitted'];
+  const warnings = parsed?.['warnings'];
+  const error = parsed?.['error'];
+  return {
+    ok: res.ok,
+    status: res.status,
+    ...(typeof emitted === 'number' ? { emitted } : {}),
+    ...(Array.isArray(warnings) ? { warnings: warnings as string[] } : {}),
+    ...(res.ok ? {} : { error: typeof error === 'string' ? error : `HTTP ${res.status}` }),
+    body,
+  };
 }
 
 /** Best-effort JSON object parse; returns undefined for non-object/invalid bodies. */
@@ -354,6 +349,44 @@ export function refreshExitCode(result: ModelsRefreshResult): number {
   return result.ok ? ExitCode.SUCCESS : ExitCode.ERROR;
 }
 
+/** One-line error string for a failed HTTP round-trip (explicit error or status+body). */
+function httpErrorLine(r: { error?: string; status?: number; body?: string }): string {
+  return r.error ?? `HTTP ${r.status ?? '?'}: ${r.body ?? ''}`;
+}
+
+/** Shared approve/reject reporter: print the route body or exit non-zero on failure. */
+function reportMutation(result: ModelsMutationResult): void {
+  if (!result.ok) {
+    logger.error(httpErrorLine(result));
+    process.exit(ExitCode.ERROR);
+  }
+  console.log(result.body ?? '');
+}
+
+async function probeAction(options: ProbeOptions): Promise<void> {
+  const result = await runModelsProbe(options);
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    const text = formatProbe(result);
+    if (result.status === 'error' || result.status === 'no-match') logger.error(text);
+    else logger.info(text);
+  }
+  process.exit(result.exitCode);
+}
+
+async function refreshAction(): Promise<void> {
+  const result = await runModelsRefresh();
+  if (!result.ok) {
+    logger.error(httpErrorLine(result));
+  } else {
+    logger.info(`refresh: emitted ${result.emitted ?? 0} proposal(s)`);
+    for (const w of result.warnings ?? []) logger.warn(`  warning: ${w}`);
+  }
+  // O4: keep output clean — set the exit code rather than throwing.
+  process.exitCode = refreshExitCode(result);
+}
+
 function addProbeCommand(cmd: Command): void {
   cmd
     .command('probe')
@@ -367,20 +400,7 @@ function addProbeCommand(cmd: Command): void {
     .option('--endpoint <url>', 'Override the backend endpoint (bypasses harness.config.json).')
     .option('--api-key <key>', 'Override the API key.')
     .option('--json', 'Print machine-readable JSON instead of a human summary.', false)
-    .action(async (options: ProbeOptions) => {
-      const result = await runModelsProbe(options);
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2));
-      } else {
-        const text = formatProbe(result);
-        if (result.status === 'error' || result.status === 'no-match') {
-          logger.error(text);
-        } else {
-          logger.info(text);
-        }
-      }
-      process.exit(result.exitCode);
-    });
+    .action(probeAction);
 }
 
 function addProposalsCommand(cmd: Command): void {
@@ -402,12 +422,7 @@ function addRejectCommand(cmd: Command): void {
     )
     .requiredOption('--reason <text>', 'Why the proposal is being rejected')
     .action(async (id: string, options: { reason: string }) => {
-      const result = await runModelsReject(id, options.reason);
-      if (!result.ok) {
-        logger.error(result.error ?? `HTTP ${result.status ?? '?'}: ${result.body ?? ''}`);
-        process.exit(ExitCode.ERROR);
-      }
-      console.log(result.body ?? '');
+      reportMutation(await runModelsReject(id, options.reason));
     });
 }
 
@@ -418,12 +433,7 @@ function addApproveCommand(cmd: Command): void {
       'Approve a model proposal (drives the installer + pool update). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.'
     )
     .action(async (id: string) => {
-      const result = await runModelsApprove(id);
-      if (!result.ok) {
-        logger.error(result.error ?? `HTTP ${result.status ?? '?'}: ${result.body ?? ''}`);
-        process.exit(ExitCode.ERROR);
-      }
-      console.log(result.body ?? '');
+      reportMutation(await runModelsApprove(id));
     });
 }
 
@@ -433,17 +443,7 @@ function addRefreshCommand(cmd: Command): void {
     .description(
       'Force a background-scheduler refresh tick now (emits any model proposals). Exits non-zero on an O4 hard failure (HuggingFace unreachable AND no benchmark snapshot). Requires the orchestrator running + HARNESS_ADMIN_TOKEN.'
     )
-    .action(async () => {
-      const result = await runModelsRefresh();
-      if (!result.ok) {
-        logger.error(result.error ?? `HTTP ${result.status ?? '?'}: ${result.body ?? ''}`);
-      } else {
-        logger.info(`refresh: emitted ${result.emitted ?? 0} proposal(s)`);
-        for (const w of result.warnings ?? []) logger.warn(`  warning: ${w}`);
-      }
-      // O4: keep output clean — set the exit code rather than throwing.
-      process.exitCode = refreshExitCode(result);
-    });
+    .action(refreshAction);
 }
 
 export function createModelsCommand(): Command {

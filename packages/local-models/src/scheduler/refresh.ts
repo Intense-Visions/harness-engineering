@@ -105,23 +105,11 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
   const hardware = await tryStage('hardware detection', errors, () => deps.detectHardware());
   if (hardware === undefined) {
     // No hardware profile → no trustworthy ranking. Report as an O4 hard failure.
-    return {
-      candidatesEvaluated: 0,
-      proposalsEmitted: 0,
-      reconciledRemoved: [],
-      snapshotLoaded: false,
-      hfReachable: false,
-      warnings: [],
-      errors,
-    };
+    return hardFailureTick(errors);
   }
 
   const rec = await tryStage('recommend', errors, () => deps.recommend(hardware));
-  const ranked = rec?.ranked ?? [];
-  // A thrown recommend (rec === undefined) is a hard failure: no snapshot, no HF.
-  const snapshotLoaded = rec?.snapshotLoaded ?? false;
-  const hfReachable = rec?.hfReachable ?? false;
-  const warnings = [...(rec?.warnings ?? [])];
+  const { ranked, snapshotLoaded, hfReachable, warnings } = recOutcome(rec);
 
   const reconcile = await tryStage('reconcile', errors, () => deps.poolManager.reconcile());
   const reconciledRemoved = (reconcile?.removed ?? []).map((e) => e.ollamaName);
@@ -137,6 +125,37 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
     hfReachable,
     warnings,
     errors,
+  };
+}
+
+/** A tick that produced no trustworthy ranking (O4 hard failure). */
+function hardFailureTick(errors: string[]): TickResult {
+  return {
+    candidatesEvaluated: 0,
+    proposalsEmitted: 0,
+    reconciledRemoved: [],
+    snapshotLoaded: false,
+    hfReachable: false,
+    warnings: [],
+    errors,
+  };
+}
+
+/**
+ * Normalize the recommend stage's outcome. A thrown recommend (`rec` undefined)
+ * degrades to a hard failure: empty ranking, no snapshot, HF unreachable.
+ */
+function recOutcome(rec: RecommendResult | undefined): {
+  ranked: RecommendResult['ranked'];
+  snapshotLoaded: boolean;
+  hfReachable: boolean;
+  warnings: string[];
+} {
+  return {
+    ranked: rec?.ranked ?? [],
+    snapshotLoaded: rec?.snapshotLoaded ?? false,
+    hfReachable: rec?.hfReachable ?? false,
+    warnings: [...(rec?.warnings ?? [])],
   };
 }
 
