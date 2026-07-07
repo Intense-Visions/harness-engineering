@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { diffPoolAgainstRanking } from '../../src/proposals/engine.js';
+import { estimateDiskGb } from '../../src/ranker/disk.js';
 import type { PoolEntry, PoolState } from '../../src/pool/types.js';
 import type { RankedModel } from '../../src/ranker/types.js';
 
@@ -7,6 +8,10 @@ function rm(o: Partial<RankedModel>): RankedModel {
   return {
     hfRepoId: 'Org/Default',
     ollamaName: 'default:latest',
+    // A real RankedModel always carries the (sizeB, quant) triple the disk/vram
+    // sizing needs; default them so the fixture matches the runtime contract.
+    sizeB: 14,
+    quant: 'Q4_K_M',
     fitsHardware: true,
     evidence: 'direct',
     benchmarkSnapshot: '2026-05-21',
@@ -127,6 +132,19 @@ describe('diffPoolAgainstRanking (F7: rejected/pending dedup)', () => {
     });
     expect(out).toHaveLength(1);
     expect(out[0]!.target.ollamaName).toBe('newmodel');
+  });
+});
+
+describe('diffPoolAgainstRanking (P5-SUG-EVICT-a: real diskImpactGb)', () => {
+  it('emits a real non-zero diskImpactGb derived from ranker weight sizing', () => {
+    const pool = poolOf([pe({ ollamaName: 'old-a', hfRepoId: 'org/old', currentScore: 60 })]);
+    const ranked = [
+      rm({ ollamaName: 'new-a', hfRepoId: 'Org/NewA', score: 85, sizeB: 32, quant: 'Q4_K_M' }),
+    ];
+    const out = diffPoolAgainstRanking({ pool, ranked, proposalThreshold: 5, vramGb: 32 });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.diskImpactGb).toBeGreaterThan(0);
+    expect(out[0]!.diskImpactGb).toBe(estimateDiskGb({ sizeB: 32, quant: 'Q4_K_M' }));
   });
 });
 

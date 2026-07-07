@@ -21,6 +21,7 @@
 import type { ModelProposalContent } from '@harness-engineering/types';
 import type { PoolEntry, PoolState } from '../pool/types.js';
 import type { RankedModel } from '../ranker/types.js';
+import { estimateDiskGb } from '../ranker/index.js';
 import { buildJustification } from './justification.js';
 
 /** A `(target, replaces)` identity used to dedup against pending/rejected history. */
@@ -83,23 +84,40 @@ export function diffPoolAgainstRanking(input: DiffInput): ModelProposalContent[]
     if (candidate === undefined || candidate.ollamaName === undefined) continue;
 
     claimed.add(candidate.ollamaName);
-    proposals.push({
-      action: 'swap',
-      target: { hfRepoId: candidate.hfRepoId, ollamaName: candidate.ollamaName },
-      replaces: { ollamaName: entry.ollamaName },
-      scoreDelta: candidate.score - entry.currentScore,
-      justification: buildJustification({
-        target: candidate,
-        currentScore: entry.currentScore,
-        vramGb,
-      }),
-      // Real disk math lands with the Phase 6 scheduler; the ranker surfaces
-      // VRAM, not on-disk size, so the diff records a 0 placeholder for now.
-      diskImpactGb: 0,
-    });
+    proposals.push(buildSwapProposal(entry, candidate, vramGb));
   }
 
   return proposals;
+}
+
+/**
+ * Assemble the `ModelProposalContent` for a chosen `(entry, candidate)` swap.
+ * Extracted from {@link diffPoolAgainstRanking} so the on-disk sizing (and its
+ * optional-`activeB` branch) does not inflate the loop's cyclomatic complexity.
+ */
+function buildSwapProposal(
+  entry: PoolEntry,
+  candidate: RankedModel,
+  vramGb: number
+): ModelProposalContent {
+  return {
+    action: 'swap',
+    target: { hfRepoId: candidate.hfRepoId, ollamaName: candidate.ollamaName! },
+    replaces: { ollamaName: entry.ollamaName },
+    scoreDelta: candidate.score - entry.currentScore,
+    justification: buildJustification({
+      target: candidate,
+      currentScore: entry.currentScore,
+      vramGb,
+    }),
+    // On-disk footprint ≈ the candidate's quantized weight tensors, sized by
+    // the ranker's weight math (P5-SUG-EVICT-a).
+    diskImpactGb: estimateDiskGb({
+      sizeB: candidate.sizeB,
+      quant: candidate.quant,
+      ...(candidate.activeB !== undefined ? { activeB: candidate.activeB } : {}),
+    }),
+  };
 }
 
 /**
