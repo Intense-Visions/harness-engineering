@@ -67,8 +67,32 @@ export interface TickResult {
   proposalsEmitted: number;
   /** `ollamaName`s pruned by drift reconciliation (D12/F10). */
   reconciledRemoved: string[];
+  /**
+   * True when a real (non-fallback) benchmark snapshot backed this tick's rank.
+   * Threaded from {@link RecommendResult.snapshotLoaded} for the O4 signal.
+   */
+  snapshotLoaded: boolean;
+  /**
+   * True when the best-effort HuggingFace reachability probe succeeded.
+   * Threaded from {@link RecommendResult.hfReachable} for the O4 signal.
+   */
+  hfReachable: boolean;
+  /** Recommender + per-stage warnings surfaced to the force-refresh caller. */
+  warnings: string[];
   /** Human-readable per-stage errors; empty on a clean tick. */
   errors: string[];
+}
+
+/**
+ * O4 hard-failure predicate: the recommender could neither reach HuggingFace
+ * **nor** load a frozen benchmark snapshot, so this tick produced no trustworthy
+ * ranking. The force-refresh surfaces (CLI + route) map this to a non-zero exit
+ * / `503`; a tick that merely lost HF but kept the snapshot is a soft warning.
+ *
+ * @see docs/changes/local-model-lifecycle-manager/proposal.md (Phase 6; O4)
+ */
+export function isTickHardFailure(result: TickResult): boolean {
+  return !result.snapshotLoaded && !result.hfReachable;
 }
 
 /**
@@ -80,11 +104,24 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
 
   const hardware = await tryStage('hardware detection', errors, () => deps.detectHardware());
   if (hardware === undefined) {
-    return { candidatesEvaluated: 0, proposalsEmitted: 0, reconciledRemoved: [], errors };
+    // No hardware profile → no trustworthy ranking. Report as an O4 hard failure.
+    return {
+      candidatesEvaluated: 0,
+      proposalsEmitted: 0,
+      reconciledRemoved: [],
+      snapshotLoaded: false,
+      hfReachable: false,
+      warnings: [],
+      errors,
+    };
   }
 
   const rec = await tryStage('recommend', errors, () => deps.recommend(hardware));
   const ranked = rec?.ranked ?? [];
+  // A thrown recommend (rec === undefined) is a hard failure: no snapshot, no HF.
+  const snapshotLoaded = rec?.snapshotLoaded ?? false;
+  const hfReachable = rec?.hfReachable ?? false;
+  const warnings = [...(rec?.warnings ?? [])];
 
   const reconcile = await tryStage('reconcile', errors, () => deps.poolManager.reconcile());
   const reconciledRemoved = (reconcile?.removed ?? []).map((e) => e.ollamaName);
@@ -92,7 +129,15 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
   const proposalsEmitted = await emitDiff(deps, hardware, ranked, errors);
   await writeBackScores(deps, ranked, errors);
 
-  return { candidatesEvaluated: ranked.length, proposalsEmitted, reconciledRemoved, errors };
+  return {
+    candidatesEvaluated: ranked.length,
+    proposalsEmitted,
+    reconciledRemoved,
+    snapshotLoaded,
+    hfReachable,
+    warnings,
+    errors,
+  };
 }
 
 /**
@@ -302,6 +347,9 @@ export class RefreshScheduler {
           candidatesEvaluated: 0,
           proposalsEmitted: 0,
           reconciledRemoved: [],
+          snapshotLoaded: false,
+          hfReachable: false,
+          warnings: [],
           errors: [messageOf(err)],
         })
       )

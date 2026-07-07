@@ -3,6 +3,7 @@ import {
   runRefreshTick,
   RefreshScheduler,
   MIN_INTERVAL_MS,
+  isTickHardFailure,
   type RefreshTickDeps,
   type TickResult,
 } from '../../src/scheduler/refresh.js';
@@ -169,6 +170,54 @@ describe('runRefreshTick (reconcile → rank → diff → emit)', () => {
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors.some((e) => /persist boom/.test(e))).toBe(true);
   });
+
+  it('threads snapshotLoaded/hfReachable/warnings from RecommendResult (O4 signal)', async () => {
+    const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
+    const deps: RefreshTickDeps = {
+      detectHardware: async () => HARDWARE,
+      // HF unreachable but the frozen snapshot loaded → soft warning, NOT hard failure.
+      recommend: async () => ({
+        ranked: [],
+        snapshotLoaded: true,
+        hfReachable: false,
+        warnings: ['HuggingFace popularity probe failed'],
+      }),
+      poolManager: pool,
+      dedupSource: async () => ({ pending: [], rejected: [] }),
+      emitProposal: async () => {},
+      proposalThreshold: 5,
+    };
+
+    const result = await runRefreshTick(deps);
+    expect(result.snapshotLoaded).toBe(true);
+    expect(result.hfReachable).toBe(false);
+    expect(result.warnings).toContain('HuggingFace popularity probe failed');
+    // HF down + snapshot up → NOT a hard failure (exit 0 with warnings).
+    expect(isTickHardFailure(result)).toBe(false);
+  });
+
+  it('reports a hard failure when HF is unreachable AND no snapshot loaded (O4)', async () => {
+    const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
+    const deps: RefreshTickDeps = {
+      detectHardware: async () => HARDWARE,
+      // Snapshot load failed and HF unreachable → hard failure (exit non-zero / 503).
+      recommend: async () => ({
+        ranked: [],
+        snapshotLoaded: false,
+        hfReachable: false,
+        warnings: ['benchmark snapshot load failed'],
+      }),
+      poolManager: pool,
+      dedupSource: async () => ({ pending: [], rejected: [] }),
+      emitProposal: async () => {},
+      proposalThreshold: 5,
+    };
+
+    const result = await runRefreshTick(deps);
+    expect(result.snapshotLoaded).toBe(false);
+    expect(result.hfReachable).toBe(false);
+    expect(isTickHardFailure(result)).toBe(true);
+  });
 });
 
 function makeLogger(): {
@@ -194,7 +243,15 @@ function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
 }
 
 function emptyTick(): TickResult {
-  return { candidatesEvaluated: 0, proposalsEmitted: 0, reconciledRemoved: [], errors: [] };
+  return {
+    candidatesEvaluated: 0,
+    proposalsEmitted: 0,
+    reconciledRemoved: [],
+    snapshotLoaded: true,
+    hfReachable: true,
+    warnings: [],
+    errors: [],
+  };
 }
 
 const noopTimer = { setTimer: () => ({ unref() {} }), clearTimer: () => {} };
@@ -224,6 +281,9 @@ describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
       candidatesEvaluated: 3,
       proposalsEmitted: 1,
       reconciledRemoved: [],
+      snapshotLoaded: true,
+      hfReachable: true,
+      warnings: [],
       errors: [],
     };
     d.resolve(tr);
@@ -239,6 +299,9 @@ describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
         candidatesEvaluated: 5,
         proposalsEmitted: 2,
         reconciledRemoved: ['x'],
+        snapshotLoaded: true,
+        hfReachable: true,
+        warnings: [],
         errors: [],
       }),
       intervalMs: MIN_INTERVAL_MS,
