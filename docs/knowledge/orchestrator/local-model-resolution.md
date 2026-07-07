@@ -21,6 +21,27 @@ agent:
 
 `localModel` accepts either a string or a non-empty array. The string form is normalized internally to a 1-element array.
 
+### Pool-state candidate derivation (Phase 4 / LMLM D5)
+
+When the Local Model Lifecycle Manager is enabled, the resolver's candidate list is derived from **live pool state** instead of the static `agent.backends.<name>.model` array.
+
+`LocalModelResolver` accepts an optional `poolState?: PoolStateProvider` — a read-only port `{ snapshot(): PoolState }` exported from `@harness-engineering/local-models`. Both `PoolManager` and `PoolStateStore` structurally satisfy it via their existing `snapshot()` accessor, so no adapter is needed. When the port is present, the effective candidate list becomes `poolStateToCandidates(snapshot())` — pool entries ordered by `currentScore` descending, mapped to `ollamaName`. This ordering, the `getStatus().configured` surface, and the probe-loop match all read through the derived list.
+
+The orchestrator resolves the port once, in the resolver-construction loop (`orchestrator.ts`), and shares a single provider across every `local`/`pi` resolver:
+
+```yaml
+localModels:
+  enabled: true # opt-in; default false. When false/absent, resolver behavior is byte-identical to the static path.
+```
+
+- **`localModels.enabled = true`** — the orchestrator constructs a shared `PoolStateStore`, calls `load()` on it in `initLocalModelAndPipeline()` **before** the first probe (so pool entries are present when each resolver starts), and injects it into every `local`/`pi` resolver. An absent or malformed `~/.harness/local-models/pool.json` degrades to `EmptyPoolState()` (no throw) — candidates are empty until the pool is populated.
+- **`localModels.enabled = false` (default) or absent** — no provider is injected; `candidates()` returns the static `configured` list and behavior is byte-identical to the pre-Phase-4 resolver.
+- **Tests** inject a fake provider directly via the `overrides.poolState` seam on the `Orchestrator` constructor, bypassing the on-disk store.
+
+The two resolver consumers (`orchestrator-backend-factory` and `analysis-provider-factory`) require **no change** — they observe pool-derived candidates transparently through `resolver.resolveModel()` / `resolver.getStatus()`.
+
+See [`docs/changes/local-model-lifecycle-manager/proposal.md`](../../changes/local-model-lifecycle-manager/proposal.md) (D5, Phase 4).
+
 ## Probe Loop
 
 The resolver issues `GET ${endpoint}/models` periodically. Default cadence is 30 seconds; the first probe runs synchronously inside `Orchestrator.start()` so the initial status reflects server availability before any consumer reads from it.
@@ -37,15 +58,15 @@ The probe loop has an overlap guard: if a probe is in flight when the interval f
 
 `LocalModelStatus` (defined in `@harness-engineering/types`):
 
-| Field         | Type             | Description                                           |
-| ------------- | ---------------- | ----------------------------------------------------- |
-| `available`   | `boolean`        | True when at least one configured candidate is loaded |
-| `resolved`    | `string \| null` | The currently selected model ID                       |
-| `configured`  | `string[]`       | Candidate list (always normalized to array)           |
-| `detected`    | `string[]`       | Model IDs returned by the last successful probe       |
-| `lastProbeAt` | `string \| null` | ISO timestamp of the last successful probe            |
-| `lastError`   | `string \| null` | Last probe error message                              |
-| `warnings`    | `string[]`       | Human-readable warnings (empty when healthy)          |
+| Field         | Type             | Description                                                                                                                                             |
+| ------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `available`   | `boolean`        | True when at least one configured candidate is loaded                                                                                                   |
+| `resolved`    | `string \| null` | The currently selected model ID                                                                                                                         |
+| `configured`  | `string[]`       | Effective candidate list (normalized to array). Pool-derived, ordered `currentScore` desc, when `localModels.enabled`; otherwise the static config list |
+| `detected`    | `string[]`       | Model IDs returned by the last successful probe                                                                                                         |
+| `lastProbeAt` | `string \| null` | ISO timestamp of the last successful probe                                                                                                              |
+| `lastError`   | `string \| null` | Last probe error message                                                                                                                                |
+| `warnings`    | `string[]`       | Human-readable warnings (empty when healthy)                                                                                                            |
 
 Consumers subscribe via `resolver.onStatusChange(handler)` and the orchestrator broadcasts every meaningful change to the dashboard on the `local-model:status` WebSocket topic.
 
