@@ -23,6 +23,9 @@ export type { EvictionRequest } from './eviction.js';
 export { EmptyPoolState } from './types.js';
 export type { EvictionCandidate, EvictionPlan, PoolEntry, PoolState } from './types.js';
 
+export { poolStateToCandidates } from './provider.js';
+export type { PoolStateProvider } from './provider.js';
+
 export { PoolManager } from './manager.js';
 export type {
   AllowCheckRequest,
