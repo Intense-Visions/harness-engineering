@@ -49,16 +49,53 @@ describe('roadmap-auto-done workflow', () => {
   });
 
   it('pushes with a rebase-retry loop to absorb concurrent merges', () => {
-    expect(stepRuns).toMatch(/git pull --rebase/);
-    expect(stepRuns).toMatch(/git push/);
+    // Direct-push path: fetch + rebase onto the base, then push (no `git pull
+    // --rebase`, which failed on a hook-dirtied tree).
+    expect(stepRuns).toMatch(/git fetch origin "\$BASE"/);
+    expect(stepRuns).toMatch(/git rebase "origin\/\$BASE"/);
+    expect(stepRuns).toMatch(/git push origin "HEAD:\$BASE"/);
+  });
+
+  it('disables husky for the commit so a hook cannot dirty the tree and wedge the rebase', () => {
+    const commitStep = job.steps.find((s) => (s.run ?? '').includes('git push'));
+    expect((commitStep as { env?: Record<string, string> })?.env?.HUSKY).toBe('0');
+  });
+
+  it('hard-resets to our commit before each retry so a prior conflict cannot leave a dirty tree', () => {
+    expect(stepRuns).toMatch(/git reset --hard "\$OURS"/);
+  });
+
+  it('falls back to a self-approved PR when direct push is blocked by branch protection', () => {
+    // Mirrors the baseline-refresh job: create a branch off the base, PR the
+    // roadmap flip, self-approve with the PAT, auto-merge.
+    expect(stepRuns).toMatch(/gh pr create/);
+    expect(stepRuns).toMatch(/gh pr review "\$PR_URL" --approve/);
+    expect(stepRuns).toMatch(/gh pr merge "\$PR_URL" --auto/);
+    const commitStep = job.steps.find((s) => (s.run ?? '').includes('gh pr review'));
+    expect((commitStep as { env?: Record<string, string> })?.env?.AUTOAPPROVE_PAT).toMatch(
+      /BASELINE_AUTOAPPROVE_PAT/
+    );
+  });
+
+  it('scope-guards the self-approval to roadmap files, before approving (keeps the PAT scoped)', () => {
+    const guardIdx = stepRuns.indexOf('assert-diff-scope.mjs');
+    const approveIdx = stepRuns.indexOf('gh pr review');
+    expect(guardIdx).toBeGreaterThanOrEqual(0);
+    expect(approveIdx).toBeGreaterThanOrEqual(0);
+    expect(guardIdx).toBeLessThan(approveIdx);
+    expect(stepRuns).toMatch(/assert-diff-scope\.mjs docs\/roadmap\.md docs\/roadmap\.d\//);
   });
 
   it('stages the aggregate but guards the shard dir so a monolith layout is tolerated (C1)', () => {
     // A bare `git add docs/roadmap.d docs/roadmap.md` aborts (exit 128) in a
     // monolith repo with no shard dir — the commit step must not contain it.
     expect(stepRuns).not.toMatch(/git add docs\/roadmap\.d docs\/roadmap\.md/);
-    // The shard dir is only staged when it exists.
-    expect(stepRuns).toMatch(/\[ -d docs\/roadmap\.d \] && git add docs\/roadmap\.d/);
+    // The aggregate is always in scope; the shard dir is appended only when it exists.
+    expect(stepRuns).toMatch(/ROADMAP_PATHS="docs\/roadmap\.md"/);
+    expect(stepRuns).toMatch(
+      /\[ -d docs\/roadmap\.d \] && ROADMAP_PATHS="\$ROADMAP_PATHS docs\/roadmap\.d"/
+    );
+    expect(stepRuns).toMatch(/git add \$ROADMAP_PATHS/);
   });
 
   it('regenerates the aggregate from shards before committing in sharded mode (I1)', () => {
