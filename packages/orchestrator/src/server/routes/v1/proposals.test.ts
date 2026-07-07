@@ -198,13 +198,13 @@ const POOLED: PoolEntry = {
   currentScore: 71,
 };
 
-function writeModelProposal(dir: string, id: string): void {
+function writeModelProposal(dir: string, id: string, status = 'open'): void {
   const record = {
     kind: 'model',
     id,
     createdAt: '2026-07-07T00:00:00.000Z',
     proposedBy: 'orchestrator:lmlm',
-    status: 'open',
+    status,
     source: { justification: 'A newer model beats the current pool member by a wide margin.' },
     model: {
       action: 'swap',
@@ -229,8 +229,10 @@ function writeModelProposal(dir: string, id: string): void {
 function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }): {
   ops: ModelPoolOps;
   evictCalls: number;
+  installCalls: number;
 } {
   let evictCalls = 0;
+  let installCalls = 0;
   const state: PoolState = {
     diskBudgetGb: 100,
     diskUsedGb: 20,
@@ -240,8 +242,10 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
     lastRefreshAt: null,
   };
   const ops: ModelPoolOps = {
-    install: () =>
-      Promise.resolve(opts.install ?? { status: 'success', entry: POOLED, evicted: [] }),
+    install: () => {
+      installCalls += 1;
+      return Promise.resolve(opts.install ?? { status: 'success', entry: POOLED, evicted: [] });
+    },
     evict: (r) => {
       evictCalls += 1;
       return Promise.resolve(
@@ -254,6 +258,9 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
     ops,
     get evictCalls() {
       return evictCalls;
+    },
+    get installCalls() {
+      return installCalls;
     },
   };
 }
@@ -286,6 +293,40 @@ describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
     handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus });
     await settle();
     expect(sent().status).toBe(501);
+  });
+
+  it('already-approved proposal → 409, no second install/evict, no pool event', async () => {
+    writeModelProposal(tmpDir, 'proposal_approved', 'approved');
+    const pool = fakePool({});
+    const poolEvents: unknown[] = [];
+    bus.on('local-models:pool', (d) => poolEvents.push(d));
+    const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_approved/approve');
+    handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus, modelPool: pool.ops });
+    await settle();
+
+    expect(sent().status).toBe(409);
+    expect(sent().body).toContain('already approved');
+    // Terminal-state guard fires BEFORE dispatch: no install, no evict, no event.
+    expect(pool.installCalls).toBe(0);
+    expect(pool.evictCalls).toBe(0);
+    expect(poolEvents).toHaveLength(0);
+  });
+
+  it('already-failed_target_missing proposal → 409, does not retry the stale target (D13)', async () => {
+    writeModelProposal(tmpDir, 'proposal_stale', 'failed_target_missing');
+    const pool = fakePool({});
+    const proposalEvents: unknown[] = [];
+    bus.on('local-models:proposal', (d) => proposalEvents.push(d));
+    const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_stale/approve');
+    handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus, modelPool: pool.ops });
+    await settle();
+
+    expect(sent().status).toBe(409);
+    expect(sent().body).toContain('already failed_target_missing');
+    // D13: no re-drive of install against the stale target, no duplicate events.
+    expect(pool.installCalls).toBe(0);
+    expect(pool.evictCalls).toBe(0);
+    expect(proposalEvents).toHaveLength(0);
   });
 });
 

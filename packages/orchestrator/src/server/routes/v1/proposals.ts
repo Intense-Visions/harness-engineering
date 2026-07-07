@@ -158,6 +158,21 @@ async function handleApprove(
       sendJSON(res, 501, { error: 'model proposal handlers not configured' });
       return;
     }
+    // Terminal-state guard (mirrors handleReject / D13): a model proposal that
+    // is already approved, rejected, or failed_target_missing is non-actionable.
+    // Re-approving would re-drive install + evict (duplicate ollama pull,
+    // duplicate bus events) and, for `failed_target_missing`, would retry the
+    // stale target instead of the operator explicitly approving a fresh proposal.
+    if (
+      existing.status === 'approved' ||
+      existing.status === 'rejected' ||
+      existing.status === 'failed_target_missing'
+    ) {
+      sendJSON(res, 409, {
+        error: `proposal already ${existing.status}; cannot approve`,
+      });
+      return;
+    }
     const outcome = await onApproveModelProposal(modelHandlerDeps(deps, req), existing);
     sendJSON(res, outcome.status === 'error' ? 422 : 200, outcome);
     return;
