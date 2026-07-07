@@ -91,6 +91,32 @@ describe('getProposal / listProposals', () => {
     expect(await getProposal(tmpDir, 'proposal_zzzzz')).toBeNull();
   });
 
+  it('read-migrates a legacy on-disk record into the discriminated shape (N3)', async () => {
+    // A pre-generalization record: top-level `kind` held the skill-change value,
+    // there is no outer `kind:'skill'` and no `skillKind`.
+    const legacy = {
+      id: 'proposal_legacy',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      kind: 'new-skill',
+      proposedBy: 'x',
+      source: { justification: '20+ character justification string here.' },
+      content: {
+        name: 'legacy-skill',
+        description: 'A twenty-plus character description string.',
+        skillYaml: 'name: legacy-skill\n',
+        skillMd: '# Legacy\n',
+      },
+      status: 'open',
+    };
+    const dir = path.join(tmpDir, '.harness', 'proposals');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'proposal_legacy.json'), JSON.stringify(legacy, null, 2));
+
+    const migrated = await getProposal(tmpDir, 'proposal_legacy');
+    expect(migrated?.kind).toBe('skill');
+    expect((migrated as { skillKind?: string })?.skillKind).toBe('new-skill');
+  });
+
   it('lists newest-first and filters by status', async () => {
     const a = await createProposal(tmpDir, NEW_SKILL_INPUT);
     await new Promise((r) => setTimeout(r, 4));
