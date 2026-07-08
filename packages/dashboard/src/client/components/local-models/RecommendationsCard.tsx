@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
-import type { DashRankedModel } from '../../types/local-models';
+import type { DashRankedModel, DashPoolStateView } from '../../types/local-models';
 
 /**
  * Recommendations card for the LMLM panel. Two sections:
@@ -15,9 +15,12 @@ import type { DashRankedModel } from '../../types/local-models';
  *     prior soundness-gate run, unlike skill proposals — proposals.ts:163), so
  *     the buttons are enabled immediately for open proposals.
  *
- * Approve/Reject POST to the SHARED `POST /api/v1/proposals/:id/{approve,reject}`
- * route (D-P8-2 — the only pool-mutation path on the dashboard). On success the
- * card calls `onDecided` so the page can refetch pool + recommendations.
+ * Each recommendation row also carries an **Install** button (an already-pooled
+ * model shows "installed" instead). Install POSTs to
+ * `POST /api/v1/local-models/pool/install`, which — like approve/reject — is a
+ * proposals-backed pool mutation (an auto-approved proposal), so proposals
+ * remain the single pool-mutation mechanism (D-P8-2). On success the card calls
+ * `onDecided` so the page refetches pool + recommendations.
  *
  * Reuses the container/border/button classes from `pages/Proposals.tsx` —
  * introduces no new design tokens.
@@ -36,9 +39,91 @@ export interface RecommendationsCardProps {
   recommendations: DashRankedModel[] | null;
   recommendationsError: string | null;
   proposals: ModelProposalRecord[] | null;
-  /** Called after a successful approve/reject so the page can refetch. */
+  /** Current pool, used to mark recommendations that are already installed. */
+  pool: DashPoolStateView | null;
+  /** Called after a successful approve/reject/install so the page can refetch. */
   onDecided: () => void;
   loading: boolean;
+}
+
+interface RecommendationRowProps {
+  rec: DashRankedModel;
+  installed: boolean;
+  onInstalled: () => void;
+}
+
+/**
+ * A single recommendation row with an Install action. An already-pooled model
+ * renders an "installed" badge instead of the button. Mirrors `ProposalRow`'s
+ * synchronous double-submit guard; install awaits the backend (which awaits the
+ * `ollama pull`) so the button shows an indeterminate "Installing…" state until
+ * the pool refetches.
+ */
+function RecommendationRow({ rec, installed, onInstalled }: RecommendationRowProps): JSX.Element {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const busyRef = useRef(false);
+
+  const install = useCallback(async (): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/local-models/pool/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hfRepoId: rec.hfRepoId, quant: rec.quant }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      onInstalled();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [rec.hfRepoId, rec.quant, onInstalled]);
+
+  return (
+    <li data-testid={`rec-row-${rec.hfRepoId}`} className="rounded border border-white/10 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-sm">{rec.hfRepoId}</span>
+        <span className="text-xs text-neutral-muted">
+          score {fmtScore(rec.score)} · {rec.evidence}
+        </span>
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <span className="text-xs text-neutral-muted">
+          {round1(rec.estimatedVramGb)} GB VRAM · ~{round1(rec.estimatedTokPerSec)} tok/s ·{' '}
+          {rec.fitsHardware ? 'fits' : "won't fit"}
+        </span>
+        {installed ? (
+          <span data-testid={`rec-installed-${rec.hfRepoId}`} className="text-xs text-green-400">
+            installed
+          </span>
+        ) : (
+          <button
+            type="button"
+            data-testid={`rec-install-${rec.hfRepoId}`}
+            disabled={busy}
+            onClick={() => void install()}
+            className="rounded bg-green-600 px-3 py-1 text-xs disabled:opacity-50"
+          >
+            {busy ? 'Installing…' : 'Install'}
+          </button>
+        )}
+      </div>
+      {error && (
+        <p data-testid={`rec-error-${rec.hfRepoId}`} className="mt-1 text-xs text-red-300">
+          {error}
+        </p>
+      )}
+    </li>
+  );
 }
 
 interface ProposalRowProps {
@@ -139,12 +224,18 @@ export function RecommendationsCard({
   recommendations,
   recommendationsError,
   proposals,
+  pool,
   onDecided,
   loading,
 }: RecommendationsCardProps): JSX.Element {
   const recs = recommendations ?? [];
   const props = proposals ?? [];
   const showEmptyRecs = recs.length === 0;
+  // Guard on Array.isArray, not `?? []`: a malformed pool payload (e.g. `[]`)
+  // would make `pool.entries` resolve to `Array.prototype.entries` (a function),
+  // which `?? []` would not catch.
+  const poolEntries = pool && Array.isArray(pool.entries) ? pool.entries : [];
+  const installedRepos = new Set(poolEntries.map((e) => e.hfRepoId));
 
   return (
     <div data-testid="rec-card" className="rounded-lg border border-white/10 p-4">
@@ -163,22 +254,12 @@ export function RecommendationsCard({
         ) : (
           <ul className="space-y-2">
             {recs.map((r) => (
-              <li
+              <RecommendationRow
                 key={r.hfRepoId}
-                data-testid={`rec-row-${r.hfRepoId}`}
-                className="rounded border border-white/10 p-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm">{r.hfRepoId}</span>
-                  <span className="text-xs text-neutral-muted">
-                    score {fmtScore(r.score)} · {r.evidence}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-xs text-neutral-muted">
-                  {round1(r.estimatedVramGb)} GB VRAM · ~{round1(r.estimatedTokPerSec)} tok/s ·{' '}
-                  {r.fitsHardware ? 'fits' : "won't fit"}
-                </div>
-              </li>
+                rec={r}
+                installed={installedRepos.has(r.hfRepoId)}
+                onInstalled={onDecided}
+              />
             ))}
           </ul>
         )}

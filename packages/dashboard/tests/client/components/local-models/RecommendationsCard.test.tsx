@@ -2,7 +2,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { RecommendationsCard } from '../../../../src/client/components/local-models/RecommendationsCard';
-import type { DashRankedModel } from '../../../../src/client/types/local-models';
+import type { DashRankedModel, DashPoolStateView } from '../../../../src/client/types/local-models';
+
+const POOL_WITH_QWEN: DashPoolStateView = {
+  diskBudgetGb: 100,
+  diskUsedGb: 18,
+  entries: [
+    {
+      ollamaName: 'qwen3:32b',
+      hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      sizeOnDiskGb: 18,
+      installedAt: '2026-07-01T00:00:00.000Z',
+      lastUsedAt: null,
+      currentScore: 82,
+    },
+  ],
+  allowedOrgs: ['Qwen'],
+  allowedFamilies: [],
+  lastRefreshAt: null,
+};
 
 const RECS: DashRankedModel[] = [
   {
@@ -68,6 +86,69 @@ describe('RecommendationsCard', () => {
     expect(row.textContent).toContain('82');
     expect(row.textContent).toContain('direct');
     expect(row.textContent).toContain('20');
+  });
+
+  it('Install POSTs to /pool/install with hfRepoId + quant and calls onDecided (SC6)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(okRes()));
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF'));
+
+    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/v1/local-models/pool/install');
+    expect((init as RequestInit).method).toBe('POST');
+    expect(String((init as RequestInit).body)).toContain('Qwen/Qwen3-32B-GGUF');
+    expect(String((init as RequestInit).body)).toContain('Q4_K_M');
+    vi.unstubAllGlobals();
+  });
+
+  it('shows "installed" instead of an Install button for a pooled model (SC6)', () => {
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={POOL_WITH_QWEN}
+        onDecided={vi.fn()}
+        loading={false}
+      />
+    );
+    expect(screen.getByTestId('rec-installed-Qwen/Qwen3-32B-GGUF')).toBeDefined();
+    expect(screen.queryByTestId('rec-install-Qwen/Qwen3-32B-GGUF')).toBeNull();
+  });
+
+  it('a failed install surfaces an inline error and does not call onDecided', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 409, text: async () => 'budget_exceeded' } as Response)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF'));
+
+    await waitFor(() => expect(screen.getByTestId('rec-error-Qwen/Qwen3-32B-GGUF')).toBeDefined());
+    expect(onDecided).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it('rounds long float metrics for display (score → whole, GB/tok-s → 1 decimal)', () => {

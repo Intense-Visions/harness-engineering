@@ -50,13 +50,19 @@ export function LocalModels(): JSX.Element {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HardwareCard hardware={hardware.data} error={hardware.error} loading={hardware.loading} />
-        <PoolCard pool={pool.data} error={pool.error} loading={pool.loading} />
+        <PoolCard
+          pool={pool.data}
+          error={pool.error}
+          loading={pool.loading}
+          onMutated={refetchAll}
+        />
       </div>
 
       <RecommendationsCard
         recommendations={recommendations.data}
         recommendationsError={recommendations.error}
         proposals={proposals.data}
+        pool={pool.data}
         onDecided={refetchAll}
         loading={recommendations.loading}
       />
