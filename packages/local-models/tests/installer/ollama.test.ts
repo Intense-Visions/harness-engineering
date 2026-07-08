@@ -354,8 +354,31 @@ describe('OllamaInstallAdapter.inspect', () => {
     expect((err as InstallError).target).toBe('ghost:1b');
   });
 
-  it('throws InstallError(parse_failed) on missing size field', async () => {
-    const { fetcher } = makeFetcher(() => jsonResponse(200, { digest: 'sha256:x' }));
+  it('falls back to /api/tags for the size when /api/show omits it (modern Ollama)', async () => {
+    // Modern Ollama `/api/show` returns metadata but no size; the size lives in
+    // `/api/tags`. inspect must fall back there instead of failing.
+    const { fetcher, calls } = makeFetcher((call) =>
+      call.url.includes('/api/tags')
+        ? jsonResponse(200, { models: [{ name: 'qwen3:32b', size: 12 * 1024 ** 3 }] })
+        : jsonResponse(200, { digest: 'sha256:x' })
+    );
+    const adapter = new OllamaInstallAdapter({ fetcher });
+    const info = await adapter.inspect({ name: 'qwen3:32b' });
+    expect(info.sizeOnDiskGb).toBe(12);
+    // digest still comes from /api/show; the size from /api/tags.
+    expect(info.digest).toBe('sha256:x');
+    expect(calls.map((c) => c.url)).toEqual([
+      'http://localhost:11434/api/show',
+      'http://localhost:11434/api/tags',
+    ]);
+  });
+
+  it('throws InstallError(parse_failed) when size is absent from both /api/show and /api/tags', async () => {
+    const { fetcher } = makeFetcher((call) =>
+      call.url.includes('/api/tags')
+        ? jsonResponse(200, { models: [] })
+        : jsonResponse(200, { digest: 'sha256:x' })
+    );
     const adapter = new OllamaInstallAdapter({ fetcher });
     const err = await adapter.inspect({ name: 'qwen3:32b' }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(InstallError);

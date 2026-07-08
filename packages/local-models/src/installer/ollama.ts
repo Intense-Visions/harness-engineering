@@ -413,7 +413,32 @@ export class OllamaInstallAdapter implements InstallAdapter {
         { target: request.name, cause: err }
       );
     }
-    return parseShowBody(request.name, body);
+    const meta = parseShowMeta(request.name, body);
+    let sizeOnDiskGb = meta.sizeOnDiskGb;
+    let digest = meta.digest;
+    let modifiedAt = meta.modifiedAt;
+
+    // Modern Ollama `/api/show` omits the on-disk size; `/api/tags` reports it.
+    // Fall back there rather than failing the install (parse_failed).
+    if (sizeOnDiskGb === undefined) {
+      const listed = await this.list(request.signal ? { signal: request.signal } : {});
+      const match = listed.find((m) => m.ollamaName === request.name);
+      if (!match) {
+        throw new InstallError(
+          'parse_failed',
+          `ollama show omitted the size for ${request.name} and it is absent from /api/tags`,
+          { target: request.name }
+        );
+      }
+      sizeOnDiskGb = match.sizeOnDiskGb;
+      digest = digest ?? match.digest;
+      modifiedAt = modifiedAt ?? match.modifiedAt;
+    }
+
+    const info: RemoteModelInfo = { ollamaName: request.name, sizeOnDiskGb };
+    if (digest !== undefined) info.digest = digest;
+    if (modifiedAt !== undefined) info.modifiedAt = modifiedAt;
+    return info;
   }
 
   /**
@@ -529,7 +554,14 @@ function parseTagsBody(body: unknown, onWarn: (message: string) => void): Remote
   return result;
 }
 
-function parseShowBody(name: string, body: unknown): RemoteModelInfo {
+/** Metadata parsed from `/api/show`. `sizeOnDiskGb` is optional — modern Ollama omits it. */
+interface ShowMeta {
+  sizeOnDiskGb?: number;
+  digest?: string;
+  modifiedAt?: string;
+}
+
+function parseShowMeta(name: string, body: unknown): ShowMeta {
   if (typeof body !== 'object' || body === null) {
     throw new InstallError(
       'parse_failed',
@@ -540,23 +572,17 @@ function parseShowBody(name: string, body: unknown): RemoteModelInfo {
     );
   }
   const raw = body as Record<string, unknown>;
-  // Ollama variants ship either `size_bytes` (newer) or `size` (older); accept both.
+  // Ollama variants ship either `size_bytes` (newer) or `size` (older); many
+  // versions omit both from `/api/show` entirely (the size lives in `/api/tags`).
   const sizeBytes =
     typeof raw.size_bytes === 'number'
       ? raw.size_bytes
       : typeof raw.size === 'number'
         ? raw.size
         : undefined;
-  if (sizeBytes === undefined) {
-    throw new InstallError('parse_failed', `ollama show missing size field for ${name}`, {
-      target: name,
-    });
-  }
-  const info: RemoteModelInfo = {
-    ollamaName: name,
-    sizeOnDiskGb: bytesToGb(sizeBytes),
-  };
-  if (typeof raw.digest === 'string') info.digest = raw.digest;
-  if (typeof raw.modified_at === 'string') info.modifiedAt = raw.modified_at;
-  return info;
+  const meta: ShowMeta = {};
+  if (sizeBytes !== undefined) meta.sizeOnDiskGb = bytesToGb(sizeBytes);
+  if (typeof raw.digest === 'string') meta.digest = raw.digest;
+  if (typeof raw.modified_at === 'string') meta.modifiedAt = raw.modified_at;
+  return meta;
 }
