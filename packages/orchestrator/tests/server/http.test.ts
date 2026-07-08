@@ -11,6 +11,7 @@ import { OrchestratorServer } from '../../src/server/http';
 import type { ModelPoolOps } from '../../src/proposals/model-handlers';
 import type { PoolEntry, PoolState } from '@harness-engineering/local-models';
 import type { TickResult } from '@harness-engineering/local-models';
+import type { Proposal } from '@harness-engineering/types';
 
 describe('OrchestratorServer', () => {
   let server: OrchestratorServer;
@@ -211,6 +212,18 @@ function post(port: number, url: string): Promise<{ statusCode: number; body: st
   });
 }
 
+function get(port: number, url: string): Promise<{ statusCode: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: 'localhost', port, path: url, method: 'GET' }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => resolve({ statusCode: res.statusCode ?? 0, body: data }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 describe('OrchestratorServer LMLM Phase 6 wiring', () => {
   let mockOrchestrator: EventEmitter & { getSnapshot: ReturnType<typeof vi.fn> };
   let servers: OrchestratorServer[];
@@ -289,5 +302,115 @@ describe('OrchestratorServer LMLM Phase 6 wiring', () => {
     const res = await post(port, '/api/v1/local-models/refresh');
     expect(res.statusCode).toBe(503);
     expect(JSON.parse(res.body).error).toContain('LMLM disabled');
+  });
+});
+
+// ── LMLM Phase 7: the four GET read routes must route through V1_BRIDGE_ROUTES
+// to `handleV1LocalModelsRoute` and NOT fall through the /api/v1 rewrite shim to
+// the legacy /api/local-models status handler (which is in V1_WRAPPABLE). Each
+// case hits the real server and asserts a response only the new handler could
+// produce (PoolState shape, a 400 on bad params, the 503 'LMLM disabled' body). ──
+
+const HW_PROFILE = {
+  platform: 'macos',
+  vramGb: 24,
+  ramGb: 64,
+  bandwidthGbps: 400,
+  gpuName: 'Apple M3 Max',
+  cpuName: 'Apple M3 Max',
+  detectedAt: '2026-07-07T00:00:00.000Z',
+} as const;
+
+describe('OrchestratorServer LMLM Phase 7 GET route bridging', () => {
+  let mockOrchestrator: EventEmitter & { getSnapshot: ReturnType<typeof vi.fn> };
+  let servers: OrchestratorServer[];
+  let tmpDir: string;
+
+  beforeEach(() => {
+    mockOrchestrator = Object.assign(new EventEmitter(), {
+      getSnapshot: vi.fn().mockReturnValue({ running: [], retryAttempts: [], claimed: [] }),
+    });
+    servers = [];
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lmlm-http7-'));
+  });
+
+  afterEach(async () => {
+    for (const s of servers) s.stop();
+    await new Promise((r) => setTimeout(r, 50));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function makeServer(port: number, deps: ConstructorParameters<typeof OrchestratorServer>[2]) {
+    const s = new OrchestratorServer(mockOrchestrator, port, deps);
+    servers.push(s);
+    return s;
+  }
+
+  it('GET /hardware routes to the new handler (200 HardwareProfile, not the status route)', async () => {
+    const port = Math.floor(Math.random() * 1000) + 60000;
+    const server = makeServer(port, {
+      projectPath: tmpDir,
+      getHardwareProfile: () => Promise.resolve(HW_PROFILE),
+    });
+    await server.start();
+
+    const res = await get(port, '/api/v1/local-models/hardware');
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({ vramGb: 24, platform: 'macos' });
+  });
+
+  it('GET /pool routes to the new handler (200 PoolState, not the status route)', async () => {
+    const port = Math.floor(Math.random() * 1000) + 64000;
+    const server = makeServer(port, { projectPath: tmpDir, getModelPool: () => fakePool() });
+    await server.start();
+
+    const res = await get(port, '/api/v1/local-models/pool');
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    // PoolState shape — the legacy status handler returns a statuses array, not this.
+    expect(body).toMatchObject({ diskBudgetGb: 100, entries: expect.any(Array) });
+  });
+
+  it('GET /recommendations validates params → 400 (only the new handler does this)', async () => {
+    const port = Math.floor(Math.random() * 1000) + 62000;
+    const server = makeServer(port, {
+      projectPath: tmpDir,
+      getRecommendations: async () => [],
+    });
+    await server.start();
+
+    const bad = await get(port, '/api/v1/local-models/recommendations?top=-1');
+    expect(bad.statusCode).toBe(400);
+    expect(JSON.parse(bad.body).error).toContain('invalid top');
+
+    const ok = await get(port, '/api/v1/local-models/recommendations?top=5&profile=coding');
+    expect(ok.statusCode).toBe(200);
+    expect(JSON.parse(ok.body)).toEqual([]);
+  });
+
+  it('GET /proposals routes to the new handler (200 list)', async () => {
+    const port = Math.floor(Math.random() * 1000) + 63000;
+    const server = makeServer(port, {
+      projectPath: tmpDir,
+      listModelProposals: async () =>
+        [{ id: 'p1', kind: 'model', status: 'open' }] as unknown as Proposal[],
+    });
+    await server.start();
+
+    const res = await get(port, '/api/v1/local-models/proposals');
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toHaveLength(1);
+  });
+
+  it('all four GETs return 503 LMLM-disabled when accessors are absent (reached the new handler, not the status route)', async () => {
+    const port = Math.floor(Math.random() * 1000) + 61000;
+    const server = makeServer(port, { projectPath: tmpDir });
+    await server.start();
+
+    for (const name of ['hardware', 'pool', 'recommendations', 'proposals']) {
+      const res = await get(port, `/api/v1/local-models/${name}`);
+      expect(res.statusCode).toBe(503);
+      expect(JSON.parse(res.body).error).toContain('LMLM disabled');
+    }
   });
 });

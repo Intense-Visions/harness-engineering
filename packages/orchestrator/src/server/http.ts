@@ -23,10 +23,16 @@ import { handleV1ProposalsRoute } from './routes/v1/proposals';
 import { handleV1LocalModelsRoute } from './routes/v1/local-models';
 import type { RefreshSchedulerOps } from './routes/v1/local-models';
 import type { ModelPoolOps } from '../proposals/model-handlers';
+import type { HardwareProfile, RankedModel } from '@harness-engineering/local-models';
 import { handleV1RoutingRoute } from './routes/v1/routing';
 import type { BackendRouter } from '../agent/backend-router';
 import type { RoutingDecisionBus } from '../routing/decision-bus';
-import type { BackendDef, RoutingConfig, RoutingDecision } from '@harness-engineering/types';
+import type {
+  BackendDef,
+  Proposal,
+  RoutingConfig,
+  RoutingDecision,
+} from '@harness-engineering/types';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
 import type { WebhookQueue } from '../gateway/webhooks/queue';
@@ -177,6 +183,26 @@ export interface ServerDependencies {
    * (LMLM disabled). A closure so the route always sees current lifecycle state.
    */
   getRefreshScheduler?: () => RefreshSchedulerOps | null;
+  /**
+   * LMLM Phase 7: resolves the current hardware profile for
+   * `GET /api/v1/local-models/hardware`. Null/absent → the route returns `503`
+   * (LMLM disabled). Promise-returning so detection can be async.
+   */
+  getHardwareProfile?: () => Promise<HardwareProfile> | null;
+  /**
+   * LMLM Phase 7: hardware-ranked recommendations for
+   * `GET /api/v1/local-models/recommendations`. Absent → the route returns `503`.
+   * Returns `[]` until the Phase 2 candidate parser lands.
+   */
+  getRecommendations?: (opts: {
+    top: number;
+    profile: 'general' | 'coding' | 'reasoning';
+  }) => Promise<RankedModel[]>;
+  /**
+   * LMLM Phase 7: reads the open, model-kind proposal queue for
+   * `GET /api/v1/local-models/proposals`. Absent → the route returns `503`.
+   */
+  listModelProposals?: () => Promise<Proposal[]>;
 }
 
 export class OrchestratorServer {
@@ -216,6 +242,15 @@ export class OrchestratorServer {
   // LMLM Phase 6 — live model pool + refresh scheduler accessors.
   private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
   private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
+  // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
+  private getHardwareProfileFn: (() => Promise<HardwareProfile> | null) | null = null;
+  private getRecommendationsFn:
+    | ((opts: {
+        top: number;
+        profile: 'general' | 'coding' | 'reasoning';
+      }) => Promise<RankedModel[]>)
+    | null = null;
+  private listModelProposalsFn: (() => Promise<Proposal[]>) | null = null;
   private routingDecisionUnsubscribe: (() => void) | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
@@ -273,6 +308,10 @@ export class OrchestratorServer {
     // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
     this.getModelPoolFn = deps?.getModelPool ?? null;
     this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
+    // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
+    this.getHardwareProfileFn = deps?.getHardwareProfile ?? null;
+    this.getRecommendationsFn = deps?.getRecommendations ?? null;
+    this.listModelProposalsFn = deps?.listModelProposals ?? null;
   }
 
   private wireEvents(): void {
@@ -514,11 +553,17 @@ export class OrchestratorServer {
           ...(modelPool ? { modelPool } : {}),
         });
       },
-      // LMLM Phase 6 — POST /api/v1/local-models/refresh (force-refresh + O4).
-      // Registered before the chat-proxy fallback so it owns the path.
+      // LMLM Phase 6/7 — POST /refresh + the GET read surface
+      // (hardware/pool/recommendations/proposals). Registered before the
+      // chat-proxy fallback so it owns the path. Each accessor is spread in
+      // only when configured so absent ones surface as 503 (LMLM disabled).
       (req, res) =>
         handleV1LocalModelsRoute(req, res, {
           getRefreshScheduler: this.getRefreshSchedulerFn ?? (() => null),
+          getModelPool: () => this.getModelPoolFn?.() ?? null,
+          ...(this.getHardwareProfileFn ? { getHardwareProfile: this.getHardwareProfileFn } : {}),
+          ...(this.getRecommendationsFn ? { getRecommendations: this.getRecommendationsFn } : {}),
+          ...(this.listModelProposalsFn ? { listModelProposals: this.listModelProposalsFn } : {}),
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
