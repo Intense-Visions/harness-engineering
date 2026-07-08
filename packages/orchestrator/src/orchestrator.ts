@@ -228,6 +228,17 @@ export class Orchestrator extends EventEmitter {
   private modelPool: PoolManager | null = null;
   private modelInstaller: InstallAdapter | null = null;
   /**
+   * S1 drain re-entrancy guard (P7-SUG-DRAIN-REENTRANCY). `drainDeferredEvictions`
+   * is fired fire-and-forget from `emitWorkerExit` (and, since P7-SUG-DRAIN-LIVENESS,
+   * piggybacked on each refresh tick). Two overlapping drains would both read the
+   * same `listPendingEvictions()` snapshot, both re-check `isLocalModelInUse`, and
+   * both `await pool.evict` the SAME name — double-calling the installer and
+   * broadcasting a duplicate `evict_completed` frame. The single-threaded event
+   * loop makes a plain boolean sufficient: a drain that arrives while one is
+   * running returns early rather than double-processing.
+   */
+  private draining = false;
+  /**
    * LMLM Phase 6: single per-instance background refresh scheduler. Started in
    * `initLocalModelAndPipeline` when the pool exists; stopped in `stop()`. Null
    * when LMLM is disabled. Exposed to the server via `getRefreshScheduler()`.
@@ -824,20 +835,30 @@ export class Orchestrator extends EventEmitter {
   private async drainDeferredEvictions(): Promise<void> {
     const pool = this.modelPool;
     if (pool === null) return;
-    for (const ollamaName of pool.listPendingEvictions()) {
-      if (this.isLocalModelInUse(ollamaName)) continue; // still busy — leave pending
-      try {
-        const result = await pool.evict({ ollamaName });
-        if (result.status === 'error') continue; // leave pending; retry next drain
-        pool.clearPendingEviction(ollamaName);
-        this.emit('local-models:pool', {
-          action: 'evict',
-          evicted: ollamaName,
-          phase: 'evict_completed',
-        });
-      } catch {
-        // best-effort: leave the flag set for a subsequent drain
+    // Re-entrancy guard (P7-SUG-DRAIN-REENTRANCY): coalesce an overlapping drain
+    // rather than double-processing the same pending set. Any work that arrives
+    // while a drain is running is picked up by the next trigger (run completion
+    // or refresh tick), which re-reads the live pending set.
+    if (this.draining) return;
+    this.draining = true;
+    try {
+      for (const ollamaName of pool.listPendingEvictions()) {
+        if (this.isLocalModelInUse(ollamaName)) continue; // still busy — leave pending
+        try {
+          const result = await pool.evict({ ollamaName });
+          if (result.status === 'error') continue; // leave pending; retry next drain
+          pool.clearPendingEviction(ollamaName);
+          this.emit('local-models:pool', {
+            action: 'evict',
+            evicted: ollamaName,
+            phase: 'evict_completed',
+          });
+        } catch {
+          // best-effort: leave the flag set for a subsequent drain
+        }
       }
+    } finally {
+      this.draining = false;
     }
   }
 
