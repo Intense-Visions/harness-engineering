@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import { Orchestrator } from '../../src/orchestrator';
 import { MockBackend } from '../../src/agent/backends/mock';
-import { PoolManager } from '@harness-engineering/local-models';
+import { PoolManager, RefreshScheduler } from '@harness-engineering/local-models';
 import type {
   WorkflowConfig,
   IssueTrackerClient,
@@ -78,6 +78,30 @@ function modelPoolOf(orch: Orchestrator): PoolManager | null {
   return (orch as unknown as { modelPool: PoolManager | null }).modelPool;
 }
 
+function schedulerOf(orch: Orchestrator): RefreshScheduler | null {
+  return (orch as unknown as { refreshScheduler: RefreshScheduler | null }).refreshScheduler;
+}
+
+/** Trigger the private lifecycle init that constructs + starts the scheduler. */
+function initPipeline(orch: Orchestrator): Promise<void> {
+  return (
+    orch as unknown as { initLocalModelAndPipeline(): Promise<void> }
+  ).initLocalModelAndPipeline();
+}
+
+/** No-op timer seam: start() schedules nothing real; forceRefresh drives ticks directly. */
+const noopTimer = {
+  setTimer: (): { unref(): void } => ({ unref() {} }),
+  clearTimer: (): void => {},
+};
+
+function localModelsWithHardware(): LocalModelsConfig {
+  return {
+    ...localModelsConfig(),
+    hardware: { override: { platform: 'macos', vramGb: 48, bandwidthGbps: 400 } },
+  };
+}
+
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-pool-'));
   execSync(
@@ -111,5 +135,54 @@ describe('Orchestrator LMLM Phase 6 — live PoolManager (Task 14)', () => {
   it('leaves modelPool null when localModels.enabled is false', () => {
     const orch = makeOrchestrator(makeConfig({ ...localModelsConfig(), enabled: false }));
     expect(modelPoolOf(orch)).toBeNull();
+  });
+});
+
+describe('Orchestrator LMLM Phase 6 — RefreshScheduler lifecycle (Task 15)', () => {
+  it('arms a scheduler on lifecycle init; forceRefresh runs a tick calling pool.reconcile', async () => {
+    const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+
+    await initPipeline(orch);
+
+    const scheduler = schedulerOf(orch);
+    expect(scheduler).not.toBeNull();
+    expect(scheduler).toBeInstanceOf(RefreshScheduler);
+
+    // Drive one tick out of band; assert it reconciles the live pool (D12/F10).
+    const pool = modelPoolOf(orch)!;
+    const reconcileSpy = vi.spyOn(pool, 'reconcile').mockResolvedValue({ removed: [] });
+    const result = await scheduler!.forceRefresh();
+
+    expect(reconcileSpy).toHaveBeenCalledTimes(1);
+    expect(result.errors).toEqual([]);
+
+    await orch.stop();
+  });
+
+  it('stop() disarms the scheduler (no further ticks)', async () => {
+    const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+
+    await initPipeline(orch);
+    expect(schedulerOf(orch)).not.toBeNull();
+
+    await orch.stop();
+    expect(schedulerOf(orch)).toBeNull();
+  });
+
+  it('does not arm a scheduler when LMLM is disabled', async () => {
+    const orch = makeOrchestrator(makeConfig());
+    await initPipeline(orch);
+    expect(schedulerOf(orch)).toBeNull();
+    await orch.stop();
   });
 });

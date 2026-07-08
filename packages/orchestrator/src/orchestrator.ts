@@ -37,8 +37,20 @@ import {
   PoolStateStore,
   PoolManager,
   OllamaInstallAdapter,
+  HardwareDetector,
+  RefreshScheduler,
+  runRefreshTick,
+  createNativeRecommender,
 } from '@harness-engineering/local-models';
-import type { PoolStateProvider, InstallAdapter } from '@harness-engineering/local-models';
+import type {
+  PoolStateProvider,
+  InstallAdapter,
+  DedupPair,
+  DedupPairs,
+  HardwareProfile,
+  SchedulerTimerHandle,
+} from '@harness-engineering/local-models';
+import { createModelProposal, listProposals } from '@harness-engineering/core';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
@@ -216,6 +228,19 @@ export class Orchestrator extends EventEmitter {
   private modelPool: PoolManager | null = null;
   private modelInstaller: InstallAdapter | null = null;
   /**
+   * LMLM Phase 6: single per-instance background refresh scheduler. Started in
+   * `initLocalModelAndPipeline` when the pool exists; stopped in `stop()`. Null
+   * when LMLM is disabled. Exposed to the server via `getRefreshScheduler()`.
+   */
+  private refreshScheduler: RefreshScheduler | null = null;
+  /** Test seam: injected timer/clock for the scheduler so no real 24h timer runs. */
+  private readonly schedulerTimerOverride: {
+    setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+    clearTimer?: (handle: SchedulerTimerHandle) => void;
+    now?: () => number;
+    random?: () => number;
+  } | null;
+  /**
    * Spec B Phase 3: skill catalog (name + cognitiveMode) read once at
    * construction from `projectRoot/agents/skills/`. Consulted by
    * `buildRoutingUseCase` at dispatch start to construct
@@ -318,9 +343,17 @@ export class Orchestrator extends EventEmitter {
       backend?: AgentBackend;
       execFileFn?: ExecFileFn;
       poolState?: PoolStateProvider;
+      /** LMLM Phase 6 test seam: inject the RefreshScheduler timer/clock. */
+      schedulerTimer?: {
+        setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+        clearTimer?: (handle: SchedulerTimerHandle) => void;
+        now?: () => number;
+        random?: () => number;
+      };
     }
   ) {
     super();
+    this.schedulerTimerOverride = overrides?.schedulerTimer ?? null;
     // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
     // subscribes to 9 event-bus topics per connection (maintenance:*,
     // interaction.created, interaction.resolved, etc.). Node's default
@@ -652,6 +685,8 @@ export class Orchestrator extends EventEmitter {
         // LMLM Phase 6: expose the live pool so kind:'model' approve/reject
         // reaches PoolManager (retiring the 501). Null when LMLM is disabled.
         getModelPool: () => this.modelPool,
+        // LMLM Phase 6: expose the refresh scheduler for POST /local-models/refresh.
+        getRefreshScheduler: () => this.refreshScheduler,
       });
 
       this.server.setRecorder(this.recorder);
@@ -1965,6 +2000,65 @@ export class Orchestrator extends EventEmitter {
     this.modelPool = new PoolManager({ store, installer: this.modelInstaller, onWarn });
   }
 
+  /**
+   * LMLM Phase 6: arm the single background refresh scheduler over the live
+   * pool. No-op when LMLM is disabled (`modelPool` null). Each tick runs
+   * hardware→recommend→reconcile(D12 drift)→diff→emit→score-writeback.
+   *
+   * NOTE (deferred): the recommender is seeded with an empty candidate set —
+   * Phase 2's live-HF→RankerCandidate parser was never built, so autonomous
+   * swap-proposal discovery is out of scope here (flagged concern). The tick
+   * still performs F10 drift reconciliation, O1 logging, and re-ranks/dedups
+   * whatever candidates are supplied — the wiring is complete and candidate
+   * breadth is the only piece deferred to the Phase 2 recommender.
+   */
+  private startRefreshScheduler(): void {
+    if (this.modelPool === null) return;
+    const pool = this.modelPool;
+    const refreshCfg = this.config.localModels?.refresh;
+    const recommend = createNativeRecommender({ candidates: [] });
+    this.refreshScheduler = new RefreshScheduler({
+      runTick: () =>
+        runRefreshTick({
+          detectHardware: () => this.detectLmlmHardware(),
+          recommend,
+          poolManager: pool,
+          dedupSource: () => this.lmlmDedupSource(),
+          emitProposal: (c) => createModelProposal(this.projectRoot, c).then(() => undefined),
+          proposalThreshold: refreshCfg?.proposalThreshold ?? 5,
+        }),
+      intervalMs: refreshCfg?.intervalMs ?? 86_400_000,
+      jitterMs: refreshCfg?.jitterMs ?? 600_000,
+      logger: this.logger,
+      ...(this.schedulerTimerOverride ?? {}),
+    });
+    this.refreshScheduler.start();
+  }
+
+  /** Resolve the hardware profile for a refresh tick (operator override wins). */
+  private async detectLmlmHardware(): Promise<HardwareProfile> {
+    const override = this.config.localModels?.hardware?.override;
+    const detector = new HardwareDetector(override !== undefined ? { override } : {});
+    return (await detector.detect()).profile;
+  }
+
+  /** Map the on-disk model-proposal queue to F7 dedup pairs (open→pending, rejected→rejected). */
+  private async lmlmDedupSource(): Promise<DedupPairs> {
+    const proposals = await listProposals(this.projectRoot, { kind: 'model' });
+    const pending: DedupPair[] = [];
+    const rejected: DedupPair[] = [];
+    for (const p of proposals) {
+      if (p.kind !== 'model') continue;
+      const pair: DedupPair = {
+        target: p.model.target.ollamaName,
+        ...(p.model.replaces ? { replaces: p.model.replaces.ollamaName } : {}),
+      };
+      if (p.status === 'open') pending.push(pair);
+      else if (p.status === 'rejected') rejected.push(pair);
+    }
+    return { pending, rejected };
+  }
+
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localResolvers.size > 0) {
       // Spec 2 Phase 5 (SC39): subscribe each resolver independently. Each
@@ -2018,6 +2112,9 @@ export class Orchestrator extends EventEmitter {
         await resolver.start();
       }
     }
+    // LMLM Phase 6: start the background refresh scheduler once the pool state
+    // is loaded. Guarded on modelPool so LMLM-disabled configs never arm it.
+    this.startRefreshScheduler();
     // Defer pipeline construction until after the resolver has observed the
     // server. createIntelligencePipeline() consults resolver.getStatus() via
     // createAnalysisProvider() and returns null when local is unavailable.
@@ -2123,6 +2220,9 @@ export class Orchestrator extends EventEmitter {
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
     }
+    // LMLM Phase 6: disarm the background refresh scheduler (no further ticks).
+    this.refreshScheduler?.stop();
+    this.refreshScheduler = null;
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
       this.maintenanceScheduler = null;
