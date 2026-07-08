@@ -37,7 +37,7 @@ import type {
 import { isInstallError } from '../installer/index.js';
 import { planEviction } from './eviction.js';
 import type { PoolStateStore } from './state.js';
-import type { PoolEntry, PoolState } from './types.js';
+import type { PoolEntry, PoolState, PoolStateView } from './types.js';
 
 /**
  * Stable error codes the manager surfaces. Extends Phase 3b's `InstallErrorCode`
@@ -163,6 +163,13 @@ export class PoolManager {
   private readonly installer: InstallAdapter;
   private readonly now: () => number;
   private readonly onWarn: (message: string, cause?: unknown) => void;
+  /**
+   * LMLM Phase 7 / S1: `ollamaName`s of entries whose approved eviction is
+   * deferred while the model is in use. Transient (memory-only) by design — a
+   * crash simply forgets the deferral and the next approve/drain re-evaluates.
+   * Never persisted (see `PoolEntryView`).
+   */
+  private readonly pendingEvictions = new Set<string>();
 
   constructor(options: PoolManagerOptions) {
     this.store = options.store;
@@ -174,6 +181,38 @@ export class PoolManager {
   /** Frozen clone of the current pool state. Safe to mutate without affecting the store. */
   snapshot(): PoolState {
     return this.store.snapshot();
+  }
+
+  /** Mark an entry's eviction as deferred (in use). Idempotent. (S1) */
+  markPendingEviction(ollamaName: string): void {
+    this.pendingEvictions.add(ollamaName);
+  }
+
+  /** Clear a deferred-eviction flag once the model has drained. Idempotent. (S1) */
+  clearPendingEviction(ollamaName: string): void {
+    this.pendingEvictions.delete(ollamaName);
+  }
+
+  /** The `ollamaName`s currently marked for deferred eviction. */
+  listPendingEvictions(): string[] {
+    return [...this.pendingEvictions];
+  }
+
+  /**
+   * Runtime view of the pool with the transient `pendingEviction` overlay
+   * applied. Used by the HTTP/WS surface (Phase 7). The persisted snapshot and
+   * on-disk record never carry the flag — it is set here only, on the clone.
+   */
+  viewState(): PoolStateView {
+    const state = this.store.snapshot();
+    return {
+      ...state,
+      entries: state.entries.map((entry) =>
+        this.pendingEvictions.has(entry.ollamaName)
+          ? { ...entry, pendingEviction: true }
+          : { ...entry }
+      ),
+    };
   }
 
   /**

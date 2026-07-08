@@ -743,3 +743,63 @@ describe('PoolManager — adapter selection (advisory short-circuit)', () => {
     }
   });
 });
+
+describe('PoolManager — transient pendingEviction overlay (Phase 7 / S1)', () => {
+  it('viewState() overlays pendingEviction:true while snapshot() and persistence stay clean', async () => {
+    const seeded = seededState({}, [
+      entry({ ollamaName: 'qwen3:32b' }),
+      entry({ ollamaName: 'llama3:70b' }),
+    ]);
+    const { manager, store, fs } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+
+    // View is overlaid...
+    const view = manager.viewState();
+    const viewed = view.entries.find((e) => e.ollamaName === 'qwen3:32b');
+    const other = view.entries.find((e) => e.ollamaName === 'llama3:70b');
+    expect(viewed?.pendingEviction).toBe(true);
+    expect(other?.pendingEviction).toBeUndefined();
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    // ...but the persisted-shape snapshot never carries the flag.
+    const snap = manager.snapshot();
+    for (const e of snap.entries) {
+      expect((e as Record<string, unknown>)['pendingEviction']).toBeUndefined();
+    }
+
+    // ...and the flag is not written to disk (persist round-trip stays clean).
+    await store.persist();
+    const onDisk = fs.files[POOL_PATH] ?? '';
+    expect(onDisk).not.toContain('pendingEviction');
+  });
+
+  it('clearPendingEviction() removes the overlay', async () => {
+    const seeded = seededState({}, [entry({ ollamaName: 'qwen3:32b' })]);
+    const { manager } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+    expect(manager.viewState().entries[0]?.pendingEviction).toBe(true);
+
+    manager.clearPendingEviction('qwen3:32b');
+    expect(manager.viewState().entries[0]?.pendingEviction).toBeUndefined();
+    expect(manager.listPendingEvictions()).toEqual([]);
+  });
+
+  it('mark/clear are idempotent and do not mutate the stored snapshot', async () => {
+    const seeded = seededState({}, [entry({ ollamaName: 'qwen3:32b' })]);
+    const { manager } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+    manager.markPendingEviction('qwen3:32b');
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    manager.clearPendingEviction('absent');
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    // viewState clones entries — mutating the view must not affect the store.
+    const view = manager.viewState();
+    view.entries[0]!.currentScore = -999;
+    expect(manager.snapshot().entries[0]?.currentScore).toBe(75);
+  });
+});

@@ -63,6 +63,23 @@ export interface PoolState {
 }
 
 /**
+ * Runtime view of a pool entry with the transient `pendingEviction` overlay
+ * (LMLM Phase 7 / S1). `pendingEviction` is NEVER persisted — it lives in a
+ * `PoolManager`-owned `Set` and is overlaid only at `viewState()` time, so a
+ * crash mid-drain cannot pin a stale flag on disk (`cloneEntry` in `state.ts`
+ * spreads all persisted fields, so this flag must stay off `PoolEntry`).
+ */
+export interface PoolEntryView extends PoolEntry {
+  /** True while an approved eviction is deferred because the model is in use (S1). */
+  pendingEviction?: boolean;
+}
+
+/** Runtime view of the whole pool state with `pendingEviction`-overlaid entries. */
+export interface PoolStateView extends Omit<PoolState, 'entries'> {
+  entries: PoolEntryView[];
+}
+
+/**
  * Factory for the all-zero / all-empty state. Used by `PoolStateStore.load`
  * when the on-disk file is missing, malformed, or schema-mismatched.
  */
