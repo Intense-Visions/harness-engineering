@@ -22,6 +22,16 @@ import type { DashRankedModel } from '../../types/local-models';
  * Reuses the container/border/button classes from `pages/Proposals.tsx` —
  * introduces no new design tokens.
  */
+/** Round to at most one decimal, dropping a trailing `.0` (e.g. 44.159 → "44.2", 20 → "20"). */
+function round1(n: number): string {
+  return (Math.round(n * 10) / 10).toString();
+}
+
+/** Ranking scores render as whole numbers (they are a 0–100 index, not a measurement). */
+function fmtScore(n: number): string {
+  return Math.round(n).toString();
+}
+
 export interface RecommendationsCardProps {
   recommendations: DashRankedModel[] | null;
   recommendationsError: string | null;
@@ -83,7 +93,7 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
           {model.target.ollamaName}
         </span>
         <span className="text-xs text-neutral-muted">
-          Δ{model.scoreDelta} · {model.diskImpactGb} GB
+          Δ{round1(model.scoreDelta)} · {round1(model.diskImpactGb)} GB
         </span>
       </div>
       <p className="mt-1 text-sm">{model.justification.summary}</p>
@@ -161,11 +171,11 @@ export function RecommendationsCard({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-sm">{r.hfRepoId}</span>
                   <span className="text-xs text-neutral-muted">
-                    score {r.score} · {r.evidence}
+                    score {fmtScore(r.score)} · {r.evidence}
                   </span>
                 </div>
                 <div className="mt-0.5 text-xs text-neutral-muted">
-                  {r.estimatedVramGb} GB VRAM · ~{r.estimatedTokPerSec} tok/s ·{' '}
+                  {round1(r.estimatedVramGb)} GB VRAM · ~{round1(r.estimatedTokPerSec)} tok/s ·{' '}
                   {r.fitsHardware ? 'fits' : "won't fit"}
                 </div>
               </li>

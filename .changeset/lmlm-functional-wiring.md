@@ -1,6 +1,7 @@
 ---
 '@harness-engineering/local-models': minor
 '@harness-engineering/orchestrator': minor
+'@harness-engineering/dashboard': patch
 ---
 
 feat(lmlm): wire pool bounds seed + candidate source so the Local Models cards populate
@@ -20,3 +21,6 @@ Recommendations cards permanently empty when LMLM is enabled.
   constructed with an empty candidate list. Live HuggingFace discovery runs in a
   new on-demand `scripts/refresh-model-candidates.mjs` generator (fail-closed),
   never in CI.
+- **Recommendations card formatting:** VRAM and tok/s render to one decimal and
+  scores as whole numbers, instead of leaking full float precision (e.g.
+  `44.15923222899437 GB` → `44.2 GB`).
