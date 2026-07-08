@@ -1,5 +1,13 @@
 # @harness-engineering/intelligence
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [bae23ad]
+  - @harness-engineering/types@0.19.0
+  - @harness-engineering/graph@0.11.5
+
 ## 0.4.2
 
 ### Patch Changes

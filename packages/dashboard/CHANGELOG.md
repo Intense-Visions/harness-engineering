@@ -1,5 +1,65 @@
 # @harness-engineering/dashboard
 
+## 0.13.0
+
+### Minor Changes
+
+- bae23ad: feat(lmlm): install & remove models directly from the dashboard panel
+
+  Adds operator-initiated pool mutation to the LMLM dashboard — an **Install**
+  action on Recommendations rows and a **Remove** action on Pool-card members — so
+  the operator no longer has to hand-edit config or use the CLI.
+  - **Backend:** two convenience routes, `POST /api/v1/local-models/pool/install`
+    and `POST /api/v1/local-models/pool/remove`, gated by the same
+    `manage-proposals` scope as approve/reject. Both are modeled as user-initiated
+    **auto-approved model proposals**, reusing the existing `onApproveModelProposal`
+    core — so the pool guards (`not_allowed`/`budget_exceeded` → `409`), the
+    in-use evict-deferral (`202 deferred`), and the audit trail all apply, and
+    proposals remain the single pool-mutation channel (ADR 0011).
+  - **Dashboard:** an Install button per recommendation (an already-pooled model
+    shows "installed"), a Remove button per pool member (with a "removes after the
+    current run" note when the model is in use). Byte-level pull progress over WS
+    is a deferred enhancement; install shows an indeterminate "Installing…" state.
+  - **Types:** `PoolInstallRequest`, `PoolRemoveRequest`, `PoolMutationDisposition`,
+    `PoolMutationResult`.
+
+### Patch Changes
+
+- a9c8994: feat(lmlm): wire pool bounds seed + candidate source so the Local Models cards populate
+
+  Completes the two deferred wiring gaps that left the dashboard's Pool and
+  Recommendations cards permanently empty when LMLM is enabled.
+  - **Pool bounds seed (Phase 1):** the orchestrator now applies the operator's
+    configured `localModels.pool` bounds (disk budget + org/family allowlist) to
+    the pool store on startup, after `PoolStateStore.load()` so declarative config
+    wins over stale persisted bounds. Previously `PoolManager.configurePool()` had
+    no caller and the pool defaulted to `diskBudgetGb: 0`, blocking every install.
+  - **Candidate source (Phase 2):** a new `candidates` module in
+    `@harness-engineering/local-models` — a GGUF→`RankerCandidate` parser, a
+    bundled human-curated frozen candidate snapshot (offline-safe, deterministic),
+    and an allowlist-aware selector — feeds the recommender, which was previously
+    constructed with an empty candidate list. Live HuggingFace discovery runs in a
+    new on-demand `scripts/refresh-model-candidates.mjs` generator (fail-closed),
+    never in CI.
+  - **Recommendations card formatting:** VRAM and tok/s render to one decimal and
+    scores as whole numbers, instead of leaking full float precision (e.g.
+    `44.15923222899437 GB` → `44.2 GB`).
+
+- cfc06d2: feat(dashboard): add sidebar icons for the remaining system pages
+
+  `SystemNavItem` now maps icons for `signals`, `tokens`, `webhooks`,
+  `insights-cache`, `proposals`, `routing`, and `local-models` (Brain) — pages
+  that previously fell back to the default icon. Completes the Local Models panel's
+  navigation affordance alongside the install/remove work.
+
+- Updated dependencies [bae23ad]
+- Updated dependencies [a9c8994]
+  - @harness-engineering/orchestrator@0.11.0
+  - @harness-engineering/types@0.19.0
+  - @harness-engineering/core@0.34.1
+  - @harness-engineering/graph@0.11.5
+  - @harness-engineering/signals@0.2.3
+
 ## 0.12.0
 
 ### Minor Changes

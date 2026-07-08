@@ -1,5 +1,43 @@
 # @harness-engineering/local-models
 
+## 0.4.0
+
+### Minor Changes
+
+- a9c8994: feat(lmlm): wire pool bounds seed + candidate source so the Local Models cards populate
+
+  Completes the two deferred wiring gaps that left the dashboard's Pool and
+  Recommendations cards permanently empty when LMLM is enabled.
+  - **Pool bounds seed (Phase 1):** the orchestrator now applies the operator's
+    configured `localModels.pool` bounds (disk budget + org/family allowlist) to
+    the pool store on startup, after `PoolStateStore.load()` so declarative config
+    wins over stale persisted bounds. Previously `PoolManager.configurePool()` had
+    no caller and the pool defaulted to `diskBudgetGb: 0`, blocking every install.
+  - **Candidate source (Phase 2):** a new `candidates` module in
+    `@harness-engineering/local-models` — a GGUF→`RankerCandidate` parser, a
+    bundled human-curated frozen candidate snapshot (offline-safe, deterministic),
+    and an allowlist-aware selector — feeds the recommender, which was previously
+    constructed with an empty candidate list. Live HuggingFace discovery runs in a
+    new on-demand `scripts/refresh-model-candidates.mjs` generator (fail-closed),
+    never in CI.
+  - **Recommendations card formatting:** VRAM and tok/s render to one decimal and
+    scores as whole numbers, instead of leaking full float precision (e.g.
+    `44.15923222899437 GB` → `44.2 GB`).
+
+### Patch Changes
+
+- cfc06d2: fix(local-models): resolve model size from /api/tags when Ollama's /api/show omits it
+
+  `OllamaInstallAdapter.inspect` required a size field from `/api/show`, but modern
+  Ollama omits it there (the on-disk size lives in `/api/tags`). This made every
+  install that relies on `inspect` — including the dashboard's Install button,
+  which lets `PoolManager.install` resolve the size — fail with `parse_failed`.
+  `inspect` now falls back to `/api/tags` for the size (keeping `/api/show`'s
+  digest/metadata), and only fails when the model is absent from both.
+
+- Updated dependencies [bae23ad]
+  - @harness-engineering/types@0.19.0
+
 ## 0.3.0
 
 ### Minor Changes
