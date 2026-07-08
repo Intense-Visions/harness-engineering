@@ -4,6 +4,7 @@ import { useLocalModelsPanel } from '../../../src/client/hooks/useLocalModelsPan
 import type {
   DashHardwareProfile,
   DashPoolStateView,
+  DashRankedModel,
 } from '../../../src/client/types/local-models';
 
 class FakeWebSocket {
@@ -231,6 +232,83 @@ describe('useLocalModelsPanel', () => {
       FakeWebSocket.instance!.simulateMessage({ type: 'state_change', data: { running: [] } });
     });
     expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore);
+  });
+
+  it('same-resource overlap: an older response resolving LAST does not overwrite the newer one (last-REQUEST-wins)', async () => {
+    // Two distinct recommendations payloads. The FIRST GET (mount seed) is the
+    // "older" request; the SECOND GET (triggered by a pool WS frame) is "newer".
+    const OLD: DashRankedModel[] = [
+      {
+        hfRepoId: 'stale/old',
+        sizeB: 7,
+        quant: 'Q4_K_M',
+        estimatedVramGb: 6,
+        estimatedTokPerSec: 40,
+        speedConfidence: 'medium',
+        score: 10,
+        evidence: 'stale',
+        benchmarkSnapshot: '2026-01-01',
+        fitsHardware: true,
+      },
+    ];
+    const FRESH: DashRankedModel[] = [
+      {
+        hfRepoId: 'fresh/new',
+        sizeB: 32,
+        quant: 'Q4_K_M',
+        estimatedVramGb: 20,
+        estimatedTokPerSec: 30,
+        speedConfidence: 'high',
+        score: 99,
+        evidence: 'direct',
+        benchmarkSnapshot: '2026-07-01',
+        fitsHardware: true,
+      },
+    ];
+
+    // Defer resolution of each recommendations GET so we control ordering.
+    const recResolvers: Array<(body: unknown) => void> = [];
+    let recCall = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/local-models/recommendations')) {
+        recCall += 1;
+        return new Promise<Response>((resolve) => {
+          recResolvers.push((body) => resolve(jsonRes(body)));
+        });
+      }
+      if (url.includes('/local-models/hardware')) return Promise.resolve(jsonRes(HARDWARE));
+      if (url.includes('/local-models/pool')) return Promise.resolve(jsonRes(POOL));
+      if (url.includes('/local-models/proposals')) return Promise.resolve(jsonRes([]));
+      return Promise.resolve(jsonRes({}, 200));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLocalModelsPanel());
+
+    // Mount fires the FIRST (older) recommendations GET.
+    await waitFor(() => expect(recResolvers.length).toBe(1));
+    await waitFor(() => expect(FakeWebSocket.instance).not.toBeNull());
+
+    // A pool WS frame fires a SECOND (newer) recommendations GET.
+    act(() => {
+      FakeWebSocket.instance!.simulateMessage({
+        type: 'local-models:pool',
+        data: { action: 'evict', phase: 'evict_completed' },
+      });
+    });
+    await waitFor(() => expect(recResolvers.length).toBe(2));
+
+    // Resolve NEWER first, then OLDER last (the out-of-order case).
+    act(() => recResolvers[1](FRESH));
+    await waitFor(() => expect(result.current.recommendations.data).toEqual(FRESH));
+    act(() => recResolvers[0](OLD));
+
+    // The stale older response must NOT win.
+    await waitFor(() => expect(result.current.recommendations.data).toEqual(FRESH));
+    expect(result.current.recommendations.data).not.toEqual(OLD);
+
+    vi.unstubAllGlobals();
   });
 
   it('closes the socket on unmount', async () => {

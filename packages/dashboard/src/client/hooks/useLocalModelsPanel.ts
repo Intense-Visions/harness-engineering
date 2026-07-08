@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import type { WebSocketMessage } from '../types/orchestrator';
 import type {
@@ -40,6 +40,66 @@ function getWsUrl(): string {
   return `${proto}//${window.location.host}/ws`;
 }
 
+/** Refs shared with {@link fetchResourceInto} for mount-safety and per-resource sequencing. */
+interface FetchCtx {
+  mountedRef: MutableRefObject<boolean>;
+  controllersRef: MutableRefObject<Set<AbortController>>;
+  /** Per-URL request counter — only the latest generation is allowed to commit. */
+  generationsRef: MutableRefObject<Map<string, number>>;
+  /** Per-URL in-flight controller — aborted before a newer fetch for the same URL starts. */
+  activeControllersRef: MutableRefObject<Map<string, AbortController>>;
+}
+
+/**
+ * Fetch a single resource into `setter`, guaranteeing **last-REQUEST-wins**:
+ * overlapping fetches of the same URL bump a per-resource generation, the prior
+ * in-flight request is aborted, and a response only commits while it is still
+ * both mounted and the latest generation. This prevents a slow older response
+ * from clobbering fresher data (the approve/WS-delta refetch race).
+ */
+async function fetchResourceInto<T>(
+  url: string,
+  setter: (r: Resource<T>) => void,
+  ctx: FetchCtx
+): Promise<void> {
+  const gen = (ctx.generationsRef.current.get(url) ?? 0) + 1;
+  ctx.generationsRef.current.set(url, gen);
+  ctx.activeControllersRef.current.get(url)?.abort();
+
+  const controller = new AbortController();
+  ctx.controllersRef.current.add(controller);
+  ctx.activeControllersRef.current.set(url, controller);
+  const isCurrent = (): boolean =>
+    ctx.mountedRef.current && ctx.generationsRef.current.get(url) === gen;
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!isCurrent()) return;
+    if (res.status === 503) {
+      setter({ data: null, error: 'LMLM disabled', loading: false });
+      return;
+    }
+    if (!res.ok) {
+      setter({ data: null, error: `HTTP ${res.status}`, loading: false });
+      return;
+    }
+    const json = (await res.json()) as T;
+    if (!isCurrent()) return;
+    setter({ data: json, error: null, loading: false });
+  } catch (err) {
+    if (controller.signal.aborted || !isCurrent()) return;
+    setter({
+      data: null,
+      error: err instanceof Error ? err.message : 'Network error',
+      loading: false,
+    });
+  } finally {
+    ctx.controllersRef.current.delete(controller);
+    if (ctx.activeControllersRef.current.get(url) === controller) {
+      ctx.activeControllersRef.current.delete(url);
+    }
+  }
+}
+
 /**
  * Data hook for the `/s/local-models` panel (LMLM Phase 8).
  *
@@ -65,39 +125,23 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
 
   const mountedRef = useRef(true);
   const controllersRef = useRef<Set<AbortController>>(new Set());
+  // Per-resource (keyed by URL) request sequence + in-flight controller so that
+  // overlapping refetches of the SAME resource are last-REQUEST-wins, not
+  // last-RESPONSE-wins: a slow older response can no longer clobber fresh data.
+  const generationsRef = useRef<Map<string, number>>(new Map());
+  const activeControllersRef = useRef<Map<string, AbortController>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
 
   const fetchResource = useCallback(
-    async <T>(url: string, setter: (r: Resource<T>) => void): Promise<void> => {
-      const controller = new AbortController();
-      controllersRef.current.add(controller);
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        if (!mountedRef.current) return;
-        if (res.status === 503) {
-          setter({ data: null, error: 'LMLM disabled', loading: false });
-          return;
-        }
-        if (!res.ok) {
-          setter({ data: null, error: `HTTP ${res.status}`, loading: false });
-          return;
-        }
-        const json = (await res.json()) as T;
-        if (!mountedRef.current) return;
-        setter({ data: json, error: null, loading: false });
-      } catch (err) {
-        if (controller.signal.aborted || !mountedRef.current) return;
-        setter({
-          data: null,
-          error: err instanceof Error ? err.message : 'Network error',
-          loading: false,
-        });
-      } finally {
-        controllersRef.current.delete(controller);
-      }
-    },
+    <T>(url: string, setter: (r: Resource<T>) => void): Promise<void> =>
+      fetchResourceInto(url, setter, {
+        mountedRef,
+        controllersRef,
+        generationsRef,
+        activeControllersRef,
+      }),
     []
   );
 
