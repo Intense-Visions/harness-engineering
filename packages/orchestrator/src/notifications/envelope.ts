@@ -147,6 +147,14 @@ const MODEL_PROPOSAL_ENVELOPES: Record<
       severity: 'info',
     };
   },
+  approved: (data) => {
+    const label = `${data.action ?? 'change'} ${data.target ?? '(unknown model)'}`;
+    return {
+      title: `Model proposal approved: ${label}`,
+      summary: `The model proposal (${label}) was approved and applied to the pool.`,
+      severity: 'success',
+    };
+  },
   rejected: (data) => ({
     title: 'Model proposal rejected',
     summary: truncate(data.reason ?? 'No reason provided.', 240),

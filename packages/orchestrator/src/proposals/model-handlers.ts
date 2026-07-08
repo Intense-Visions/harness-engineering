@@ -104,6 +104,25 @@ function decisionOf(
 }
 
 /**
+ * Emit the `approved` model-proposal lifecycle event on the proposal topic.
+ * Mirrors the created/rejected/failed_target_missing emits so EVERY transition —
+ * including a successful approve — surfaces a `local-models:proposal` frame, not
+ * just a `local-models:pool` mutation. This closes the two asymmetries the
+ * cross-phase review flagged: (1) Phase 7 operators now get an approval
+ * notification (envelope's `approved` branch), and (2) Phase 8 non-approving
+ * clients refetch their pending-proposals list off this frame instead of waiting
+ * for an unrelated proposal event.
+ */
+function emitApproved(deps: ModelHandlerDeps, proposal: ModelProposalRecord): void {
+  deps.bus.emit(MODEL_PROPOSAL_TOPIC, {
+    id: proposal.id,
+    status: 'approved',
+    action: proposal.model.action,
+    target: proposal.model.target.ollamaName,
+  });
+}
+
+/**
  * S1 deferral: the probe reports `deferredName` might be mid-request, so we do
  * NOT evict it now. Flag it `pendingEviction` (transient overlay), record the
  * approval, and emit an `evict_deferred` pool event. The orchestrator's drain
@@ -124,6 +143,7 @@ async function deferEviction(
     decision: decisionOf(deps, 'approved'),
   });
   deps.bus.emit(MODEL_POOL_TOPIC, event);
+  emitApproved(deps, proposal);
   return { status: 'approved', proposal: updated as ModelProposalRecord, evicted };
 }
 
@@ -246,6 +266,7 @@ export async function onApproveModelProposal(
     installed: model.target.ollamaName,
     ...(evictedNames.length > 0 ? { evicted: evictedNames } : {}),
   });
+  emitApproved(deps, proposal);
   return { status: 'approved', proposal: updated as ModelProposalRecord, evicted };
 }
 
@@ -278,6 +299,7 @@ async function applyEvictOnly(
     action: 'evict',
     evicted: proposal.model.target.ollamaName,
   });
+  emitApproved(deps, proposal);
   return {
     status: 'approved',
     proposal: updated as ModelProposalRecord,

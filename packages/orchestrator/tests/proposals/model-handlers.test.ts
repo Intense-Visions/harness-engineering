@@ -172,6 +172,28 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(h.events.some((e) => e.topic === 'local-models:pool')).toBe(true);
   });
 
+  it('success approve ALSO emits local-models:proposal { approved } (XP-1: symmetric with reject/created)', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const h = harness(pool, proposal);
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    expect(outcome.status).toBe('approved');
+    // Every transition emits the proposal topic — a successful approve is no
+    // longer the odd one out that only fired local-models:pool.
+    const propEvt = h.events.find((e) => e.topic === 'local-models:proposal');
+    expect(propEvt).toBeDefined();
+    expect(propEvt!.data).toMatchObject({
+      id: 'proposal_m1',
+      status: 'approved',
+      action: 'swap',
+      target: 'qwen3:32b',
+    });
+  });
+
   it('threads replaces to install and lists BOTH auto-evictions and replaces in the pool event (P5-SUG-EVICT-b/c)', async () => {
     const LRU: PoolEntry = {
       ollamaName: 'lru:3b',

@@ -200,6 +200,36 @@ describe('useLocalModelsPanel', () => {
     expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore);
   });
 
+  it('refetches proposals + recommendations on a local-models:proposal APPROVED frame (XP-1)', async () => {
+    // The delta handler keys on the topic, not the status, so an `approved`
+    // frame drives the same proposals+recommendations refetch as `created` —
+    // this is what lets non-approving clients drop the just-approved proposal
+    // from their pending list.
+    const fetchMock = branchingFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLocalModelsPanel());
+    await waitFor(() => expect(result.current.proposals.data).toEqual([]));
+    await waitFor(() => expect(FakeWebSocket.instance).not.toBeNull());
+
+    const propsBefore = countCalls(fetchMock, '/local-models/proposals');
+    const recsBefore = countCalls(fetchMock, '/local-models/recommendations');
+    const poolBefore = countCalls(fetchMock, '/local-models/pool');
+
+    act(() => {
+      FakeWebSocket.instance!.simulateMessage({
+        type: 'local-models:proposal',
+        data: { id: 'p1', status: 'approved', action: 'swap', target: 'qwen3:32b' },
+      });
+    });
+
+    await waitFor(() => {
+      expect(countCalls(fetchMock, '/local-models/proposals')).toBe(propsBefore + 1);
+      expect(countCalls(fetchMock, '/local-models/recommendations')).toBe(recsBefore + 1);
+    });
+    expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore);
+  });
+
   it('refetchAll() re-issues all four GETs', async () => {
     const fetchMock = branchingFetch();
     vi.stubGlobal('fetch', fetchMock);

@@ -154,6 +154,20 @@ describe('wrapAsEnvelope', () => {
     expect(env.summary).toContain('insufficient score delta');
   });
 
+  it('wraps local-models.proposal (approved) with success severity and target in title', () => {
+    const env = wrapAsEnvelope(
+      event('local-models.proposal', {
+        id: 'proposal_m5',
+        status: 'approved',
+        action: 'swap',
+        target: 'qwen3:32b',
+      })
+    );
+    expect(env.severity).toBe('success');
+    expect(env.title).toContain('approved');
+    expect(env.title).toContain('qwen3:32b');
+  });
+
   it('wraps local-models.proposal (failed_target_missing) with error severity', () => {
     const env = wrapAsEnvelope(
       event('local-models.proposal', {
@@ -169,9 +183,13 @@ describe('wrapAsEnvelope', () => {
 
   it('wraps local-models.proposal (unknown status) with a generic info envelope', () => {
     const env = wrapAsEnvelope(
-      event('local-models.proposal', { id: 'proposal_m4', status: 'approved', target: 'qwen3:32b' })
+      event('local-models.proposal', {
+        id: 'proposal_m4',
+        status: 'reconsidered',
+        target: 'qwen3:32b',
+      })
     );
     expect(env.severity).toBe('info');
-    expect(env.summary).toContain('approved');
+    expect(env.summary).toContain('reconsidered');
   });
 });
