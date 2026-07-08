@@ -339,8 +339,8 @@ describe('Orchestrator LMLM Phase 7 — drain re-entrancy guard (P7-SUG-DRAIN-RE
     // The model is idle (no agent runs) but flagged for a deferred eviction.
     manager.markPendingEviction('qwen2.5:32b');
 
-    const frames: Array<{ phase?: string; evicted?: string }> = [];
-    orch.on('local-models:pool', (d) => frames.push(d as { phase?: string; evicted?: string }));
+    const frames: Array<{ phase?: string; evicted?: string[] }> = [];
+    orch.on('local-models:pool', (d) => frames.push(d as { phase?: string; evicted?: string[] }));
 
     // Two overlapping drains (as two run completions would fire) race the guard.
     const drain = drainOf(orch);
@@ -382,8 +382,8 @@ describe('Orchestrator LMLM Phase 7 — drain re-entrancy guard (P7-SUG-DRAIN-RE
     setModelPool(orch, manager);
     manager.markPendingEviction('qwen2.5:32b');
 
-    const frames: Array<{ phase?: string; evicted?: string }> = [];
-    orch.on('local-models:pool', (d) => frames.push(d as { phase?: string; evicted?: string }));
+    const frames: Array<{ phase?: string; evicted?: string[] }> = [];
+    orch.on('local-models:pool', (d) => frames.push(d as { phase?: string; evicted?: string[] }));
 
     await emitWorkerExitOf(orch)('issue-unknown', 'normal', null);
     await flush();

@@ -850,7 +850,10 @@ export class Orchestrator extends EventEmitter {
           pool.clearPendingEviction(ollamaName);
           this.emit('local-models:pool', {
             action: 'evict',
-            evicted: ollamaName,
+            // XP-2: `evicted` is uniformly string[] across all local-models:pool
+            // emit sites — the drain wraps its single completed eviction in an
+            // array to match the swap/add multi-evict shape.
+            evicted: [ollamaName],
             phase: 'evict_completed',
           });
         } catch {

@@ -168,7 +168,9 @@ async function drain(
     manager.clearPendingEviction(ollamaName);
     bus.emit('local-models:pool', {
       action: 'evict',
-      evicted: ollamaName,
+      // Mirror the production drain (orchestrator.ts): `evicted` is string[] at
+      // every local-models:pool emit site (XP-2).
+      evicted: [ollamaName],
       phase: 'evict_completed',
     });
   }
@@ -178,9 +180,9 @@ describe('LMLM Phase 7 — S1 no-mid-dispatch-swap deferral + drain (ADR 0060)',
   it('defers eviction of an in-use replaced model, then completes it once idle', async () => {
     const { manager, evicts } = await makePool([REPLACES]);
     const bus = new EventEmitter();
-    const poolEvents: Array<{ phase?: string; deferred?: string; evicted?: string }> = [];
+    const poolEvents: Array<{ phase?: string; deferred?: string; evicted?: string[] }> = [];
     bus.on('local-models:pool', (d) =>
-      poolEvents.push(d as { phase?: string; deferred?: string; evicted?: string })
+      poolEvents.push(d as { phase?: string; deferred?: string; evicted?: string[] })
     );
 
     // A fake long-running dispatch pins `replaces` in use.
@@ -227,7 +229,7 @@ describe('LMLM Phase 7 — S1 no-mid-dispatch-swap deferral + drain (ADR 0060)',
     expect(manager.listPendingEvictions()).toHaveLength(0);
     expect(manager.viewState().entries.some((e) => e.pendingEviction)).toBe(false);
     const completedEvt = poolEvents.find((e) => e.phase === 'evict_completed');
-    expect(completedEvt?.evicted).toBe('qwen2.5:32b');
+    expect(completedEvt?.evicted).toEqual(['qwen2.5:32b']);
   });
 
   it('drain leaves the eviction pending while the model is still in use', async () => {

@@ -297,7 +297,10 @@ async function applyEvictOnly(
   deps.bus.emit(MODEL_POOL_TOPIC, {
     id: proposal.id,
     action: 'evict',
-    evicted: proposal.model.target.ollamaName,
+    // XP-2: `evicted` is string[] at EVERY local-models:pool emit site (swap/add
+    // list multiple removals) — the evict-only path wraps its single removal in
+    // an array too, so consumers never branch on string-vs-array.
+    evicted: [proposal.model.target.ollamaName],
   });
   emitApproved(deps, proposal);
   return {

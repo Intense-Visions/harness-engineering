@@ -269,6 +269,26 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
   });
 });
 
+describe('onApproveModelProposal — evict-only (XP-2 evicted shape)', () => {
+  it('evict-only success emits local-models:pool with evicted as a string[] (not a bare string)', async () => {
+    const pool = fakePool({
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const proposal = modelProposal({ action: 'evict', target: REPLACED, replaces: undefined });
+    const h = harness(pool, proposal);
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    expect(outcome.status).toBe('approved');
+    const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
+    expect(poolEvt).toBeDefined();
+    const evicted = (poolEvt!.data as { evicted?: unknown }).evicted;
+    // Uniform shape across ALL emit sites: always an array, never a bare string.
+    expect(Array.isArray(evicted)).toBe(true);
+    expect(evicted).toEqual(['qwen2.5:32b']);
+  });
+});
+
 describe('onApproveModelProposal — S1 no-mid-dispatch-swap deferral', () => {
   it('swap: probe reports replaces in use → marks pendingEviction, does NOT evict, emits evict_deferred, still approves', async () => {
     const pool = fakePool({

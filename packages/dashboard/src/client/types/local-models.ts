@@ -96,7 +96,12 @@ export interface DashRankedModel {
 export interface LocalModelsPoolEvent {
   action?: 'add' | 'swap' | 'evict';
   phase?: string; // 'evict_completed' | 'evict_deferred' | 'swap_evict_failed' | ...
-  evicted?: string;
+  /**
+   * Names removed by this mutation. Uniformly `string[]` at every emit site
+   * (swap/add list multiple removals; evict-only and drain wrap their single
+   * removal in an array) — omitted/empty when nothing was evicted (XP-2).
+   */
+  evicted?: string[];
   deferred?: string;
   id?: string;
 }
