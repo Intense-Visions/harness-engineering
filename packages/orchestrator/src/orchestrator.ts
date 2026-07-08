@@ -41,6 +41,8 @@ import {
   RefreshScheduler,
   runRefreshTick,
   createNativeRecommender,
+  loadFrozenCandidates,
+  selectCandidates,
 } from '@harness-engineering/local-models';
 import type {
   PoolStateProvider,
@@ -2102,6 +2104,25 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * LMLM Phase 7 wiring: apply the operator's configured pool bounds (disk
+   * budget + org/family allowlist) from `localModels.pool` to the live pool.
+   * Called after `PoolStateStore.load()` so config wins over persisted bounds
+   * (D2, declarative precedence). No-op when the pool is null (LMLM disabled)
+   * or no `pool` block is configured, so it is safe to call unconditionally
+   * on the startup path.
+   */
+  private async applyConfiguredPoolBounds(): Promise<void> {
+    const pool = this.modelPool;
+    const bounds = this.config.localModels?.pool;
+    if (pool === null || !bounds) return;
+    await pool.configurePool({
+      diskBudgetGb: bounds.diskBudgetGb,
+      allowedOrgs: bounds.allowedOrgs,
+      allowedFamilies: bounds.allowedFamilies,
+    });
+  }
+
+  /**
    * LMLM Phase 6: arm the single background refresh scheduler over the live
    * pool. No-op when LMLM is disabled (`modelPool` null). Each tick runs
    * hardware→recommend→reconcile(D12 drift)→diff→emit→score-writeback.
@@ -2117,7 +2138,25 @@ export class Orchestrator extends EventEmitter {
     if (this.modelPool === null) return;
     const pool = this.modelPool;
     const refreshCfg = this.config.localModels?.refresh;
-    const recommend = createNativeRecommender({ candidates: [] });
+    // LMLM Phase 2 completion: source ranking candidates from the bundled,
+    // human-curated frozen snapshot (offline-safe, deterministic — the same
+    // pattern as the benchmark snapshot), filtered to the operator's approved
+    // org/family allowlist so we never recommend a model the pool can't
+    // install. Live HF discovery runs in the on-demand
+    // `scripts/refresh-model-candidates.mjs` generator (D3/D5), keeping the
+    // interactive recommendations route free of per-request network calls.
+    const frozen = loadFrozenCandidates();
+    const candidates = selectCandidates(frozen.candidates, this.config.localModels?.pool);
+    for (const warning of frozen.warnings) {
+      this.logger.warn('LMLM frozen candidate snapshot degraded', { warning });
+    }
+    if (candidates.length === 0) {
+      this.logger.warn('LMLM recommender has no candidates', {
+        frozenCount: frozen.candidates.length,
+        allowedOrgs: this.config.localModels?.pool?.allowedOrgs ?? [],
+      });
+    }
+    const recommend = createNativeRecommender({ candidates });
     // Phase 7: reuse this same recommender for the on-demand recommendations
     // route so the HTTP surface and the background tick share one ranking path.
     this.modelRecommender = recommend;
@@ -2232,6 +2271,12 @@ export class Orchestrator extends EventEmitter {
       // test override or LMLM is disabled (poolStateStore is null).
       if (this.poolStateStore !== null) {
         await this.poolStateStore.load();
+        // LMLM Phase 7 wiring: seed the operator's configured pool bounds over
+        // the just-loaded persisted state. Runs AFTER load() so declarative
+        // config wins over stale on-disk bounds — the default persisted state
+        // is `diskBudgetGb: 0, allowedOrgs: []`, which would otherwise block
+        // every install and leave the dashboard pool card at "0 / 0 GB".
+        await this.applyConfiguredPoolBounds();
       }
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();

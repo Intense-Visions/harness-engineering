@@ -70,6 +70,34 @@ describe('RecommendationsCard', () => {
     expect(row.textContent).toContain('20');
   });
 
+  it('rounds long float metrics for display (score → whole, GB/tok-s → 1 decimal)', () => {
+    const noisy: DashRankedModel[] = [
+      {
+        ...RECS[0]!,
+        estimatedVramGb: 44.15923222899437,
+        estimatedTokPerSec: 1.7711205344329897,
+        score: 57.629999999999995,
+      },
+    ];
+    render(
+      <RecommendationsCard
+        recommendations={noisy}
+        recommendationsError={null}
+        proposals={[]}
+        onDecided={() => {}}
+        loading={false}
+      />
+    );
+    const row = screen.getByTestId('rec-row-Qwen/Qwen3-32B-GGUF');
+    expect(row.textContent).toContain('44.2 GB VRAM');
+    expect(row.textContent).toContain('~1.8 tok/s');
+    expect(row.textContent).toContain('score 58');
+    // The raw, unrounded floats must not leak into the DOM.
+    expect(row.textContent).not.toContain('44.15923222899437');
+    expect(row.textContent).not.toContain('1.7711205344329897');
+    expect(row.textContent).not.toContain('57.629999999999995');
+  });
+
   it('[O3 / known limitation] renders "No recommendations yet" for an empty ranked set', () => {
     render(
       <RecommendationsCard

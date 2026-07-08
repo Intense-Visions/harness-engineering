@@ -396,6 +396,131 @@ describe('Orchestrator LMLM Phase 7 — drain re-entrancy guard (P7-SUG-DRAIN-RE
   });
 });
 
+/** Structural access to the private `applyConfiguredPoolBounds`, bound to `orch`. */
+function applyBoundsOf(orch: Orchestrator): () => Promise<void> {
+  return (
+    orch as unknown as { applyConfiguredPoolBounds(): Promise<void> }
+  ).applyConfiguredPoolBounds.bind(orch);
+}
+
+/** A PoolManager over an isolated in-memory fs seeded with the given state. */
+async function makePoolWithState(state: PoolState): Promise<PoolManager> {
+  const poolPath = '/tmp/lmlm-seed-test/pool.json';
+  const fs = makeFs({ [poolPath]: JSON.stringify({ version: 1, state }, null, 2) });
+  const store = new PoolStateStore({ path: poolPath, fs });
+  await store.load();
+  const installer = stubInstaller(state.entries);
+  return new PoolManager({ store, installer: installer.adapter });
+}
+
+/** Structural access to the private `modelRecommender`. */
+function recommenderOf(
+  orch: Orchestrator
+): ((hw: unknown) => Promise<{ ranked: unknown[] }>) | null {
+  return (
+    orch as unknown as {
+      modelRecommender: ((hw: unknown) => Promise<{ ranked: unknown[] }>) | null;
+    }
+  ).modelRecommender;
+}
+
+/** Structural access to the private `detectLmlmHardware`, bound to `orch`. */
+function detectHardwareOf(orch: Orchestrator): () => Promise<unknown> {
+  return (orch as unknown as { detectLmlmHardware(): Promise<unknown> }).detectLmlmHardware.bind(
+    orch
+  );
+}
+
+describe('Orchestrator LMLM Phase 2 — recommender candidate sourcing (SC5)', () => {
+  it('ranks non-empty candidates for the allow-listed org from the frozen snapshot', async () => {
+    // localModelsWithHardware() allow-lists org 'Qwen'; the bundled frozen
+    // snapshot ships Qwen candidates, so the recommender must return a ranking.
+    const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+    await initPipeline(orch);
+
+    const recommend = recommenderOf(orch);
+    expect(recommend).not.toBeNull();
+
+    const hardware = await detectHardwareOf(orch)();
+    const result = await recommend!(hardware);
+    expect(result.ranked.length).toBeGreaterThan(0);
+
+    await orch.stop();
+  });
+});
+
+describe('Orchestrator LMLM Phase 7 — pool bounds seed from config (D1/D2)', () => {
+  it('overwrites persisted bounds with configured bounds — config wins (SC2)', async () => {
+    const orch = makeOrchestrator(
+      makeConfig({
+        ...localModelsConfig(),
+        pool: {
+          diskBudgetGb: 100,
+          allowedOrgs: ['Qwen', 'deepseek-ai'],
+          allowedFamilies: ['qwen3'],
+        },
+      })
+    );
+    // Persisted state disagrees with config: smaller budget, no allowlist.
+    const manager = await makePoolWithState({
+      diskBudgetGb: 5,
+      diskUsedGb: 0,
+      entries: [],
+      allowedOrgs: [],
+      allowedFamilies: [],
+      lastRefreshAt: null,
+    });
+    setModelPool(orch, manager);
+
+    await applyBoundsOf(orch)();
+
+    const snap = manager.snapshot();
+    expect(snap.diskBudgetGb).toBe(100);
+    expect(snap.allowedOrgs).toEqual(['Qwen', 'deepseek-ai']);
+    expect(snap.allowedFamilies).toEqual(['qwen3']);
+
+    await orch.stop();
+  });
+
+  it('seeds an empty default store so the pool card leaves "0 / 0 GB" (SC1)', async () => {
+    const orch = makeOrchestrator(
+      makeConfig({
+        ...localModelsConfig(),
+        pool: { diskBudgetGb: 100, allowedOrgs: ['Qwen'], allowedFamilies: [] },
+      })
+    );
+    // Fresh default store: diskBudgetGb 0, empty allowlist (the shipped default).
+    const manager = await makePoolWithState({
+      diskBudgetGb: 0,
+      diskUsedGb: 0,
+      entries: [],
+      allowedOrgs: [],
+      allowedFamilies: [],
+      lastRefreshAt: null,
+    });
+    setModelPool(orch, manager);
+
+    await applyBoundsOf(orch)();
+
+    expect(manager.snapshot().diskBudgetGb).toBe(100);
+    expect(manager.snapshot().allowedOrgs).toEqual(['Qwen']);
+
+    await orch.stop();
+  });
+
+  it('is a no-op when LMLM is disabled (modelPool null) — no throw (SC3)', async () => {
+    const orch = makeOrchestrator(makeConfig()); // no localModels → disabled
+    expect(modelPoolOf(orch)).toBeNull();
+    await expect(applyBoundsOf(orch)()).resolves.toBeUndefined();
+    await orch.stop();
+  });
+});
+
 describe('Orchestrator LMLM Phase 7 — drain liveness on refresh tick (P7-SUG-DRAIN-LIVENESS)', () => {
   it('evicts a model left pendingEviction (failed drain) on the next scheduler tick', async () => {
     const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
