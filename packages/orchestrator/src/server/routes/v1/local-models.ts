@@ -165,11 +165,27 @@ async function handlePool(res: ServerResponse, deps: V1LocalModelsDeps): Promise
   sendJSON(res, 200, pool.viewState?.() ?? pool.snapshot());
 }
 
+/**
+ * Upper bound on `top` (P7-SUG-RECS-VALIDATION-ORDER). `ranked.slice(0, top)` is
+ * harmless while the candidate set is empty (pre-Phase-2), but an unbounded `top`
+ * is a latent unbounded-response once candidates exist. Cap it so a single request
+ * can never ask for more than a page of recommendations.
+ */
+const MAX_RECOMMENDATION_TOP = 100;
+
 async function handleRecommendations(
   res: ServerResponse,
   url: string,
   deps: V1LocalModelsDeps
 ): Promise<void> {
+  // Disabled → 503 BEFORE input validation, so a disabled instance answers
+  // consistently with the other 3 GETs (P7-SUG-RECS-VALIDATION-ORDER) rather
+  // than leaking a 400 for bad params it will never actually service.
+  if (deps.getRecommendations === undefined) {
+    sendJSON(res, 503, { error: 'LMLM disabled' });
+    return;
+  }
+
   const params = new URLSearchParams(url.split('?')[1] ?? '');
 
   const topRaw = params.get('top');
@@ -178,6 +194,10 @@ async function handleRecommendations(
     const n = Number(topRaw);
     if (!Number.isInteger(n) || n <= 0) {
       sendJSON(res, 400, { error: 'invalid top: expected a positive integer' });
+      return;
+    }
+    if (n > MAX_RECOMMENDATION_TOP) {
+      sendJSON(res, 400, { error: `invalid top: exceeds maximum of ${MAX_RECOMMENDATION_TOP}` });
       return;
     }
     top = n;
@@ -195,10 +215,6 @@ async function handleRecommendations(
     profile = profileRaw;
   }
 
-  if (deps.getRecommendations === undefined) {
-    sendJSON(res, 503, { error: 'LMLM disabled' });
-    return;
-  }
   sendJSON(res, 200, await deps.getRecommendations({ top, profile }));
 }
 

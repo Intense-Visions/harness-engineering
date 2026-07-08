@@ -318,9 +318,45 @@ describe('handleV1LocalModelsRoute (Phase 7 GET routes)', () => {
       expect(chunks.join('')).toContain('invalid profile');
     });
 
+    it('returns 400 for top above the cap (100)', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getRecommendations: async () => [] },
+        '/api/v1/local-models/recommendations?top=101'
+      );
+      expect(statusCode()).toBe(400);
+      expect(chunks.join('')).toContain('exceeds maximum');
+    });
+
+    it('accepts top exactly at the cap (100)', async () => {
+      const seen: Array<{ top: number; profile: string }> = [];
+      const { statusCode } = await get(
+        {
+          ...baseDeps,
+          getRecommendations: async (opts) => {
+            seen.push(opts);
+            return [];
+          },
+        },
+        '/api/v1/local-models/recommendations?top=100'
+      );
+      expect(statusCode()).toBe(200);
+      expect(seen[0]?.top).toBe(100);
+    });
+
     it('returns 503 when the accessor is absent (LMLM disabled)', async () => {
       const { statusCode } = await get(baseDeps, '/api/v1/local-models/recommendations');
       expect(statusCode()).toBe(503);
+    });
+
+    it('returns 503 (not 400) when disabled AND params are invalid — disabled wins (P7-SUG-RECS-VALIDATION-ORDER)', async () => {
+      // `top=-5` is invalid, but a disabled instance must answer 503 like the
+      // other 3 GETs rather than leaking a 400 for input it never services.
+      const { statusCode, chunks } = await get(
+        baseDeps,
+        '/api/v1/local-models/recommendations?top=-5&profile=bogus'
+      );
+      expect(statusCode()).toBe(503);
+      expect(chunks.join('')).toContain('LMLM disabled');
     });
   });
 
