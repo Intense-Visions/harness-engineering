@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
-import type { TickResult } from '@harness-engineering/local-models';
+import {
+  EmptyPoolState,
+  type TickResult,
+  type PoolState,
+  type HardwareProfile,
+  type RankedModel,
+} from '@harness-engineering/local-models';
 import type { Proposal } from '@harness-engineering/types';
 import {
   handleV1LocalModelsRoute,
@@ -144,5 +150,174 @@ describe('handleV1LocalModelsRoute (POST /api/v1/local-models/refresh)', () => {
     const getRefresh = makeReq('GET', '/api/v1/local-models/refresh');
     expect(handleV1LocalModelsRoute(other, makeRes().res, deps)).toBe(false);
     expect(handleV1LocalModelsRoute(getRefresh, makeRes().res, deps)).toBe(false);
+  });
+});
+
+const HARDWARE: HardwareProfile = {
+  totalRamGb: 64,
+  vramGb: 24,
+  gpuKind: 'nvidia',
+  cpuCores: 16,
+} as unknown as HardwareProfile;
+
+const RANKED: RankedModel[] = [{ ollamaName: 'qwen3:32b', score: 88 } as unknown as RankedModel];
+
+function poolState(overrides: Partial<PoolState> = {}): PoolState {
+  return { ...EmptyPoolState(), diskBudgetGb: 100, ...overrides };
+}
+
+async function get(deps: V1LocalModelsDeps, url: string) {
+  const req = makeReq('GET', url);
+  const rr = makeRes();
+  const handled = handleV1LocalModelsRoute(req, rr.res, deps);
+  if (handled) await rr.done;
+  return { handled, ...rr };
+}
+
+const baseDeps: V1LocalModelsDeps = { getRefreshScheduler: () => null };
+
+describe('handleV1LocalModelsRoute (Phase 7 GET routes)', () => {
+  describe('GET /api/v1/local-models/hardware', () => {
+    it('returns 200 with the hardware profile', async () => {
+      const { handled, statusCode, chunks } = await get(
+        { ...baseDeps, getHardwareProfile: () => Promise.resolve(HARDWARE) },
+        '/api/v1/local-models/hardware'
+      );
+      expect(handled).toBe(true);
+      expect(statusCode()).toBe(200);
+      expect(JSON.parse(chunks.join(''))).toMatchObject({ vramGb: 24 });
+    });
+
+    it('returns 503 when the accessor is null (LMLM disabled)', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getHardwareProfile: () => null },
+        '/api/v1/local-models/hardware'
+      );
+      expect(statusCode()).toBe(503);
+      expect(chunks.join('')).toContain('LMLM disabled');
+    });
+
+    it('returns 503 when the accessor is absent', async () => {
+      const { statusCode } = await get(baseDeps, '/api/v1/local-models/hardware');
+      expect(statusCode()).toBe(503);
+    });
+  });
+
+  describe('GET /api/v1/local-models/pool', () => {
+    it('returns 200 with viewState() when present', async () => {
+      const view = poolState({ diskUsedGb: 40 });
+      const { statusCode, chunks } = await get(
+        {
+          ...baseDeps,
+          getModelPool: () => ({ snapshot: () => poolState(), viewState: () => view }),
+        },
+        '/api/v1/local-models/pool'
+      );
+      expect(statusCode()).toBe(200);
+      expect(JSON.parse(chunks.join(''))).toMatchObject({ diskUsedGb: 40 });
+    });
+
+    it('falls back to snapshot() when viewState is absent', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getModelPool: () => ({ snapshot: () => poolState({ diskUsedGb: 7 }) }) },
+        '/api/v1/local-models/pool'
+      );
+      expect(statusCode()).toBe(200);
+      expect(JSON.parse(chunks.join(''))).toMatchObject({ diskUsedGb: 7 });
+    });
+
+    it('returns 503 when the pool is null (LMLM disabled)', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getModelPool: () => null },
+        '/api/v1/local-models/pool'
+      );
+      expect(statusCode()).toBe(503);
+      expect(chunks.join('')).toContain('LMLM disabled');
+    });
+  });
+
+  describe('GET /api/v1/local-models/recommendations', () => {
+    it('returns 200 with the ranked array (defaults top=10, profile=general)', async () => {
+      const seen: Array<{ top: number; profile: string }> = [];
+      const { statusCode, chunks } = await get(
+        {
+          ...baseDeps,
+          getRecommendations: async (opts) => {
+            seen.push(opts);
+            return RANKED;
+          },
+        },
+        '/api/v1/local-models/recommendations'
+      );
+      expect(statusCode()).toBe(200);
+      expect(seen[0]).toEqual({ top: 10, profile: 'general' });
+      expect(JSON.parse(chunks.join(''))).toHaveLength(1);
+    });
+
+    it('passes through valid top + profile', async () => {
+      const seen: Array<{ top: number; profile: string }> = [];
+      await get(
+        {
+          ...baseDeps,
+          getRecommendations: async (opts) => {
+            seen.push(opts);
+            return [];
+          },
+        },
+        '/api/v1/local-models/recommendations?top=3&profile=coding'
+      );
+      expect(seen[0]).toEqual({ top: 3, profile: 'coding' });
+    });
+
+    it('returns 400 for top=-1', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getRecommendations: async () => [] },
+        '/api/v1/local-models/recommendations?top=-1'
+      );
+      expect(statusCode()).toBe(400);
+      expect(chunks.join('')).toContain('invalid top');
+    });
+
+    it('returns 400 for a bogus profile', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, getRecommendations: async () => [] },
+        '/api/v1/local-models/recommendations?profile=bogus'
+      );
+      expect(statusCode()).toBe(400);
+      expect(chunks.join('')).toContain('invalid profile');
+    });
+
+    it('returns 503 when the accessor is absent (LMLM disabled)', async () => {
+      const { statusCode } = await get(baseDeps, '/api/v1/local-models/recommendations');
+      expect(statusCode()).toBe(503);
+    });
+  });
+
+  describe('GET /api/v1/local-models/proposals', () => {
+    it('returns 200 with the (model-only) proposal list', async () => {
+      const { statusCode, chunks } = await get(
+        { ...baseDeps, listModelProposals: async () => [MODEL_PROPOSAL] },
+        '/api/v1/local-models/proposals'
+      );
+      expect(statusCode()).toBe(200);
+      expect(JSON.parse(chunks.join(''))).toHaveLength(1);
+    });
+
+    it('returns 503 when the accessor is absent (LMLM disabled)', async () => {
+      const { statusCode } = await get(baseDeps, '/api/v1/local-models/proposals');
+      expect(statusCode()).toBe(503);
+    });
+  });
+
+  it('maps a thrown accessor error to 500', async () => {
+    const { statusCode, chunks } = await get(
+      {
+        ...baseDeps,
+        getHardwareProfile: () => Promise.reject(new Error('probe boom')),
+      },
+      '/api/v1/local-models/hardware'
+    );
+    expect(statusCode()).toBe(500);
+    expect(chunks.join('')).toContain('probe boom');
   });
 });
