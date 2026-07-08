@@ -11,9 +11,17 @@ import {
   Map,
   BarChart3,
   KanbanSquare,
+  Signal,
+  Key,
+  Webhook,
+  Database,
+  GitPullRequest,
+  Route,
+  Brain,
 } from 'lucide-react';
 
 const PAGE_ICONS: Record<string, typeof Activity> = {
+  signals: Signal,
   health: Activity,
   graph: Share2,
   impact: Zap,
@@ -25,6 +33,12 @@ const PAGE_ICONS: Record<string, typeof Activity> = {
   streams: Radio,
   roadmap: Map,
   adoption: BarChart3,
+  tokens: Key,
+  webhooks: Webhook,
+  'insights-cache': Database,
+  proposals: GitPullRequest,
+  routing: Route,
+  'local-models': Brain,
 };
 
 interface Props {
