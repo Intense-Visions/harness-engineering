@@ -23,6 +23,7 @@ import { handleV1ProposalsRoute } from './routes/v1/proposals';
 import { handleV1LocalModelsRoute } from './routes/v1/local-models';
 import type { RefreshSchedulerOps } from './routes/v1/local-models';
 import type { ModelPoolOps } from '../proposals/model-handlers';
+import { MODEL_PROPOSAL_TOPIC, MODEL_POOL_TOPIC } from '../proposals/model-handlers';
 import type { HardwareProfile, RankedModel } from '@harness-engineering/local-models';
 import { handleV1RoutingRoute } from './routes/v1/routing';
 import type { BackendRouter } from '../agent/backend-router';
@@ -252,6 +253,9 @@ export class OrchestratorServer {
     | null = null;
   private listModelProposalsFn: (() => Promise<Proposal[]>) | null = null;
   private routingDecisionUnsubscribe: (() => void) | null = null;
+  // LMLM Phase 7 — bus→WS fan-out listeners for the model proposal/pool topics.
+  private modelProposalListener: ((data: unknown) => void) | null = null;
+  private modelPoolListener: ((data: unknown) => void) | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
@@ -336,6 +340,17 @@ export class OrchestratorServer {
         this.broadcaster.broadcast('routing:decision', decision);
       });
     }
+    // LMLM Phase 7: fan out the model-handler bus topics to every /ws client.
+    // The approve/reject handlers (proposals/model-handlers.ts) and the
+    // scheduler emit `local-models:{proposal,pool}` on `this.orchestrator`
+    // (the shared EventEmitter), so subscribe there and re-broadcast under
+    // the same topic name. Listeners are torn down in stop() before
+    // broadcaster.close(), matching the routingDecisionUnsubscribe discipline.
+    this.modelProposalListener = (data: unknown) =>
+      this.broadcaster.broadcast(MODEL_PROPOSAL_TOPIC, data);
+    this.modelPoolListener = (data: unknown) => this.broadcaster.broadcast(MODEL_POOL_TOPIC, data);
+    this.orchestrator.on(MODEL_PROPOSAL_TOPIC, this.modelProposalListener);
+    this.orchestrator.on(MODEL_POOL_TOPIC, this.modelPoolListener);
   }
 
   /**
@@ -749,6 +764,16 @@ export class OrchestratorServer {
     if (this.routingDecisionUnsubscribe) {
       this.routingDecisionUnsubscribe();
       this.routingDecisionUnsubscribe = null;
+    }
+    // LMLM Phase 7: detach the bus→WS model listeners before broadcaster.close()
+    // so an in-flight bus emit cannot broadcast to a closed client set.
+    if (this.modelProposalListener) {
+      this.orchestrator.removeListener(MODEL_PROPOSAL_TOPIC, this.modelProposalListener);
+      this.modelProposalListener = null;
+    }
+    if (this.modelPoolListener) {
+      this.orchestrator.removeListener(MODEL_POOL_TOPIC, this.modelPoolListener);
+      this.modelPoolListener = null;
     }
     if (this.planWatcher) {
       this.planWatcher.stop();

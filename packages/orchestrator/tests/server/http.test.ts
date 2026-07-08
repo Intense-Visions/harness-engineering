@@ -413,4 +413,48 @@ describe('OrchestratorServer LMLM Phase 7 GET route bridging', () => {
       expect(JSON.parse(res.body).error).toContain('LMLM disabled');
     }
   });
+
+  it('fans out local-models:pool bus events to connected /ws clients', RETRY, async () => {
+    const port = Math.floor(Math.random() * 1000) + 59000;
+    const server = makeServer(port, { projectPath: tmpDir });
+    await server.start();
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    await new Promise<void>((r) => ws.on('open', r));
+    const messages: string[] = [];
+    ws.on('message', (d) => messages.push(d.toString()));
+
+    // The model handlers + scheduler emit these on the orchestrator bus.
+    mockOrchestrator.emit('local-models:pool', { phase: 'evict_completed', name: 'qwen2.5:32b' });
+    mockOrchestrator.emit('local-models:proposal', { id: 'p1', status: 'created' });
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const frames = messages.map((m) => JSON.parse(m));
+    expect(frames).toContainEqual({
+      type: 'local-models:pool',
+      data: { phase: 'evict_completed', name: 'qwen2.5:32b' },
+    });
+    expect(frames).toContainEqual({
+      type: 'local-models:proposal',
+      data: { id: 'p1', status: 'created' },
+    });
+
+    ws.close();
+  });
+
+  it('detaches the bus→WS model listeners on stop()', async () => {
+    const port = Math.floor(Math.random() * 1000) + 58000;
+    const server = makeServer(port, { projectPath: tmpDir });
+    await server.start();
+    // Two topics were subscribed in wireEvents().
+    expect(mockOrchestrator.listenerCount('local-models:pool')).toBe(1);
+    expect(mockOrchestrator.listenerCount('local-models:proposal')).toBe(1);
+
+    server.stop();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(mockOrchestrator.listenerCount('local-models:pool')).toBe(0);
+    expect(mockOrchestrator.listenerCount('local-models:proposal')).toBe(0);
+  });
 });
