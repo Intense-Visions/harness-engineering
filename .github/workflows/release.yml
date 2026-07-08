@@ -47,7 +47,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       # OIDC publish requires npm >= 11.5.1; Node 22 ships with npm 10.x.
-      - run: npm install -g npm@latest
+      # Pin to npm 11.x: npm 12.0.0 ships a broken bundle where `sigstore` is not
+      # hoisted next to the runtime libnpmpublish copy, so `--provenance` publishes
+      # crash with "Cannot find module 'sigstore'". Revisit once npm >=12 fixes it.
+      - run: npm install -g npm@11
 
       - run: pnpm install --frozen-lockfile
 
