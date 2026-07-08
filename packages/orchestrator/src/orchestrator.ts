@@ -233,6 +233,13 @@ export class Orchestrator extends EventEmitter {
    * when LMLM is disabled. Exposed to the server via `getRefreshScheduler()`.
    */
   private refreshScheduler: RefreshScheduler | null = null;
+  /**
+   * LMLM Phase 7: the hardware-aware recommender bound at scheduler start. Reused
+   * by `GET /api/v1/local-models/recommendations`. Null when LMLM is disabled (no
+   * pool → scheduler never armed). Ranks the (currently empty) candidate set —
+   * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
+   */
+  private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
   /** Test seam: injected timer/clock for the scheduler so no real 24h timer runs. */
   private readonly schedulerTimerOverride: {
     setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
@@ -687,6 +694,20 @@ export class Orchestrator extends EventEmitter {
         getModelPool: () => this.modelPool,
         // LMLM Phase 6: expose the refresh scheduler for POST /local-models/refresh.
         getRefreshScheduler: () => this.refreshScheduler,
+        // LMLM Phase 7 read surface — hardware / recommendations / model proposals.
+        // Each returns null/[] when LMLM is disabled so the route renders 503/[].
+        getHardwareProfile: () => (this.modelPool ? this.detectLmlmHardware() : null),
+        getRecommendations: async ({ top }) => {
+          if (this.modelRecommender === null) return [];
+          const hardware = await this.detectLmlmHardware();
+          const { ranked } = await this.modelRecommender(hardware);
+          // NOTE (Phase 2 gap): the native recommender ranks by hardware only —
+          // `profile` (general/coding/reasoning) is not yet a ranking input, so
+          // we honor `top` and ignore `profile` until the candidate parser lands.
+          return ranked.slice(0, top);
+        },
+        listModelProposals: () =>
+          listProposals(this.projectRoot, { status: 'open', kind: 'model' }),
       });
 
       this.server.setRecorder(this.recorder);
@@ -2017,6 +2038,9 @@ export class Orchestrator extends EventEmitter {
     const pool = this.modelPool;
     const refreshCfg = this.config.localModels?.refresh;
     const recommend = createNativeRecommender({ candidates: [] });
+    // Phase 7: reuse this same recommender for the on-demand recommendations
+    // route so the HTTP surface and the background tick share one ranking path.
+    this.modelRecommender = recommend;
     this.refreshScheduler = new RefreshScheduler({
       runTick: () =>
         runRefreshTick({
