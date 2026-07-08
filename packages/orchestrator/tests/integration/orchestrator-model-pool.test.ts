@@ -230,6 +230,17 @@ function drainOf(orch: Orchestrator): () => Promise<void> {
   ).drainDeferredEvictions.bind(orch);
 }
 
+/** Structural access to the private `emitWorkerExit`, bound to `orch`. */
+function emitWorkerExitOf(
+  orch: Orchestrator
+): (issueId: string, reason: 'normal' | 'error', attempt: number | null) => Promise<void> {
+  return (
+    orch as unknown as {
+      emitWorkerExit(id: string, reason: 'normal' | 'error', attempt: number | null): Promise<void>;
+    }
+  ).emitWorkerExit.bind(orch);
+}
+
 /** Let a fire-and-forget drain settle (drainDeferredEvictions is `void`-called). */
 function flush(): Promise<void> {
   return new Promise((r) => setTimeout(r, 10));
@@ -357,6 +368,28 @@ describe('Orchestrator LMLM Phase 7 — drain re-entrancy guard (P7-SUG-DRAIN-RE
     manager.markPendingEviction('qwen2.5:32b');
     await drainOf(orch)();
     expect(evicts.map((e) => e.name)).toEqual(['qwen2.5:32b']);
+    expect(manager.listPendingEvictions()).toHaveLength(0);
+
+    await orch.stop();
+  });
+
+  it('completes a deferred eviction via the REAL run-completion path (emitWorkerExit → drain, not a mirror)', async () => {
+    // S1 e2e mirror-gap closure: drive the production trigger — a worker exit
+    // fires the fire-and-forget drainDeferredEvictions from inside the real
+    // Orchestrator.emitWorkerExit — instead of a hand-rolled mirror function.
+    const orch = makeOrchestrator(makeConfig(localModelsConfig()));
+    const { manager, evicts } = await makeSeededPool([REPLACES]);
+    setModelPool(orch, manager);
+    manager.markPendingEviction('qwen2.5:32b');
+
+    const frames: Array<{ phase?: string; evicted?: string }> = [];
+    orch.on('local-models:pool', (d) => frames.push(d as { phase?: string; evicted?: string }));
+
+    await emitWorkerExitOf(orch)('issue-unknown', 'normal', null);
+    await flush();
+
+    expect(evicts.map((e) => e.name)).toEqual(['qwen2.5:32b']);
+    expect(frames.filter((f) => f.phase === 'evict_completed')).toHaveLength(1);
     expect(manager.listPendingEvictions()).toHaveLength(0);
 
     await orch.stop();
