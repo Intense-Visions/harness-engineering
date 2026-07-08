@@ -22,6 +22,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** —
 
+### LMLM: live-HF candidate discovery (make the autonomous loop live)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Surfaced by the LMLM Phases 4–9 wiring PR. The background scheduler, drift reconciliation, proposal engine, routes/WS/sinks, and dashboard are all wired end-to-end, but the orchestrator seeds `createNativeRecommender` with an **empty candidate set** because the Phase-2 live-HuggingFace→`RankerCandidate` parser was never built. Consequence: the autonomous swap-proposal loop emits **nothing in production** (manual `harness models`, resolver-from-pool, and drift reconciliation all work today). Build the HF model-list → `RankerCandidate[]` parser (repo → sizeB/activeB/quant enumeration) and seed the recommender so `GET /recommendations` and the scheduler produce real proposals. Ref ADR 0059 (candidate-discovery deferral note). This is the single item that turns LMLM autonomy from wired-but-inert to live.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### LMLM: dashboard direct install/evict (optional)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Surfaced by the LMLM Phases 4–9 wiring PR (decision D-P8-2). The spec's Pool card listed "install/evict actions," but the dashboard Pool card shipped **read-only** because no HTTP install/evict route exists — Phase 7 (D-Q2) deliberately kept pool mutation to a single write path (proposal approve/reject + CLI) to avoid a duplicate write surface. Pool changes are fully doable today via the Recommendations card's approve/reject and the CLI. If direct one-click install/evict from the dashboard is wanted, it needs a new backend spec: HTTP install/evict routes on the live `PoolManager` with auth + the D10/S1 in-use guard, plus the reconciled write-path story. Low priority — the proposal-driven flow (D1 pool-bounded autonomy) is the intended model.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
