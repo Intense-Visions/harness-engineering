@@ -10,6 +10,17 @@ import type {
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
+/**
+ * Trailing-edge window (ms) for coalescing WS-delta refetches. A burst of
+ * `local-models:{pool,proposal}` frames arriving within this window collapses
+ * into a single refetch per affected resource, bounding the request storm and
+ * narrowing the same-resource overlap window (pairs with the generation guard).
+ */
+const DELTA_REFETCH_DEBOUNCE_MS = 50;
+
+/** Resources that WS delta frames can request a refetch of. */
+type DeltaResource = 'pool' | 'recommendations' | 'proposals';
+
 const HARDWARE_URL = '/api/v1/local-models/hardware';
 const POOL_URL = '/api/v1/local-models/pool';
 const RECOMMENDATIONS_URL = '/api/v1/local-models/recommendations';
@@ -101,6 +112,42 @@ async function fetchResourceInto<T>(
 }
 
 /**
+ * Returns a `scheduleRefetch(resources)` that coalesces WS-delta refetches: the
+ * requested resources are queued and drained by a single trailing-edge flush
+ * ({@link DELTA_REFETCH_DEBOUNCE_MS}). Frames arriving before the flush fires
+ * add to the pending set without arming a second timer, so a burst collapses to
+ * one refetch per resource instead of one GET pair per frame. The flush reads
+ * the latest fetchers via a ref, so the returned callback is stable and the
+ * pending timer is cleared on unmount.
+ */
+function useCoalescedRefetch(
+  fetchers: Record<DeltaResource, () => Promise<void>>
+): (resources: readonly DeltaResource[]) => void {
+  const pendingRef = useRef<Set<DeltaResource>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchersRef = useRef(fetchers);
+  fetchersRef.current = fetchers;
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    []
+  );
+
+  return useCallback((resources: readonly DeltaResource[]): void => {
+    for (const r of resources) pendingRef.current.add(r);
+    if (timerRef.current) return;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      const due = pendingRef.current;
+      pendingRef.current = new Set();
+      for (const r of due) void fetchersRef.current[r]();
+    }, DELTA_REFETCH_DEBOUNCE_MS);
+  }, []);
+}
+
+/**
  * Data hook for the `/s/local-models` panel (LMLM Phase 8).
  *
  * Seeds `hardware`, `pool`, `recommendations`, and `proposals` from the four
@@ -169,6 +216,14 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
     void fetchProposals();
   }, [fetchHardware, fetchPool, fetchRecommendations, fetchProposals]);
 
+  // Coalesce delta-driven refetches so a burst of WS frames collapses into a
+  // single refetch per affected resource (see useCoalescedRefetch).
+  const scheduleRefetch = useCoalescedRefetch({
+    pool: fetchPool,
+    recommendations: fetchRecommendations,
+    proposals: fetchProposals,
+  });
+
   // Initial seed on mount.
   useEffect(() => {
     mountedRef.current = true;
@@ -198,11 +253,9 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
           if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
           const msg = raw as WebSocketMessage;
           if (msg.type === 'local-models:pool') {
-            void fetchPool();
-            void fetchRecommendations();
+            scheduleRefetch(['pool', 'recommendations']);
           } else if (msg.type === 'local-models:proposal') {
-            void fetchProposals();
-            void fetchRecommendations();
+            scheduleRefetch(['proposals', 'recommendations']);
           }
         } catch {
           // ignore malformed messages
@@ -227,7 +280,7 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
       wsRef.current?.close();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, [fetchPool, fetchRecommendations, fetchProposals]);
+  }, [scheduleRefetch]);
 
   const allDisabled =
     hardware.error === 'LMLM disabled' &&

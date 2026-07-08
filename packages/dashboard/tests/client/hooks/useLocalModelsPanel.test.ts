@@ -234,6 +234,41 @@ describe('useLocalModelsPanel', () => {
     expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore);
   });
 
+  it('coalesces a burst of local-models:pool WS frames into a single refetch per resource', async () => {
+    const fetchMock = branchingFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLocalModelsPanel());
+    await waitFor(() => expect(result.current.pool.data).toEqual(POOL));
+    await waitFor(() => expect(FakeWebSocket.instance).not.toBeNull());
+
+    const poolBefore = countCalls(fetchMock, '/local-models/pool');
+    const recsBefore = countCalls(fetchMock, '/local-models/recommendations');
+
+    // Five pool frames in immediate succession (same tick).
+    act(() => {
+      for (let i = 0; i < 5; i += 1) {
+        FakeWebSocket.instance!.simulateMessage({
+          type: 'local-models:pool',
+          data: { action: 'evict', phase: 'evict_completed' },
+        });
+      }
+    });
+
+    // The debounced flush issues exactly ONE pool + ONE recommendations GET,
+    // not five apiece.
+    await waitFor(() => {
+      expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore + 1);
+      expect(countCalls(fetchMock, '/local-models/recommendations')).toBe(recsBefore + 1);
+    });
+    // Give any un-coalesced trailing timers a chance to (wrongly) fire.
+    await new Promise((r) => setTimeout(r, 80));
+    expect(countCalls(fetchMock, '/local-models/pool')).toBe(poolBefore + 1);
+    expect(countCalls(fetchMock, '/local-models/recommendations')).toBe(recsBefore + 1);
+
+    vi.unstubAllGlobals();
+  });
+
   it('same-resource overlap: an older response resolving LAST does not overwrite the newer one (last-REQUEST-wins)', async () => {
     // Two distinct recommendations payloads. The FIRST GET (mount seed) is the
     // "older" request; the SECOND GET (triggered by a pool WS frame) is "newer".
