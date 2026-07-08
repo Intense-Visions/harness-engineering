@@ -2048,7 +2048,18 @@ export class Orchestrator extends EventEmitter {
           recommend,
           poolManager: pool,
           dedupSource: () => this.lmlmDedupSource(),
-          emitProposal: (c) => createModelProposal(this.projectRoot, c).then(() => undefined),
+          // Phase 7: after persisting the proposal, emit `local-models:proposal`
+          // (== MODEL_PROPOSAL_TOPIC) on the bus so it fans out to WS clients and
+          // notification sinks. Literal to avoid a proposals/model-handlers cycle.
+          emitProposal: (c) =>
+            createModelProposal(this.projectRoot, c).then((record) => {
+              this.emit('local-models:proposal', {
+                id: record.id,
+                status: 'created',
+                action: c.action,
+                target: c.target.ollamaName,
+              });
+            }),
           proposalThreshold: refreshCfg?.proposalThreshold ?? 5,
         }),
       intervalMs: refreshCfg?.intervalMs ?? 86_400_000,
