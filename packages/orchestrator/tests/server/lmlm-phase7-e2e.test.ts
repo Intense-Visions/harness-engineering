@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
-import type { ModelProposalRecord, Proposal } from '@harness-engineering/types';
+import { WebSocket } from 'ws';
+import type {
+  ModelProposalRecord,
+  NotificationsConfig,
+  Proposal,
+} from '@harness-engineering/types';
 import {
   PoolManager,
   PoolStateStore,
@@ -13,6 +18,9 @@ import {
   type PoolState,
 } from '@harness-engineering/local-models';
 import { onApproveModelProposal, type ModelHandlerDeps } from '../../src/proposals/model-handlers';
+import { OrchestratorServer } from '../../src/server/http';
+import { SinkRegistry } from '../../src/notifications/registry';
+import { wireNotificationSinks } from '../../src/notifications/events';
 
 /**
  * LMLM Phase 7 — S1 ("no mid-dispatch swap") end-to-end integration (ADR 0060).
@@ -240,5 +248,74 @@ describe('LMLM Phase 7 — S1 no-mid-dispatch-swap deferral + drain (ADR 0060)',
     await drain(manager, bus, () => true);
     expect(evicts).toHaveLength(0);
     expect(manager.listPendingEvictions()).toEqual(['qwen2.5:32b']);
+  });
+});
+
+// ── Task 15: Phase 7 WS + sink delivery smoke (the spec's Phase 7 checkpoint) ──
+
+const SLACK_URL = 'https://hooks.slack.com/services/T/B/X';
+
+function sinkConfig(): NotificationsConfig {
+  return {
+    sinks: [
+      {
+        id: 'team',
+        kind: 'slack',
+        events: ['local-models.*'],
+        wrap_response: true,
+        config: { webhookUrlEnv: 'HARNESS_SLACK_TEST_URL' },
+      },
+    ],
+  };
+}
+
+describe('LMLM Phase 7 — WS + sink delivery smoke', () => {
+  it('emit local-models:proposal → WS /ws frame AND local-models.proposal sink envelope', async () => {
+    // One orchestrator bus feeds BOTH the server's WS fan-out and the sink registry.
+    const bus = Object.assign(new EventEmitter(), {
+      getSnapshot: () => ({ running: [], retryAttempts: [], claimed: [] }),
+    });
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+    const registry = SinkRegistry.fromConfig(sinkConfig(), {
+      env: { HARNESS_SLACK_TEST_URL: SLACK_URL },
+      fetchImpl,
+    });
+    const offSinks = wireNotificationSinks({ bus, registry });
+
+    const port = Math.floor(Math.random() * 4000) + 51000;
+    const server = new OrchestratorServer(bus, port);
+    await server.start();
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    await new Promise<void>((r) => ws.on('open', () => r()));
+    const frames: Array<{ type: string; data: unknown }> = [];
+    ws.on('message', (d) => frames.push(JSON.parse(d.toString())));
+
+    try {
+      // The scheduler emits this on new-proposal creation.
+      bus.emit('local-models:proposal', {
+        id: 'p1',
+        status: 'created',
+        action: 'add',
+        target: 'qwen3:32b',
+      });
+      await new Promise((r) => setTimeout(r, 100));
+
+      // (a) WS client received the frame.
+      expect(frames).toContainEqual({
+        type: 'local-models:proposal',
+        data: { id: 'p1', status: 'created', action: 'add', target: 'qwen3:32b' },
+      });
+
+      // (b) the sink delivered the derived local-models.proposal envelope.
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      const body = String((fetchImpl.mock.calls[0]![1] as { body: string }).body);
+      expect(body).toContain('qwen3:32b');
+    } finally {
+      ws.close();
+      offSinks();
+      server.stop();
+      await new Promise((r) => setTimeout(r, 50));
+    }
   });
 });
