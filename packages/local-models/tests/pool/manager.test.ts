@@ -343,6 +343,48 @@ describe('PoolManager — budget + eviction (F5, S5)', () => {
     expect(snapshot.diskUsedGb).toBe(38);
   });
 
+  it('credits the replaces size so an unrelated LRU member is not over-evicted (P5-SUG-EVICT-b)', async () => {
+    // keep:14b is the lowest-score LRU — the entry the eviction planner WOULD
+    // pick first. old:8b is the `replaces` (high score, so the planner would
+    // never choose it on its own). Without crediting `replaces`, available is
+    // only 40 and the 50 GB install evicts keep:14b. Crediting old:8b's 40 GB
+    // lifts available to 80, so nothing is evicted and keep:14b survives.
+    const seeded = seededState({ allowedOrgs: ['Qwen'], diskBudgetGb: 100 }, [
+      entry({
+        ollamaName: 'keep:14b',
+        hfRepoId: 'Qwen/Qwen3-14B',
+        sizeOnDiskGb: 20,
+        currentScore: 30,
+        lastUsedAt: '2026-05-01T00:00:00.000Z',
+      }),
+      entry({
+        ollamaName: 'old:8b',
+        hfRepoId: 'Qwen/Qwen3-8B',
+        sizeOnDiskGb: 40,
+        currentScore: 95,
+        lastUsedAt: '2026-05-29T00:00:00.000Z',
+      }),
+    ]);
+    const { manager, installer } = await makeManager(seeded);
+
+    const result = await manager.install({
+      hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      ollamaName: 'new:32b',
+      sizeOnDiskGb: 50,
+      replaces: 'old:8b',
+    });
+
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      // install itself performs no budget-driven eviction — the handler owns
+      // the `replaces` removal.
+      expect(result.evicted).toEqual([]);
+    }
+    expect(installer.evicts).toHaveLength(0);
+    // The unrelated LRU member survives.
+    expect(manager.snapshot().entries.map((e) => e.ollamaName)).toContain('keep:14b');
+  });
+
   it('rejects with budget_exceeded when even maximal eviction is insufficient (OT8)', async () => {
     const seeded = seededState({ allowedOrgs: ['Qwen'], diskBudgetGb: 20 }, [
       entry({ ollamaName: 'a', sizeOnDiskGb: 10, currentScore: 50 }),
@@ -699,5 +741,65 @@ describe('PoolManager — adapter selection (advisory short-circuit)', () => {
     if (result.status === 'error') {
       expect(result.code).toBe('advisory_only');
     }
+  });
+});
+
+describe('PoolManager — transient pendingEviction overlay (Phase 7 / S1)', () => {
+  it('viewState() overlays pendingEviction:true while snapshot() and persistence stay clean', async () => {
+    const seeded = seededState({}, [
+      entry({ ollamaName: 'qwen3:32b' }),
+      entry({ ollamaName: 'llama3:70b' }),
+    ]);
+    const { manager, store, fs } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+
+    // View is overlaid...
+    const view = manager.viewState();
+    const viewed = view.entries.find((e) => e.ollamaName === 'qwen3:32b');
+    const other = view.entries.find((e) => e.ollamaName === 'llama3:70b');
+    expect(viewed?.pendingEviction).toBe(true);
+    expect(other?.pendingEviction).toBeUndefined();
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    // ...but the persisted-shape snapshot never carries the flag.
+    const snap = manager.snapshot();
+    for (const e of snap.entries) {
+      expect((e as Record<string, unknown>)['pendingEviction']).toBeUndefined();
+    }
+
+    // ...and the flag is not written to disk (persist round-trip stays clean).
+    await store.persist();
+    const onDisk = fs.files[POOL_PATH] ?? '';
+    expect(onDisk).not.toContain('pendingEviction');
+  });
+
+  it('clearPendingEviction() removes the overlay', async () => {
+    const seeded = seededState({}, [entry({ ollamaName: 'qwen3:32b' })]);
+    const { manager } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+    expect(manager.viewState().entries[0]?.pendingEviction).toBe(true);
+
+    manager.clearPendingEviction('qwen3:32b');
+    expect(manager.viewState().entries[0]?.pendingEviction).toBeUndefined();
+    expect(manager.listPendingEvictions()).toEqual([]);
+  });
+
+  it('mark/clear are idempotent and do not mutate the stored snapshot', async () => {
+    const seeded = seededState({}, [entry({ ollamaName: 'qwen3:32b' })]);
+    const { manager } = await makeManager(seeded);
+
+    manager.markPendingEviction('qwen3:32b');
+    manager.markPendingEviction('qwen3:32b');
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    manager.clearPendingEviction('absent');
+    expect(manager.listPendingEvictions()).toEqual(['qwen3:32b']);
+
+    // viewState clones entries — mutating the view must not affect the store.
+    const view = manager.viewState();
+    view.entries[0]!.currentScore = -999;
+    expect(manager.snapshot().entries[0]?.currentScore).toBe(75);
   });
 });

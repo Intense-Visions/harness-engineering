@@ -93,4 +93,28 @@ describe('wireNotificationSinks', () => {
     expect(failed).toHaveBeenCalledTimes(1);
     expect(failed.mock.calls[0]![0].sinkId).toBe('team');
   });
+
+  // ── LMLM Phase 7 — model-proposal notifications reach subscribed sinks ──
+  it('delivers a local-models:proposal bus emit to a subscribed sink as an envelope', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResp());
+    const registry = SinkRegistry.fromConfig(
+      cfgWithSink({ events: ['local-models.*'], wrap_response: true }),
+      { env: { HARNESS_SLACK_TEST_URL: SLACK_URL }, fetchImpl }
+    );
+    const bus = new EventEmitter();
+    wireNotificationSinks({ bus, registry });
+    // The scheduler / model handlers emit the colon-form topic on the bus.
+    bus.emit('local-models:proposal', {
+      id: 'p1',
+      status: 'created',
+      action: 'add',
+      target: 'qwen3:32b',
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // wrap_response=true → the Slack sink posts the derived envelope title.
+    const body = String((fetchImpl.mock.calls[0]![1] as { body: string }).body);
+    expect(body).toContain('qwen3:32b');
+  });
 });

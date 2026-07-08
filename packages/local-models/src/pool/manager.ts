@@ -37,7 +37,7 @@ import type {
 import { isInstallError } from '../installer/index.js';
 import { planEviction } from './eviction.js';
 import type { PoolStateStore } from './state.js';
-import type { PoolEntry, PoolState } from './types.js';
+import type { PoolEntry, PoolState, PoolStateView } from './types.js';
 
 /**
  * Stable error codes the manager surfaces. Extends Phase 3b's `InstallErrorCode`
@@ -73,6 +73,14 @@ export interface InstallPoolRequest {
    * is non-empty; ignored otherwise.
    */
   family?: string;
+  /**
+   * `ollamaName` of the entry this install replaces (a swap). When set, the
+   * pre-commit capacity check credits the replaced entry's on-disk size to the
+   * available budget and excludes it from the eviction plan — the swap handler
+   * removes `replaces` itself, so counting it as still-occupied would
+   * over-evict an unrelated LRU member (P5-SUG-EVICT-b).
+   */
+  replaces?: string;
   /** Initial ranker score for the new pool entry. Defaults to 0. */
   initialScore?: number;
   /** Caller-supplied cancellation signal. */
@@ -155,6 +163,13 @@ export class PoolManager {
   private readonly installer: InstallAdapter;
   private readonly now: () => number;
   private readonly onWarn: (message: string, cause?: unknown) => void;
+  /**
+   * LMLM Phase 7 / S1: `ollamaName`s of entries whose approved eviction is
+   * deferred while the model is in use. Transient (memory-only) by design — a
+   * crash simply forgets the deferral and the next approve/drain re-evaluates.
+   * Never persisted (see `PoolEntryView`).
+   */
+  private readonly pendingEvictions = new Set<string>();
 
   constructor(options: PoolManagerOptions) {
     this.store = options.store;
@@ -166,6 +181,38 @@ export class PoolManager {
   /** Frozen clone of the current pool state. Safe to mutate without affecting the store. */
   snapshot(): PoolState {
     return this.store.snapshot();
+  }
+
+  /** Mark an entry's eviction as deferred (in use). Idempotent. (S1) */
+  markPendingEviction(ollamaName: string): void {
+    this.pendingEvictions.add(ollamaName);
+  }
+
+  /** Clear a deferred-eviction flag once the model has drained. Idempotent. (S1) */
+  clearPendingEviction(ollamaName: string): void {
+    this.pendingEvictions.delete(ollamaName);
+  }
+
+  /** The `ollamaName`s currently marked for deferred eviction. */
+  listPendingEvictions(): string[] {
+    return [...this.pendingEvictions];
+  }
+
+  /**
+   * Runtime view of the pool with the transient `pendingEviction` overlay
+   * applied. Used by the HTTP/WS surface (Phase 7). The persisted snapshot and
+   * on-disk record never carry the flag — it is set here only, on the clone.
+   */
+  viewState(): PoolStateView {
+    const state = this.store.snapshot();
+    return {
+      ...state,
+      entries: state.entries.map((entry) =>
+        this.pendingEvictions.has(entry.ollamaName)
+          ? { ...entry, pendingEviction: true }
+          : { ...entry }
+      ),
+    };
   }
 
   /**
@@ -264,6 +311,11 @@ export class PoolManager {
    * Capacity check + pre-commit eviction (S5). When the pool already has room
    * the returned `evicted` list is empty. If even the fully-evicted pool can't
    * fit, returns a `budget_exceeded` error reply.
+   *
+   * For a swap (`request.replaces` set), the replaced entry's on-disk size is
+   * credited to the available budget and it is excluded from the eviction plan
+   * — the swap handler removes it separately, so treating it as occupied would
+   * over-evict an unrelated LRU member (P5-SUG-EVICT-b).
    */
   private async precommitEvict(
     request: InstallPoolRequest,
@@ -271,11 +323,12 @@ export class PoolManager {
     state: PoolState
   ): Promise<{ ok: true; evicted: PoolEntry[] } | { ok: false; result: InstallPoolResult }> {
     const evicted: PoolEntry[] = [];
-    const available = state.diskBudgetGb - state.diskUsedGb;
+    const { credit, planState } = this.replacesCredit(request, state);
+    const available = state.diskBudgetGb - state.diskUsedGb + credit;
     if (sizeOnDiskGb <= available) return { ok: true, evicted };
 
     const deficit = sizeOnDiskGb - available;
-    const plan = planEviction({ state, freeBudgetGb: deficit });
+    const plan = planEviction({ state: planState, freeBudgetGb: deficit });
     if (plan.remainingNeededGb > 0) {
       return {
         ok: false,
@@ -292,6 +345,26 @@ export class PoolManager {
       if (failure !== undefined) return { ok: false, result: failure };
     }
     return { ok: true, evicted };
+  }
+
+  /**
+   * Compute the swap credit for a pre-commit capacity check. Returns the
+   * `replaces` entry's on-disk size (0 when there is no swap or the named entry
+   * is absent) and a `planState` with `replaces` excluded so the eviction
+   * planner never targets the entry the swap handler removes itself.
+   */
+  private replacesCredit(
+    request: InstallPoolRequest,
+    state: PoolState
+  ): { credit: number; planState: PoolState } {
+    if (request.replaces === undefined) return { credit: 0, planState: state };
+    const replacesName = request.replaces;
+    const replacesEntry = state.entries.find((e) => e.ollamaName === replacesName);
+    if (replacesEntry === undefined) return { credit: 0, planState: state };
+    return {
+      credit: replacesEntry.sizeOnDiskGb,
+      planState: { ...state, entries: state.entries.filter((e) => e.ollamaName !== replacesName) },
+    };
   }
 
   /**

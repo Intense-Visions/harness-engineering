@@ -3,12 +3,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   createProposal,
+  createModelProposal,
   getProposal,
   listProposals,
   updateProposal,
   ProposalNotFoundError,
   ProposalConflictError,
 } from '../../src/proposals/store';
+import type { ModelProposalContent } from '@harness-engineering/types';
 
 const tmpDir = path.join(__dirname, '__proposals_tmp__');
 
@@ -50,7 +52,7 @@ describe('createProposal', () => {
     const p = await createProposal(tmpDir, NEW_SKILL_INPUT);
     expect(p.id).toMatch(/^proposal_[a-f0-9]+$/);
     expect(p.status).toBe('open');
-    expect(p.kind).toBe('new-skill');
+    expect(p.skillKind).toBe('new-skill');
     const file = path.join(tmpDir, '.harness', 'proposals', `${p.id}.json`);
     expect(fs.existsSync(file)).toBe(true);
   });
@@ -74,8 +76,48 @@ describe('createProposal', () => {
       },
     });
     await expect(createProposal(tmpDir, REFINEMENT_INPUT)).resolves.toMatchObject({
-      kind: 'refinement',
+      skillKind: 'refinement',
     });
+  });
+});
+
+const MODEL_CONTENT: ModelProposalContent = {
+  action: 'swap',
+  target: { hfRepoId: 'org/next-14b-gguf', ollamaName: 'next:14b' },
+  replaces: { ollamaName: 'qwen3:8b' },
+  scoreDelta: 15,
+  justification: {
+    summary: 'Swap qwen3:8b for the higher-scoring next:14b given the current hardware fit.',
+    benchmarkBasis: ['mmlu', 'gsm8k'],
+    hardwareFit: 'Fits within the 24GB VRAM budget with headroom.',
+    evidence: 'Frozen snapshot rank places next:14b above qwen3:8b for this profile.',
+    freshness: 'Snapshot dated 2026-07-01.',
+  },
+  diskImpactGb: 9.2,
+};
+
+describe('createModelProposal', () => {
+  beforeEach(() => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('persists a kind=model record retrievable by listProposals kind filter', async () => {
+    const rec = await createModelProposal(tmpDir, MODEL_CONTENT);
+    expect(rec.id).toMatch(/^proposal_[a-f0-9]+$/);
+    expect(rec.kind).toBe('model');
+    expect(rec.status).toBe('open');
+    expect(rec.model.target.ollamaName).toBe('next:14b');
+
+    const models = await listProposals(tmpDir, { kind: 'model' });
+    expect(models).toHaveLength(1);
+    expect(models[0]!.kind).toBe('model');
+    expect((models[0] as typeof rec).model.target.ollamaName).toBe('next:14b');
+
+    const file = path.join(tmpDir, '.harness', 'proposals', `${rec.id}.json`);
+    expect(fs.existsSync(file)).toBe(true);
   });
 });
 
@@ -89,6 +131,32 @@ describe('getProposal / listProposals', () => {
 
   it('returns null for unknown id', async () => {
     expect(await getProposal(tmpDir, 'proposal_zzzzz')).toBeNull();
+  });
+
+  it('read-migrates a legacy on-disk record into the discriminated shape (N3)', async () => {
+    // A pre-generalization record: top-level `kind` held the skill-change value,
+    // there is no outer `kind:'skill'` and no `skillKind`.
+    const legacy = {
+      id: 'proposal_legacy',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      kind: 'new-skill',
+      proposedBy: 'x',
+      source: { justification: '20+ character justification string here.' },
+      content: {
+        name: 'legacy-skill',
+        description: 'A twenty-plus character description string.',
+        skillYaml: 'name: legacy-skill\n',
+        skillMd: '# Legacy\n',
+      },
+      status: 'open',
+    };
+    const dir = path.join(tmpDir, '.harness', 'proposals');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'proposal_legacy.json'), JSON.stringify(legacy, null, 2));
+
+    const migrated = await getProposal(tmpDir, 'proposal_legacy');
+    expect(migrated?.kind).toBe('skill');
+    expect((migrated as { skillKind?: string })?.skillKind).toBe('new-skill');
   });
 
   it('lists newest-first and filters by status', async () => {
@@ -136,12 +204,12 @@ describe('updateProposal', () => {
       // @ts-expect-error — intentionally exercising the immutable guard
       createdAt: '1999-01-01T00:00:00.000Z',
       // @ts-expect-error — intentionally exercising the immutable guard
-      kind: 'refinement',
+      skillKind: 'refinement',
       status: 'gate-running',
     });
     expect(updated.id).toBe(p.id);
     expect(updated.createdAt).toBe(p.createdAt);
-    expect(updated.kind).toBe('new-skill');
+    expect(updated.skillKind).toBe('new-skill');
     expect(updated.status).toBe('gate-running');
   });
 });

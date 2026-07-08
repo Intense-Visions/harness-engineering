@@ -11,6 +11,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ## Intake
 
+### LMLM Phases 4–9: wire the engine to operator surfaces
+
+- **Status:** planned
+- **Spec:** docs/changes/local-model-lifecycle-manager/proposal.md
+- **Summary:** The `@harness-engineering/local-models` package (v0.2.2, published) implements the LMLM engine — hardware detection, benchmark-ranked recommendation, Ollama install adapter, pool manager + eviction — but has ZERO consumers: no package imports it, the `localModels` config block is inert (type-only, read by no runtime code), and the only shipped CLI is `harness models probe` (which uses the orchestrator's `/v1/models` probe, not the package). Roadmap #386 was marked `done` after Phase 3c (last feature commit `feat(local-models): LMLM Phase 3c`; `done` applied during a bulk roadmap archive-split, not a completion). Phases 4–9 never landed: (4) `LocalModelResolver` consuming pool state [D5], (5) `ProposalSchema` generalization `proposalKind: skill|model` [D11], (6) background scheduler + drift reconciliation [D9/D12], (7) HTTP/WS/notification sinks [D6], (8) dashboard panel, (9) docs/ADRs. The `harness models` command header itself lists these as "future LMLM phases." Spec predates codebase drift (a `LocalModelResolver` now exists via #296/#297 but only probes `/v1/models`), so revalidate the spec (soundness-review) before building. Corrects the accidental `done` on #386.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### LMLM: live-HF candidate discovery (make the autonomous loop live)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Surfaced by the LMLM Phases 4–9 wiring PR. The background scheduler, drift reconciliation, proposal engine, routes/WS/sinks, and dashboard are all wired end-to-end, but the orchestrator seeds `createNativeRecommender` with an **empty candidate set** because the Phase-2 live-HuggingFace→`RankerCandidate` parser was never built. Consequence: the autonomous swap-proposal loop emits **nothing in production** (manual `harness models`, resolver-from-pool, and drift reconciliation all work today). Build the HF model-list → `RankerCandidate[]` parser (repo → sizeB/activeB/quant enumeration) and seed the recommender so `GET /recommendations` and the scheduler produce real proposals. Ref ADR 0059 (candidate-discovery deferral note). This is the single item that turns LMLM autonomy from wired-but-inert to live.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### LMLM: dashboard direct install/evict (optional)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Surfaced by the LMLM Phases 4–9 wiring PR (decision D-P8-2). The spec's Pool card listed "install/evict actions," but the dashboard Pool card shipped **read-only** because no HTTP install/evict route exists — Phase 7 (D-Q2) deliberately kept pool mutation to a single write path (proposal approve/reject + CLI) to avoid a duplicate write surface. Pool changes are fully doable today via the Recommendations card's approve/reject and the CLI. If direct one-click install/evict from the dashboard is wanted, it needs a new backend spec: HTTP install/evict routes on the live `PoolManager` with auth + the D10/S1 in-use guard, plus the reconciled write-path story. Low priority — the proposal-driven flow (D1 pool-bounded autonomy) is the intended model.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list

@@ -181,6 +181,18 @@ When **both** legacy and `agent.backends` are set, `agent.backends` wins and eac
 
 See [ADR 0005: Named backends map](../knowledge/decisions/0005-named-backends-map.md) for the architectural rationale.
 
+## Opting a backend into the Local Model Lifecycle Manager
+
+Backends of `type: local` or `type: pi` can hand pool management to the
+Local Model Lifecycle Manager (LMLM) by setting `localModels.enabled = true`
+in `harness.config.json`. When enabled, the resolver's candidate list is
+derived from LMLM pool state (ordered by score) instead of a hand-curated
+`model: [...]` array; the orchestrator proposes pool add/swap/evict changes
+through the review queue. With `localModels.enabled = false` (default),
+behavior is byte-identical to today's hand-curated lists.
+
+See the [Local Model Lifecycle Manager guide](./local-model-lifecycle.md).
+
 ## Related
 
 - [`docs/changes/multi-backend-routing/proposal.md`](../changes/multi-backend-routing/proposal.md) — the spec
@@ -190,3 +202,4 @@ See [ADR 0005: Named backends map](../knowledge/decisions/0005-named-backends-ma
 - [Routing Resolution](../knowledge/orchestrator/routing-resolution.md) — Spec B resolution chain + decision telemetry
 - [Routing Trace](./routing-trace.md) — Spec B operator-debugging guide
 - [Hybrid Orchestrator Quick Start](./hybrid-orchestrator-quickstart.md)
+- [Local Model Lifecycle Manager](./local-model-lifecycle.md)

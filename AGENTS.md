@@ -663,6 +663,8 @@ Agents can emit skill candidates — either a fully-formed new skill or a unifie
 
 **Storage + schema.** Proposals are validated through `SkillProposalSchema` (`packages/types/src/proposals.ts`). The schema enforces a kind ↔ content invariant: `new-skill` requires `skillYaml` + `skillMd`; `refinement` requires `targetSkill` + unified-diff `diff`. Status transitions are `open → gate-running | gate-failed → approved | rejected`.
 
+> As of LMLM Phase 5 (ADR 0058) the queue carries a discriminated `kind: 'skill' | 'model'` (`ProposalSchema`): skill proposals nest the old enum under `skillKind`, and model proposals (add/swap/evict) flow through the **same** store, routes, and events. Legacy records read-migrate transparently. See [`docs/knowledge/orchestrator/local-model-lifecycle.md`](docs/knowledge/orchestrator/local-model-lifecycle.md).
+
 **Soundness gate.** Reviewers trigger `POST /api/v1/proposals/<id>/run-gate` (UI button or `harness proposals approve` indirectly). The gate (`packages/orchestrator/src/proposals/gate.ts`) runs mechanical structural checks today — kebab-case name, parseable skill.yaml, SKILL.md size bounds, unified-diff well-formedness — and persists findings. A future `harness:soundness-review --mode skill` follow-up replaces the mechanical checks without changing the integration surface (ADR 0016).
 
 **Promotion.** With a clean gate fresh within 24h, `POST /api/v1/proposals/<id>/approve` invokes `promote()` (`packages/orchestrator/src/proposals/promote.ts`) which writes `agents/skills/claude-code/<name>/{skill.yaml,SKILL.md}` with `provenance: agent-proposed` and `originatingProposalId: <id>`. Refinements stamp provenance on the existing target after verifying the reviewer applied the diff. The slash-command generator regenerates per-host plugin manifests on next run.
@@ -672,6 +674,21 @@ Agents can emit skill candidates — either a fully-formed new skill or a unifie
 **Surfaces.** MCP tool `emit_skill_proposal`. CLI `harness proposals list|show|approve|reject` and `harness backfill-skill-provenance`. Dashboard page `/s/proposals` (`packages/dashboard/src/client/pages/Proposals.tsx`). Seven gateway routes under `/api/v1/proposals/*` registered in `V1_BRIDGE_ROUTES`; reads use `read-status`, mutations require the new `manage-proposals` scope (ADR 0017). Events `proposal.created`, `proposal.approved`, `proposal.rejected` fan out via the Phase 0 webhook bus and Phase 3 notification sinks; envelope derivers in `notifications/envelope.ts` render them with appropriate severities.
 
 See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals.md) and [`docs/knowledge/cli/skill-provenance.md`](docs/knowledge/cli/skill-provenance.md). ADRs: [0016](docs/knowledge/decisions/0016-skill-proposal-workflow.md), [0017](docs/knowledge/decisions/0017-manage-proposals-scope.md).
+
+### LMLM Operator Surface (Phase 7)
+
+Phase 7 exposes the local-model pool, hardware, recommendations, and model-proposal queue over the orchestrator's HTTP + WebSocket + notification-sink surfaces so CLI, dashboard, and Slack operators all read one source of truth (ADR [0060](docs/knowledge/decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)).
+
+**Read routes.** Four additive GETs dispatched from `handleV1LocalModelsRoute` (`packages/orchestrator/src/server/routes/v1/local-models.ts`), each `503 { error: 'LMLM disabled' }` when its accessor is null and registered in `V1_BRIDGE_ROUTES` (`scope: 'read-status'`) so the `/api/v1` rewrite shim does not misroute them to the legacy status handler:
+
+- `GET /api/v1/local-models/hardware` — current `HardwareProfile`.
+- `GET /api/v1/local-models/pool` — `PoolState` view including any `pendingEviction: true` entries (S1 overlay).
+- `GET /api/v1/local-models/recommendations?top=N&profile=general|coding|reasoning` — `RankedModel[]` (validates `top`/`profile` → `400`; `[]` until the Phase 2 candidate parser lands; `profile` is not yet a ranking input).
+- `GET /api/v1/local-models/proposals` — kind-filtered (`kind: 'model'`, `status: 'open'`) feed. Model approve/reject stays on the **shared** `/api/v1/proposals/:id/{approve,reject}` route — no duplicate handler (D-Q2).
+
+**WS + sinks.** The model handlers emit `local-models:proposal` and `local-models:pool` on the orchestrator bus; `OrchestratorServer.wireEvents()` fans both out to every `/ws` client (detached in `stop()`). A `local-models.proposal` notification envelope (`notifications/envelope.ts`) varies title/severity by `data.status` (`created`/`rejected`/`failed_target_missing`). The scheduler's `emitProposal` seam fires `local-models:proposal { status: 'created' }` on new-proposal creation.
+
+**S1 dispatch-safe eviction.** An approved swap/evict of a model that might be serving a request is **deferred**, not applied mid-dispatch. `onApproveModelProposal` consults an injectable `isModelInUse(ollamaName)` probe before evicting; if in use it calls `PoolManager.markPendingEviction` (a transient, never-persisted overlay), emits `local-models:pool { phase: 'evict_deferred' }`, and skips the evict — the install for a swap has already applied, so the pool transiently holds both. `Orchestrator.drainDeferredEvictions()` fires best-effort from the run-completion path (`emitWorkerExit`), completing any deferred eviction the probe now reports idle and emitting `evict_completed`. The production probe (`Orchestrator.isLocalModelInUse`) is **agent-run-coarse** — `state.running.size > 0` AND the name is a currently-resolved/last-detected local model — so it may over-defer (a safe failure); a per-request signal is a documented deferred gap.
 
 ### Dashboard Package
 

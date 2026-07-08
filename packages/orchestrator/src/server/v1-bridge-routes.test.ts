@@ -29,4 +29,28 @@ describe('V1_BRIDGE_ROUTES registry', () => {
     expect(requiredBridgeScope('GET', '/api/v1/events')).toBe('read-telemetry');
     expect(requiredBridgeScope('GET', '/api/v1/jobs/maintenance')).toBeNull();
   });
+
+  // ── LMLM Phase 7 read surface ──
+  const LMLM_GETS = [
+    '/api/v1/local-models/hardware',
+    '/api/v1/local-models/pool',
+    '/api/v1/local-models/recommendations',
+    '/api/v1/local-models/proposals',
+  ];
+
+  it('registers all four LMLM Phase 7 GET routes as read-status bridge primitives', () => {
+    for (const url of LMLM_GETS) {
+      // Bridge match short-circuits the /api/v1 → /api/local-models rewrite that
+      // would otherwise misroute these to the legacy status handler.
+      expect(isV1Bridge('GET', url)).toBe(true);
+      expect(isV1Bridge('GET', `${url}?top=3`)).toBe(true);
+      expect(requiredBridgeScope('GET', url)).toBe('read-status');
+    }
+  });
+
+  it('does not bridge non-GET methods on the LMLM read routes', () => {
+    // POST /refresh has its own bridge entry; the read routes are GET-only.
+    expect(isV1Bridge('POST', '/api/v1/local-models/pool')).toBe(false);
+    expect(isV1Bridge('DELETE', '/api/v1/local-models/hardware')).toBe(false);
+  });
 });

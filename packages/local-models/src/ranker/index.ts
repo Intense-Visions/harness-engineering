@@ -13,6 +13,7 @@
 export * from './benchmarks/index.js';
 export * from './quants.js';
 export * from './vram.js';
+export { estimateDiskGb } from './disk.js';
 export * from './speed.js';
 export * from './evidence.js';
 export * from './recency.js';

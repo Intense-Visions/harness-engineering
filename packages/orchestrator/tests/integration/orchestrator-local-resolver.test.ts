@@ -802,6 +802,77 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
     });
   });
 
+  describe('Phase 4 (D5) — pool-state provider wiring', () => {
+    it('resolves a pool-derived candidate when localModels.enabled (F4c)', async () => {
+      // Injected pool-state fake: one entry the endpoint probe will report.
+      // The static `agent.backends.local.model` list is deliberately a
+      // non-matching value ('static-miss') to prove the resolved model comes
+      // from pool state, not the config array.
+      const poolState = {
+        snapshot: () => ({
+          diskBudgetGb: 100,
+          diskUsedGb: 1,
+          allowedOrgs: ['Qwen'],
+          allowedFamilies: [],
+          lastRefreshAt: null,
+          entries: [
+            {
+              ollamaName: 'qwen3:32b',
+              hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+              sizeOnDiskGb: 1,
+              installedAt: '2026-07-07T00:00:00.000Z',
+              lastUsedAt: null,
+              currentScore: 90,
+            },
+          ],
+        }),
+      };
+
+      const config = makeConfig({
+        backends: {
+          local: {
+            type: 'local',
+            endpoint: 'http://localhost:11434/v1',
+            model: 'static-miss',
+            probeIntervalMs: 60_000,
+          },
+        },
+        routing: { default: 'local' },
+      } as unknown as Partial<WorkflowConfig['agent']>);
+      delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
+      (config as WorkflowConfig).localModels = {
+        enabled: true,
+      } as WorkflowConfig['localModels'];
+
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+        poolState,
+      });
+      // The endpoint reports the pooled model on probe.
+      const resolver = firstResolver(orch);
+      expect(resolver, 'a local backend must register a resolver').not.toBeNull();
+      // Before probe, the pool-derived candidate list is already surfaced.
+      expect(resolver!.getStatus().configured).toEqual(['qwen3:32b']);
+      (
+        resolver as unknown as {
+          fetchModels: (e: string, k?: string) => Promise<string[]>;
+        }
+      ).fetchModels = vi.fn().mockResolvedValue(['qwen3:32b']);
+
+      await orch.start();
+      try {
+        expect(resolver!.resolveModel()).toBe('qwen3:32b');
+        const status = resolver!.getStatus();
+        expect(status.resolved).toBe('qwen3:32b');
+        expect(status.detected).toContain('qwen3:32b');
+      } finally {
+        await orch.stop();
+      }
+    });
+  });
+
   describe('OT11 — stop() halts resolver probing', () => {
     it('no further fetchModels calls after stop()', async () => {
       vi.useFakeTimers();

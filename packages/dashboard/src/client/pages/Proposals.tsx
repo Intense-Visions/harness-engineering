@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type {
+  Proposal,
   SkillProposal,
   ProposalGateFinding,
   ProposalStatus,
@@ -62,7 +63,9 @@ function ProposalCard({ proposal, onChanged }: ProposalCardProps): JSX.Element {
   const [rejectReason, setRejectReason] = useState('');
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(() =>
-    proposal.kind === 'new-skill' ? (proposal.content.skillMd ?? '') : (proposal.content.diff ?? '')
+    proposal.skillKind === 'new-skill'
+      ? (proposal.content.skillMd ?? '')
+      : (proposal.content.diff ?? '')
   );
 
   const findings = proposal.gate?.findings ?? [];
@@ -122,9 +125,9 @@ function ProposalCard({ proposal, onChanged }: ProposalCardProps): JSX.Element {
 
   const saveEdit = useCallback((): Promise<void> => {
     const content =
-      proposal.kind === 'new-skill' ? { skillMd: editContent } : { diff: editContent };
+      proposal.skillKind === 'new-skill' ? { skillMd: editContent } : { diff: editContent };
     return patch({ content });
-  }, [proposal.kind, editContent, patch]);
+  }, [proposal.skillKind, editContent, patch]);
 
   return (
     <div className="rounded-lg border border-white/10 p-4">
@@ -132,13 +135,13 @@ function ProposalCard({ proposal, onChanged }: ProposalCardProps): JSX.Element {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold">
-              {proposal.kind === 'refinement' ? '↻ ' : '＋ '}
+              {proposal.skillKind === 'refinement' ? '↻ ' : '＋ '}
               {proposal.content.name}
             </h3>
             <StatusBadge status={proposal.status} />
           </div>
           <p className="mt-0.5 text-xs text-neutral-muted">
-            {proposal.kind === 'refinement' && proposal.targetSkill
+            {proposal.skillKind === 'refinement' && proposal.targetSkill
               ? `Refines ${proposal.targetSkill} — `
               : ''}
             proposed by <span className="font-mono">{proposal.proposedBy}</span> at{' '}
@@ -157,7 +160,7 @@ function ProposalCard({ proposal, onChanged }: ProposalCardProps): JSX.Element {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <h4 className="text-xs font-semibold text-neutral-muted">
-                {proposal.kind === 'new-skill' ? 'SKILL.md' : 'Unified diff'}
+                {proposal.skillKind === 'new-skill' ? 'SKILL.md' : 'Unified diff'}
               </h4>
               {!decided && (
                 <button
@@ -187,13 +190,13 @@ function ProposalCard({ proposal, onChanged }: ProposalCardProps): JSX.Element {
               </div>
             ) : (
               <pre className="max-h-64 overflow-y-auto rounded bg-black/40 p-2 font-mono text-[11px] whitespace-pre-wrap">
-                {proposal.kind === 'new-skill'
+                {proposal.skillKind === 'new-skill'
                   ? (proposal.content.skillMd ?? '(no markdown)')
                   : (proposal.content.diff ?? '(no diff)')}
               </pre>
             )}
           </div>
-          {proposal.kind === 'new-skill' && (
+          {proposal.skillKind === 'new-skill' && (
             <div>
               <h4 className="mb-1 text-xs font-semibold text-neutral-muted">skill.yaml</h4>
               <pre className="max-h-48 overflow-y-auto rounded bg-black/40 p-2 font-mono text-[11px]">
@@ -304,7 +307,9 @@ export function Proposals(): JSX.Element {
     try {
       const res = await fetch(`/api/v1/proposals?status=${encodeURIComponent(status)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setProposals((await res.json()) as SkillProposal[]);
+      setProposals(
+        ((await res.json()) as Proposal[]).filter((p): p is SkillProposal => p.kind === 'skill')
+      );
     } catch (e) {
       setFetchError(e instanceof Error ? e.message : String(e));
       setProposals([]);

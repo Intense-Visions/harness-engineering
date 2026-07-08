@@ -2,11 +2,17 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
+  ProposalSchema,
   SkillProposalSchema,
   EmitSkillProposalInputSchema,
+  type Proposal,
   type SkillProposal,
+  type ModelProposalRecord,
+  type ModelProposalContent,
+  type ProposalSource,
   type EmitSkillProposalInput,
   type ProposalStatus,
+  type ProposalType,
 } from '@harness-engineering/types';
 
 export function proposalsDir(projectPath: string): string {
@@ -55,7 +61,8 @@ export async function createProposal(
   const proposal: SkillProposal = SkillProposalSchema.parse({
     id,
     createdAt: new Date().toISOString(),
-    kind: validated.kind,
+    kind: 'skill',
+    skillKind: validated.kind,
     targetSkill: validated.targetSkill,
     proposedBy: validated.proposedBy,
     source: {
@@ -65,14 +72,14 @@ export async function createProposal(
     },
     content: validated.content,
     status: 'open',
-  });
+  }) as SkillProposal;
 
   // Refinement collision: at most one open refinement per target skill.
-  if (proposal.kind === 'refinement' && proposal.targetSkill) {
+  if (proposal.skillKind === 'refinement' && proposal.targetSkill) {
     const existing = await listProposals(projectPath, { status: 'open' });
-    const clash = existing.find(
-      (p) => p.kind === 'refinement' && p.targetSkill === proposal.targetSkill
-    );
+    const clash = existing
+      .filter((p): p is SkillProposal => p.kind === 'skill')
+      .find((p) => p.skillKind === 'refinement' && p.targetSkill === proposal.targetSkill);
     if (clash) {
       throw new ProposalConflictError(
         `An open refinement proposal already exists for skill "${proposal.targetSkill}" (id: ${clash.id})`
@@ -86,12 +93,39 @@ export async function createProposal(
   return proposal;
 }
 
-export async function getProposal(projectPath: string, id: string): Promise<SkillProposal | null> {
+/**
+ * Persist a model-pool recommendation as a `kind: 'model'` proposal record.
+ * Generates an id, wraps the content in the discriminated record shape, and
+ * writes `.harness/proposals/<id>.json` atomically. The scheduler's
+ * `emitProposal` seam calls this once per diff proposal.
+ */
+export async function createModelProposal(
+  projectPath: string,
+  content: ModelProposalContent,
+  opts: { proposedBy?: string; source?: ProposalSource } = {}
+): Promise<ModelProposalRecord> {
+  const id = `proposal_${randomUUID().replace(/-/g, '')}`;
+  const record = ProposalSchema.parse({
+    id,
+    createdAt: new Date().toISOString(),
+    kind: 'model',
+    proposedBy: opts.proposedBy ?? 'orchestrator',
+    source: opts.source ?? { justification: content.justification.summary },
+    model: content,
+    status: 'open',
+  }) as ModelProposalRecord;
+  const dir = proposalsDir(projectPath);
+  ensureDir(dir);
+  writeAtomic(proposalPath(projectPath, id), JSON.stringify(record, null, 2));
+  return record;
+}
+
+export async function getProposal(projectPath: string, id: string): Promise<Proposal | null> {
   const file = proposalPath(projectPath, id);
   try {
     const raw = fs.readFileSync(file, 'utf-8');
-    const parsed = SkillProposalSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
+    const parsed = ProposalSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? (parsed.data as Proposal) : null;
   } catch {
     return null;
   }
@@ -99,12 +133,13 @@ export async function getProposal(projectPath: string, id: string): Promise<Skil
 
 export interface ListProposalsOptions {
   status?: ProposalStatus | 'all';
+  kind?: ProposalType;
 }
 
 export async function listProposals(
   projectPath: string,
   opts: ListProposalsOptions = {}
-): Promise<SkillProposal[]> {
+): Promise<Proposal[]> {
   const dir = proposalsDir(projectPath);
   let files: string[];
   try {
@@ -112,13 +147,14 @@ export async function listProposals(
   } catch {
     return [];
   }
-  const out: SkillProposal[] = [];
+  const out: Proposal[] = [];
   for (const file of files) {
     if (!file.endsWith('.json')) continue;
     const id = file.slice(0, -'.json'.length);
     const proposal = await getProposal(projectPath, id);
     if (!proposal) continue;
     if (opts.status && opts.status !== 'all' && proposal.status !== opts.status) continue;
+    if (opts.kind && proposal.kind !== opts.kind) continue;
     out.push(proposal);
   }
   // Stable, newest-first ordering keyed on createdAt.
@@ -134,18 +170,21 @@ export async function listProposals(
 export async function updateProposal(
   projectPath: string,
   id: string,
-  patch: Partial<SkillProposal>
-): Promise<SkillProposal> {
+  patch: Partial<SkillProposal> & Partial<ModelProposalRecord>
+): Promise<Proposal> {
   const current = await getProposal(projectPath, id);
   if (!current) throw new ProposalNotFoundError(id);
-  // Forbid mutation of id/createdAt/kind through this path; those are immutable.
-  const next = SkillProposalSchema.parse({
+  // Forbid mutation of id/createdAt/kind (and skillKind) through this path; immutable.
+  const base = {
     ...current,
     ...patch,
     id: current.id,
     createdAt: current.createdAt,
     kind: current.kind,
-  });
+  };
+  const next = ProposalSchema.parse(
+    current.kind === 'skill' ? { ...base, skillKind: (current as SkillProposal).skillKind } : base
+  ) as Proposal;
   writeAtomic(proposalPath(projectPath, id), JSON.stringify(next, null, 2));
   return next;
 }

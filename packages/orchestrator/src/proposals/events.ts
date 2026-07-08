@@ -1,5 +1,5 @@
 import type { EventEmitter } from 'node:events';
-import type { SkillProposal } from '@harness-engineering/core';
+import type { SkillProposal, SkillKind } from '@harness-engineering/core';
 
 /**
  * Phase 4 — thin wrappers around the orchestrator event bus that emit the
@@ -11,7 +11,7 @@ import type { SkillProposal } from '@harness-engineering/core';
 
 export interface ProposalCreatedData {
   id: string;
-  kind: SkillProposal['kind'];
+  kind: SkillKind;
   name: string;
   targetSkill?: string;
   proposedBy: string;
@@ -20,7 +20,7 @@ export interface ProposalCreatedData {
 
 export interface ProposalApprovedData {
   id: string;
-  kind: SkillProposal['kind'];
+  kind: SkillKind;
   name: string;
   targetSkill?: string;
   decidedBy: string;
@@ -28,7 +28,7 @@ export interface ProposalApprovedData {
 
 export interface ProposalRejectedData {
   id: string;
-  kind: SkillProposal['kind'];
+  kind: SkillKind;
   name: string;
   decidedBy: string;
   reason: string;
@@ -41,7 +41,7 @@ function emit(bus: EventEmitter, topic: string, data: unknown): void {
 export function emitProposalCreated(bus: EventEmitter, proposal: SkillProposal): void {
   const data: ProposalCreatedData = {
     id: proposal.id,
-    kind: proposal.kind,
+    kind: proposal.skillKind,
     name: proposal.content.name,
     proposedBy: proposal.proposedBy,
     justification: proposal.source.justification,
@@ -53,7 +53,7 @@ export function emitProposalCreated(bus: EventEmitter, proposal: SkillProposal):
 export function emitProposalApproved(bus: EventEmitter, proposal: SkillProposal): void {
   const data: ProposalApprovedData = {
     id: proposal.id,
-    kind: proposal.kind,
+    kind: proposal.skillKind,
     name: proposal.content.name,
     decidedBy: proposal.decision?.decidedBy ?? '(unknown)',
   };
@@ -64,7 +64,7 @@ export function emitProposalApproved(bus: EventEmitter, proposal: SkillProposal)
 export function emitProposalRejected(bus: EventEmitter, proposal: SkillProposal): void {
   const data: ProposalRejectedData = {
     id: proposal.id,
-    kind: proposal.kind,
+    kind: proposal.skillKind,
     name: proposal.content.name,
     decidedBy: proposal.decision?.decidedBy ?? '(unknown)',
     reason: proposal.decision?.reason ?? '(no reason given)',

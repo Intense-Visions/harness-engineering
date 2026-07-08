@@ -20,10 +20,20 @@ import { handleV1EventsSseRoute } from './routes/v1/events-sse';
 import { handleV1WebhooksRoute } from './routes/v1/webhooks';
 import { handleV1TelemetryRoute } from './routes/v1/telemetry';
 import { handleV1ProposalsRoute } from './routes/v1/proposals';
+import { handleV1LocalModelsRoute } from './routes/v1/local-models';
+import type { RefreshSchedulerOps } from './routes/v1/local-models';
+import type { ModelPoolOps } from '../proposals/model-handlers';
+import { MODEL_PROPOSAL_TOPIC, MODEL_POOL_TOPIC } from '../proposals/model-handlers';
+import type { HardwareProfile, RankedModel } from '@harness-engineering/local-models';
 import { handleV1RoutingRoute } from './routes/v1/routing';
 import type { BackendRouter } from '../agent/backend-router';
 import type { RoutingDecisionBus } from '../routing/decision-bus';
-import type { BackendDef, RoutingConfig, RoutingDecision } from '@harness-engineering/types';
+import type {
+  BackendDef,
+  Proposal,
+  RoutingConfig,
+  RoutingDecision,
+} from '@harness-engineering/types';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
 import type { WebhookQueue } from '../gateway/webhooks/queue';
@@ -161,6 +171,46 @@ export interface ServerDependencies {
    * Defaults to `process.cwd()`.
    */
   projectPath?: string;
+  /**
+   * LMLM Phase 6: accessor for the live model pool. When it returns a pool,
+   * `kind: 'model'` proposal approve/reject reaches the real `PoolManager`
+   * instead of returning `501` (retiring the Phase 5b stub). Null/absent keeps
+   * the 501 (LMLM disabled). A closure so the route always sees current state.
+   */
+  getModelPool?: () => ModelPoolOps | null;
+  /**
+   * LMLM Phase 7 / S1 (ADR 0060): reports whether a model might be serving an
+   * inference request right now. Threaded into the `kind: 'model'` approve path
+   * so an approved swap/evict of an in-use model is DEFERRED (marked
+   * `pendingEviction`) rather than applied mid-request. Absent → never defers.
+   */
+  isModelInUse?: (ollamaName: string) => boolean;
+  /**
+   * LMLM Phase 6: accessor for the background refresh scheduler. Drives
+   * `POST /api/v1/local-models/refresh`. Null/absent → the route returns `503`
+   * (LMLM disabled). A closure so the route always sees current lifecycle state.
+   */
+  getRefreshScheduler?: () => RefreshSchedulerOps | null;
+  /**
+   * LMLM Phase 7: resolves the current hardware profile for
+   * `GET /api/v1/local-models/hardware`. Null/absent → the route returns `503`
+   * (LMLM disabled). Promise-returning so detection can be async.
+   */
+  getHardwareProfile?: () => Promise<HardwareProfile> | null;
+  /**
+   * LMLM Phase 7: hardware-ranked recommendations for
+   * `GET /api/v1/local-models/recommendations`. Absent → the route returns `503`.
+   * Returns `[]` until the Phase 2 candidate parser lands.
+   */
+  getRecommendations?: (opts: {
+    top: number;
+    profile: 'general' | 'coding' | 'reasoning';
+  }) => Promise<RankedModel[]>;
+  /**
+   * LMLM Phase 7: reads the open, model-kind proposal queue for
+   * `GET /api/v1/local-models/proposals`. Absent → the route returns `503`.
+   */
+  listModelProposals?: () => Promise<Proposal[]>;
 }
 
 export class OrchestratorServer {
@@ -197,7 +247,24 @@ export class OrchestratorServer {
   private getRoutingDecisionBusFn: (() => RoutingDecisionBus | null) | null = null;
   private getRoutingConfigFn: (() => RoutingConfig | null) | null = null;
   private getBackendsFn: (() => Record<string, BackendDef> | null) | null = null;
+  // LMLM Phase 6 — live model pool + refresh scheduler accessors.
+  private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
+  private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
+  // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
+  private getHardwareProfileFn: (() => Promise<HardwareProfile> | null) | null = null;
+  private getRecommendationsFn:
+    | ((opts: {
+        top: number;
+        profile: 'general' | 'coding' | 'reasoning';
+      }) => Promise<RankedModel[]>)
+    | null = null;
+  private listModelProposalsFn: (() => Promise<Proposal[]>) | null = null;
+  // LMLM Phase 7 / S1 — in-use probe threaded into kind:'model' approve.
+  private isModelInUseFn: ((ollamaName: string) => boolean) | null = null;
   private routingDecisionUnsubscribe: (() => void) | null = null;
+  // LMLM Phase 7 — bus→WS fan-out listeners for the model proposal/pool topics.
+  private modelProposalListener: ((data: unknown) => void) | null = null;
+  private modelPoolListener: ((data: unknown) => void) | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
@@ -251,6 +318,15 @@ export class OrchestratorServer {
     this.getRoutingDecisionBusFn = deps?.getRoutingDecisionBus ?? null;
     this.getRoutingConfigFn = deps?.getRoutingConfig ?? null;
     this.getBackendsFn = deps?.getBackends ?? null;
+    // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
+    this.getModelPoolFn = deps?.getModelPool ?? null;
+    this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
+    // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
+    this.getHardwareProfileFn = deps?.getHardwareProfile ?? null;
+    this.getRecommendationsFn = deps?.getRecommendations ?? null;
+    this.listModelProposalsFn = deps?.listModelProposals ?? null;
+    // LMLM Phase 7 / S1 — in-use probe (null when LMLM disabled → never defers).
+    this.isModelInUseFn = deps?.isModelInUse ?? null;
   }
 
   private wireEvents(): void {
@@ -275,6 +351,17 @@ export class OrchestratorServer {
         this.broadcaster.broadcast('routing:decision', decision);
       });
     }
+    // LMLM Phase 7: fan out the model-handler bus topics to every /ws client.
+    // The approve/reject handlers (proposals/model-handlers.ts) and the
+    // scheduler emit `local-models:{proposal,pool}` on `this.orchestrator`
+    // (the shared EventEmitter), so subscribe there and re-broadcast under
+    // the same topic name. Listeners are torn down in stop() before
+    // broadcaster.close(), matching the routingDecisionUnsubscribe discipline.
+    this.modelProposalListener = (data: unknown) =>
+      this.broadcaster.broadcast(MODEL_PROPOSAL_TOPIC, data);
+    this.modelPoolListener = (data: unknown) => this.broadcaster.broadcast(MODEL_POOL_TOPIC, data);
+    this.orchestrator.on(MODEL_PROPOSAL_TOPIC, this.modelProposalListener);
+    this.orchestrator.on(MODEL_POOL_TOPIC, this.modelPoolListener);
   }
 
   /**
@@ -481,10 +568,31 @@ export class OrchestratorServer {
       // upstream by V1_BRIDGE_ROUTES; this dispatcher only handles
       // business logic. `projectPath` defaults to process.cwd() — that is
       // where `.harness/proposals/` lives in every deployment we ship.
-      (req, res) =>
-        handleV1ProposalsRoute(req, res, {
+      (req, res) => {
+        // LMLM Phase 6: thread the live pool so `kind: 'model'` approve/reject
+        // reaches the real PoolManager (retires the 501 stub) when enabled.
+        // Absent modelPool → the route keeps its 501 (LMLM disabled).
+        const modelPool = this.getModelPoolFn?.() ?? null;
+        return handleV1ProposalsRoute(req, res, {
           projectPath: this.projectPath,
           bus: this.orchestrator as unknown as EventEmitter,
+          ...(modelPool ? { modelPool } : {}),
+          // S1: thread the in-use probe so an approved swap/evict of a model an
+          // agent could be using is deferred (marked pendingEviction) not applied.
+          ...(this.isModelInUseFn ? { isModelInUse: this.isModelInUseFn } : {}),
+        });
+      },
+      // LMLM Phase 6/7 — POST /refresh + the GET read surface
+      // (hardware/pool/recommendations/proposals). Registered before the
+      // chat-proxy fallback so it owns the path. Each accessor is spread in
+      // only when configured so absent ones surface as 503 (LMLM disabled).
+      (req, res) =>
+        handleV1LocalModelsRoute(req, res, {
+          getRefreshScheduler: this.getRefreshSchedulerFn ?? (() => null),
+          getModelPool: () => this.getModelPoolFn?.() ?? null,
+          ...(this.getHardwareProfileFn ? { getHardwareProfile: this.getHardwareProfileFn } : {}),
+          ...(this.getRecommendationsFn ? { getRecommendations: this.getRecommendationsFn } : {}),
+          ...(this.listModelProposalsFn ? { listModelProposals: this.listModelProposalsFn } : {}),
         }),
       // Chat proxy route (spawns Claude Code CLI — no API key required)
       (req, res) => handleChatProxyRoute(req, res, this.claudeCommand),
@@ -670,6 +778,16 @@ export class OrchestratorServer {
     if (this.routingDecisionUnsubscribe) {
       this.routingDecisionUnsubscribe();
       this.routingDecisionUnsubscribe = null;
+    }
+    // LMLM Phase 7: detach the bus→WS model listeners before broadcaster.close()
+    // so an in-flight bus emit cannot broadcast to a closed client set.
+    if (this.modelProposalListener) {
+      this.orchestrator.removeListener(MODEL_PROPOSAL_TOPIC, this.modelProposalListener);
+      this.modelProposalListener = null;
+    }
+    if (this.modelPoolListener) {
+      this.orchestrator.removeListener(MODEL_POOL_TOPIC, this.modelPoolListener);
+      this.modelPoolListener = null;
     }
     if (this.planWatcher) {
       this.planWatcher.stop();

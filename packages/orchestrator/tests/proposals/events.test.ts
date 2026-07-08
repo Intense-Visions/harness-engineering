@@ -11,7 +11,8 @@ function buildProposal(overrides: Partial<SkillProposal> = {}): SkillProposal {
   return {
     id: 'proposal_test',
     createdAt: new Date().toISOString(),
-    kind: 'new-skill',
+    kind: 'skill',
+    skillKind: 'new-skill',
     proposedBy: 'tester',
     source: { justification: 'because the pattern repeats often enough to merit a skill.' },
     content: {
@@ -51,7 +52,7 @@ describe('proposal event emitters', () => {
     emitProposalCreated(
       bus,
       buildProposal({
-        kind: 'refinement',
+        skillKind: 'refinement',
         targetSkill: 'existing-skill',
         content: {
           name: 'existing-skill',

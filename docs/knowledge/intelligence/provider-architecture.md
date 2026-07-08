@@ -52,6 +52,12 @@ intelligence:
 
 When a layer-specific model is set, the provider routes that layer's requests to the specified model while all other layers continue using the orchestrator's default model.
 
+When LMLM is enabled (`localModels.enabled = true`), the model names referenced
+in a per-layer override (`intelligence.models.sel | pesl | ...`) can be
+pool-managed models — the same Ollama names LMLM installs and the resolver
+surfaces. The override resolves against whatever the pool has loaded.
+See the [Local Model Lifecycle](../orchestrator/local-model-lifecycle.md) knowledge doc.
+
 ## Configuration via harness.config.json
 
 All provider settings live under the `intelligence` block:

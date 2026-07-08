@@ -62,6 +62,38 @@ Three pressures converge:
 | **D13** | **Stale-target cancellation, no auto-substitution.** When installer encounters HF 404 / rename, proposal is marked `failed_target_missing` and the next refresh produces a fresh proposal against current HF state. Operator approves the new proposal explicitly.                                                            | Preserves the explicit-approval invariant (operator approved repo A, must explicitly approve repo B). Avoids surprising the operator with a different model than they sanctioned.                                                                                              |
 | **D14** | **Hardcode lowest-score-LRU eviction; remove enum.** Config drops `evictionPolicy`; a single policy ships in v1. Add an enum back only when a second policy has a concrete use case.                                                                                                                                          | YAGNI: a one-value enum is flexibility without a consumer. The policy is internal to `pool/eviction.ts`.                                                                                                                                                                       |
 
+## Soundness Reconciliation (2026-07-07)
+
+Phases 0–3c shipped; Phases 4–9 were never started and the spec drifted from the
+codebase in the interim. This section is authoritative and **supersedes** the
+inline references it names. Resolved with the operator on 2026-07-07.
+
+- **Scope: full v1.** All of Phases 4–9 are in scope (not an MVP subset), per D6.
+- **D11 canonical schema shape (supersedes all inline `proposalType` / `proposalKind` references).**
+  The real field in `packages/types/src/proposals.ts` today is
+  `kind: z.enum(['new-skill', 'refinement'])`. The generalization introduces an
+  **outer discriminator `kind: 'skill' | 'model'`**; the existing skill-change
+  enum is **renamed to `skillKind: 'new-skill' | 'refinement'`** and nested under
+  the `'skill'` content variant. Legacy records lacking the outer `kind` migrate
+  on read to `{ kind: 'skill', skillKind: <old value> }`. Every occurrence of
+  `proposalType: 'model'` or `proposalKind: 'skill' | 'model'` elsewhere in this
+  document refers to this `kind` discriminator.
+- **D5 / Phase 4 seam does not yet exist.** There is no workspace-dependency edge
+  from `packages/orchestrator` or `packages/cli` to `@harness-engineering/local-models`,
+  and no `PoolStateProvider` interface. Phase 0's "wire workspace deps" step must be
+  (re)done as the first task of Phase 4 before the resolver integration.
+- **Phase 7 route location.** Register the new routes under
+  `packages/orchestrator/src/server/routes/` (directory), not a single
+  `server/routes.ts`. A `/api/v1/local-model(s)/status` route already exists and is
+  left intact (the new routes are additive). The WS layer and notification envelope
+  (`server/websocket.ts`, `notifications/envelope.ts`, `notifications/slack-sink.ts`)
+  already exist and are reused.
+- **Phase 9 roadmap step is done / superseded.** Drop "Roadmap entry via
+  `manage_roadmap add`" — the roadmap is sharded and the entry already exists at
+  `docs/roadmap.d/lmlm-wire-engine-to-operator-surfaces.md`.
+- **Parity fixture paths corrected** to `packages/local-models/tests/ranker/parity/`
+  (Q1, Q2).
+
 ## Technical Design
 
 ### Package layout
@@ -363,8 +395,8 @@ Relationships:
 
 ### Quality / Recommendation Trust
 
-- **Q1** — Top-1 recommendation for an Apple M3 Max with 36GB unified memory matches the model family recorded in `packages/local-models/tests/parity/m3-max-36gb.json` (a frozen reference output generated from whichllm at v1.0 release; refreshed manually each v1.x release). CI does not run whichllm.
-- **Q2** — Top-1 recommendation for an RTX 4090 (24GB) matches `packages/local-models/tests/parity/rtx-4090-24gb.json` (same parity-fixture mechanism as Q1)
+- **Q1** — Top-1 recommendation for an Apple M3 Max with 36GB unified memory matches the model family recorded in `packages/local-models/tests/ranker/parity/m3-max-36gb.json` (a frozen reference output generated from whichllm at v1.0 release; refreshed manually each v1.x release). CI does not run whichllm.
+- **Q2** — Top-1 recommendation for an RTX 4090 (24GB) matches `packages/local-models/tests/ranker/parity/rtx-4090-24gb.json` (same parity-fixture mechanism as Q1)
 - **Q3** — Recommendations exclude models that wouldn't fit hardware: no `fitsHardware: true` entries that have `estimatedVramGb > hardware.vramGb`
 - **Q4** — Self-reported / interpolated evidence models are ranked below direct-evidence models of equivalent benchmark score (verified by unit test on the merge algorithm)
 - **Q5** — Stale benchmarks (older than 12 months from snapshot date) receive recency demotion (verified by unit test on the recency module)

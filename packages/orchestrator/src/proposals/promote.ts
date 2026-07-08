@@ -140,10 +140,13 @@ export async function promote(
 ): Promise<PromotionResult> {
   const proposal = await getProposal(projectPath, proposalId);
   if (!proposal) throw new ProposalNotFoundError(proposalId);
+  if (proposal.kind !== 'skill') {
+    throw new PromotionError('only skill proposals are promotable to the catalog');
+  }
   assertGateReady(proposal);
 
   const out =
-    proposal.kind === 'new-skill'
+    proposal.skillKind === 'new-skill'
       ? await promoteNewSkill(projectPath, proposal)
       : await promoteRefinement(projectPath, proposal);
 

@@ -109,6 +109,45 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'read-telemetry',
     description: 'Prompt-cache hit/miss snapshot (rolling window).',
   },
+  // ── LMLM Phase 6 — force-refresh (background scheduler tick, out of band) ──
+  // Reuses `manage-proposals`: a forced refresh emits model proposals, so the
+  // same write scope that governs approve/reject governs triggering the tick.
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/local-models\/refresh(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Force a background-scheduler refresh tick and return emitted proposals (O4).',
+  },
+  // ── LMLM Phase 7 — read surface (hardware/pool/recommendations/proposals) ──
+  // Load-bearing: `local-models` is in `V1_WRAPPABLE`, so without these entries
+  // the `/api/v1` rewrite shim would rewrite `/api/v1/local-models/<name>` →
+  // `/api/local-models/<name>` and misroute it to the legacy status handler.
+  // `isV1Bridge` short-circuits the rewrite; `requiredBridgeScope` supplies the
+  // default-deny read scope. All four are read-only observability (`read-status`).
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/local-models\/hardware(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'Current detected HardwareProfile (RAM/VRAM/GPU).',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/local-models\/pool(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'Live PoolState view, including transient pendingEviction flags.',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/local-models\/recommendations(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'Hardware-ranked model recommendations (top/profile query params).',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/local-models\/proposals(?:\?.*)?$/,
+    scope: 'read-status',
+    description: 'Open model-kind proposals (pending review queue).',
+  },
   // ── Spec B Phase 5 routing observability ──
   // D-OP-1: all three reuse `read-telemetry` — matches the cacheMetrics
   // precedent (read-only observability). A dedicated `read-routing`

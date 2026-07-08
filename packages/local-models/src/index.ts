@@ -16,6 +16,11 @@
  * proposal engine + schema generalization (5), the scheduler (6), and the
  * HTTP / WS / dashboard surfaces (7–8) per
  * `docs/changes/local-model-lifecycle-manager/proposal.md`.
+ *
+ * Phase 6 (present) adds the background surfaces: the `recommender` seam
+ * (`createNativeRecommender`) and the `scheduler` (`runRefreshTick` pipeline +
+ * the overlap-guarded `RefreshScheduler`), alongside the ranker's
+ * `estimateDiskGb` on-disk sizing helper.
  */
 
 export const LOCAL_MODELS_PACKAGE = '@harness-engineering/local-models' as const;
@@ -25,4 +30,7 @@ export * from './hardware/index.js';
 export * from './huggingface/index.js';
 export * from './installer/index.js';
 export * from './pool/index.js';
+export * from './proposals/index.js';
 export * from './ranker/index.js';
+export * from './recommender/index.js';
+export * from './scheduler/index.js';

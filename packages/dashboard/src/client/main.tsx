@@ -43,6 +43,8 @@ const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
   { from: '/proposals', to: '/s/proposals' },
   // Spec B Phase 7 — top-level /routing is dashboard-native /s/routing.
   { from: '/routing', to: '/s/routing' },
+  // LMLM Phase 8 — local model lifecycle operator panel.
+  { from: '/local-models', to: '/s/local-models' },
 ];
 
 const root = document.getElementById('root');

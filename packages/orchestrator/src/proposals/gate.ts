@@ -138,10 +138,10 @@ function checkDiff(diff: string): ProposalGateFinding[] {
 function deriveFindings(proposal: SkillProposal): ProposalGateFinding[] {
   const findings: ProposalGateFinding[] = [];
   findings.push(...checkName(proposal.content.name));
-  if (proposal.kind === 'new-skill') {
+  if (proposal.skillKind === 'new-skill') {
     findings.push(...checkSkillYaml(proposal.content.skillYaml ?? ''));
     findings.push(...checkSkillMd(proposal.content.skillMd ?? ''));
-  } else if (proposal.kind === 'refinement') {
+  } else if (proposal.skillKind === 'refinement') {
     findings.push(...checkDiff(proposal.content.diff ?? ''));
   }
   return findings;
@@ -156,6 +156,9 @@ function deriveFindings(proposal: SkillProposal): ProposalGateFinding[] {
 export async function runGate(projectPath: string, proposalId: string): Promise<GateResult> {
   const proposal = await getProposal(projectPath, proposalId);
   if (!proposal) throw new ProposalNotFoundError(proposalId);
+  if (proposal.kind !== 'skill') {
+    throw new GateRunError(`gate applies to skill proposals only (got ${proposal.kind})`);
+  }
 
   if (proposal.status === 'approved' || proposal.status === 'rejected') {
     throw new GateRunError(
@@ -175,7 +178,7 @@ export async function runGate(projectPath: string, proposalId: string): Promise<
 
   return {
     proposalId: updated.id,
-    status: updated.status,
+    status: updated.status as SkillProposal['status'],
     findings,
     runAt,
   };

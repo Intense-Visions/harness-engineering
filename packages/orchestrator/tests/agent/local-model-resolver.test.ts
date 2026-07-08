@@ -4,6 +4,22 @@ import {
   LocalModelResolver,
   defaultFetchModels,
 } from '../../src/agent/local-model-resolver';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
+import { EmptyPoolState } from '@harness-engineering/local-models';
+
+const providerWith = (names: Array<[string, number]>): PoolStateProvider => ({
+  snapshot: () => ({
+    ...EmptyPoolState(),
+    entries: names.map(([ollamaName, currentScore]) => ({
+      ollamaName,
+      hfRepoId: `Org/${ollamaName}`,
+      sizeOnDiskGb: 1,
+      installedAt: '2026-07-07T00:00:00.000Z',
+      lastUsedAt: null,
+      currentScore,
+    })),
+  }),
+});
 
 describe('normalizeLocalModel', () => {
   it('returns [] when input is undefined', () => {
@@ -690,5 +706,61 @@ describe('defaultFetchModels — wire format', () => {
         headers: expect.objectContaining({ Authorization: 'Bearer lm-studio' }),
       })
     );
+  });
+});
+
+describe('LocalModelResolver — poolState integration (Phase 4)', () => {
+  it('derives candidates from pool state ordered by currentScore desc', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['static-only'],
+      poolState: providerWith([
+        ['llama3:8b', 50],
+        ['qwen3:32b', 80],
+      ]),
+      fetchModels: async () => ['qwen3:32b', 'llama3:8b'],
+    });
+    const status = await resolver.probe();
+    expect(status.configured).toEqual(['qwen3:32b', 'llama3:8b']);
+    expect(status.resolved).toBe('qwen3:32b');
+  });
+
+  it('reflects pool changes on the next probe (F4c)', async () => {
+    let entries: Array<[string, number]> = [];
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState: {
+        snapshot: () => ({
+          ...EmptyPoolState(),
+          entries: entries.map(([n, s]) => ({
+            ollamaName: n,
+            hfRepoId: `Org/${n}`,
+            sizeOnDiskGb: 1,
+            installedAt: '2026-07-07T00:00:00.000Z',
+            lastUsedAt: null,
+            currentScore: s,
+          })),
+        }),
+      },
+      fetchModels: async () => (entries.length ? [entries[0]![0]] : []),
+    });
+    let status = await resolver.probe();
+    expect(status.resolved).toBeNull();
+    entries = [['qwen3:32b', 90]];
+    status = await resolver.probe();
+    expect(status.detected).toContain('qwen3:32b');
+    expect(status.resolved).toBe('qwen3:32b');
+  });
+
+  it('is byte-identical to the static path when poolState is absent', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      fetchModels: async () => ['b'],
+    });
+    const status = await resolver.probe();
+    expect(status.configured).toEqual(['a', 'b']);
+    expect(status.resolved).toBe('b');
   });
 });

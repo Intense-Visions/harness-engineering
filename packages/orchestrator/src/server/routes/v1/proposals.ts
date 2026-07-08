@@ -9,6 +9,7 @@ import {
 } from '@harness-engineering/core';
 import {
   EditProposalInputSchema,
+  type Proposal,
   type SkillProposal,
   type ProposalStatus,
 } from '@harness-engineering/types';
@@ -16,6 +17,12 @@ import { readBody } from '../../utils.js';
 import { runGate, GateRunError } from '../../../proposals/gate';
 import { promote, GateNotReadyError, PromotionError } from '../../../proposals/promote';
 import { emitProposalApproved, emitProposalRejected } from '../../../proposals/events';
+import {
+  onApproveModelProposal,
+  onRejectModelProposal,
+  type ModelHandlerDeps,
+  type ModelPoolOps,
+} from '../../../proposals/model-handlers';
 
 /**
  * Phase 4 gateway routes — list / get / run-gate / approve / reject / edit.
@@ -51,6 +58,18 @@ interface Deps {
   projectPath: string;
   bus: EventEmitter;
   decidedByResolver?: (req: IncomingMessage) => string;
+  /**
+   * Pool seam for `kind: 'model'` approve/reject. `PoolManager` satisfies it.
+   * When absent, model approve/reject returns 501 — the skill path is
+   * unaffected. Real `/api/v1/local-models/*` routes + WS fan-out are Phase 7.
+   */
+  modelPool?: ModelPoolOps;
+  /**
+   * S1 (ADR 0060): in-use probe. When it reports the eviction target might be
+   * mid-request, the model approve path DEFERS the evict (marks
+   * `pendingEviction`) instead of applying it. Absent → never defers.
+   */
+  isModelInUse?: (ollamaName: string) => boolean;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -62,6 +81,23 @@ function getDecidedBy(req: IncomingMessage, deps: Deps): string {
   if (deps.decidedByResolver) return deps.decidedByResolver(req);
   const token = (req as unknown as { _authToken?: { id: string } })._authToken;
   return token?.id ?? 'unknown';
+}
+
+/** Build the model-handler deps, binding `updateProposal` to the project path. */
+function modelHandlerDeps(deps: Deps, req: IncomingMessage): ModelHandlerDeps {
+  return {
+    pool: deps.modelPool as ModelPoolOps,
+    bus: deps.bus,
+    // Core's `updateProposal` patch type intersects the skill+model status
+    // enums, which statically excludes model-only statuses like
+    // `failed_target_missing`. The runtime parses through `ProposalSchema` (the
+    // model variant accepts that status), so the cast is sound — only the
+    // intersection type is too narrow.
+    updateProposal: (id, patch) =>
+      updateProposal(deps.projectPath, id, patch as Parameters<typeof updateProposal>[2]),
+    decidedBy: getDecidedBy(req, deps),
+    ...(deps.isModelInUse ? { isModelInUse: deps.isModelInUse } : {}),
+  };
 }
 
 function parseStatusFromQuery(url: string): ProposalStatus | 'all' | undefined {
@@ -117,11 +153,43 @@ async function handleApprove(
   deps: Deps,
   id: string
 ): Promise<void> {
+  // Kind-aware dispatch: model proposals drive the installer + pool handler;
+  // skill proposals keep the promote-to-catalog path.
+  const existing = await getProposal(deps.projectPath, id);
+  if (!existing) {
+    sendJSON(res, 404, { error: 'Proposal not found' });
+    return;
+  }
+  if (existing.kind === 'model') {
+    if (!deps.modelPool) {
+      sendJSON(res, 501, { error: 'model proposal handlers not configured' });
+      return;
+    }
+    // Terminal-state guard (mirrors handleReject / D13): a model proposal that
+    // is already approved, rejected, or failed_target_missing is non-actionable.
+    // Re-approving would re-drive install + evict (duplicate ollama pull,
+    // duplicate bus events) and, for `failed_target_missing`, would retry the
+    // stale target instead of the operator explicitly approving a fresh proposal.
+    if (
+      existing.status === 'approved' ||
+      existing.status === 'rejected' ||
+      existing.status === 'failed_target_missing'
+    ) {
+      sendJSON(res, 409, {
+        error: `proposal already ${existing.status}; cannot approve`,
+      });
+      return;
+    }
+    const outcome = await onApproveModelProposal(modelHandlerDeps(deps, req), existing);
+    sendJSON(res, outcome.status === 'error' ? 422 : 200, outcome);
+    return;
+  }
+
   const decidedBy = getDecidedBy(req, deps);
   try {
     const result = await promote(deps.projectPath, id, decidedBy);
     const proposal = await getProposal(deps.projectPath, id);
-    if (proposal) emitProposalApproved(deps.bus, proposal);
+    if (proposal && proposal.kind === 'skill') emitProposalApproved(deps.bus, proposal);
     sendJSON(res, 200, { promotion: result, proposal });
   } catch (err) {
     if (err instanceof ProposalNotFoundError) {
@@ -181,8 +249,24 @@ async function handleReject(
     return;
   }
 
+  // Kind-aware dispatch: model rejection records the decision (feeding the F7
+  // dedup) and emits the model bus event via the model handler.
+  if (proposal.kind === 'model') {
+    if (!deps.modelPool) {
+      sendJSON(res, 501, { error: 'model proposal handlers not configured' });
+      return;
+    }
+    const updated = await onRejectModelProposal(
+      modelHandlerDeps(deps, req),
+      proposal,
+      parsed.data.reason
+    );
+    sendJSON(res, 200, updated);
+    return;
+  }
+
   const decidedBy = getDecidedBy(req, deps);
-  const updated: SkillProposal = await updateProposal(deps.projectPath, id, {
+  const updated: Proposal = await updateProposal(deps.projectPath, id, {
     status: 'rejected',
     decision: {
       decidedAt: new Date().toISOString(),
@@ -191,7 +275,7 @@ async function handleReject(
       reason: parsed.data.reason,
     },
   });
-  emitProposalRejected(deps.bus, updated);
+  if (updated.kind === 'skill') emitProposalRejected(deps.bus, updated);
   sendJSON(res, 200, updated);
 }
 
@@ -224,6 +308,10 @@ async function handleEdit(
   const existing = await getProposal(deps.projectPath, id);
   if (!existing) {
     sendJSON(res, 404, { error: 'Proposal not found' });
+    return;
+  }
+  if (existing.kind !== 'skill') {
+    sendJSON(res, 422, { error: 'edit applies to skill proposals only' });
     return;
   }
   if (existing.status === 'approved' || existing.status === 'rejected') {

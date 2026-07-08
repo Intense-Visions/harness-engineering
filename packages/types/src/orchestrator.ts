@@ -788,6 +788,11 @@ export interface WorkflowConfig {
    * `wireNotificationSinks` against the orchestrator's event bus.
    */
   notifications?: import('./notifications').NotificationsConfig;
+  /**
+   * Local Model Lifecycle Manager (LMLM) settings (D5). Optional; absent or
+   * `enabled: false` preserves pre-Phase-4 resolver behavior byte-for-byte.
+   */
+  localModels?: import('./local-models').LocalModelsConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
 }

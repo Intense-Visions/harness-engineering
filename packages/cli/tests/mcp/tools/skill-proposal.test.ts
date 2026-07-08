@@ -65,7 +65,7 @@ describe('handleEmitSkillProposal — new-skill', () => {
     const file = path.join(tmpDir, '.harness', 'proposals', `${payload.id}.json`);
     expect(fs.existsSync(file)).toBe(true);
     const stored = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    expect(stored.kind).toBe('new-skill');
+    expect(stored.skillKind).toBe('new-skill');
     expect(stored.content.name).toBe('auto-rename-helpers');
   });
 
@@ -113,7 +113,7 @@ describe('handleEmitSkillProposal — refinement', () => {
     const stored = JSON.parse(
       fs.readFileSync(path.join(tmpDir, '.harness', 'proposals', `${payload.id}.json`), 'utf-8')
     );
-    expect(stored.kind).toBe('refinement');
+    expect(stored.skillKind).toBe('refinement');
     expect(stored.targetSkill).toBe('auto-rename-helpers');
     expect(stored.content.diff).toMatch(/Barrel rewrites/);
   });

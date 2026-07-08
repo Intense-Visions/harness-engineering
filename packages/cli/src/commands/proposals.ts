@@ -5,7 +5,7 @@ import {
   getProposal,
   updateProposal,
   type ListProposalsOptions,
-  type SkillProposal,
+  type Proposal,
   type ProposalStatus,
 } from '@harness-engineering/core';
 
@@ -13,34 +13,47 @@ function projectRoot(): string {
   return resolve(process.env['HARNESS_PROJECT_ROOT'] ?? process.cwd());
 }
 
-function summarizeProposal(p: SkillProposal): Record<string, unknown> {
-  return {
+function summarizeProposal(p: Proposal): Record<string, unknown> {
+  const base = {
     id: p.id,
-    kind: p.kind,
-    targetSkill: p.targetSkill,
-    name: p.content.name,
     status: p.status,
     proposedBy: p.proposedBy,
     createdAt: p.createdAt,
-    gateLastRunAt: p.gate?.lastRunAt,
-    findings: p.gate?.findings?.length ?? 0,
+  };
+  if (p.kind === 'skill') {
+    return {
+      ...base,
+      kind: p.skillKind,
+      targetSkill: p.targetSkill,
+      name: p.content.name,
+      gateLastRunAt: p.gate?.lastRunAt,
+      findings: p.gate?.findings?.length ?? 0,
+    };
+  }
+  return {
+    ...base,
+    kind: p.kind,
+    targetSkill: undefined,
+    name: p.model.target.ollamaName,
+    gateLastRunAt: undefined,
+    findings: 0,
   };
 }
 
 export async function runProposalsList(
   status?: ProposalStatus | 'all'
 ): Promise<Record<string, unknown>[]> {
-  const opts: ListProposalsOptions = {};
+  const opts: ListProposalsOptions = { kind: 'skill' };
   if (status) opts.status = status;
   const proposals = await listProposals(projectRoot(), opts);
   return proposals.map(summarizeProposal);
 }
 
-export async function runProposalsShow(id: string): Promise<SkillProposal | null> {
+export async function runProposalsShow(id: string): Promise<Proposal | null> {
   return getProposal(projectRoot(), id);
 }
 
-export async function runProposalsReject(id: string, reason: string): Promise<SkillProposal> {
+export async function runProposalsReject(id: string, reason: string): Promise<Proposal> {
   const decision = {
     decidedAt: new Date().toISOString(),
     decidedBy: process.env['USER'] ?? 'cli',

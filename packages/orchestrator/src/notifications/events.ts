@@ -22,6 +22,8 @@ const NOTIFICATION_TOPICS = [
   'proposal.created',
   'proposal.approved',
   'proposal.rejected',
+  // LMLM Phase 7 — model-proposal lifecycle (colon→dot ⇒ 'local-models.proposal').
+  'local-models:proposal',
 ] as const;
 
 function newEventId(): string {

@@ -33,6 +33,24 @@ import { PromptRenderer } from './prompt/renderer';
 // orchestrator no longer constructs backends directly — factory handles
 // dispatch-time materialization.
 import { LocalModelResolver } from './agent/local-model-resolver';
+import {
+  PoolStateStore,
+  PoolManager,
+  OllamaInstallAdapter,
+  HardwareDetector,
+  RefreshScheduler,
+  runRefreshTick,
+  createNativeRecommender,
+} from '@harness-engineering/local-models';
+import type {
+  PoolStateProvider,
+  InstallAdapter,
+  DedupPair,
+  DedupPairs,
+  HardwareProfile,
+  SchedulerTimerHandle,
+} from '@harness-engineering/local-models';
+import { createModelProposal, listProposals } from '@harness-engineering/core';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
@@ -196,6 +214,50 @@ export class Orchestrator extends EventEmitter {
    * so this map is the single source of truth post-migration.
    */
   private localResolvers = new Map<string, LocalModelResolver>();
+  /** Phase 4 (D5): pool-state port shared by all local/pi resolvers. Null when LMLM disabled. */
+  private poolStateProvider: PoolStateProvider | null = null;
+  private poolStateStore: PoolStateStore | null = null;
+  /**
+   * LMLM Phase 6: live model pool + its installer. Constructed only when
+   * `localModels.enabled` and a real `PoolStateStore` exists (not a test
+   * override). Exposed to the server via `getModelPool()`, which retires the
+   * proposals-route 501 stub for `kind: 'model'` approve/reject. Null when LMLM
+   * is disabled. `PoolManager` reads `store.snapshot()` lazily, so constructing
+   * before `store.load()` (in initLocalModelAndPipeline) is safe.
+   */
+  private modelPool: PoolManager | null = null;
+  private modelInstaller: InstallAdapter | null = null;
+  /**
+   * S1 drain re-entrancy guard (P7-SUG-DRAIN-REENTRANCY). `drainDeferredEvictions`
+   * is fired fire-and-forget from `emitWorkerExit` (and, since P7-SUG-DRAIN-LIVENESS,
+   * piggybacked on each refresh tick). Two overlapping drains would both read the
+   * same `listPendingEvictions()` snapshot, both re-check `isLocalModelInUse`, and
+   * both `await pool.evict` the SAME name — double-calling the installer and
+   * broadcasting a duplicate `evict_completed` frame. The single-threaded event
+   * loop makes a plain boolean sufficient: a drain that arrives while one is
+   * running returns early rather than double-processing.
+   */
+  private draining = false;
+  /**
+   * LMLM Phase 6: single per-instance background refresh scheduler. Started in
+   * `initLocalModelAndPipeline` when the pool exists; stopped in `stop()`. Null
+   * when LMLM is disabled. Exposed to the server via `getRefreshScheduler()`.
+   */
+  private refreshScheduler: RefreshScheduler | null = null;
+  /**
+   * LMLM Phase 7: the hardware-aware recommender bound at scheduler start. Reused
+   * by `GET /api/v1/local-models/recommendations`. Null when LMLM is disabled (no
+   * pool → scheduler never armed). Ranks the (currently empty) candidate set —
+   * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
+   */
+  private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
+  /** Test seam: injected timer/clock for the scheduler so no real 24h timer runs. */
+  private readonly schedulerTimerOverride: {
+    setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+    clearTimer?: (handle: SchedulerTimerHandle) => void;
+    now?: () => number;
+    random?: () => number;
+  } | null;
   /**
    * Spec B Phase 3: skill catalog (name + cognitiveMode) read once at
    * construction from `projectRoot/agents/skills/`. Consulted by
@@ -294,9 +356,22 @@ export class Orchestrator extends EventEmitter {
   constructor(
     config: WorkflowConfig,
     promptTemplate: string,
-    overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend; execFileFn?: ExecFileFn }
+    overrides?: {
+      tracker?: IssueTrackerClient;
+      backend?: AgentBackend;
+      execFileFn?: ExecFileFn;
+      poolState?: PoolStateProvider;
+      /** LMLM Phase 6 test seam: inject the RefreshScheduler timer/clock. */
+      schedulerTimer?: {
+        setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
+        clearTimer?: (handle: SchedulerTimerHandle) => void;
+        now?: () => number;
+        random?: () => number;
+      };
+    }
   ) {
     super();
+    this.schedulerTimerOverride = overrides?.schedulerTimer ?? null;
     // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
     // subscribes to 9 event-bus topics per connection (maintenance:*,
     // interaction.created, interaction.resolved, etc.). Node's default
@@ -416,6 +491,26 @@ export class Orchestrator extends EventEmitter {
     // server fails fast rather than blocking the probe loop. If a
     // dedicated probe timeout is ever needed, add
     // `agent.localProbeTimeoutMs` rather than reusing localTimeoutMs.
+    // Phase 4 (D5): resolve the shared pool-state provider once, before the
+    // per-backend loop. Precedence: an injected `overrides.poolState` (test
+    // seam) wins; otherwise, when `localModels.enabled`, construct a
+    // PoolStateStore whose on-disk state is loaded in
+    // initLocalModelAndPipeline() before the first probe. When neither
+    // applies, the provider stays null and every resolver keeps its static
+    // `configured` list (byte-identical to pre-Phase-4 behavior).
+    const localModelsEnabled = this.config.localModels?.enabled === true;
+    if (overrides?.poolState) {
+      this.poolStateProvider = overrides.poolState;
+    } else if (localModelsEnabled) {
+      this.poolStateStore = new PoolStateStore({
+        onWarn: (message, cause) =>
+          this.logger.warn(message, cause !== undefined ? { cause } : undefined),
+      });
+      this.poolStateProvider = this.poolStateStore;
+      // LMLM Phase 6: construct the live pool over the just-created store so the
+      // server's getModelPool() accessor reaches a real PoolManager.
+      this.initModelPool(this.poolStateStore);
+    }
     const backendsMap = this.config.agent.backends ?? {};
     for (const [name, def] of Object.entries(backendsMap)) {
       if (def.type === 'local' || def.type === 'pi') {
@@ -426,6 +521,7 @@ export class Orchestrator extends EventEmitter {
         };
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
         if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
         this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
       }
     }
@@ -604,6 +700,29 @@ export class Orchestrator extends EventEmitter {
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
         getLocalModelStatus: () => this.getFirstLocalModelStatus(),
         getLocalModelStatuses: () => this.buildLocalModelStatuses(),
+        // LMLM Phase 6: expose the live pool so kind:'model' approve/reject
+        // reaches PoolManager (retiring the 501). Null when LMLM is disabled.
+        getModelPool: () => this.modelPool,
+        // LMLM Phase 7 / S1: conservative in-use probe so an approved swap/evict
+        // of a model an agent could be using is DEFERRED, not applied mid-request
+        // (ADR 0060). Agent-run-coarse; may over-defer (safe).
+        isModelInUse: (ollamaName: string) => this.isLocalModelInUse(ollamaName),
+        // LMLM Phase 6: expose the refresh scheduler for POST /local-models/refresh.
+        getRefreshScheduler: () => this.refreshScheduler,
+        // LMLM Phase 7 read surface — hardware / recommendations / model proposals.
+        // Each returns null/[] when LMLM is disabled so the route renders 503/[].
+        getHardwareProfile: () => (this.modelPool ? this.detectLmlmHardware() : null),
+        getRecommendations: async ({ top }) => {
+          if (this.modelRecommender === null) return [];
+          const hardware = await this.detectLmlmHardware();
+          const { ranked } = await this.modelRecommender(hardware);
+          // NOTE (Phase 2 gap): the native recommender ranks by hardware only —
+          // `profile` (general/coding/reasoning) is not yet a ranking input, so
+          // we honor `top` and ignore `profile` until the candidate parser lands.
+          return ranked.slice(0, top);
+        },
+        listModelProposals: () =>
+          listProposals(this.projectRoot, { status: 'open', kind: 'model' }),
       });
 
       this.server.setRecorder(this.recorder);
@@ -683,6 +802,67 @@ export class Orchestrator extends EventEmitter {
       });
     }
     return out;
+  }
+
+  /**
+   * S1 conservative in-use probe (ADR 0060). Returns `true` when ANY agent run
+   * is live AND `ollamaName` is a currently-resolved (or last-detected) local
+   * model — i.e. an agent could be routing inference to it right now.
+   *
+   * This signal is AGENT-RUN-COARSE, not per-request: `state.running` is keyed
+   * by GitHub issue (spawned agent runs), NOT by inference call, and no
+   * per-model request counter exists today. The probe therefore MAY OVER-DEFER
+   * (a swap waits until the pool is idle). Over-deferral is exactly S1's
+   * intended safe failure — never yank a model mid-request; occasionally wait
+   * longer than strictly necessary. A fine-grained per-request signal is an
+   * explicit deferred gap (ADR 0060).
+   */
+  private isLocalModelInUse(ollamaName: string): boolean {
+    if (this.state.running.size === 0) return false;
+    return this.buildLocalModelStatuses().some(
+      (s) => s.resolved === ollamaName || s.detected.includes(ollamaName)
+    );
+  }
+
+  /**
+   * S1 drain (ADR 0060): complete any eviction that was DEFERRED because its
+   * target was in use, now that the probe reports it idle. Best-effort — called
+   * from the run-completion path; it never blocks dispatch and swallows
+   * per-model errors (a failed or still-busy evict stays pending for the next
+   * drain). `pendingEviction` is a transient overlay, so a missed drain simply
+   * leaves the flag set until the next completion re-checks it.
+   */
+  private async drainDeferredEvictions(): Promise<void> {
+    const pool = this.modelPool;
+    if (pool === null) return;
+    // Re-entrancy guard (P7-SUG-DRAIN-REENTRANCY): coalesce an overlapping drain
+    // rather than double-processing the same pending set. Any work that arrives
+    // while a drain is running is picked up by the next trigger (run completion
+    // or refresh tick), which re-reads the live pending set.
+    if (this.draining) return;
+    this.draining = true;
+    try {
+      for (const ollamaName of pool.listPendingEvictions()) {
+        if (this.isLocalModelInUse(ollamaName)) continue; // still busy — leave pending
+        try {
+          const result = await pool.evict({ ollamaName });
+          if (result.status === 'error') continue; // leave pending; retry next drain
+          pool.clearPendingEviction(ollamaName);
+          this.emit('local-models:pool', {
+            action: 'evict',
+            // XP-2: `evicted` is uniformly string[] across all local-models:pool
+            // emit sites — the drain wraps its single completed eviction in an
+            // array to match the swap/add multi-evict shape.
+            evicted: [ollamaName],
+            phase: 'evict_completed',
+          });
+        } catch {
+          // best-effort: leave the flag set for a subsequent drain
+        }
+      }
+    } finally {
+      this.draining = false;
+    }
   }
 
   private createTracker(): IssueTrackerClient {
@@ -1796,6 +1976,10 @@ export class Orchestrator extends EventEmitter {
     await this.completionHandler.handleWorkerExit(issueId, reason, attempt, error, (effect) =>
       this.handleEffect(effect)
     );
+    // S1 drain (ADR 0060): a completed run may have freed a local model whose
+    // eviction was deferred while it was in use. Best-effort, fire-and-forget —
+    // it must never block the completion path.
+    void this.drainDeferredEvictions();
     this.emit('state_change', this.getSnapshot());
   }
 
@@ -1899,6 +2083,107 @@ export class Orchestrator extends EventEmitter {
    * before constructing the intelligence pipeline. Subscribes the dashboard
    * broadcast stub to status changes. Called exactly once from start().
    */
+  /**
+   * LMLM Phase 6: construct the live `PoolManager` (Ollama installer + the
+   * loaded pool-state store) and stash it for `getModelPool()`. Defensive
+   * config fallbacks: `ollamaEndpoint → http://localhost:11434`. The pool reads
+   * `store.snapshot()` lazily, so this runs safely at construction time before
+   * `store.load()`.
+   */
+  private initModelPool(store: PoolStateStore): void {
+    const onWarn = (message: string, cause?: unknown): void =>
+      this.logger.warn(message, cause !== undefined ? { cause } : undefined);
+    const installerCfg = this.config.localModels?.installer;
+    this.modelInstaller = new OllamaInstallAdapter({
+      baseUrl: installerCfg?.ollamaEndpoint ?? 'http://localhost:11434',
+      onWarn,
+    });
+    this.modelPool = new PoolManager({ store, installer: this.modelInstaller, onWarn });
+  }
+
+  /**
+   * LMLM Phase 6: arm the single background refresh scheduler over the live
+   * pool. No-op when LMLM is disabled (`modelPool` null). Each tick runs
+   * hardware→recommend→reconcile(D12 drift)→diff→emit→score-writeback.
+   *
+   * NOTE (deferred): the recommender is seeded with an empty candidate set —
+   * Phase 2's live-HF→RankerCandidate parser was never built, so autonomous
+   * swap-proposal discovery is out of scope here (flagged concern). The tick
+   * still performs F10 drift reconciliation, O1 logging, and re-ranks/dedups
+   * whatever candidates are supplied — the wiring is complete and candidate
+   * breadth is the only piece deferred to the Phase 2 recommender.
+   */
+  private startRefreshScheduler(): void {
+    if (this.modelPool === null) return;
+    const pool = this.modelPool;
+    const refreshCfg = this.config.localModels?.refresh;
+    const recommend = createNativeRecommender({ candidates: [] });
+    // Phase 7: reuse this same recommender for the on-demand recommendations
+    // route so the HTTP surface and the background tick share one ranking path.
+    this.modelRecommender = recommend;
+    this.refreshScheduler = new RefreshScheduler({
+      runTick: () =>
+        runRefreshTick({
+          detectHardware: () => this.detectLmlmHardware(),
+          recommend,
+          poolManager: pool,
+          dedupSource: () => this.lmlmDedupSource(),
+          // Phase 7: after persisting the proposal, emit `local-models:proposal`
+          // (== MODEL_PROPOSAL_TOPIC) on the bus so it fans out to WS clients and
+          // notification sinks. Literal to avoid a proposals/model-handlers cycle.
+          emitProposal: (c) =>
+            createModelProposal(this.projectRoot, c).then((record) => {
+              this.emit('local-models:proposal', {
+                id: record.id,
+                status: 'created',
+                action: c.action,
+                target: c.target.ollamaName,
+              });
+            }),
+          proposalThreshold: refreshCfg?.proposalThreshold ?? 5,
+        }).then((result) => {
+          // S1 drain liveness (P7-SUG-DRAIN-LIVENESS): run completion is the
+          // primary drain trigger, but if the final run's evict fails
+          // transiently and no further run ever completes, a model would linger
+          // pendingEviction (over disk budget) forever. Piggyback a best-effort
+          // drain on the periodic tick so pending evictions retry independently
+          // of agent-run completions. Fire-and-forget + reentrancy-guarded
+          // (P7-SUG-DRAIN-REENTRANCY) so it never blocks the tick's O1 result.
+          void this.drainDeferredEvictions();
+          return result;
+        }),
+      intervalMs: refreshCfg?.intervalMs ?? 86_400_000,
+      jitterMs: refreshCfg?.jitterMs ?? 600_000,
+      logger: this.logger,
+      ...(this.schedulerTimerOverride ?? {}),
+    });
+    this.refreshScheduler.start();
+  }
+
+  /** Resolve the hardware profile for a refresh tick (operator override wins). */
+  private async detectLmlmHardware(): Promise<HardwareProfile> {
+    const override = this.config.localModels?.hardware?.override;
+    const detector = new HardwareDetector(override !== undefined ? { override } : {});
+    return (await detector.detect()).profile;
+  }
+
+  /** Map the on-disk model-proposal queue to F7 dedup pairs (open→pending, rejected→rejected). */
+  private async lmlmDedupSource(): Promise<DedupPairs> {
+    const proposals = await listProposals(this.projectRoot, { kind: 'model' });
+    const pending: DedupPair[] = [];
+    const rejected: DedupPair[] = [];
+    for (const p of proposals) {
+      if (p.kind !== 'model') continue;
+      const pair: DedupPair = {
+        target: p.model.target.ollamaName,
+        ...(p.model.replaces ? { replaces: p.model.replaces.ollamaName } : {}),
+      };
+      if (p.status === 'open') pending.push(pair);
+      else if (p.status === 'rejected') rejected.push(pair);
+    }
+    return { pending, rejected };
+  }
+
   private async initLocalModelAndPipeline(): Promise<void> {
     if (this.localResolvers.size > 0) {
       // Spec 2 Phase 5 (SC39): subscribe each resolver independently. Each
@@ -1940,10 +2225,21 @@ export class Orchestrator extends EventEmitter {
       // independence): unreachable resolvers report `available: false`
       // while reachable ones report `available: true` without
       // cross-contamination.
+      // Phase 4 (D5): load the on-disk pool state before the first probe so
+      // pool-derived candidates are present when each resolver starts. An
+      // absent/malformed file degrades to EmptyPoolState (no throw) → empty
+      // candidates until the pool is populated. Skipped when the provider is a
+      // test override or LMLM is disabled (poolStateStore is null).
+      if (this.poolStateStore !== null) {
+        await this.poolStateStore.load();
+      }
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();
       }
     }
+    // LMLM Phase 6: start the background refresh scheduler once the pool state
+    // is loaded. Guarded on modelPool so LMLM-disabled configs never arm it.
+    this.startRefreshScheduler();
     // Defer pipeline construction until after the resolver has observed the
     // server. createIntelligencePipeline() consults resolver.getStatus() via
     // createAnalysisProvider() and returns null when local is unavailable.
@@ -2049,6 +2345,9 @@ export class Orchestrator extends EventEmitter {
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
     }
+    // LMLM Phase 6: disarm the background refresh scheduler (no further ticks).
+    this.refreshScheduler?.stop();
+    this.refreshScheduler = null;
     if (this.maintenanceScheduler) {
       this.maintenanceScheduler.stop();
       this.maintenanceScheduler = null;
