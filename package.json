@@ -59,7 +59,7 @@
     "prettier": "^3.8.3",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "turbo": "^2.9.6",
+    "turbo": "^2.9.14",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.5",
@@ -76,19 +76,33 @@
   "packageManager": "pnpm@8.15.4",
   "pnpm": {
     "overrides": {
-      "hono": ">=4.12.18",
+      "hono": ">=4.12.25",
+      "@grpc/grpc-js": "^1.14.4",
       "@hono/node-server": ">=2.0.4",
       "postcss": ">=8.5.10",
       "basic-ftp": ">=5.3.1",
       "fast-xml-parser": ">=5.7.0",
       "ip-address": ">=10.1.1",
       "fast-uri": ">=3.1.2",
-      "protobufjs": "^7.6.1"
+      "protobufjs": "^7.6.3",
+      "undici": "^7.28.0",
+      "qs": "^6.15.2",
+      "shell-quote": "^1.8.4",
+      "tmp": "^0.2.6",
+      "@babel/core": "^7.29.6",
+      "brace-expansion@5": "^5.0.6",
+      "js-yaml@3": ">=3.15.0 <4",
+      "js-yaml@4": ">=4.2.0 <5",
+      "vite@6": "^6.4.3",
+      "uuid": "^11.1.1"
     }
   },
   "auditExceptions": {
     "GHSA-67mh-4wv8-2f99": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",
-    "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin."
+    "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin.",
+    "GHSA-fx2h-pf6j-xcff": "vite server.fs.deny bypass (HIGH) — app/test copies bumped to >=6.4.3; residual is the vite 5.4.x copy pulled only by vitepress ^5 (no 5.x patch exists). Dev/docs-only, no --host. Real fix is upgrading vitepress off vite 5.",
+    "GHSA-v6wh-96g9-6wx3": "launch-editor NTLM disclosure via vite (HIGH) — same residual as GHSA-fx2h: only the vitepress ^5 vite 5.4.x copy. Dev/docs-only, Windows-only. Real fix is upgrading vitepress off vite 5.",
+    "GHSA-g7r4-m6w7-qqqr": "esbuild dev-server arbitrary file read — esbuild 0.27.x pulled by tsx/tsup build tooling. Dev-only, Windows-only, low severity. Overriding esbuild inside tsx risks toolchain breakage; accepted pending a tsx release on esbuild >=0.28.1."
   },
   "engines": {
     "node": ">=22.0.0",

@@ -23,9 +23,13 @@ agent:
     # match wins after a `/v1/models` probe.
     local:
       type: pi
-      endpoint: http://localhost:1234/v1
-      model: [google/gemma-4-e4b]
-      # model: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
+      # Ollama's OpenAI-compatible API lives under /v1 (the resolver probes
+      # `${endpoint}/models`). Names must match `ollama list` exactly.
+      endpoint: http://127.0.0.1:11434/v1
+      # Prefer-and-fallback: first name present in /v1/models wins. Coder model
+      # first (local routes are quick-fix/diagnostic), general model as fallback.
+      # Quote the names — the ':tag' colon otherwise breaks YAML flow parsing.
+      model: ['qwen2.5-coder:7b', 'gemma3n:e4b']
   # Routing — controls WHICH backend handles each use case.
   routing:
     default: primary
@@ -64,6 +68,19 @@ intelligence:
   requestTimeoutMs: 180000
 server:
   port: 8080
+localModels:
+  enabled: true
+  pool:
+    diskBudgetGb: 100
+    allowedOrgs: [Qwen, deepseek-ai, meta-llama, google]
+    allowedFamilies: []
+  refresh:
+    intervalMs: 86400000
+    proposalThreshold: 5
+    jitterMs: 600000
+  installer:
+    backend: ollama
+    ollamaEndpoint: http://127.0.0.1:11434
 # Built-in maintenance tasks run on cron when `maintenance.enabled: true`.
 # Notable housekeeping tasks: `main-sync` (every 15 min) fast-forwards the
 # orchestrator's local default branch from origin so files read from `cwd`

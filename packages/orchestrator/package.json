@@ -51,7 +51,7 @@
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/orchestrator#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
-    "@earendil-works/pi-coding-agent": "^0.74.1",
+    "@earendil-works/pi-coding-agent": "^0.79.0",
     "@google/genai": "^2.0.4",
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
@@ -61,7 +61,7 @@
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.10.0",
     "ink": "^4.4.1",
-    "liquidjs": "^10.25.7",
+    "liquidjs": "^10.26.0",
     "openai": "^6.0.0",
     "react": "^18.3.1",
     "ws": "^8.21.0",
