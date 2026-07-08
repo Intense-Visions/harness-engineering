@@ -5,6 +5,7 @@ import {
   EmptyPoolState,
   type TickResult,
   type PoolState,
+  type PoolStateView,
   type HardwareProfile,
   type RankedModel,
 } from '@harness-engineering/local-models';
@@ -215,6 +216,36 @@ describe('handleV1LocalModelsRoute (Phase 7 GET routes)', () => {
       );
       expect(statusCode()).toBe(200);
       expect(JSON.parse(chunks.join(''))).toMatchObject({ diskUsedGb: 40 });
+    });
+
+    it('surfaces pendingEviction:true entries from viewState() in the body (S1)', async () => {
+      const view: PoolStateView = {
+        ...poolState(),
+        entries: [
+          {
+            ollamaName: 'qwen2.5:32b',
+            hfRepoId: 'Qwen/Qwen2.5-32B-GGUF',
+            sizeOnDiskGb: 20,
+            installedAt: '2026-01-01T00:00:00.000Z',
+            lastUsedAt: null,
+            currentScore: 71,
+            pendingEviction: true,
+          },
+        ],
+      };
+      const { statusCode, chunks } = await get(
+        {
+          ...baseDeps,
+          getModelPool: () => ({ snapshot: () => poolState(), viewState: () => view }),
+        },
+        '/api/v1/local-models/pool'
+      );
+      expect(statusCode()).toBe(200);
+      const body = JSON.parse(chunks.join('')) as {
+        entries: Array<{ ollamaName: string; pendingEviction?: boolean }>;
+      };
+      const deferred = body.entries.find((e) => e.ollamaName === 'qwen2.5:32b');
+      expect(deferred?.pendingEviction).toBe(true);
     });
 
     it('falls back to snapshot() when viewState is absent', async () => {

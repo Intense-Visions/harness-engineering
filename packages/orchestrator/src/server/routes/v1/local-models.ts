@@ -3,6 +3,7 @@ import {
   isTickHardFailure,
   type TickResult,
   type PoolState,
+  type PoolStateView,
   type HardwareProfile,
   type RankedModel,
 } from '@harness-engineering/local-models';
@@ -57,7 +58,13 @@ export interface RefreshSchedulerOps {
  */
 export interface PoolReadOps {
   snapshot(): PoolState;
-  viewState?: () => PoolState;
+  /**
+   * Runtime view of the pool with the transient `pendingEviction` overlay
+   * (Phase 7 Task 8/S1). Entries mid-deferred-eviction carry
+   * `pendingEviction: true` so the dashboard/CLI can surface a "swap waiting to
+   * drain" state. Absent on managers that predate the overlay → `snapshot()`.
+   */
+  viewState?: () => PoolStateView;
 }
 
 export interface V1LocalModelsDeps {
