@@ -103,7 +103,10 @@ keeps the pool honest against the installer. See
 - **Deferred (Phase 7).** D10/S1 "no mid-dispatch swap" is out of scope — the scheduler only
   emits proposals and reconciles operator-initiated drift; it never evicts a live model.
   Autonomous discovery of brand-new HF models is also deferred (the recommender is seeded
-  with an empty candidate set until Phase 2's live-HF candidate parser lands).
+  with an empty candidate set until Phase 2's live-HF candidate parser lands). This and the
+  other current boundaries are surfaced for operators in the guide's
+  [Known limitations](../../guides/local-model-lifecycle.md#known-limitations-read-before-relying-on-autonomy)
+  section.
 
 ## Surfaces
 
@@ -127,5 +130,9 @@ keeps the pool honest against the installer. See
 
 - [ADR 0058: Generalize SkillProposalSchema into a discriminated ProposalSchema](../decisions/0058-generalize-skill-proposal-into-discriminated-proposal.md)
 - [ADR 0059: Background refresh scheduler and silent drift reconciliation](../decisions/0059-background-scheduler-and-silent-drift-reconciliation.md)
+- [ADR 0060: LMLM operator surfaces and dispatch-safe eviction](../decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)
+- [ADR 0061: LMLM as a standalone package with a native TS ranking port](../decisions/0061-lmlm-package-boundary-and-native-ranking-port.md)
+- [ADR 0062: Pool-bounded autonomy with Ollama-first installation](../decisions/0062-pool-bounded-autonomy-and-ollama-first-install.md)
+- [Local Model Lifecycle Manager (Operator Guide)](../../guides/local-model-lifecycle.md) — enabling, pool setup, approve/reject, and known limitations.
 - [Local Model Resolution](./local-model-resolution.md) — the resolver the pool feeds.
 - Spec: [`docs/changes/local-model-lifecycle-manager/proposal.md`](../../changes/local-model-lifecycle-manager/proposal.md) (Phases 5–6; D10, D11, D12, D13, F6, F7, F10, F11, O1, O4, S1).

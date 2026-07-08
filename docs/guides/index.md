@@ -173,6 +173,14 @@ Practical workflows showing how to combine MCP tools for common tasks:
 
 **Best for:** AI agents and developers using harness MCP tools in combination
 
+### [Local Model Lifecycle Manager](./local-model-lifecycle.md)
+
+Enable and operate the local model pool: hardware-aware recommendations,
+disk-budget-bounded install/swap/evict via the review queue, CLI + dashboard
+approve/reject, and known limitations.
+
+**Best for:** Operators running an opt-in, self-managing local model pool
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering
