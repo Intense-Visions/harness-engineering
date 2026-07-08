@@ -4,6 +4,7 @@ import type {
   RoutingDecision,
   BlockerRef,
 } from '@harness-engineering/types';
+import type { LocalModelsPoolEvent, LocalModelsProposalEvent } from './local-models';
 
 export type { LocalModelStatus, NamedLocalModelStatus };
 
@@ -218,7 +219,10 @@ export type WebSocketMessage =
   | { type: 'maintenance:baseref_fallback'; data: MaintenanceBaserefFallbackPayload }
   | { type: 'local-model:status'; data: NamedLocalModelStatus }
   // Spec B Phase 7 — granular routing decisions bus topic.
-  | { type: 'routing:decision'; data: RoutingDecision };
+  | { type: 'routing:decision'; data: RoutingDecision }
+  // LMLM Phase 8 — pool/proposal delta signals (refetch triggers, D-P8-3).
+  | { type: 'local-models:pool'; data: LocalModelsPoolEvent }
+  | { type: 'local-models:proposal'; data: LocalModelsProposalEvent };
 
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =
