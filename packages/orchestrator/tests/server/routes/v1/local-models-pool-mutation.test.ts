@@ -122,6 +122,7 @@ function fakePool(over: Partial<FakePool> & { entries?: PoolEntry[] } = {}): Fak
 const RANKED = {
   hfRepoId: 'Qwen/Qwen3-32B-GGUF',
   ollamaName: 'qwen3:32b',
+  sizeB: 32,
   quant: 'Q4_K_M',
   score: 71,
   evidence: 'direct',
@@ -158,6 +159,40 @@ describe('POST /local-models/pool/install', () => {
     const proposals = await listProposals(tmpDir, { kind: 'model' });
     expect(proposals).toHaveLength(1);
     expect(proposals[0]!.status).toBe('approved');
+  });
+
+  it('sizes the install from an estimate, never a pre-pull inspect (regression: install 404 target-missing)', async () => {
+    // Regression for the LMLM Recommendations "Install" 404 bug. The route used
+    // to send diskImpactGb:0 so the pool would resolve the size via an ollama
+    // `/api/show` inspect — which 404s for a not-yet-pulled model, surfacing as
+    // `failed_target_missing` → bogus "no longer available on HuggingFace". The
+    // fix hands the pool an estimated on-disk size so `install` is given a
+    // concrete `sizeOnDiskGb` and the impossible pre-pull inspect never runs.
+    let received: InstallPoolRequest | undefined;
+    const d = deps({
+      getModelPool: () =>
+        fakePool({
+          install: async (r) => {
+            received = r;
+            return {
+              status: 'success',
+              entry: { ...ENTRY, ollamaName: r.ollamaName },
+              evicted: [],
+            };
+          },
+        }),
+    });
+    const { res, statusCode, done } = makeRes();
+    handleV1LocalModelsMutationRoute(
+      makeReq('POST', '/api/v1/local-models/pool/install', {
+        hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      }),
+      res,
+      d
+    );
+    await done;
+    expect(statusCode()).toBe(200);
+    expect(received?.sizeOnDiskGb).toBeGreaterThan(0);
   });
 
   it('maps a budget_exceeded / not_allowed pool veto to 409 (SC2)', async () => {

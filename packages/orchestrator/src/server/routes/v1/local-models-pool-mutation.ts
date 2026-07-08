@@ -23,7 +23,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { EventEmitter } from 'node:events';
 import { createModelProposal, updateProposal } from '@harness-engineering/core';
 import type { ModelProposalContent, PoolMutationResult } from '@harness-engineering/types';
-import type { RankedModel } from '@harness-engineering/local-models';
+import { estimateDiskGb, type RankedModel } from '@harness-engineering/local-models';
 import {
   onApproveModelProposal,
   type ModelHandlerDeps,
@@ -136,9 +136,17 @@ async function handleInstall(
       evidence: match.evidence,
       freshness: `snapshot ${match.benchmarkSnapshot}`,
     },
-    // 0 → the installer resolves the true on-disk size via `inspect` before the
-    // budget check, rather than trusting an estimate.
-    diskImpactGb: 0,
+    // Estimate the on-disk size from the candidate's params + quant (the same
+    // `estimateDiskGb` the automated proposal engine uses). The pool needs a
+    // size for its pre-commit budget check *before* the pull; it cannot inspect
+    // the target first, because ollama `/api/show` 404s for a model that is not
+    // yet pulled locally — which would surface as a spurious "no longer
+    // available on HuggingFace" 404 on every operator install.
+    diskImpactGb: estimateDiskGb({
+      sizeB: match.sizeB,
+      quant: match.quant,
+      ...(match.activeB !== undefined ? { activeB: match.activeB } : {}),
+    }),
   };
 
   const record = await createModelProposal(deps.projectPath, content, {
