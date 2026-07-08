@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-08",
+  "source": "seed",
+  "candidates": [
+    {
+      "hfRepoId": "Qwen/Qwen3-32B-GGUF",
+      "ollamaName": "qwen3:32b",
+      "family": "qwen3",
+      "sizeB": 32,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "Qwen/Qwen3-32B-GGUF",
+      "ollamaName": "qwen3:32b",
+      "family": "qwen3",
+      "sizeB": 32,
+      "quant": "Q8_0"
+    },
+    {
+      "hfRepoId": "Qwen/Qwen3-14B-GGUF",
+      "ollamaName": "qwen3:14b",
+      "family": "qwen3",
+      "sizeB": 14,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "Qwen/Qwen3-8B-GGUF",
+      "ollamaName": "qwen3:8b",
+      "family": "qwen3",
+      "sizeB": 8,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+      "ollamaName": "deepseek-r1:32b",
+      "family": "deepseek-r1",
+      "sizeB": 32,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B-GGUF",
+      "ollamaName": "deepseek-r1:14b",
+      "family": "deepseek-r1",
+      "sizeB": 14,
+      "quant": "Q4_K_M"
+    },
+    {
+      "hfRepoId": "meta-llama/Llama-3.3-70B-Instruct-GGUF",
+      "ollamaName": "llama3.3:70b",
+      "family": "llama-3",
+      "sizeB": 70,
+      "quant": "Q4_K_M"
+    }
+  ]
+}
