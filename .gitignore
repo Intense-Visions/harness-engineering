@@ -51,6 +51,7 @@ temp/
 **/.harness/handoff.json
 **/.harness/align/
 **/.harness/state.json
+**/.harness/state.*
 **/.harness/state/
 **/.harness/dispatch-last-head.txt
 **/.harness/interactions/

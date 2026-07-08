@@ -19,6 +19,7 @@ docs/roadmap.md
 docs/roadmap.d/**
 
 # Generated/local harness state files
+**/.harness/state.*
 .harness/health-snapshot.json
 .harness/skills-index.json
 .harness/specialization-profiles.json
