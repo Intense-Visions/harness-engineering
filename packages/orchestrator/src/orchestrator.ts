@@ -2138,6 +2138,16 @@ export class Orchestrator extends EventEmitter {
               });
             }),
           proposalThreshold: refreshCfg?.proposalThreshold ?? 5,
+        }).then((result) => {
+          // S1 drain liveness (P7-SUG-DRAIN-LIVENESS): run completion is the
+          // primary drain trigger, but if the final run's evict fails
+          // transiently and no further run ever completes, a model would linger
+          // pendingEviction (over disk budget) forever. Piggyback a best-effort
+          // drain on the periodic tick so pending evictions retry independently
+          // of agent-run completions. Fire-and-forget + reentrancy-guarded
+          // (P7-SUG-DRAIN-REENTRANCY) so it never blocks the tick's O1 result.
+          void this.drainDeferredEvictions();
+          return result;
         }),
       intervalMs: refreshCfg?.intervalMs ?? 86_400_000,
       jitterMs: refreshCfg?.jitterMs ?? 600_000,

@@ -230,6 +230,11 @@ function drainOf(orch: Orchestrator): () => Promise<void> {
   ).drainDeferredEvictions.bind(orch);
 }
 
+/** Let a fire-and-forget drain settle (drainDeferredEvictions is `void`-called). */
+function flush(): Promise<void> {
+  return new Promise((r) => setTimeout(r, 10));
+}
+
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-pool-'));
   execSync(
@@ -351,6 +356,40 @@ describe('Orchestrator LMLM Phase 7 — drain re-entrancy guard (P7-SUG-DRAIN-RE
     // A subsequent defer is still drained — `finally` reset the guard.
     manager.markPendingEviction('qwen2.5:32b');
     await drainOf(orch)();
+    expect(evicts.map((e) => e.name)).toEqual(['qwen2.5:32b']);
+    expect(manager.listPendingEvictions()).toHaveLength(0);
+
+    await orch.stop();
+  });
+});
+
+describe('Orchestrator LMLM Phase 7 — drain liveness on refresh tick (P7-SUG-DRAIN-LIVENESS)', () => {
+  it('evicts a model left pendingEviction (failed drain) on the next scheduler tick', async () => {
+    const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+    const { manager, evicts, failEvict } = await makeSeededPool([REPLACES]);
+    // Wire the seeded pool in BEFORE init so the scheduler captures it and the
+    // tick-piggybacked drain reads the same manager.
+    setModelPool(orch, manager);
+    await initPipeline(orch);
+
+    // Simulate the final run's drain failing transiently: the model stays pending
+    // and NO further agent run will ever complete to re-fire the completion drain.
+    manager.markPendingEviction('qwen2.5:32b');
+    failEvict.value = true;
+    await drainOf(orch)();
+    expect(evicts).toHaveLength(0);
+    expect(manager.listPendingEvictions()).toEqual(['qwen2.5:32b']);
+
+    // The periodic refresh tick now drains independently of run completions.
+    failEvict.value = false;
+    await schedulerOf(orch)!.forceRefresh();
+    await flush(); // the tick's drain is fire-and-forget
+
     expect(evicts.map((e) => e.name)).toEqual(['qwen2.5:32b']);
     expect(manager.listPendingEvictions()).toHaveLength(0);
 
