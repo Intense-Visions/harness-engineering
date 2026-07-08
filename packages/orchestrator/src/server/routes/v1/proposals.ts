@@ -64,6 +64,12 @@ interface Deps {
    * unaffected. Real `/api/v1/local-models/*` routes + WS fan-out are Phase 7.
    */
   modelPool?: ModelPoolOps;
+  /**
+   * S1 (ADR 0060): in-use probe. When it reports the eviction target might be
+   * mid-request, the model approve path DEFERS the evict (marks
+   * `pendingEviction`) instead of applying it. Absent → never defers.
+   */
+  isModelInUse?: (ollamaName: string) => boolean;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -90,6 +96,7 @@ function modelHandlerDeps(deps: Deps, req: IncomingMessage): ModelHandlerDeps {
     updateProposal: (id, patch) =>
       updateProposal(deps.projectPath, id, patch as Parameters<typeof updateProposal>[2]),
     decidedBy: getDecidedBy(req, deps),
+    ...(deps.isModelInUse ? { isModelInUse: deps.isModelInUse } : {}),
   };
 }
 

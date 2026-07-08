@@ -230,9 +230,11 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
   ops: ModelPoolOps;
   evictCalls: number;
   installCalls: number;
+  markCalls: string[];
 } {
   let evictCalls = 0;
   let installCalls = 0;
+  const markCalls: string[] = [];
   const state: PoolState = {
     diskBudgetGb: 100,
     diskUsedGb: 20,
@@ -253,10 +255,13 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
       );
     },
     snapshot: () => state,
-    markPendingEviction: () => {},
+    markPendingEviction: (name) => {
+      markCalls.push(name);
+    },
   };
   return {
     ops,
+    markCalls,
     get evictCalls() {
       return evictCalls;
     },
@@ -286,6 +291,29 @@ describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
     // Pool untouched
     expect(pool.evictCalls).toBe(0);
     expect(pool.ops.snapshot().entries).toEqual(before);
+  });
+
+  it('S1: threads isModelInUse → in-use replaces is deferred (marked, not evicted)', async () => {
+    writeModelProposal(tmpDir, 'proposal_model_defer');
+    const pool = fakePool({ install: { status: 'success', entry: POOLED, evicted: [] } });
+    const poolEvents: Array<{ phase?: string; deferred?: string }> = [];
+    bus.on('local-models:pool', (d) => poolEvents.push(d as { phase?: string; deferred?: string }));
+    const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_model_defer/approve');
+    handleV1ProposalsRoute(req, res, {
+      projectPath: tmpDir,
+      bus,
+      modelPool: pool.ops,
+      isModelInUse: (name) => name === 'qwen2.5:32b',
+    });
+    await settle();
+
+    expect(sent().status).toBe(200);
+    // Install applied; the in-use `replaces` was deferred, not evicted.
+    expect(pool.installCalls).toBe(1);
+    expect(pool.evictCalls).toBe(0);
+    expect(pool.markCalls).toEqual(['qwen2.5:32b']);
+    const deferred = poolEvents.find((e) => e.phase === 'evict_deferred');
+    expect(deferred?.deferred).toBe('qwen2.5:32b');
   });
 
   it('returns 501 when model handlers are not configured', async () => {

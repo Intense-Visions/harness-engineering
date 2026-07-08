@@ -179,6 +179,13 @@ export interface ServerDependencies {
    */
   getModelPool?: () => ModelPoolOps | null;
   /**
+   * LMLM Phase 7 / S1 (ADR 0060): reports whether a model might be serving an
+   * inference request right now. Threaded into the `kind: 'model'` approve path
+   * so an approved swap/evict of an in-use model is DEFERRED (marked
+   * `pendingEviction`) rather than applied mid-request. Absent → never defers.
+   */
+  isModelInUse?: (ollamaName: string) => boolean;
+  /**
    * LMLM Phase 6: accessor for the background refresh scheduler. Drives
    * `POST /api/v1/local-models/refresh`. Null/absent → the route returns `503`
    * (LMLM disabled). A closure so the route always sees current lifecycle state.
@@ -252,6 +259,8 @@ export class OrchestratorServer {
       }) => Promise<RankedModel[]>)
     | null = null;
   private listModelProposalsFn: (() => Promise<Proposal[]>) | null = null;
+  // LMLM Phase 7 / S1 — in-use probe threaded into kind:'model' approve.
+  private isModelInUseFn: ((ollamaName: string) => boolean) | null = null;
   private routingDecisionUnsubscribe: (() => void) | null = null;
   // LMLM Phase 7 — bus→WS fan-out listeners for the model proposal/pool topics.
   private modelProposalListener: ((data: unknown) => void) | null = null;
@@ -316,6 +325,8 @@ export class OrchestratorServer {
     this.getHardwareProfileFn = deps?.getHardwareProfile ?? null;
     this.getRecommendationsFn = deps?.getRecommendations ?? null;
     this.listModelProposalsFn = deps?.listModelProposals ?? null;
+    // LMLM Phase 7 / S1 — in-use probe (null when LMLM disabled → never defers).
+    this.isModelInUseFn = deps?.isModelInUse ?? null;
   }
 
   private wireEvents(): void {
@@ -566,6 +577,9 @@ export class OrchestratorServer {
           projectPath: this.projectPath,
           bus: this.orchestrator as unknown as EventEmitter,
           ...(modelPool ? { modelPool } : {}),
+          // S1: thread the in-use probe so an approved swap/evict of a model an
+          // agent could be using is deferred (marked pendingEviction) not applied.
+          ...(this.isModelInUseFn ? { isModelInUse: this.isModelInUseFn } : {}),
         });
       },
       // LMLM Phase 6/7 — POST /refresh + the GET read surface

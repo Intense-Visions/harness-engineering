@@ -692,6 +692,10 @@ export class Orchestrator extends EventEmitter {
         // LMLM Phase 6: expose the live pool so kind:'model' approve/reject
         // reaches PoolManager (retiring the 501). Null when LMLM is disabled.
         getModelPool: () => this.modelPool,
+        // LMLM Phase 7 / S1: conservative in-use probe so an approved swap/evict
+        // of a model an agent could be using is DEFERRED, not applied mid-request
+        // (ADR 0060). Agent-run-coarse; may over-defer (safe).
+        isModelInUse: (ollamaName: string) => this.isLocalModelInUse(ollamaName),
         // LMLM Phase 6: expose the refresh scheduler for POST /local-models/refresh.
         getRefreshScheduler: () => this.refreshScheduler,
         // LMLM Phase 7 read surface — hardware / recommendations / model proposals.
@@ -787,6 +791,54 @@ export class Orchestrator extends EventEmitter {
       });
     }
     return out;
+  }
+
+  /**
+   * S1 conservative in-use probe (ADR 0060). Returns `true` when ANY agent run
+   * is live AND `ollamaName` is a currently-resolved (or last-detected) local
+   * model — i.e. an agent could be routing inference to it right now.
+   *
+   * This signal is AGENT-RUN-COARSE, not per-request: `state.running` is keyed
+   * by GitHub issue (spawned agent runs), NOT by inference call, and no
+   * per-model request counter exists today. The probe therefore MAY OVER-DEFER
+   * (a swap waits until the pool is idle). Over-deferral is exactly S1's
+   * intended safe failure — never yank a model mid-request; occasionally wait
+   * longer than strictly necessary. A fine-grained per-request signal is an
+   * explicit deferred gap (ADR 0060).
+   */
+  private isLocalModelInUse(ollamaName: string): boolean {
+    if (this.state.running.size === 0) return false;
+    return this.buildLocalModelStatuses().some(
+      (s) => s.resolved === ollamaName || s.detected.includes(ollamaName)
+    );
+  }
+
+  /**
+   * S1 drain (ADR 0060): complete any eviction that was DEFERRED because its
+   * target was in use, now that the probe reports it idle. Best-effort — called
+   * from the run-completion path; it never blocks dispatch and swallows
+   * per-model errors (a failed or still-busy evict stays pending for the next
+   * drain). `pendingEviction` is a transient overlay, so a missed drain simply
+   * leaves the flag set until the next completion re-checks it.
+   */
+  private async drainDeferredEvictions(): Promise<void> {
+    const pool = this.modelPool;
+    if (pool === null) return;
+    for (const ollamaName of pool.listPendingEvictions()) {
+      if (this.isLocalModelInUse(ollamaName)) continue; // still busy — leave pending
+      try {
+        const result = await pool.evict({ ollamaName });
+        if (result.status === 'error') continue; // leave pending; retry next drain
+        pool.clearPendingEviction(ollamaName);
+        this.emit('local-models:pool', {
+          action: 'evict',
+          evicted: ollamaName,
+          phase: 'evict_completed',
+        });
+      } catch {
+        // best-effort: leave the flag set for a subsequent drain
+      }
+    }
   }
 
   private createTracker(): IssueTrackerClient {
@@ -1900,6 +1952,10 @@ export class Orchestrator extends EventEmitter {
     await this.completionHandler.handleWorkerExit(issueId, reason, attempt, error, (effect) =>
       this.handleEffect(effect)
     );
+    // S1 drain (ADR 0060): a completed run may have freed a local model whose
+    // eviction was deferred while it was in use. Best-effort, fire-and-forget —
+    // it must never block the completion path.
+    void this.drainDeferredEvictions();
     this.emit('state_change', this.getSnapshot());
   }
 
