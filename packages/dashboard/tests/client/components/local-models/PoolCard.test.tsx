@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PoolCard } from '../../../../src/client/components/local-models/PoolCard';
 import type { DashPoolStateView } from '../../../../src/client/types/local-models';
 
@@ -30,9 +30,24 @@ const POOL: DashPoolStateView = {
   lastRefreshAt: null,
 };
 
+function jsonRes(status: number, body: unknown): Response {
+  return { ok: status < 400, status, text: async () => '', json: async () => body } as Response;
+}
+
+function renderPool(over: Partial<React.ComponentProps<typeof PoolCard>> = {}) {
+  const onMutated = over.onMutated ?? vi.fn();
+  render(<PoolCard pool={POOL} error={null} loading={false} onMutated={onMutated} {...over} />);
+  return { onMutated };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 describe('PoolCard', () => {
   it('renders one row per entry with its fields', () => {
-    render(<PoolCard pool={POOL} error={null} loading={false} />);
+    renderPool();
     expect(screen.getByTestId('pool-row-qwen3:32b').textContent).toContain('qwen3:32b');
     expect(screen.getByTestId('pool-row-qwen3:32b').textContent).toContain('Qwen/Qwen3-32B-GGUF');
     expect(screen.getByTestId('pool-row-qwen3:32b').textContent).toContain('18');
@@ -41,32 +56,70 @@ describe('PoolCard', () => {
   });
 
   it('renders a disk-usage indicator with used vs budget', () => {
-    render(<PoolCard pool={POOL} error={null} loading={false} />);
+    renderPool();
     expect(screen.getByTestId('pool-disk').textContent).toContain('40');
     expect(screen.getByTestId('pool-disk').textContent).toContain('100');
   });
 
   it('renders a pending-eviction badge for entries flagged pendingEviction', () => {
-    render(<PoolCard pool={POOL} error={null} loading={false} />);
+    renderPool();
     expect(screen.getByTestId('pool-pending-llama3:8b')).toBeDefined();
-    // The non-pending entry has no badge.
     expect(screen.queryByTestId('pool-pending-qwen3:32b')).toBeNull();
   });
 
   it('[O3] renders "No models in the pool" for an empty pool — no throw', () => {
-    render(
-      <PoolCard pool={{ ...POOL, entries: [], diskUsedGb: 0 }} error={null} loading={false} />
-    );
+    renderPool({ pool: { ...POOL, entries: [], diskUsedGb: 0 } });
     expect(screen.getByTestId('pool-card').textContent).toMatch(/no models in the pool/i);
   });
 
   it('renders the disabled state when LMLM is disabled', () => {
-    render(<PoolCard pool={null} error="LMLM disabled" loading={false} />);
+    render(<PoolCard pool={null} error="LMLM disabled" loading={false} onMutated={vi.fn()} />);
     expect(screen.getByTestId('pool-card').textContent).toMatch(/LMLM disabled/i);
   });
 
-  it('exposes no install/evict controls (D-P8-2 read-only)', () => {
-    render(<PoolCard pool={POOL} error={null} loading={false} />);
-    expect(screen.queryByRole('button', { name: /install|evict/i })).toBeNull();
+  it('Remove POSTs to /pool/remove and calls onMutated (SC7)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonRes(200, { disposition: 'removed' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { onMutated } = renderPool();
+
+    fireEvent.click(screen.getByTestId('pool-remove-qwen3:32b'));
+
+    await waitFor(() => expect(onMutated).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/v1/local-models/pool/remove');
+    expect((init as RequestInit).method).toBe('POST');
+    expect(String((init as RequestInit).body)).toContain('qwen3:32b');
+  });
+
+  it('a deferred (202) remove renders "removes after current run" (SC7)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonRes(202, { disposition: 'deferred' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { onMutated } = renderPool();
+
+    fireEvent.click(screen.getByTestId('pool-remove-qwen3:32b'));
+
+    await waitFor(() => expect(onMutated).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('pool-note-qwen3:32b').textContent).toMatch(
+      /after the current run|current run/i
+    );
+  });
+
+  it('disables Remove for a member already pending eviction', () => {
+    renderPool();
+    expect((screen.getByTestId('pool-remove-llama3:8b') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('pool-remove-qwen3:32b') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('a failed remove surfaces an inline error and does not call onMutated', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 409, text: async () => 'conflict' } as Response)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { onMutated } = renderPool();
+
+    fireEvent.click(screen.getByTestId('pool-remove-qwen3:32b'));
+
+    await waitFor(() => expect(screen.getByTestId('pool-error-qwen3:32b')).toBeDefined());
+    expect(onMutated).not.toHaveBeenCalled();
   });
 });

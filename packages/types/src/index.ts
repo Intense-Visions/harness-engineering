@@ -299,6 +299,10 @@ export type {
   LocalModelsRefreshConfig,
   LocalModelsInstallerConfig,
   LocalModelsConfig,
+  PoolInstallRequest,
+  PoolRemoveRequest,
+  PoolMutationDisposition,
+  PoolMutationResult,
 } from './local-models';
 
 // --- Plan task (parallel execution data model) ---

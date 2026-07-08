@@ -83,3 +83,41 @@ export interface LocalModelsConfig {
     override?: LocalModelsHardwareOverride;
   };
 }
+
+/**
+ * Request body for `POST /api/v1/local-models/pool/install` — operator-initiated
+ * install of a recommended model. The server resolves `ollamaName` + disk size
+ * from the current recommendations for `hfRepoId`.
+ */
+export interface PoolInstallRequest {
+  /** HF repo id of the recommendation to install (e.g. `Qwen/Qwen3-32B-GGUF`). */
+  hfRepoId: string;
+  /** Optional quant to disambiguate when a repo has multiple ranked quants. */
+  quant?: string;
+}
+
+/** Request body for `POST /api/v1/local-models/pool/remove`. */
+export interface PoolRemoveRequest {
+  /** Ollama name of the installed pool member to remove. */
+  ollamaName: string;
+}
+
+/**
+ * Outcome of an operator-initiated pool mutation.
+ * - `installed` — the model was pulled into the pool.
+ * - `removed` — the member was evicted.
+ * - `deferred` — the member is in use; eviction is marked pending and drained
+ *   after the current run (never mid-request).
+ */
+export type PoolMutationDisposition = 'installed' | 'removed' | 'deferred';
+
+/** Response body for the install/remove convenience routes. */
+export interface PoolMutationResult {
+  disposition: PoolMutationDisposition;
+  /** The proposal id created + auto-approved for this action (audit trail). */
+  proposalId: string;
+  /** Ollama names evicted as part of the action (budget auto-evictions or the removed member). */
+  evicted: string[];
+  /** Human-readable note (e.g. the deferral explanation). */
+  message?: string;
+}

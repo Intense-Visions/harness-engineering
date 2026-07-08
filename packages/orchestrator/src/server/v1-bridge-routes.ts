@@ -118,6 +118,21 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'manage-proposals',
     description: 'Force a background-scheduler refresh tick and return emitted proposals (O4).',
   },
+  // ── LMLM dashboard pool mutation — operator-initiated install/remove ──
+  // Modeled as auto-approved model proposals, so the same `manage-proposals`
+  // write scope that governs approve/reject governs these too.
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/local-models\/pool\/install(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Install a recommended model into the local pool (auto-approved proposal).',
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/local-models\/pool\/remove(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Remove a model from the local pool (auto-approved proposal).',
+  },
   // ── LMLM Phase 7 — read surface (hardware/pool/recommendations/proposals) ──
   // Load-bearing: `local-models` is in `V1_WRAPPABLE`, so without these entries
   // the `/api/v1` rewrite shim would rewrite `/api/v1/local-models/<name>` →

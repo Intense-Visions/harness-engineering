@@ -21,6 +21,7 @@ import { handleV1WebhooksRoute } from './routes/v1/webhooks';
 import { handleV1TelemetryRoute } from './routes/v1/telemetry';
 import { handleV1ProposalsRoute } from './routes/v1/proposals';
 import { handleV1LocalModelsRoute } from './routes/v1/local-models';
+import { handleV1LocalModelsMutationRoute } from './routes/v1/local-models-pool-mutation';
 import type { RefreshSchedulerOps } from './routes/v1/local-models';
 import type { ModelPoolOps } from '../proposals/model-handlers';
 import { MODEL_PROPOSAL_TOPIC, MODEL_POOL_TOPIC } from '../proposals/model-handlers';
@@ -582,6 +583,18 @@ export class OrchestratorServer {
           ...(this.isModelInUseFn ? { isModelInUse: this.isModelInUseFn } : {}),
         });
       },
+      // LMLM dashboard pool mutation — POST /pool/install + /pool/remove.
+      // Operator-initiated install/remove via auto-approved proposals; reuses
+      // the same mutation pool + bus + in-use probe the proposals route uses.
+      // Registered before the read surface so /pool/install|remove match first.
+      (req, res) =>
+        handleV1LocalModelsMutationRoute(req, res, {
+          projectPath: this.projectPath,
+          bus: this.orchestrator as unknown as EventEmitter,
+          getModelPool: () => this.getModelPoolFn?.() ?? null,
+          ...(this.getRecommendationsFn ? { getRecommendations: this.getRecommendationsFn } : {}),
+          ...(this.isModelInUseFn ? { isModelInUse: this.isModelInUseFn } : {}),
+        }),
       // LMLM Phase 6/7 — POST /refresh + the GET read surface
       // (hardware/pool/recommendations/proposals). Registered before the
       // chat-proxy fallback so it owns the path. Each accessor is spread in
