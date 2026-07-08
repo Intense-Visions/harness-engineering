@@ -37,6 +37,14 @@ interface ProposalEventData {
   justification?: string;
 }
 
+interface ModelProposalEventData {
+  id?: string;
+  status?: string;
+  action?: string;
+  target?: string;
+  reason?: string;
+}
+
 function asObj(data: unknown): Record<string, unknown> {
   return typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
 }
@@ -120,7 +128,48 @@ const ENVELOPE_DERIVERS: Record<string, EnvelopeDeriver> = {
       severity: 'warning',
     };
   },
+  // LMLM Phase 7 — model-proposal lifecycle. Delegated to a status-keyed
+  // lookup (below) so each status branch is its own small function and the
+  // deriver stays under the cyclomatic-complexity gate.
+  'local-models.proposal': (event) => deriveModelProposalEnvelope(event),
 };
+
+/** Per-status envelope builders for `local-models.proposal`. */
+const MODEL_PROPOSAL_ENVELOPES: Record<
+  string,
+  (data: ModelProposalEventData) => Partial<NotificationEnvelope>
+> = {
+  created: (data) => {
+    const label = `${data.action ?? 'change'} ${data.target ?? '(unknown model)'}`;
+    return {
+      title: `New model proposal: ${label}`,
+      summary: `A model proposal (${label}) is awaiting review.`,
+      severity: 'info',
+    };
+  },
+  rejected: (data) => ({
+    title: 'Model proposal rejected',
+    summary: truncate(data.reason ?? 'No reason provided.', 240),
+    severity: 'warning',
+  }),
+  failed_target_missing: (data) => ({
+    title: 'Model proposal target missing',
+    summary: `The proposed model ${data.target ?? '(unknown model)'} is no longer available; the proposal was closed.`,
+    severity: 'error',
+  }),
+};
+
+/** Derive a model-proposal envelope, falling back to a generic info envelope. */
+function deriveModelProposalEnvelope(event: GatewayEvent): Partial<NotificationEnvelope> {
+  const data = asObj(event.data) as ModelProposalEventData;
+  const build = MODEL_PROPOSAL_ENVELOPES[data.status ?? ''];
+  if (build) return build(data);
+  return {
+    title: `Model proposal update: ${data.target ?? '(unknown model)'}`,
+    summary: `Model proposal status: ${data.status ?? '(unknown)'}.`,
+    severity: 'info',
+  };
+}
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;

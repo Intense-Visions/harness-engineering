@@ -123,4 +123,55 @@ describe('wrapAsEnvelope', () => {
     expect(env.severity).toBe('warning');
     expect(env.summary).toContain('duplicate');
   });
+
+  // ── LMLM Phase 7 — model-proposal lifecycle envelopes ──
+
+  it('wraps local-models.proposal (created) with info severity and target in title', () => {
+    const env = wrapAsEnvelope(
+      event('local-models.proposal', {
+        id: 'proposal_m1',
+        status: 'created',
+        action: 'add',
+        target: 'qwen3:32b',
+      })
+    );
+    expect(env.severity).toBe('info');
+    expect(env.title).toContain('qwen3:32b');
+    expect(env.title.toLowerCase()).toContain('add');
+  });
+
+  it('wraps local-models.proposal (rejected) with warning severity and surfaces the reason', () => {
+    const env = wrapAsEnvelope(
+      event('local-models.proposal', {
+        id: 'proposal_m2',
+        status: 'rejected',
+        target: 'qwen3:32b',
+        reason: 'insufficient score delta',
+      })
+    );
+    expect(env.severity).toBe('warning');
+    expect(env.title).toBe('Model proposal rejected');
+    expect(env.summary).toContain('insufficient score delta');
+  });
+
+  it('wraps local-models.proposal (failed_target_missing) with error severity', () => {
+    const env = wrapAsEnvelope(
+      event('local-models.proposal', {
+        id: 'proposal_m3',
+        status: 'failed_target_missing',
+        target: 'qwen3:32b',
+      })
+    );
+    expect(env.severity).toBe('error');
+    expect(env.title).toContain('target missing');
+    expect(env.summary).toContain('qwen3:32b');
+  });
+
+  it('wraps local-models.proposal (unknown status) with a generic info envelope', () => {
+    const env = wrapAsEnvelope(
+      event('local-models.proposal', { id: 'proposal_m4', status: 'approved', target: 'qwen3:32b' })
+    );
+    expect(env.severity).toBe('info');
+    expect(env.summary).toContain('approved');
+  });
 });
