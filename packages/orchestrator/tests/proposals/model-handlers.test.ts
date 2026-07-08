@@ -54,8 +54,10 @@ interface FakePool {
   install: (r: InstallPoolRequest) => Promise<InstallPoolResult>;
   evict: (r: EvictPoolRequest) => Promise<EvictPoolResult>;
   snapshot: () => PoolState;
+  markPendingEviction: (ollamaName: string) => void;
   installCalls: InstallPoolRequest[];
   evictCalls: EvictPoolRequest[];
+  markCalls: string[];
 }
 
 function fakePool(opts: {
@@ -65,6 +67,7 @@ function fakePool(opts: {
 }): FakePool {
   const installCalls: InstallPoolRequest[] = [];
   const evictCalls: EvictPoolRequest[] = [];
+  const markCalls: string[] = [];
   const state: PoolState = {
     diskBudgetGb: 100,
     diskUsedGb: 0,
@@ -76,6 +79,10 @@ function fakePool(opts: {
   return {
     installCalls,
     evictCalls,
+    markCalls,
+    markPendingEviction(name) {
+      markCalls.push(name);
+    },
     install(r) {
       installCalls.push(r);
       return Promise.resolve(opts.install ?? { status: 'success', entry: REPLACED, evicted: [] });
@@ -237,6 +244,89 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(pool.evictCalls).toHaveLength(0);
     expect(h.updateCalls).toHaveLength(0); // proposal left pending
     expect(h.events).toHaveLength(0);
+  });
+});
+
+describe('onApproveModelProposal — S1 no-mid-dispatch-swap deferral', () => {
+  it('swap: probe reports replaces in use → marks pendingEviction, does NOT evict, emits evict_deferred, still approves', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const proposal = modelProposal();
+    const h = harness(pool, proposal);
+    h.deps.isModelInUse = (name) => name === 'qwen2.5:32b';
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    // Approved (install applied), but the replaced model's evict is deferred.
+    expect(outcome.status).toBe('approved');
+    // Install still ran; the in-use `replaces` was NOT evicted.
+    expect(pool.installCalls[0]!.ollamaName).toBe('qwen3:32b');
+    expect(pool.evictCalls).toHaveLength(0);
+    // pendingEviction flag set on the in-use model.
+    expect(pool.markCalls).toEqual(['qwen2.5:32b']);
+    // proposal recorded approved.
+    expect(h.updateCalls[0]!.patch.status).toBe('approved');
+    // evict_deferred pool event surfaces the deferred name.
+    const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
+    expect(poolEvt).toBeDefined();
+    const data = poolEvt!.data as { phase?: string; deferred?: string; installed?: string };
+    expect(data.phase).toBe('evict_deferred');
+    expect(data.deferred).toBe('qwen2.5:32b');
+    expect(data.installed).toBe('qwen3:32b');
+  });
+
+  it('swap: probe reports replaces idle → evicts normally (regression, no defer)', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const proposal = modelProposal();
+    const h = harness(pool, proposal);
+    h.deps.isModelInUse = () => false;
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    expect(outcome.status).toBe('approved');
+    expect(pool.evictCalls[0]!.ollamaName).toBe('qwen2.5:32b');
+    expect(pool.markCalls).toHaveLength(0);
+    const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
+    expect((poolEvt!.data as { phase?: string }).phase).toBeUndefined();
+  });
+
+  it('evict-only: probe reports target in use → marks pendingEviction, does NOT evict, emits evict_deferred', async () => {
+    const pool = fakePool({
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const proposal = modelProposal({ action: 'evict', target: REPLACED, replaces: undefined });
+    const h = harness(pool, proposal);
+    h.deps.isModelInUse = () => true;
+
+    const outcome = await onApproveModelProposal(h.deps, proposal);
+
+    expect(outcome.status).toBe('approved');
+    expect(pool.evictCalls).toHaveLength(0);
+    expect(pool.markCalls).toEqual(['qwen2.5:32b']);
+    const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
+    const data = poolEvt!.data as { phase?: string; deferred?: string; action?: string };
+    expect(data.phase).toBe('evict_deferred');
+    expect(data.deferred).toBe('qwen2.5:32b');
+    expect(data.action).toBe('evict');
+  });
+
+  it('no probe supplied → never defers (default () => false)', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const proposal = modelProposal();
+    const h = harness(pool, proposal); // no isModelInUse set
+
+    await onApproveModelProposal(h.deps, proposal);
+
+    expect(pool.markCalls).toHaveLength(0);
+    expect(pool.evictCalls[0]!.ollamaName).toBe('qwen2.5:32b');
   });
 });
 

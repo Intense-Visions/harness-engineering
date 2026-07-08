@@ -38,6 +38,14 @@ export interface ModelPoolOps {
   install(request: InstallPoolRequest): Promise<InstallPoolResult>;
   evict(request: EvictPoolRequest): Promise<EvictPoolResult>;
   snapshot(): PoolState;
+  /**
+   * S1 (no mid-dispatch swap): flag a model whose eviction is DEFERRED because
+   * the in-use probe reports it might be serving a request. The flag is a
+   * transient runtime overlay (never persisted); the orchestrator's drain path
+   * completes the real evict + clears the flag once the model idles.
+   * `PoolManager` satisfies this via its `pendingEvictions` Set (Task 8).
+   */
+  markPendingEviction(ollamaName: string): void;
 }
 
 /** Persisted patch applied to a model proposal. */
@@ -55,6 +63,20 @@ export interface ModelHandlerDeps {
   decidedBy?: string;
   /** Clock seam for deterministic decision timestamps. */
   now?: () => Date;
+  /**
+   * S1 in-use probe seam: reports whether `ollamaName` might currently be
+   * serving an inference request. When it returns `true`, an approved swap/evict
+   * DEFERS the real eviction (marks `pendingEviction`) rather than yanking a
+   * model mid-request. Defaults to `() => false` (never defer) so tests and the
+   * LMLM-disabled path keep the pre-S1 behavior. The production probe is
+   * agent-run-coarse and may over-defer — a safe failure (see ADR 0060).
+   */
+  isModelInUse?: (ollamaName: string) => boolean;
+}
+
+/** True when the probe (if supplied) reports the model might be mid-request. */
+function isInUse(deps: ModelHandlerDeps, ollamaName: string): boolean {
+  return deps.isModelInUse ? deps.isModelInUse(ollamaName) : false;
 }
 
 /** Bus topic for model-proposal lifecycle transitions (reject, stale-target). */
@@ -79,6 +101,30 @@ function decisionOf(
     action,
     ...(reason !== undefined ? { reason } : {}),
   };
+}
+
+/**
+ * S1 deferral: the probe reports `deferredName` might be mid-request, so we do
+ * NOT evict it now. Flag it `pendingEviction` (transient overlay), record the
+ * approval, and emit an `evict_deferred` pool event. The orchestrator's drain
+ * path completes the real evict + clears the flag once the model idles. Any
+ * `evicted` entries the install already removed (budget auto-eviction) are still
+ * surfaced — only the deferred model is withheld.
+ */
+async function deferEviction(
+  deps: ModelHandlerDeps,
+  proposal: ModelProposalRecord,
+  deferredName: string,
+  event: Record<string, unknown>,
+  evicted: PoolEntry[]
+): Promise<ModelApproveOutcome> {
+  deps.pool.markPendingEviction(deferredName);
+  const updated = await deps.updateProposal(proposal.id, {
+    status: 'approved',
+    decision: decisionOf(deps, 'approved'),
+  });
+  deps.bus.emit(MODEL_POOL_TOPIC, event);
+  return { status: 'approved', proposal: updated as ModelProposalRecord, evicted };
 }
 
 /**
@@ -127,7 +173,30 @@ export async function onApproveModelProposal(
 
   const evicted: PoolEntry[] = [...installResult.evicted];
   if (model.action === 'swap' && model.replaces !== undefined) {
-    const evictResult = await deps.pool.evict({ ollamaName: model.replaces.ollamaName });
+    const replacesName = model.replaces.ollamaName;
+    if (isInUse(deps, replacesName)) {
+      // S1 (no mid-dispatch swap): the target install already applied — the pool
+      // now holds BOTH target and `replaces`. `replaces` may be serving a live
+      // request, so DEFER its eviction rather than yanking it. The drain path
+      // finishes the evict once the probe reports it idle.
+      return deferEviction(
+        deps,
+        proposal,
+        replacesName,
+        {
+          id: proposal.id,
+          action: model.action,
+          installed: model.target.ollamaName,
+          phase: 'evict_deferred',
+          deferred: replacesName,
+          ...(installResult.evicted.length > 0
+            ? { evicted: installResult.evicted.map((e) => e.ollamaName) }
+            : {}),
+        },
+        evicted
+      );
+    }
+    const evictResult = await deps.pool.evict({ ollamaName: replacesName });
     if (evictResult.status === 'error') {
       // Partial-swap failure: the target install succeeded (pool now holds it),
       // but evicting `replaces` failed (e.g. installer_unavailable / ollama
@@ -185,7 +254,18 @@ async function applyEvictOnly(
   deps: ModelHandlerDeps,
   proposal: ModelProposalRecord
 ): Promise<ModelApproveOutcome> {
-  const evictResult = await deps.pool.evict({ ollamaName: proposal.model.target.ollamaName });
+  const targetName = proposal.model.target.ollamaName;
+  if (isInUse(deps, targetName)) {
+    // S1: the model to evict may be mid-request. Defer; drain completes it.
+    return deferEviction(
+      deps,
+      proposal,
+      targetName,
+      { id: proposal.id, action: 'evict', phase: 'evict_deferred', deferred: targetName },
+      []
+    );
+  }
+  const evictResult = await deps.pool.evict({ ollamaName: targetName });
   if (evictResult.status === 'error') {
     return { status: 'error', code: evictResult.code, message: evictResult.message };
   }

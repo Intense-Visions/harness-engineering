@@ -253,6 +253,7 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
       );
     },
     snapshot: () => state,
+    markPendingEviction: () => {},
   };
   return {
     ops,
