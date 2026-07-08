@@ -22,6 +22,9 @@ describe('ensureHarnessGitignore', () => {
     expect(content).toContain('graph/');
     expect(content).toContain('debug/');
     expect(content).toContain('state.json');
+    // Event-sourcing runtime state (constants.ts EVENT_LOG_FILE / SNAPSHOT_FILE)
+    expect(content).toContain('state.events.jsonl');
+    expect(content).toContain('state.snapshot.json');
   });
 
   it('creates .harness/.gitignore when .harness dir already exists', () => {
