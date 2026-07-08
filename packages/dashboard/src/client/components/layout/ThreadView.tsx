@@ -27,6 +27,7 @@ import { Cache as InsightsCache } from '../../pages/insights/Cache';
 import { Proposals } from '../../pages/Proposals';
 import { Routing } from '../../pages/Routing';
 import { Signals } from '../../pages/Signals';
+import { LocalModels } from '../../pages/LocalModels';
 import type { SystemPage } from '../../types/thread';
 import type { ComponentType } from 'react';
 
@@ -52,6 +53,8 @@ const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
   proposals: Proposals,
   // Spec B Phase 7 — granular task routing observability panel.
   routing: Routing,
+  // LMLM Phase 8 — local model lifecycle operator panel.
+  'local-models': LocalModels,
   // Legacy: these are now thread types but kept for /s/ URL compat
   attention: Attention,
   analyze: Analyze,

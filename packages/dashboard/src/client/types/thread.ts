@@ -75,6 +75,8 @@ export const SYSTEM_PAGES = [
   { page: 'proposals', label: 'Proposals', route: '/s/proposals' },
   // Spec B Phase 7 — granular task routing observability panel.
   { page: 'routing', label: 'Routing', route: '/s/routing' },
+  // LMLM Phase 8 — local model lifecycle operator panel.
+  { page: 'local-models', label: 'Local Models', route: '/s/local-models' },
 ] as const;
 
 export type SystemPage = (typeof SYSTEM_PAGES)[number]['page'];
