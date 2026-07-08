@@ -675,6 +675,21 @@ Agents can emit skill candidates — either a fully-formed new skill or a unifie
 
 See [`docs/knowledge/cli/skill-proposals.md`](docs/knowledge/cli/skill-proposals.md) and [`docs/knowledge/cli/skill-provenance.md`](docs/knowledge/cli/skill-provenance.md). ADRs: [0016](docs/knowledge/decisions/0016-skill-proposal-workflow.md), [0017](docs/knowledge/decisions/0017-manage-proposals-scope.md).
 
+### LMLM Operator Surface (Phase 7)
+
+Phase 7 exposes the local-model pool, hardware, recommendations, and model-proposal queue over the orchestrator's HTTP + WebSocket + notification-sink surfaces so CLI, dashboard, and Slack operators all read one source of truth (ADR [0060](docs/knowledge/decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)).
+
+**Read routes.** Four additive GETs dispatched from `handleV1LocalModelsRoute` (`packages/orchestrator/src/server/routes/v1/local-models.ts`), each `503 { error: 'LMLM disabled' }` when its accessor is null and registered in `V1_BRIDGE_ROUTES` (`scope: 'read-status'`) so the `/api/v1` rewrite shim does not misroute them to the legacy status handler:
+
+- `GET /api/v1/local-models/hardware` — current `HardwareProfile`.
+- `GET /api/v1/local-models/pool` — `PoolState` view including any `pendingEviction: true` entries (S1 overlay).
+- `GET /api/v1/local-models/recommendations?top=N&profile=general|coding|reasoning` — `RankedModel[]` (validates `top`/`profile` → `400`; `[]` until the Phase 2 candidate parser lands; `profile` is not yet a ranking input).
+- `GET /api/v1/local-models/proposals` — kind-filtered (`kind: 'model'`, `status: 'open'`) feed. Model approve/reject stays on the **shared** `/api/v1/proposals/:id/{approve,reject}` route — no duplicate handler (D-Q2).
+
+**WS + sinks.** The model handlers emit `local-models:proposal` and `local-models:pool` on the orchestrator bus; `OrchestratorServer.wireEvents()` fans both out to every `/ws` client (detached in `stop()`). A `local-models.proposal` notification envelope (`notifications/envelope.ts`) varies title/severity by `data.status` (`created`/`rejected`/`failed_target_missing`). The scheduler's `emitProposal` seam fires `local-models:proposal { status: 'created' }` on new-proposal creation.
+
+**S1 dispatch-safe eviction.** An approved swap/evict of a model that might be serving a request is **deferred**, not applied mid-dispatch. `onApproveModelProposal` consults an injectable `isModelInUse(ollamaName)` probe before evicting; if in use it calls `PoolManager.markPendingEviction` (a transient, never-persisted overlay), emits `local-models:pool { phase: 'evict_deferred' }`, and skips the evict — the install for a swap has already applied, so the pool transiently holds both. `Orchestrator.drainDeferredEvictions()` fires best-effort from the run-completion path (`emitWorkerExit`), completing any deferred eviction the probe now reports idle and emitting `evict_completed`. The production probe (`Orchestrator.isLocalModelInUse`) is **agent-run-coarse** — `state.running.size > 0` AND the name is a currently-resolved/last-detected local model — so it may over-defer (a safe failure); a per-request signal is a documented deferred gap.
+
 ### Dashboard Package
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
