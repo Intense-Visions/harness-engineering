@@ -133,6 +133,9 @@ describe('RecommendationsCard', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('/api/v1/proposals/mp-1/approve');
     expect((init as RequestInit).method).toBe('POST');
+    // XP-4: approve sends NO body — the route derives decidedBy from the auth
+    // token and never reads a body field, so no dead { decidedBy } is posted.
+    expect((init as RequestInit).body).toBeUndefined();
     vi.unstubAllGlobals();
   });
 

@@ -91,7 +91,11 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
         <button
           type="button"
           disabled={busy}
-          onClick={() => void post('/approve', { decidedBy: 'dashboard-reviewer' })}
+          // Approve sends NO body: the proposals route derives decidedBy from the
+          // auth token via getDecidedBy and never reads a body field, so a
+          // { decidedBy } payload was dead. Symmetric with reject, which sends
+          // only the { reason } the route actually consumes (XP-4).
+          onClick={() => void post('/approve')}
           className="rounded bg-green-600 px-3 py-1 text-xs"
         >
           Approve
