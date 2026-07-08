@@ -945,7 +945,11 @@ Copy agent.backends (and routing) from harness.orchestrator.md into harness.conf
 
 ## Models Commands
 
-Inspect and manage local LLM backends. Currently ships `probe`; LMLM phases add status/suggest/pool/proposals.
+Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), and `refresh` (force a scheduler tick).
+
+### `harness models approve <id>`
+
+Approve a model proposal (drives the installer + pool update). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.
 
 ### `harness models probe`
 
@@ -957,6 +961,26 @@ Probe a local backend's /v1/models endpoint and report which configured model is
 - `--endpoint` — Override the backend endpoint (bypasses harness.config.json).
 - `--api-key` — Override the API key.
 - `--json` — Print machine-readable JSON instead of a human summary.
+
+### `harness models proposals`
+
+List model proposals in the local review queue (defaults to pending).
+
+**Options:**
+
+- `--status` — Filter by status (open | approved | rejected | all). (default: "open")
+
+### `harness models refresh`
+
+Force a background-scheduler refresh tick now (emits any model proposals). Exits non-zero on an O4 hard failure (HuggingFace unreachable AND no benchmark snapshot). Requires the orchestrator running + HARNESS_ADMIN_TOKEN.
+
+### `harness models reject <id>`
+
+Reject a model proposal with a one-line reason (records the decision + fires the bus event). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.
+
+**Options:**
+
+- `--reason` — Why the proposal is being rejected
 
 ## Notifications Commands
 
