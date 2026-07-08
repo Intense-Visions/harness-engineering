@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { RecommendationsCard } from '../../../../src/client/components/local-models/RecommendationsCard';
 import type { DashRankedModel } from '../../../../src/client/types/local-models';
@@ -160,6 +160,46 @@ describe('RecommendationsCard', () => {
     expect(String(url)).toBe('/api/v1/proposals/mp-1/reject');
     expect((init as RequestInit).method).toBe('POST');
     expect(String((init as RequestInit).body)).toContain('not worth the disk');
+    vi.unstubAllGlobals();
+  });
+
+  it('two synchronous clicks fire only one POST (synchronous double-submit guard)', async () => {
+    // Keep the POST in-flight so `busy` state never flushes between the two
+    // synchronous clicks — proving the ref guard, not the disabled re-render.
+    let resolveFetch: () => void = () => {};
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = () => resolve(okRes());
+        })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+
+    render(
+      <RecommendationsCard
+        recommendations={[]}
+        recommendationsError={null}
+        proposals={[PROPOSAL]}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    const approve = screen.getByRole('button', { name: /approve/i });
+    // Both clicks dispatched inside ONE act() so React batches state updates and
+    // does NOT re-render (or apply disabled={busy}) between them — the button is
+    // still enabled at the second click. Only the synchronous busyRef guard can
+    // stop the second POST here; the disabled-attribute path cannot.
+    act(() => {
+      approve.click();
+      approve.click();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch();
+    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
 

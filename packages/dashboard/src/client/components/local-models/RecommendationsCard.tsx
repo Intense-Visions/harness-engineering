@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import type { DashRankedModel } from '../../types/local-models';
 
@@ -40,9 +40,15 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  // Synchronous double-submit guard: `disabled={busy}` only takes effect after
+  // a re-render, so a second click in the same frame could otherwise fire a
+  // second POST before React flushes. The ref blocks that sub-frame window.
+  const busyRef = useRef(false);
 
   const post = useCallback(
     async (suffix: string, body?: object): Promise<void> => {
+      if (busyRef.current) return;
+      busyRef.current = true;
       setBusy(true);
       setError(null);
       try {
@@ -60,6 +66,7 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
