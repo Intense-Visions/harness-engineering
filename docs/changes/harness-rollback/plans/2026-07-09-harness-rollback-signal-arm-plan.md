@@ -32,7 +32,7 @@ Phases 1 and 2 are DONE and committed: `packages/core/src/rollback/*`, `packages
 
 ## Uncertainties
 
-- **[ASSUMPTION]** "Threshold crossing" means an *edge* crossing (prior point on one side, latest in-window point on the other), not merely "latest value is past threshold." This avoids re-firing every sweep while a signal sits past the threshold. Encoded in AC2/AC3. If the spec intends "any in-window point past threshold," only the `detectCrossing` predicate in Task 2 changes (test-first, so it is a cheap pivot).
+- **[ASSUMPTION]** "Threshold crossing" means an _edge_ crossing (prior point on one side, latest in-window point on the other), not merely "latest value is past threshold." This avoids re-firing every sweep while a signal sits past the threshold. Encoded in AC2/AC3. If the spec intends "any in-window point past threshold," only the `detectCrossing` predicate in Task 2 changes (test-first, so it is a cheap pivot).
 - **[ASSUMPTION]** The sweep resolves "PR(s) merged in the window" via `gh pr list --state merged --json number,mergedAt --search "merged:>=<windowStart>"` (or client-side filter of `mergedAt`), injected behind a `PrResolver` seam so tests never touch `gh`. The real resolver is untested-by-design (thin process shim), mirroring `createGhSeam` in `rollback.ts`.
 - **[ASSUMPTION]** The timeline reader reuses `SignalTimelineStore` from `@harness-engineering/signals` (`read(id)` returns `SignalPoint[]`, empty for unknown ids, soft-fails on missing/corrupt file). Config signal names are arbitrary strings; `read` keys straight into the record, so a narrow cast at the seam boundary is acceptable. Behind a `TimelineReader` seam for tests.
 - **[ASSUMPTION]** `now` is injected into the sweep (a `() => Date` clock) so window math is deterministic in tests. The CLI action passes the real clock.
@@ -160,8 +160,8 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
    - a fake `resolveMergedPrs` returning `[201, 202]`,
    - a spy `evaluate` (records calls, returns a stub `RollbackDecision`),
    - fixed `now`.
-   Signals config: `{ errorRate: { threshold: 5, direction: 'above', window: '7d' } }`.
-   Assert:
+     Signals config: `{ errorRate: { threshold: 5, direction: 'above', window: '7d' } }`.
+     Assert:
    - **AC1**: a crossing timeline (prev `4`, latest `6`) → `evaluate` called with `201` and `202` (once each; `trigger` is fixed to `'signal'` by the CLI wiring, so the spy signature is `(pr) => ...`).
    - **AC7**: a non-crossing timeline (all `>= 5`, plateau) → `evaluate` never called.
    - **AC7**: a signal absent from the timeline → `evaluate` never called, no throw.
@@ -191,7 +191,9 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
    ```ts
    rollback
      .command('sweep')
-     .description('Read the signal timeline and propose reverts for threshold crossings (signal arm)')
+     .description(
+       'Read the signal timeline and propose reverts for threshold crossings (signal arm)'
+     )
      .action(async () => {
        const cfg = resolveConfig(); // Result<HarnessConfig, CLIError>
        const signals = cfg.ok ? (cfg.value.rollback?.signals ?? {}) : {};
@@ -200,7 +202,10 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
          readTimeline: createTimelineReader(root),
          resolveMergedPrs: createPrResolver(),
          evaluate: (pr) =>
-           runRollbackEvaluate({ pr, trigger: 'signal' }, { io: createNodeRollbackIO(), gh: createGhSeam() }),
+           runRollbackEvaluate(
+             { pr, trigger: 'signal' },
+             { io: createNodeRollbackIO(), gh: createGhSeam() }
+           ),
        });
      });
    ```
@@ -221,6 +226,7 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
    - **AC9 enabled**: `enabled === true` → `evaluate` IS called once with the pr and `trigger: 'eval'`; resolves to the decision.
 2. Run: `pnpm --filter @harness-engineering/cli test rollback/eval-gate` — observe failure.
 3. Implement `eval-gate.ts`:
+
    ```ts
    import type { HarnessConfig } from '../config/schema';
    import type { RollbackDecision } from '@harness-engineering/core';
@@ -238,7 +244,9 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
      return deps.evaluate(pr);
    }
    ```
+
    (Verify the exact `HarnessConfig` type export name in `schema.ts`; the `evaluate` seam is expected to bind `trigger: 'eval'` at the call site.)
+
 4. Run: `pnpm --filter @harness-engineering/cli test rollback/eval-gate` — observe pass.
 5. Run: `node packages/cli/dist/bin/harness.js validate`.
 6. Commit: `feat(rollback): add flag-gated dark eval-arm entry (unfired in v1)`
@@ -270,6 +278,7 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
 **Depends on:** Task 5 | **Files:** `.github/workflows/rollback-propose.yml`
 
 1. Create `.github/workflows/rollback-propose.yml` modeled on `roadmap-auto-done.yml` but **propose-only** (NO `contents: write`, NO PAT). Exact content:
+
    ```yaml
    name: Rollback Propose
 
@@ -320,7 +329,9 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
            run: node packages/cli/dist/bin/harness.js rollback sweep
    ```
+
    _(Note: the `pull_request:[closed]` eval arm has no explicit run step yet — it stays dark until Phase 4 wires the eval entry; the trigger + gated job exist so activation is a Phase-4 code change, not a workflow rewrite. Documented, not claimed functional.)_
+
 2. Run: `node -e "const yaml=require('yaml'); yaml.parse(require('fs').readFileSync('.github/workflows/rollback-propose.yml','utf8')); console.log('yaml ok')"` — confirm it parses.
 3. Commit: `feat(rollback): add propose-only rollback-propose workflow`
 
@@ -379,16 +390,16 @@ _Skeleton approved: pending (standard rigor, 11 tasks ≥ 8 → skeleton require
 
 ## Traceability
 
-| Observable truth | Delivered by |
-| --- | --- |
-| AC1 (crossing → evaluate per PR) | Task 4 |
-| AC2 (above edge, not plateau) | Task 2 |
-| AC3 (below edge) | Task 2 |
-| AC4 (window resolution) | Task 3 |
-| AC5 (window regex validation, #5) | Task 7 |
-| AC6 (parseWindow) | Task 2 |
-| AC7 (no crossing / absent → no eval) | Task 4 |
-| AC8 (idempotency stays composer's job) | Task 4 |
-| AC9 (eval arm dark self-gate) | Task 6 |
-| AC10 (workflow syntax + trace) | Tasks 8, 9 |
-| AC11 (suite + validate green) | Task 11 |
+| Observable truth                       | Delivered by |
+| -------------------------------------- | ------------ |
+| AC1 (crossing → evaluate per PR)       | Task 4       |
+| AC2 (above edge, not plateau)          | Task 2       |
+| AC3 (below edge)                       | Task 2       |
+| AC4 (window resolution)                | Task 3       |
+| AC5 (window regex validation, #5)      | Task 7       |
+| AC6 (parseWindow)                      | Task 2       |
+| AC7 (no crossing / absent → no eval)   | Task 4       |
+| AC8 (idempotency stays composer's job) | Task 4       |
+| AC9 (eval arm dark self-gate)          | Task 6       |
+| AC10 (workflow syntax + trace)         | Tasks 8, 9   |
+| AC11 (suite + validate green)          | Task 11      |

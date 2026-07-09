@@ -300,9 +300,7 @@ _Not produced — task count (6) is below the standard-rigor threshold (8)._
      } else if (dependentMerges.length > 0) {
        revertReady = false;
        action = 'blocked';
-       reasons.push(
-         `dependent later merge(s) touch the same files: ${dependentMerges.join(', ')}`
-       );
+       reasons.push(`dependent later merge(s) touch the same files: ${dependentMerges.join(', ')}`);
      } else {
        revertReady = true;
        action = 'proposed';
@@ -348,12 +346,7 @@ _Not produced — task count (6) is below the standard-rigor threshold (8)._
     * Rollback module — post-ship revert-readiness classification.
     * Pure, IO-injected: git/gh are reached only through the `RollbackIO` seam.
     */
-   export type {
-     RollbackDecision,
-     RollbackIO,
-     ClassifyInput,
-     LaterMerge,
-   } from './types';
+   export type { RollbackDecision, RollbackIO, ClassifyInput, LaterMerge } from './types';
    export type { RollbackIO as RollbackIOSeam } from './io';
    export { classifyRevert } from './classify';
    ```
@@ -538,13 +531,13 @@ Parallel opportunity: after Task 3, Task 4 (barrel) and Task 5 (config schema) t
 
 ## Validation Trace (truth → task)
 
-| Observable Truth | Delivered by |
-| --- | --- |
-| 1 (RollbackDecision type) | Task 1 |
-| 2 (injected IO seam, no child_process) | Task 1, Task 3 |
-| 3 (clean/conflict) | Task 2, Task 3 |
-| 4 (dependent merge block) | Task 2, Task 3 |
-| 5 (migration warnings, non-gating) | Task 2, Task 3 |
-| 6 (barrel export resolves) | Task 4 |
-| 7 (config block parses) | Task 5, Task 6 |
-| 8 (tests + validate green) | Task 3, Task 4, Task 5, Task 6 |
+| Observable Truth                       | Delivered by                   |
+| -------------------------------------- | ------------------------------ |
+| 1 (RollbackDecision type)              | Task 1                         |
+| 2 (injected IO seam, no child_process) | Task 1, Task 3                 |
+| 3 (clean/conflict)                     | Task 2, Task 3                 |
+| 4 (dependent merge block)              | Task 2, Task 3                 |
+| 5 (migration warnings, non-gating)     | Task 2, Task 3                 |
+| 6 (barrel export resolves)             | Task 4                         |
+| 7 (config block parses)                | Task 5, Task 6                 |
+| 8 (tests + validate green)             | Task 3, Task 4, Task 5, Task 6 |
