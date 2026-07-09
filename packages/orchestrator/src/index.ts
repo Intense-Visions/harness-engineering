@@ -203,3 +203,8 @@ export type {
   ProposalApprovedData,
   ProposalRejectedData,
 } from './proposals';
+
+// LMLM live candidate discovery — re-exported so the CLI composition root can
+// wire the real implementation into the Orchestrator (which defaults to a no-op
+// so tests make no HuggingFace calls on startup).
+export { discoverCandidates } from '@harness-engineering/local-models';

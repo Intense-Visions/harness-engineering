@@ -43,6 +43,7 @@ import {
   createNativeRecommender,
   loadFrozenCandidates,
   selectCandidates,
+  curationFromCandidates,
 } from '@harness-engineering/local-models';
 import type {
   PoolStateProvider,
@@ -51,6 +52,9 @@ import type {
   DedupPairs,
   HardwareProfile,
   SchedulerTimerHandle,
+  FrozenCandidate,
+  DiscoverCandidatesOptions,
+  DiscoverCandidatesResult,
 } from '@harness-engineering/local-models';
 import { createModelProposal, listProposals, updateProposal } from '@harness-engineering/core';
 import { redriveInstallingProposals } from './proposals/model-handlers';
@@ -255,6 +259,15 @@ export class Orchestrator extends EventEmitter {
    * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
    */
   private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
+  /** Live HF candidate discovery (injectable for tests so startup makes no network calls). */
+  private readonly discoverCandidatesFn: (
+    opts: DiscoverCandidatesOptions
+  ) => Promise<DiscoverCandidatesResult>;
+  /** Snapshot of the last candidate seeding, surfaced to the refresh route. */
+  private candidateSourceState: { source: 'frozen' | 'live'; count: number } = {
+    source: 'frozen',
+    count: 0,
+  };
   /** Test seam: injected timer/clock for the scheduler so no real 24h timer runs. */
   private readonly schedulerTimerOverride: {
     setTimer?: (cb: () => void, delayMs: number) => SchedulerTimerHandle;
@@ -372,10 +385,17 @@ export class Orchestrator extends EventEmitter {
         now?: () => number;
         random?: () => number;
       };
+      /** Live-candidate-discovery seam: tests inject a fake so startup makes no HF calls. */
+      discoverCandidates?: (opts: DiscoverCandidatesOptions) => Promise<DiscoverCandidatesResult>;
     }
   ) {
     super();
     this.schedulerTimerOverride = overrides?.schedulerTimer ?? null;
+    // Default to a no-op so constructing the orchestrator (e.g. in tests) makes
+    // NO HuggingFace calls on startup. The production entry point (the CLI's
+    // `orchestrator run`) wires the real `discoverCandidates` explicitly.
+    this.discoverCandidatesFn =
+      overrides?.discoverCandidates ?? (async () => ({ candidates: [], warnings: [] }));
     // Phase 2 plan risk #3: the SSE handler at GET /api/v1/events
     // subscribes to 9 event-bus topics per connection (maintenance:*,
     // interaction.created, interaction.resolved, etc.). Node's default
@@ -713,6 +733,9 @@ export class Orchestrator extends EventEmitter {
         isModelInUse: (ollamaName: string) => this.isLocalModelInUse(ollamaName),
         // LMLM Phase 6: expose the refresh scheduler for POST /local-models/refresh.
         getRefreshScheduler: () => this.refreshScheduler,
+        // Live candidate refresh for POST /local-models/candidates/refresh (the
+        // "Refresh" button). Null when LMLM is disabled → route 503s.
+        getRefreshCandidates: () => (this.modelPool ? () => this.refreshCandidatesLive() : null),
         // LMLM Phase 7 read surface — hardware / recommendations / model proposals.
         // Each returns null/[] when LMLM is disabled so the route renders 503/[].
         getHardwareProfile: () => (this.modelPool ? this.detectLmlmHardware() : null),
@@ -2204,10 +2227,13 @@ export class Orchestrator extends EventEmitter {
         allowedOrgs: this.config.localModels?.pool?.allowedOrgs ?? [],
       });
     }
-    const recommend = createNativeRecommender({ candidates });
-    // Phase 7: reuse this same recommender for the on-demand recommendations
-    // route so the HTTP surface and the background tick share one ranking path.
-    this.modelRecommender = recommend;
+    // Phase 7: reuse this recommender for the on-demand recommendations route so
+    // the HTTP surface and the background tick share one ranking path. Seed it
+    // from the frozen snapshot now; a live HF refresh (startup + operator button)
+    // swaps in a fresh recommender via `seedRecommender`, and this indirection
+    // makes the change take effect on the next tick and the next route call.
+    this.seedRecommender(candidates, 'frozen');
+    const recommend = (hardware: HardwareProfile) => this.modelRecommender!(hardware);
     this.refreshScheduler = new RefreshScheduler({
       runTick: () =>
         runRefreshTick({
@@ -2245,6 +2271,63 @@ export class Orchestrator extends EventEmitter {
       ...(this.schedulerTimerOverride ?? {}),
     });
     this.refreshScheduler.start();
+  }
+
+  /** (Re)build the recommender over `candidates` and record the seeding source. */
+  private seedRecommender(candidates: readonly FrozenCandidate[], source: 'frozen' | 'live'): void {
+    this.modelRecommender = createNativeRecommender({ candidates });
+    this.candidateSourceState = { source, count: candidates.length };
+  }
+
+  /**
+   * Refresh ranking candidates live from HuggingFace, merge the curated
+   * `ollamaName`/`family` tags from the frozen snapshot (so results stay
+   * installable — decision A), and re-seed the recommender. Fail-closed: on any
+   * error or an empty installable result, the current candidates stand. Runs a
+   * `forceRefresh` tick so recommendations + proposals reflect the fresh set.
+   * Used by both the startup background refresh and the operator "Refresh" button.
+   */
+  private async refreshCandidatesLive(
+    signal?: AbortSignal
+  ): Promise<{ source: 'frozen' | 'live'; count: number }> {
+    const poolCfg = this.config.localModels?.pool;
+    const orgs = poolCfg?.allowedOrgs ?? [];
+    if (orgs.length === 0) return this.candidateSourceState;
+
+    const curation = curationFromCandidates(loadFrozenCandidates().candidates);
+    let result: DiscoverCandidatesResult;
+    try {
+      result = await this.discoverCandidatesFn({
+        orgs,
+        curation,
+        ...(signal ? { signal } : {}),
+        onWarn: (m, cause) => this.logger.warn(m, cause !== undefined ? { cause } : undefined),
+      });
+    } catch (err) {
+      this.logger.warn('LMLM live candidate discovery failed; keeping current candidates', {
+        cause: err,
+      });
+      return this.candidateSourceState;
+    }
+
+    const selected = selectCandidates(result.candidates, poolCfg);
+    if (selected.length === 0) {
+      this.logger.warn('LMLM live discovery yielded no installable candidates; keeping current', {
+        warnings: result.warnings,
+      });
+      return this.candidateSourceState;
+    }
+
+    this.seedRecommender(selected, 'live');
+    this.logger.info('LMLM candidates refreshed from HuggingFace', { count: selected.length });
+    await this.refreshScheduler?.forceRefresh();
+    // Nudge the dashboard to refetch recommendations against the fresh set.
+    this.emit('local-models:pool', {
+      phase: 'candidates_refreshed',
+      source: 'live',
+      count: selected.length,
+    });
+    return this.candidateSourceState;
   }
 
   /** Resolve the hardware profile for a refresh tick (operator override wins). */
@@ -2337,6 +2420,15 @@ export class Orchestrator extends EventEmitter {
     // LMLM Phase 6: start the background refresh scheduler once the pool state
     // is loaded. Guarded on modelPool so LMLM-disabled configs never arm it.
     this.startRefreshScheduler();
+    // Live candidate discovery on startup: the frozen snapshot already seeded the
+    // recommender (instant, offline-safe), so pull fresh HuggingFace candidates in
+    // the background and swap them in when ready. Fire-and-forget + fail-closed —
+    // a network failure just leaves the frozen list in place.
+    if (this.modelPool !== null) {
+      void this.refreshCandidatesLive().catch((err) =>
+        this.logger.warn('LMLM startup candidate refresh failed', { cause: err })
+      );
+    }
     // Defer pipeline construction until after the resolver has observed the
     // server. createIntelligencePipeline() consults resolver.getStatus() via
     // createAnalysisProvider() and returns null when local is unavailable.

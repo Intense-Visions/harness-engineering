@@ -1,6 +1,11 @@
 import { Command } from 'commander';
 import * as path from 'node:path';
-import { Orchestrator, WorkflowLoader, launchTUI } from '@harness-engineering/orchestrator';
+import {
+  Orchestrator,
+  WorkflowLoader,
+  launchTUI,
+  discoverCandidates,
+} from '@harness-engineering/orchestrator';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
@@ -27,7 +32,9 @@ export function createOrchestratorCommand(): Command {
       // Spec B Phase 2 / S3: surface non-blocking routing warnings at startup.
       for (const w of warnings) logger.warn(w);
 
-      const daemon = new Orchestrator(config, promptTemplate);
+      // Wire live HuggingFace candidate discovery at the composition root (the
+      // Orchestrator defaults to a no-op so tests never touch the network).
+      const daemon = new Orchestrator(config, promptTemplate, { discoverCandidates });
 
       const shutdown = () => {
         daemon.stop();

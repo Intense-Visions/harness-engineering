@@ -36,6 +36,7 @@ import type { Proposal } from '@harness-engineering/types';
  */
 
 const REFRESH_RE = /^\/api\/v1\/local-models\/refresh(?:\?.*)?$/;
+const CANDIDATES_REFRESH_RE = /^\/api\/v1\/local-models\/candidates\/refresh(?:\?.*)?$/;
 
 // ── Phase 7 read routes ── (anchored; tolerate an optional query string)
 const HARDWARE_RE = /^\/api\/v1\/local-models\/hardware(?:\?.*)?$/;
@@ -81,6 +82,11 @@ export interface V1LocalModelsDeps {
     top: number;
     profile: RecommendationProfile;
   }) => Promise<RankedModel[]>;
+  /**
+   * Live HuggingFace candidate refresh: re-discovers installable candidates,
+   * re-seeds the recommender, and re-ranks. Returns null when LMLM is disabled.
+   */
+  getRefreshCandidates?: () => (() => Promise<{ source: 'frozen' | 'live'; count: number }>) | null;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -121,7 +127,21 @@ export function handleV1LocalModelsRoute(
     return false;
   }
 
-  if (method !== 'POST' || !REFRESH_RE.test(url)) return false;
+  if (method !== 'POST') return false;
+
+  // POST /candidates/refresh — pull fresh candidates from HuggingFace, re-seed,
+  // and re-rank. Checked before /refresh (distinct anchored routes).
+  if (CANDIDATES_REFRESH_RE.test(url)) {
+    const refresh = deps.getRefreshCandidates?.() ?? null;
+    if (refresh === null) {
+      sendJSON(res, 503, { error: 'LMLM disabled' });
+      return true;
+    }
+    void runCandidatesRefresh(res, refresh);
+    return true;
+  }
+
+  if (!REFRESH_RE.test(url)) return false;
 
   const scheduler = deps.getRefreshScheduler();
   if (scheduler === null) {
@@ -131,6 +151,21 @@ export function handleV1LocalModelsRoute(
 
   void runForceRefresh(res, scheduler, deps);
   return true;
+}
+
+/** Run a live candidate refresh and return its `{ source, count }` result. */
+async function runCandidatesRefresh(
+  res: ServerResponse,
+  refresh: () => Promise<{ source: 'frozen' | 'live'; count: number }>
+): Promise<void> {
+  try {
+    sendJSON(res, 200, await refresh());
+  } catch (err) {
+    sendJSON(res, 500, {
+      error: 'candidate refresh failed',
+      detail: err instanceof Error ? err.message : 'unknown',
+    });
+  }
 }
 
 /** Run a GET handler, mapping any thrown error to a `500 { error, detail }`. */

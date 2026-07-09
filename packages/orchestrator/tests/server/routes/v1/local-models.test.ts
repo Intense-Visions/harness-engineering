@@ -388,3 +388,42 @@ describe('handleV1LocalModelsRoute (Phase 7 GET routes)', () => {
     expect(chunks.join('')).toContain('probe boom');
   });
 });
+
+describe('handleV1LocalModelsRoute (POST /api/v1/local-models/candidates/refresh)', () => {
+  it('returns 200 with the seeding source + count on a live refresh', async () => {
+    const deps: V1LocalModelsDeps = {
+      getRefreshScheduler: () => null,
+      getRefreshCandidates: () => async () => ({ source: 'live', count: 6 }),
+    };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, chunks, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(200);
+    expect(JSON.parse(chunks.join(''))).toEqual({ source: 'live', count: 6 });
+  });
+
+  it('returns 503 when candidate refresh is unavailable (LMLM disabled)', async () => {
+    const deps: V1LocalModelsDeps = {
+      getRefreshScheduler: () => null,
+      getRefreshCandidates: () => null,
+    };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(503);
+  });
+
+  it('returns 503 when getRefreshCandidates is not configured', async () => {
+    const deps: V1LocalModelsDeps = { getRefreshScheduler: () => null };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(503);
+  });
+});
