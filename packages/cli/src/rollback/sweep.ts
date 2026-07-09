@@ -23,3 +23,37 @@ export interface RollbackSweepDeps {
   evaluate: (pr: number) => Promise<RollbackDecision>;
   now?: Clock;
 }
+
+const WINDOW_UNIT_MS: Record<string, number> = {
+  h: 3_600_000,
+  d: 86_400_000,
+  w: 604_800_000,
+};
+
+/**
+ * Parse a lookback window like `"24h"`, `"7d"`, `"2w"` into milliseconds. Single
+ * source of truth for both the schema-validation intent and window-start math.
+ * Throws on any string not matching `/^\d+[hdw]$/`.
+ */
+export function parseWindow(window: string): number {
+  const match = /^(\d+)([hdw])$/.exec(window);
+  if (!match) throw new Error(`invalid window: ${window}`);
+  const [, count, unit] = match;
+  return Number.parseInt(count, 10) * WINDOW_UNIT_MS[unit];
+}
+
+/**
+ * Edge-crossing detection over oldest→newest points. A crossing fires only when
+ * the immediately prior point is on one side of the threshold and the latest
+ * point is on the other — NOT a sustained plateau past the threshold (which
+ * would re-fire every sweep). Fewer than two points → no crossing.
+ */
+export function detectCrossing(points: SignalPoint[], rule: SweepSignalRule): boolean {
+  if (points.length < 2) return false;
+  const prev = points[points.length - 2];
+  const curr = points[points.length - 1];
+  if (rule.direction === 'above') {
+    return prev.value < rule.threshold && curr.value >= rule.threshold;
+  }
+  return prev.value > rule.threshold && curr.value <= rule.threshold;
+}
