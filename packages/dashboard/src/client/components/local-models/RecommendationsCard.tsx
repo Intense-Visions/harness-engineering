@@ -379,7 +379,10 @@ export function RecommendationsCard({
     setRefreshing(true);
     setRefreshError(null);
     try {
-      const res = await fetch('/api/v1/local-models/refresh', { method: 'POST' });
+      // Pull fresh candidates from HuggingFace, re-seed the recommender, and
+      // re-rank — the "get the latest" action (falls back to the frozen list
+      // server-side if HF is unreachable).
+      const res = await fetch('/api/v1/local-models/candidates/refresh', { method: 'POST' });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`HTTP ${res.status}: ${text}`);

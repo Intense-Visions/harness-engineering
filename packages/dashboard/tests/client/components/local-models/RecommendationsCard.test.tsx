@@ -193,7 +193,7 @@ describe('RecommendationsCard', () => {
 
     await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe('/api/v1/local-models/refresh');
+    expect(String(url)).toBe('/api/v1/local-models/candidates/refresh');
     expect((init as RequestInit).method).toBe('POST');
     vi.unstubAllGlobals();
   });

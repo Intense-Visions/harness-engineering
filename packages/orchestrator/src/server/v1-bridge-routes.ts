@@ -118,6 +118,12 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'manage-proposals',
     description: 'Force a background-scheduler refresh tick and return emitted proposals (O4).',
   },
+  {
+    method: 'POST',
+    pattern: /^\/api\/v1\/local-models\/candidates\/refresh(?:\?.*)?$/,
+    scope: 'manage-proposals',
+    description: 'Re-discover candidates live from HuggingFace, re-seed the recommender, re-rank.',
+  },
   // ── LMLM dashboard pool mutation — operator-initiated install/remove ──
   // Modeled as auto-approved model proposals, so the same `manage-proposals`
   // write scope that governs approve/reject governs these too.

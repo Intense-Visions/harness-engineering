@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
+import { requiredScopeForRoute } from '../../../../src/auth/scopes';
 import {
   EmptyPoolState,
   type TickResult,
@@ -386,5 +387,53 @@ describe('handleV1LocalModelsRoute (Phase 7 GET routes)', () => {
     );
     expect(statusCode()).toBe(500);
     expect(chunks.join('')).toContain('probe boom');
+  });
+});
+
+describe('handleV1LocalModelsRoute (POST /api/v1/local-models/candidates/refresh)', () => {
+  it('returns 200 with the seeding source + count on a live refresh', async () => {
+    const deps: V1LocalModelsDeps = {
+      getRefreshScheduler: () => null,
+      getRefreshCandidates: () => async () => ({ source: 'live', count: 6 }),
+    };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, chunks, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(200);
+    expect(JSON.parse(chunks.join(''))).toEqual({ source: 'live', count: 6 });
+  });
+
+  it('returns 503 when candidate refresh is unavailable (LMLM disabled)', async () => {
+    const deps: V1LocalModelsDeps = {
+      getRefreshScheduler: () => null,
+      getRefreshCandidates: () => null,
+    };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(503);
+  });
+
+  it('returns 503 when getRefreshCandidates is not configured', async () => {
+    const deps: V1LocalModelsDeps = { getRefreshScheduler: () => null };
+    const req = makeReq('POST', '/api/v1/local-models/candidates/refresh');
+    const { res, statusCode, done } = makeRes();
+
+    expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
+    await done;
+    expect(statusCode()).toBe(503);
+  });
+
+  it('is registered with the manage-proposals scope (a mutation, not a read)', () => {
+    // Regression: the route existed but had no bridge-route scope entry, so it
+    // fell to the read-status `/api/local-models` prefix — under-scoping a
+    // mutation (and 403/404-ing behind stricter auth setups).
+    expect(requiredScopeForRoute('POST', '/api/v1/local-models/candidates/refresh')).toBe(
+      'manage-proposals'
+    );
   });
 });

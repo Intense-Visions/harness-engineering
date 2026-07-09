@@ -11,6 +11,13 @@
 export { extractSizeB, extractQuantFromFilename, parseHfModelToCandidates } from './parse.js';
 export type { ExtractedSize, ParseCandidateOptions } from './parse.js';
 
+export { discoverCandidates, curationFromCandidates } from './discover.js';
+export type {
+  CurationTags,
+  DiscoverCandidatesOptions,
+  DiscoverCandidatesResult,
+} from './discover.js';
+
 export {
   loadFrozenCandidates,
   validateFrozenCandidates,

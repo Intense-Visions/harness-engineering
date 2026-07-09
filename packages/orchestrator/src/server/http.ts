@@ -196,6 +196,8 @@ export interface ServerDependencies {
    * (LMLM disabled). A closure so the route always sees current lifecycle state.
    */
   getRefreshScheduler?: () => RefreshSchedulerOps | null;
+  /** Live HF candidate refresh (re-discover + re-seed + re-rank); null when LMLM disabled. */
+  getRefreshCandidates?: () => (() => Promise<{ source: 'frozen' | 'live'; count: number }>) | null;
   /**
    * LMLM Phase 7: resolves the current hardware profile for
    * `GET /api/v1/local-models/hardware`. Null/absent → the route returns `503`
@@ -255,6 +257,9 @@ export class OrchestratorServer {
   // LMLM Phase 6 — live model pool + refresh scheduler accessors.
   private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
   private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
+  private getRefreshCandidatesFn:
+    | (() => (() => Promise<{ source: 'frozen' | 'live'; count: number }>) | null)
+    | null = null;
   // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
   private getHardwareProfileFn: (() => Promise<HardwareProfile> | null) | null = null;
   private getRecommendationsFn:
@@ -328,6 +333,7 @@ export class OrchestratorServer {
     // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
     this.getModelPoolFn = deps?.getModelPool ?? null;
     this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
+    this.getRefreshCandidatesFn = deps?.getRefreshCandidates ?? null;
     // LMLM Phase 7 — hardware / recommendations / model-proposal read accessors.
     this.getHardwareProfileFn = deps?.getHardwareProfile ?? null;
     this.getRecommendationsFn = deps?.getRecommendations ?? null;
@@ -613,6 +619,9 @@ export class OrchestratorServer {
       (req, res) =>
         handleV1LocalModelsRoute(req, res, {
           getRefreshScheduler: this.getRefreshSchedulerFn ?? (() => null),
+          ...(this.getRefreshCandidatesFn
+            ? { getRefreshCandidates: this.getRefreshCandidatesFn }
+            : {}),
           getModelPool: () => this.getModelPoolFn?.() ?? null,
           ...(this.getHardwareProfileFn ? { getHardwareProfile: this.getHardwareProfileFn } : {}),
           ...(this.getRecommendationsFn ? { getRecommendations: this.getRecommendationsFn } : {}),
