@@ -174,6 +174,66 @@ describe('RecommendationsCard', () => {
     ).toBe(false);
   });
 
+  it('Refresh POSTs to /refresh and refetches (onDecided) on success', async () => {
+    const accepted = { ok: true, status: 200, text: async () => 'ok' } as Response;
+    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-refresh'));
+
+    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/v1/local-models/refresh');
+    expect((init as RequestInit).method).toBe('POST');
+    vi.unstubAllGlobals();
+  });
+
+  it('hides the Refresh button when recommendations are LMLM-disabled', () => {
+    render(
+      <RecommendationsCard
+        recommendations={null}
+        recommendationsError="LMLM disabled"
+        proposals={[]}
+        onDecided={() => {}}
+        loading={false}
+      />
+    );
+    expect(screen.queryByTestId('rec-refresh')).toBeNull();
+  });
+
+  it('a failed Refresh surfaces an inline error and does not call onDecided', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 503, text: async () => 'LMLM disabled' } as Response)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-refresh'));
+
+    await waitFor(() => expect(screen.getByTestId('rec-refresh-error')).toBeDefined());
+    expect(onDecided).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('shows "installed" instead of an Install button for a pooled model (SC6)', () => {
     render(
       <RecommendationsCard

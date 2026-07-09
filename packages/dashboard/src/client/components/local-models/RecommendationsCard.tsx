@@ -306,14 +306,60 @@ export function RecommendationsCard({
   const poolEntries = pool && Array.isArray(pool.entries) ? pool.entries : [];
   const installedRepos = new Set(poolEntries.map((e) => e.hfRepoId));
 
+  // Manual "Refresh" triggers a force-refresh tick (re-fetch HF + re-rank +
+  // reconcile), then refetches so new recommendations/proposals render. Unlike
+  // install, this is a fast synchronous recompute — no `ollama pull`, no 202.
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const refreshingRef = useRef(false);
+  const lmlmDisabled = recommendationsError === 'LMLM disabled';
+
+  const refresh = useCallback(async (): Promise<void> => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch('/api/v1/local-models/refresh', { method: 'POST' });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      onDecided();
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : String(e));
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [onDecided]);
+
   return (
     <div data-testid="rec-card" className="rounded-lg border border-white/10 p-4">
       <h2 className="mb-3 text-base font-semibold">Recommendations</h2>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase text-neutral-muted">
-          Recommended for your hardware
-        </h3>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase text-neutral-muted">
+            Recommended for your hardware
+          </h3>
+          {!lmlmDisabled && (
+            <button
+              type="button"
+              data-testid="rec-refresh"
+              disabled={refreshing}
+              onClick={() => void refresh()}
+              className="rounded border border-white/10 px-2 py-0.5 text-xs text-neutral-muted hover:bg-white/5 disabled:opacity-50"
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          )}
+        </div>
+        {refreshError && (
+          <p data-testid="rec-refresh-error" className="mb-2 text-xs text-red-300">
+            {refreshError}
+          </p>
+        )}
         {loading && showEmptyRecs && !recommendationsError ? (
           <p className="text-sm text-neutral-muted">Loading recommendations…</p>
         ) : showEmptyRecs ? (

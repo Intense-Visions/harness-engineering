@@ -17,3 +17,7 @@ Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
 `headersTimeout` (~5 min) fired because no response headers were sent until the
 pull completed. The Recommendations panel now renders a live download progress bar
 and surfaces retryable install errors.
+
+The Recommendations panel also gains a **Refresh** button that triggers a
+force-refresh tick (`POST /api/v1/local-models/refresh`) to recompute
+recommendations on demand and refetch the panel.
