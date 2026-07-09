@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import type { DashRankedModel, DashPoolStateView } from '../../types/local-models';
 import type { InstallProgressState } from '../../hooks/useLocalModelsPanel';
+import { round1, fmtScore } from './format';
 
 /**
  * Recommendations card for the LMLM panel. Two sections:
@@ -26,16 +27,6 @@ import type { InstallProgressState } from '../../hooks/useLocalModelsPanel';
  * Reuses the container/border/button classes from `pages/Proposals.tsx` —
  * introduces no new design tokens.
  */
-/** Round to at most one decimal, dropping a trailing `.0` (e.g. 44.159 → "44.2", 20 → "20"). */
-function round1(n: number): string {
-  return (Math.round(n * 10) / 10).toString();
-}
-
-/** Ranking scores render as whole numbers (they are a 0–100 index, not a measurement). */
-function fmtScore(n: number): string {
-  return Math.round(n).toString();
-}
-
 /** Human-readable byte count for the download bar (e.g. 12.3 GB, 512 MB). */
 function fmtBytes(n: number): string {
   if (n >= 1e9) return `${round1(n / 1e9)} GB`;

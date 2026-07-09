@@ -1,4 +1,5 @@
 import type { DashHardwareProfile } from '../../types/local-models';
+import { round1 } from './format';
 
 /**
  * Hardware card for the LMLM panel. Presentational, props-only (no fetch).
@@ -44,9 +45,13 @@ export function HardwareCard({ hardware, error, loading }: HardwareCardProps): J
       {hardware ? (
         <div className="space-y-1.5">
           <Row label="Platform" value={hardware.platform} testId="hw-platform" />
-          <Row label="VRAM" value={`${hardware.vramGb} GB`} testId="hw-vram" />
-          <Row label="RAM" value={`${hardware.ramGb} GB`} testId="hw-ram" />
-          <Row label="Bandwidth" value={`${hardware.bandwidthGbps} GB/s`} testId="hw-bandwidth" />
+          <Row label="VRAM" value={`${round1(hardware.vramGb)} GB`} testId="hw-vram" />
+          <Row label="RAM" value={`${round1(hardware.ramGb)} GB`} testId="hw-ram" />
+          <Row
+            label="Bandwidth"
+            value={`${round1(hardware.bandwidthGbps)} GB/s`}
+            testId="hw-bandwidth"
+          />
           <Row label="Chip" value={hardware.gpuName ?? hardware.cpuName} testId="hw-chip" />
           <p className="pt-1 text-xs text-neutral-muted">
             Detected {new Date(hardware.detectedAt).toLocaleString()}

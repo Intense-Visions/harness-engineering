@@ -61,6 +61,33 @@ describe('PoolCard', () => {
     expect(screen.getByTestId('pool-disk').textContent).toContain('100');
   });
 
+  it('rounds raw float sizes/scores so they never leak into the DOM', () => {
+    renderPool({
+      pool: {
+        ...POOL,
+        diskUsedGb: 75.65831765532494,
+        entries: [
+          {
+            ollamaName: 'deepseek-r1:32b',
+            hfRepoId: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B-GGUF',
+            sizeOnDiskGb: 18.067657947540283,
+            installedAt: '2026-07-01T00:00:00.000Z',
+            lastUsedAt: null,
+            currentScore: 57.629999999999995,
+          },
+        ],
+      },
+    });
+    const disk = screen.getByTestId('pool-disk').textContent ?? '';
+    const row = screen.getByTestId('pool-row-deepseek-r1:32b').textContent ?? '';
+    expect(disk).toContain('75.7'); // one decimal, not 75.65831765532494
+    expect(row).toContain('18.1 GB'); // size to one decimal
+    expect(row).toContain('score 58'); // absolute score as a whole number
+    // No long float anywhere on the card.
+    expect(disk).not.toMatch(/\d\.\d{3,}/);
+    expect(row).not.toMatch(/\d\.\d{3,}/);
+  });
+
   it('renders a pending-eviction badge for entries flagged pendingEviction', () => {
     renderPool();
     expect(screen.getByTestId('pool-pending-llama3:8b')).toBeDefined();
