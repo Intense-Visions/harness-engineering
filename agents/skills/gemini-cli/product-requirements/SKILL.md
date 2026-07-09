@@ -1,0 +1,150 @@
+# Product Requirements
+
+> Turn one picked work item into a durable PRD — user stories, testable acceptance criteria, and prioritization — through a guided interview. The product-management middle between `product-advisor` (BRD) and `harness-brainstorming` (spec). Authors requirements; never authors the spec.
+
+## When to Use
+
+- When a roadmap item (or a plain feature idea) needs product-level requirements — user stories, acceptance criteria, prioritization — before design begins.
+- When a non-technical author (PM/BA/client) should shape _what_ and _why_ through a guided interview, no code surface.
+- When the downstream spec's acceptance criteria should be authored deliberately rather than fused into the proposal — the PRD feeds `harness-brainstorming` and, transitively, `acceptance-eval`.
+- NOT for authoring a spec/proposal — that is `harness-brainstorming`'s job. This skill stops at the PRD.
+- NOT for the BRD / client-inception intake — that is `product-advisor`'s job (upstream of this).
+- NOT for bugs, chores, or refactors with no user-facing behavior — a PRD there is speculative ceremony (YAGNI).
+
+## Process
+
+### Iron Law
+
+**Every user story carries at least one measurable acceptance criterion, or it ships as an open, named gap — never a silent guess. The skill authors the PRD; it does not author the spec, mutate the roadmap, or claim the item.**
+
+A PRD that hides what it does not know launders assumptions into requirements. A criterion that cannot be judged is not a criterion. If a story has no measurable criterion and you did not surface it in the chase list, STOP and add it.
+
+---
+
+### Argument Resolution
+
+- **`item`** — the slug/name of the work item. From the `item` argument, or the roadmap row being worked, or ask. Sets the artifact directory `docs/product-requirements/<item>/`.
+- **`description`** — a plain feature description, used when no richer input (BRD, roadmap row) exists. The skill requires nothing more than this.
+
+---
+
+### Phase 1: INGEST — Gather the Richest Available Input
+
+Load the richest input that exists, and **degrade gracefully** — the only hard requirement is a one-line description.
+
+1. **BRD when present:** if `docs/inception/<engagement>/brd.md` exists and maps to this item, read its Business Objectives, Scope, and Functional Requirements as the seed.
+2. **Else the roadmap row:** if a roadmap exists (`docs/roadmap.md` aggregate or `docs/roadmap.d/` shard), read the row's summary for this item.
+3. **Else the description argument:** treat it as the sole seed.
+4. **Strategy grounding (optional):** call `read_strategy({ path })` on the harness MCP server when available; capture `Target problem` / `Who it's for` to keep stories aligned. Soft-fail silently when absent, invalid, or the server is unavailable.
+5. **Soft-degrade, never fail:** when the seed is sparse (only a title, no BRD/roadmap/strategy), proceed and record a gap ("no BRD/roadmap context; requirements elicited from description only"). Do not abort.
+
+---
+
+### Phase 2: DRAFT-PRD — Synthesize the First Draft
+
+1. **Write the PRD** to `docs/product-requirements/<item>/prd.md` with these sections, each present even if thin:
+   - **Context** (+ a link to the source BRD when present)
+   - **Goal / Problem** — the user-facing outcome this item delivers
+   - **User Stories** — each `As a <role>, I want <goal>, so that <benefit>`, with its acceptance criteria and a MoSCoW priority
+   - **Prioritization summary** — the MoSCoW rollup (Must / Should / Could / Won't)
+   - **Non-Goals** — what this item explicitly does not cover
+   - **Open Questions (chase list)** — unresolved gaps, each phrased as a question
+2. **Acceptance criteria are EARS by default.** Each criterion follows an EARS pattern:
+   - Event-driven: "When `<trigger>`, the system shall `<response>`."
+   - Unwanted: "If `<condition>`, then the system shall not `<behavior>`."
+   - State-driven / optional: "While `<state>` / Where `<feature>`, the system shall `<response>`."
+     Render a criterion as **Given-When-Then** instead only when a story is behavior-heavy and reads more clearly that way. Every criterion must be testable — an EARS trigger→response or a numeric bound.
+3. **Prioritize every story with MoSCoW** (Must / Should / Could / Won't-this-time).
+4. **Tag gaps against the completeness rubric** (below). Every rubric miss becomes a gap `{ id, section, question, severity: blocker | important | nice, status: open }`. Do not invent facts to fill a section — an empty-because-unknown section is a gap, not a place to guess.
+
+#### PRD completeness rubric
+
+- Every user story has ≥1 acceptance criterion, else it is a gap.
+- Every acceptance criterion is measurable — an EARS trigger→response or a numeric bound — else it is a gap.
+- Every user story carries a MoSCoW priority, else it is a gap.
+- Non-Goals is non-empty (state the boundary explicitly), else it is a gap.
+- Every story traces to the Goal / Problem (or to an explicit gap).
+
+---
+
+### Phase 3: GAP-INTERVIEW — Resolve What You Can
+
+1. **Ask ONE question at a time, in plain text.** Order the gap queue by severity (`blocker` → `important` → `nice`). Ask the highest-severity open gap first, wait for the answer, then continue. Present each gap as a scannable multiple-choice table where options exist, and state a recommendation. **Do NOT route questions through `emit_interaction` or `AskUserQuestion`** — the human will not see them; plain text in your reply is the only reliable channel across all clients.
+2. **Fold each answer back into the PRD.** Update the relevant story/criterion (source: `interview`) and move the gap `open → resolved` with the captured answer.
+3. **Mark unresolvable gaps as chase-list questions.** If the author cannot answer (only the client/stakeholder can), keep the gap `open` and phrase it as a question to ask them.
+4. **Stop when the queue is drained** — every gap is either `resolved` or `open` (chase-list). Do not loop past a drained queue inventing new questions.
+
+---
+
+### Phase 4: FINALIZE — Ship and Hand Off
+
+1. **Finalize `docs/product-requirements/<item>/prd.md`** with all sections populated and the **Open Questions** section listing every remaining `open` gap as a question.
+2. **Stay in your lane.** Do **not** mutate the roadmap and **never** write an `assignee` — this skill operates on one already-picked item; claiming it is `harness-execution`'s job at execution start. If no roadmap exists, there is nothing to touch.
+3. **Emit the handoff to `harness-brainstorming`** via `emit_interaction` (type `transition`, `suggestedNext: harness-brainstorming`). State plainly that brainstorming will consume the PRD — seeding the spec's `## User Stories` and `## Success Criteria` from the PRD's EARS criteria — and then author the spec. **Do not author the spec here.**
+4. **Run `harness validate`.**
+
+---
+
+## Harness Integration
+
+- **`read_strategy`** — Phase 1: read `STRATEGY.md` when present to align stories; never write it.
+- **`gather_context`** — Phase 1 (optional): pull existing project/business knowledge to ground the domain.
+- **`emit_interaction`** — Phase 4: record the `transition` to `harness-brainstorming`. The transition is recorded, not surfaced — any human-facing question is asked in plain text.
+- **`harness validate`** — Phase 4: verify artifact placement and project health.
+- **Boundary with adjacent skills:** `product-advisor` WRITES the BRD (upstream); this skill READS the BRD and WRITES the PRD; `harness-brainstorming` READS the PRD and WRITES the spec; `acceptance-eval` READS the spec's criteria and JUDGES them. This skill never crosses those lines.
+- **Portability:** no hardcoded repo layout. The only hard requirement is a feature description. BRD, roadmap, and strategy are optional richer inputs consumed when present and soft-degraded when absent.
+
+## Success Criteria
+
+- Running the skill with only a feature description (no BRD/roadmap/strategy) produces `docs/product-requirements/<item>/prd.md` with all sections present, none empty.
+- Every user story has ≥1 acceptance criterion; every criterion is EARS-shaped (trigger→response) or carries a numeric bound.
+- Every user story carries a MoSCoW priority.
+- The gap interview asked one question at a time and folded each answer back (resolved gaps moved `open → resolved`); every unresolved gap ships as a chase-list question.
+- The skill did not modify the roadmap and did not write an `assignee`.
+- The handoff transitions to `harness-brainstorming`; no spec was authored.
+- `harness validate` passes.
+
+## Rationalizations to Reject
+
+| Rationalization                                                           | Reality                                                                                                                                                             |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This story's outcome is obvious, so I can skip the acceptance criterion" | The Iron Law: every story carries a measurable criterion or a named gap. An implied criterion cannot be judged by `acceptance-eval`.                                |
+| "There's no BRD/roadmap, so I can't run"                                  | The only hard requirement is a description. Soft-degrade to description-only and record a gap — never abort.                                                        |
+| "I'll write the spec while I'm here since the requirements are clear"     | This skill stops at the PRD. Authoring a `proposal.md` is a gate violation — hand off to `harness-brainstorming`.                                                   |
+| "I'll mark the item in-progress / assign it so the pick is recorded"      | This skill never mutates the roadmap or writes `assignee`. Claiming happens at execution start; assigning here makes the orchestrator skip the item.                |
+| "Plain prose criteria are fine; EARS is ceremony"                         | EARS is the grammar `harness-planning`/`harness-brainstorming` consume and the shape `acceptance-eval` reads as MEASURABLE. Freeform criteria drift to un-judgable. |
+
+## Gates
+
+- **No un-criterioned stories.** Every user story is either covered by a measurable acceptance criterion or shipped as an `open` chase-list gap. A story that is neither = Iron Law violation; stop and fix.
+- **No guessed requirements.** An unknown section is a gap, not a place to invent facts.
+- **No spec authoring.** This skill stops at the PRD; writing a `proposal.md` = gate violation. Hand off to `harness-brainstorming`.
+- **No roadmap mutation and no assignment.** Writing the roadmap or the `assignee` field = gate violation.
+- **No hard failure on sparse input.** Absent BRD/roadmap/strategy → description-only + recorded gap. Aborting because context is thin = gate violation.
+
+## Escalation
+
+- **The author cannot answer a blocker gap:** keep it `open`, phrase it as a chase-list question for the client/stakeholder, and note in the handoff that brainstorming inherits an open blocker.
+- **Scope spans multiple independent capabilities:** stop and suggest splitting into multiple items (one PRD per item), rather than one bloated PRD.
+- **No item slug resolvable:** ask for a short name; without one, the artifact directory cannot be created.
+- **The item is a bug/chore/refactor with no user-facing behavior:** say so and recommend going straight to `harness-brainstorming` — a PRD adds no value.
+
+## Examples
+
+### Example: PRD for a picked roadmap item with no BRD
+
+**Context:** roadmap-pilot picked "Export dashboard to PDF." No BRD exists; the roadmap row is a one-line summary.
+
+**INGEST:** No BRD found; read the roadmap row summary; strategy present (aligns with the "reporting" audience). Seed = row summary + description. Recorded no gap (seed sufficient).
+
+**DRAFT-PRD:** Wrote `docs/product-requirements/export-dashboard-to-pdf/prd.md`. 3 user stories:
+
+- _As an analyst, I want to export the current dashboard to PDF, so that I can share it offline._ **[Must]** — "When the user clicks Export → PDF, the system shall produce a PDF of the current dashboard within 5 seconds."
+- _As an analyst, I want the PDF to preserve applied filters, so that it reflects what I see._ **[Should]** — "When a filter is applied, the exported PDF shall reflect the filtered data set."
+- _As an admin, I want export disabled for restricted dashboards._ **[Could]** — "If the dashboard is marked restricted, then the system shall not offer the Export → PDF action."
+
+Tagged 2 gaps: G1 (blocker) "max PDF page count?"; G2 (nice) "landscape or portrait default?".
+
+**GAP-INTERVIEW:** Q1 (G1): "Cap the export at (A) 10 pages, (B) 50 pages, (C) no cap? Recommend B." → "B." Folded into story 1's criterion. Q2 (G2) → author defers → kept open as chase-list.
+
+**FINALIZE:** PRD finalized; Open Questions lists G2. No roadmap mutation, no assignee. Emitted handoff → `harness-brainstorming` will seed the spec's Success Criteria from these EARS criteria. `harness validate` — passes.
