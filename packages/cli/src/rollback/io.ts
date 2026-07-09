@@ -4,6 +4,34 @@ import type { RollbackIO, ResolvedTarget, LaterMerge } from '@harness-engineerin
 /** Trimmed stdout of `git <args>` (no shell — args are an array). */
 const git = (args: string[]): string => execFileSync('git', args, { encoding: 'utf-8' }).toString();
 
+/**
+ * Injectable git seam for the (otherwise process-bound) dry-run logic. `run`
+ * throws on any non-zero exit (like `execFileSync`); `tryMergeTree` is exit-code
+ * aware and returns the raw status + stdout so the caller can distinguish a
+ * CONFLICT (exit 1) from a real ERROR (exit 128, e.g. a bad/missing object).
+ */
+export interface GitSeam {
+  run(args: string[]): string;
+  tryMergeTree(args: string[]): { status: number; stdout: string };
+}
+
+/** Real git seam backing `computeRevertDryRun` via `execFileSync` (no shell). */
+const nodeGitSeam: GitSeam = {
+  run: (args) => git(args).trim(),
+  tryMergeTree: (args) => {
+    try {
+      const stdout = execFileSync('git', args, {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString();
+      return { status: 0, stdout };
+    } catch (err) {
+      const e = err as { status?: number; stdout?: Buffer | string };
+      return { status: e?.status ?? 1, stdout: e?.stdout?.toString?.() ?? '' };
+    }
+  },
+};
+
 /** Trimmed stdout of `gh <args>` (no shell). */
 const gh = (args: string[]): string => execFileSync('gh', args, { encoding: 'utf-8' }).toString();
 
@@ -33,30 +61,57 @@ function parseConflictPaths(stdout: string): string[] {
 }
 
 /**
- * Compute the revert of a merge commit as an in-memory 3-way merge via
- * `git merge-tree --write-tree` (base = the merge commit, ours = HEAD,
- * theirs = its first parent). This inverts the merge's changes onto HEAD purely
- * in the object database — it touches NEITHER the working tree NOR the index
- * (verified: `git status` stays clean). A non-zero exit signals conflicts, whose
- * paths are recovered from the machine-readable conflicted-file block.
+ * Compute the revert of a commit as an in-memory 3-way merge via
+ * `git merge-tree --write-tree` (base = the commit, ours = HEAD, theirs = the
+ * commit's parent). This inverts the commit's changes onto HEAD purely in the
+ * object database — it touches NEITHER the working tree NOR the index.
+ *
+ * Parent selection (#3b): a real 2+-parent merge commit inverts relative to its
+ * FIRST parent (the `-m 1` mainline); a squash/rebase merge is a single-parent
+ * commit and inverts relative to its SOLE parent. We read the parent list from
+ * `rev-list --parents` and pick parent 1 either way (correct for both shapes),
+ * guarding the degenerate zero-parent (root) commit.
+ *
+ * Exit-code discipline (#1): `git merge-tree --write-tree` exits 0 on a CLEAN
+ * merge, 1 on CONFLICT, and anything else (e.g. 128 for a bad/missing object) on
+ * a real ERROR. Only exit 1 is treated as a conflict; any other non-zero status
+ * re-throws so a transient/bad-SHA failure is never misclassified as a skip.
  */
+export async function computeRevertDryRun(
+  mergeSha: string,
+  gitSeam: GitSeam = nodeGitSeam
+): Promise<{ clean: boolean; conflictPaths: string[] }> {
+  // "<commit> <parent1> [<parent2> ...]" — the commit's own sha is element 0.
+  const revList = gitSeam.run(['rev-list', '--parents', '-n', '1', mergeSha]);
+  const parents = revList.trim().split(/\s+/).slice(1);
+  if (parents.length === 0) {
+    throw new Error(`cannot revert ${mergeSha}: commit has no parent (root commit)`);
+  }
+  // First (mainline) parent for merges; sole parent for squash/rebase commits.
+  const parent = parents[0]!;
+
+  const { status, stdout } = gitSeam.tryMergeTree([
+    'merge-tree',
+    '--write-tree',
+    '--merge-base',
+    mergeSha,
+    'HEAD',
+    parent,
+  ]);
+  if (status === 0) return { clean: true, conflictPaths: [] };
+  if (status === 1) return { clean: false, conflictPaths: parseConflictPaths(stdout) };
+  // Any other non-zero status is a real error (bad object, transient failure) —
+  // re-throw rather than silently reporting a (falsely empty) conflict.
+  throw new Error(
+    `git merge-tree failed for ${mergeSha} (exit ${status})${stdout ? `: ${stdout.trim()}` : ''}`
+  );
+}
+
+/** Process-bound `revertDryRun` used by the real RollbackIO adapter. */
 async function revertDryRun(
   mergeSha: string
 ): Promise<{ clean: boolean; conflictPaths: string[] }> {
-  // `revert -m 1` inverts changes relative to parent 1, i.e. a 3-way merge
-  // with base=<merge>, ours=HEAD, theirs=<parent1>.
-  const parent1 = git(['rev-parse', `${mergeSha}^1`]).trim();
-  try {
-    execFileSync('git', ['merge-tree', '--write-tree', '--merge-base', mergeSha, 'HEAD', parent1], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    return { clean: true, conflictPaths: [] };
-  } catch (err) {
-    // Non-zero exit == conflict. stdout carries the conflicted-file block.
-    const stdout = (err as { stdout?: Buffer | string })?.stdout?.toString?.() ?? '';
-    return { clean: false, conflictPaths: parseConflictPaths(stdout) };
-  }
+  return computeRevertDryRun(mergeSha, nodeGitSeam);
 }
 
 /** Resolve a merged PR to its merge commit, changed files, and title via `gh`. */
