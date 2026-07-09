@@ -1,0 +1,48 @@
+name: Rollback Propose
+
+# Post-ship circuit breaker (propose-only). Two arms:
+#   - schedule: signal sweep reads .harness/signals/timeline.json and, on a
+#     configured threshold crossing, opens a full-context revert PR labeled
+#     harness:rollback for a HUMAN to merge (no self-approving PAT).
+#   - pull_request:[closed]: the eval arm entry. DARK in v1 — the CLI self-gates
+#     on rollback.evalTrigger.enabled (default false), so this trigger no-ops
+#     until Phase 4 (#31) flips the flag. No YAML change needed to activate.
+# Permissions are minimal: it READS the repo and WRITES pull requests only.
+
+on:
+  schedule:
+    - cron: '0 * * * *' # hourly signal sweep (cadence is a tuning knob)
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Serialize proposals so two runs never open duplicate revert PRs while the
+# composer idempotency check races. Never cancel an in-flight proposal.
+concurrency:
+  group: rollback-propose-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    # Signal sweep runs on schedule; on pull_request it only runs for a MERGE
+    # (the eval arm), and the CLI itself no-ops while evalTrigger is disabled.
+    if: github.event_name == 'schedule' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Signal sweep — propose reverts for threshold crossings
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node packages/cli/dist/bin/harness.js rollback sweep
