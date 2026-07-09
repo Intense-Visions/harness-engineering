@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
+import { requiredScopeForRoute } from '../../../../src/auth/scopes';
 import {
   EmptyPoolState,
   type TickResult,
@@ -425,5 +426,14 @@ describe('handleV1LocalModelsRoute (POST /api/v1/local-models/candidates/refresh
     expect(handleV1LocalModelsRoute(req, res, deps)).toBe(true);
     await done;
     expect(statusCode()).toBe(503);
+  });
+
+  it('is registered with the manage-proposals scope (a mutation, not a read)', () => {
+    // Regression: the route existed but had no bridge-route scope entry, so it
+    // fell to the read-status `/api/local-models` prefix — under-scoping a
+    // mutation (and 403/404-ing behind stricter auth setups).
+    expect(requiredScopeForRoute('POST', '/api/v1/local-models/candidates/refresh')).toBe(
+      'manage-proposals'
+    );
   });
 });
