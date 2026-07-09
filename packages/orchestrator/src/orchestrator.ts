@@ -52,7 +52,9 @@ import type {
   HardwareProfile,
   SchedulerTimerHandle,
 } from '@harness-engineering/local-models';
-import { createModelProposal, listProposals } from '@harness-engineering/core';
+import { createModelProposal, listProposals, updateProposal } from '@harness-engineering/core';
+import { redriveInstallingProposals } from './proposals/model-handlers';
+import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
@@ -2109,6 +2111,47 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Resume installs interrupted by a restart. A proposal left `installing` had
+   * its background `ollama pull` cut short when the orchestrator went down; the
+   * pull is idempotent (ollama resumes from cached blobs), so we re-drive it.
+   * Fire-and-forget with its own error isolation — a resumed multi-GB download
+   * must not block startup, and a re-drive failure only logs.
+   */
+  private redriveInterruptedInstalls(): void {
+    const pool = this.modelPool;
+    if (pool === null) return;
+    void (async () => {
+      try {
+        // `listProposals` only filters on the shared skill-status enum, so filter
+        // the model-only `installing` status here.
+        const modelProposals = (await listProposals(this.projectRoot, {
+          kind: 'model',
+        })) as ModelProposalRecord[];
+        const installing = modelProposals.filter((p) => p.status === 'installing');
+        if (installing.length === 0) return;
+        this.logger.info(`Resuming ${installing.length} model install(s) interrupted by a restart`);
+        await redriveInstallingProposals(
+          {
+            pool,
+            bus: this,
+            updateProposal: (id, patch) =>
+              updateProposal(this.projectRoot, id, patch as Parameters<typeof updateProposal>[2]),
+            decidedBy: 'orchestrator',
+            isModelInUse: (name) => this.isLocalModelInUse(name),
+          },
+          installing,
+          {
+            onWarn: (message, cause) =>
+              this.logger.warn(message, cause !== undefined ? { cause } : undefined),
+          }
+        );
+      } catch (err) {
+        this.logger.warn('interrupted-install re-drive failed', { cause: err });
+      }
+    })();
+  }
+
+  /**
    * LMLM Phase 7 wiring: apply the operator's configured pool bounds (disk
    * budget + org/family allowlist) from `localModels.pool` to the live pool.
    * Called after `PoolStateStore.load()` so config wins over persisted bounds
@@ -2282,6 +2325,10 @@ export class Orchestrator extends EventEmitter {
         // is `diskBudgetGb: 0, allowedOrgs: []`, which would otherwise block
         // every install and leave the dashboard pool card at "0 / 0 GB".
         await this.applyConfiguredPoolBounds();
+        // Resume any install whose background pull was cut short by a restart
+        // (proposal left `installing`). Fire-and-forget — a large resumed pull
+        // must not block startup.
+        this.redriveInterruptedInstalls();
       }
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();

@@ -136,6 +136,12 @@ export const ModelProposalStatusSchema = z.enum([
   'open',
   'gate-running',
   'gate-failed',
+  // Durable marker that a background `ollama pull` for this approved add/swap is
+  // in flight. Set when the pull starts, cleared to `approved` on success or back
+  // to `open` on a (retryable) failure. On orchestrator startup, `installing`
+  // proposals are re-driven so an install interrupted by a restart resumes rather
+  // than being lost (the pull is idempotent — ollama resumes from cached blobs).
+  'installing',
   'approved',
   'rejected',
   'failed_target_missing',

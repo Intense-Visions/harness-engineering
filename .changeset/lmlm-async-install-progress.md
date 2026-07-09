@@ -19,6 +19,14 @@ Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
 pull completed. The Recommendations panel now renders a live download progress bar
 and surfaces retryable install errors.
 
+Install now survives an orchestrator restart. A model add/swap approval marks its
+proposal `installing` (new `ModelProposalStatus`) for the duration of the pull; if
+the orchestrator goes down mid-download, startup finds the `installing` proposals
+and re-drives them — the `ollama pull` is idempotent, so it resumes from cached
+blobs (or no-ops if it already finished) and streams progress to a reconnecting
+dashboard. The status reverts to `open` on a retryable failure and the approve
+route rejects a re-approve while `installing`.
+
 Approving an `add`/`swap` model **proposal** (`POST /api/v1/proposals/:id/approve`)
 also installs the target, so it shares the same async treatment: it returns `202`
 and streams the download over `local-models:install`, and the Pending Proposals row
