@@ -25,6 +25,17 @@ import { PiBackend } from './backends/pi.js';
  * `LocalModelResolver` (so multi-resolver array-fallback works without
  * leaking resolver lifetimes into the factory).
  */
+/**
+ * Runtime-feedback callbacks a `local`/`pi` backend fires as turns complete.
+ * See {@link OrchestratorBackendFactoryOptions.getModelUsageHooksFor}.
+ */
+export interface LocalModelUsageHooks {
+  /** Fired with the resolved model after a successful turn (LRU + breaker clear). */
+  onModelUsed?: (model: string) => void;
+  /** Fired with the resolved model after a failed turn (breaker increment). */
+  onModelFailed?: (model: string) => void;
+}
+
 export interface OrchestratorBackendFactoryOptions {
   backends: Record<string, BackendDef>;
   routing: RoutingConfig;
@@ -44,6 +55,16 @@ export interface OrchestratorBackendFactoryOptions {
    * route through the resolver Map.
    */
   getResolverModelFor?: (backendName: string) => (() => string | null) | undefined;
+  /**
+   * Consumption Phase 3 (T11): per-`local`/`pi` backend hook returning the
+   * runtime-feedback callbacks bound to that backend's resolver + pool. The
+   * factory forwards them to the constructed `LocalBackend` so a completed turn
+   * stamps `lastUsedAt` (LRU) + clears the circuit breaker, and a failed turn
+   * feeds the breaker. Returning `undefined` means "no feedback wiring" (the
+   * backend runs exactly as before). Kept parallel to `getResolverModelFor` so
+   * the factory stays ignorant of resolver/pool lifecycles.
+   */
+  getModelUsageHooksFor?: (backendName: string) => LocalModelUsageHooks | undefined;
   /**
    * Phase 5: prompt-cache recorder forwarded to Anthropic-capable backends.
    * Other backends accept-but-ignore. Shared across dispatches so the
@@ -124,8 +145,9 @@ export class OrchestratorBackendFactory {
 
     if ((def.type === 'local' || def.type === 'pi') && this.opts.getResolverModelFor) {
       const getModel = this.opts.getResolverModelFor(name);
+      const usageHooks = this.opts.getModelUsageHooksFor?.(name);
       backend = getModel
-        ? this.buildLocalLikeWithResolver(def, getModel)
+        ? this.buildLocalLikeWithResolver(def, getModel, usageHooks)
         : createBackend(def, createOpts);
     } else {
       backend = createBackend(def, createOpts);
@@ -143,16 +165,27 @@ export class OrchestratorBackendFactory {
    * mirroring `createBackend`'s local/pi branches but substituting the
    * head-of-array placeholder with the orchestrator-owned resolver.
    */
-  private buildLocalLikeWithResolver(def: BackendDef, getModel: () => string | null): AgentBackend {
+  private buildLocalLikeWithResolver(
+    def: BackendDef,
+    getModel: () => string | null,
+    usageHooks?: LocalModelUsageHooks
+  ): AgentBackend {
     if (def.type === 'local') {
       return new LocalBackend({
         endpoint: def.endpoint,
         getModel,
         ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
         ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+        ...(usageHooks?.onModelUsed !== undefined ? { onModelUsed: usageHooks.onModelUsed } : {}),
+        ...(usageHooks?.onModelFailed !== undefined
+          ? { onModelFailed: usageHooks.onModelFailed }
+          : {}),
       });
     }
     if (def.type === 'pi') {
+      // T11: PiBackend's streaming pi-session turn path doesn't yet surface the
+      // usage/failure hooks; runtime feedback is wired for `local` only. `getModel`
+      // (freshness) still applies. Extending pi is a follow-up.
       return new PiBackend({
         endpoint: def.endpoint,
         getModel,

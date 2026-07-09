@@ -620,6 +620,24 @@ export class Orchestrator extends EventEmitter {
           const resolver = this.localResolvers.get(name);
           return resolver ? () => resolver.resolveModel() : undefined;
         },
+        // Consumption Phase 3 (T11): bind per-backend runtime feedback. A
+        // successful turn stamps `lastUsedAt` (LRU) via the pool and clears the
+        // resolver's circuit breaker; a failed turn feeds the breaker so a
+        // repeatedly-failing model is deprioritized. `modelPool` is read lazily
+        // (per dispatch) because it loads in start(), after this constructor.
+        getModelUsageHooksFor: (name) => {
+          const resolver = this.localResolvers.get(name);
+          if (!resolver) return undefined;
+          return {
+            onModelUsed: (model: string) => {
+              resolver.recordSuccess(model);
+              void this.modelPool?.markUsed(model);
+            },
+            onModelFailed: (model: string) => {
+              resolver.recordFailure(model);
+            },
+          };
+        },
       });
     } else {
       this.backendFactory = null;

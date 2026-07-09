@@ -825,3 +825,67 @@ describe('LocalModelResolver — poolState integration (Phase 4)', () => {
     expect(status.resolved).toBe('b');
   });
 });
+
+describe('LocalModelResolver — circuit breaker (T10)', () => {
+  it('deprioritizes a model after N consecutive failures; a healthy peer wins', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'], // 'a' preferred by order
+      breakerThreshold: 3,
+      fetchModels: async () => ['a', 'b'],
+    });
+    expect((await resolver.probe()).resolved).toBe('a');
+
+    // Two failures are below threshold — still 'a'.
+    resolver.recordFailure('a');
+    resolver.recordFailure('a');
+    expect((await resolver.probe()).resolved).toBe('a');
+
+    // Third trips the breaker — 'a' sinks, 'b' resolves.
+    resolver.recordFailure('a');
+    expect((await resolver.probe()).resolved).toBe('b');
+  });
+
+  it('a success clears the trip and re-prefers the recovered model', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      breakerThreshold: 2,
+      fetchModels: async () => ['a', 'b'],
+    });
+    resolver.recordFailure('a');
+    resolver.recordFailure('a'); // tripped
+    expect((await resolver.probe()).resolved).toBe('b');
+
+    resolver.recordSuccess('a');
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+
+  it('the trip clears after the cooldown elapses (injected clock)', async () => {
+    let clock = 1_000;
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      breakerThreshold: 1,
+      breakerCooldownMs: 500,
+      now: () => clock,
+      fetchModels: async () => ['a', 'b'],
+    });
+    resolver.recordFailure('a'); // threshold 1 → immediately tripped
+    expect((await resolver.probe()).resolved).toBe('b');
+
+    clock += 500; // cooldown elapsed
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+
+  it('resolves a tripped model as a last resort when it is the only loaded candidate', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      breakerThreshold: 1,
+      fetchModels: async () => ['a'],
+    });
+    resolver.recordFailure('a'); // tripped, but it's the only option
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+});

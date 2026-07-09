@@ -271,4 +271,112 @@ describe('LocalBackend', () => {
       );
     });
   });
+
+  describe('model-usage hooks (T9/T11)', () => {
+    async function drain(gen: AsyncGenerator<unknown, unknown, void>): Promise<void> {
+      let next = await gen.next();
+      while (!next.done) next = await gen.next();
+    }
+
+    it('T9: calls onModelUsed once with the resolved model on a successful turn', async () => {
+      const openaiModule = await import('openai');
+      const mockChatCreate = (
+        openaiModule as unknown as { __mockChatCreate: ReturnType<typeof vi.fn> }
+      ).__mockChatCreate;
+      mockChatCreate.mockClear();
+
+      const onModelUsed = vi.fn();
+      const onModelFailed = vi.fn();
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        getModel: () => 'qwen3:8b',
+        onModelUsed,
+        onModelFailed,
+      });
+      const sessionResult = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      await drain(
+        localBackend.runTurn(sessionResult.value, {
+          sessionId: sessionResult.value.sessionId,
+          prompt: 'Hi',
+          isContinuation: false,
+        })
+      );
+
+      expect(onModelUsed).toHaveBeenCalledTimes(1);
+      expect(onModelUsed).toHaveBeenCalledWith('qwen3:8b');
+      expect(onModelFailed).not.toHaveBeenCalled();
+    });
+
+    it('T11: calls onModelFailed (not onModelUsed) when the inference call throws', async () => {
+      const openaiModule = await import('openai');
+      const mockChatCreate = (
+        openaiModule as unknown as { __mockChatCreate: ReturnType<typeof vi.fn> }
+      ).__mockChatCreate;
+      mockChatCreate.mockClear();
+      mockChatCreate.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      const onModelUsed = vi.fn();
+      const onModelFailed = vi.fn();
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        getModel: () => 'qwen3:8b',
+        onModelUsed,
+        onModelFailed,
+      });
+      const sessionResult = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      await drain(
+        localBackend.runTurn(sessionResult.value, {
+          sessionId: sessionResult.value.sessionId,
+          prompt: 'Hi',
+          isContinuation: false,
+        })
+      );
+
+      expect(onModelFailed).toHaveBeenCalledTimes(1);
+      expect(onModelFailed).toHaveBeenCalledWith('qwen3:8b');
+      expect(onModelUsed).not.toHaveBeenCalled();
+    });
+
+    it('swallows a throwing hook so telemetry never breaks a turn', async () => {
+      const openaiModule = await import('openai');
+      const mockChatCreate = (
+        openaiModule as unknown as { __mockChatCreate: ReturnType<typeof vi.fn> }
+      ).__mockChatCreate;
+      mockChatCreate.mockClear();
+
+      const localBackend = new LocalBackend({
+        endpoint: 'http://localhost:11434/v1',
+        getModel: () => 'qwen3:8b',
+        onModelUsed: () => {
+          throw new Error('hook boom');
+        },
+      });
+      const sessionResult = await localBackend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const gen = localBackend.runTurn(sessionResult.value, {
+        sessionId: sessionResult.value.sessionId,
+        prompt: 'Hi',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      let result: import('@harness-engineering/types').TurnResult | undefined;
+      while (!next.done) next = await gen.next();
+      result = next.value as import('@harness-engineering/types').TurnResult;
+      expect(result.success).toBe(true);
+    });
+  });
 });
