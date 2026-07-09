@@ -138,6 +138,8 @@ const DIR_COMMENTS = {
   ci: 'CI module for integrating with continuous integration systems.',
   review: 'Review pipeline module for automated code review workflows.',
   roadmap: 'Roadmap module for parsing, serializing, and syncing project roadmaps.',
+  rollback:
+    'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
   interaction: 'Interaction module for managing agent-to-human interactions.',
   blueprint: 'Blueprint module for scanning projects and generating codebase blueprints.',
   'update-checker': 'Update checker utilities for checking for new versions of the toolkit.',

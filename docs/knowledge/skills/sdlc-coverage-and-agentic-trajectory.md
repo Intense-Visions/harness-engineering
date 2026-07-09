@@ -46,22 +46,25 @@ partial = present but advisory or fused; gap = no first-class skill.
 | Review                  | Code review               | code-review · integrity · soundness-review                           | solid   |
 | Integration / knowledge | Wiring, docs, post-mortem | integration · knowledge-pipeline · docs-pipeline · compound          | solid   |
 | Deployment / CD         | Release                   | release-readiness · deployment (Tier-3 advisory)                     | partial |
-| Operations              | Monitoring, incident      | maintenance-pipeline only                                            | gap     |
+| Operations              | Monitoring, incident      | maintenance-pipeline · rollback (propose-only)                       | partial |
 | UAT / sign-off          | User acceptance           | —                                                                    | gap     |
 | Estimation              | Sizing                    | —                                                                    | gap     |
 | Security (cross-cut)    | Threat model, scan        | security-scan · security-craft · supply-chain-audit                  | solid   |
 
 ## The gaps that matter
 
-The literal gaps are estimation, UAT / user sign-off, and operations, with deployment and
+The literal gaps are estimation and UAT / user sign-off, with deployment, operations, and
 the PRD middle only partial. Grouped by _why_ they matter:
 
 1. **Human-facing edges (chase).** UAT and the PRD middle both sit where a non-engineer
    meets the pipeline. They coincide with where harness is weakest for non-technical
    users, so closing them does double duty.
-2. **Enforcement upgrades (chase selectively).** Deployment only advises; operations has
-   routine sweeps but no production-signal loop back into the graph. Harness's thesis is
-   enforcement, and today the lifecycle stops enforcing the moment code ships.
+2. **Enforcement upgrades (chase selectively).** Deployment only advises; operations now
+   has a post-ship revert primitive (`harness:rollback`, propose-only — it opens a
+   full-context revert PR on a signal-threshold crossing but a human merges it) on top of
+   routine sweeps, but still no production-signal loop back into the graph, and no
+   auto-merge authority (deferred trust tier, ADR 0063). Harness's thesis is enforcement,
+   and the lifecycle is only starting to enforce past the moment code ships.
 3. **The one agents redefine (don't copy the old version).** Story-point estimation is a
    human coordination ritual. When an agent executes in minutes, the useful forecast is
    _confidence and blast radius_ — which the intelligence pipeline (CML complexity, PESL

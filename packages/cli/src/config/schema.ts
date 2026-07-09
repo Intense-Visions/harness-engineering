@@ -480,6 +480,37 @@ export const RoadmapConfigSchema = z.object({
 });
 
 /**
+ * Schema for the post-ship rollback circuit breaker (`rollback`).
+ *
+ * Phase 1 declares only the config surface the classification engine and its
+ * trigger arms read:
+ *   - `signals` maps a signal name -> threshold/direction/window; a crossing
+ *     resolves to the PR(s) merged in the window (signal arm, live in v1).
+ *   - `evalTrigger.enabled` gates the eval arm (dark in v1; default false).
+ *
+ * @see docs/changes/harness-rollback/proposal.md (Trigger arms)
+ */
+export const RollbackSignalRuleSchema = z.object({
+  /** Threshold value the signal must cross to fire. */
+  threshold: z.number(),
+  /** Which crossing direction fires: value going above or below the threshold. */
+  direction: z.enum(['above', 'below']),
+  /** Lookback window (e.g. "24h", "7d") mapping the crossing to merged PRs. */
+  window: z.string().regex(/^\d+[hdw]$/, 'window must be <number><h|d|w>, e.g. "24h", "7d", "2w"'),
+});
+
+export const RollbackConfigSchema = z.object({
+  /** Signal-name -> crossing rule. A crossing calls `evaluate --trigger signal`. */
+  signals: z.record(z.string(), RollbackSignalRuleSchema).default({}),
+  /** Eval-triggered arm. Dark in v1; default disabled until #31 lands. */
+  evalTrigger: z
+    .object({
+      enabled: z.boolean().default(false),
+    })
+    .default({}),
+});
+
+/**
  * Schema for knowledge-pipeline domain inference configuration.
  *
  * Both fields *extend* the built-in defaults shipped by
@@ -773,6 +804,8 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   /** Roadmap sync and tracker integration settings */
   roadmap: RoadmapConfigSchema.optional(),
+  /** Post-ship rollback circuit-breaker settings (signal arm live, eval arm dark). */
+  rollback: RollbackConfigSchema.optional(),
   /** Knowledge-pipeline domain-inference settings */
   knowledge: KnowledgeConfigSchema.optional(),
   /** Adoption telemetry settings */
@@ -870,6 +903,11 @@ export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
  * Type for knowledge-pipeline-specific configuration.
  */
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
+
+/**
+ * Type for rollback circuit-breaker configuration.
+ */
+export type RollbackConfig = z.infer<typeof RollbackConfigSchema>;
 
 /**
  * Type for telemetry block configuration (PostHog opt-in + OTLP export).

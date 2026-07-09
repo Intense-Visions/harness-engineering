@@ -127,6 +127,11 @@ export * from './review';
 export * from './roadmap';
 
 /**
+ * Rollback module — post-ship revert-readiness classification (pure, IO-injected).
+ */
+export * from './rollback';
+
+/**
  * Interaction module for managing agent-to-human interactions.
  */
 export * from './interaction';

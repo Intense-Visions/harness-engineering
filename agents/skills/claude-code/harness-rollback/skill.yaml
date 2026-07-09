@@ -1,0 +1,52 @@
+name: harness-rollback
+version: '1.0.0'
+description: Post-ship circuit breaker — proposes a full-context revert PR when a shipped PR fails post-merge evaluation or crosses a signal threshold. Propose-only in v1 (never auto-merges).
+stability: static
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-rollback
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: pr
+      description: Target merged PR number to evaluate for rollback
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-rollback
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: resolve
+    description: Identify the target merged PR, merge commit, and merge shape
+    required: true
+  - name: classify
+    description: Determine revert-readiness (clean revert + no dependent later merge)
+    required: true
+  - name: compose
+    description: Open a full-context revert PR (or dry-run), idempotent by label
+    required: true
+  - name: record
+    description: Append the rollback_event breadcrumb
+    required: true
+state:
+  persistent: false
+depends_on:
+  - outcome-eval
