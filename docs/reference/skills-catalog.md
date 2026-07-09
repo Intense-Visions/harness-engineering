@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-762 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+763 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (44 skills)
+## Tier 2 — Maintenance (45 skills)
 
 ### acceptance-eval
 
@@ -445,6 +445,16 @@ AI-assisted selection of the next highest-impact roadmap item with scoring, assi
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-brainstorming, harness-autopilot, harness-roadmap
+
+### harness-rollback
+
+Post-ship circuit breaker — proposes a full-context revert PR when a shipped PR fails post-merge evaluation or crosses a signal threshold. Propose-only in v1 (never auto-merges).
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-outcome-eval
 
 ### harness-security-scan
 
