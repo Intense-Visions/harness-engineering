@@ -3,7 +3,7 @@ import { classifyRevert } from './classify';
 import type { RollbackIO } from './io';
 import type { ClassifyInput } from './types';
 
-function fakeIo(clean: boolean, conflictPaths: string[] = []): RollbackIO {
+function fakeIo(clean: boolean, conflictPaths: string[] = []): Pick<RollbackIO, 'revertDryRun'> {
   return { revertDryRun: async () => ({ clean, conflictPaths }) };
 }
 

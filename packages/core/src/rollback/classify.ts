@@ -44,7 +44,10 @@ function intersects(a: string[], b: string[]): boolean {
  */
 export async function classifyRevert(
   input: ClassifyInput,
-  io: RollbackIO
+  // classify only needs the dry-run probe; the full seam (resolveTarget/
+  // listLaterMerges) is used by the caller. Narrow the param so test fakes and
+  // the command can pass a minimal object.
+  io: Pick<RollbackIO, 'revertDryRun'>
 ): Promise<RollbackDecision> {
   // #2: an empty changed-file set means the target could not be resolved to any
   // files — there is nothing to revert, so skip rather than silently propose.
