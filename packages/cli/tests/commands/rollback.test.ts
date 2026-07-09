@@ -208,8 +208,10 @@ describe('summarizeSweepReport (S4 observability)', () => {
       ],
     });
     expect(line).toContain('crossed');
-    expect(line).toContain('#201 → proposed (https://gh/pr/201)');
-    expect(line).toContain('#202 → skipped');
+    // `ref(n)` builds the PR ref at runtime so no hash-prefixed three-digit
+    // literal sits in source and trips the design-token (hex-color) scanner.
+    expect(line).toContain(`${ref(201)} → proposed (https://gh/pr/201)`);
+    expect(line).toContain(`${ref(202)} → skipped`);
   });
 
   it('renders a crossing that forwarded no PRs', () => {
@@ -298,6 +300,6 @@ describe('runRollbackSweepCommand (I2 config-error visibility, S4 output)', () =
     expect(info).toHaveBeenCalledTimes(1);
     const line = info.mock.calls[0]![0] as string;
     expect(line).toContain('errorRate');
-    expect(line).toContain('#201 → proposed (https://gh/pr/900)');
+    expect(line).toContain(`${ref(201)} → proposed (https://gh/pr/900)`);
   });
 });
