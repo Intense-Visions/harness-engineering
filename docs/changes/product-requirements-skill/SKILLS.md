@@ -4,17 +4,18 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-testing-types` | Stack: typescript; Domain: data, testing | Testing | 0.49 |
-| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation | 0.48 |
-| `gof-builder-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.45 |
-| `ts-type-guards` | Stack: typescript; Domain: data, testing | During implementation | 0.45 |
-| `gof-memento-pattern` | Stack: typescript; Domain: data, testing | Testing | 0.43 |
-| `ts-zod-integration` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4 |
-| `ts-satisfies-operator` | Stack: typescript; Domain: data, testing | During implementation | 0.39 |
-| `zod-infer-types` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.37 |
-| `gof-adapter-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.36 |
+| Skill                     | Purpose                                  | When                   | Relevance |
+| ------------------------- | ---------------------------------------- | ---------------------- | --------- |
+| `ts-testing-types`        | Stack: typescript; Domain: data, testing | Testing                | 0.49      |
+| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation  | 0.48      |
+| `gof-builder-pattern`     | Stack: typescript; Domain: data, testing | Architecture decisions | 0.45      |
+| `ts-type-guards`          | Stack: typescript; Domain: data, testing | During implementation  | 0.45      |
+| `gof-memento-pattern`     | Stack: typescript; Domain: data, testing | Testing                | 0.43      |
+| `ts-zod-integration`      | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4       |
+| `ts-satisfies-operator`   | Stack: typescript; Domain: data, testing | During implementation  | 0.39      |
+| `zod-infer-types`         | Stack: typescript; Domain: data, testing | Architecture decisions | 0.37      |
+| `gof-adapter-pattern`     | Stack: typescript; Domain: data, testing | Architecture decisions | 0.36      |
 
 ---
-*Scanned 757 skills in 149ms. Signals: 0 keywords, 2 stack markers, 2 domains.*
+
+_Scanned 757 skills in 149ms. Signals: 0 keywords, 2 stack markers, 2 domains._

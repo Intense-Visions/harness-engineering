@@ -1,7 +1,7 @@
 ---
 title: Product Requirements Skill (close the PRD middle)
 status: proposed
-roadmap: "github:Intense-Visions/harness-engineering#709"
+roadmap: 'github:Intense-Visions/harness-engineering#709'
 milestone: Full-lifecycle reach
 keywords:
   - product-requirements
@@ -102,7 +102,7 @@ to seed the spec's `## Success Criteria` (the section `acceptance-eval` judges).
 ## Integration Points
 
 - **Entry Points:** new skill `product-requirements` (CLI `harness skill run
-  product-requirements` + MCP `run_skill`); new artifact tree `docs/product-requirements/<item>/`.
+product-requirements` + MCP `run_skill`); new artifact tree `docs/product-requirements/<item>/`.
 - **Registrations Required:** four platform copies; `skill.yaml` tier-2; skills-catalog
   regeneration (`generate:plugin:all` / catalog) so the skill is discoverable. No hook/plugin
   profile membership — the skill is `manual`-triggered.
@@ -115,7 +115,7 @@ to seed the spec's `## Success Criteria` (the section `acceptance-eval` judges).
   between requirements-authoring and spec-authoring that future lifecycle skills build on.
 - **Knowledge Impact:** concepts `PRD`, `user-story`, `acceptance-criterion (EARS)`, `MoSCoW`;
   relationship `product-advisor →(feeds) product-requirements →(feeds) brainstorming
-  →(judged-by) acceptance-eval`.
+→(judged-by) acceptance-eval`.
 
 ## Success Criteria
 
