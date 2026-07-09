@@ -141,10 +141,19 @@ function buildLocalLikeProvider(
   logger.info(
     `Intelligence pipeline using backend '${backendName}' (${def.type}) at ${def.endpoint} (model: ${model ?? '(default)'})`
   );
+  // Consumption Phase 1 (T4): unless the operator pinned a layer model, read
+  // the resolver's current `resolved` fresh on every analysis request so a pool
+  // install/swap is consumed without reconstructing the pipeline. `defaultModel`
+  // (the construction-time snapshot) remains the fallback when the resolver
+  // transiently reports null. A pinned `layerModel` stays static — the operator
+  // asked for that specific model, so we don't let pool churn override it.
   return new OpenAICompatibleAnalysisProvider({
     apiKey,
     baseUrl: def.endpoint,
     ...(model !== undefined && { defaultModel: model }),
+    ...(layerModel === undefined && {
+      getModel: () => getResolverStatusSnapshot()?.resolved ?? undefined,
+    }),
     ...(intelligence?.requestTimeoutMs !== undefined && {
       timeoutMs: intelligence.requestTimeoutMs,
     }),

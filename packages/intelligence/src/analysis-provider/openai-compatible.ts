@@ -9,6 +9,14 @@ export interface OpenAICompatibleProviderOptions {
   baseUrl: string;
   /** Default model name (e.g., 'deepseek-coder-v2'). */
   defaultModel?: string;
+  /**
+   * Consumption Phase 1 (T3): live model resolver, read at request time. When
+   * provided and it returns a non-empty name, that name is used in preference to
+   * `defaultModel` so a pool install/swap is consumed by analysis without a
+   * restart. `request.model` (an explicit per-call override) still wins; a
+   * null/undefined/empty return falls through to `defaultModel`.
+   */
+  getModel?: () => string | null | undefined;
   /** Request timeout in ms (default: 90000). */
   timeoutMs?: number;
   /**
@@ -38,6 +46,7 @@ const DEFAULT_TIMEOUT_MS = 90_000;
 export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
   private readonly client: OpenAI;
   private readonly defaultModel: string;
+  private readonly getModel?: () => string | null | undefined;
   private readonly promptSuffix: string | null;
   private readonly jsonMode: boolean;
 
@@ -48,12 +57,19 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
       timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
     this.defaultModel = options.defaultModel ?? DEFAULT_MODEL;
+    if (options.getModel !== undefined) {
+      this.getModel = options.getModel;
+    }
     this.promptSuffix = options.promptSuffix ?? null;
     this.jsonMode = options.jsonMode ?? true;
   }
 
   async analyze<T>(request: AnalysisRequest): Promise<AnalysisResponse<T>> {
-    const model = request.model ?? this.defaultModel;
+    // Model precedence: explicit per-request override → live resolver
+    // (getModel, read fresh each call) → static defaultModel.
+    const resolved = this.getModel?.();
+    const model =
+      request.model ?? (resolved != null && resolved !== '' ? resolved : this.defaultModel);
     const maxTokens = request.maxTokens ?? DEFAULT_MAX_TOKENS;
     const jsonSchema = zodToJsonSchema(request.responseSchema);
 

@@ -32,7 +32,7 @@ import { PromptRenderer } from './prompt/renderer';
 // `OrchestratorBackendFactory` + `createBackend` (factory module). The
 // orchestrator no longer constructs backends directly — factory handles
 // dispatch-time materialization.
-import { LocalModelResolver } from './agent/local-model-resolver';
+import { LocalModelResolver, defaultWarmModel } from './agent/local-model-resolver';
 import {
   PoolStateStore,
   PoolManager,
@@ -222,6 +222,13 @@ export class Orchestrator extends EventEmitter {
    * so this map is the single source of truth post-migration.
    */
   private localResolvers = new Map<string, LocalModelResolver>();
+  /**
+   * Consumption Phase 1 (T2): bus listener that debounce-refreshes every local
+   * resolver when a `local-models:pool` mutation fires, so a just-installed or
+   * swapped model becomes usable within the refresh window instead of waiting up
+   * to `probeIntervalMs` for the next poll. Held for removal in {@link stop}.
+   */
+  private poolRefreshListener: (() => void) | null = null;
   /** Phase 4 (D5): pool-state port shared by all local/pi resolvers. Null when LMLM disabled. */
   private poolStateProvider: PoolStateProvider | null = null;
   private poolStateStore: PoolStateStore | null = null;
@@ -546,6 +553,16 @@ export class Orchestrator extends EventEmitter {
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
         if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
         if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
+        // T20: warm a newly-selected model into VRAM (Ollama keep_alive) so the
+        // next dispatch isn't a cold start. Only for the Ollama-first `local`
+        // backend; `pi` (LM Studio) has no equivalent keep_alive primitive.
+        if (def.type === 'local') {
+          const endpoint = def.endpoint;
+          const apiKey = def.apiKey;
+          resolverOpts.warmModel = (ollamaName) => {
+            void defaultWarmModel(endpoint, ollamaName, apiKey);
+          };
+        }
         this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
       }
     }
@@ -609,9 +626,29 @@ export class Orchestrator extends EventEmitter {
         ...(this.config.agent.secrets !== undefined ? { secrets: this.config.agent.secrets } : {}),
         cacheMetrics: this.cacheMetrics,
         decisionBus: this.routingDecisionBus,
-        getResolverModelFor: (name) => {
+        getResolverModelFor: (name, useCase) => {
           const resolver = this.localResolvers.get(name);
-          return resolver ? () => resolver.resolveModel() : undefined;
+          // T17: bind the routed use-case so resolveModel orders candidates by
+          // its task profile (coding/reasoning/general).
+          return resolver ? () => resolver.resolveModel(useCase) : undefined;
+        },
+        // Consumption Phase 3 (T11): bind per-backend runtime feedback. A
+        // successful turn stamps `lastUsedAt` (LRU) via the pool and clears the
+        // resolver's circuit breaker; a failed turn feeds the breaker so a
+        // repeatedly-failing model is deprioritized. `modelPool` is read lazily
+        // (per dispatch) because it loads in start(), after this constructor.
+        getModelUsageHooksFor: (name) => {
+          const resolver = this.localResolvers.get(name);
+          if (!resolver) return undefined;
+          return {
+            onModelUsed: (model: string) => {
+              resolver.recordSuccess(model);
+              void this.modelPool?.markUsed(model);
+            },
+            onModelFailed: (model: string) => {
+              resolver.recordFailure(model);
+            },
+          };
         },
       });
     } else {
@@ -2416,6 +2453,19 @@ export class Orchestrator extends EventEmitter {
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();
       }
+      // Consumption Phase 1 (T2): event-driven freshness. A `local-models:pool`
+      // mutation (install / swap / eviction) debounce-refreshes every resolver
+      // so the new pool member is resolvable in seconds, not up to a poll cycle.
+      // Registered once, after resolvers are running, and removed in stop().
+      if (this.poolRefreshListener === null && this.localResolvers.size > 0) {
+        const listener = (): void => {
+          for (const resolver of this.localResolvers.values()) {
+            resolver.refresh();
+          }
+        };
+        this.poolRefreshListener = listener;
+        this.on('local-models:pool', listener);
+      }
     }
     // LMLM Phase 6: start the background refresh scheduler once the pool state
     // is loaded. Guarded on modelPool so LMLM-disabled configs never arm it.
@@ -2531,6 +2581,12 @@ export class Orchestrator extends EventEmitter {
     // Null out the bus reference; ring buffer + listener set are
     // eligible for GC once no external references remain.
     this.routingDecisionBus = null;
+    // Consumption Phase 1 (T2): detach the pool-refresh bus listener before
+    // stopping resolvers so a late emit can't re-arm a stopped resolver's timer.
+    if (this.poolRefreshListener !== null) {
+      this.removeListener('local-models:pool', this.poolRefreshListener);
+      this.poolRefreshListener = null;
+    }
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
     }

@@ -54,6 +54,23 @@ describe('OrchestratorBackendFactory', () => {
     expect(invokedFor).toBe('local');
   });
 
+  it('T17: passes the routed use-case to getResolverModelFor', () => {
+    let receivedUseCase: unknown = null;
+    const factory = new OrchestratorBackendFactory({
+      backends,
+      routing,
+      sandboxPolicy: 'none',
+      getResolverModelFor: (_name: string, useCase: unknown) => {
+        receivedUseCase = useCase;
+        return () => 'resolved-model';
+      },
+    });
+    // 'quick-fix' routes to the local backend in this fixture, so the resolver
+    // hook fires and receives the full use-case.
+    factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+    expect(receivedUseCase).toEqual({ kind: 'tier', tier: 'quick-fix' });
+  });
+
   it('does not call getResolverModelFor for non-local backends', () => {
     let invokedFor: string | null = null;
     const factory = new OrchestratorBackendFactory({
@@ -67,6 +84,51 @@ describe('OrchestratorBackendFactory', () => {
     });
     factory.forUseCase({ kind: 'tier', tier: 'guided-change' });
     expect(invokedFor).toBe(null);
+  });
+
+  it('T11: forwards getModelUsageHooksFor to a local backend (onModelUsed/onModelFailed)', async () => {
+    const { LocalBackend } = await import('../../src/agent/backends/local.js');
+    const localDef: BackendDef = { type: 'local', endpoint: 'http://x:11434/v1', model: 'm' };
+    const onModelUsed = vi.fn();
+    const onModelFailed = vi.fn();
+    let hooksQueriedFor: string | null = null;
+    const factory = new OrchestratorBackendFactory({
+      backends: { cloud, localx: localDef },
+      routing: { default: 'cloud', 'quick-fix': 'localx' } as RoutingConfig,
+      sandboxPolicy: 'none',
+      getResolverModelFor: () => () => 'resolved-model',
+      getModelUsageHooksFor: (name: string) => {
+        hooksQueriedFor = name;
+        return { onModelUsed, onModelFailed };
+      },
+    });
+    const backend = factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+    expect(backend).toBeInstanceOf(LocalBackend);
+    expect(hooksQueriedFor).toBe('localx');
+    // The hooks reached the constructed backend (private fields, runtime-visible).
+    const priv = backend as unknown as {
+      onModelUsed?: (m: string) => void;
+      onModelFailed?: (m: string) => void;
+    };
+    expect(priv.onModelUsed).toBe(onModelUsed);
+    expect(priv.onModelFailed).toBe(onModelFailed);
+  });
+
+  it('T11: a local backend builds fine when no usage hooks are registered', async () => {
+    const { LocalBackend } = await import('../../src/agent/backends/local.js');
+    const localDef: BackendDef = { type: 'local', endpoint: 'http://x:11434/v1', model: 'm' };
+    const factory = new OrchestratorBackendFactory({
+      backends: { cloud, localx: localDef },
+      routing: { default: 'cloud', 'quick-fix': 'localx' } as RoutingConfig,
+      sandboxPolicy: 'none',
+      getResolverModelFor: () => () => 'resolved-model',
+      // no getModelUsageHooksFor
+    });
+    const backend = factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+    expect(backend).toBeInstanceOf(LocalBackend);
+    const priv = backend as unknown as { onModelUsed?: unknown; onModelFailed?: unknown };
+    expect(priv.onModelUsed).toBeUndefined();
+    expect(priv.onModelFailed).toBeUndefined();
   });
 
   it('wraps with ContainerBackend when sandboxPolicy=docker AND container set (PFC-3)', async () => {

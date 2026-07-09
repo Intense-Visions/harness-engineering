@@ -37,6 +37,7 @@
 
 import { mergeBenchmarks } from './benchmarks/merge.js';
 import type { BenchmarkEvidence, BenchmarkObservation } from './benchmarks/types.js';
+import { RANK_PROFILES, classifyBenchmark, type RankProfile } from './profiles.js';
 import {
   buildSeriesScores,
   interpolateBySize,
@@ -219,6 +220,19 @@ function scoreCandidate(
     benchmarkConfidence,
   });
 
+  // T12: per-profile scores. `general` is the composite; `coding`/`reasoning`
+  // re-merge only their profile-relevant observations (falling back to the
+  // composite when the model has none) so a task-tagged dispatch can prefer a
+  // specialist. Unfit rows collapse to 0 across all profiles (scaleScore floors).
+  const scoresByProfile = computeProfileScores({
+    observations,
+    target: candidateTarget(candidate),
+    snapshotDate,
+    compositeScore: score,
+    fitsHardware,
+    speedConfidence: speedEstimate.confidence,
+  });
+
   return assembleRankedModel({
     candidate,
     vramEstimate,
@@ -227,8 +241,51 @@ function scoreCandidate(
     evidence,
     fitsHardware,
     score,
+    scoresByProfile,
     benchmarkSnapshot: snapshotDate,
   });
+}
+
+/**
+ * T12: compute the per-profile score map. `general` mirrors the composite. For
+ * each specialized profile, merge only observations whose benchmark classifies
+ * to it and scale with the same multipliers; when a profile has no relevant
+ * observation the composite is used so the model isn't buried for lacking a tag.
+ */
+function computeProfileScores(args: {
+  observations: readonly BenchmarkObservation[];
+  target: { model: string; quant: string };
+  snapshotDate: string;
+  compositeScore: number;
+  fitsHardware: boolean;
+  speedConfidence: SpeedEstimate['confidence'];
+}): Record<RankProfile, number> {
+  const out = {} as Record<RankProfile, number>;
+  for (const profile of RANK_PROFILES) {
+    if (profile === 'general' || !args.fitsHardware) {
+      out[profile] = args.compositeScore;
+      continue;
+    }
+    const relevant = args.observations.filter((o) => classifyBenchmark(o.benchmark) === profile);
+    if (relevant.length === 0) {
+      // No profile-specific signal — fall back to the composite (degrade to
+      // score-order rather than penalize an un-tagged model).
+      out[profile] = args.compositeScore;
+      continue;
+    }
+    const merged = mergeBenchmarks({
+      observations: relevant,
+      target: args.target,
+      snapshotDate: args.snapshotDate,
+    });
+    out[profile] = scaleScore({
+      mergedScore: merged.score,
+      fitsHardware: args.fitsHardware,
+      speedConfidence: args.speedConfidence,
+      benchmarkConfidence: merged.confidence,
+    });
+  }
+  return out;
 }
 
 /** Build the `MergeTarget` shape from a candidate. */
@@ -245,6 +302,7 @@ function assembleRankedModel(args: {
   evidence: BenchmarkEvidence;
   fitsHardware: boolean;
   score: number;
+  scoresByProfile: Record<RankProfile, number>;
   benchmarkSnapshot: string;
 }): RankedModel {
   const { candidate, vramEstimate, speedEstimate, benchmarkScore } = args;
@@ -256,6 +314,7 @@ function assembleRankedModel(args: {
     estimatedTokPerSec: speedEstimate.tokPerSec,
     speedConfidence: speedEstimate.confidence,
     score: args.score,
+    scoresByProfile: args.scoresByProfile,
     evidence: args.evidence,
     benchmarkSnapshot: args.benchmarkSnapshot,
     fitsHardware: args.fitsHardware,

@@ -98,6 +98,69 @@ describe('OpenAICompatibleAnalysisProvider', () => {
       expect(response.model).toBe('qwen3-72b');
     });
 
+    it('uses getModel() over defaultModel, read fresh each call (T3)', async () => {
+      let live = 'model-a';
+      const liveProvider = new OpenAICompatibleAnalysisProvider({
+        apiKey: 'key',
+        baseUrl: 'http://localhost:1234/v1',
+        defaultModel: 'static-fallback',
+        getModel: () => live,
+      });
+      mockCreate.mockResolvedValue(
+        makeCompletionResponse(JSON.stringify({ summary: 'ok', score: 1 }))
+      );
+
+      const first = await liveProvider.analyze({ prompt: 'test', responseSchema: testSchema });
+      expect(mockCreate).toHaveBeenLastCalledWith(expect.objectContaining({ model: 'model-a' }));
+      expect(first.model).toBe('model-a');
+
+      // A pool swap changes what the resolver returns; the very next call
+      // picks it up without reconstructing the provider.
+      live = 'model-b';
+      const second = await liveProvider.analyze({ prompt: 'test', responseSchema: testSchema });
+      expect(mockCreate).toHaveBeenLastCalledWith(expect.objectContaining({ model: 'model-b' }));
+      expect(second.model).toBe('model-b');
+    });
+
+    it('falls back to defaultModel when getModel() returns null/empty (T3)', async () => {
+      const nullProvider = new OpenAICompatibleAnalysisProvider({
+        apiKey: 'key',
+        baseUrl: 'http://localhost:1234/v1',
+        defaultModel: 'static-fallback',
+        getModel: () => null,
+      });
+      mockCreate.mockResolvedValueOnce(
+        makeCompletionResponse(JSON.stringify({ summary: 'ok', score: 1 }))
+      );
+
+      const response = await nullProvider.analyze({ prompt: 'test', responseSchema: testSchema });
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'static-fallback' })
+      );
+      expect(response.model).toBe('static-fallback');
+    });
+
+    it('request.model overrides getModel() (T3)', async () => {
+      const liveProvider = new OpenAICompatibleAnalysisProvider({
+        apiKey: 'key',
+        baseUrl: 'http://localhost:1234/v1',
+        defaultModel: 'static-fallback',
+        getModel: () => 'resolver-model',
+      });
+      mockCreate.mockResolvedValueOnce(
+        makeCompletionResponse(JSON.stringify({ summary: 'ok', score: 1 }))
+      );
+
+      await liveProvider.analyze({
+        prompt: 'test',
+        responseSchema: testSchema,
+        model: 'explicit-override',
+      });
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'explicit-override' })
+      );
+    });
+
     it('handles missing usage gracefully (defaults to 0)', async () => {
       mockCreate.mockResolvedValueOnce({
         choices: [

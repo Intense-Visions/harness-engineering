@@ -80,6 +80,46 @@ describe('read-migration (legacy → discriminated)', () => {
     expect(ProposalSchema.safeParse(model).success).toBe(true);
     expect(ModelProposalContentSchema.safeParse(model.model).success).toBe(true);
   });
+
+  it('T6: accepts and round-trips an optional absolute targetScore', () => {
+    const withScore = {
+      action: 'add' as const,
+      target: { hfRepoId: 'Qwen/Qwen3-32B-GGUF', ollamaName: 'qwen3:32b' },
+      scoreDelta: 81.5,
+      targetScore: 81.5,
+      justification: {
+        summary: 's',
+        benchmarkBasis: [],
+        hardwareFit: '27GB',
+        evidence: 'direct',
+        freshness: '2026-05-21',
+      },
+      diskImpactGb: 3.2,
+    };
+    const parsed = ModelProposalContentSchema.safeParse(withScore);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.targetScore).toBe(81.5);
+  });
+
+  it('T6: targetScore is optional — legacy proposals without it still parse', () => {
+    const legacy = {
+      action: 'swap' as const,
+      target: { hfRepoId: 'Qwen/Qwen3-32B-GGUF', ollamaName: 'qwen3:32b' },
+      replaces: { ollamaName: 'qwen2.5:32b' },
+      scoreDelta: 7.4,
+      justification: {
+        summary: 's',
+        benchmarkBasis: [],
+        hardwareFit: '27GB',
+        evidence: 'direct',
+        freshness: '2026-05-21',
+      },
+      diskImpactGb: 3.2,
+    };
+    const parsed = ModelProposalContentSchema.safeParse(legacy);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.targetScore).toBeUndefined();
+  });
 });
 
 describe('ProposalTypeSchema', () => {

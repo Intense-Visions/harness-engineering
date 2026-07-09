@@ -233,6 +233,72 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
     });
   });
 
+  describe('T2 — event-driven refresh on local-models:pool', () => {
+    it('re-probes the resolver when a local-models:pool event fires', async () => {
+      const fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      const config = makeConfig({
+        localBackend: 'openai-compatible',
+        localModel: 'gemma-4-e4b',
+        localEndpoint: 'http://localhost:11434/v1',
+        localProbeIntervalMs: 300_000, // long interval — only the event refresh should re-probe
+      });
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const resolver = firstResolver(orch);
+      expect(resolver).not.toBeNull();
+      // Small debounce so the test doesn't idle for the 250ms default.
+      (resolver as unknown as { refreshDebounceMs: number }).refreshDebounceMs = 10;
+      (
+        resolver as unknown as { fetchModels: (e: string, k?: string) => Promise<string[]> }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      try {
+        expect(fetchModels).toHaveBeenCalledTimes(1); // start() probe
+
+        // A pool mutation fires on the orchestrator bus.
+        orch.emit('local-models:pool', { pool: [], evicted: [] });
+        // Wait past the debounce window for the coalesced re-probe.
+        await new Promise((r) => setTimeout(r, 60));
+        expect(fetchModels).toHaveBeenCalledTimes(2); // event-driven re-probe
+      } finally {
+        await orch.stop();
+      }
+    });
+
+    it('detaches the pool listener on stop() (no re-probe after stop)', async () => {
+      const fetchModels = vi.fn().mockResolvedValue(['gemma-4-e4b']);
+      const config = makeConfig({
+        localBackend: 'openai-compatible',
+        localModel: 'gemma-4-e4b',
+        localEndpoint: 'http://localhost:11434/v1',
+        localProbeIntervalMs: 300_000,
+      });
+      const orch = new Orchestrator(config, 'Prompt', {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const resolver = firstResolver(orch);
+      (resolver as unknown as { refreshDebounceMs: number }).refreshDebounceMs = 10;
+      (
+        resolver as unknown as { fetchModels: (e: string, k?: string) => Promise<string[]> }
+      ).fetchModels = fetchModels;
+
+      await orch.start();
+      await orch.stop();
+      const callsAfterStop = fetchModels.mock.calls.length;
+
+      // Late emit must not re-arm a stopped resolver.
+      orch.emit('local-models:pool', { pool: [], evicted: [] });
+      await new Promise((r) => setTimeout(r, 60));
+      expect(fetchModels).toHaveBeenCalledTimes(callsAfterStop);
+    });
+  });
+
   describe('SC13 — warn-level log on no candidate', () => {
     it('OT4: createAnalysisProvider logs warn when resolver reports unavailable', async () => {
       const fetchModels = vi.fn().mockResolvedValue(['some-other-model']);

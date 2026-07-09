@@ -1,9 +1,37 @@
-import type { LocalModelStatus } from '@harness-engineering/types';
-import type { PoolStateProvider } from '@harness-engineering/local-models';
+import type { LocalModelStatus, RoutingUseCase } from '@harness-engineering/types';
+import type { PoolStateProvider, RankProfile } from '@harness-engineering/local-models';
 import { poolStateToCandidates } from '@harness-engineering/local-models';
+
+/**
+ * Consumption Phase 4 (T16): map a routing use-case to the task profile whose
+ * per-model scores the resolver should order pooled candidates by. Code-editing
+ * tiers → `coding`; the diagnostic tier (debugging/investigation) → `reasoning`;
+ * everything else (analysis layers, chat, maintenance, sandboxing, skills/modes)
+ * → `general`, i.e. the composite score. Heuristic + intentionally conservative
+ * — see the task-aware-selection ADR. Extend here as more signal is available
+ * (e.g. cognitiveMode on `skill`/`mode`).
+ */
+export function useCaseToProfile(useCase: RoutingUseCase): RankProfile {
+  switch (useCase.kind) {
+    case 'tier':
+      return useCase.tier === 'diagnostic' ? 'reasoning' : 'coding';
+    default:
+      return 'general';
+  }
+}
 
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
+/** Coalescing window for event-driven `refresh()` so a burst of pool frames → one probe. */
+const REFRESH_DEBOUNCE_MS = 250;
+/**
+ * Consumption Phase 3 (T10): consecutive inference failures that trip a model's
+ * circuit breaker (deprioritizing it during resolution). A success or an elapsed
+ * cooldown clears the count.
+ */
+const DEFAULT_BREAKER_THRESHOLD = 3;
+/** How long a tripped model stays deprioritized before it's eligible again. */
+const DEFAULT_BREAKER_COOLDOWN_MS = 60_000;
 const DEFAULT_API_KEY = 'lm-studio'; // harness-ignore SEC-SEC-002: LM Studio documented no-auth placeholder, not a real secret
 const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 
@@ -26,6 +54,26 @@ export interface LocalModelResolverOptions {
   poolState?: PoolStateProvider;
   /** Probe cadence in ms; default 30_000, minimum 1_000. */
   probeIntervalMs?: number;
+  /** Debounce window for event-driven {@link LocalModelResolver.refresh}; default 250ms. */
+  refreshDebounceMs?: number;
+  /**
+   * Consumption Phase 5 (T19/T20): called with the newly-resolved model name
+   * whenever the resolver's composite selection changes (and is non-null), so
+   * the orchestrator can warm it into VRAM before the next dispatch. Naturally
+   * debounced — it fires only on an actual selection change, not every probe.
+   * Best-effort: a throwing hook is swallowed. Injected in tests; wired to
+   * {@link defaultWarmModel} in production.
+   */
+  warmModel?: (ollamaName: string) => void;
+  /**
+   * Consumption Phase 3 (T10): consecutive inference failures before a model is
+   * deprioritized by the circuit breaker. Default 3.
+   */
+  breakerThreshold?: number;
+  /** Cooldown (ms) after which a tripped model is eligible again. Default 60_000. */
+  breakerCooldownMs?: number;
+  /** Injectable clock (ms since epoch) for the circuit-breaker cooldown; default `Date.now`. Test seam. */
+  now?: () => number;
   /**
    * Per-request timeout for the default fetch implementation, in ms.
    * Default: 5_000. Ignored when a custom `fetchModels` is provided
@@ -106,6 +154,42 @@ export async function defaultFetchModels(
   return ids;
 }
 
+/**
+ * Consumption Phase 5 (T19): warm `ollamaName` into VRAM via Ollama's native
+ * `keep_alive`. Derives the native `/api/generate` endpoint from the
+ * OpenAI-compatible `endpoint` (`…/v1` → `…`), then POSTs an empty-prompt
+ * request with `keep_alive` so Ollama loads (and pins) the model without
+ * generating tokens. Best-effort and Ollama-specific (LMLM is Ollama-first):
+ * a non-Ollama server or any failure resolves quietly — warming is an
+ * optimization, never a correctness requirement. Fire-and-forget: the returned
+ * promise is swallowed by callers.
+ */
+export async function defaultWarmModel(
+  endpoint: string,
+  ollamaName: string,
+  apiKey?: string,
+  keepAlive: string = '10m',
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<void> {
+  // `http://host:11434/v1` → `http://host:11434/api/generate`.
+  const base = endpoint.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+  const url = `${base}/api/generate`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey ?? DEFAULT_API_KEY}`,
+      },
+      // Empty prompt + keep_alive loads the model into VRAM without generating.
+      body: JSON.stringify({ model: ollamaName, prompt: '', keep_alive: keepAlive }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    // Best-effort — a cold model just costs the next dispatch a load. Swallow.
+  }
+}
+
 export class LocalModelResolver {
   private readonly endpoint: string;
   private readonly apiKey?: string;
@@ -113,9 +197,22 @@ export class LocalModelResolver {
   private readonly poolState?: PoolStateProvider;
   private readonly probeIntervalMs: number;
   private readonly fetchModels: (endpoint: string, apiKey?: string) => Promise<string[]>;
+  private readonly warmModel?: (ollamaName: string) => void;
   private readonly logger: ResolverLogger;
 
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** Debounce handle for event-driven {@link refresh}; coalesces a burst into one probe. */
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Test seam for the refresh debounce delay (0 in tests → next-tick probe). */
+  private readonly refreshDebounceMs: number;
+  /** Consumption Phase 3 (T10): circuit-breaker config + per-model failure/trip state. */
+  private readonly breakerThreshold: number;
+  private readonly breakerCooldownMs: number;
+  private readonly now: () => number;
+  /** Consecutive inference failures per model since its last success. */
+  private consecutiveFailures = new Map<string, number>();
+  /** Epoch-ms at which a tripped model becomes eligible again (cooldown expiry). */
+  private trippedUntil = new Map<string, number>();
   private listeners = new Set<(status: LocalModelStatus) => void>();
   /**
    * Tracks an in-flight probe so concurrent invocations (interval tick while a
@@ -147,6 +244,10 @@ export class LocalModelResolver {
     }
     const interval = opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS;
     this.probeIntervalMs = Math.max(MIN_PROBE_INTERVAL_MS, interval);
+    this.refreshDebounceMs = Math.max(0, opts.refreshDebounceMs ?? REFRESH_DEBOUNCE_MS);
+    this.breakerThreshold = Math.max(1, opts.breakerThreshold ?? DEFAULT_BREAKER_THRESHOLD);
+    this.breakerCooldownMs = Math.max(0, opts.breakerCooldownMs ?? DEFAULT_BREAKER_COOLDOWN_MS);
+    this.now = opts.now ?? (() => Date.now());
     const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     // Bind timeout into the default impl. Custom `fetchModels` injections own
     // their own timeout policy (typically the test harness), so we leave them
@@ -154,11 +255,25 @@ export class LocalModelResolver {
     this.fetchModels =
       opts.fetchModels ??
       ((endpoint: string, apiKey?: string) => defaultFetchModels(endpoint, apiKey, timeoutMs));
+    if (opts.warmModel !== undefined) this.warmModel = opts.warmModel;
     this.logger = opts.logger ?? noopLogger;
   }
 
-  resolveModel(): string | null {
-    return this.resolved;
+  /**
+   * The model to dispatch to. With no `useCase`, returns the cached composite
+   * resolution from the last probe (byte-identical to the pre-Phase-4 resolver).
+   * With a `useCase`, orders the (pool-derived) candidates by that use-case's
+   * task profile and picks the best loaded, breaker-healthy one — so a
+   * coding-tagged dispatch prefers the coding specialist. A `general`-mapped
+   * use-case returns the cached composite resolution unchanged.
+   */
+  resolveModel(useCase?: RoutingUseCase): string | null {
+    if (useCase === undefined) return this.resolved;
+    const profile = useCaseToProfile(useCase);
+    if (profile === 'general') return this.resolved;
+    // Re-select from the last-probed detected set ordered by the profile score.
+    // No re-probe: `this.detected` reflects the most recent poll/refresh.
+    return this.selectMatch(this.candidates(profile), this.detected);
   }
 
   getStatus(): LocalModelStatus {
@@ -178,8 +293,10 @@ export class LocalModelResolver {
    * from pool entries (currentScore desc → ollamaName); otherwise the static
    * `configured` list is returned unchanged (byte-identical to pre-Phase-4).
    */
-  private candidates(): string[] {
-    return this.poolState ? poolStateToCandidates(this.poolState.snapshot()) : [...this.configured];
+  private candidates(profile?: RankProfile): string[] {
+    return this.poolState
+      ? poolStateToCandidates(this.poolState.snapshot(), profile)
+      : [...this.configured];
   }
 
   onStatusChange(handler: (status: LocalModelStatus) => void): () => void {
@@ -206,13 +323,14 @@ export class LocalModelResolver {
 
   private async runProbe(): Promise<LocalModelStatus> {
     const before = this.snapshotForDiff();
+    const prevResolved = this.resolved;
     try {
       const detected = await this.fetchModels(this.endpoint, this.apiKey);
       this.detected = [...detected];
       this.lastError = null;
       this.lastProbeAt = new Date().toISOString();
       const candidates = this.candidates();
-      const match = candidates.find((id) => detected.includes(id)) ?? null;
+      const match = this.selectMatch(candidates, detected);
       this.resolved = match;
       this.available = match !== null;
       this.warnings = match
@@ -245,7 +363,102 @@ export class LocalModelResolver {
         }
       }
     }
+    // T20: warm the newly-selected model on a selection change so the next
+    // dispatch isn't a cold start. Fires only when the composite resolution
+    // actually changed to a non-null model — a natural debounce.
+    if (this.resolved !== null && this.resolved !== prevResolved) {
+      this.warm(this.resolved);
+    }
     return status;
+  }
+
+  /** Best-effort warm-hook invocation — a throwing warm never breaks a probe. */
+  private warm(ollamaName: string): void {
+    if (!this.warmModel) return;
+    try {
+      this.warmModel(ollamaName);
+    } catch (err) {
+      this.logger.warn('local-model-resolver warm hook threw', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Consumption Phase 3 (T10): pick the resolved model from the candidates that
+   * are actually loaded, preferring ones whose circuit breaker is not tripped.
+   * Candidate order (score-desc from the pool) is preserved within each tier, so
+   * a tripped top pick sinks below a healthy lower pick but still resolves as a
+   * last resort when every loaded candidate is tripped (better a flaky model than
+   * none). Returns null when no candidate is loaded.
+   */
+  private selectMatch(candidates: string[], detected: string[]): string | null {
+    const detectedSet = new Set(detected);
+    const available = candidates.filter((id) => detectedSet.has(id));
+    if (available.length === 0) return null;
+    const healthy = available.filter((id) => !this.isTripped(id));
+    return healthy[0] ?? available[0] ?? null;
+  }
+
+  /**
+   * Whether `model`'s circuit breaker is currently tripped. Lazily clears the
+   * trip once its cooldown has elapsed so the model becomes eligible again on the
+   * next resolution without needing a separate timer.
+   */
+  private isTripped(model: string): boolean {
+    const until = this.trippedUntil.get(model);
+    if (until === undefined) return false;
+    if (this.now() >= until) {
+      this.trippedUntil.delete(model);
+      this.consecutiveFailures.delete(model);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Record a successful inference on `model`: clears its failure count and any
+   * active trip so a recovered model is immediately re-preferred.
+   */
+  recordSuccess(model: string): void {
+    if (!model) return;
+    const hadState = this.consecutiveFailures.has(model) || this.trippedUntil.has(model);
+    this.consecutiveFailures.delete(model);
+    this.trippedUntil.delete(model);
+    // A recovery may change which model is preferred — re-resolve promptly.
+    if (hadState) this.refresh();
+  }
+
+  /**
+   * Record a failed inference on `model`. On the Nth consecutive failure the
+   * breaker trips (deprioritizing the model for `breakerCooldownMs`) and a
+   * re-probe is scheduled so the resolver rolls to a healthy alternative.
+   */
+  recordFailure(model: string): void {
+    if (!model) return;
+    const next = (this.consecutiveFailures.get(model) ?? 0) + 1;
+    this.consecutiveFailures.set(model, next);
+    if (next >= this.breakerThreshold) {
+      this.trippedUntil.set(model, this.now() + this.breakerCooldownMs);
+      // The currently-resolved model just tripped — re-resolve to a healthy one.
+      this.refresh();
+    }
+  }
+
+  /**
+   * Event-driven refresh: schedule a debounced re-probe. Called when a
+   * `local-models:pool` mutation fires so a just-installed/swapped model becomes
+   * usable within a debounce window instead of waiting up to `probeIntervalMs`.
+   * A burst of frames coalesces into one probe (the timer is only armed once).
+   */
+  refresh(): void {
+    if (this.refreshTimer !== null) return;
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.probe();
+    }, this.refreshDebounceMs);
+    const handle = this.refreshTimer as unknown as { unref?: () => void };
+    handle.unref?.();
   }
 
   async start(): Promise<void> {
@@ -269,6 +482,10 @@ export class LocalModelResolver {
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.refreshTimer !== null) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 

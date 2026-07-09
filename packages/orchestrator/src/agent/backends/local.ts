@@ -23,6 +23,20 @@ export interface LocalBackendConfig {
   apiKey?: string;
   /** Request timeout in ms (default: 90000). */
   timeoutMs?: number;
+  /**
+   * Consumption Phase 3 (T9): called with the resolved model name after a turn
+   * completes successfully. The orchestrator binds this to `pool.markUsed`
+   * (stamps `lastUsedAt` so LRU eviction reflects real usage) and the resolver's
+   * circuit-breaker success path. Best-effort — thrown errors are swallowed so a
+   * telemetry hook never breaks a good turn.
+   */
+  onModelUsed?: (model: string) => void;
+  /**
+   * Consumption Phase 3 (T11): called with the resolved model name when a turn
+   * fails at the inference layer. Bound to the resolver's circuit breaker so a
+   * repeatedly-failing model is deprioritized. Best-effort.
+   */
+  onModelFailed?: (model: string) => void;
 }
 
 const DEFAULT_TIMEOUT_MS = 90_000;
@@ -35,8 +49,10 @@ export interface LocalSession extends AgentSession {
 
 export class LocalBackend implements AgentBackend {
   readonly name = 'local';
-  private config: Required<Omit<LocalBackendConfig, 'getModel'>>;
+  private config: Required<Omit<LocalBackendConfig, 'getModel' | 'onModelUsed' | 'onModelFailed'>>;
   private getModel: (() => string | null) | undefined;
+  private onModelUsed: ((model: string) => void) | undefined;
+  private onModelFailed: ((model: string) => void) | undefined;
   private client: OpenAI;
 
   constructor(config: LocalBackendConfig = {}) {
@@ -47,6 +63,8 @@ export class LocalBackend implements AgentBackend {
       timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     };
     this.getModel = config.getModel;
+    this.onModelUsed = config.onModelUsed;
+    this.onModelFailed = config.onModelFailed;
     this.client = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.endpoint,
@@ -127,6 +145,8 @@ export class LocalBackend implements AgentBackend {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Local backend request failed';
+      // T11: feed the inference failure to the resolver's circuit breaker.
+      this.notify(this.onModelFailed, localSession.resolvedModel);
       yield {
         type: 'error',
         timestamp: new Date().toISOString(),
@@ -140,6 +160,10 @@ export class LocalBackend implements AgentBackend {
         error: errorMessage,
       };
     }
+
+    // T9: a turn completed against `resolvedModel` — stamp real usage (LRU) and
+    // clear the circuit breaker via the orchestrator-bound hook.
+    this.notify(this.onModelUsed, localSession.resolvedModel);
 
     const usage = { inputTokens, outputTokens, totalTokens };
 
@@ -158,6 +182,16 @@ export class LocalBackend implements AgentBackend {
       sessionId: session.sessionId,
       usage,
     };
+  }
+
+  /** Best-effort telemetry hook invocation — a throwing hook never breaks a turn. */
+  private notify(hook: ((model: string) => void) | undefined, model: string): void {
+    if (!hook) return;
+    try {
+      hook(model);
+    } catch {
+      // Swallow — usage/failure telemetry is advisory, not turn-critical.
+    }
   }
 
   async stopSession(_session: AgentSession): Promise<Result<void, AgentError>> {

@@ -154,6 +154,14 @@ export const ModelProposalContentSchema = z
     target: z.object({ hfRepoId: z.string().min(1), ollamaName: z.string().min(1) }),
     replaces: z.object({ ollamaName: z.string().min(1) }).optional(),
     scoreDelta: z.number(),
+    /**
+     * Consumption Phase 2 (T6): the target's *absolute* ranked score (not the
+     * delta). Optional + additive so older persisted proposals round-trip. When
+     * present, `onApproveModelProposal` seeds the new pool entry's `currentScore`
+     * from it so an explicitly-installed model isn't buried at 0 until the next
+     * re-rank. Absent → the entry starts at 0 (legacy behavior).
+     */
+    targetScore: z.number().optional(),
     justification: z.object({
       summary: z.string(),
       benchmarkBasis: z.array(z.string()),

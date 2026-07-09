@@ -95,7 +95,43 @@ Model proposals get a single approve/reject decision, from either surface:
 - The **Pool** card is **read-only** — see [Known limitations](#known-limitations-read-before-relying-on-autonomy).
 
 Approving a proposal installs (or swaps/evicts) via the configured backend, updates
-pool state, and the `LocalModelResolver` picks up the new member on its next probe.
+pool state, and the `LocalModelResolver` picks up the new member within a debounce
+window (see [How pooled models are consumed](#how-pooled-models-are-consumed)), not
+only on its next scheduled probe.
+
+## How pooled models are consumed
+
+Installing a model is only half the story — this is how a pooled model actually
+reaches inference. See [ADR 0064](../knowledge/decisions/0064-lmlm-task-aware-pool-consumption.md)
+for the rationale.
+
+- **Event-driven freshness.** A pool mutation (install / swap / eviction) emits a
+  `local-models:pool` event that debounce-triggers a resolver re-probe, so a
+  just-installed or swapped model becomes dispatchable in **seconds**, not up to a
+  full poll cycle (`localModel.probeIntervalMs`, default ~30s). The intelligence
+  (analysis) pipeline reads its model **live per request**, so a swap is consumed
+  without an orchestrator restart — unless you pinned a layer model
+  (`intelligence.models.sel` / `.pesl`), which stays fixed by design.
+- **Score seeding.** A freshly installed model enters the pool at its **real ranked
+  score**, not `0`, so it is selectable immediately instead of sitting at the bottom
+  until the next re-rank. (This is why an approved install no longer shows a
+  "pool member scoring 0" justification.)
+- **Task-aware selection.** Within a local backend, the resolver orders pooled
+  candidates by a **task profile** derived from the routed use-case:
+  code-editing tiers (`quick-fix`, `guided-change`, `full-exploration`) → **coding**,
+  the `diagnostic` tier → **reasoning**, everything else → **general** (the composite
+  score). Profiles come from the ranker weighting profile-relevant benchmarks; when
+  the benchmark data can't distinguish a profile, selection **degrades gracefully to
+  composite score-order**, so task-awareness never buries a well-scored model.
+- **Runtime self-correction.** A completed turn stamps `lastUsedAt` (so LRU eviction
+  reflects real usage) and clears a per-model **circuit breaker**. A model that fails
+  several consecutive inferences is **deprioritized** — the resolver rolls to a healthy
+  pooled alternative — until it succeeds again or a cooldown elapses. If the failing
+  model is the _only_ one loaded, it is still used (a flaky model beats none).
+- **Warming.** When the resolver's selection changes, it best-effort **warms** the new
+  model into VRAM via Ollama's `keep_alive`, so the next dispatch isn't a cold start.
+  Warming is Ollama-only and never blocks a dispatch; a warm failure just means the
+  first request pays the load cost.
 
 ## Known limitations (read before relying on autonomy)
 
@@ -132,6 +168,7 @@ workflow; they scope what "autonomy" means today.
 
 - [ADR 0061: LMLM as a standalone package with a native TS ranking port](../knowledge/decisions/0061-lmlm-package-boundary-and-native-ranking-port.md)
 - [ADR 0062: Pool-bounded autonomy with Ollama-first installation](../knowledge/decisions/0062-pool-bounded-autonomy-and-ollama-first-install.md)
+- [ADR 0064: Task-aware, self-correcting consumption of pooled local models](../knowledge/decisions/0064-lmlm-task-aware-pool-consumption.md)
 - [ADR 0058: Generalize SkillProposalSchema into a discriminated ProposalSchema](../knowledge/decisions/0058-generalize-skill-proposal-into-discriminated-proposal.md)
 - [ADR 0059: Background refresh scheduler and silent drift reconciliation](../knowledge/decisions/0059-background-scheduler-and-silent-drift-reconciliation.md)
 - [ADR 0060: LMLM operator surfaces and dispatch-safe eviction](../knowledge/decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)

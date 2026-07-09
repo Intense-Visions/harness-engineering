@@ -3,6 +3,7 @@ import {
   normalizeLocalModel,
   LocalModelResolver,
   defaultFetchModels,
+  defaultWarmModel,
 } from '../../src/agent/local-model-resolver';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { EmptyPoolState } from '@harness-engineering/local-models';
@@ -242,6 +243,67 @@ describe('LocalModelResolver — lifecycle (fake timers)', () => {
     expect(fetchModels).toHaveBeenCalledTimes(2);
 
     resolver.stop();
+  });
+
+  it('refresh() triggers a debounced re-probe (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1); // start() probe
+
+    resolver.refresh();
+    // Not yet — still inside the debounce window.
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(2); // debounced re-probe fired
+
+    resolver.stop();
+  });
+
+  it('refresh() coalesces a burst into a single probe (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    // A burst of pool frames all arm the same single timer.
+    resolver.refresh();
+    resolver.refresh();
+    resolver.refresh();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(2); // one coalesced probe, not three
+
+    resolver.stop();
+  });
+
+  it('stop() cancels a pending refresh (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    resolver.refresh();
+    resolver.stop();
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(1); // only the start() probe; refresh cancelled
   });
 });
 
@@ -762,5 +824,241 @@ describe('LocalModelResolver — poolState integration (Phase 4)', () => {
     const status = await resolver.probe();
     expect(status.configured).toEqual(['a', 'b']);
     expect(status.resolved).toBe('b');
+  });
+});
+
+describe('LocalModelResolver — circuit breaker (T10)', () => {
+  it('deprioritizes a model after N consecutive failures; a healthy peer wins', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'], // 'a' preferred by order
+      breakerThreshold: 3,
+      fetchModels: async () => ['a', 'b'],
+    });
+    expect((await resolver.probe()).resolved).toBe('a');
+
+    // Two failures are below threshold — still 'a'.
+    resolver.recordFailure('a');
+    resolver.recordFailure('a');
+    expect((await resolver.probe()).resolved).toBe('a');
+
+    // Third trips the breaker — 'a' sinks, 'b' resolves.
+    resolver.recordFailure('a');
+    expect((await resolver.probe()).resolved).toBe('b');
+  });
+
+  it('a success clears the trip and re-prefers the recovered model', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      breakerThreshold: 2,
+      fetchModels: async () => ['a', 'b'],
+    });
+    resolver.recordFailure('a');
+    resolver.recordFailure('a'); // tripped
+    expect((await resolver.probe()).resolved).toBe('b');
+
+    resolver.recordSuccess('a');
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+
+  it('the trip clears after the cooldown elapses (injected clock)', async () => {
+    let clock = 1_000;
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      breakerThreshold: 1,
+      breakerCooldownMs: 500,
+      now: () => clock,
+      fetchModels: async () => ['a', 'b'],
+    });
+    resolver.recordFailure('a'); // threshold 1 → immediately tripped
+    expect((await resolver.probe()).resolved).toBe('b');
+
+    clock += 500; // cooldown elapsed
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+
+  it('resolves a tripped model as a last resort when it is the only loaded candidate', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      breakerThreshold: 1,
+      fetchModels: async () => ['a'],
+    });
+    resolver.recordFailure('a'); // tripped, but it's the only option
+    expect((await resolver.probe()).resolved).toBe('a');
+  });
+});
+
+describe('LocalModelResolver — task-aware resolveModel (T16)', () => {
+  // A pool provider whose entries carry per-profile scores.
+  const profiledProvider = (
+    rows: Array<{
+      name: string;
+      currentScore: number;
+      scoresByProfile: Partial<Record<'general' | 'coding' | 'reasoning', number>>;
+    }>
+  ): PoolStateProvider => ({
+    snapshot: () => ({
+      ...EmptyPoolState(),
+      entries: rows.map((r) => ({
+        ollamaName: r.name,
+        hfRepoId: `Org/${r.name}`,
+        sizeOnDiskGb: 1,
+        installedAt: '2026-07-07T00:00:00.000Z',
+        lastUsedAt: null,
+        currentScore: r.currentScore,
+        scoresByProfile: r.scoresByProfile,
+      })),
+    }),
+  });
+
+  it('a coding use-case selects the coding-best loaded model, not the composite-best', async () => {
+    const poolState = profiledProvider([
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50, reasoning: 88 } },
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95, reasoning: 30 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b', 'coder:7b'], // both loaded
+    });
+    await resolver.probe();
+
+    // No use-case → composite (generalist wins on currentScore).
+    expect(resolver.resolveModel()).toBe('generalist:32b');
+    // Coding tier → the coding specialist.
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'quick-fix' })).toBe('coder:7b');
+    // Diagnostic tier maps to reasoning → the generalist (reasoning 88 > 30).
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'diagnostic' })).toBe('generalist:32b');
+  });
+
+  it('only considers loaded models for the profile selection', async () => {
+    const poolState = profiledProvider([
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95 } },
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b'], // coder NOT loaded
+    });
+    await resolver.probe();
+    // Coding-best is coder:7b but it isn't loaded → fall to the loaded generalist.
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'guided-change' })).toBe('generalist:32b');
+  });
+
+  it('non-tier use-cases map to general (composite resolution)', async () => {
+    const poolState = profiledProvider([
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95 } },
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b', 'coder:7b'],
+    });
+    await resolver.probe();
+    expect(resolver.resolveModel({ kind: 'chat' })).toBe('generalist:32b');
+    expect(resolver.resolveModel({ kind: 'maintenance' })).toBe('generalist:32b');
+  });
+});
+
+describe('LocalModelResolver — warm on selection change (T19/T20)', () => {
+  it('warms the newly-resolved model when the selection changes', async () => {
+    const warmModel = vi.fn();
+    let detected = ['a'];
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      warmModel,
+      fetchModels: async () => detected,
+    });
+
+    await resolver.probe();
+    // First resolution (null → 'a') is a change → warm 'a'.
+    expect(warmModel).toHaveBeenCalledTimes(1);
+    expect(warmModel).toHaveBeenLastCalledWith('a');
+
+    // Same selection on the next probe → no re-warm.
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(1);
+
+    // 'a' disappears, 'b' resolves → selection change → warm 'b'.
+    detected = ['b'];
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(2);
+    expect(warmModel).toHaveBeenLastCalledWith('b');
+  });
+
+  it('does not warm when the selection becomes null (nothing loaded)', async () => {
+    const warmModel = vi.fn();
+    let detected: string[] = ['a'];
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      warmModel,
+      fetchModels: async () => detected,
+    });
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(1); // warmed 'a'
+
+    detected = []; // model unloaded → resolved becomes null
+    await resolver.probe();
+    // null is not a warmable target — no extra call.
+    expect(warmModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing warm hook never breaks the probe', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      warmModel: () => {
+        throw new Error('warm boom');
+      },
+      fetchModels: async () => ['a'],
+    });
+    const status = await resolver.probe();
+    expect(status.resolved).toBe('a'); // probe succeeded despite the throw
+  });
+});
+
+describe('defaultWarmModel (T19)', () => {
+  it('POSTs an empty-prompt keep_alive request to the native Ollama generate endpoint', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return { ok: true } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      await defaultWarmModel('http://localhost:11434/v1', 'qwen3:32b', 'ollama', '10m');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(calls).toHaveLength(1);
+    // /v1 is stripped → native generate endpoint.
+    expect(calls[0]!.url).toBe('http://localhost:11434/api/generate');
+    expect(calls[0]!.init.method).toBe('POST');
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ model: 'qwen3:32b', prompt: '', keep_alive: '10m' });
+  });
+
+  it('swallows fetch failures (best-effort)', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+    try {
+      await expect(
+        defaultWarmModel('http://localhost:11434/v1', 'qwen3:32b')
+      ).resolves.toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

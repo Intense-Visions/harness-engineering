@@ -150,6 +150,33 @@ describe('runRefreshTick (reconcile → rescore → diff → emit)', () => {
     expect(result.errors).toEqual([]);
   });
 
+  it('T14: writes per-profile scores back onto the pooled entry', async () => {
+    const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
+    const ranked = [
+      rankedModel({
+        ollamaName: 'old:8b',
+        hfRepoId: 'Qwen/Qwen3-8B-GGUF',
+        sizeB: 8,
+        score: 62,
+        scoresByProfile: { general: 62, coding: 75, reasoning: 40 },
+      }),
+    ];
+    const deps: RefreshTickDeps = {
+      detectHardware: async () => HARDWARE,
+      recommend: async () => recommendResult(ranked),
+      poolManager: pool,
+      dedupSource: async () => ({ pending: [], rejected: [] }),
+      emitProposal: async () => {},
+      proposalThreshold: 5,
+    };
+
+    await runRefreshTick(deps);
+
+    const entry = pool.snapshot().entries.find((e) => e.ollamaName === 'old:8b');
+    expect(entry?.currentScore).toBe(62);
+    expect(entry?.scoresByProfile).toEqual({ general: 62, coding: 75, reasoning: 40 });
+  });
+
   it('re-scores the pool BEFORE diffing → no phantom swap against a freshly-installed member scoring 0', async () => {
     // Regression: a just-installed/swapped-in member enters the pool at
     // currentScore 0 until its first re-rank. If the diff runs before the

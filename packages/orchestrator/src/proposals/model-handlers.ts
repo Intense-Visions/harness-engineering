@@ -234,13 +234,17 @@ export async function onApproveModelProposal(
   // `approved` on success or reverted to `open` on a retryable failure below.
   await deps.updateProposal(proposal.id, { status: 'installing' });
 
-  // The proposal carries only a score *delta*, not an absolute score; the new
-  // pool entry starts at 0 and the scheduler's next re-rank sets its real score.
+  // Consumption Phase 2 (T7): seed the new entry's score from the proposal's
+  // absolute `targetScore` (the ranker's composite for the target) so an
+  // explicitly-installed model is immediately resolvable at its real rank
+  // instead of sitting at 0 until the scheduler's next re-rank. Older proposals
+  // without `targetScore` fall back to 0 (legacy behavior).
   const installResult = await deps.pool.install({
     hfRepoId: model.target.hfRepoId,
     ollamaName: model.target.ollamaName,
     ...(model.replaces !== undefined ? { replaces: model.replaces.ollamaName } : {}),
     ...(model.diskImpactGb > 0 ? { sizeOnDiskGb: model.diskImpactGb } : {}),
+    ...(model.targetScore !== undefined ? { initialScore: model.targetScore } : {}),
     ...(deps.onInstallEvent ? { onEvent: deps.onInstallEvent } : {}),
   });
 

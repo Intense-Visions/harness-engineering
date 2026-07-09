@@ -116,6 +116,10 @@ function buildSwapProposal(
     target: { hfRepoId: candidate.hfRepoId, ollamaName: candidate.ollamaName! },
     replaces: { ollamaName: entry.ollamaName },
     scoreDelta: candidate.score - entry.currentScore,
+    // Consumption Phase 2 (T7): the target's absolute ranked score. Seeds the
+    // swapped-in entry's `currentScore` on approval so it enters the pool at its
+    // real rank rather than 0.
+    targetScore: candidate.score,
     justification: buildJustification({
       target: candidate,
       currentScore: entry.currentScore,

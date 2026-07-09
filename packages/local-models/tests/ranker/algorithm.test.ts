@@ -574,3 +574,88 @@ describe('scaleScore helper', () => {
     expect(medium).toBeGreaterThanOrEqual(low);
   });
 });
+
+describe('rankModels — per-profile scores (T12)', () => {
+  function obs(benchmark: string, value: number): BenchmarkObservation {
+    return {
+      source: 'open-llm-leaderboard',
+      benchmark,
+      value,
+      evidence: 'direct',
+      observedAt: SNAPSHOT_DATE,
+    };
+  }
+
+  it('every ranked model carries a full scoresByProfile map; general equals composite', () => {
+    const snapshot = buildSnapshot([
+      {
+        hfRepoId: QWEN_32B.hfRepoId,
+        family: 'qwen3',
+        sizeB: QWEN_32B.sizeB,
+        observations: [freshDirectObservation(80)],
+      },
+    ]);
+    const [top] = rankModels({ candidates: [QWEN_32B], hardware: M3_MAX_36GB, snapshot }).ranked;
+    expect(top).toBeDefined();
+    if (!top) return;
+    expect(Object.keys(top.scoresByProfile).sort()).toEqual(['coding', 'general', 'reasoning']);
+    expect(top.scoresByProfile.general).toBeCloseTo(top.score, 6);
+  });
+
+  it('a coding-strong / reasoning-weak model scores higher on the coding profile', () => {
+    const snapshot = buildSnapshot([
+      {
+        hfRepoId: QWEN_32B.hfRepoId,
+        family: 'qwen3',
+        sizeB: QWEN_32B.sizeB,
+        // Strong coding, weak reasoning — the profiles must diverge.
+        observations: [obs('humaneval', 95), obs('gsm8k', 40)],
+      },
+    ]);
+    const [top] = rankModels({ candidates: [QWEN_32B], hardware: M3_MAX_36GB, snapshot }).ranked;
+    expect(top).toBeDefined();
+    if (!top) return;
+    expect(top.scoresByProfile.coding).toBeGreaterThan(top.scoresByProfile.reasoning);
+  });
+
+  it('falls back to the composite for a profile with no relevant benchmark', () => {
+    const snapshot = buildSnapshot([
+      {
+        hfRepoId: QWEN_32B.hfRepoId,
+        family: 'qwen3',
+        sizeB: QWEN_32B.sizeB,
+        // Only a general benchmark — coding/reasoning have no signal.
+        observations: [freshDirectObservation(80)],
+      },
+    ]);
+    const [top] = rankModels({ candidates: [QWEN_32B], hardware: M3_MAX_36GB, snapshot }).ranked;
+    expect(top).toBeDefined();
+    if (!top) return;
+    expect(top.scoresByProfile.coding).toBeCloseTo(top.score, 6);
+    expect(top.scoresByProfile.reasoning).toBeCloseTo(top.score, 6);
+  });
+
+  it('an unfit model scores 0 across all profiles', () => {
+    const snapshot = buildSnapshot([
+      {
+        hfRepoId: LLAMA_70B.hfRepoId,
+        family: 'llama-3',
+        sizeB: LLAMA_70B.sizeB,
+        observations: [obs('humaneval', 90)],
+      },
+    ]);
+    const result = rankModels({
+      candidates: [LLAMA_70B],
+      hardware: CPU_ONLY,
+      snapshot,
+      options: { includeUnfit: true },
+    });
+    const [top] = result.ranked;
+    expect(top).toBeDefined();
+    if (!top) return;
+    expect(top.fitsHardware).toBe(false);
+    expect(top.scoresByProfile.general).toBe(0);
+    expect(top.scoresByProfile.coding).toBe(0);
+    expect(top.scoresByProfile.reasoning).toBe(0);
+  });
+});

@@ -15,6 +15,8 @@
  * @see docs/changes/local-model-lifecycle-manager/proposal.md (Phase 3, lines 431–443)
  */
 
+import type { RankProfile } from '../ranker/profiles.js';
+
 /**
  * A single installed Ollama model whose lifecycle the orchestrator is
  * managing. Steady-state shape only — transient install/evict status is
@@ -38,6 +40,15 @@ export interface PoolEntry {
   lastUsedAt: string | null;
   /** Most-recent ranker score (0–100). Eviction's primary sort key. */
   currentScore: number;
+  /**
+   * Consumption Phase 4 (T13): most-recent per-task-profile scores (0–100),
+   * written back by the scheduler's re-score step. Optional + additive so
+   * entries persisted before this field round-trip unchanged (the loader
+   * tolerates its absence; `cloneEntry` spreads it when present). Consumed by
+   * `poolStateToCandidates(state, profile)` to order candidates for a
+   * task-tagged dispatch. Absent ⇒ selection falls back to `currentScore`.
+   */
+  scoresByProfile?: Partial<Record<RankProfile, number>>;
 }
 
 /**
