@@ -44,6 +44,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** —
 
+### product-advisor
+
+- **Status:** done
+- **Spec:** docs/changes/product-advisor/proposal.md
+- **Summary:** DELIVERED (PR #705, merged). Product Advisor — upstream client-inception skill: ingests a diagram + client notes, drafts a BRD, detects gaps against a fixed completeness rubric, resolves them via a one-question-at-a-time interview, then fans the BRD out into candidate roadmap items and offers a STRATEGY.md seed. Reads but never writes STRATEGY.md; stops at BRD + roadmap seeding (spec authoring stays with harness-brainstorming).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#703
+
 ### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
 
 - **Status:** planned
@@ -122,6 +133,61 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#620
+
+### required-review-ci: deferred follow-ups (live verification, promote-to-required, --comment)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-ups deferred from #541 (shipped in PR #623). None block the shipped gate; all are documented in `docs/changes/required-review-ci/proposal.md`. Deferred items - **Promote the gate to a required check (SC8):** apply `templates/ci/required-review.ruleset.json` via `gh api repos/{owner}/{repo}/rulesets` once the non-blocking dogfood run proves stable, and flip the dogfood workflow off `continue-on-error`. - **Live runner verification in CI:** `cursor` (CLI absent locally), `gemini` (auth-blocked locally; superseded by antigravity but the id is retained), and `local` single-pass (needs a running openai-compatible endpoint). Mark each `supported: true` only after a real in-CI/endpoint run confirms its verdict envelope. - **Full-agentic `local` spike (1b):** determine whether a local model can drive the multi-persona tool-use/subagent pipeline; ships only on a 'go'. - **`--comment` PR posting:** currently a documented non-failing stub in `harness review-ci`; wire real PR-review posting (and re-add `pull-requests: write` to the template workflow) when implemented. - **antigravity CI secret:** `GEMINI_API_KEY` is a best-guess pending CI verification (`runner-presets.ts`). Refs: #541, PR #623.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#626
+
+### Adopter-facing git-hook installer for roadmap aggregate regeneration
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up from #684 (roadmap sharding). Deferred by design from Phase 6 rollout. #684 ships sharding with the **CI aggregate-drift check** (`harness validate`) as the portable adopter freshness contract, plus the local `.husky/{pre-commit,post-merge}` regen hooks for this repo (dev convenience). **Not** shipped: an installer that sets up the regen git-hooks in an *adopter's* repo. Rationale: harness installs no git hooks today, and a general installer must compose with arbitrary adopter husky/`.git/hooks` setups — its own scoped piece of work. The CI drift-check already keeps adopters correct (invariant R means a missed regen only yields a stale *cosmetic* aggregate, never wrong tooling). **Scope if pursued:** - Decide mechanism (husky vs raw `.git/hooks` vs a `harness hooks install` command) and composition with existing adopter hooks. - Wire into `harness init` (opt-in) for new projects; a one-shot install for existing adopters who run `harness roadmap shard`. - Keep it optional — CI drift-check remains the authoritative freshness mechanism. See ADR 0050 (read-source invariant R) and docs/guides/roadmap-sharding.md.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#688
+
+### Plugin generator leaks globally-installed skills into repo artifacts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Problem `pnpm generate:plugin:all` (and `generate-slash-commands`), run by the pre-commit hook whenever `agents/skills/` is staged, scans **globally-installed** skills — not just the repo's own `agents/skills/`. On a developer machine with third-party skills installed, those command files get written into the repo's tracked plugin dirs (`.claude-plugin/`, `.cursor-plugin/`, `.gemini-extension/`, `.codex-plugin/`) and auto-`git add`ed into the commit. Impact Any contributor with global skills installed leaks foreign command files into harness-engineering on every `agents/skills/` commit. Discovered while adding the `product-advisor` skill — 8 global commands were swept into the commit and had to be manually stripped before push (see PR for product-advisor). Proposed fix Scope the plugin/slash-command generators to the repo's own `agents/skills/` tree only (exclude globally-resolved skill dirs). Likely in `scripts/generate-plugin*.mjs` / `scripts/lib/plugin-config.mjs` and the `resolveAllSkillsDirs` path used during generation. Workaround until fixed Strip non-repo plugin command files from the commit before push (amend staging only plugin files so the pre-commit hook's `agents/skills/` trigger doesn't re-fire).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#704
+
+### pre-commit hook: ci check | tee masks exit code, so the fail-closed arch gate never blocks
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Summary `.husky/pre-commit` documents itself as **fail-closed** ("any check failure (including arch regressions) blocks the commit"), but the guard never blocks because the failing command is piped into `tee`. A shell pipeline's exit status is that of the **last** command (`tee`, always 0), not `node … ci check`. So an arch regression, validate failure, or traceability failure prints the red `x … fail` output and the commit proceeds anyway. Location `.husky/pre-commit`, lines ~5: `! (node … | tee)` evaluates `tee`'s exit code, which is 0 whenever `tee` writes successfully — regardless of whether `ci check` failed. Reproduction Observed while committing on `fix/issue-723-drift-config-python-symbols` (PR #724): the pre-commit output showed …and the commit still completed successfully. The documented block message ("✗ Commit blocked") never fired. Impact The primary local guard against arch/complexity/module-size regressions is silently disarmed. Regressions only get caught later (CI, or the heavier pre-push gauntlet), defeating the fast-feedback intent. The identical pattern should be audited anywhere else a hook pipes a gating command into `tee`/`grep`/etc. Suggested fix Preserve the producer's exit code. Any of: - Add `set -o pipefail` at the top of the hook (bash/zsh), so the pipeline fails if any stage fails; or - Capture explicitly: - Or drop the pipe and redirect: `node … ci check … > >(tee /tmp/…) 2>&1` with the status checked directly. `pipefail` is the smallest, most robust change and also covers the roadmap-regen / plugin-artifact pipelines further down the hook.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#726
+
+### roadmap-auto-done fallback PAT cannot create PRs (Resource not accessible by integration)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Problem When `.github/workflows/roadmap-auto-done.yml` cannot direct-push the shard flip to `main` (branch protection: "changes must be made through a pull request"), it falls back to opening a self-approved PR. That fallback **fails**: The token used for the fallback lacks `pull-requests: write` (or is the integration `GITHUB_TOKEN`, which is restricted from creating PRs). Result: the merged PR closes the issue, but the roadmap row is left at `planned` while the issue is `CLOSED`, and an orphaned `chore/auto-done-prNNN-*` branch accumulates on the remote. Impact This is **not** specific to one PR — **every** auto-done that cannot direct-push (i.e. whenever branch protection is active on `main`) fails the same way, silently leaving the roadmap inconsistent. It's a gap in the post-ship enforcement path. Observed - PR #779 merged, issue #533 CLOSED/COMPLETED, but shard stayed `planned`. Rescued manually via PR #780 (reused the workflow's own commit `59ccbd430`). - Failing run: roadmap-auto-done for PR 779 (2026-07-09T16:52Z). Fix direction Grant the fallback path a PAT with `pull-requests: write` (the workflow already references `AUTOAPPROVE_PAT` for the self-approval — verify it also has PR-create scope and is passed to the `gh pr create` step), and add a cleanup step for the orphaned `chore/auto-done-*` branches. Consider failing loudly (or emitting a Signal) when the roadmap flip does not land, so the inconsistency is visible rather than silent.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#781
 
 ## v5.0 — Catalog Rationalization
 
@@ -516,6 +582,74 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#732
 
+## Full-lifecycle reach
+
+### Product-requirements skill (close the PRD middle)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: NOW.** A guided-interview skill sitting between `product-advisor` (BRD) and `brainstorming` (spec): user stories, acceptance criteria, prioritization — the product-management middle that is currently fused into the proposal. Same `configuration-interviewer` pattern as product-advisor/strategy. Output feeds `acceptance-eval` directly. Double duty: closes a lifecycle gap AND a non-technical intent edge. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P0
+- **External-ID:** github:Intense-Visions/harness-engineering#709
+
+### UAT / user sign-off loop (close the outcome edge)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: NOW.** The mirror of `product-advisor` at the far end: validate shipped work against the BRD's open items, client-facing, dashboard-driven. Closes the inception → acceptance circle that is currently open. Distinct from `acceptance-eval` (pre-build spec completeness) and `outcome-eval` (agent-side spec-satisfaction verdict). --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P0
+- **External-ID:** github:Intense-Visions/harness-engineering#710
+
+### Role-shaped dashboard front doors (non-technical lanes)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: NEXT.** PM/BA and client lanes through the existing dashboard + router + chat: author intent, watch agents, adjudicate at decision points — no terminal. The surfaces exist; they need role-scoped paths. Lever for non-technical access per the Full-lifecycle reach track. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#711
+
+### Extend enforcement past ship (deployment + operations)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: NEXT.** Upgrade `harness-deployment` from Tier-3 advisory to enforcing, and add an operations skill that pulls production signals (incidents, monitoring) back into the knowledge graph. Today the lifecycle stops enforcing the moment code ships; this extends the constraint loop past release. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#712
+
+### Risk forecasting, not estimation
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: LATER.** Skip story points. Surface the intelligence pipeline's CML complexity + PESL simulation scores as a pre-execution *confidence & blast-radius* forecast — the estimate that actually matters when an agent does the work. Reframes the estimation gap using primitives that already exist. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#713
+
+### Make the artifact chain visibly one thing (dashboard trace)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** **Priority: LATER.** Trace a single engagement BRD → spec → plan → code → outcome in the dashboard so the 'documents are runtime' thesis is legible to a non-technical stakeholder at a glance. Narrative/visualization, not new machinery. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#714
+
 ## Craft Pipeline
 
 ### harness:craft-pipeline orchestrator
@@ -626,6 +760,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** Compose the harness's existing parallelism primitives (findParallelGroups wave-grouper, predict_conflicts, worktree isolation) into the standard execution path so sound parallel execution fires automatically instead of only when a human asks. Adds a shared parallelization-planner sub-protocol emitting a ParallelizationPlan (waves + severity + per-wave firing decision), a `dependsOn` task-schema field, and risk-tiered non-blocking dispatch (clean waves announce-and-go, medium/graph-unavailable confirm once, high-severity auto-serialize) wired into harness-autopilot EXECUTE. Execution-first; parallel planning/research and smart-merge (#600) are named follow-ons.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#746
 
 ## Planning & Process
 
@@ -819,6 +956,72 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#299
+
+### review floor: SQL_CONCAT_PATTERN flags markdown prose as CWE-89 (false positive)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Summary The security floor reviewer's SQL-injection detector (`SQL_CONCAT_PATTERN` in `packages/core/src/review/agents/security-agent.ts:28`) matches **plain prose**, not just code. It fires `critical` "Potential SQL injection via string concatenation (CWE-89)" findings on markdown skill docs that contain no SQL at all. Because `required-review` blocks on `critical` findings and the floor tier runs without LLM adjudication when `ANTHROPIC_API_KEY` is absent (e.g. some CI runs), a single prose false positive hard-blocks a PR. Reproduction PR #656 (skill prose edits) failed `required-review` with 5 blocking findings, all the same false positive. The trigger was a **pre-existing** heading in `harness-integration` SKILL.md: The pattern: matches `UPDATE ... + large` — a SQL keyword followed anywhere on the line by `+ <word>`. SQL keywords like `UPDATE`/`CREATE`/`DELETE` are common English/markdown words, so any heading or sentence such as "UPDATE (medium + large tiers)", "CREATE or DELETE + re-run", etc. trips it. The finding only surfaces when the floor reviewer scans a changed file, so it lies dormant until any PR happens to touch the file — then blocks that unrelated PR. (Worked around in #656 by rewording the heading `+` → `and`. That's per-file whack-a-mole, not a fix.) Why it's wrong - The detector runs line-by-line over the **entire content of changed files**, including markdown/prose, comments, and docs — not just code. - The first alternative has no requirement that the `+` is adjacent to a string literal or that the SQL keyword is in a query context. `KEYWORD ... + word` anywhere on the line is enough. - Severity is `critical` and blocks `required-review`, so a prose match is maximally disruptive. Proposed fix (options) 1. **Restrict to code contexts.** Skip non-code files (`.md`, `.txt`, `.toml` command renders, prose blocks) and/or only run within fenced code blocks for doc files. 2. **Tighten the regex** so the `+` must be adjacent to a string literal / template boundary (e.g. require a quote or backtick near the concatenation), reducing matches on `KEYWORD ... (a + b)` arithmetic-style prose. 3. **Require a string-literal SQL context** (a quoted string containing the keyword) before flagging concatenation, rather than a bare keyword token. 4. At minimum, **downgrade prose-only matches below the blocking threshold** so they comment rather than request-changes. Acceptance - A markdown heading like `UPDATE (medium + large tiers)` produces **no** `critical` finding. - A genuine `db.query("SELECT * FROM users WHERE id = " + userId)` still flags CWE-89. - Regression test covering both cases in the security-agent suite. Detector: `packages/core/src/review/agents/security-agent.ts:28` (`SQL_CONCAT_PATTERN`), emitted at `:85-101`.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#657
+
+### feat(design): support path exclusions for the design-token drift linter (design.exclude)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Problem Since v4, `harness validate` runs the design-token drift linter (DRIFT-T001..T004) over every `.ts/.tsx/.js/.jsx/.css/.scss` file under the project root (skipping only `node_modules`/`dist`/`build`/`coverage`/dot-dirs). The only configuration surface is `design.strictness` and `design.audit.driftDetection.enabled`. In a real monorepo this produces thousands of unavoidable findings: - **The token palette sources themselves** (e.g. a `tokens-reference.ts` or generated `theme/tokens.ts`) by definition contain raw hex literals — ours account for 350+ DRIFT-T001 errors. - **Test files** asserting on rendered colors/fonts. - **Non-UI code** (backend service definitions, DSL/DAG files) where hex strings aren't design tokens at all. With no way to scope the linter, the practical options today are `strictness: permissive` (gate passes but output is still swamped) or disabling drift detection entirely — losing the signal where it *is* valuable (component source in the UI package). Proposal Support an exclusion/scoping config for drift detection, mirroring the existing `security.exclude` shape, e.g.: An `include` allowlist (or per-path severity, e.g. error in `packages/ui`, warn elsewhere) would be even better, but plain excludes would unblock most monorepos. Context harness-engineering CLI 4.1.0. Observed while re-greening `harness validate` after the 2.8 → 4.x upgrade: 1,614 findings, 1,545 errors, 100% from `driftDetection`.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#742
+
+### bug(design): drift scanner flags hex-shaped strings inside comments (issue refs like "(#529)" reported as color #529)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Summary The design-token drift scanner (harness 4.1.0, `harness check-design`) matches hex-shaped strings inside **comment text**, producing two false-positive classes: 1. **Issue references parsed as colors** — `(#529)` in a JSDoc becomes a DRIFT-T001 finding for "color `#529`". A 2026-07-07 scan of our repo counted exactly 365 findings of this class (message hex matching `/^[0-9]{3,4}$/`): 344 are issue/PR references in comment text; 13 are issue refs inside string literals (test titles like `describe('… (#332 Tier-3)')` — still false positives, but comment-stripping alone would not catch them); and 8 are genuine all-numeric hex color literals (e.g. `#666`/`#777`/`#333`/`#999` in an inline-CSS template string, `packages/test-reporting/src/rollup.ts:134-149`) — true positives that happen to match the same shape. 2. **Hex values in comment prose** — a doc comment _describing_ a color (e.g. "renders `#e63535` on error") is flagged as a hardcoded color even though no code literal exists. 12 documented sites in one package (`packages/ui/src`, inventory below). Reproduction `harness check-design --json` reports a DRIFT-T001 finding for `#529` in `repro.ts`. Actual scanner output (from our repo, harness 4.1.0) Class 1 — issue reference parsed as a color: Class 2 — hex value in JSDoc prose (no code literal on the line): Class-2 inventory from one package (`packages/ui/src`), all inside JSDoc/comment text: | File:Line | Value in comment | | ------------------------------------------------------------- | ---------------- | | `auth/AuthErrorScreen/types.ts:32` | `#e63535` | | `auth/AuthErrorScreen/types.ts:34` | `#e6353514` | | `challenges/ActiveChallengeListCard/types.ts:13` | `#1B7FC3` | | `home-dashboard/FeaturedCarousel/index.tsx:66` | `#1b7fc3` | | `home-dashboard/FeaturedCarousel/index.tsx:67` | `#1b7fc318` | | `home-dashboard/KPICardHeroMilestoneTrackSplit/index.tsx:220` | `#f2ede0` | | `layout/AppShell/Sidebar.tsx:241` | `#e3f0f9` | | `theme/generate-client-palette.ts:24` | `#ffffff` | | `theme/generate-client-palette.ts:114` | `#1b7fc3` | | `theme/generate-client-palette.ts:162` | `#aabbcc` | | `theme/generate-client-palette.ts:184` | `#1b7fc3` | | `theme/generate-client-palette.ts:190` | `#1b7fc3` | (The same matcher also hits spacing prose: a comment line `* - bottom: 5px progress bar ...` produces a DRIFT-T003 finding.) Expected Comments are not style declarations. The scanner should strip comments before matching — comment-context detection is the correct fix (a string-literal context check would similarly address the test-title refs). A skip-bare-numerics heuristic ("skip matches whose captured value is a bare 3–4 digit number") is only an explicitly lossy stopgap: it would also suppress genuine 3-digit hex color literals (8 such true positives in our scan, e.g. `#666`/`#333` above), trading false positives for false negatives. Relationship to #742 Related but distinct: #742 (`design.exclude`) is **path scoping** — it lets users exclude files. This issue is a **matcher bug** that produces false positives in files users legitimately want scanned; scoping cannot fix it.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#750
+
+### Maintenance checks need a standard machine-parseable findings contract
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up from the on-demand maintenance pipeline (#687). **Problem:** `harness maintenance run` derives each task's findings count by regex-recovering it from free-text check output (`N findings|issues|violations|errors`, plus a keyword fallback in `classifyCheckExecutionFailure`). This is fragile: `doc-drift` (`check-docs`) and `entropy` (`cleanup`) emit no clean count and rely on recovery; if any check changes its output wording the count can silently break (the same class of bug that originally made the report show a uniform '1 finding'). **Proposal:** give maintenance check subcommands a standard machine-readable findings contract (e.g. a `--json` mode emitting `{ findings: N, ... }`) and have the runner consume that instead of regex-recovering from prose. Cross-cutting across ~18 check commands — deserves its own spec. **Scope note:** deliberately deferred from #687 to avoid scope creep; the regex recovery is the documented stopgap.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#691
+
+### Speed up the entropy/cleanup maintenance check (~165s sweep long-pole)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up from the on-demand maintenance pipeline (#687). **Problem:** the `entropy` maintenance task runs `cleanup` (all entropy types), which takes ~165s on this monorepo — the long pole of `harness maintenance run --all`. It fits within the 300s per-check budget but dominates sweep wall-clock. **Proposal:** profile/optimize `cleanup` / entropy detection (incremental scan, caching, or scoping). Pre-existing command perf, not introduced by #687. **Workaround today:** `harness maintenance run --skip entropy`, and it only runs weekly on the cron schedule.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#692
+
+### Sharded roadmap: archive done rows into docs/roadmap.d/archive/
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up from #684 (roadmap sharding). Keep the active shard set lean by moving `done` rows out of `docs/roadmap.d/` into a `docs/roadmap.d/archive/` subdirectory — the sharded equivalent of the existing `docs/roadmap-archive.md` + RMH001 + groom "archive done" behavior. **Why this is the one organization idea worth doing** (per-status subdirs were rejected — path should encode identity/slug, not mutable status; a status change shouldn't move a file): - `done` is terminal/one-way, so the move cost is bounded (unlike planned↔in-progress↔blocked churn). - At merge time the active set was ~175 shards, roughly half done. **Scope / design constraints:** - The store/reconciler must MOVE a shard into `archive/` on the `done` transition (not just patch in place) — touches `patchFeature` + the auto-done reconciler. - `readShardDir`/assembler must glob recursively and keep slug uniqueness across `docs/roadmap.d/` and `docs/roadmap.d/archive/`. - Must UNIFY with the existing `docs/roadmap-archive.md` + RMH001 + groom archive path, not add a second archive mechanism. - Preserve invariant R (only the regenerator reads the aggregate) and the conflict-free single-shard-per-row property. See ADRs 0050 (read-source invariant) and the proposal at docs/changes/roadmap-shard-store/proposal.md.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#695
 
 ## Knowledge Federation
 

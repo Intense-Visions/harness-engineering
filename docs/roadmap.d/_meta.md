@@ -12,6 +12,7 @@ milestones:
   - "v5.0 — Telemetry & Effectiveness"
   - "v5.0 — Trust & Security Model"
   - "v5.0 — Article-Framing Docs & Personas"
+  - "Full-lifecycle reach"
   - "Craft Pipeline"
   - "Parallel Execution & State"
   - "Planning & Process"
