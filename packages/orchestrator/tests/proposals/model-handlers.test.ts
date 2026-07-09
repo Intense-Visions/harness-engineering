@@ -177,6 +177,33 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(h.events.some((e) => e.topic === 'local-models:pool')).toBe(true);
   });
 
+  it('T7: threads the proposal targetScore as initialScore so the entry is seeded (not 0)', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    const scored = modelProposal({ targetScore: 78.4 });
+    const h = harness(pool, scored);
+
+    const outcome = await onApproveModelProposal(h.deps, scored);
+
+    expect(outcome.status).toBe('approved');
+    expect(pool.installCalls[0]!.initialScore).toBe(78.4);
+  });
+
+  it('T7: omits initialScore for a legacy proposal without targetScore', async () => {
+    const pool = fakePool({
+      install: { status: 'success', entry: REPLACED, evicted: [] },
+      evict: { status: 'success', name: 'qwen2.5:32b', removed: REPLACED },
+    });
+    // Default modelProposal() carries no targetScore.
+    const h = harness(pool, proposal);
+
+    await onApproveModelProposal(h.deps, proposal);
+
+    expect(pool.installCalls[0]!.initialScore).toBeUndefined();
+  });
+
   it('success approve ALSO emits local-models:proposal { approved } (XP-1: symmetric with reject/created)', async () => {
     const pool = fakePool({
       install: { status: 'success', entry: REPLACED, evicted: [] },

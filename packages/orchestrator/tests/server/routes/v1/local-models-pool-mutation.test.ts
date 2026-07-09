@@ -194,6 +194,36 @@ describe('POST /local-models/pool/install', () => {
     expect(proposals[0]!.status).toBe('approved');
   });
 
+  it('T7: seeds the pool install with the ranked score (targetScore → initialScore), not 0', async () => {
+    const bus = new EventEmitter();
+    const { waitTerminal } = installFrames(bus);
+    const installCalls: InstallPoolRequest[] = [];
+    const pool = fakePool({
+      install: async (r) => {
+        installCalls.push(r);
+        return { status: 'success', entry: { ...ENTRY, ollamaName: r.ollamaName }, evicted: [] };
+      },
+    });
+    const d = deps({ bus, getModelPool: () => pool });
+    const { res, statusCode, done } = makeRes();
+    handleV1LocalModelsMutationRoute(
+      makeReq('POST', '/api/v1/local-models/pool/install', {
+        hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      }),
+      res,
+      d
+    );
+    await done;
+    expect(statusCode()).toBe(202);
+    await waitTerminal();
+    // RANKED.score is 71 — the operator install carries it through as the seed.
+    expect(installCalls[0]!.initialScore).toBe(71);
+
+    // The persisted proposal also records the absolute score for audit.
+    const proposals = await listProposals(tmpDir, { kind: 'model' });
+    expect(proposals[0]!.model.targetScore).toBe(71);
+  });
+
   it('responds 202 WITHOUT awaiting the pull (regression: proxy headersTimeout 502)', async () => {
     // The root cause of the observed `502 ... (cause: Headers Timeout Error)`:
     // the route used to await the full multi-GB `ollama pull` before sending any

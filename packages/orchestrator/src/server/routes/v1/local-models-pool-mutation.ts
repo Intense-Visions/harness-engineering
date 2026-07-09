@@ -138,6 +138,11 @@ async function handleInstall(
     action: 'add',
     target: { hfRepoId: match.hfRepoId, ollamaName: match.ollamaName },
     scoreDelta: match.score,
+    // Consumption Phase 2 (T7): carry the absolute ranked score so the new pool
+    // entry seeds `currentScore` at its real rank instead of 0 — an
+    // operator-initiated install is usable immediately, not buried until the
+    // scheduler's next re-rank.
+    targetScore: match.score,
     justification: {
       summary: `Operator-initiated install of ${match.ollamaName} (${match.quant}).`,
       benchmarkBasis: [],

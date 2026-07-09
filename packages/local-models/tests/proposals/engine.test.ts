@@ -69,6 +69,12 @@ describe('diffPoolAgainstRanking (F6: at most one proposal per pool entry)', () 
     expect(p0.action).toBe('swap');
     expect(p0.justification.summary).toMatch(new RegExp(p0.target.ollamaName));
     expect(p0.scoreDelta).toBeGreaterThanOrEqual(5);
+    // T7: the swap proposal carries the target's absolute ranked score so the
+    // swapped-in entry seeds `currentScore` at its real rank — it equals the
+    // chosen candidate's score, not the delta.
+    const chosen = ranked.find((r) => r.ollamaName === p0.target.ollamaName)!;
+    expect(p0.targetScore).toBe(chosen.score);
+    expect(p0.targetScore).toBe(p0.scoreDelta + 60); // old-a's currentScore was 60
   });
 
   it('emits nothing when candidates beat by less than the threshold (ties included)', () => {
