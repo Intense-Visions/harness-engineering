@@ -16,8 +16,7 @@ const baseDecision: RollbackDecision = {
 
 function fakeGh(existing: number[] = [], url = 'https://gh/pr/99') {
   return {
-    findOpenRevertPr: vi.fn(async () => (existing.length ? existing[0]! : null)),
-    findOpenRevertPrUrl: vi.fn(async () => (existing.length ? url : null)),
+    findOpenRevertPr: vi.fn(async () => (existing.length ? { number: existing[0]!, url } : null)),
     openPr: vi.fn(async () => url),
   };
 }

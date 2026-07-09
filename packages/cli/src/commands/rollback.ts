@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { Command, Option } from 'commander';
+import { Command, Option, InvalidArgumentError } from 'commander';
 import { classifyRevert } from '@harness-engineering/core';
 import type { RollbackDecision, RollbackIO } from '@harness-engineering/core';
 import { composeRevertPr, ROLLBACK_LABEL, type ComposeGhSeam } from '../rollback/compose';
@@ -129,10 +129,7 @@ function findOpenRevertPrNode(targetPr: number): { number: number; url: string }
 export function createGhSeam(): ComposeGhSeam {
   return {
     async findOpenRevertPr(targetPr) {
-      return findOpenRevertPrNode(targetPr)?.number ?? null;
-    },
-    async findOpenRevertPrUrl(targetPr) {
-      return findOpenRevertPrNode(targetPr)?.url ?? null;
+      return findOpenRevertPrNode(targetPr);
     },
     async openPr({ title, body, label }) {
       return execFileSync(
@@ -158,7 +155,11 @@ export function createRollbackCommand(): Command {
   rollback
     .command('evaluate')
     .description('Classify a merged PR for revert-readiness and, if ready, propose a revert PR')
-    .requiredOption('--pr <n>', 'target merged PR number', (v) => Number.parseInt(v, 10))
+    .requiredOption('--pr <n>', 'target merged PR number', (v) => {
+      const n = Number.parseInt(v, 10);
+      if (Number.isNaN(n)) throw new InvalidArgumentError('--pr must be a number');
+      return n;
+    })
     .addOption(
       new Option('--trigger <trigger>', 'what fired this evaluation')
         .choices(['signal', 'eval'])

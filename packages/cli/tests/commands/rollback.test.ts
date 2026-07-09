@@ -29,8 +29,9 @@ function fakeIo(
 }
 function fakeGh(existing: number[] = []) {
   return {
-    findOpenRevertPr: vi.fn(async () => (existing.length ? existing[0]! : null)),
-    findOpenRevertPrUrl: vi.fn(async () => (existing.length ? 'https://gh/pr/99' : null)),
+    findOpenRevertPr: vi.fn(async () =>
+      existing.length ? { number: existing[0]!, url: 'https://gh/pr/99' } : null
+    ),
     openPr: vi.fn(async () => 'https://gh/pr/100'),
   };
 }

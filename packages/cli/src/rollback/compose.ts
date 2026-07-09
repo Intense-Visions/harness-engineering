@@ -4,10 +4,15 @@ export const ROLLBACK_LABEL = 'harness:rollback';
 
 /** Injected gh seam for the composer (real impl shells `gh` in the command). */
 export interface ComposeGhSeam {
-  /** PR number of an OPEN revert PR labeled ROLLBACK_LABEL for `targetPr`, else null. */
-  findOpenRevertPr(targetPr: number, label: string): Promise<number | null>;
-  /** URL of that existing open revert PR, else null. */
-  findOpenRevertPrUrl(targetPr: number, label: string): Promise<string | null>;
+  /**
+   * The OPEN revert PR labeled ROLLBACK_LABEL for `targetPr` (number + url), or
+   * null when none exists. A single lookup drives the idempotency skip — the
+   * real seam runs `gh pr list` once instead of twice (Phase-2 review polish).
+   */
+  findOpenRevertPr(
+    targetPr: number,
+    label: string
+  ): Promise<{ number: number; url: string } | null>;
   /** Open the revert PR; returns its URL. */
   openPr(args: { title: string; body: string; label: string; targetPr: number }): Promise<string>;
 }
@@ -80,10 +85,9 @@ export async function composeRevertPr(
     return { action: 'proposed' };
   }
 
-  const existingUrl = await opts.gh.findOpenRevertPrUrl(decision.targetPr, ROLLBACK_LABEL);
   const existing = await opts.gh.findOpenRevertPr(decision.targetPr, ROLLBACK_LABEL);
   if (existing !== null) {
-    return { action: 'skipped', ...(existingUrl ? { prUrl: existingUrl } : {}) };
+    return { action: 'skipped', ...(existing.url ? { prUrl: existing.url } : {}) };
   }
 
   const prUrl = await opts.gh.openPr({
