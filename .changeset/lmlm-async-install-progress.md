@@ -1,6 +1,7 @@
 ---
 '@harness-engineering/orchestrator': minor
 '@harness-engineering/dashboard': minor
+'@harness-engineering/local-models': patch
 '@harness-engineering/types': minor
 ---
 
@@ -27,3 +28,9 @@ times out. (`evict` approvals and rejects stay synchronous.)
 The Recommendations panel also gains a **Refresh** button that triggers a
 force-refresh tick (`POST /api/v1/local-models/refresh`) to recompute
 recommendations on demand and refetch the panel.
+
+Fixes a refresh-tick ordering bug where the pool was diffed against the ranking
+**before** the re-ranked scores were written back. A freshly-installed member
+enters the pool at `currentScore: 0` until its first re-rank, so diffing first
+produced phantom swap proposals justified as "replace a pool member scoring 0"
+(and inflated `scoreDelta`s). The tick now re-scores the pool before diffing.
