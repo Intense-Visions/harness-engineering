@@ -4,6 +4,7 @@ import {
   LocalModelResolver,
   defaultFetchModels,
   defaultWarmModel,
+  defaultWarmModelViaCompletion,
 } from '../../src/agent/local-model-resolver';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { EmptyPoolState } from '@harness-engineering/local-models';
@@ -1056,6 +1057,42 @@ describe('defaultWarmModel (T19)', () => {
     try {
       await expect(
         defaultWarmModel('http://localhost:11434/v1', 'qwen3:32b')
+      ).resolves.toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe('defaultWarmModelViaCompletion (pi warming)', () => {
+  it('POSTs a 1-token chat completion to warm a JIT-loading OpenAI-compatible server', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return { ok: true } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      await defaultWarmModelViaCompletion('http://localhost:1234/v1', 'gemma-4-e4b', 'lm-studio');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe('http://localhost:1234/v1/chat/completions');
+    expect(calls[0]!.init.method).toBe('POST');
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ model: 'gemma-4-e4b', max_tokens: 1 });
+    expect(body.messages).toHaveLength(1);
+  });
+
+  it('swallows fetch failures (best-effort)', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+    try {
+      await expect(
+        defaultWarmModelViaCompletion('http://localhost:1234/v1', 'gemma-4-e4b')
       ).resolves.toBeUndefined();
     } finally {
       globalThis.fetch = originalFetch;
