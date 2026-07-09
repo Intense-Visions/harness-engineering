@@ -55,12 +55,14 @@ partial = present but advisory or fused; gap = no first-class skill.
 
 ## The gaps that matter
 
-The literal gaps are estimation and UAT / user sign-off, with deployment, operations, and
-the PRD middle only partial. Grouped by _why_ they matter:
+The literal gaps are estimation and UAT / user sign-off, with deployment and operations
+only partial. The PRD middle — previously partial — is now closed by `product-requirements`.
+Grouped by _why_ they matter:
 
-1. **Human-facing edges (chase).** UAT and the PRD middle both sit where a non-engineer
-   meets the pipeline. They coincide with where harness is weakest for non-technical
-   users, so closing them does double duty.
+1. **Human-facing edges (chase).** UAT sits where a non-engineer meets the pipeline —
+   coinciding with where harness is weakest for non-technical users. The PRD middle, the
+   other such edge, is now closed by `product-requirements`; UAT is the remaining one, so
+   closing it does the same double duty.
 2. **Enforcement upgrades (chase selectively).** Deployment only advises; operations now
    has a post-ship revert primitive (`harness:rollback`, propose-only — it opens a
    full-context revert PR on a signal-threshold crossing but a human merges it) on top of
