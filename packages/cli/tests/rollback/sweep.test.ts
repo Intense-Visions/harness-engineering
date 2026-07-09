@@ -1,12 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SignalPoint } from '@harness-engineering/signals';
 import type { RollbackDecision } from '@harness-engineering/core';
+
+const execFileSyncMock = vi.hoisted(() => vi.fn());
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:child_process')>()),
+  execFileSync: execFileSyncMock,
+}));
+
 import {
   parseWindow,
   detectCrossing,
   windowStart,
   pointsInWindow,
   runRollbackSweep,
+  createPrResolver,
   type SweepSignalRule,
 } from '../../src/rollback/sweep';
 
@@ -185,5 +193,68 @@ describe('runRollbackSweep', () => {
       now: () => now,
     });
     expect(evaluate).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPrResolver (I1: honors BOTH window bounds, no date-truncation)', () => {
+  const startIso = '2026-07-08T10:00:00.000Z';
+  const nowIso = '2026-07-09T10:00:00.000Z';
+
+  const searchArgFromLastCall = (): string => {
+    const [, args] = execFileSyncMock.mock.calls.at(-1) as [string, string[]];
+    const i = args.indexOf('--search');
+    return args[i + 1] as string;
+  };
+
+  it('builds a bounded merged:<start>..<end> search using BOTH bounds', async () => {
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockReturnValue(JSON.stringify([{ number: 201 }, { number: 202 }]));
+    const resolve = createPrResolver();
+    const prs = await resolve(startIso, nowIso);
+
+    const search = searchArgFromLastCall();
+    // Both ends of the [start, now] contract are present.
+    expect(search).toContain(startIso);
+    expect(search).toContain(nowIso);
+    // A single bounded range, not an open-ended lower bound.
+    expect(search).toBe(`merged:${startIso}..${nowIso}`);
+    expect(prs).toEqual([201, 202]);
+  });
+
+  it('uses FULL ISO timestamps, not date-truncated bounds (no ~10h window bleed)', async () => {
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockReturnValue('[]');
+    const resolve = createPrResolver();
+    await resolve(startIso, nowIso);
+
+    const search = searchArgFromLastCall();
+    // The time component must survive — a date-only bound (2026-07-08) would
+    // capture PRs from 00:00 that fall ~10h BEFORE the real 10:00 window start.
+    expect(search).toContain('T10:00:00');
+    expect(search).not.toBe('merged:2026-07-08..2026-07-09');
+    expect(search).not.toMatch(/merged:>=/); // no open-ended lower bound
+  });
+
+  it('excludes a PR merged before the window start: gh gets the lower bound and returns none', async () => {
+    execFileSyncMock.mockReset();
+    // gh honors the bounded range and returns nothing for an out-of-window PR.
+    execFileSyncMock.mockReturnValue('[]');
+    const resolve = createPrResolver();
+    const prs = await resolve(startIso, nowIso);
+
+    const search = searchArgFromLastCall();
+    // The lower bound the sweep passed is exactly the window start (to the
+    // second), so a PR merged at 09:59 (before 10:00) is outside the range.
+    expect(search).toContain(`merged:${startIso}`);
+    expect(prs).toEqual([]);
+  });
+
+  it('degrades to [] when gh throws', async () => {
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockImplementation(() => {
+      throw new Error('gh not found');
+    });
+    const resolve = createPrResolver();
+    await expect(resolve(startIso, nowIso)).resolves.toEqual([]);
   });
 });

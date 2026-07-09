@@ -52,6 +52,17 @@ export function parseWindow(window: string): number {
  * the immediately prior point is on one side of the threshold and the latest
  * point is on the other — NOT a sustained plateau past the threshold (which
  * would re-fire every sweep). Fewer than two points → no crossing.
+ *
+ * By design this examines ONLY the most-recent adjacent in-window pair
+ * (`.at(-2)` vs `.at(-1)`). Two consequences follow deliberately:
+ *   - A crossing immediately followed by a same-window reversal (e.g. over →
+ *     back-under before the next sweep) is NOT fired — only the final adjacent
+ *     transition is considered, so a self-reverting blip is intentionally
+ *     ignored rather than treated as a crossing.
+ *   - The "prior point" (`.at(-2)`) is simply the previous stored point, which
+ *     may be many calendar days older than the latest when the timeline has gap
+ *     days (signals are only recorded on days they were sampled). Adjacency here
+ *     means "adjacent in the point series," not "one day apart."
  */
 export function detectCrossing(points: SignalPoint[], rule: SweepSignalRule): boolean {
   const prev = points.at(-2);
@@ -115,12 +126,19 @@ export function createTimelineReader(root: string): TimelineReader {
 }
 
 /**
- * Real PR resolver over `gh pr list` (no shell). Untested-by-design (thin
- * process shim, mirrors createGhSeam). Degrade-safe: any gh failure yields `[]`
- * so a missing/unauthenticated gh never crashes the sweep.
+ * Real PR resolver over `gh pr list` (no shell). Degrade-safe: any gh failure
+ * yields `[]` so a missing/unauthenticated gh never crashes the sweep.
+ *
+ * Honors BOTH ends of the `[startIso, nowIso]` contract with a bounded
+ * `merged:<start>..<end>` range so out-of-window PRs are never forwarded to
+ * evaluate (finding I1). We deliberately pass the FULL ISO timestamps rather
+ * than date-truncating (`.slice(0, 10)`): gh's `merged:` qualifier accepts
+ * full `YYYY-MM-DDTHH:MM:SSZ` timestamps, so a 24h window ending at 10:00 does
+ * NOT bleed in ~10 extra hours of PRs from 00:00 that a date-only bound would
+ * capture. The window is thus honored to the second, not the calendar day.
  */
 export function createPrResolver(): PrResolver {
-  return async (startIso) => {
+  return async (startIso, nowIso) => {
     try {
       const raw = execFileSync(
         'gh',
@@ -130,7 +148,7 @@ export function createPrResolver(): PrResolver {
           '--state',
           'merged',
           '--search',
-          `merged:>=${startIso.slice(0, 10)}`,
+          `merged:${startIso}..${nowIso}`,
           '--json',
           'number',
           '--limit',
