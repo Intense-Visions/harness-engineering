@@ -77,4 +77,62 @@ describe('classifyRevert', () => {
     expect(d.blastRadius).toBe(42);
     expect(d.revertReady).toBe(true);
   });
+
+  it('classifies an empty changedFiles set as skipped, not proposed (#2)', async () => {
+    const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
+    const decision = await classifyRevert(
+      { targetPr: 10, trigger: 'signal', mergeSha: 'abc', changedFiles: [], laterMerges: [] },
+      io
+    );
+    expect(decision.action).toBe('skipped');
+    expect(decision.revertReady).toBe(false);
+    expect(decision.reasons.join(' ')).toMatch(/no changed files/i);
+  });
+
+  it('excludes the target PR itself from dependent-merge detection (#3)', async () => {
+    const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
+    const decision = await classifyRevert(
+      {
+        targetPr: 42,
+        trigger: 'signal',
+        mergeSha: 'abc',
+        changedFiles: ['src/a.ts'],
+        laterMerges: [{ pr: 42, changedFiles: ['src/a.ts'] }],
+      },
+      io
+    );
+    expect(decision.dependentMerges).toEqual([]);
+    expect(decision.action).toBe('proposed');
+  });
+
+  it('emits the exact migration-warning count for multiple migration files (#6)', async () => {
+    const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
+    const decision = await classifyRevert(
+      {
+        targetPr: 7,
+        trigger: 'signal',
+        mergeSha: 'abc',
+        changedFiles: ['db/migrations/001.SQL', 'prisma/schema.prisma', 'src/x.ts'],
+        laterMerges: [],
+      },
+      io
+    );
+    expect(decision.migrationWarnings).toHaveLength(2); // .SQL (case-insensitive) + schema.prisma
+  });
+
+  it('uses "unknown" conflict fallback when conflictPaths is empty (#6/#4)', async () => {
+    const io = { revertDryRun: async () => ({ clean: false, conflictPaths: [] }) };
+    const decision = await classifyRevert(
+      {
+        targetPr: 9,
+        trigger: 'signal',
+        mergeSha: 'abc',
+        changedFiles: ['src/a.ts'],
+        laterMerges: [],
+      },
+      io
+    );
+    expect(decision.action).toBe('skipped');
+    expect(decision.reasons.join(' ')).toMatch(/conflicting paths unavailable|unknown/i);
+  });
 });
