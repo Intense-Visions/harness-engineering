@@ -496,7 +496,7 @@ export const RollbackSignalRuleSchema = z.object({
   /** Which crossing direction fires: value going above or below the threshold. */
   direction: z.enum(['above', 'below']),
   /** Lookback window (e.g. "24h", "7d") mapping the crossing to merged PRs. */
-  window: z.string(),
+  window: z.string().regex(/^\d+[hdw]$/, 'window must be <number><h|d|w>, e.g. "24h", "7d", "2w"'),
 });
 
 export const RollbackConfigSchema = z.object({

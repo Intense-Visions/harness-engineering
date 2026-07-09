@@ -35,6 +35,23 @@ describe('RollbackConfigSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it.each(['24h', '7d', '2w', '1h', '365d'])('accepts a valid window %s', (window) => {
+    const result = RollbackConfigSchema.safeParse({
+      signals: { x: { threshold: 1, direction: 'above', window } },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it.each(['7', '7x', 'd7', '', '7 d', 'h', '1.5d'])(
+    'rejects an invalid window format %j',
+    (window) => {
+      const result = RollbackConfigSchema.safeParse({
+        signals: { x: { threshold: 1, direction: 'above', window } },
+      });
+      expect(result.success).toBe(false);
+    }
+  );
 });
 
 describe('HarnessConfigSchema with rollback block', () => {
