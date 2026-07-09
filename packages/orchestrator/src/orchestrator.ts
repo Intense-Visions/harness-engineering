@@ -32,7 +32,7 @@ import { PromptRenderer } from './prompt/renderer';
 // `OrchestratorBackendFactory` + `createBackend` (factory module). The
 // orchestrator no longer constructs backends directly — factory handles
 // dispatch-time materialization.
-import { LocalModelResolver } from './agent/local-model-resolver';
+import { LocalModelResolver, defaultWarmModel } from './agent/local-model-resolver';
 import {
   PoolStateStore,
   PoolManager,
@@ -553,6 +553,16 @@ export class Orchestrator extends EventEmitter {
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
         if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
         if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
+        // T20: warm a newly-selected model into VRAM (Ollama keep_alive) so the
+        // next dispatch isn't a cold start. Only for the Ollama-first `local`
+        // backend; `pi` (LM Studio) has no equivalent keep_alive primitive.
+        if (def.type === 'local') {
+          const endpoint = def.endpoint;
+          const apiKey = def.apiKey;
+          resolverOpts.warmModel = (ollamaName) => {
+            void defaultWarmModel(endpoint, ollamaName, apiKey);
+          };
+        }
         this.localResolvers.set(name, new LocalModelResolver(resolverOpts));
       }
     }

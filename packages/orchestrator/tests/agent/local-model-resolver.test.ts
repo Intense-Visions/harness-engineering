@@ -3,6 +3,7 @@ import {
   normalizeLocalModel,
   LocalModelResolver,
   defaultFetchModels,
+  defaultWarmModel,
 } from '../../src/agent/local-model-resolver';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { EmptyPoolState } from '@harness-engineering/local-models';
@@ -964,5 +965,100 @@ describe('LocalModelResolver — task-aware resolveModel (T16)', () => {
     await resolver.probe();
     expect(resolver.resolveModel({ kind: 'chat' })).toBe('generalist:32b');
     expect(resolver.resolveModel({ kind: 'maintenance' })).toBe('generalist:32b');
+  });
+});
+
+describe('LocalModelResolver — warm on selection change (T19/T20)', () => {
+  it('warms the newly-resolved model when the selection changes', async () => {
+    const warmModel = vi.fn();
+    let detected = ['a'];
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a', 'b'],
+      warmModel,
+      fetchModels: async () => detected,
+    });
+
+    await resolver.probe();
+    // First resolution (null → 'a') is a change → warm 'a'.
+    expect(warmModel).toHaveBeenCalledTimes(1);
+    expect(warmModel).toHaveBeenLastCalledWith('a');
+
+    // Same selection on the next probe → no re-warm.
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(1);
+
+    // 'a' disappears, 'b' resolves → selection change → warm 'b'.
+    detected = ['b'];
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(2);
+    expect(warmModel).toHaveBeenLastCalledWith('b');
+  });
+
+  it('does not warm when the selection becomes null (nothing loaded)', async () => {
+    const warmModel = vi.fn();
+    let detected: string[] = ['a'];
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      warmModel,
+      fetchModels: async () => detected,
+    });
+    await resolver.probe();
+    expect(warmModel).toHaveBeenCalledTimes(1); // warmed 'a'
+
+    detected = []; // model unloaded → resolved becomes null
+    await resolver.probe();
+    // null is not a warmable target — no extra call.
+    expect(warmModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing warm hook never breaks the probe', async () => {
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      warmModel: () => {
+        throw new Error('warm boom');
+      },
+      fetchModels: async () => ['a'],
+    });
+    const status = await resolver.probe();
+    expect(status.resolved).toBe('a'); // probe succeeded despite the throw
+  });
+});
+
+describe('defaultWarmModel (T19)', () => {
+  it('POSTs an empty-prompt keep_alive request to the native Ollama generate endpoint', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return { ok: true } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      await defaultWarmModel('http://localhost:11434/v1', 'qwen3:32b', 'ollama', '10m');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(calls).toHaveLength(1);
+    // /v1 is stripped → native generate endpoint.
+    expect(calls[0]!.url).toBe('http://localhost:11434/api/generate');
+    expect(calls[0]!.init.method).toBe('POST');
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ model: 'qwen3:32b', prompt: '', keep_alive: '10m' });
+  });
+
+  it('swallows fetch failures (best-effort)', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+    try {
+      await expect(
+        defaultWarmModel('http://localhost:11434/v1', 'qwen3:32b')
+      ).resolves.toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

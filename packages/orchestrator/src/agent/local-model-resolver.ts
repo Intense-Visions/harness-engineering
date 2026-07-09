@@ -57,6 +57,15 @@ export interface LocalModelResolverOptions {
   /** Debounce window for event-driven {@link LocalModelResolver.refresh}; default 250ms. */
   refreshDebounceMs?: number;
   /**
+   * Consumption Phase 5 (T19/T20): called with the newly-resolved model name
+   * whenever the resolver's composite selection changes (and is non-null), so
+   * the orchestrator can warm it into VRAM before the next dispatch. Naturally
+   * debounced — it fires only on an actual selection change, not every probe.
+   * Best-effort: a throwing hook is swallowed. Injected in tests; wired to
+   * {@link defaultWarmModel} in production.
+   */
+  warmModel?: (ollamaName: string) => void;
+  /**
    * Consumption Phase 3 (T10): consecutive inference failures before a model is
    * deprioritized by the circuit breaker. Default 3.
    */
@@ -145,6 +154,42 @@ export async function defaultFetchModels(
   return ids;
 }
 
+/**
+ * Consumption Phase 5 (T19): warm `ollamaName` into VRAM via Ollama's native
+ * `keep_alive`. Derives the native `/api/generate` endpoint from the
+ * OpenAI-compatible `endpoint` (`…/v1` → `…`), then POSTs an empty-prompt
+ * request with `keep_alive` so Ollama loads (and pins) the model without
+ * generating tokens. Best-effort and Ollama-specific (LMLM is Ollama-first):
+ * a non-Ollama server or any failure resolves quietly — warming is an
+ * optimization, never a correctness requirement. Fire-and-forget: the returned
+ * promise is swallowed by callers.
+ */
+export async function defaultWarmModel(
+  endpoint: string,
+  ollamaName: string,
+  apiKey?: string,
+  keepAlive: string = '10m',
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<void> {
+  // `http://host:11434/v1` → `http://host:11434/api/generate`.
+  const base = endpoint.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+  const url = `${base}/api/generate`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey ?? DEFAULT_API_KEY}`,
+      },
+      // Empty prompt + keep_alive loads the model into VRAM without generating.
+      body: JSON.stringify({ model: ollamaName, prompt: '', keep_alive: keepAlive }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    // Best-effort — a cold model just costs the next dispatch a load. Swallow.
+  }
+}
+
 export class LocalModelResolver {
   private readonly endpoint: string;
   private readonly apiKey?: string;
@@ -152,6 +197,7 @@ export class LocalModelResolver {
   private readonly poolState?: PoolStateProvider;
   private readonly probeIntervalMs: number;
   private readonly fetchModels: (endpoint: string, apiKey?: string) => Promise<string[]>;
+  private readonly warmModel?: (ollamaName: string) => void;
   private readonly logger: ResolverLogger;
 
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -209,6 +255,7 @@ export class LocalModelResolver {
     this.fetchModels =
       opts.fetchModels ??
       ((endpoint: string, apiKey?: string) => defaultFetchModels(endpoint, apiKey, timeoutMs));
+    if (opts.warmModel !== undefined) this.warmModel = opts.warmModel;
     this.logger = opts.logger ?? noopLogger;
   }
 
@@ -276,6 +323,7 @@ export class LocalModelResolver {
 
   private async runProbe(): Promise<LocalModelStatus> {
     const before = this.snapshotForDiff();
+    const prevResolved = this.resolved;
     try {
       const detected = await this.fetchModels(this.endpoint, this.apiKey);
       this.detected = [...detected];
@@ -315,7 +363,25 @@ export class LocalModelResolver {
         }
       }
     }
+    // T20: warm the newly-selected model on a selection change so the next
+    // dispatch isn't a cold start. Fires only when the composite resolution
+    // actually changed to a non-null model — a natural debounce.
+    if (this.resolved !== null && this.resolved !== prevResolved) {
+      this.warm(this.resolved);
+    }
     return status;
+  }
+
+  /** Best-effort warm-hook invocation — a throwing warm never breaks a probe. */
+  private warm(ollamaName: string): void {
+    if (!this.warmModel) return;
+    try {
+      this.warmModel(ollamaName);
+    } catch (err) {
+      this.logger.warn('local-model-resolver warm hook threw', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   /**

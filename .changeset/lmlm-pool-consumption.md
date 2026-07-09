@@ -1,4 +1,5 @@
 ---
+'@harness-engineering/types': minor
 '@harness-engineering/intelligence': minor
 '@harness-engineering/local-models': minor
 '@harness-engineering/orchestrator': minor
