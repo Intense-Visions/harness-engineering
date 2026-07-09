@@ -52,6 +52,26 @@ export interface OllamaInstallAdapterOptions {
   timeoutMs?: number;
   /** Optional structured logger; defaults to a silent no-op. */
   onWarn?: (message: string, cause?: unknown) => void;
+  /**
+   * Resumable-pull resilience. A multi-GB `ollama pull` can lose its `/api/pull`
+   * stream mid-download (most commonly a laptop sleeping mid-install). Ollama
+   * caches partial blobs, so re-issuing `/api/pull` RESUMES rather than restarts.
+   * This is the number of consecutive **non-progressing** pull failures to retry
+   * before giving up. An attempt that advances the byte count resets the counter,
+   * so a pull survives arbitrarily many transient drops as long as it keeps making
+   * progress — a stall that never advances still terminates after this many tries.
+   * Defaults to `0` (no retries); the orchestrator opts in.
+   */
+  maxPullRetries?: number;
+  /**
+   * Base backoff before the first retry, doubled per consecutive failure and
+   * capped at {@link OllamaInstallAdapterOptions.pullRetryMaxBackoffMs}. Defaults
+   * to 1000ms. (While the host is asleep the timer is frozen, so the retry fires
+   * on wake and resumes.)
+   */
+  pullRetryBackoffMs?: number;
+  /** Upper bound on the exponential retry backoff. Defaults to 30000ms. */
+  pullRetryMaxBackoffMs?: number;
 }
 
 /**
@@ -183,15 +203,77 @@ export class OllamaInstallAdapter implements InstallAdapter {
   private readonly fetcher: InstallerFetcher;
   private readonly timeoutMs: number;
   private readonly onWarn: (message: string, cause?: unknown) => void;
+  private readonly maxPullRetries: number;
+  private readonly pullRetryBackoffMs: number;
+  private readonly pullRetryMaxBackoffMs: number;
 
   constructor(options: OllamaInstallAdapterOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.fetcher = options.fetcher ?? defaultFetcher();
     this.timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.onWarn = options.onWarn ?? (() => undefined);
+    this.maxPullRetries = Math.max(0, options.maxPullRetries ?? 0);
+    this.pullRetryBackoffMs = options.pullRetryBackoffMs ?? 1000;
+    this.pullRetryMaxBackoffMs = options.pullRetryMaxBackoffMs ?? 30_000;
   }
 
+  /**
+   * Install with resumable-pull resilience. Delegates to {@link attemptPull} and,
+   * when `maxPullRetries > 0`, re-issues `/api/pull` on a transient failure —
+   * ollama resumes from cached blobs. The failure budget is measured in
+   * CONSECUTIVE NON-PROGRESSING attempts: any forward byte progress resets it, so
+   * an install being nibbled through by repeated sleep-drops keeps going, while a
+   * genuinely stuck pull still terminates. A canceled request (`signal`) and a
+   * `failed_target_missing` (the model does not exist upstream) are terminal — no
+   * retry.
+   */
   async install(request: InstallRequest): Promise<InstallResult> {
+    if (this.maxPullRetries <= 0) return this.attemptPull(request);
+
+    // Track the high-water byte mark across attempts (forwarding every event to
+    // the caller unchanged). An attempt that pushes it higher "made progress".
+    let maxCompleted = 0;
+    const tracked: InstallRequest = {
+      ...request,
+      onEvent: (event) => {
+        if (event.kind === 'progress' && event.completedBytes > maxCompleted) {
+          maxCompleted = event.completedBytes;
+        }
+        request.onEvent?.(event);
+      },
+    };
+
+    let failuresSinceProgress = 0;
+    for (let attempt = 1; ; attempt++) {
+      const completedBefore = maxCompleted;
+      const result = await this.attemptPull(tracked);
+      if (result.status === 'success') return result;
+      // Terminal, non-resumable outcomes.
+      if (request.signal?.aborted) return result;
+      if (result.code === 'failed_target_missing') return result;
+
+      const madeProgress = maxCompleted > completedBefore;
+      failuresSinceProgress = madeProgress ? 0 : failuresSinceProgress + 1;
+      if (failuresSinceProgress > this.maxPullRetries) return result;
+
+      const backoffMs = Math.min(
+        this.pullRetryBackoffMs * 2 ** (failuresSinceProgress - 1),
+        this.pullRetryMaxBackoffMs
+      );
+      safeEmit(
+        request.onEvent,
+        {
+          kind: 'pulling',
+          message: `pull interrupted (${result.message}); resuming (retry ${attempt})`,
+        },
+        this.onWarn
+      );
+      if (await this.abortableDelay(backoffMs, request.signal)) return result;
+    }
+  }
+
+  /** One `/api/pull` attempt: open the stream, drive it to success or a stable error. */
+  private async attemptPull(request: InstallRequest): Promise<InstallResult> {
     const url = `${this.baseUrl}/api/pull`;
     let response: InstallerFetchResponse;
     try {
@@ -463,6 +545,26 @@ export class OllamaInstallAdapter implements InstallAdapter {
       clearTimeout(timer);
       if (externalSignal) externalSignal.removeEventListener('abort', onAbort);
     }
+  }
+
+  /**
+   * Sleep `ms`, resolving `true` if `signal` aborts during the wait (so the retry
+   * loop bails instead of resuming a canceled install) and `false` if the delay
+   * elapses. On a sleeping host the timer is frozen and fires on wake.
+   */
+  private abortableDelay(ms: number, signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const onAbort = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve(false);
+      }, ms);
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
   }
 }
 

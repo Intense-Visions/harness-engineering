@@ -1,7 +1,7 @@
 ---
 '@harness-engineering/orchestrator': minor
 '@harness-engineering/dashboard': minor
-'@harness-engineering/local-models': patch
+'@harness-engineering/local-models': minor
 '@harness-engineering/types': minor
 ---
 
@@ -34,3 +34,12 @@ Fixes a refresh-tick ordering bug where the pool was diffed against the ranking
 enters the pool at `currentScore: 0` until its first re-rank, so diffing first
 produced phantom swap proposals justified as "replace a pool member scoring 0"
 (and inflated `scoreDelta`s). The tick now re-scores the pool before diffing.
+
+Adds resumable-pull resilience to `OllamaInstallAdapter` (new `maxPullRetries` /
+`pullRetryBackoffMs` / `pullRetryMaxBackoffMs` options; orchestrator opts in with
+5 retries). A multi-GB `ollama pull` that loses its `/api/pull` stream mid-download
+— most often the host sleeping mid-install — now re-issues the pull (ollama resumes
+from cached blobs) instead of dead-ending in an error. The failure budget is
+measured in consecutive non-progressing attempts, so any forward byte progress
+resets it and an install survives repeated sleep cycles as long as it keeps
+advancing; a canceled request or a genuinely-missing model still fails fast.

@@ -2099,6 +2099,11 @@ export class Orchestrator extends EventEmitter {
     this.modelInstaller = new OllamaInstallAdapter({
       baseUrl: installerCfg?.ollamaEndpoint ?? 'http://localhost:11434',
       onWarn,
+      // Survive transient `/api/pull` drops (most often the host sleeping mid
+      // multi-GB download): ollama resumes from cached blobs, and any forward
+      // progress resets the budget, so an install nibbled through across several
+      // sleep cycles still completes instead of dead-ending in an error.
+      maxPullRetries: 5,
     });
     this.modelPool = new PoolManager({ store, installer: this.modelInstaller, onWarn });
   }

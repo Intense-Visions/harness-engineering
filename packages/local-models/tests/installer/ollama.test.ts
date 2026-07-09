@@ -208,6 +208,113 @@ describe('OllamaInstallAdapter.install', () => {
   });
 });
 
+describe('OllamaInstallAdapter.install (resumable retries)', () => {
+  /** A stream that yields `lines` then throws mid-iteration (a dropped socket). */
+  function droppingResponse(lines: string[]): InstallerFetchResponse {
+    return {
+      status: 200,
+      json: async () => {
+        throw new Error('streaming');
+      },
+      text: async () => lines.join('\n'),
+      body: {
+        async *[Symbol.asyncIterator]() {
+          for (const line of lines) yield line;
+          throw new Error('socket hang up');
+        },
+      },
+    };
+  }
+
+  it('resumes after a mid-stream drop and succeeds (re-issues /api/pull)', async () => {
+    let call = 0;
+    const { fetcher, calls } = makeFetcher(() => {
+      call += 1;
+      // Attempt 1 makes progress then drops; attempt 2 resumes to success.
+      return call === 1
+        ? droppingResponse(['{"status":"downloading","completed":50,"total":100}'])
+        : streamingResponse(200, [
+            '{"status":"downloading","completed":100,"total":100}',
+            '{"status":"success"}',
+          ]);
+    });
+    const adapter = new OllamaInstallAdapter({ fetcher, maxPullRetries: 3, pullRetryBackoffMs: 0 });
+
+    const events: InstallEvent[] = [];
+    const result = await adapter.install({ name: 'qwen3:32b', onEvent: (e) => events.push(e) });
+
+    expect(result).toEqual({ status: 'success', name: 'qwen3:32b' });
+    expect(calls).toHaveLength(2); // one resume
+    // The operator sees a "resuming" pulling event between the two attempts.
+    expect(events.some((e) => e.kind === 'pulling' && /resuming/.test(e.message))).toBe(true);
+  });
+
+  it('forward progress resets the failure budget → survives more drops than maxPullRetries', async () => {
+    let call = 0;
+    const { fetcher, calls } = makeFetcher(() => {
+      call += 1;
+      // Each attempt advances by 20 bytes then drops, until the 5th reaches success.
+      if (call < 5) {
+        return droppingResponse([`{"status":"downloading","completed":${call * 20},"total":100}`]);
+      }
+      return streamingResponse(200, [
+        '{"status":"downloading","completed":100,"total":100}',
+        '{"status":"success"}',
+      ]);
+    });
+    // maxPullRetries=2 would cap at 3 attempts WITHOUT the progress reset; because
+    // each attempt advances the byte count, the budget keeps resetting.
+    const adapter = new OllamaInstallAdapter({ fetcher, maxPullRetries: 2, pullRetryBackoffMs: 0 });
+
+    const result = await adapter.install({ name: 'qwen3:32b' });
+
+    expect(result.status).toBe('success');
+    expect(calls).toHaveLength(5);
+  });
+
+  it('gives up after maxPullRetries consecutive NON-progressing failures', async () => {
+    // Every attempt drops immediately with no byte progress → the budget is never
+    // reset, so it terminates after 1 + maxPullRetries attempts.
+    const { fetcher, calls } = makeFetcher(() =>
+      droppingResponse(['{"status":"pulling manifest"}'])
+    );
+    const adapter = new OllamaInstallAdapter({ fetcher, maxPullRetries: 2, pullRetryBackoffMs: 0 });
+
+    const result = await adapter.install({ name: 'qwen3:32b' });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.code).toBe('install_failed');
+    expect(calls).toHaveLength(3); // initial + 2 retries
+  });
+
+  it('does not retry a failed_target_missing (the model does not exist upstream)', async () => {
+    const { fetcher, calls } = makeFetcher(() => textResponse(404, 'not found'));
+    const adapter = new OllamaInstallAdapter({ fetcher, maxPullRetries: 3, pullRetryBackoffMs: 0 });
+
+    const result = await adapter.install({ name: 'ghost:1b' });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.code).toBe('failed_target_missing');
+    expect(calls).toHaveLength(1); // no retry
+  });
+
+  it('does not retry once the caller aborts', async () => {
+    const controller = new AbortController();
+    let call = 0;
+    const { fetcher, calls } = makeFetcher(() => {
+      call += 1;
+      controller.abort(); // cancel as soon as the first attempt starts
+      return droppingResponse(['{"status":"downloading","completed":10,"total":100}']);
+    });
+    const adapter = new OllamaInstallAdapter({ fetcher, maxPullRetries: 3, pullRetryBackoffMs: 0 });
+
+    const result = await adapter.install({ name: 'qwen3:32b', signal: controller.signal });
+
+    expect(result.status).toBe('error');
+    expect(calls).toHaveLength(1); // aborted → no resume
+  });
+});
+
 describe('OllamaInstallAdapter.evict', () => {
   it('issues DELETE /api/delete and resolves success on 200', async () => {
     const { fetcher, calls } = makeFetcher(() => jsonResponse(200, {}));
