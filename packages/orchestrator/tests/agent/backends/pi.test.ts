@@ -356,6 +356,87 @@ describe('PiBackend', () => {
     });
   });
 
+  describe('model-usage hooks (T9/T11, pi)', () => {
+    async function drain(gen: AsyncGenerator<AgentEvent, unknown, void>): Promise<unknown> {
+      let next = await gen.next();
+      while (!next.done) next = await gen.next();
+      return next.value;
+    }
+
+    function emitThenFinish() {
+      mockSubscribe.mockImplementation((listener: (event: unknown) => void) => {
+        setTimeout(() => {
+          listener({ type: 'agent_start' });
+          listener({ type: 'agent_end', messages: [] });
+        }, 10);
+        return vi.fn();
+      });
+      mockPrompt.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 30)));
+    }
+
+    it('T9: calls onModelUsed with the resolved model on a successful turn', async () => {
+      emitThenFinish();
+      const onModelUsed = vi.fn();
+      const onModelFailed = vi.fn();
+      const b = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        getModel: () => 'gemma-4-e4b',
+        onModelUsed,
+        onModelFailed,
+      });
+      const s = await b.startSession({ workspacePath: '/tmp/workspace', permissionMode: 'full' });
+      if (!s.ok) throw new Error('startSession failed');
+
+      const result = (await drain(
+        b.runTurn(s.value, { sessionId: s.value.sessionId, prompt: 'hi', isContinuation: false })
+      )) as { success: boolean };
+      expect(result.success).toBe(true);
+      expect(onModelUsed).toHaveBeenCalledTimes(1);
+      expect(onModelUsed).toHaveBeenCalledWith('gemma-4-e4b');
+      expect(onModelFailed).not.toHaveBeenCalled();
+    });
+
+    it('T11: calls onModelFailed (not onModelUsed) when the prompt rejects', async () => {
+      mockSubscribe.mockImplementation(() => vi.fn());
+      mockPrompt.mockRejectedValue(new Error('Model connection failed'));
+      const onModelUsed = vi.fn();
+      const onModelFailed = vi.fn();
+      const b = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        getModel: () => 'gemma-4-e4b',
+        onModelUsed,
+        onModelFailed,
+      });
+      const s = await b.startSession({ workspacePath: '/tmp/workspace', permissionMode: 'full' });
+      if (!s.ok) throw new Error('startSession failed');
+
+      await drain(
+        b.runTurn(s.value, { sessionId: s.value.sessionId, prompt: 'fail', isContinuation: false })
+      );
+      expect(onModelFailed).toHaveBeenCalledTimes(1);
+      expect(onModelFailed).toHaveBeenCalledWith('gemma-4-e4b');
+      expect(onModelUsed).not.toHaveBeenCalled();
+    });
+
+    it('swallows a throwing hook so telemetry never breaks a turn', async () => {
+      emitThenFinish();
+      const b = new PiBackend({
+        endpoint: 'http://localhost:1234/v1',
+        getModel: () => 'gemma-4-e4b',
+        onModelUsed: () => {
+          throw new Error('hook boom');
+        },
+      });
+      const s = await b.startSession({ workspacePath: '/tmp/workspace', permissionMode: 'full' });
+      if (!s.ok) throw new Error('startSession failed');
+
+      const result = (await drain(
+        b.runTurn(s.value, { sessionId: s.value.sessionId, prompt: 'hi', isContinuation: false })
+      )) as { success: boolean };
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe('stopSession', () => {
     it('calls abort on pi session', async () => {
       mockAbort.mockResolvedValue(undefined);

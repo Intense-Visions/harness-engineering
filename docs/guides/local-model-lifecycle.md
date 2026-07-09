@@ -129,9 +129,13 @@ for the rationale.
   pooled alternative — until it succeeds again or a cooldown elapses. If the failing
   model is the _only_ one loaded, it is still used (a flaky model beats none).
 - **Warming.** When the resolver's selection changes, it best-effort **warms** the new
-  model into VRAM via Ollama's `keep_alive`, so the next dispatch isn't a cold start.
-  Warming is Ollama-only and never blocks a dispatch; a warm failure just means the
-  first request pays the load cost.
+  model into VRAM so the next dispatch isn't a cold start — via Ollama's `keep_alive` for
+  the `local` backend, and via a 1-token completion for the `pi` (LM Studio /
+  OpenAI-compatible) backend, which has no `keep_alive`. Warming never blocks a dispatch;
+  a warm failure just means the first request pays the load cost.
+
+Runtime feedback (usage stamping + circuit breaker) and warming apply to **both** the
+`local` and `pi` backends.
 
 ## Known limitations (read before relying on autonomy)
 

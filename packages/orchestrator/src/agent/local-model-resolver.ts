@@ -190,6 +190,43 @@ export async function defaultWarmModel(
   }
 }
 
+/**
+ * Consumption Phase 5 (pi follow-up): warm `model` on an OpenAI-compatible
+ * endpoint (LM Studio, the `pi` backend's server) that has no `keep_alive`
+ * primitive. Issues a **1-token** chat completion against the model, which is
+ * enough to make a JIT-loading server (LM Studio loads on first request) pull
+ * the model into memory before the real dispatch. Best-effort: any failure
+ * (server down, model missing, non-completions server) resolves quietly.
+ * Fire-and-forget — callers swallow the returned promise.
+ */
+export async function defaultWarmModelViaCompletion(
+  endpoint: string,
+  model: string,
+  apiKey?: string,
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<void> {
+  const url = `${endpoint.replace(/\/$/, '')}/chat/completions`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey ?? DEFAULT_API_KEY}`,
+      },
+      // Minimal request: one token is enough to force the server to load the
+      // model. The generated content is discarded — we only want the load.
+      body: JSON.stringify({
+        model,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'warm' }],
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    // Best-effort — a cold model just costs the next dispatch a load. Swallow.
+  }
+}
+
 export class LocalModelResolver {
   private readonly endpoint: string;
   private readonly apiKey?: string;

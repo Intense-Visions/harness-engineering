@@ -71,6 +71,28 @@ describe('OrchestratorBackendFactory', () => {
     expect(receivedUseCase).toEqual({ kind: 'tier', tier: 'quick-fix' });
   });
 
+  it('T11 (pi): forwards getModelUsageHooksFor to a pi backend', () => {
+    const onModelUsed = vi.fn();
+    const onModelFailed = vi.fn();
+    const factory = new OrchestratorBackendFactory({
+      backends, // `local` in this fixture is a pi-typed def
+      routing,
+      sandboxPolicy: 'none',
+      getResolverModelFor: () => () => 'resolved-model',
+      getModelUsageHooksFor: () => ({ onModelUsed, onModelFailed }),
+    });
+    const backend = factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+    expect(backend).toBeInstanceOf(PiBackend);
+    // PiBackend stores hooks on its private `config`.
+    const cfg = (
+      backend as unknown as {
+        config: { onModelUsed?: unknown; onModelFailed?: unknown };
+      }
+    ).config;
+    expect(cfg.onModelUsed).toBe(onModelUsed);
+    expect(cfg.onModelFailed).toBe(onModelFailed);
+  });
+
   it('does not call getResolverModelFor for non-local backends', () => {
     let invokedFor: string | null = null;
     const factory = new OrchestratorBackendFactory({

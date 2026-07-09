@@ -27,12 +27,32 @@ export interface PiBackendConfig {
    * can set the same value on either backend type.
    */
   timeoutMs?: number | undefined;
+  /**
+   * Consumption Phase 3 (T9, pi follow-up): called with the resolved model name
+   * after a turn completes successfully. The orchestrator binds this to
+   * `pool.markUsed` (LRU `lastUsedAt`) + the resolver's circuit-breaker success
+   * path — identical to `LocalBackendConfig.onModelUsed`. Best-effort: a thrown
+   * error is swallowed so a telemetry hook never breaks a good turn.
+   */
+  onModelUsed?: ((model: string) => void) | undefined;
+  /**
+   * Consumption Phase 3 (T11, pi follow-up): called with the resolved model name
+   * when a turn fails (inference error or timeout). Bound to the resolver's
+   * circuit breaker so a repeatedly-failing model is deprioritized. Best-effort.
+   */
+  onModelFailed?: ((model: string) => void) | undefined;
 }
 
 interface PiSession extends AgentSession {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   piSession: any;
   unsubscribe: (() => void) | null;
+  /**
+   * Model name resolved at session start (from `getModel()` if provided, else
+   * `config.model`). Carried on the session so `runTurn` can report it to the
+   * usage/failure hooks. `undefined` when neither is set (pi SDK default model).
+   */
+  resolvedModel?: string;
 }
 
 /** Events that are internal lifecycle and should not be surfaced. */
@@ -233,6 +253,7 @@ export class PiBackend implements AgentBackend {
         startedAt: new Date().toISOString(),
         piSession,
         unsubscribe: null,
+        ...(resolvedModelName !== undefined && { resolvedModel: resolvedModelName }),
       };
 
       return Ok(session);
@@ -362,8 +383,11 @@ export class PiBackend implements AgentBackend {
     }
 
     const totalTokens = inputTokens + outputTokens;
+    const resolvedModel = (session as PiSession).resolvedModel;
 
     if (promptErrorMsg) {
+      // T11: feed the inference failure (or timeout) to the resolver's breaker.
+      if (resolvedModel !== undefined) this.notify(this.config.onModelFailed, resolvedModel);
       return {
         success: false,
         sessionId: session.sessionId,
@@ -372,11 +396,25 @@ export class PiBackend implements AgentBackend {
       };
     }
 
+    // T9: a turn completed against `resolvedModel` — stamp real usage (LRU) and
+    // clear the circuit breaker via the orchestrator-bound hook.
+    if (resolvedModel !== undefined) this.notify(this.config.onModelUsed, resolvedModel);
+
     return {
       success: true,
       sessionId: session.sessionId,
       usage: { inputTokens, outputTokens, totalTokens },
     };
+  }
+
+  /** Best-effort telemetry hook invocation — a throwing hook never breaks a turn. */
+  private notify(hook: ((model: string) => void) | undefined, model: string): void {
+    if (!hook) return;
+    try {
+      hook(model);
+    } catch {
+      // Swallow — usage/failure telemetry is advisory, not turn-critical.
+    }
   }
 
   /**

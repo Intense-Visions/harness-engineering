@@ -71,8 +71,10 @@ use-cases).
   degrades to composite score-order. The `tier`-based mapping assumes the routing tier
   approximates task type — a mismatched routing config would mis-map. Runtime feedback is
   a binary circuit breaker, not a full latency/quality signal into scoring (a deliberate
-  scope cut — full runtime scoring is deferred). The `pi` backend wires freshness but not
-  the usage/failure hooks yet (its streaming turn path is a follow-up).
+  scope cut — full runtime scoring is deferred). Both the `local` (Ollama) and `pi`
+  (LM Studio / OpenAI-compatible) backends wire freshness, runtime feedback, and
+  warming; the `pi` path warms via a 1-token completion since LM Studio has no
+  `keep_alive` primitive.
 - **Neutral.** Adds a small amount of per-model state to the resolver (failure counts +
   trip timestamps) and one extra map on `PoolEntry`. The circuit-breaker thresholds and
   cooldown are constants with injectable seams for tests.

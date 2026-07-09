@@ -188,14 +188,18 @@ export class OrchestratorBackendFactory {
       });
     }
     if (def.type === 'pi') {
-      // T11: PiBackend's streaming pi-session turn path doesn't yet surface the
-      // usage/failure hooks; runtime feedback is wired for `local` only. `getModel`
-      // (freshness) still applies. Extending pi is a follow-up.
+      // T11 (pi follow-up): PiBackend now surfaces the usage/failure hooks from
+      // its streaming turn path, so runtime feedback (LRU + circuit breaker)
+      // applies to `pi` too, matching `local`.
       return new PiBackend({
         endpoint: def.endpoint,
         getModel,
         ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
         ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+        ...(usageHooks?.onModelUsed !== undefined ? { onModelUsed: usageHooks.onModelUsed } : {}),
+        ...(usageHooks?.onModelFailed !== undefined
+          ? { onModelFailed: usageHooks.onModelFailed }
+          : {}),
       });
     }
     // Should be unreachable — the caller guards on type, but throw for
