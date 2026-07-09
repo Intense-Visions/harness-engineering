@@ -135,4 +135,35 @@ describe('classifyRevert', () => {
     expect(decision.action).toBe('skipped');
     expect(decision.reasons.join(' ')).toMatch(/conflicting paths unavailable|unknown/i);
   });
+
+  it('matches migration paths case-insensitively (#1)', async () => {
+    const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
+    const d = await classifyRevert(
+      {
+        targetPr: 1,
+        trigger: 'signal',
+        mergeSha: 'a',
+        changedFiles: ['DB/Migrations/x.Sql'],
+        laterMerges: [],
+      },
+      io
+    );
+    expect(d.migrationWarnings).toHaveLength(1);
+    expect(d.migrationWarnings[0]).toContain('DB/Migrations/x.Sql'); // original casing preserved
+  });
+
+  it('emits no migration warnings for non-migration changes', async () => {
+    const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
+    const d = await classifyRevert(
+      {
+        targetPr: 1,
+        trigger: 'signal',
+        mergeSha: 'a',
+        changedFiles: ['src/app.ts', 'README.md'],
+        laterMerges: [],
+      },
+      io
+    );
+    expect(d.migrationWarnings).toEqual([]);
+  });
 });
