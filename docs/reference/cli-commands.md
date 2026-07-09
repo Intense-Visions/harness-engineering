@@ -1153,6 +1153,25 @@ Reassemble the aggregate from shards and remove docs/roadmap.d
 - `--dry-run` — Preview the reassembly without writing or deleting the shard dir
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
+## Rollback Commands
+
+Post-ship revert circuit breaker (propose-only in v1)
+
+### `harness rollback evaluate`
+
+Classify a merged PR for revert-readiness and, if ready, propose a revert PR
+
+**Options:**
+
+- `--pr` — target merged PR number
+- `--trigger` — what fired this evaluation (default: "signal")
+- `--reason` — human-readable reason recorded on the proposal
+- `--dry-run` — print the revert PR body without opening a PR
+
+### `harness rollback sweep`
+
+Read the signal timeline and propose reverts for threshold crossings (signal arm)
+
 ## Routing Commands
 
 Inspect routing config, trace decisions, and read recent dispatches
