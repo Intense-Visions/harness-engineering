@@ -73,3 +73,27 @@ export function pointsInWindow(points: SignalPoint[], now: Date, window: string)
   const nowDate = now.toISOString().slice(0, 10);
   return points.filter((p) => p.date >= startDate && p.date <= nowDate);
 }
+
+/**
+ * Signal arm of the rollback circuit breaker. For each configured signal, read
+ * its timeline, restrict to the window, and if the in-window points cross the
+ * threshold, resolve the PRs merged in that same window and forward each to the
+ * injected `evaluate` (which binds `trigger: 'signal'`). PR de-duplication is
+ * NOT this function's job — duplicate suppression is the composer's `harness:
+ * rollback`-label idempotency (see composeRevertPr). All seams are injected so
+ * this is fully unit-testable without touching real git/gh/timeline.
+ */
+export async function runRollbackSweep(
+  signals: Record<string, SweepSignalRule>,
+  deps: RollbackSweepDeps
+): Promise<void> {
+  const now = (deps.now ?? (() => new Date()))();
+  for (const [name, rule] of Object.entries(signals)) {
+    const pts = pointsInWindow(deps.readTimeline(name), now, rule.window);
+    if (!detectCrossing(pts, rule)) continue;
+    const prs = await deps.resolveMergedPrs(windowStart(now, rule.window), now.toISOString());
+    for (const pr of prs) {
+      await deps.evaluate(pr);
+    }
+  }
+}
