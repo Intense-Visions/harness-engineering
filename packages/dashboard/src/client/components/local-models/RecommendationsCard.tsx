@@ -134,8 +134,8 @@ function RecommendationRow({
       </div>
       <div className="mt-0.5 flex items-center justify-between gap-2">
         <span className="text-xs text-neutral-muted">
-          {round1(rec.estimatedVramGb)} GB VRAM · ~{round1(rec.estimatedTokPerSec)} tok/s ·{' '}
-          {rec.fitsHardware ? 'fits' : "won't fit"}
+          {rec.quant} · {round1(rec.estimatedVramGb)} GB VRAM · ~{round1(rec.estimatedTokPerSec)}{' '}
+          tok/s · {rec.fitsHardware ? 'fits' : "won't fit"}
         </span>
         {installed ? (
           <span data-testid={`rec-installed-${rec.hfRepoId}`} className="text-xs text-green-400">
