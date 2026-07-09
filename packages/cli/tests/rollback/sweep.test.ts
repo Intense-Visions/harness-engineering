@@ -194,6 +194,50 @@ describe('runRollbackSweep', () => {
     });
     expect(evaluate).not.toHaveBeenCalled();
   });
+
+  it('S4: reports a crossing with each forwarded PR action + prUrl', async () => {
+    const report = vi.fn();
+    const evaluate = vi.fn(async (pr: number) => ({
+      ...stubDecision(pr),
+      prUrl: `https://gh/pr/${pr}`,
+    }));
+    await runRollbackSweep(signals, {
+      readTimeline: () => [pt('2026-07-07', 4), pt('2026-07-08', 6)], // crossing
+      resolveMergedPrs: async () => [201, 202],
+      evaluate,
+      report,
+      now: () => now,
+    });
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith({
+      signal: 'errorRate',
+      window: '7d',
+      crossed: true,
+      forwarded: [
+        { pr: 201, action: 'proposed', prUrl: 'https://gh/pr/201' },
+        { pr: 202, action: 'proposed', prUrl: 'https://gh/pr/202' },
+      ],
+    });
+  });
+
+  it('S4: reports a non-crossing (no forwarded PRs) so a quiet sweep is still visible', async () => {
+    const report = vi.fn();
+    const evaluate = vi.fn(async (pr: number) => stubDecision(pr));
+    await runRollbackSweep(signals, {
+      readTimeline: () => [pt('2026-07-07', 6), pt('2026-07-08', 7)], // plateau → no cross
+      resolveMergedPrs: async () => [201],
+      evaluate,
+      report,
+      now: () => now,
+    });
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(report).toHaveBeenCalledWith({
+      signal: 'errorRate',
+      window: '7d',
+      crossed: false,
+      forwarded: [],
+    });
+  });
 });
 
 describe('createPrResolver (I1: honors BOTH window bounds, no date-truncation)', () => {

@@ -19,11 +19,34 @@ export interface SweepSignalRule {
   window: string;
 }
 
+/**
+ * Per-signal outcome of a single sweep pass (finding S4: make the breaker's
+ * hourly work visible in the Actions log). Emitted for EVERY configured signal
+ * — both non-crossings (so a quiet sweep still logs "checked, no crossing") and
+ * crossings (with each forwarded PR's resulting action + prUrl).
+ */
+export interface SweepSignalReport {
+  signal: string;
+  window: string;
+  crossed: boolean;
+  /** Decisions for each PR forwarded to evaluate (empty when `crossed` is false). */
+  forwarded: {
+    pr: number;
+    action: RollbackDecision['action'];
+    prUrl?: string;
+  }[];
+}
+
+/** Emits a concise per-signal summary line so the hourly sweep is auditable. */
+export type SweepReporter = (report: SweepSignalReport) => void;
+
 export interface RollbackSweepDeps {
   readTimeline: TimelineReader;
   resolveMergedPrs: PrResolver;
   evaluate: (pr: number) => Promise<RollbackDecision>;
   now?: Clock;
+  /** Optional observability seam; called once per configured signal. */
+  report?: SweepReporter;
 }
 
 const WINDOW_UNIT_MS = {
@@ -98,6 +121,11 @@ export function pointsInWindow(points: SignalPoint[], now: Date, window: string)
  * NOT this function's job — duplicate suppression is the composer's `harness:
  * rollback`-label idempotency (see composeRevertPr). All seams are injected so
  * this is fully unit-testable without touching real git/gh/timeline.
+ *
+ * When `deps.report` is provided it is invoked once per configured signal with
+ * a `SweepSignalReport` (finding S4) — whether the signal crossed and, for
+ * crossings, each forwarded PR's resulting action/prUrl — so the hourly sweep
+ * leaves an auditable trail even on a quiet (no-crossing) run.
  */
 export async function runRollbackSweep(
   signals: Record<string, SweepSignalRule>,
@@ -106,11 +134,20 @@ export async function runRollbackSweep(
   const now = (deps.now ?? (() => new Date()))();
   for (const [name, rule] of Object.entries(signals)) {
     const pts = pointsInWindow(deps.readTimeline(name), now, rule.window);
-    if (!detectCrossing(pts, rule)) continue;
-    const prs = await deps.resolveMergedPrs(windowStart(now, rule.window), now.toISOString());
-    for (const pr of prs) {
-      await deps.evaluate(pr);
+    const crossed = detectCrossing(pts, rule);
+    const forwarded: SweepSignalReport['forwarded'] = [];
+    if (crossed) {
+      const prs = await deps.resolveMergedPrs(windowStart(now, rule.window), now.toISOString());
+      for (const pr of prs) {
+        const decision = await deps.evaluate(pr);
+        forwarded.push({
+          pr,
+          action: decision.action,
+          ...(decision.prUrl ? { prUrl: decision.prUrl } : {}),
+        });
+      }
     }
+    deps.report?.({ signal: name, window: rule.window, crossed, forwarded });
   }
 }
 

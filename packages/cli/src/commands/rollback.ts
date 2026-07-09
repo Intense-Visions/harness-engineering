@@ -5,7 +5,13 @@ import type { RollbackDecision, RollbackIO } from '@harness-engineering/core';
 import { composeRevertPr, ROLLBACK_LABEL, type ComposeGhSeam } from '../rollback/compose';
 import { appendRollbackEvent, linkRollbackEventToGraph } from '../rollback/breadcrumb';
 import { createNodeRollbackIO } from '../rollback/io';
-import { runRollbackSweep, createTimelineReader, createPrResolver } from '../rollback/sweep';
+import {
+  runRollbackSweep,
+  createTimelineReader,
+  createPrResolver,
+  type SweepSignalRule,
+  type SweepSignalReport,
+} from '../rollback/sweep';
 import { resolveConfig } from '../config/loader';
 import { logger } from '../output/logger';
 
@@ -144,6 +150,59 @@ export function createGhSeam(): ComposeGhSeam {
 }
 
 /**
+ * One-line, human-readable summary of a single signal's sweep outcome (finding
+ * S4). Non-crossings render "no crossing"; crossings list each forwarded PR and
+ * its resulting action (and prUrl when a revert was proposed), so the hourly
+ * Actions log shows exactly what the breaker did.
+ */
+export function summarizeSweepReport(r: SweepSignalReport): string {
+  if (!r.crossed) {
+    return `rollback sweep: ${r.signal} (${r.window}) — no crossing`;
+  }
+  if (r.forwarded.length === 0) {
+    return `rollback sweep: ${r.signal} (${r.window}) — crossed, no PRs in window`;
+  }
+  const parts = r.forwarded.map((f) => `#${f.pr} → ${f.action}${f.prUrl ? ` (${f.prUrl})` : ''}`);
+  return `rollback sweep: ${r.signal} (${r.window}) — crossed; forwarded ${parts.join(', ')}`;
+}
+
+/** Injectable seams for the sweep command action (finding I2/S4 testability). */
+export interface RollbackSweepCommandDeps {
+  resolveConfig: typeof resolveConfig;
+  runSweep: typeof runRollbackSweep;
+  makeReader: (root: string) => ReturnType<typeof createTimelineReader>;
+  makeResolver: () => ReturnType<typeof createPrResolver>;
+  evaluate: (pr: number) => Promise<RollbackDecision>;
+  root: string;
+  /** stdout observability line (finding S4). */
+  info: (line: string) => void;
+  /** stderr disarm warning (finding I2). */
+  warn: (line: string) => void;
+}
+
+/**
+ * `harness rollback sweep` core, over injected seams. On a config error it warns
+ * (stderr) that the breaker is inactive — never silently disarming (finding I2)
+ * — and still returns normally (exit 0). For each configured signal it emits a
+ * per-signal summary line (finding S4).
+ */
+export async function runRollbackSweepCommand(deps: RollbackSweepCommandDeps): Promise<void> {
+  const cfg = deps.resolveConfig();
+  if (!cfg.ok) {
+    deps.warn(`rollback sweep: config error, breaker inactive: ${cfg.error.message}`);
+  }
+  const signals: Record<string, SweepSignalRule> = cfg.ok
+    ? (cfg.value.rollback?.signals ?? {})
+    : {};
+  await deps.runSweep(signals, {
+    readTimeline: deps.makeReader(deps.root),
+    resolveMergedPrs: deps.makeResolver(),
+    evaluate: deps.evaluate,
+    report: (r) => deps.info(summarizeSweepReport(r)),
+  });
+}
+
+/**
  * `harness rollback evaluate` — classify a merged PR for revert-readiness and, if
  * ready, propose a full-context revert PR (or print its body under `--dry-run`).
  * All verdicts (proposed/skipped/blocked) exit 0 — they are legitimate outcomes.
@@ -197,17 +256,21 @@ export function createRollbackCommand(): Command {
       'Read the signal timeline and propose reverts for threshold crossings (signal arm)'
     )
     .action(async () => {
-      const cfg = resolveConfig();
-      const signals = cfg.ok ? (cfg.value.rollback?.signals ?? {}) : {};
-      const root = process.cwd();
-      await runRollbackSweep(signals, {
-        readTimeline: createTimelineReader(root),
-        resolveMergedPrs: createPrResolver(),
+      await runRollbackSweepCommand({
+        resolveConfig,
+        runSweep: runRollbackSweep,
+        makeReader: createTimelineReader,
+        makeResolver: createPrResolver,
         evaluate: (pr) =>
           runRollbackEvaluate(
             { pr, trigger: 'signal' },
             { io: createNodeRollbackIO(), gh: createGhSeam() }
           ),
+        root: process.cwd(),
+        // #S4: per-signal summary on stdout so the sweep's work is auditable.
+        info: (line) => logger.info(line),
+        // #I2: config error → disarm warning on stderr, never silent.
+        warn: (line) => logger.error(line),
       });
     });
   return rollback;

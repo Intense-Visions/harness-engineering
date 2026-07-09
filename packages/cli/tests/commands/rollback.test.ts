@@ -2,8 +2,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runRollbackEvaluate, referencesTargetPr } from '../../src/commands/rollback';
+import { Ok, Err } from '@harness-engineering/core';
+import {
+  runRollbackEvaluate,
+  referencesTargetPr,
+  runRollbackSweepCommand,
+  summarizeSweepReport,
+} from '../../src/commands/rollback';
+import { CLIError } from '../../src/utils/errors';
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb';
+import type { HarnessConfig } from '../../src/config/schema';
+import type { RollbackDecision } from '@harness-engineering/core';
+import type { SweepSignalRule } from '../../src/rollback/sweep';
 
 function fakeIo(
   over: Partial<{
@@ -178,4 +188,116 @@ describe('runRollbackEvaluate', () => {
       expect(printed.join('\n')).not.toContain('**Reason:**');
     })
   );
+});
+
+describe('summarizeSweepReport (S4 observability)', () => {
+  it('renders a non-crossing as an explicit "no crossing" line', () => {
+    expect(
+      summarizeSweepReport({ signal: 'errorRate', window: '7d', crossed: false, forwarded: [] })
+    ).toBe('rollback sweep: errorRate (7d) — no crossing');
+  });
+
+  it('renders a crossing with each forwarded PR action + prUrl', () => {
+    const line = summarizeSweepReport({
+      signal: 'errorRate',
+      window: '24h',
+      crossed: true,
+      forwarded: [
+        { pr: 201, action: 'proposed', prUrl: 'https://gh/pr/201' },
+        { pr: 202, action: 'skipped' },
+      ],
+    });
+    expect(line).toContain('crossed');
+    expect(line).toContain('#201 → proposed (https://gh/pr/201)');
+    expect(line).toContain('#202 → skipped');
+  });
+
+  it('renders a crossing that forwarded no PRs', () => {
+    expect(
+      summarizeSweepReport({ signal: 'errorRate', window: '7d', crossed: true, forwarded: [] })
+    ).toContain('crossed, no PRs in window');
+  });
+});
+
+describe('runRollbackSweepCommand (I2 config-error visibility, S4 output)', () => {
+  const okConfig = (signals: Record<string, SweepSignalRule>) =>
+    Ok({ rollback: { signals } } as unknown as HarnessConfig);
+
+  const baseDeps = () => {
+    const info = vi.fn();
+    const warn = vi.fn();
+    // A runSweep test double that drives the injected report/evaluate seams so
+    // we exercise the command's wiring without real gh/timeline.
+    const runSweep = vi.fn(
+      async (
+        signals: Record<string, SweepSignalRule>,
+        deps: {
+          evaluate: (pr: number) => Promise<RollbackDecision>;
+          report?: (r: unknown) => void;
+        }
+      ) => {
+        for (const [signal, rule] of Object.entries(signals)) {
+          // pretend a crossing forwarded PR 201
+          const decision = await deps.evaluate(201);
+          deps.report?.({
+            signal,
+            window: rule.window,
+            crossed: true,
+            forwarded: [
+              {
+                pr: 201,
+                action: decision.action,
+                ...(decision.prUrl ? { prUrl: decision.prUrl } : {}),
+              },
+            ],
+          });
+        }
+      }
+    );
+    return { info, warn, runSweep };
+  };
+
+  it('I2: warns on stderr (breaker inactive) when config fails to resolve, still returns', async () => {
+    const { info, warn, runSweep } = baseDeps();
+    await expect(
+      runRollbackSweepCommand({
+        resolveConfig: () =>
+          Err(new CLIError('Invalid config:\n  - rollback.signals.x.window: bad window')),
+        runSweep: runSweep as never,
+        makeReader: () => (() => []) as never,
+        makeResolver: () => (async () => []) as never,
+        evaluate: async () => ({}) as RollbackDecision,
+        root: '/tmp/x',
+        info,
+        warn,
+      })
+    ).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('config error, breaker inactive');
+    expect(warn.mock.calls[0]![0]).toContain('bad window');
+    // Disarmed: no signals → sweep gets an empty map, nothing forwarded/logged.
+    expect(runSweep).toHaveBeenCalledWith({}, expect.anything());
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('S4: emits a per-crossing summary line when a crossing forwards a PR', async () => {
+    const { info, warn, runSweep } = baseDeps();
+    await runRollbackSweepCommand({
+      resolveConfig: () =>
+        okConfig({ errorRate: { threshold: 5, direction: 'above', window: '7d' } }),
+      runSweep: runSweep as never,
+      makeReader: () => (() => []) as never,
+      makeResolver: () => (async () => []) as never,
+      evaluate: async (pr) =>
+        ({ targetPr: pr, action: 'proposed', prUrl: 'https://gh/pr/900' }) as RollbackDecision,
+      root: '/tmp/x',
+      info,
+      warn,
+    });
+    expect(warn).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledTimes(1);
+    const line = info.mock.calls[0]![0] as string;
+    expect(line).toContain('errorRate');
+    expect(line).toContain('#201 → proposed (https://gh/pr/900)');
+  });
 });
