@@ -1,5 +1,5 @@
 name: harness-rollback
-version: "1.0.0"
+version: '1.0.0'
 description: Post-ship circuit breaker — proposes a full-context revert PR when a shipped PR fails post-merge evaluation or crosses a signal threshold. Propose-only in v1 (never auto-merges).
 stability: static
 cognitive_mode: constructive-architect
@@ -49,4 +49,4 @@ phases:
 state:
   persistent: false
 depends_on:
-  - harness-outcome-eval
+  - outcome-eval
