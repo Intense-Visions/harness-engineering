@@ -356,6 +356,35 @@ describe('rankModels — empty input (OT6)', () => {
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]?.code).toBe('snapshot_unavailable');
   });
+
+  it('interpolates a score for an un-benchmarked candidate from a same-series sibling', () => {
+    // The reported bug: Qwen3-8B (no direct benchmark) showed "score 0 · interpolated".
+    // With a measured Qwen3-32B sibling it now gets a real, size-scaled score below
+    // the 32B's — never a bogus 0 — and is honestly labelled `interpolated`.
+    const qwen8b: RankerCandidate = {
+      hfRepoId: 'Qwen/Qwen3-8B-GGUF',
+      ollamaName: 'qwen3:8b',
+      sizeB: 8,
+      quant: 'Q4_K_M',
+    };
+    const snapshot = buildSnapshot([
+      {
+        hfRepoId: QWEN_32B.hfRepoId,
+        family: 'qwen3',
+        sizeB: QWEN_32B.sizeB,
+        observations: [freshDirectObservation(80)],
+      },
+    ]);
+    const result = rankModels({ candidates: [QWEN_32B, qwen8b], hardware: M3_MAX_36GB, snapshot });
+
+    const big = result.ranked.find((r) => r.hfRepoId === QWEN_32B.hfRepoId);
+    const small = result.ranked.find((r) => r.hfRepoId === qwen8b.hfRepoId);
+    expect(small?.evidence).toBe('interpolated');
+    expect(small?.score).toBeGreaterThan(0); // no longer a phantom 0
+    expect(big?.evidence).toBe('direct');
+    // A dampened, size-scaled inference stays below the directly-measured sibling.
+    expect(small?.score).toBeLessThan(big?.score ?? Infinity);
+  });
 });
 
 describe('rankModels — deterministic tie-break (OT7)', () => {

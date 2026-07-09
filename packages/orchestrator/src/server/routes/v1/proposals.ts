@@ -174,7 +174,8 @@ async function handleApprove(
     if (
       existing.status === 'approved' ||
       existing.status === 'rejected' ||
-      existing.status === 'failed_target_missing'
+      existing.status === 'failed_target_missing' ||
+      existing.status === 'installing'
     ) {
       sendJSON(res, 409, {
         error: `proposal already ${existing.status}; cannot approve`,

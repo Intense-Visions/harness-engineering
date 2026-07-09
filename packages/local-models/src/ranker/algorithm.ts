@@ -37,6 +37,12 @@
 
 import { mergeBenchmarks } from './benchmarks/merge.js';
 import type { BenchmarkEvidence, BenchmarkObservation } from './benchmarks/types.js';
+import {
+  buildSeriesScores,
+  interpolateBySize,
+  seriesKey,
+  type SeriesPoint,
+} from './interpolate.js';
 import { estimateSpeed, type SpeedEstimate } from './speed.js';
 import { estimateVram, type VramEstimate } from './vram.js';
 import type {
@@ -114,9 +120,12 @@ export function rankModels(input: RankInput): RankResult {
   }
 
   const observationsByRepo = indexObservationsByRepo(input);
+  // Group measured siblings by model series so an un-benchmarked candidate can
+  // borrow a size-interpolated score instead of flooring to 0 (see interpolate.ts).
+  const seriesScores = buildSeriesScores(input.snapshot, snapshotDate);
 
   const scored = input.candidates.map((candidate) =>
-    scoreCandidate(candidate, input, observationsByRepo, snapshotDate)
+    scoreCandidate(candidate, input, observationsByRepo, snapshotDate, seriesScores)
   );
 
   const filtered = input.options?.includeUnfit ? scored : scored.filter((m) => m.fitsHardware);
@@ -170,7 +179,8 @@ function scoreCandidate(
   candidate: RankerCandidate,
   input: RankInput,
   observationsByRepo: Map<string, BenchmarkObservation[]>,
-  snapshotDate: string
+  snapshotDate: string,
+  seriesScores: Map<string, SeriesPoint[]>
 ): RankedModel {
   const vramEstimate = computeVram(candidate, input);
   const speedEstimate = computeSpeed(candidate, input, vramEstimate);
@@ -182,12 +192,31 @@ function scoreCandidate(
   });
 
   const fitsHardware = vramEstimate.totalGb <= input.hardware.vramGb;
-  const evidence = weakestEvidence(benchmarkScore.contributions.map((c) => c.observation.evidence));
+
+  // Direct evidence when the model was measured; otherwise try to infer a score
+  // from same-series siblings (marked `interpolated` + `low` confidence so the
+  // ×0.6 multiplier keeps it below a real measurement of equal raw value). Only
+  // when no sibling exists does the score honestly stay 0.
+  let mergedScore = benchmarkScore.score;
+  let benchmarkConfidence = benchmarkScore.confidence;
+  let evidence = weakestEvidence(benchmarkScore.contributions.map((c) => c.observation.evidence));
+  if (observations.length === 0) {
+    const inferred = interpolateBySize(
+      seriesScores.get(seriesKey(candidate.hfRepoId)) ?? [],
+      candidate.sizeB
+    );
+    if (inferred !== undefined) {
+      mergedScore = inferred;
+      benchmarkConfidence = 'low';
+      evidence = 'interpolated';
+    }
+  }
+
   const score = scaleScore({
-    mergedScore: benchmarkScore.score,
+    mergedScore,
     fitsHardware,
     speedConfidence: speedEstimate.confidence,
-    benchmarkConfidence: benchmarkScore.confidence,
+    benchmarkConfidence,
   });
 
   return assembleRankedModel({

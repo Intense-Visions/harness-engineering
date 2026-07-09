@@ -228,6 +228,12 @@ export async function onApproveModelProposal(
   }
 
   // `add` and `swap` both install the target first.
+  // Mark the proposal `installing` BEFORE the pull so the intent is durable: if
+  // the orchestrator restarts mid-`ollama pull`, startup finds this record and
+  // re-drives the (idempotent) install instead of losing it. Cleared to
+  // `approved` on success or reverted to `open` on a retryable failure below.
+  await deps.updateProposal(proposal.id, { status: 'installing' });
+
   // The proposal carries only a score *delta*, not an absolute score; the new
   // pool entry starts at 0 and the scheduler's next re-rank sets its real score.
   const installResult = await deps.pool.install({
@@ -253,7 +259,9 @@ export async function onApproveModelProposal(
       return { status: 'failed_target_missing', proposal: updated as ModelProposalRecord };
     }
     // budget_exceeded / not_allowed / installer_unavailable / install_failed:
-    // structured error, pool unchanged, proposal left pending for a retry.
+    // structured error, pool unchanged. Revert `installing` → `open` so the
+    // proposal is retryable and startup does not re-drive a known failure.
+    await deps.updateProposal(proposal.id, { status: 'open' });
     return { status: 'error', code: installResult.code, message: installResult.message };
   }
 
@@ -308,6 +316,9 @@ export async function onApproveModelProposal(
         installed: model.target.ollamaName,
         phase: 'swap_evict_failed',
       });
+      // Revert `installing` → `open`: the target is in, but the swap is
+      // incomplete and a later re-approve retries only the failed evict.
+      await deps.updateProposal(proposal.id, { status: 'open' });
       return { status: 'error', code: evictResult.code, message: evictResult.message };
     }
     if (evictResult.removed !== null) {
@@ -400,4 +411,48 @@ export async function onRejectModelProposal(
     reason,
   });
   return updated as ModelProposalRecord;
+}
+
+/**
+ * Re-drive installs interrupted by an orchestrator restart. A proposal left in
+ * `installing` had its background `ollama pull` cut short (the process died
+ * mid-download); on startup we re-run {@link onApproveModelProposal}, which is
+ * idempotent — `PoolManager.install` returns `alreadyInstalled` if ollama
+ * finished the pull, or resumes from cached blobs if it was partial. Each re-drive
+ * streams progress + a terminal frame on `local-models:install` exactly like the
+ * original request, so a reconnecting dashboard shows the resumed download. Runs
+ * sequentially (one heavy pull at a time) and never throws — a failed re-drive is
+ * logged and the proposal is left for the operator, not retried in a tight loop.
+ */
+export async function redriveInstallingProposals(
+  deps: Omit<ModelHandlerDeps, 'onInstallEvent'>,
+  proposals: readonly ModelProposalRecord[],
+  opts: { onWarn?: (message: string, cause?: unknown) => void } = {}
+): Promise<void> {
+  for (const proposal of proposals) {
+    if (proposal.status !== 'installing') continue;
+    if (proposal.model.action === 'evict') continue; // evict has no pull to resume
+    const { emit, onInstallEvent } = makeInstallProgressForwarder(deps.bus, {
+      proposalId: proposal.id,
+      hfRepoId: proposal.model.target.hfRepoId,
+      ollamaName: proposal.model.target.ollamaName,
+    });
+    emit('started');
+    try {
+      const outcome = await onApproveModelProposal({ ...deps, onInstallEvent }, proposal);
+      if (outcome.status === 'approved') {
+        emit('complete');
+      } else if (outcome.status === 'failed_target_missing') {
+        emit('error', {
+          code: 'failed_target_missing',
+          message: `${proposal.model.target.hfRepoId} is no longer available on HuggingFace`,
+        });
+      } else {
+        emit('error', { code: outcome.code, message: outcome.message });
+      }
+    } catch (err) {
+      opts.onWarn?.('re-drive of interrupted install failed', err);
+      emit('error', { message: err instanceof Error ? err.message : String(err) });
+    }
+  }
 }
