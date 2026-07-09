@@ -17,7 +17,7 @@ The harness lifecycle is a chain of artifacts, each of which is **executable gro
 the next agent** — not paperwork for the next human:
 
 ```
-strategy → BRD → [PRD — thin] → spec + ADR → plan → code → tests/verdict → review → knowledge → release → ops
+strategy → BRD → PRD → spec + ADR → plan → code → tests/verdict → review → knowledge → release → ops
 ```
 
 Two clarifications that correct a common mental model:
@@ -25,9 +25,11 @@ Two clarifications that correct a common mental model:
 - **`brainstorming` produces the proposal spec** and, as part of that, flags which
   decisions rise to an ADR. `architecture-advisor` is **not** an earlier stage — it is a
   specialist consulted mid-design when a tradeoff is genuinely hard.
-- **The PRD slot is real but unfilled.** Product-level requirements (user stories,
-  acceptance criteria, prioritization) are currently fused into the proposal and split
-  across `STRATEGY.md` and the BRD.
+- **The PRD slot is now filled by `product-requirements`.** Product-level requirements
+  (user stories, acceptance criteria, prioritization) were previously fused into the
+  proposal and split across `STRATEGY.md` and the BRD; the `product-requirements` skill now
+  authors them into `docs/product-requirements/<item>/prd.md`, which `harness-brainstorming`
+  consumes.
 
 ## Coverage status by stage
 
@@ -38,7 +40,7 @@ partial = present but advisory or fused; gap = no first-class skill.
 | ----------------------- | ------------------------- | -------------------------------------------------------------------- | ------- |
 | Strategy                | Strategy anchor           | strategy · ideate · pulse                                            | solid   |
 | Inception               | BRD, gap list             | product-advisor                                                      | solid   |
-| Product requirements    | PRD, user stories         | — (fused into proposal)                                              | partial |
+| Product requirements    | PRD, user stories         | product-requirements                                                 | solid   |
 | Design                  | Spec, ADRs                | brainstorming · architecture-advisor · soundness-review · spec-craft | solid   |
 | Planning                | Work breakdown            | planning · roadmap-pilot                                             | solid   |
 | Implementation          | Code                      | execution · tdd · autopilot · refactoring · debugging                | solid   |
@@ -110,8 +112,11 @@ lever, not simpler CLIs.
 
 ## Recommendations (priority order)
 
-1. **Product-requirements skill** (now) — closes the PRD middle and a non-technical intent
-   edge; feeds `acceptance-eval`.
+1. ~~**Product-requirements skill** (now) — closes the PRD middle and a non-technical intent
+   edge; feeds `acceptance-eval`.~~ **✅ Shipped** — the `product-requirements` skill authors
+   a PRD (user stories + EARS acceptance criteria + MoSCoW) at
+   `docs/product-requirements/<item>/prd.md`; `harness-brainstorming` seeds the spec's
+   Success Criteria from it.
 2. **UAT / sign-off loop** (now) — the mirror of `product-advisor` at the far end; closes
    the inception → acceptance circle; client-facing.
 3. **Role-shaped dashboard front doors** (next) — PM/BA and client lanes through existing
