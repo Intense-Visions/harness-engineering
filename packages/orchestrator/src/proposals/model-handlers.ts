@@ -1,8 +1,14 @@
 import type { EventEmitter } from 'node:events';
-import type { ModelProposalRecord, Proposal, ProposalDecision } from '@harness-engineering/types';
+import type {
+  ModelInstallEvent,
+  ModelProposalRecord,
+  Proposal,
+  ProposalDecision,
+} from '@harness-engineering/types';
 import type {
   EvictPoolRequest,
   EvictPoolResult,
+  InstallEvent,
   InstallPoolRequest,
   InstallPoolResult,
   PoolEntry,
@@ -72,6 +78,14 @@ export interface ModelHandlerDeps {
    * agent-run-coarse and may over-defer — a safe failure (see ADR 0060).
    */
   isModelInUse?: (ollamaName: string) => boolean;
+  /**
+   * Streaming install-progress sink, forwarded verbatim to `pool.install` as its
+   * `onEvent`. The install route translates each {@link InstallEvent} into a
+   * `local-models:install` WS frame so the dashboard can render a download
+   * progress bar. Absent in the automated proposal-engine path (no operator
+   * watching) — the pull still runs, its progress is simply not broadcast.
+   */
+  onInstallEvent?: (event: InstallEvent) => void;
 }
 
 /** True when the probe (if supplied) reports the model might be mid-request. */
@@ -83,6 +97,57 @@ function isInUse(deps: ModelHandlerDeps, ollamaName: string): boolean {
 export const MODEL_PROPOSAL_TOPIC = 'local-models:proposal';
 /** Bus topic for pool mutations (install / evict applied). */
 export const MODEL_POOL_TOPIC = 'local-models:pool';
+/**
+ * Bus topic for byte-level install progress + terminal status of an in-flight
+ * operator install (D3 async install). Distinct from {@link MODEL_POOL_TOPIC},
+ * which is a coarse refetch-delta: streaming per-byte progress there would make
+ * the dashboard refetch the pool on every frame. Consumers render a progress bar
+ * off this topic and only refetch on the completing `local-models:pool` frame.
+ */
+export const MODEL_INSTALL_TOPIC = 'local-models:install';
+
+/** Streaming + lifecycle emitter for one install, bound to its correlation fields. */
+export interface InstallProgressForwarder {
+  /**
+   * Pass as {@link ModelHandlerDeps.onInstallEvent}: forwards the installer's
+   * byte stream as `progress` frames on {@link MODEL_INSTALL_TOPIC}. Terminal
+   * frames are NOT emitted here — the caller derives `complete`/`error` from the
+   * resolved approve outcome so the pool state is already committed.
+   */
+  onInstallEvent: (event: InstallEvent) => void;
+  /** Emit a lifecycle frame (`started` / `complete` / `error`) for this install. */
+  emit: (phase: ModelInstallEvent['phase'], patch?: Partial<ModelInstallEvent>) => void;
+}
+
+/**
+ * Build the shared `local-models:install` progress emitter used by BOTH pull
+ * entry points — the operator install route and the model-proposal approve route
+ * — so a `swap`/`add` approval streams a download bar exactly like a direct
+ * install (and, crucially, returns before the multi-GB pull blows the dashboard
+ * proxy's `headersTimeout`). Closes over the invariant correlation fields so each
+ * call site supplies only the phase-specific delta.
+ */
+export function makeInstallProgressForwarder(
+  bus: EventEmitter,
+  base: Pick<ModelInstallEvent, 'proposalId' | 'hfRepoId' | 'ollamaName'>
+): InstallProgressForwarder {
+  const emit: InstallProgressForwarder['emit'] = (phase, patch = {}) => {
+    const frame: ModelInstallEvent = { ...base, ...patch, phase };
+    bus.emit(MODEL_INSTALL_TOPIC, frame);
+  };
+  const onInstallEvent = (event: InstallEvent): void => {
+    if (event.kind === 'progress') {
+      emit('progress', {
+        completedBytes: event.completedBytes,
+        totalBytes: event.totalBytes,
+        ...(event.message !== undefined ? { message: event.message } : {}),
+      });
+    } else if (event.kind === 'pulling') {
+      emit('progress', { message: event.message });
+    }
+  };
+  return { emit, onInstallEvent };
+}
 
 /** Outcome of {@link onApproveModelProposal}. */
 export type ModelApproveOutcome =
@@ -170,6 +235,7 @@ export async function onApproveModelProposal(
     ollamaName: model.target.ollamaName,
     ...(model.replaces !== undefined ? { replaces: model.replaces.ollamaName } : {}),
     ...(model.diskImpactGb > 0 ? { sizeOnDiskGb: model.diskImpactGb } : {}),
+    ...(deps.onInstallEvent ? { onEvent: deps.onInstallEvent } : {}),
   });
 
   if (installResult.status === 'error') {

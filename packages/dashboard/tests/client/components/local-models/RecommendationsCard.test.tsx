@@ -88,8 +88,12 @@ describe('RecommendationsCard', () => {
     expect(row.textContent).toContain('20');
   });
 
-  it('Install POSTs to /pool/install with hfRepoId + quant and calls onDecided (SC6)', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(okRes()));
+  it('Install POSTs to /pool/install with hfRepoId + quant; 202 keeps it "Installing…" without onDecided (SC6)', async () => {
+    // Install is async (D3): the POST returns 202 and completion arrives over the
+    // `local-models:install` WS topic — so the row must NOT fire the onDecided
+    // refetch here (that would race a not-yet-pulled model) and must stay busy.
+    const accepted = { ok: true, status: 202, text: async () => 'accepted' } as Response;
+    const fetchMock = vi.fn(() => Promise.resolve(accepted));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
     render(
@@ -104,12 +108,129 @@ describe('RecommendationsCard', () => {
     );
     fireEvent.click(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF'));
 
-    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+        'Installing'
+      )
+    );
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/v1/local-models/pool/install');
     expect((init as RequestInit).method).toBe('POST');
     expect(String((init as RequestInit).body)).toContain('Qwen/Qwen3-32B-GGUF');
     expect(String((init as RequestInit).body)).toContain('Q4_K_M');
+    expect(onDecided).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('renders a download progress bar from install progress frames', () => {
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': { phase: 'progress', completedBytes: 5e9, totalBytes: 1e10 },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    const bar = screen.getByTestId('rec-progress-Qwen/Qwen3-32B-GGUF');
+    expect(bar.textContent).toContain('50%');
+    expect(bar.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('50');
+    // The row reflects the in-flight install.
+    expect(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+      'Installing'
+    );
+  });
+
+  it('surfaces a WS install error frame on the row and re-enables retry', () => {
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': {
+            phase: 'error',
+            message: 'no eviction plan fits',
+            code: 'budget_exceeded',
+          },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('rec-error-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+      'no eviction plan fits'
+    );
+    // A terminal error re-enables the button so the operator can retry.
+    expect(
+      (screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF') as HTMLButtonElement).disabled
+    ).toBe(false);
+  });
+
+  it('Refresh POSTs to /refresh and refetches (onDecided) on success', async () => {
+    const accepted = { ok: true, status: 200, text: async () => 'ok' } as Response;
+    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-refresh'));
+
+    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/v1/local-models/refresh');
+    expect((init as RequestInit).method).toBe('POST');
+    vi.unstubAllGlobals();
+  });
+
+  it('hides the Refresh button when recommendations are LMLM-disabled', () => {
+    render(
+      <RecommendationsCard
+        recommendations={null}
+        recommendationsError="LMLM disabled"
+        proposals={[]}
+        onDecided={() => {}}
+        loading={false}
+      />
+    );
+    expect(screen.queryByTestId('rec-refresh')).toBeNull();
+  });
+
+  it('a failed Refresh surfaces an inline error and does not call onDecided', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 503, text: async () => 'LMLM disabled' } as Response)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('rec-refresh'));
+
+    await waitFor(() => expect(screen.getByTestId('rec-refresh-error')).toBeDefined());
+    expect(onDecided).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 
@@ -246,6 +367,71 @@ describe('RecommendationsCard', () => {
     // token and never reads a body field, so no dead { decidedBy } is posted.
     expect((init as RequestInit).body).toBeUndefined();
     vi.unstubAllGlobals();
+  });
+
+  it('Approve of an add/swap: 202 keeps it "Installing…" without onDecided', async () => {
+    // Approving an add/swap installs the target (ollama pull); the route returns
+    // 202 and streams over WS, so the row must stay busy and NOT refetch here.
+    const accepted = { ok: true, status: 202, text: async () => 'accepted' } as Response;
+    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    vi.stubGlobal('fetch', fetchMock);
+    const onDecided = vi.fn();
+    render(
+      <RecommendationsCard
+        recommendations={[]}
+        recommendationsError={null}
+        proposals={[PROPOSAL]}
+        onDecided={onDecided}
+        loading={false}
+      />
+    );
+    fireEvent.click(screen.getByTestId('proposal-approve-mp-1'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('proposal-approve-mp-1').textContent).toContain('Installing')
+    );
+    expect(String(fetchMock.mock.calls[0]![0])).toBe('/api/v1/proposals/mp-1/approve');
+    expect(onDecided).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('renders a download progress bar while a proposal is installing', () => {
+    render(
+      <RecommendationsCard
+        recommendations={[]}
+        recommendationsError={null}
+        proposals={[PROPOSAL]}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': { phase: 'progress', completedBytes: 3e9, totalBytes: 4e9 },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    const bar = screen.getByTestId('proposal-progress-mp-1');
+    expect(bar.textContent).toContain('75%');
+    expect(screen.getByTestId('proposal-approve-mp-1').textContent).toContain('Installing');
+  });
+
+  it('surfaces a WS install error on the proposal row and re-enables Approve', () => {
+    render(
+      <RecommendationsCard
+        recommendations={[]}
+        recommendationsError={null}
+        proposals={[PROPOSAL]}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': { phase: 'error', message: 'no eviction plan fits' },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('proposal-error-mp-1').textContent).toContain(
+      'no eviction plan fits'
+    );
+    expect((screen.getByTestId('proposal-approve-mp-1') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('Reject with a reason POSTs to /reject and calls onDecided', async () => {

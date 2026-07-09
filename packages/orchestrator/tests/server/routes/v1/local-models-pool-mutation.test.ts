@@ -14,11 +14,13 @@ import type {
   PoolState,
   RankedModel,
 } from '@harness-engineering/local-models';
+import type { ModelInstallEvent } from '@harness-engineering/types';
 import { listProposals } from '@harness-engineering/core';
 import {
   handleV1LocalModelsMutationRoute,
   type V1LocalModelsMutationDeps,
 } from '../../../../src/server/routes/v1/local-models-pool-mutation';
+import { MODEL_INSTALL_TOPIC } from '../../../../src/proposals/model-handlers';
 import { V1_BRIDGE_ROUTES } from '../../../../src/server/v1-bridge-routes';
 
 let tmpDir: string;
@@ -141,9 +143,33 @@ function deps(over: Partial<V1LocalModelsMutationDeps> = {}): V1LocalModelsMutat
   };
 }
 
+/**
+ * Collect the `local-models:install` frames a bus emits, exposing a promise that
+ * resolves on the terminal (`complete`/`error`) frame. Install is asynchronous —
+ * the route returns 202 before the background pull finishes — so tests await this
+ * to observe the eventual outcome that now rides the WS topic, not the response.
+ */
+function installFrames(bus: EventEmitter): {
+  frames: ModelInstallEvent[];
+  waitTerminal: () => Promise<ModelInstallEvent>;
+} {
+  const frames: ModelInstallEvent[] = [];
+  let resolve!: (f: ModelInstallEvent) => void;
+  const terminal = new Promise<ModelInstallEvent>((r) => {
+    resolve = r;
+  });
+  bus.on(MODEL_INSTALL_TOPIC, (f: ModelInstallEvent) => {
+    frames.push(f);
+    if (f.phase === 'complete' || f.phase === 'error') resolve(f);
+  });
+  return { frames, waitTerminal: () => terminal };
+}
+
 describe('POST /local-models/pool/install', () => {
-  it('installs an allow-listed recommendation and returns disposition:installed (SC1, SC8)', async () => {
-    const d = deps({ getModelPool: () => fakePool() });
+  it('returns 202 installing immediately, streams started→complete, and auto-approves the proposal (SC1, SC8)', async () => {
+    const bus = new EventEmitter();
+    const { frames, waitTerminal } = installFrames(bus);
+    const d = deps({ bus, getModelPool: () => fakePool() });
     const { res, body, statusCode, done } = makeRes();
     handleV1LocalModelsMutationRoute(
       makeReq('POST', '/api/v1/local-models/pool/install', {
@@ -153,12 +179,101 @@ describe('POST /local-models/pool/install', () => {
       d
     );
     await done;
-    expect(statusCode()).toBe(200);
-    expect(body()).toMatchObject({ disposition: 'installed' });
+    expect(statusCode()).toBe(202);
+    expect(body()).toMatchObject({ disposition: 'installing', evicted: [] });
+    const terminal = await waitTerminal();
+    expect(frames[0]).toMatchObject({
+      phase: 'started',
+      hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      ollamaName: 'qwen3:32b',
+    });
+    expect(terminal.phase).toBe('complete');
     // SC8: an auto-approved proposal was persisted for audit.
     const proposals = await listProposals(tmpDir, { kind: 'model' });
     expect(proposals).toHaveLength(1);
     expect(proposals[0]!.status).toBe('approved');
+  });
+
+  it('responds 202 WITHOUT awaiting the pull (regression: proxy headersTimeout 502)', async () => {
+    // The root cause of the observed `502 ... (cause: Headers Timeout Error)`:
+    // the route used to await the full multi-GB `ollama pull` before sending any
+    // response, so the dashboard proxy's undici `headersTimeout` (~5 min) fired.
+    // The route must now return before the pull resolves.
+    let releasePull!: () => void;
+    const pullGate = new Promise<void>((r) => {
+      releasePull = r;
+    });
+    let pullResolved = false;
+    const bus = new EventEmitter();
+    const { waitTerminal } = installFrames(bus);
+    const d = deps({
+      bus,
+      getModelPool: () =>
+        fakePool({
+          install: async (r) => {
+            await pullGate; // a long download that has NOT finished when we assert
+            pullResolved = true;
+            return {
+              status: 'success',
+              entry: { ...ENTRY, ollamaName: r.ollamaName },
+              evicted: [],
+            };
+          },
+        }),
+    });
+    const { res, body, statusCode, done } = makeRes();
+    handleV1LocalModelsMutationRoute(
+      makeReq('POST', '/api/v1/local-models/pool/install', { hfRepoId: 'Qwen/Qwen3-32B-GGUF' }),
+      res,
+      d
+    );
+    await done;
+    expect(statusCode()).toBe(202);
+    expect(body()).toMatchObject({ disposition: 'installing' });
+    expect(pullResolved).toBe(false); // response returned mid-pull — no headers timeout
+    releasePull();
+    await waitTerminal();
+    expect(pullResolved).toBe(true);
+  });
+
+  it('forwards installer byte progress as local-models:install progress frames (download bar)', async () => {
+    const bus = new EventEmitter();
+    const { frames, waitTerminal } = installFrames(bus);
+    const d = deps({
+      bus,
+      getModelPool: () =>
+        fakePool({
+          install: async (r) => {
+            r.onEvent?.({
+              kind: 'progress',
+              completedBytes: 500,
+              totalBytes: 1000,
+              message: 'pull',
+            });
+            return {
+              status: 'success',
+              entry: { ...ENTRY, ollamaName: r.ollamaName },
+              evicted: [],
+            };
+          },
+        }),
+    });
+    const { res, statusCode, done } = makeRes();
+    handleV1LocalModelsMutationRoute(
+      makeReq('POST', '/api/v1/local-models/pool/install', { hfRepoId: 'Qwen/Qwen3-32B-GGUF' }),
+      res,
+      d
+    );
+    await done;
+    expect(statusCode()).toBe(202);
+    await waitTerminal();
+    const progress = frames.find((f) => f.phase === 'progress');
+    expect(progress).toMatchObject({
+      completedBytes: 500,
+      totalBytes: 1000,
+      hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+      ollamaName: 'qwen3:32b',
+    });
   });
 
   it('sizes the install from an estimate, never a pre-pull inspect (regression: install 404 target-missing)', async () => {
@@ -169,7 +284,10 @@ describe('POST /local-models/pool/install', () => {
     // fix hands the pool an estimated on-disk size so `install` is given a
     // concrete `sizeOnDiskGb` and the impossible pre-pull inspect never runs.
     let received: InstallPoolRequest | undefined;
+    const bus = new EventEmitter();
+    const { waitTerminal } = installFrames(bus);
     const d = deps({
+      bus,
       getModelPool: () =>
         fakePool({
           install: async (r) => {
@@ -191,12 +309,16 @@ describe('POST /local-models/pool/install', () => {
       d
     );
     await done;
-    expect(statusCode()).toBe(200);
+    expect(statusCode()).toBe(202);
+    await waitTerminal();
     expect(received?.sizeOnDiskGb).toBeGreaterThan(0);
   });
 
-  it('maps a budget_exceeded / not_allowed pool veto to 409 (SC2)', async () => {
+  it('streams an error frame carrying the pool veto code (budget_exceeded / not_allowed) (SC2)', async () => {
+    const bus = new EventEmitter();
+    const { waitTerminal } = installFrames(bus);
     const d = deps({
+      bus,
       getModelPool: () =>
         fakePool({
           install: async () => ({
@@ -207,7 +329,7 @@ describe('POST /local-models/pool/install', () => {
           }),
         }),
     });
-    const { res, body, statusCode, done } = makeRes();
+    const { res, statusCode, done } = makeRes();
     handleV1LocalModelsMutationRoute(
       makeReq('POST', '/api/v1/local-models/pool/install', {
         hfRepoId: 'Qwen/Qwen3-32B-GGUF',
@@ -216,8 +338,10 @@ describe('POST /local-models/pool/install', () => {
       d
     );
     await done;
-    expect(statusCode()).toBe(409);
-    expect(body()).toMatchObject({ code: 'budget_exceeded' });
+    // The pre-pull veto now surfaces over WS, not in the (already-sent 202) body.
+    expect(statusCode()).toBe(202);
+    const terminal = await waitTerminal();
+    expect(terminal).toMatchObject({ phase: 'error', code: 'budget_exceeded' });
   });
 
   it('returns 404 when no recommendation matches the hfRepoId (SC2)', async () => {

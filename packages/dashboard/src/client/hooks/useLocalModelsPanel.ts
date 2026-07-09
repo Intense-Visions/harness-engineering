@@ -33,6 +33,20 @@ export interface Resource<T> {
   loading: boolean;
 }
 
+/**
+ * In-flight (or just-failed) state of one operator install, keyed by `hfRepoId`
+ * and driven by `local-models:install` WS frames. A `complete` frame REMOVES the
+ * entry (the row flips to "installed" off the pool refetch); an `error` frame
+ * keeps it so the row can surface the failure until dismissed.
+ */
+export interface InstallProgressState {
+  phase: 'started' | 'progress' | 'error';
+  completedBytes?: number;
+  totalBytes?: number;
+  message?: string;
+  code?: string;
+}
+
 export interface UseLocalModelsPanelResult {
   hardware: Resource<DashHardwareProfile>;
   pool: Resource<DashPoolStateView>;
@@ -42,6 +56,10 @@ export interface UseLocalModelsPanelResult {
   allDisabled: boolean;
   /** Re-issue all four GETs. Used by card action handlers after an approve/reject. */
   refetchAll: () => void;
+  /** Live install progress/error keyed by `hfRepoId` (from `local-models:install` WS frames). */
+  installProgress: Record<string, InstallProgressState>;
+  /** Clear a settled `error` entry so the row's failure message dismisses. */
+  dismissInstall: (hfRepoId: string) => void;
 }
 
 const INITIAL = <T>(): Resource<T> => ({ data: null, error: null, loading: true });
@@ -169,6 +187,7 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
   const [pool, setPool] = useState<Resource<DashPoolStateView>>(INITIAL);
   const [recommendations, setRecommendations] = useState<Resource<DashRankedModel[]>>(INITIAL);
   const [proposals, setProposals] = useState<Resource<ModelProposalRecord[]>>(INITIAL);
+  const [installProgress, setInstallProgress] = useState<Record<string, InstallProgressState>>({});
 
   const mountedRef = useRef(true);
   const controllersRef = useRef<Set<AbortController>>(new Set());
@@ -216,6 +235,15 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
     void fetchProposals();
   }, [fetchHardware, fetchPool, fetchRecommendations, fetchProposals]);
 
+  const dismissInstall = useCallback((hfRepoId: string) => {
+    setInstallProgress((prev) => {
+      if (!(hfRepoId in prev)) return prev;
+      const next = { ...prev };
+      delete next[hfRepoId];
+      return next;
+    });
+  }, []);
+
   // Coalesce delta-driven refetches so a burst of WS frames collapses into a
   // single refetch per affected resource (see useCoalescedRefetch).
   const scheduleRefetch = useCoalescedRefetch({
@@ -256,6 +284,26 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
             scheduleRefetch(['pool', 'recommendations']);
           } else if (msg.type === 'local-models:proposal') {
             scheduleRefetch(['proposals', 'recommendations']);
+          } else if (msg.type === 'local-models:install') {
+            const ev = msg.data;
+            if (ev.phase === 'complete') {
+              // Pool now holds the model; drop the progress row and refetch so it
+              // renders as "installed" (the paired `local-models:pool` frame also
+              // schedules this — coalesced into one refetch).
+              dismissInstall(ev.hfRepoId);
+              scheduleRefetch(['pool', 'recommendations']);
+            } else {
+              // 'started' | 'progress' (byte updates) or 'error' (retained so the
+              // row can surface the failure until retried/dismissed).
+              const entry: InstallProgressState = {
+                phase: ev.phase,
+                ...(ev.completedBytes !== undefined ? { completedBytes: ev.completedBytes } : {}),
+                ...(ev.totalBytes !== undefined ? { totalBytes: ev.totalBytes } : {}),
+                ...(ev.message !== undefined ? { message: ev.message } : {}),
+                ...(ev.code !== undefined ? { code: ev.code } : {}),
+              };
+              setInstallProgress((prev) => ({ ...prev, [ev.hfRepoId]: entry }));
+            }
           }
         } catch {
           // ignore malformed messages
@@ -280,7 +328,7 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
       wsRef.current?.close();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, [scheduleRefetch]);
+  }, [scheduleRefetch, dismissInstall]);
 
   const allDisabled =
     hardware.error === 'LMLM disabled' &&
@@ -288,5 +336,14 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
     recommendations.error === 'LMLM disabled' &&
     proposals.error === 'LMLM disabled';
 
-  return { hardware, pool, recommendations, proposals, allDisabled, refetchAll };
+  return {
+    hardware,
+    pool,
+    recommendations,
+    proposals,
+    allDisabled,
+    refetchAll,
+    installProgress,
+    dismissInstall,
+  };
 }

@@ -8,10 +8,15 @@
  *   2. recommend (HF, cache TTL, frozen-snapshot fallback) → ranking
  *   3. DRIFT RECONCILE (D12/F10): prune pool entries the installer no longer
  *      reports, freeing their disk budget — done inside `PoolManager.reconcile`
- *   4. diff the reconciled pool against the ranking via the Phase 5b engine
- *   5. emit a `ModelProposal` for each diff over threshold not already
+ *   4. rewrite pool entry scores from the re-rank — BEFORE the diff, so a
+ *      freshly-installed member (which enters the pool at `currentScore: 0` until
+ *      its first re-rank) is diffed against its real score, not the uninitialized
+ *      0. Diffing first produced phantom swaps ("replace a pool member scoring 0")
+ *      and inflated `scoreDelta`s on the tick right after an install/swap.
+ *   5. diff the reconciled, re-scored pool against the ranking via the Phase 5b
+ *      engine
+ *   6. emit a `ModelProposal` for each diff over threshold not already
  *      pending/rejected
- *   6. rewrite pool entry scores from the re-rank
  *
  * The pipeline is degradation-first: every stage is wrapped so a failure is
  * recorded on `TickResult.errors` and, where safe, later stages still run. A
@@ -114,8 +119,12 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
   const reconcile = await tryStage('reconcile', errors, () => deps.poolManager.reconcile());
   const reconciledRemoved = (reconcile?.removed ?? []).map((e) => e.ollamaName);
 
-  const proposalsEmitted = await emitDiff(deps, hardware, ranked, errors);
+  // Re-score the pool from this tick's ranking BEFORE diffing, so the diff (and
+  // the "replace a pool member scoring N" justification) uses each member's real
+  // score rather than the 0 a just-installed member carries until its first
+  // re-rank. Diffing first churned the pool with phantom swaps against that 0.
   await writeBackScores(deps, ranked, errors);
+  const proposalsEmitted = await emitDiff(deps, hardware, ranked, errors);
 
   return {
     candidatesEvaluated: ranked.length,

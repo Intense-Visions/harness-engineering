@@ -256,10 +256,13 @@ describe('OrchestratorServer LMLM Phase 6 wiring', () => {
     await server.start();
 
     const res = await post(port, '/api/v1/proposals/proposal_model_live/approve');
-    // The 501 stub is retired: the request now reaches the pool handler (200 approved).
+    // The 501 stub is retired: the request reaches the pool handler. A swap/add
+    // approval installs the target asynchronously (the pull would otherwise block
+    // past the proxy headersTimeout), so it returns 202 { disposition:'installing' }
+    // and streams the outcome over the local-models:install WS topic.
     expect(res.statusCode).not.toBe(501);
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).status).toBe('approved');
+    expect(res.statusCode).toBe(202);
+    expect(JSON.parse(res.body).disposition).toBe('installing');
   });
 
   it('getModelPool absent → model approve still returns 501 (LMLM disabled)', async () => {

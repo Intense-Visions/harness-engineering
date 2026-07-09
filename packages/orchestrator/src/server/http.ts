@@ -24,7 +24,11 @@ import { handleV1LocalModelsRoute } from './routes/v1/local-models';
 import { handleV1LocalModelsMutationRoute } from './routes/v1/local-models-pool-mutation';
 import type { RefreshSchedulerOps } from './routes/v1/local-models';
 import type { ModelPoolOps } from '../proposals/model-handlers';
-import { MODEL_PROPOSAL_TOPIC, MODEL_POOL_TOPIC } from '../proposals/model-handlers';
+import {
+  MODEL_PROPOSAL_TOPIC,
+  MODEL_POOL_TOPIC,
+  MODEL_INSTALL_TOPIC,
+} from '../proposals/model-handlers';
 import type { HardwareProfile, RankedModel } from '@harness-engineering/local-models';
 import { handleV1RoutingRoute } from './routes/v1/routing';
 import type { BackendRouter } from '../agent/backend-router';
@@ -266,6 +270,8 @@ export class OrchestratorServer {
   // LMLM Phase 7 — bus→WS fan-out listeners for the model proposal/pool topics.
   private modelProposalListener: ((data: unknown) => void) | null = null;
   private modelPoolListener: ((data: unknown) => void) | null = null;
+  // LMLM Phase 10 — bus→WS fan-out for byte-level install progress (D3 async install).
+  private modelInstallListener: ((data: unknown) => void) | null = null;
   private recorder: StreamRecorder | null = null;
   private planWatcher: PlanWatcher | null = null;
   private tokenStore!: TokenStore;
@@ -361,8 +367,13 @@ export class OrchestratorServer {
     this.modelProposalListener = (data: unknown) =>
       this.broadcaster.broadcast(MODEL_PROPOSAL_TOPIC, data);
     this.modelPoolListener = (data: unknown) => this.broadcaster.broadcast(MODEL_POOL_TOPIC, data);
+    // Phase 10: byte-level install progress rides its own topic so per-frame
+    // broadcasts do not trigger the pool refetch the `local-models:pool` topic drives.
+    this.modelInstallListener = (data: unknown) =>
+      this.broadcaster.broadcast(MODEL_INSTALL_TOPIC, data);
     this.orchestrator.on(MODEL_PROPOSAL_TOPIC, this.modelProposalListener);
     this.orchestrator.on(MODEL_POOL_TOPIC, this.modelPoolListener);
+    this.orchestrator.on(MODEL_INSTALL_TOPIC, this.modelInstallListener);
   }
 
   /**
@@ -801,6 +812,10 @@ export class OrchestratorServer {
     if (this.modelPoolListener) {
       this.orchestrator.removeListener(MODEL_POOL_TOPIC, this.modelPoolListener);
       this.modelPoolListener = null;
+    }
+    if (this.modelInstallListener) {
+      this.orchestrator.removeListener(MODEL_INSTALL_TOPIC, this.modelInstallListener);
+      this.modelInstallListener = null;
     }
     if (this.planWatcher) {
       this.planWatcher.stop();

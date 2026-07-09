@@ -4,7 +4,11 @@ import type {
   RoutingDecision,
   BlockerRef,
 } from '@harness-engineering/types';
-import type { LocalModelsPoolEvent, LocalModelsProposalEvent } from './local-models';
+import type {
+  LocalModelsPoolEvent,
+  LocalModelsProposalEvent,
+  LocalModelsInstallEvent,
+} from './local-models';
 
 export type { LocalModelStatus, NamedLocalModelStatus };
 
@@ -222,7 +226,9 @@ export type WebSocketMessage =
   | { type: 'routing:decision'; data: RoutingDecision }
   // LMLM Phase 8 — pool/proposal delta signals (refetch triggers, D-P8-3).
   | { type: 'local-models:pool'; data: LocalModelsPoolEvent }
-  | { type: 'local-models:proposal'; data: LocalModelsProposalEvent };
+  | { type: 'local-models:proposal'; data: LocalModelsProposalEvent }
+  // LMLM Phase 10 — byte-level download progress for an in-flight operator install.
+  | { type: 'local-models:install'; data: LocalModelsInstallEvent };
 
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =

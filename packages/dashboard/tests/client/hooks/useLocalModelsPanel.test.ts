@@ -376,6 +376,68 @@ describe('useLocalModelsPanel', () => {
     vi.unstubAllGlobals();
   });
 
+  it('tracks a local-models:install lifecycle in installProgress (progress → error → complete)', async () => {
+    const fetchMock = branchingFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLocalModelsPanel());
+    await waitFor(() => expect(FakeWebSocket.instance).not.toBeNull());
+    const ws = FakeWebSocket.instance!;
+    const repo = 'Qwen/Qwen3-32B-GGUF';
+
+    // progress frame → byte-tracked entry keyed by hfRepoId
+    act(() => {
+      ws.simulateMessage({
+        type: 'local-models:install',
+        data: {
+          proposalId: 'mp-1',
+          hfRepoId: repo,
+          ollamaName: 'qwen3:32b',
+          phase: 'progress',
+          completedBytes: 500,
+          totalBytes: 1000,
+        },
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.installProgress[repo]).toMatchObject({
+        phase: 'progress',
+        completedBytes: 500,
+        totalBytes: 1000,
+      })
+    );
+
+    // error frame → retained with message/code so the row can surface it
+    act(() => {
+      ws.simulateMessage({
+        type: 'local-models:install',
+        data: {
+          proposalId: 'mp-1',
+          hfRepoId: repo,
+          ollamaName: 'qwen3:32b',
+          phase: 'error',
+          message: 'no eviction plan fits',
+          code: 'budget_exceeded',
+        },
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.installProgress[repo]).toMatchObject({
+        phase: 'error',
+        code: 'budget_exceeded',
+      })
+    );
+
+    // complete frame → entry cleared (row flips to "installed" off the pool refetch)
+    act(() => {
+      ws.simulateMessage({
+        type: 'local-models:install',
+        data: { proposalId: 'mp-1', hfRepoId: repo, ollamaName: 'qwen3:32b', phase: 'complete' },
+      });
+    });
+    await waitFor(() => expect(result.current.installProgress[repo]).toBeUndefined());
+  });
+
   it('closes the socket on unmount', async () => {
     const fetchMock = branchingFetch();
     vi.stubGlobal('fetch', fetchMock);

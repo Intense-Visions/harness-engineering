@@ -20,6 +20,7 @@ import { emitProposalApproved, emitProposalRejected } from '../../../proposals/e
 import {
   onApproveModelProposal,
   onRejectModelProposal,
+  makeInstallProgressForwarder,
   type ModelHandlerDeps,
   type ModelPoolOps,
 } from '../../../proposals/model-handlers';
@@ -180,6 +181,42 @@ async function handleApprove(
       });
       return;
     }
+    // `add`/`swap` approvals install the target — a multi-GB `ollama pull` that,
+    // awaited inline, blocks the response past the dashboard proxy's undici
+    // `headersTimeout` (~5 min) → a 502 and a permanently "Approving…" button
+    // (same root cause as the operator install route). Kick the pull off in the
+    // background, stream progress on `local-models:install`, and return
+    // `202 { disposition: 'installing' }` immediately. `evict` has no pull, so it
+    // stays synchronous.
+    const action = existing.model.action;
+    if (action === 'add' || action === 'swap') {
+      const { emit, onInstallEvent } = makeInstallProgressForwarder(deps.bus, {
+        proposalId: existing.id,
+        hfRepoId: existing.model.target.hfRepoId,
+        ollamaName: existing.model.target.ollamaName,
+      });
+      const handler: ModelHandlerDeps = { ...modelHandlerDeps(deps, req), onInstallEvent };
+      emit('started');
+      void onApproveModelProposal(handler, existing)
+        .then((outcome) => {
+          if (outcome.status === 'approved') {
+            emit('complete');
+          } else if (outcome.status === 'failed_target_missing') {
+            emit('error', {
+              code: 'failed_target_missing',
+              message: `${existing.model.target.hfRepoId} is no longer available on HuggingFace`,
+            });
+          } else {
+            emit('error', { code: outcome.code, message: outcome.message });
+          }
+        })
+        .catch((err: unknown) => {
+          emit('error', { message: err instanceof Error ? err.message : String(err) });
+        });
+      sendJSON(res, 202, { disposition: 'installing', proposalId: existing.id });
+      return;
+    }
+
     const outcome = await onApproveModelProposal(modelHandlerDeps(deps, req), existing);
     sendJSON(res, outcome.status === 'error' ? 422 : 200, outcome);
     return;
