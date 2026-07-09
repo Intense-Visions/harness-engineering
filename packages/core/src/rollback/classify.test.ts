@@ -89,6 +89,31 @@ describe('classifyRevert', () => {
     expect(decision.reasons.join(' ')).toMatch(/no changed files/i);
   });
 
+  it('classifies an unmerged PR (empty mergeSha) as skipped, not proposed (#3a)', async () => {
+    // An open/unmerged PR resolves to mergeSha '' (mergeCommit is null). There is
+    // no merge commit to revert, so classify must skip with a clear reason rather
+    // than let the adapter throw on `rev-parse '^1'`.
+    const io = {
+      revertDryRun: async () => {
+        throw new Error('revertDryRun must not be called for an unmerged PR');
+      },
+    };
+    const decision = await classifyRevert(
+      {
+        targetPr: 55,
+        trigger: 'signal',
+        mergeSha: '',
+        changedFiles: ['src/a.ts'],
+        laterMerges: [],
+      },
+      io
+    );
+    expect(decision.action).toBe('skipped');
+    expect(decision.revertReady).toBe(false);
+    expect(decision.cleanRevert).toBe(false);
+    expect(decision.reasons.join(' ')).toMatch(/not merged|no merge commit/i);
+  });
+
   it('excludes the target PR itself from dependent-merge detection (#3)', async () => {
     const io = { revertDryRun: async () => ({ clean: true, conflictPaths: [] }) };
     const decision = await classifyRevert(

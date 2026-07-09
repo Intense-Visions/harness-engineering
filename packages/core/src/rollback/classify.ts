@@ -65,6 +65,23 @@ export async function classifyRevert(
     };
   }
 
+  // #3a: an open/unmerged (or squash-pending) PR resolves to an empty merge sha
+  // (`mergeCommit` is null). There is no merge commit to revert, so skip with a
+  // clear reason rather than letting the git adapter throw on `rev-parse '<sha>^1'`.
+  if (input.mergeSha.trim() === '') {
+    return {
+      targetPr: input.targetPr,
+      trigger: input.trigger,
+      revertReady: false,
+      reasons: ['target PR not merged / no merge commit — cannot classify a revert'],
+      cleanRevert: false,
+      dependentMerges: [],
+      migrationWarnings: detectMigrationWarnings(input.changedFiles),
+      ...(input.blastRadius !== undefined ? { blastRadius: input.blastRadius } : {}),
+      action: 'skipped',
+    };
+  }
+
   const migrationWarnings = detectMigrationWarnings(input.changedFiles);
   const { clean, conflictPaths } = await io.revertDryRun(input.mergeSha);
 
