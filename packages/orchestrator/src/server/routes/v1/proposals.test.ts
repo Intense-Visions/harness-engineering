@@ -14,7 +14,20 @@ import type {
 } from '@harness-engineering/local-models';
 import { handleV1ProposalsRoute } from './proposals';
 import { runGate } from '../../../proposals/gate';
-import type { ModelPoolOps } from '../../../proposals/model-handlers';
+import { MODEL_INSTALL_TOPIC, type ModelPoolOps } from '../../../proposals/model-handlers';
+
+/**
+ * Approving an `add`/`swap` model proposal is asynchronous (the route returns 202
+ * and streams the pull on `local-models:install`). Resolve on the terminal frame
+ * so tests observe the eventual outcome that now rides the WS topic.
+ */
+function waitInstallTerminal(bus: EventEmitter): Promise<{ phase: string; code?: string }> {
+  return new Promise((resolve) => {
+    bus.on(MODEL_INSTALL_TOPIC, (f: { phase: string; code?: string }) => {
+      if (f.phase === 'complete' || f.phase === 'error') resolve(f);
+    });
+  });
+}
 
 function makeReqRes(
   method: string,
@@ -272,19 +285,22 @@ function fakePool(opts: { install?: InstallPoolResult; evict?: EvictPoolResult }
 }
 
 describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
-  it('stale target (HF 404) → failed_target_missing, pool snapshot unchanged', async () => {
+  it('swap approve is async: 202 immediately, then a stale target (HF 404) → failed_target_missing over WS, pool unchanged', async () => {
     writeModelProposal(tmpDir, 'proposal_model1');
     const pool = fakePool({
       install: { status: 'error', code: 'failed_target_missing', message: 'HF 404', evicted: [] },
     });
     const before = pool.ops.snapshot().entries.slice();
+    const terminal = waitInstallTerminal(bus);
     const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_model1/approve');
     handleV1ProposalsRoute(req, res, { projectPath: tmpDir, bus, modelPool: pool.ops });
     await settle();
 
-    expect(sent().status).toBe(200);
-    const out = JSON.parse(sent().body) as { status: string };
-    expect(out.status).toBe('failed_target_missing');
+    // Returns 202 without awaiting the pull (no proxy headersTimeout 502).
+    expect(sent().status).toBe(202);
+    expect(JSON.parse(sent().body)).toMatchObject({ disposition: 'installing' });
+    // The stale-target outcome now arrives on the install WS topic.
+    expect(await terminal).toMatchObject({ phase: 'error', code: 'failed_target_missing' });
     // Persisted transition
     const stored = await getProposal(tmpDir, 'proposal_model1');
     expect(stored?.status).toBe('failed_target_missing');
@@ -298,6 +314,7 @@ describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
     const pool = fakePool({ install: { status: 'success', entry: POOLED, evicted: [] } });
     const poolEvents: Array<{ phase?: string; deferred?: string }> = [];
     bus.on('local-models:pool', (d) => poolEvents.push(d as { phase?: string; deferred?: string }));
+    const terminal = waitInstallTerminal(bus);
     const { req, res, sent } = makeReqRes('POST', '/api/v1/proposals/proposal_model_defer/approve');
     handleV1ProposalsRoute(req, res, {
       projectPath: tmpDir,
@@ -307,7 +324,8 @@ describe('POST /api/v1/proposals/:id/approve (model kind)', () => {
     });
     await settle();
 
-    expect(sent().status).toBe(200);
+    expect(sent().status).toBe(202);
+    await terminal;
     // Install applied; the in-use `replaces` was deferred, not evicted.
     expect(pool.installCalls).toBe(1);
     expect(pool.evictCalls).toBe(0);

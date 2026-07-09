@@ -106,7 +106,7 @@ function recommendResult(ranked: RankedModel[]): RecommendResult {
   return { ranked, snapshotLoaded: true, hfReachable: true, warnings: [] };
 }
 
-describe('runRefreshTick (reconcile → rank → diff → emit)', () => {
+describe('runRefreshTick (reconcile → rescore → diff → emit)', () => {
   it('reconciles before diffing, emits one proposal per diff, updates scores, returns metrics', async () => {
     const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
     const order: string[] = [];
@@ -148,6 +148,66 @@ describe('runRefreshTick (reconcile → rank → diff → emit)', () => {
     expect(result.candidatesEvaluated).toBe(2);
     expect(result.reconciledRemoved).toEqual([]);
     expect(result.errors).toEqual([]);
+  });
+
+  it('re-scores the pool BEFORE diffing → no phantom swap against a freshly-installed member scoring 0', async () => {
+    // Regression: a just-installed/swapped-in member enters the pool at
+    // currentScore 0 until its first re-rank. If the diff runs before the
+    // score write-back, it sees 0, so ANY candidate over threshold "beats" it →
+    // a phantom swap proposal justified as "replace a pool member scoring 0".
+    // Writing scores back first makes the diff use the member's real score.
+    const fresh: PoolState = {
+      ...baseState(),
+      entries: [
+        {
+          ollamaName: 'fresh:32b',
+          hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+          sizeOnDiskGb: 20,
+          installedAt: '2026-07-08T00:00:00.000Z',
+          lastUsedAt: null,
+          currentScore: 0, // never re-ranked yet
+        },
+      ],
+    };
+    const pool = await seededPool(fresh, [{ ollamaName: 'fresh:32b', sizeOnDiskGb: 20 }]);
+    // This tick's ranking scores fresh:32b at 80. A rival scores 83 — enough to
+    // "beat" a stale 0 by the threshold (5), but only +3 over the real 80, so NO
+    // swap should be proposed once the real score is used.
+    const ranked = [
+      rankedModel({
+        ollamaName: 'fresh:32b',
+        hfRepoId: 'Qwen/Qwen3-32B-GGUF',
+        sizeB: 32,
+        score: 80,
+      }),
+      rankedModel({
+        ollamaName: 'rival:32b',
+        hfRepoId: 'Org/Rival-32B-GGUF',
+        sizeB: 32,
+        score: 83,
+      }),
+    ];
+    const emitted: string[] = [];
+    const deps: RefreshTickDeps = {
+      detectHardware: async () => HARDWARE,
+      recommend: async () => recommendResult(ranked),
+      poolManager: pool,
+      dedupSource: async () => ({ pending: [], rejected: [] }),
+      emitProposal: async (c) => {
+        emitted.push(c.target.ollamaName);
+      },
+      proposalThreshold: 5,
+    };
+
+    const result = await runRefreshTick(deps);
+
+    // No phantom swap: rival (83) does not beat the member's REAL score (80) by 5.
+    expect(emitted).toEqual([]);
+    expect(result.proposalsEmitted).toBe(0);
+    // The member's score was written back from the re-rank before the diff.
+    expect(pool.snapshot().entries.find((e) => e.ollamaName === 'fresh:32b')?.currentScore).toBe(
+      80
+    );
   });
 
   it('collects per-stage errors without aborting the tick (emit failure is isolated)', async () => {

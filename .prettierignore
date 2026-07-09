@@ -28,6 +28,7 @@ docs/roadmap.d/**
 .harness/security/
 .harness/streams/
 .harness/sessions/
+.harness/proposals/
 **/.harness/graph/
 **/.harness/arch/
 **/fixtures/**/.harness/

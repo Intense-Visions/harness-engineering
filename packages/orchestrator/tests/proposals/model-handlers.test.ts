@@ -12,6 +12,8 @@ import type {
 import {
   onApproveModelProposal,
   onRejectModelProposal,
+  redriveInstallingProposals,
+  MODEL_INSTALL_TOPIC,
   type ModelHandlerDeps,
 } from '../../src/proposals/model-handlers';
 
@@ -142,9 +144,10 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     const outcome = await onApproveModelProposal(h.deps, proposal);
 
     expect(outcome.status).toBe('failed_target_missing');
-    // proposal transitioned
-    expect(h.updateCalls).toHaveLength(1);
-    expect(h.updateCalls[0]!.patch.status).toBe('failed_target_missing');
+    // proposal transitioned: `installing` marker first, then the terminal status.
+    expect(h.updateCalls).toHaveLength(2);
+    expect(h.updateCalls[0]!.patch.status).toBe('installing');
+    expect(h.updateCalls.at(-1)!.patch.status).toBe('failed_target_missing');
     // bus event on the proposal topic
     const evt = h.events.find((e) => e.topic === 'local-models:proposal');
     expect(evt).toBeDefined();
@@ -167,8 +170,10 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(outcome.status).toBe('approved');
     expect(pool.installCalls[0]!.ollamaName).toBe('qwen3:32b');
     expect(pool.evictCalls[0]!.ollamaName).toBe('qwen2.5:32b');
-    expect(h.updateCalls[0]!.patch.status).toBe('approved');
-    expect(h.updateCalls[0]!.patch.decision?.action).toBe('approved');
+    // `installing` marker precedes the terminal `approved`.
+    expect(h.updateCalls[0]!.patch.status).toBe('installing');
+    expect(h.updateCalls.at(-1)!.patch.status).toBe('approved');
+    expect(h.updateCalls.at(-1)!.patch.decision?.action).toBe('approved');
     expect(h.events.some((e) => e.topic === 'local-models:pool')).toBe(true);
   });
 
@@ -239,8 +244,9 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     // Truthful failure surfaced (not a false 'approved').
     expect(outcome.status).toBe('error');
     expect(outcome).toMatchObject({ code: 'installer_unavailable' });
-    // Proposal NOT marked approved (left pending for a retry of the failed evict).
-    expect(h.updateCalls).toHaveLength(0);
+    // Proposal NOT approved: `installing` marker set, then reverted to `open`
+    // (retryable) — a later re-approve retries only the failed evict.
+    expect(h.updateCalls.map((c) => c.patch.status)).toEqual(['installing', 'open']);
     // The install still ran and mutated the pool, so a pool event fires — but it
     // reflects ACTUAL state: target installed, replaces NOT evicted.
     const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
@@ -264,7 +270,8 @@ describe('onApproveModelProposal (F11 stale-target cancellation)', () => {
     expect(outcome.status).toBe('error');
     expect(outcome).toMatchObject({ code: 'budget_exceeded' });
     expect(pool.evictCalls).toHaveLength(0);
-    expect(h.updateCalls).toHaveLength(0); // proposal left pending
+    // `installing` marker set, then reverted to `open` (retryable).
+    expect(h.updateCalls.map((c) => c.patch.status)).toEqual(['installing', 'open']);
     expect(h.events).toHaveLength(0);
   });
 });
@@ -308,8 +315,9 @@ describe('onApproveModelProposal — S1 no-mid-dispatch-swap deferral', () => {
     expect(pool.evictCalls).toHaveLength(0);
     // pendingEviction flag set on the in-use model.
     expect(pool.markCalls).toEqual(['qwen2.5:32b']);
-    // proposal recorded approved.
-    expect(h.updateCalls[0]!.patch.status).toBe('approved');
+    // proposal recorded approved (after the `installing` marker).
+    expect(h.updateCalls[0]!.patch.status).toBe('installing');
+    expect(h.updateCalls.at(-1)!.patch.status).toBe('approved');
     // evict_deferred pool event surfaces the deferred name.
     const poolEvt = h.events.find((e) => e.topic === 'local-models:pool');
     expect(poolEvt).toBeDefined();
@@ -393,5 +401,56 @@ describe('onRejectModelProposal (F7 linkage)', () => {
       target: 'qwen3:32b',
       replaces: 'qwen2.5:32b',
     });
+  });
+});
+
+describe('redriveInstallingProposals (restart recovery)', () => {
+  function installFrames(bus: EventEmitter): Array<{ phase: string; code?: string }> {
+    const frames: Array<{ phase: string; code?: string }> = [];
+    bus.on(MODEL_INSTALL_TOPIC, (f) => frames.push(f as { phase: string }));
+    return frames;
+  }
+
+  it('re-drives an `installing` proposal to completion (idempotent pull resumes)', async () => {
+    const pool = fakePool({ install: { status: 'success', entry: REPLACED, evicted: [] } });
+    const proposal = { ...modelProposal(), status: 'installing' as const };
+    const h = harness(pool, proposal);
+    const frames = installFrames(h.bus);
+
+    await redriveInstallingProposals(h.deps, [proposal]);
+
+    // The pull was re-issued and the proposal reached `approved`.
+    expect(pool.installCalls).toHaveLength(1);
+    expect(h.updateCalls.at(-1)!.patch.status).toBe('approved');
+    // Progress streamed: a started frame and a terminal complete frame.
+    expect(frames[0]?.phase).toBe('started');
+    expect(frames.at(-1)?.phase).toBe('complete');
+  });
+
+  it('skips proposals that are not `installing`', async () => {
+    const pool = fakePool({});
+    const openProposal = modelProposal(); // status 'open'
+    const h = harness(pool, openProposal);
+
+    await redriveInstallingProposals(h.deps, [openProposal]);
+
+    expect(pool.installCalls).toHaveLength(0);
+    expect(h.updateCalls).toHaveLength(0);
+  });
+
+  it('isolates a re-drive failure: logs, emits an error frame, does not throw', async () => {
+    const pool = fakePool({});
+    pool.install = () => Promise.reject(new Error('ollama exploded'));
+    const proposal = { ...modelProposal(), status: 'installing' as const };
+    const h = harness(pool, proposal);
+    const frames = installFrames(h.bus);
+    const warnings: string[] = [];
+
+    await expect(
+      redriveInstallingProposals(h.deps, [proposal], { onWarn: (m) => warnings.push(m) })
+    ).resolves.toBeUndefined();
+
+    expect(frames.at(-1)?.phase).toBe('error');
+    expect(warnings.some((m) => /re-drive/i.test(m))).toBe(true);
   });
 });

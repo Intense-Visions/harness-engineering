@@ -1,8 +1,14 @@
 import type { EventEmitter } from 'node:events';
-import type { ModelProposalRecord, Proposal, ProposalDecision } from '@harness-engineering/types';
+import type {
+  ModelInstallEvent,
+  ModelProposalRecord,
+  Proposal,
+  ProposalDecision,
+} from '@harness-engineering/types';
 import type {
   EvictPoolRequest,
   EvictPoolResult,
+  InstallEvent,
   InstallPoolRequest,
   InstallPoolResult,
   PoolEntry,
@@ -72,6 +78,14 @@ export interface ModelHandlerDeps {
    * agent-run-coarse and may over-defer — a safe failure (see ADR 0060).
    */
   isModelInUse?: (ollamaName: string) => boolean;
+  /**
+   * Streaming install-progress sink, forwarded verbatim to `pool.install` as its
+   * `onEvent`. The install route translates each {@link InstallEvent} into a
+   * `local-models:install` WS frame so the dashboard can render a download
+   * progress bar. Absent in the automated proposal-engine path (no operator
+   * watching) — the pull still runs, its progress is simply not broadcast.
+   */
+  onInstallEvent?: (event: InstallEvent) => void;
 }
 
 /** True when the probe (if supplied) reports the model might be mid-request. */
@@ -83,6 +97,57 @@ function isInUse(deps: ModelHandlerDeps, ollamaName: string): boolean {
 export const MODEL_PROPOSAL_TOPIC = 'local-models:proposal';
 /** Bus topic for pool mutations (install / evict applied). */
 export const MODEL_POOL_TOPIC = 'local-models:pool';
+/**
+ * Bus topic for byte-level install progress + terminal status of an in-flight
+ * operator install (D3 async install). Distinct from {@link MODEL_POOL_TOPIC},
+ * which is a coarse refetch-delta: streaming per-byte progress there would make
+ * the dashboard refetch the pool on every frame. Consumers render a progress bar
+ * off this topic and only refetch on the completing `local-models:pool` frame.
+ */
+export const MODEL_INSTALL_TOPIC = 'local-models:install';
+
+/** Streaming + lifecycle emitter for one install, bound to its correlation fields. */
+export interface InstallProgressForwarder {
+  /**
+   * Pass as {@link ModelHandlerDeps.onInstallEvent}: forwards the installer's
+   * byte stream as `progress` frames on {@link MODEL_INSTALL_TOPIC}. Terminal
+   * frames are NOT emitted here — the caller derives `complete`/`error` from the
+   * resolved approve outcome so the pool state is already committed.
+   */
+  onInstallEvent: (event: InstallEvent) => void;
+  /** Emit a lifecycle frame (`started` / `complete` / `error`) for this install. */
+  emit: (phase: ModelInstallEvent['phase'], patch?: Partial<ModelInstallEvent>) => void;
+}
+
+/**
+ * Build the shared `local-models:install` progress emitter used by BOTH pull
+ * entry points — the operator install route and the model-proposal approve route
+ * — so a `swap`/`add` approval streams a download bar exactly like a direct
+ * install (and, crucially, returns before the multi-GB pull blows the dashboard
+ * proxy's `headersTimeout`). Closes over the invariant correlation fields so each
+ * call site supplies only the phase-specific delta.
+ */
+export function makeInstallProgressForwarder(
+  bus: EventEmitter,
+  base: Pick<ModelInstallEvent, 'proposalId' | 'hfRepoId' | 'ollamaName'>
+): InstallProgressForwarder {
+  const emit: InstallProgressForwarder['emit'] = (phase, patch = {}) => {
+    const frame: ModelInstallEvent = { ...base, ...patch, phase };
+    bus.emit(MODEL_INSTALL_TOPIC, frame);
+  };
+  const onInstallEvent = (event: InstallEvent): void => {
+    if (event.kind === 'progress') {
+      emit('progress', {
+        completedBytes: event.completedBytes,
+        totalBytes: event.totalBytes,
+        ...(event.message !== undefined ? { message: event.message } : {}),
+      });
+    } else if (event.kind === 'pulling') {
+      emit('progress', { message: event.message });
+    }
+  };
+  return { emit, onInstallEvent };
+}
 
 /** Outcome of {@link onApproveModelProposal}. */
 export type ModelApproveOutcome =
@@ -163,6 +228,12 @@ export async function onApproveModelProposal(
   }
 
   // `add` and `swap` both install the target first.
+  // Mark the proposal `installing` BEFORE the pull so the intent is durable: if
+  // the orchestrator restarts mid-`ollama pull`, startup finds this record and
+  // re-drives the (idempotent) install instead of losing it. Cleared to
+  // `approved` on success or reverted to `open` on a retryable failure below.
+  await deps.updateProposal(proposal.id, { status: 'installing' });
+
   // The proposal carries only a score *delta*, not an absolute score; the new
   // pool entry starts at 0 and the scheduler's next re-rank sets its real score.
   const installResult = await deps.pool.install({
@@ -170,6 +241,7 @@ export async function onApproveModelProposal(
     ollamaName: model.target.ollamaName,
     ...(model.replaces !== undefined ? { replaces: model.replaces.ollamaName } : {}),
     ...(model.diskImpactGb > 0 ? { sizeOnDiskGb: model.diskImpactGb } : {}),
+    ...(deps.onInstallEvent ? { onEvent: deps.onInstallEvent } : {}),
   });
 
   if (installResult.status === 'error') {
@@ -187,7 +259,9 @@ export async function onApproveModelProposal(
       return { status: 'failed_target_missing', proposal: updated as ModelProposalRecord };
     }
     // budget_exceeded / not_allowed / installer_unavailable / install_failed:
-    // structured error, pool unchanged, proposal left pending for a retry.
+    // structured error, pool unchanged. Revert `installing` → `open` so the
+    // proposal is retryable and startup does not re-drive a known failure.
+    await deps.updateProposal(proposal.id, { status: 'open' });
     return { status: 'error', code: installResult.code, message: installResult.message };
   }
 
@@ -242,6 +316,9 @@ export async function onApproveModelProposal(
         installed: model.target.ollamaName,
         phase: 'swap_evict_failed',
       });
+      // Revert `installing` → `open`: the target is in, but the swap is
+      // incomplete and a later re-approve retries only the failed evict.
+      await deps.updateProposal(proposal.id, { status: 'open' });
       return { status: 'error', code: evictResult.code, message: evictResult.message };
     }
     if (evictResult.removed !== null) {
@@ -334,4 +411,48 @@ export async function onRejectModelProposal(
     reason,
   });
   return updated as ModelProposalRecord;
+}
+
+/**
+ * Re-drive installs interrupted by an orchestrator restart. A proposal left in
+ * `installing` had its background `ollama pull` cut short (the process died
+ * mid-download); on startup we re-run {@link onApproveModelProposal}, which is
+ * idempotent — `PoolManager.install` returns `alreadyInstalled` if ollama
+ * finished the pull, or resumes from cached blobs if it was partial. Each re-drive
+ * streams progress + a terminal frame on `local-models:install` exactly like the
+ * original request, so a reconnecting dashboard shows the resumed download. Runs
+ * sequentially (one heavy pull at a time) and never throws — a failed re-drive is
+ * logged and the proposal is left for the operator, not retried in a tight loop.
+ */
+export async function redriveInstallingProposals(
+  deps: Omit<ModelHandlerDeps, 'onInstallEvent'>,
+  proposals: readonly ModelProposalRecord[],
+  opts: { onWarn?: (message: string, cause?: unknown) => void } = {}
+): Promise<void> {
+  for (const proposal of proposals) {
+    if (proposal.status !== 'installing') continue;
+    if (proposal.model.action === 'evict') continue; // evict has no pull to resume
+    const { emit, onInstallEvent } = makeInstallProgressForwarder(deps.bus, {
+      proposalId: proposal.id,
+      hfRepoId: proposal.model.target.hfRepoId,
+      ollamaName: proposal.model.target.ollamaName,
+    });
+    emit('started');
+    try {
+      const outcome = await onApproveModelProposal({ ...deps, onInstallEvent }, proposal);
+      if (outcome.status === 'approved') {
+        emit('complete');
+      } else if (outcome.status === 'failed_target_missing') {
+        emit('error', {
+          code: 'failed_target_missing',
+          message: `${proposal.model.target.hfRepoId} is no longer available on HuggingFace`,
+        });
+      } else {
+        emit('error', { code: outcome.code, message: outcome.message });
+      }
+    } catch (err) {
+      opts.onWarn?.('re-drive of interrupted install failed', err);
+      emit('error', { message: err instanceof Error ? err.message : String(err) });
+    }
+  }
 }

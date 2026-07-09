@@ -116,3 +116,21 @@ export interface LocalModelsProposalEvent {
   action?: string;
   target?: string;
 }
+
+/**
+ * Mirror of `ModelInstallEvent` (`packages/types/src/local-models.ts`), broadcast
+ * on `local-models:install`. Unlike the two delta topics above, this one carries
+ * STATE the panel renders directly (the download progress bar) — an operator
+ * install returns `202` before the pull finishes (D3 async install), so its
+ * progress and terminal outcome arrive here, keyed by `hfRepoId`.
+ */
+export interface LocalModelsInstallEvent {
+  proposalId: string;
+  hfRepoId: string;
+  ollamaName: string;
+  phase: 'started' | 'progress' | 'complete' | 'error';
+  completedBytes?: number;
+  totalBytes?: number;
+  message?: string;
+  code?: string;
+}

@@ -303,6 +303,7 @@ export type {
   PoolRemoveRequest,
   PoolMutationDisposition,
   PoolMutationResult,
+  ModelInstallEvent,
 } from './local-models';
 
 // --- Plan task (parallel execution data model) ---

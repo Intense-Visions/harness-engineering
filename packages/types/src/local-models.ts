@@ -108,8 +108,12 @@ export interface PoolRemoveRequest {
  * - `removed` — the member was evicted.
  * - `deferred` — the member is in use; eviction is marked pending and drained
  *   after the current run (never mid-request).
+ * - `installing` — the pull was kicked off in the background; the pool is not yet
+ *   mutated. Progress + the terminal outcome arrive on the `local-models:install`
+ *   WS topic (never in the HTTP response) so the request returns before undici's
+ *   proxy `headersTimeout` fires on a multi-GB download.
  */
-export type PoolMutationDisposition = 'installed' | 'removed' | 'deferred';
+export type PoolMutationDisposition = 'installed' | 'removed' | 'deferred' | 'installing';
 
 /** Response body for the install/remove convenience routes. */
 export interface PoolMutationResult {
@@ -120,4 +124,39 @@ export interface PoolMutationResult {
   evicted: string[];
   /** Human-readable note (e.g. the deferral explanation). */
   message?: string;
+}
+
+/**
+ * A single frame on the `local-models:install` WS topic, tracking one operator
+ * install from kickoff to terminal outcome. Because the install route returns
+ * `202` before the `ollama pull` finishes (D3 / async install), ALL install
+ * progress and the final result reach the dashboard here rather than in the HTTP
+ * response:
+ *
+ * - `started`  — the pull was accepted and kicked off (proposal created).
+ * - `progress` — a byte-count update from the installer's `/api/pull` stream;
+ *   `completedBytes`/`totalBytes` drive the progress bar.
+ * - `complete` — the pull succeeded and the pool now holds the model (a
+ *   `local-models:pool` refetch-delta fires alongside so the row flips to
+ *   "installed").
+ * - `error`    — the install failed (budget/allowlist/installer); `message` +
+ *   `code` explain why and the row surfaces them.
+ *
+ * `hfRepoId` is the client-facing correlation key (the Recommendations row keys on
+ * it); `ollamaName` is the resolved install target; `proposalId` ties back to the
+ * audit trail.
+ */
+export interface ModelInstallEvent {
+  proposalId: string;
+  hfRepoId: string;
+  ollamaName: string;
+  phase: 'started' | 'progress' | 'complete' | 'error';
+  /** Bytes pulled so far (`progress` frames only). */
+  completedBytes?: number;
+  /** Total bytes to pull, when the installer reports it (`progress` frames only). */
+  totalBytes?: number;
+  /** Installer status line (`progress`) or failure explanation (`error`). */
+  message?: string;
+  /** Stable failure code on `error` frames (e.g. `budget_exceeded`, `not_allowed`). */
+  code?: string;
 }
