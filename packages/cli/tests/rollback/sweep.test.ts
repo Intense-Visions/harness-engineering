@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SignalPoint } from '@harness-engineering/signals';
-import { parseWindow, detectCrossing } from '../../src/rollback/sweep';
+import { parseWindow, detectCrossing, windowStart, pointsInWindow } from '../../src/rollback/sweep';
 
 describe('parseWindow', () => {
   it('parses hours', () => {
@@ -54,5 +54,33 @@ describe('detectCrossing', () => {
   it('single point (no prior) → false', () => {
     const points = [pt('2026-07-02', 6)];
     expect(detectCrossing(points, { threshold: 5, direction: 'above', window: '7d' })).toBe(false);
+  });
+});
+
+describe('windowStart', () => {
+  it('returns the ISO date `now - window`', () => {
+    const now = new Date('2026-07-09T00:00:00Z');
+    expect(windowStart(now, '7d')).toBe('2026-07-02T00:00:00.000Z');
+  });
+});
+
+describe('pointsInWindow', () => {
+  const pt = (date: string, value: number): SignalPoint => ({ date, value });
+  const now = new Date('2026-07-09T00:00:00Z');
+
+  it('keeps points within [now - window, now] and drops older ones', () => {
+    const points = [
+      pt('2026-07-01', 1), // 8 days old → excluded
+      pt('2026-07-06', 2), // 3 days old → kept
+      pt('2026-07-09', 3), // today → kept
+    ];
+    const kept = pointsInWindow(points, now, '7d');
+    expect(kept.map((p) => p.date)).toEqual(['2026-07-06', '2026-07-09']);
+  });
+
+  it('excludes a point exactly one day before the window start', () => {
+    const points = [pt('2026-07-01', 1), pt('2026-07-02', 2)];
+    const kept = pointsInWindow(points, now, '7d');
+    expect(kept.map((p) => p.date)).toEqual(['2026-07-02']);
   });
 });

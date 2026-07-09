@@ -57,3 +57,19 @@ export function detectCrossing(points: SignalPoint[], rule: SweepSignalRule): bo
   }
   return prev.value > rule.threshold && curr.value <= rule.threshold;
 }
+
+/** ISO timestamp of the window start (`now - window`). */
+export function windowStart(now: Date, window: string): string {
+  return new Date(now.getTime() - parseWindow(window)).toISOString();
+}
+
+/**
+ * Keep only points whose `YYYY-MM-DD` date falls within `[windowStart, now]`.
+ * Points are `SignalPoint` (date is a `YYYY-MM-DD` string); ISO-date string
+ * comparison is order-preserving, so a lexical range check is exact.
+ */
+export function pointsInWindow(points: SignalPoint[], now: Date, window: string): SignalPoint[] {
+  const startDate = windowStart(now, window).slice(0, 10);
+  const nowDate = now.toISOString().slice(0, 10);
+  return points.filter((p) => p.date >= startDate && p.date <= nowDate);
+}
