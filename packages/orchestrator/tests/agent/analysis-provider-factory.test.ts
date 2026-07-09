@@ -58,6 +58,60 @@ describe('buildAnalysisProvider — BackendDef → AnalysisProvider translation'
     expect(result).toBeInstanceOf(OpenAICompatibleAnalysisProvider);
   });
 
+  it('T4: wires getModel to read the resolver snapshot live (no pinned layer model)', () => {
+    let resolved: string | null = 'model-a';
+    const def: BackendDef = {
+      type: 'local',
+      endpoint: 'http://localhost:11434/v1',
+      model: 'model-a',
+      apiKey: 'ollama',
+    };
+    const result = buildAnalysisProvider({
+      def,
+      backendName: 'local',
+      layer: 'sel',
+      getResolverStatusSnapshot: () => ({
+        available: true,
+        resolved,
+        configured: ['model-a'],
+        detected: ['model-a'],
+      }),
+      intelligence: { enabled: true },
+      logger: noopLogger,
+    });
+    const getModel = (result as unknown as { getModel?: () => string | null | undefined }).getModel;
+    expect(getModel).toBeTypeOf('function');
+    expect(getModel!()).toBe('model-a');
+    // A pool swap changes the resolver; getModel reflects it without rebuild.
+    resolved = 'model-b';
+    expect(getModel!()).toBe('model-b');
+  });
+
+  it('T4: does NOT wire getModel when an operator pinned a layer model', () => {
+    const def: BackendDef = {
+      type: 'local',
+      endpoint: 'http://localhost:11434/v1',
+      model: 'model-a',
+      apiKey: 'ollama',
+    };
+    const result = buildAnalysisProvider({
+      def,
+      backendName: 'local',
+      layer: 'sel',
+      getResolverStatusSnapshot: () => ({
+        available: true,
+        resolved: 'model-a',
+        configured: ['model-a'],
+        detected: ['model-a'],
+      }),
+      // Operator pinned the SEL layer model — pool churn must not override it.
+      intelligence: { enabled: true, models: { sel: 'pinned-model' } },
+      logger: noopLogger,
+    });
+    const getModel = (result as unknown as { getModel?: () => string | null | undefined }).getModel;
+    expect(getModel).toBeUndefined();
+  });
+
   it('SC31: type=local with unavailable resolver returns null and warns', () => {
     const warnSpy = vi.fn();
     const def: BackendDef = {

@@ -4,6 +4,8 @@ import { poolStateToCandidates } from '@harness-engineering/local-models';
 
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
+/** Coalescing window for event-driven `refresh()` so a burst of pool frames → one probe. */
+const REFRESH_DEBOUNCE_MS = 250;
 const DEFAULT_API_KEY = 'lm-studio'; // harness-ignore SEC-SEC-002: LM Studio documented no-auth placeholder, not a real secret
 const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 
@@ -26,6 +28,8 @@ export interface LocalModelResolverOptions {
   poolState?: PoolStateProvider;
   /** Probe cadence in ms; default 30_000, minimum 1_000. */
   probeIntervalMs?: number;
+  /** Debounce window for event-driven {@link LocalModelResolver.refresh}; default 250ms. */
+  refreshDebounceMs?: number;
   /**
    * Per-request timeout for the default fetch implementation, in ms.
    * Default: 5_000. Ignored when a custom `fetchModels` is provided
@@ -116,6 +120,10 @@ export class LocalModelResolver {
   private readonly logger: ResolverLogger;
 
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** Debounce handle for event-driven {@link refresh}; coalesces a burst into one probe. */
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Test seam for the refresh debounce delay (0 in tests → next-tick probe). */
+  private readonly refreshDebounceMs: number;
   private listeners = new Set<(status: LocalModelStatus) => void>();
   /**
    * Tracks an in-flight probe so concurrent invocations (interval tick while a
@@ -147,6 +155,7 @@ export class LocalModelResolver {
     }
     const interval = opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS;
     this.probeIntervalMs = Math.max(MIN_PROBE_INTERVAL_MS, interval);
+    this.refreshDebounceMs = Math.max(0, opts.refreshDebounceMs ?? REFRESH_DEBOUNCE_MS);
     const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     // Bind timeout into the default impl. Custom `fetchModels` injections own
     // their own timeout policy (typically the test harness), so we leave them
@@ -248,6 +257,22 @@ export class LocalModelResolver {
     return status;
   }
 
+  /**
+   * Event-driven refresh: schedule a debounced re-probe. Called when a
+   * `local-models:pool` mutation fires so a just-installed/swapped model becomes
+   * usable within a debounce window instead of waiting up to `probeIntervalMs`.
+   * A burst of frames coalesces into one probe (the timer is only armed once).
+   */
+  refresh(): void {
+    if (this.refreshTimer !== null) return;
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.probe();
+    }, this.refreshDebounceMs);
+    const handle = this.refreshTimer as unknown as { unref?: () => void };
+    handle.unref?.();
+  }
+
   async start(): Promise<void> {
     if (this.timer !== null) {
       // Idempotent: already running.
@@ -269,6 +294,10 @@ export class LocalModelResolver {
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.refreshTimer !== null) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 

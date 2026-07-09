@@ -243,6 +243,67 @@ describe('LocalModelResolver — lifecycle (fake timers)', () => {
 
     resolver.stop();
   });
+
+  it('refresh() triggers a debounced re-probe (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1); // start() probe
+
+    resolver.refresh();
+    // Not yet — still inside the debounce window.
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(2); // debounced re-probe fired
+
+    resolver.stop();
+  });
+
+  it('refresh() coalesces a burst into a single probe (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+
+    // A burst of pool frames all arm the same single timer.
+    resolver.refresh();
+    resolver.refresh();
+    resolver.refresh();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(2); // one coalesced probe, not three
+
+    resolver.stop();
+  });
+
+  it('stop() cancels a pending refresh (T1)', async () => {
+    const fetchModels = vi.fn().mockResolvedValue(['a']);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: ['a'],
+      probeIntervalMs: 30_000,
+      refreshDebounceMs: 250,
+      fetchModels,
+    });
+    await resolver.start();
+    resolver.refresh();
+    resolver.stop();
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchModels).toHaveBeenCalledTimes(1); // only the start() probe; refresh cancelled
+  });
 });
 
 describe('LocalModelResolver — onStatusChange semantics (SC10)', () => {

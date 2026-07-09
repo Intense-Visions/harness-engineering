@@ -222,6 +222,13 @@ export class Orchestrator extends EventEmitter {
    * so this map is the single source of truth post-migration.
    */
   private localResolvers = new Map<string, LocalModelResolver>();
+  /**
+   * Consumption Phase 1 (T2): bus listener that debounce-refreshes every local
+   * resolver when a `local-models:pool` mutation fires, so a just-installed or
+   * swapped model becomes usable within the refresh window instead of waiting up
+   * to `probeIntervalMs` for the next poll. Held for removal in {@link stop}.
+   */
+  private poolRefreshListener: (() => void) | null = null;
   /** Phase 4 (D5): pool-state port shared by all local/pi resolvers. Null when LMLM disabled. */
   private poolStateProvider: PoolStateProvider | null = null;
   private poolStateStore: PoolStateStore | null = null;
@@ -2416,6 +2423,19 @@ export class Orchestrator extends EventEmitter {
       for (const resolver of this.localResolvers.values()) {
         await resolver.start();
       }
+      // Consumption Phase 1 (T2): event-driven freshness. A `local-models:pool`
+      // mutation (install / swap / eviction) debounce-refreshes every resolver
+      // so the new pool member is resolvable in seconds, not up to a poll cycle.
+      // Registered once, after resolvers are running, and removed in stop().
+      if (this.poolRefreshListener === null && this.localResolvers.size > 0) {
+        const listener = (): void => {
+          for (const resolver of this.localResolvers.values()) {
+            resolver.refresh();
+          }
+        };
+        this.poolRefreshListener = listener;
+        this.on('local-models:pool', listener);
+      }
     }
     // LMLM Phase 6: start the background refresh scheduler once the pool state
     // is loaded. Guarded on modelPool so LMLM-disabled configs never arm it.
@@ -2531,6 +2551,12 @@ export class Orchestrator extends EventEmitter {
     // Null out the bus reference; ring buffer + listener set are
     // eligible for GC once no external references remain.
     this.routingDecisionBus = null;
+    // Consumption Phase 1 (T2): detach the pool-refresh bus listener before
+    // stopping resolvers so a late emit can't re-arm a stopped resolver's timer.
+    if (this.poolRefreshListener !== null) {
+      this.removeListener('local-models:pool', this.poolRefreshListener);
+      this.poolRefreshListener = null;
+    }
     for (const resolver of this.localResolvers.values()) {
       resolver.stop();
     }
