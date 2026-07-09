@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendRollbackEvent, ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb';
+import {
+  appendRollbackEvent,
+  linkRollbackEventToGraph,
+  ROLLBACK_EVENTS_FILE,
+} from '../../src/rollback/breadcrumb';
 
 let root: string;
 beforeEach(() => {
@@ -50,5 +54,16 @@ describe('appendRollbackEvent', () => {
     await appendRollbackEvent({ ...ev, targetPr: 2 }, { root });
     const lines = readFileSync(join(root, ROLLBACK_EVENTS_FILE), 'utf-8').trim().split('\n');
     expect(lines).toHaveLength(2);
+  });
+});
+
+describe('linkRollbackEventToGraph', () => {
+  it('graph link is a degrade-safe no-op when no graph exists', async () => {
+    await expect(
+      linkRollbackEventToGraph(
+        { targetPr: 1, trigger: 'signal', revertReady: true, action: 'proposed' },
+        { root }
+      )
+    ).resolves.toBeUndefined();
   });
 });
