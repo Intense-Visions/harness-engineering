@@ -454,7 +454,7 @@ Post-ship circuit breaker — proposes a full-context revert PR when a shipped P
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
-- **Depends on:** harness-outcome-eval
+- **Depends on:** outcome-eval
 
 ### harness-security-scan
 
