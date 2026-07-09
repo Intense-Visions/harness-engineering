@@ -14,18 +14,35 @@
  * pool-mutation channel (D-P8-2).
  *
  * Auth is enforced upstream by the bridge-route scope table (`manage-proposals`,
- * identical to approve/reject). Install awaits the streamed `ollama pull`
- * synchronously, matching the existing approve-an-add flow; byte-level progress
- * over WS is a deferred enhancement (D3 note).
+ * identical to approve/reject).
+ *
+ * **Install is asynchronous (D3).** A multi-GB `ollama pull` far exceeds the
+ * dashboard proxy's undici `headersTimeout` (~5 min), so awaiting it inline made
+ * the proxied `fetch()` abort with `UND_ERR_HEADERS_TIMEOUT` → a 502. Instead the
+ * route validates + creates the proposal synchronously, kicks off the pull in the
+ * background, and returns `202 { disposition: 'installing' }` immediately. Byte
+ * progress and the terminal outcome (approved / budget / allowlist / failure) are
+ * streamed on the `local-models:install` WS topic — NOT in the HTTP response — so
+ * the dashboard renders a download progress bar. `/pool/remove` stays synchronous
+ * (eviction is fast; no pull).
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { EventEmitter } from 'node:events';
 import { createModelProposal, updateProposal } from '@harness-engineering/core';
-import type { ModelProposalContent, PoolMutationResult } from '@harness-engineering/types';
-import { estimateDiskGb, type RankedModel } from '@harness-engineering/local-models';
+import type {
+  ModelInstallEvent,
+  ModelProposalContent,
+  PoolMutationResult,
+} from '@harness-engineering/types';
+import {
+  estimateDiskGb,
+  type InstallEvent,
+  type RankedModel,
+} from '@harness-engineering/local-models';
 import {
   onApproveModelProposal,
+  MODEL_INSTALL_TOPIC,
   type ModelHandlerDeps,
   type ModelPoolOps,
 } from '../../../proposals/model-handlers.js';
@@ -152,29 +169,81 @@ async function handleInstall(
   const record = await createModelProposal(deps.projectPath, content, {
     proposedBy: decidedByOf(deps, req),
   });
-  const outcome = await onApproveModelProposal(handlerDeps(deps, req, pool), record);
 
-  if (outcome.status === 'approved') {
-    const result: PoolMutationResult = {
-      disposition: 'installed',
-      proposalId: record.id,
-      evicted: outcome.evicted.map((e) => e.ollamaName),
-    };
-    return sendJSON(res, 200, result);
-  }
-  if (outcome.status === 'failed_target_missing') {
-    return sendJSON(res, 404, {
-      error: `${hfRepoId} is no longer available on HuggingFace`,
-      proposalId: record.id,
-    });
-  }
-  // `not_allowed` (org allowlist) / `budget_exceeded` (disk) are operator-fixable → 409.
-  const status = outcome.code === 'not_allowed' || outcome.code === 'budget_exceeded' ? 409 : 502;
-  return sendJSON(res, status, {
-    error: outcome.message,
-    code: outcome.code,
+  const ollamaName = match.ollamaName;
+  const emit = installFrameEmitter(deps.bus, {
     proposalId: record.id,
+    hfRepoId: match.hfRepoId,
+    ollamaName,
   });
+
+  // Forward the installer's byte-level stream as `progress` frames. Terminal
+  // outcomes (`success`/`error`) are NOT emitted here — they are derived from the
+  // resolved `onApproveModelProposal` outcome below so the pool state is already
+  // committed and there is a single source of terminal truth.
+  const onInstallEvent = (event: InstallEvent): void => {
+    if (event.kind === 'progress') {
+      emit('progress', {
+        completedBytes: event.completedBytes,
+        totalBytes: event.totalBytes,
+        ...(event.message !== undefined ? { message: event.message } : {}),
+      });
+    } else if (event.kind === 'pulling') {
+      emit('progress', { message: event.message });
+    }
+  };
+
+  const handler: ModelHandlerDeps = { ...handlerDeps(deps, req, pool), onInstallEvent };
+
+  emit('started', {});
+
+  // Kick off the pull WITHOUT awaiting — the response returns before the multi-GB
+  // download completes (avoiding the proxy `headersTimeout` 502). The terminal
+  // outcome reaches the operator over the `local-models:install` WS topic.
+  void onApproveModelProposal(handler, record)
+    .then((outcome) => {
+      if (outcome.status === 'approved') {
+        // `onApproveModelProposal` already emitted the `local-models:pool` frame
+        // that drives the dashboard's pool refetch (row flips to "installed").
+        emit('complete', {});
+        return;
+      }
+      if (outcome.status === 'failed_target_missing') {
+        emit('error', {
+          code: 'failed_target_missing',
+          message: `${hfRepoId} is no longer available on HuggingFace`,
+        });
+        return;
+      }
+      // budget_exceeded / not_allowed / installer_unavailable / install_failed.
+      emit('error', { code: outcome.code, message: outcome.message });
+    })
+    .catch((err: unknown) => {
+      emit('error', { message: err instanceof Error ? err.message : String(err) });
+    });
+
+  const result: PoolMutationResult = {
+    disposition: 'installing',
+    proposalId: record.id,
+    evicted: [],
+    message: `installing ${ollamaName} — progress streams on the local-models:install channel`,
+  };
+  return sendJSON(res, 202, result);
+}
+
+/**
+ * Build an emitter that broadcasts `local-models:install` frames for one install,
+ * closing over the invariant correlation fields (`proposalId`/`hfRepoId`/
+ * `ollamaName`) so each call site only supplies the phase-specific delta.
+ */
+function installFrameEmitter(
+  bus: EventEmitter,
+  base: Pick<ModelInstallEvent, 'proposalId' | 'hfRepoId' | 'ollamaName'>
+): (phase: ModelInstallEvent['phase'], patch: Partial<ModelInstallEvent>) => void {
+  return (phase, patch) => {
+    const frame: ModelInstallEvent = { ...base, ...patch, phase };
+    bus.emit(MODEL_INSTALL_TOPIC, frame);
+  };
 }
 
 async function handleRemove(

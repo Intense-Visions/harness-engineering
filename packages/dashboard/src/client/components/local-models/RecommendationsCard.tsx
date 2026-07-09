@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import type { DashRankedModel, DashPoolStateView } from '../../types/local-models';
+import type { InstallProgressState } from '../../hooks/useLocalModelsPanel';
 
 /**
  * Recommendations card for the LMLM panel. Two sections:
@@ -35,40 +36,77 @@ function fmtScore(n: number): string {
   return Math.round(n).toString();
 }
 
+/** Human-readable byte count for the download bar (e.g. 12.3 GB, 512 MB). */
+function fmtBytes(n: number): string {
+  if (n >= 1e9) return `${round1(n / 1e9)} GB`;
+  if (n >= 1e6) return `${round1(n / 1e6)} MB`;
+  if (n >= 1e3) return `${round1(n / 1e3)} KB`;
+  return `${Math.round(n)} B`;
+}
+
 export interface RecommendationsCardProps {
   recommendations: DashRankedModel[] | null;
   recommendationsError: string | null;
   proposals: ModelProposalRecord[] | null;
   /** Current pool, used to mark recommendations that are already installed. */
   pool: DashPoolStateView | null;
-  /** Called after a successful approve/reject/install so the page can refetch. */
+  /** Called after a successful approve/reject so the page can refetch. */
   onDecided: () => void;
   loading: boolean;
+  /** Live install progress/error keyed by `hfRepoId` (from `local-models:install` frames). */
+  installProgress?: Record<string, InstallProgressState>;
+  /** Clear a settled install error so its row message dismisses. */
+  onDismissInstall?: (hfRepoId: string) => void;
 }
 
 interface RecommendationRowProps {
   rec: DashRankedModel;
   installed: boolean;
-  onInstalled: () => void;
+  /** WS-driven download progress / terminal error for this row, if any. */
+  progress?: InstallProgressState | undefined;
+  /** Clear this row's settled install error (before a retry / on dismiss). */
+  onDismiss: () => void;
 }
 
 /**
  * A single recommendation row with an Install action. An already-pooled model
- * renders an "installed" badge instead of the button. Mirrors `ProposalRow`'s
- * synchronous double-submit guard; install awaits the backend (which awaits the
- * `ollama pull`) so the button shows an indeterminate "Installing…" state until
- * the pool refetches.
+ * renders an "installed" badge instead of the button.
+ *
+ * Install is asynchronous (D3): the POST returns `202` as soon as the pull is
+ * accepted server-side, then byte-level progress + the terminal outcome stream in
+ * over the `local-models:install` WS topic (the `progress` prop). The row stays in
+ * an "Installing…" state — showing a live download bar — from the POST until a
+ * terminal frame: `complete` flips it to the "installed" badge (via the pool
+ * refetch), `error` re-enables the button and surfaces the failure for a retry.
  */
-function RecommendationRow({ rec, installed, onInstalled }: RecommendationRowProps): JSX.Element {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const busyRef = useRef(false);
+function RecommendationRow({
+  rec,
+  installed,
+  progress,
+  onDismiss,
+}: RecommendationRowProps): JSX.Element {
+  // `pending` guards the (now fast) POST; `submitted` bridges the gap between a
+  // 202 and the first WS frame so the button cannot be re-clicked in between.
+  const [pending, setPending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const pendingRef = useRef(false);
+
+  // A terminal WS error ends the in-flight state so the operator can retry.
+  useEffect(() => {
+    if (progress?.phase === 'error') setSubmitted(false);
+  }, [progress?.phase]);
+
+  const streaming = progress?.phase === 'started' || progress?.phase === 'progress';
+  const installing = pending || streaming || (submitted && progress === undefined);
+  const errorMsg = progress?.phase === 'error' ? (progress.message ?? 'Install failed') : postError;
 
   const install = useCallback(async (): Promise<void> => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    setError(null);
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(true);
+    setPostError(null);
+    onDismiss(); // clear any prior WS error for this repo before retrying
     try {
       const res = await fetch('/api/v1/local-models/pool/install', {
         method: 'POST',
@@ -79,14 +117,21 @@ function RecommendationRow({ rec, installed, onInstalled }: RecommendationRowPro
         const text = await res.text();
         throw new Error(`HTTP ${res.status}: ${text}`);
       }
-      onInstalled();
+      // 202 Accepted — the pull runs server-side; do NOT refetch yet. The
+      // progress bar and completion arrive over the WS `progress` prop.
+      setSubmitted(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setPostError(e instanceof Error ? e.message : String(e));
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      pendingRef.current = false;
+      setPending(false);
     }
-  }, [rec.hfRepoId, rec.quant, onInstalled]);
+  }, [rec.hfRepoId, rec.quant, onDismiss]);
+
+  const pct =
+    progress?.totalBytes && progress.totalBytes > 0
+      ? Math.min(100, Math.round(((progress.completedBytes ?? 0) / progress.totalBytes) * 100))
+      : null;
 
   return (
     <li data-testid={`rec-row-${rec.hfRepoId}`} className="rounded border border-white/10 p-2">
@@ -109,17 +154,39 @@ function RecommendationRow({ rec, installed, onInstalled }: RecommendationRowPro
           <button
             type="button"
             data-testid={`rec-install-${rec.hfRepoId}`}
-            disabled={busy}
+            disabled={installing}
             onClick={() => void install()}
             className="rounded bg-green-600 px-3 py-1 text-xs disabled:opacity-50"
           >
-            {busy ? 'Installing…' : 'Install'}
+            {installing ? 'Installing…' : 'Install'}
           </button>
         )}
       </div>
-      {error && (
+      {streaming && (
+        <div data-testid={`rec-progress-${rec.hfRepoId}`} className="mt-1.5">
+          <div
+            className="h-1.5 w-full overflow-hidden rounded bg-white/10"
+            role="progressbar"
+            {...(pct !== null
+              ? { 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }
+              : {})}
+          >
+            <div
+              className={`h-full bg-green-500 transition-all ${pct === null ? 'animate-pulse' : ''}`}
+              style={{ width: pct !== null ? `${pct}%` : '100%' }}
+            />
+          </div>
+          <p className="mt-0.5 text-xs text-neutral-muted">
+            {progress?.message ?? 'Downloading…'}
+            {pct !== null && progress?.totalBytes
+              ? ` — ${pct}% (${fmtBytes(progress.completedBytes ?? 0)} / ${fmtBytes(progress.totalBytes)})`
+              : ''}
+          </p>
+        </div>
+      )}
+      {errorMsg && (
         <p data-testid={`rec-error-${rec.hfRepoId}`} className="mt-1 text-xs text-red-300">
-          {error}
+          {errorMsg}
         </p>
       )}
     </li>
@@ -227,6 +294,8 @@ export function RecommendationsCard({
   pool,
   onDecided,
   loading,
+  installProgress,
+  onDismissInstall,
 }: RecommendationsCardProps): JSX.Element {
   const recs = recommendations ?? [];
   const props = proposals ?? [];
@@ -258,7 +327,8 @@ export function RecommendationsCard({
                 key={r.hfRepoId}
                 rec={r}
                 installed={installedRepos.has(r.hfRepoId)}
-                onInstalled={onDecided}
+                progress={installProgress?.[r.hfRepoId]}
+                onDismiss={() => onDismissInstall?.(r.hfRepoId)}
               />
             ))}
           </ul>

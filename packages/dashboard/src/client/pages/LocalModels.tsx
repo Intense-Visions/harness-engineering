@@ -20,8 +20,16 @@ import { RecommendationsCard } from '../components/local-models/RecommendationsC
  * this tree (bundle/WS-double-connection note in the plan).
  */
 export function LocalModels(): JSX.Element {
-  const { hardware, pool, recommendations, proposals, allDisabled, refetchAll } =
-    useLocalModelsPanel();
+  const {
+    hardware,
+    pool,
+    recommendations,
+    proposals,
+    allDisabled,
+    refetchAll,
+    installProgress,
+    dismissInstall,
+  } = useLocalModelsPanel();
 
   if (allDisabled) {
     return (
@@ -65,6 +73,8 @@ export function LocalModels(): JSX.Element {
         pool={pool.data}
         onDecided={refetchAll}
         loading={recommendations.loading}
+        installProgress={installProgress}
+        onDismissInstall={dismissInstall}
       />
     </div>
   );

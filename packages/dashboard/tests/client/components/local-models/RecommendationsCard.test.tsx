@@ -88,8 +88,12 @@ describe('RecommendationsCard', () => {
     expect(row.textContent).toContain('20');
   });
 
-  it('Install POSTs to /pool/install with hfRepoId + quant and calls onDecided (SC6)', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(okRes()));
+  it('Install POSTs to /pool/install with hfRepoId + quant; 202 keeps it "Installing…" without onDecided (SC6)', async () => {
+    // Install is async (D3): the POST returns 202 and completion arrives over the
+    // `local-models:install` WS topic — so the row must NOT fire the onDecided
+    // refetch here (that would race a not-yet-pulled model) and must stay busy.
+    const accepted = { ok: true, status: 202, text: async () => 'accepted' } as Response;
+    const fetchMock = vi.fn(() => Promise.resolve(accepted));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
     render(
@@ -104,13 +108,70 @@ describe('RecommendationsCard', () => {
     );
     fireEvent.click(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF'));
 
-    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+        'Installing'
+      )
+    );
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/v1/local-models/pool/install');
     expect((init as RequestInit).method).toBe('POST');
     expect(String((init as RequestInit).body)).toContain('Qwen/Qwen3-32B-GGUF');
     expect(String((init as RequestInit).body)).toContain('Q4_K_M');
+    expect(onDecided).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+
+  it('renders a download progress bar from install progress frames', () => {
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': { phase: 'progress', completedBytes: 5e9, totalBytes: 1e10 },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    const bar = screen.getByTestId('rec-progress-Qwen/Qwen3-32B-GGUF');
+    expect(bar.textContent).toContain('50%');
+    expect(bar.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('50');
+    // The row reflects the in-flight install.
+    expect(screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+      'Installing'
+    );
+  });
+
+  it('surfaces a WS install error frame on the row and re-enables retry', () => {
+    render(
+      <RecommendationsCard
+        recommendations={RECS}
+        recommendationsError={null}
+        proposals={[]}
+        pool={null}
+        onDecided={vi.fn()}
+        loading={false}
+        installProgress={{
+          'Qwen/Qwen3-32B-GGUF': {
+            phase: 'error',
+            message: 'no eviction plan fits',
+            code: 'budget_exceeded',
+          },
+        }}
+        onDismissInstall={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('rec-error-Qwen/Qwen3-32B-GGUF').textContent).toContain(
+      'no eviction plan fits'
+    );
+    // A terminal error re-enables the button so the operator can retry.
+    expect(
+      (screen.getByTestId('rec-install-Qwen/Qwen3-32B-GGUF') as HTMLButtonElement).disabled
+    ).toBe(false);
   });
 
   it('shows "installed" instead of an Install button for a pooled model (SC6)', () => {

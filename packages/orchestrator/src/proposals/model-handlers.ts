@@ -3,6 +3,7 @@ import type { ModelProposalRecord, Proposal, ProposalDecision } from '@harness-e
 import type {
   EvictPoolRequest,
   EvictPoolResult,
+  InstallEvent,
   InstallPoolRequest,
   InstallPoolResult,
   PoolEntry,
@@ -72,6 +73,14 @@ export interface ModelHandlerDeps {
    * agent-run-coarse and may over-defer — a safe failure (see ADR 0060).
    */
   isModelInUse?: (ollamaName: string) => boolean;
+  /**
+   * Streaming install-progress sink, forwarded verbatim to `pool.install` as its
+   * `onEvent`. The install route translates each {@link InstallEvent} into a
+   * `local-models:install` WS frame so the dashboard can render a download
+   * progress bar. Absent in the automated proposal-engine path (no operator
+   * watching) — the pull still runs, its progress is simply not broadcast.
+   */
+  onInstallEvent?: (event: InstallEvent) => void;
 }
 
 /** True when the probe (if supplied) reports the model might be mid-request. */
@@ -83,6 +92,14 @@ function isInUse(deps: ModelHandlerDeps, ollamaName: string): boolean {
 export const MODEL_PROPOSAL_TOPIC = 'local-models:proposal';
 /** Bus topic for pool mutations (install / evict applied). */
 export const MODEL_POOL_TOPIC = 'local-models:pool';
+/**
+ * Bus topic for byte-level install progress + terminal status of an in-flight
+ * operator install (D3 async install). Distinct from {@link MODEL_POOL_TOPIC},
+ * which is a coarse refetch-delta: streaming per-byte progress there would make
+ * the dashboard refetch the pool on every frame. Consumers render a progress bar
+ * off this topic and only refetch on the completing `local-models:pool` frame.
+ */
+export const MODEL_INSTALL_TOPIC = 'local-models:install';
 
 /** Outcome of {@link onApproveModelProposal}. */
 export type ModelApproveOutcome =
@@ -170,6 +187,7 @@ export async function onApproveModelProposal(
     ollamaName: model.target.ollamaName,
     ...(model.replaces !== undefined ? { replaces: model.replaces.ollamaName } : {}),
     ...(model.diskImpactGb > 0 ? { sizeOnDiskGb: model.diskImpactGb } : {}),
+    ...(deps.onInstallEvent ? { onEvent: deps.onInstallEvent } : {}),
   });
 
   if (installResult.status === 'error') {
