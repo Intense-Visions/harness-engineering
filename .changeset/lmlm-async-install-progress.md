@@ -1,7 +1,7 @@
 ---
 '@harness-engineering/orchestrator': minor
 '@harness-engineering/dashboard': minor
-'@harness-engineering/local-models': minor
+'@harness-engineering/local-models': patch
 '@harness-engineering/types': minor
 ---
 
@@ -19,14 +19,6 @@ Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
 pull completed. The Recommendations panel now renders a live download progress bar
 and surfaces retryable install errors.
 
-Install now survives an orchestrator restart. A model add/swap approval marks its
-proposal `installing` (new `ModelProposalStatus`) for the duration of the pull; if
-the orchestrator goes down mid-download, startup finds the `installing` proposals
-and re-drives them — the `ollama pull` is idempotent, so it resumes from cached
-blobs (or no-ops if it already finished) and streams progress to a reconnecting
-dashboard. The status reverts to `open` on a retryable failure and the approve
-route rejects a re-approve while `installing`.
-
 Approving an `add`/`swap` model **proposal** (`POST /api/v1/proposals/:id/approve`)
 also installs the target, so it shares the same async treatment: it returns `202`
 and streams the download over `local-models:install`, and the Pending Proposals row
@@ -42,21 +34,3 @@ Fixes a refresh-tick ordering bug where the pool was diffed against the ranking
 enters the pool at `currentScore: 0` until its first re-rank, so diffing first
 produced phantom swap proposals justified as "replace a pool member scoring 0"
 (and inflated `scoreDelta`s). The tick now re-scores the pool before diffing.
-
-Wires the ranker's long-intended lineage interpolation: a candidate with no direct
-benchmark used to floor to `score: 0` while labelled `evidence: 'interpolated'` (a
-misnomer — nothing was interpolated), so real models like `Qwen/Qwen3-8B-GGUF`
-showed "score 0 · interpolated" and churned the pool once installed. The ranker now
-infers a score from same-series siblings by parameter count (linear in size, clamped
-to the measured range, dampened by `'low'` benchmark confidence so it never outranks
-a direct measurement of equal raw value); only a series with no measured sibling
-still scores 0.
-
-Adds resumable-pull resilience to `OllamaInstallAdapter` (new `maxPullRetries` /
-`pullRetryBackoffMs` / `pullRetryMaxBackoffMs` options; orchestrator opts in with
-5 retries). A multi-GB `ollama pull` that loses its `/api/pull` stream mid-download
-— most often the host sleeping mid-install — now re-issues the pull (ollama resumes
-from cached blobs) instead of dead-ending in an error. The failure budget is
-measured in consecutive non-progressing attempts, so any forward byte progress
-resets it and an install survives repeated sleep cycles as long as it keeps
-advancing; a canceled request or a genuinely-missing model still fails fast.
