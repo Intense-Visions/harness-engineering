@@ -551,7 +551,7 @@ LLM-judgment skill that produces a structured, confidence-rated verdict on wheth
 
 ### product-requirements
 
-Guided-interview skill that turns one picked work item into a durable Product Requirements Document (PRD) — user stories, testable EARS acceptance criteria, and MoSCoW prioritization — written to docs/product-requirements/<item>/prd.md. The product-management middle between product-advisor (BRD) and harness-brainstorming (spec). Reads a BRD/roadmap/description as available and degrades gracefully to description-only; authors requirements but never the spec, never mutates the roadmap, and never assigns.
+Guided-interview skill that turns one picked work item into a durable Product Requirements Document (PRD) — user stories, testable EARS acceptance criteria, and MoSCoW prioritization — written to a per-item file under docs/product-requirements/. The product-management middle between product-advisor (BRD) and harness-brainstorming (spec). Reads a BRD/roadmap/description as available and degrades gracefully to description-only; authors requirements but never the spec, never mutates the roadmap, and never assigns.
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
