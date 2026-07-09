@@ -45,6 +45,7 @@ export async function runRollbackEvaluate(
     gh: deps.gh,
     ...(args.dryRun ? { dryRun: true } : {}),
     ...(deps.print ? { print: deps.print } : {}),
+    ...(args.reason !== undefined ? { reason: args.reason } : {}),
   });
 
   // Composer may downgrade proposed->skipped (idempotent existing PR); reflect it.
@@ -61,6 +62,8 @@ export async function runRollbackEvaluate(
       revertReady: finalDecision.revertReady,
       action: finalDecision.action,
       ...(finalDecision.prUrl ? { prUrl: finalDecision.prUrl } : {}),
+      // #4: record the human-provided reason on the breadcrumb (help text promises it).
+      ...(args.reason !== undefined ? { reason: args.reason } : {}),
     },
     deps.root !== undefined ? { root: deps.root } : {}
   );
@@ -70,6 +73,19 @@ export async function runRollbackEvaluate(
 
 /** Trimmed stdout of `gh <args>` (no shell). */
 const gh = (args: string[]): string => execFileSync('gh', args, { encoding: 'utf-8' }).toString();
+
+/**
+ * Whether `text` references PR number `targetPr` on a non-digit boundary
+ * (finding #2). A bare `includes('#' + targetPr)` collides with longer numbers
+ * that share the prefix (evaluating PR 42 would match a body referencing 420,
+ * 421, or 4200). This anchors on the number NOT preceded or followed by another
+ * digit, so 42 never matches 420. The composer also writes a structured
+ * `Target PR: <n>` marker line, which this reliably matches.
+ */
+export function referencesTargetPr(text: string | undefined, targetPr: number): boolean {
+  if (!text) return false;
+  return new RegExp(`(?<!\\d)#${targetPr}(?!\\d)`).test(text);
+}
 
 /** A pre-existing OPEN revert PR labeled ROLLBACK_LABEL that references `targetPr`. */
 function findOpenRevertPrNode(targetPr: number): { number: number; url: string } | null {
@@ -92,8 +108,11 @@ function findOpenRevertPrNode(targetPr: number): { number: number; url: string }
       body: string;
       title: string;
     }[];
-    const ref = `#${targetPr}`;
-    const match = list.find((p) => p.body?.includes(ref) || p.title?.includes(ref));
+    // finding #2: non-digit-boundary match so PR 42 does NOT match a revert PR
+    // whose body references 420, 421, or 4200.
+    const match = list.find(
+      (p) => referencesTargetPr(p.body, targetPr) || referencesTargetPr(p.title, targetPr)
+    );
     return match ? { number: match.number, url: match.url } : null;
   } catch {
     return null; // gh unavailable / no match — treat as "no existing PR"

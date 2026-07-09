@@ -31,6 +31,15 @@ describe('buildRevertBody', () => {
     expect(body).toContain('migration');
     expect(body).toContain('clean revert with no dependent later merge');
   });
+
+  it('renders **Reason:** when a reason is provided, and omits it otherwise (#4)', () => {
+    const withReason = buildRevertBody(baseDecision, 'Add feature X', 'flaky checkout flow');
+    expect(withReason).toContain('**Reason:** flaky checkout flow');
+    const withoutReason = buildRevertBody(baseDecision, 'Add feature X');
+    expect(withoutReason).not.toContain('**Reason:**');
+    // whitespace-only reason is treated as absent
+    expect(buildRevertBody(baseDecision, 'Add feature X', '   ')).not.toContain('**Reason:**');
+  });
 });
 
 describe('composeRevertPr', () => {

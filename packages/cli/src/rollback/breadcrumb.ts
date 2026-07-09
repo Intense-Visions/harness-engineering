@@ -9,6 +9,8 @@ export interface RollbackEvent {
   revertReady: boolean;
   action: 'proposed' | 'skipped' | 'blocked';
   prUrl?: string;
+  /** Human-readable reason from `--reason`, recorded on the breadcrumb (#4). */
+  reason?: string;
 }
 
 export interface AppendOptions {

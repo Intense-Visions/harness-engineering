@@ -16,6 +16,8 @@ export interface ComposeOptions {
   gh: ComposeGhSeam;
   dryRun?: boolean;
   print?: (line: string) => void;
+  /** Human-readable reason (from `--reason`), rendered into the PR body (#4). */
+  reason?: string;
 }
 
 export interface ComposeResult {
@@ -24,7 +26,11 @@ export interface ComposeResult {
 }
 
 /** Full-context revert PR body (SC3): trigger, target, blast-radius, warnings, reasons. */
-export function buildRevertBody(d: RollbackDecision, originalTitle: string): string {
+export function buildRevertBody(
+  d: RollbackDecision,
+  originalTitle: string,
+  reason?: string
+): string {
   const lines: (string | undefined)[] = [
     `## Automated rollback proposal`,
     ``,
@@ -32,6 +38,8 @@ export function buildRevertBody(d: RollbackDecision, originalTitle: string): str
     `**Target PR:** #${d.targetPr} — ${originalTitle}`,
     `**Revert-ready:** ${d.revertReady}`,
     d.blastRadius !== undefined ? `**Blast radius:** ${d.blastRadius}` : undefined,
+    // #4: surface the human-provided --reason when present (help text promises it).
+    reason && reason.trim() !== '' ? `**Reason:** ${reason.trim()}` : undefined,
     ``,
     `### Classification`,
     ...d.reasons.map((r) => `- ${r}`),
@@ -64,7 +72,7 @@ export async function composeRevertPr(
 ): Promise<ComposeResult> {
   if (!decision.revertReady) return { action: decision.action };
 
-  const body = buildRevertBody(decision, originalTitle);
+  const body = buildRevertBody(decision, originalTitle, opts.reason);
 
   if (opts.dryRun) {
     const print = opts.print ?? ((s: string) => process.stdout.write(`${s}\n`));
