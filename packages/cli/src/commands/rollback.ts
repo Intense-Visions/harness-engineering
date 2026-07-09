@@ -5,6 +5,8 @@ import type { RollbackDecision, RollbackIO } from '@harness-engineering/core';
 import { composeRevertPr, ROLLBACK_LABEL, type ComposeGhSeam } from '../rollback/compose';
 import { appendRollbackEvent, linkRollbackEventToGraph } from '../rollback/breadcrumb';
 import { createNodeRollbackIO } from '../rollback/io';
+import { runRollbackSweep, createTimelineReader, createPrResolver } from '../rollback/sweep';
+import { resolveConfig } from '../config/loader';
 import { logger } from '../output/logger';
 
 export interface RollbackEvaluateArgs {
@@ -186,6 +188,26 @@ export function createRollbackCommand(): Command {
       });
       logger.info(JSON.stringify(decision, null, 2));
       // Non-proposed verdicts are legitimate outcomes, not failures — exit 0.
+    });
+
+  rollback
+    .command('sweep')
+    .description(
+      'Read the signal timeline and propose reverts for threshold crossings (signal arm)'
+    )
+    .action(async () => {
+      const cfg = resolveConfig();
+      const signals = cfg.ok ? (cfg.value.rollback?.signals ?? {}) : {};
+      const root = process.cwd();
+      await runRollbackSweep(signals, {
+        readTimeline: createTimelineReader(root),
+        resolveMergedPrs: createPrResolver(),
+        evaluate: (pr) =>
+          runRollbackEvaluate(
+            { pr, trigger: 'signal' },
+            { io: createNodeRollbackIO(), gh: createGhSeam() }
+          ),
+      });
     });
   return rollback;
 }

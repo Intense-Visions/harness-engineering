@@ -1,4 +1,6 @@
-import type { SignalPoint } from '@harness-engineering/signals';
+import { execFileSync } from 'node:child_process';
+import { SignalTimelineStore, type SignalPoint } from '@harness-engineering/signals';
+import type { SignalId } from '@harness-engineering/signals';
 import type { RollbackDecision } from '@harness-engineering/core';
 
 /** Reads stored daily points for a signal name (empty for unknown/absent). */
@@ -24,11 +26,13 @@ export interface RollbackSweepDeps {
   now?: Clock;
 }
 
-const WINDOW_UNIT_MS: Record<string, number> = {
+const WINDOW_UNIT_MS = {
   h: 3_600_000,
   d: 86_400_000,
   w: 604_800_000,
-};
+} as const satisfies Record<string, number>;
+
+type WindowUnit = keyof typeof WINDOW_UNIT_MS;
 
 /**
  * Parse a lookback window like `"24h"`, `"7d"`, `"2w"` into milliseconds. Single
@@ -38,8 +42,9 @@ const WINDOW_UNIT_MS: Record<string, number> = {
 export function parseWindow(window: string): number {
   const match = /^(\d+)([hdw])$/.exec(window);
   if (!match) throw new Error(`invalid window: ${window}`);
-  const [, count, unit] = match;
-  return Number.parseInt(count, 10) * WINDOW_UNIT_MS[unit];
+  const count = Number.parseInt(match[1] ?? '', 10);
+  const unit = match[2] as WindowUnit;
+  return count * WINDOW_UNIT_MS[unit];
 }
 
 /**
@@ -49,9 +54,9 @@ export function parseWindow(window: string): number {
  * would re-fire every sweep). Fewer than two points → no crossing.
  */
 export function detectCrossing(points: SignalPoint[], rule: SweepSignalRule): boolean {
-  if (points.length < 2) return false;
-  const prev = points[points.length - 2];
-  const curr = points[points.length - 1];
+  const prev = points.at(-2);
+  const curr = points.at(-1);
+  if (!prev || !curr) return false;
   if (rule.direction === 'above') {
     return prev.value < rule.threshold && curr.value >= rule.threshold;
   }
@@ -96,4 +101,46 @@ export async function runRollbackSweep(
       await deps.evaluate(pr);
     }
   }
+}
+
+/**
+ * Real timeline reader over `SignalTimelineStore`. Untested-by-design (thin
+ * shim); `read` keys straight into the record and returns `[]` for unknown
+ * names, so config signal names (arbitrary strings) cast narrowly to `SignalId`
+ * at the boundary.
+ */
+export function createTimelineReader(root: string): TimelineReader {
+  const store = new SignalTimelineStore(root);
+  return (name) => store.read(name as SignalId);
+}
+
+/**
+ * Real PR resolver over `gh pr list` (no shell). Untested-by-design (thin
+ * process shim, mirrors createGhSeam). Degrade-safe: any gh failure yields `[]`
+ * so a missing/unauthenticated gh never crashes the sweep.
+ */
+export function createPrResolver(): PrResolver {
+  return async (startIso) => {
+    try {
+      const raw = execFileSync(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--state',
+          'merged',
+          '--search',
+          `merged:>=${startIso.slice(0, 10)}`,
+          '--json',
+          'number',
+          '--limit',
+          '100',
+        ],
+        { encoding: 'utf-8' }
+      );
+      return (JSON.parse(raw) as { number: number }[]).map((p) => p.number);
+    } catch {
+      return [];
+    }
+  };
 }
