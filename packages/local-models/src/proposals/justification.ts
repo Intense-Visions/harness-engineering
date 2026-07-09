@@ -36,19 +36,30 @@ export function buildJustification(
 ): ModelProposalContent['justification'] {
   const { target, currentScore, vramGb } = input;
   const name = target.ollamaName ?? target.hfRepoId;
+  const targetScore = score(target.score);
   const summary =
     currentScore !== undefined
-      ? `Swap in ${name} (score ${target.score}) to replace a pool member scoring ${currentScore}.`
-      : `Add ${name} (score ${target.score}) to the pool.`;
+      ? `Swap in ${name} (score ${targetScore}) to replace a pool member scoring ${score(currentScore)}.`
+      : `Add ${name} (score ${targetScore}) to the pool.`;
   const benchmarkBasis =
     currentScore !== undefined
-      ? [`Composite score ${target.score} vs current ${currentScore}`]
-      : [`Composite score ${target.score}`];
+      ? [`Composite score ${targetScore} vs current ${score(currentScore)}`]
+      : [`Composite score ${targetScore}`];
   return {
     summary,
     benchmarkBasis,
-    hardwareFit: `${target.estimatedVramGb}GB VRAM est; you have ${vramGb}GB`,
+    hardwareFit: `${gb(target.estimatedVramGb)}GB VRAM est; you have ${gb(vramGb)}GB`,
     evidence: String(target.evidence),
     freshness: `Benchmark snapshot ${target.benchmarkSnapshot}`,
   };
+}
+
+/** Absolute scores render as whole numbers so raw floats never reach the operator. */
+function score(n: number): number {
+  return Math.round(n);
+}
+
+/** GB values render to at most one decimal (trailing `.0` dropped). */
+function gb(n: number): number {
+  return Math.round(n * 10) / 10;
 }

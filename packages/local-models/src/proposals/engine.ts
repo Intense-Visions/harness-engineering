@@ -66,6 +66,16 @@ export function diffPoolAgainstRanking(input: DiffInput): ModelProposalContent[]
   for (const p of input.pending ?? []) suppressed.add(pairKey(p.target, p.replaces));
   for (const r of input.rejected ?? []) suppressed.add(pairKey(r.target, r.replaces));
 
+  // Target-level suppression for PENDING proposals: if a model is already the
+  // install target of an open proposal, do not propose installing it AGAIN to
+  // replace a different member. The per-pair `suppressed` set above only blocks
+  // the exact (target, replaces) pair, so across ticks the same model would
+  // otherwise accumulate multiple pending proposals — two "Swap in llama3.3:70b"
+  // rows for different members, all pulling the same blob. Rejected pairs stay
+  // pair-level: declining one swap of a model does not veto a different swap of it.
+  const pendingTargets = new Set<string>();
+  for (const p of input.pending ?? []) pendingTargets.add(p.target);
+
   const claimed = new Set<string>();
   const proposals: ModelProposalContent[] = [];
 
@@ -80,6 +90,7 @@ export function diffPoolAgainstRanking(input: DiffInput): ModelProposalContent[]
       pooledNames,
       claimed,
       suppressed,
+      pendingTargets,
     });
     if (candidate === undefined || candidate.ollamaName === undefined) continue;
 
@@ -136,6 +147,7 @@ function bestCandidateFor(
     pooledNames: Set<string>;
     claimed: Set<string>;
     suppressed: Set<string>;
+    pendingTargets: Set<string>;
   }
 ): RankedModel | undefined {
   let best: RankedModel | undefined;
@@ -144,6 +156,7 @@ function bestCandidateFor(
     if (c.ollamaName === undefined) continue;
     if (ctx.pooledNames.has(c.ollamaName)) continue;
     if (ctx.claimed.has(c.ollamaName)) continue;
+    if (ctx.pendingTargets.has(c.ollamaName)) continue; // already a pending install target
     if (ctx.suppressed.has(pairKey(c.ollamaName, entry.ollamaName))) continue;
     if (c.score - entry.currentScore < ctx.proposalThreshold) continue;
     if (best === undefined || c.score > best.score) best = c;

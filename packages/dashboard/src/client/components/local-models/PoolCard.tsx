@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { DashPoolEntryView, DashPoolStateView } from '../../types/local-models';
+import { round1, fmtScore } from './format';
 
 /**
  * Pool card for the LMLM panel. Renders entries, disk used-vs-budget, and
@@ -86,7 +87,7 @@ function PoolMemberRow({ entry, onMutated }: PoolMemberRowProps): JSX.Element {
       <div className="mt-0.5 flex items-center justify-between text-xs text-neutral-muted">
         <span className="font-mono">{entry.hfRepoId}</span>
         <span>
-          {entry.sizeOnDiskGb} GB · score {entry.currentScore}
+          {round1(entry.sizeOnDiskGb)} GB · score {fmtScore(entry.currentScore)}
         </span>
       </div>
       {note && (
@@ -124,7 +125,7 @@ export function PoolCard({ pool, error, loading, onMutated }: PoolCardProps): JS
             <div className="mb-1 flex items-center justify-between text-xs text-neutral-muted">
               <span>Disk usage</span>
               <span className="font-mono">
-                {pool.diskUsedGb} / {pool.diskBudgetGb} GB
+                {round1(pool.diskUsedGb)} / {round1(pool.diskBudgetGb)} GB
               </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded bg-white/10">

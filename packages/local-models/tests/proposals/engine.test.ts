@@ -133,6 +133,40 @@ describe('diffPoolAgainstRanking (F7: rejected/pending dedup)', () => {
     expect(out).toHaveLength(1);
     expect(out[0]!.target.ollamaName).toBe('newmodel');
   });
+
+  const twoMembers = poolOf([
+    pe({ ollamaName: 'oldA', hfRepoId: 'org/a', currentScore: 60 }),
+    pe({ ollamaName: 'oldB', hfRepoId: 'org/b', currentScore: 61 }),
+  ]);
+  const oneWinner = [rm({ ollamaName: 'newmodel', hfRepoId: 'Org/New', score: 85 })];
+
+  it('does not stack a SECOND pending proposal for the same install target (target-level dedup)', () => {
+    // A prior tick already proposed installing `newmodel` (to replace oldA). It
+    // must NOT be proposed again to replace oldB — otherwise the operator sees
+    // two "Swap in newmodel" rows, both pulling the same blob.
+    const out = diffPoolAgainstRanking({
+      pool: twoMembers,
+      ranked: oneWinner,
+      proposalThreshold: 5,
+      vramGb: 32,
+      pending: [{ target: 'newmodel', replaces: 'oldA' }],
+    });
+    expect(out).toHaveLength(0);
+  });
+
+  it('a REJECTED swap does not veto proposing that model for a DIFFERENT member', () => {
+    // Rejection stays pair-scoped: declining (newmodel → oldA) does not block
+    // proposing (newmodel → oldB), which is a genuinely new decision.
+    const out = diffPoolAgainstRanking({
+      pool: twoMembers,
+      ranked: oneWinner,
+      proposalThreshold: 5,
+      vramGb: 32,
+      rejected: [{ target: 'newmodel', replaces: 'oldA' }],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.replaces?.ollamaName).toBe('oldB');
+  });
 });
 
 describe('diffPoolAgainstRanking (P5-SUG-EVICT-a: real diskImpactGb)', () => {
