@@ -54,6 +54,23 @@ describe('OrchestratorBackendFactory', () => {
     expect(invokedFor).toBe('local');
   });
 
+  it('T17: passes the routed use-case to getResolverModelFor', () => {
+    let receivedUseCase: unknown = null;
+    const factory = new OrchestratorBackendFactory({
+      backends,
+      routing,
+      sandboxPolicy: 'none',
+      getResolverModelFor: (_name: string, useCase: unknown) => {
+        receivedUseCase = useCase;
+        return () => 'resolved-model';
+      },
+    });
+    // 'quick-fix' routes to the local backend in this fixture, so the resolver
+    // hook fires and receives the full use-case.
+    factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+    expect(receivedUseCase).toEqual({ kind: 'tier', tier: 'quick-fix' });
+  });
+
   it('does not call getResolverModelFor for non-local backends', () => {
     let invokedFor: string | null = null;
     const factory = new OrchestratorBackendFactory({

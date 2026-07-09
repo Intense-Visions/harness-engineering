@@ -1,6 +1,24 @@
-import type { LocalModelStatus } from '@harness-engineering/types';
-import type { PoolStateProvider } from '@harness-engineering/local-models';
+import type { LocalModelStatus, RoutingUseCase } from '@harness-engineering/types';
+import type { PoolStateProvider, RankProfile } from '@harness-engineering/local-models';
 import { poolStateToCandidates } from '@harness-engineering/local-models';
+
+/**
+ * Consumption Phase 4 (T16): map a routing use-case to the task profile whose
+ * per-model scores the resolver should order pooled candidates by. Code-editing
+ * tiers → `coding`; the diagnostic tier (debugging/investigation) → `reasoning`;
+ * everything else (analysis layers, chat, maintenance, sandboxing, skills/modes)
+ * → `general`, i.e. the composite score. Heuristic + intentionally conservative
+ * — see the task-aware-selection ADR. Extend here as more signal is available
+ * (e.g. cognitiveMode on `skill`/`mode`).
+ */
+export function useCaseToProfile(useCase: RoutingUseCase): RankProfile {
+  switch (useCase.kind) {
+    case 'tier':
+      return useCase.tier === 'diagnostic' ? 'reasoning' : 'coding';
+    default:
+      return 'general';
+  }
+}
 
 const DEFAULT_PROBE_INTERVAL_MS = 30_000;
 const MIN_PROBE_INTERVAL_MS = 1_000;
@@ -194,8 +212,21 @@ export class LocalModelResolver {
     this.logger = opts.logger ?? noopLogger;
   }
 
-  resolveModel(): string | null {
-    return this.resolved;
+  /**
+   * The model to dispatch to. With no `useCase`, returns the cached composite
+   * resolution from the last probe (byte-identical to the pre-Phase-4 resolver).
+   * With a `useCase`, orders the (pool-derived) candidates by that use-case's
+   * task profile and picks the best loaded, breaker-healthy one — so a
+   * coding-tagged dispatch prefers the coding specialist. A `general`-mapped
+   * use-case returns the cached composite resolution unchanged.
+   */
+  resolveModel(useCase?: RoutingUseCase): string | null {
+    if (useCase === undefined) return this.resolved;
+    const profile = useCaseToProfile(useCase);
+    if (profile === 'general') return this.resolved;
+    // Re-select from the last-probed detected set ordered by the profile score.
+    // No re-probe: `this.detected` reflects the most recent poll/refresh.
+    return this.selectMatch(this.candidates(profile), this.detected);
   }
 
   getStatus(): LocalModelStatus {
@@ -215,8 +246,10 @@ export class LocalModelResolver {
    * from pool entries (currentScore desc → ollamaName); otherwise the static
    * `configured` list is returned unchanged (byte-identical to pre-Phase-4).
    */
-  private candidates(): string[] {
-    return this.poolState ? poolStateToCandidates(this.poolState.snapshot()) : [...this.configured];
+  private candidates(profile?: RankProfile): string[] {
+    return this.poolState
+      ? poolStateToCandidates(this.poolState.snapshot(), profile)
+      : [...this.configured];
   }
 
   onStatusChange(handler: (status: LocalModelStatus) => void): () => void {

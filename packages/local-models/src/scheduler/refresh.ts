@@ -213,11 +213,20 @@ async function writeBackScores(
   ranked: RecommendResult['ranked'],
   errors: string[]
 ): Promise<void> {
-  const byName = new Map(ranked.map((m) => [m.ollamaName, m.score]));
+  // T14: carry the composite score AND the per-profile score map so a pooled
+  // model's task-aware ordering (poolStateToCandidates(state, profile)) reflects
+  // the latest re-rank, not a stale/absent profile map.
+  const byName = new Map(ranked.map((m) => [m.ollamaName, m]));
   const updates: ScoreUpdate[] = [];
   for (const entry of deps.poolManager.snapshot().entries) {
-    const score = byName.get(entry.ollamaName);
-    if (score !== undefined) updates.push({ ollamaName: entry.ollamaName, currentScore: score });
+    const model = byName.get(entry.ollamaName);
+    if (model !== undefined) {
+      updates.push({
+        ollamaName: entry.ollamaName,
+        currentScore: model.score,
+        scoresByProfile: { ...model.scoresByProfile },
+      });
+    }
   }
   if (updates.length === 0) return;
   await tryStage('updateScores', errors, () => deps.poolManager.updateScores(updates));

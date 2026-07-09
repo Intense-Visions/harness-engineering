@@ -616,9 +616,11 @@ export class Orchestrator extends EventEmitter {
         ...(this.config.agent.secrets !== undefined ? { secrets: this.config.agent.secrets } : {}),
         cacheMetrics: this.cacheMetrics,
         decisionBus: this.routingDecisionBus,
-        getResolverModelFor: (name) => {
+        getResolverModelFor: (name, useCase) => {
           const resolver = this.localResolvers.get(name);
-          return resolver ? () => resolver.resolveModel() : undefined;
+          // T17: bind the routed use-case so resolveModel orders candidates by
+          // its task profile (coding/reasoning/general).
+          return resolver ? () => resolver.resolveModel(useCase) : undefined;
         },
         // Consumption Phase 3 (T11): bind per-backend runtime feedback. A
         // successful turn stamps `lastUsedAt` (LRU) via the pool and clears the

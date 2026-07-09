@@ -889,3 +889,80 @@ describe('LocalModelResolver — circuit breaker (T10)', () => {
     expect((await resolver.probe()).resolved).toBe('a');
   });
 });
+
+describe('LocalModelResolver — task-aware resolveModel (T16)', () => {
+  // A pool provider whose entries carry per-profile scores.
+  const profiledProvider = (
+    rows: Array<{
+      name: string;
+      currentScore: number;
+      scoresByProfile: Partial<Record<'general' | 'coding' | 'reasoning', number>>;
+    }>
+  ): PoolStateProvider => ({
+    snapshot: () => ({
+      ...EmptyPoolState(),
+      entries: rows.map((r) => ({
+        ollamaName: r.name,
+        hfRepoId: `Org/${r.name}`,
+        sizeOnDiskGb: 1,
+        installedAt: '2026-07-07T00:00:00.000Z',
+        lastUsedAt: null,
+        currentScore: r.currentScore,
+        scoresByProfile: r.scoresByProfile,
+      })),
+    }),
+  });
+
+  it('a coding use-case selects the coding-best loaded model, not the composite-best', async () => {
+    const poolState = profiledProvider([
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50, reasoning: 88 } },
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95, reasoning: 30 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b', 'coder:7b'], // both loaded
+    });
+    await resolver.probe();
+
+    // No use-case → composite (generalist wins on currentScore).
+    expect(resolver.resolveModel()).toBe('generalist:32b');
+    // Coding tier → the coding specialist.
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'quick-fix' })).toBe('coder:7b');
+    // Diagnostic tier maps to reasoning → the generalist (reasoning 88 > 30).
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'diagnostic' })).toBe('generalist:32b');
+  });
+
+  it('only considers loaded models for the profile selection', async () => {
+    const poolState = profiledProvider([
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95 } },
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b'], // coder NOT loaded
+    });
+    await resolver.probe();
+    // Coding-best is coder:7b but it isn't loaded → fall to the loaded generalist.
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'guided-change' })).toBe('generalist:32b');
+  });
+
+  it('non-tier use-cases map to general (composite resolution)', async () => {
+    const poolState = profiledProvider([
+      { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95 } },
+      { name: 'generalist:32b', currentScore: 85, scoresByProfile: { coding: 50 } },
+    ]);
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['generalist:32b', 'coder:7b'],
+    });
+    await resolver.probe();
+    expect(resolver.resolveModel({ kind: 'chat' })).toBe('generalist:32b');
+    expect(resolver.resolveModel({ kind: 'maintenance' })).toBe('generalist:32b');
+  });
+});

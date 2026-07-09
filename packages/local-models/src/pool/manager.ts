@@ -38,6 +38,7 @@ import { isInstallError } from '../installer/index.js';
 import { planEviction } from './eviction.js';
 import type { PoolStateStore } from './state.js';
 import type { PoolEntry, PoolState, PoolStateView } from './types.js';
+import type { RankProfile } from '../ranker/profiles.js';
 
 /**
  * Stable error codes the manager surfaces. Extends Phase 3b's `InstallErrorCode`
@@ -149,6 +150,13 @@ export interface ConfigurePoolRequest {
 export interface ScoreUpdate {
   ollamaName: string;
   currentScore: number;
+  /**
+   * Consumption Phase 4 (T14): per-profile scores written alongside
+   * `currentScore` in the scheduler's re-score step. Optional so callers that
+   * don't compute profiles (or older call sites) leave the entry's existing
+   * `scoresByProfile` untouched.
+   */
+  scoresByProfile?: Partial<Record<RankProfile, number>>;
 }
 
 export interface AllowCheckRequest {
@@ -566,17 +574,25 @@ export class PoolManager {
   /** Batched score rewrite. Persists once. Ignores unknown names. */
   async updateScores(updates: ScoreUpdate[]): Promise<void> {
     if (updates.length === 0) return;
-    const lookup = new Map(updates.map((u) => [u.ollamaName, u.currentScore]));
+    const lookup = new Map(updates.map((u) => [u.ollamaName, u]));
     const state = this.store.snapshot();
     const anyMatch = state.entries.some((entry) => lookup.has(entry.ollamaName));
     if (!anyMatch) return;
     this.store.update((draft) => ({
       ...draft,
-      entries: draft.entries.map((entry) =>
-        lookup.has(entry.ollamaName)
-          ? { ...entry, currentScore: lookup.get(entry.ollamaName) as number }
-          : entry
-      ),
+      entries: draft.entries.map((entry) => {
+        const update = lookup.get(entry.ollamaName);
+        if (update === undefined) return entry;
+        // T14: write per-profile scores alongside currentScore when the caller
+        // supplied them; otherwise leave the entry's existing map untouched.
+        return {
+          ...entry,
+          currentScore: update.currentScore,
+          ...(update.scoresByProfile !== undefined
+            ? { scoresByProfile: update.scoresByProfile }
+            : {}),
+        };
+      }),
     }));
     await this.store.persist();
   }

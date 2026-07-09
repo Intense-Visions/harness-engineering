@@ -54,7 +54,10 @@ export interface OrchestratorBackendFactoryOptions {
    * existence and lifecycle while still letting it produce backends that
    * route through the resolver Map.
    */
-  getResolverModelFor?: (backendName: string) => (() => string | null) | undefined;
+  getResolverModelFor?: (
+    backendName: string,
+    useCase: RoutingUseCase
+  ) => (() => string | null) | undefined;
   /**
    * Consumption Phase 3 (T11): per-`local`/`pi` backend hook returning the
    * runtime-feedback callbacks bound to that backend's resolver + pool. The
@@ -144,7 +147,9 @@ export class OrchestratorBackendFactory {
     const createOpts = this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {};
 
     if ((def.type === 'local' || def.type === 'pi') && this.opts.getResolverModelFor) {
-      const getModel = this.opts.getResolverModelFor(name);
+      // T17: thread the routed use-case so the resolver can order pooled
+      // candidates by the use-case's task profile (coding/reasoning/general).
+      const getModel = this.opts.getResolverModelFor(name, useCase);
       const usageHooks = this.opts.getModelUsageHooksFor?.(name);
       backend = getModel
         ? this.buildLocalLikeWithResolver(def, getModel, usageHooks)

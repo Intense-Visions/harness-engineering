@@ -25,6 +25,7 @@ import type {
 import type { MergedScore } from './benchmarks/merge.js';
 import type { KvCacheQuant, VramEstimate } from './vram.js';
 import type { SpeedBackend, SpeedEstimate } from './speed.js';
+import type { RankProfile } from './profiles.js';
 
 /**
  * Per-candidate input the orchestrator consumes. Identifiers and the
@@ -140,6 +141,15 @@ export interface RankedModel {
   speedEstimate: SpeedEstimate;
   /** Merged benchmark score plus per-observation contributions. */
   benchmarkScore: MergedScore;
+  /**
+   * Consumption Phase 4 (T12): per-task-profile scores on the same `[0, 100]`
+   * scale as `score`. `general` always equals the composite `score`; `coding`
+   * and `reasoning` weight only their profile-relevant benchmarks and fall back
+   * to the composite when the model has no relevant observations. Consumed by
+   * the pool's per-profile scoring so a coding-tagged dispatch picks the
+   * coding-best-fit pooled model. Always populated by `rankModels`.
+   */
+  scoresByProfile: Record<RankProfile, number>;
 }
 
 /** Stable warning codes the ranker surfaces alongside the ranking. */
