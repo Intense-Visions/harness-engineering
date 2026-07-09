@@ -18,6 +18,12 @@ Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
 pull completed. The Recommendations panel now renders a live download progress bar
 and surfaces retryable install errors.
 
+Approving an `add`/`swap` model **proposal** (`POST /api/v1/proposals/:id/approve`)
+also installs the target, so it shares the same async treatment: it returns `202`
+and streams the download over `local-models:install`, and the Pending Proposals row
+shows the same progress bar instead of hanging the Approve button until the proxy
+times out. (`evict` approvals and rejects stay synchronous.)
+
 The Recommendations panel also gains a **Refresh** button that triggers a
 force-refresh tick (`POST /api/v1/local-models/refresh`) to recompute
 recommendations on demand and refetch the panel.

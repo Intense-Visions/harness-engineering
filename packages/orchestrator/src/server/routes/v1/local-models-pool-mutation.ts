@@ -30,19 +30,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { EventEmitter } from 'node:events';
 import { createModelProposal, updateProposal } from '@harness-engineering/core';
-import type {
-  ModelInstallEvent,
-  ModelProposalContent,
-  PoolMutationResult,
-} from '@harness-engineering/types';
-import {
-  estimateDiskGb,
-  type InstallEvent,
-  type RankedModel,
-} from '@harness-engineering/local-models';
+import type { ModelProposalContent, PoolMutationResult } from '@harness-engineering/types';
+import { estimateDiskGb, type RankedModel } from '@harness-engineering/local-models';
 import {
   onApproveModelProposal,
-  MODEL_INSTALL_TOPIC,
+  makeInstallProgressForwarder,
   type ModelHandlerDeps,
   type ModelPoolOps,
 } from '../../../proposals/model-handlers.js';
@@ -171,31 +163,17 @@ async function handleInstall(
   });
 
   const ollamaName = match.ollamaName;
-  const emit = installFrameEmitter(deps.bus, {
+  // Shared `local-models:install` progress emitter (also used by the proposal
+  // approve route, so a swap/add approval streams the same download bar).
+  const { emit, onInstallEvent } = makeInstallProgressForwarder(deps.bus, {
     proposalId: record.id,
     hfRepoId: match.hfRepoId,
     ollamaName,
   });
 
-  // Forward the installer's byte-level stream as `progress` frames. Terminal
-  // outcomes (`success`/`error`) are NOT emitted here — they are derived from the
-  // resolved `onApproveModelProposal` outcome below so the pool state is already
-  // committed and there is a single source of terminal truth.
-  const onInstallEvent = (event: InstallEvent): void => {
-    if (event.kind === 'progress') {
-      emit('progress', {
-        completedBytes: event.completedBytes,
-        totalBytes: event.totalBytes,
-        ...(event.message !== undefined ? { message: event.message } : {}),
-      });
-    } else if (event.kind === 'pulling') {
-      emit('progress', { message: event.message });
-    }
-  };
-
   const handler: ModelHandlerDeps = { ...handlerDeps(deps, req, pool), onInstallEvent };
 
-  emit('started', {});
+  emit('started');
 
   // Kick off the pull WITHOUT awaiting — the response returns before the multi-GB
   // download completes (avoiding the proxy `headersTimeout` 502). The terminal
@@ -229,21 +207,6 @@ async function handleInstall(
     message: `installing ${ollamaName} — progress streams on the local-models:install channel`,
   };
   return sendJSON(res, 202, result);
-}
-
-/**
- * Build an emitter that broadcasts `local-models:install` frames for one install,
- * closing over the invariant correlation fields (`proposalId`/`hfRepoId`/
- * `ollamaName`) so each call site only supplies the phase-specific delta.
- */
-function installFrameEmitter(
-  bus: EventEmitter,
-  base: Pick<ModelInstallEvent, 'proposalId' | 'hfRepoId' | 'ollamaName'>
-): (phase: ModelInstallEvent['phase'], patch: Partial<ModelInstallEvent>) => void {
-  return (phase, patch) => {
-    const frame: ModelInstallEvent = { ...base, ...patch, phase };
-    bus.emit(MODEL_INSTALL_TOPIC, frame);
-  };
 }
 
 async function handleRemove(

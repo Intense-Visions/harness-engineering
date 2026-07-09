@@ -196,10 +196,24 @@ function RecommendationRow({
 interface ProposalRowProps {
   proposal: ModelProposalRecord;
   onDecided: () => void;
+  /** WS-driven install progress / terminal error for this proposal's target. */
+  progress?: InstallProgressState | undefined;
+  /** Clear this proposal's settled install error (before a retry / on dismiss). */
+  onDismiss: () => void;
 }
 
-function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
+/**
+ * A pending model proposal with Approve/Reject. Approving an `add`/`swap`
+ * installs the target — a multi-GB `ollama pull` — so, like the direct Install
+ * action, the approve route returns `202` and streams the download over the
+ * `local-models:install` WS topic (the `progress` prop). The row stays
+ * "Installing…" with a live bar until a terminal frame instead of hanging the
+ * button until the proxy times out. Reject and `evict` approvals are fast and
+ * stay synchronous (they refetch via `onDecided`).
+ */
+function ProposalRow({ proposal, onDecided, progress, onDismiss }: ProposalRowProps): JSX.Element {
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   // Synchronous double-submit guard: `disabled={busy}` only takes effect after
@@ -207,35 +221,70 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
   // second POST before React flushes. The ref blocks that sub-frame window.
   const busyRef = useRef(false);
 
-  const post = useCallback(
-    async (suffix: string, body?: object): Promise<void> => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-      setBusy(true);
-      setError(null);
-      try {
-        const init: RequestInit = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        };
-        if (body) init.body = JSON.stringify(body);
-        const res = await fetch(`/api/v1/proposals/${proposal.id}${suffix}`, init);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status}: ${text}`);
-        }
-        onDecided();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        busyRef.current = false;
-        setBusy(false);
+  // A terminal WS error ends the in-flight install so the operator can retry.
+  useEffect(() => {
+    if (progress?.phase === 'error') setSubmitted(false);
+  }, [progress?.phase]);
+
+  const streaming = progress?.phase === 'started' || progress?.phase === 'progress';
+  const installing = streaming || (submitted && progress === undefined);
+  const errorMsg = progress?.phase === 'error' ? (progress.message ?? 'Install failed') : error;
+
+  const approve = useCallback(async (): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    onDismiss(); // clear any prior WS error for this target before retrying
+    try {
+      // Approve sends NO body: the route derives decidedBy from the auth token.
+      const res = await fetch(`/api/v1/proposals/${proposal.id}/approve`, { method: 'POST' });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
       }
-    },
-    [proposal.id, onDecided]
-  );
+      // 202 = install kicked off in the background (add/swap); keep "Installing…"
+      // until a WS terminal frame. 200 = a synchronous approval (evict) → refetch.
+      if (res.status === 202) setSubmitted(true);
+      else onDecided();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [proposal.id, onDecided, onDismiss]);
+
+  const reject = useCallback(async (): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/proposals/${proposal.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() || 'rejected' }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      onDecided();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [proposal.id, rejectReason, onDecided]);
 
   const { model } = proposal;
+  const pct =
+    progress?.totalBytes && progress.totalBytes > 0
+      ? Math.min(100, Math.round(((progress.completedBytes ?? 0) / progress.totalBytes) * 100))
+      : null;
+  const disabled = busy || installing;
 
   return (
     <li data-testid={`proposal-${proposal.id}`} className="rounded border border-white/10 p-3">
@@ -252,15 +301,12 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={busy}
-          // Approve sends NO body: the proposals route derives decidedBy from the
-          // auth token via getDecidedBy and never reads a body field, so a
-          // { decidedBy } payload was dead. Symmetric with reject, which sends
-          // only the { reason } the route actually consumes (XP-4).
-          onClick={() => void post('/approve')}
-          className="rounded bg-green-600 px-3 py-1 text-xs"
+          data-testid={`proposal-approve-${proposal.id}`}
+          disabled={disabled}
+          onClick={() => void approve()}
+          className="rounded bg-green-600 px-3 py-1 text-xs disabled:opacity-50"
         >
-          Approve
+          {installing ? 'Installing…' : busy ? 'Approving…' : 'Approve'}
         </button>
         <input
           data-testid={`reject-reason-${proposal.id}`}
@@ -271,16 +317,38 @@ function ProposalRow({ proposal, onDecided }: ProposalRowProps): JSX.Element {
         />
         <button
           type="button"
-          disabled={busy}
-          onClick={() => void post('/reject', { reason: rejectReason.trim() || 'rejected' })}
-          className="rounded bg-red-600 px-3 py-1 text-xs"
+          disabled={disabled}
+          onClick={() => void reject()}
+          className="rounded bg-red-600 px-3 py-1 text-xs disabled:opacity-50"
         >
           Reject
         </button>
       </div>
-      {error && (
+      {streaming && (
+        <div data-testid={`proposal-progress-${proposal.id}`} className="mt-2">
+          <div
+            className="h-1.5 w-full overflow-hidden rounded bg-white/10"
+            role="progressbar"
+            {...(pct !== null
+              ? { 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }
+              : {})}
+          >
+            <div
+              className={`h-full bg-green-500 transition-all ${pct === null ? 'animate-pulse' : ''}`}
+              style={{ width: pct !== null ? `${pct}%` : '100%' }}
+            />
+          </div>
+          <p className="mt-0.5 text-xs text-neutral-muted">
+            {progress?.message ?? 'Downloading…'}
+            {pct !== null && progress?.totalBytes
+              ? ` — ${pct}% (${fmtBytes(progress.completedBytes ?? 0)} / ${fmtBytes(progress.totalBytes)})`
+              : ''}
+          </p>
+        </div>
+      )}
+      {errorMsg && (
         <p data-testid={`proposal-error-${proposal.id}`} className="mt-1 text-xs text-red-300">
-          {error}
+          {errorMsg}
         </p>
       )}
     </li>
@@ -388,7 +456,13 @@ export function RecommendationsCard({
           </h3>
           <ul className="space-y-2">
             {props.map((p) => (
-              <ProposalRow key={p.id} proposal={p} onDecided={onDecided} />
+              <ProposalRow
+                key={p.id}
+                proposal={p}
+                onDecided={onDecided}
+                progress={installProgress?.[p.model.target.hfRepoId]}
+                onDismiss={() => onDismissInstall?.(p.model.target.hfRepoId)}
+              />
             ))}
           </ul>
         </section>
