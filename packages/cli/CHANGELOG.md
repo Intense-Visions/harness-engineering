@@ -1,5 +1,53 @@
 # @harness-engineering/cli
 
+## 5.0.0
+
+### Minor Changes
+
+- 7527285: Add the `harness:rollback` post-ship revert primitive (roadmap #533). When a merged PR crosses a tracked signal threshold, the engine classifies revert-readiness (clean in-memory `git merge-tree` revert + no dependent later merge) and opens a full-context revert PR — **propose-only in v1; it never auto-merges** (ADR 0063). Adds `classifyRevert`/`RollbackDecision` to core, the `harness rollback evaluate` and `harness rollback sweep` CLI commands, the propose-only `rollback-propose.yml` workflow, a `rollback` config block, and a flag-gated dark eval arm (activates once outcome-eval runs post-merge, #31).
+
+### Patch Changes
+
+- 134b055: feat(lmlm): live HuggingFace candidate discovery on startup + Refresh button
+
+  The recommendation candidate list was a bundled, human-curated `candidates.json`
+  imported statically at build. The orchestrator now refreshes it **live from
+  HuggingFace** — on startup (in the background, non-blocking) and on the operator's
+  **Refresh** button — while keeping the frozen list as the offline-safe fallback.
+  - New `discoverCandidates()` in `@harness-engineering/local-models` composes the
+    existing HF client + GGUF parser and **merges the curated `ollamaName`/`family`
+    tags** from the frozen snapshot back in — the HF API doesn't carry them, and a
+    candidate without an `ollamaName` isn't installable, so an un-mappable model is
+    dropped rather than surfaced as a broken row.
+  - The orchestrator seeds the recommender from the frozen list immediately, then
+    swaps in live results when discovery returns; `POST /api/v1/local-models/candidates/refresh`
+    re-discovers + re-seeds + re-ranks on demand. Fail-closed: any HF error or empty
+    result keeps the current candidates.
+  - The dashboard **Refresh** button now triggers the live refresh (one button = "get
+    the latest").
+  - Discovery defaults to a no-op on the `Orchestrator` (so tests make no network
+    calls); the CLI's `orchestrator run` wires the real implementation.
+
+  Delivers the `lmlm-live-hf-candidate-discovery` roadmap item. Note: discovery
+  refreshes/ranks the **curated** model set — onboarding a brand-new installable
+  model still needs its `ollamaName` mapping added (a deliberate curation boundary).
+
+- Updated dependencies [7527285]
+- Updated dependencies [db24d89]
+- Updated dependencies [f3a4d31]
+- Updated dependencies [eb8435f]
+- Updated dependencies [134b055]
+- Updated dependencies [f3a4d31]
+- Updated dependencies [caf3d70]
+- Updated dependencies [be3c714]
+  - @harness-engineering/core@0.35.0
+  - @harness-engineering/orchestrator@0.12.0
+  - @harness-engineering/dashboard@0.14.0
+  - @harness-engineering/types@0.20.0
+  - @harness-engineering/intelligence@0.5.0
+  - @harness-engineering/graph@0.11.6
+  - @harness-engineering/signals@0.2.4
+
 ## 4.3.3
 
 ### Patch Changes

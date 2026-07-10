@@ -1,5 +1,89 @@
 # @harness-engineering/types
 
+## 0.20.0
+
+### Minor Changes
+
+- db24d89: fix(lmlm): async model install with WebSocket download progress
+
+  Operator model install (`POST /api/v1/local-models/pool/install`) now returns
+  `202 { disposition: 'installing' }` as soon as the pull is accepted and streams
+  byte-level download progress plus the terminal outcome over a new
+  `local-models:install` WebSocket topic, instead of blocking the HTTP response for
+  the entire `ollama pull`.
+
+  This fixes the `502 Orchestrator proxy error: fetch failed (cause: Headers Timeout
+Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
+  `headersTimeout` (~5 min) fired because no response headers were sent until the
+  pull completed. The Recommendations panel now renders a live download progress bar
+  and surfaces retryable install errors.
+
+  Approving an `add`/`swap` model **proposal** (`POST /api/v1/proposals/:id/approve`)
+  also installs the target, so it shares the same async treatment: it returns `202`
+  and streams the download over `local-models:install`, and the Pending Proposals row
+  shows the same progress bar instead of hanging the Approve button until the proxy
+  times out. (`evict` approvals and rejects stay synchronous.)
+
+  The Recommendations panel also gains a **Refresh** button that triggers a
+  force-refresh tick (`POST /api/v1/local-models/refresh`) to recompute
+  recommendations on demand and refetch the panel.
+
+  Fixes a refresh-tick ordering bug where the pool was diffed against the ranking
+  **before** the re-ranked scores were written back. A freshly-installed member
+  enters the pool at `currentScore: 0` until its first re-rank, so diffing first
+  produced phantom swap proposals justified as "replace a pool member scoring 0"
+  (and inflated `scoreDelta`s). The tick now re-scores the pool before diffing.
+
+- eb8435f: fix(lmlm): resilient model installs — resumable pulls, restart recovery, and lineage scoring
+
+  Three follow-ups to the async operator install (#775):
+  - **Resumable pulls.** `OllamaInstallAdapter` gains opt-in retry-with-resume
+    (`maxPullRetries` / `pullRetryBackoffMs` / `pullRetryMaxBackoffMs`; the
+    orchestrator enables 5). A multi-GB `ollama pull` that loses its `/api/pull`
+    stream mid-download — most often the host sleeping mid-install — re-issues the
+    pull (ollama resumes from cached blobs) instead of dead-ending in an error. The
+    budget counts consecutive non-progressing attempts, so any forward byte progress
+    resets it; a canceled request or a missing model still fails fast.
+  - **Restart recovery.** A model add/swap approval marks its proposal `installing`
+    (new `ModelProposalStatus`) for the duration of the pull. If the orchestrator
+    restarts mid-download, startup finds the `installing` proposals and re-drives them
+    — `onApproveModelProposal` is idempotent, so ollama resumes the pull (or no-ops if
+    it already finished) and progress streams to a reconnecting dashboard. The status
+    reverts to `open` on a retryable failure, and the approve route rejects a
+    re-approve while `installing`.
+  - **Lineage score interpolation.** A candidate with no direct benchmark used to
+    floor to `score: 0` while labelled `evidence: 'interpolated'` (a misnomer), so real
+    models like `Qwen/Qwen3-8B-GGUF` showed "score 0 · interpolated" and churned the
+    pool once installed. The ranker now infers a score from same-series siblings by
+    parameter count (linear in size, clamped to the measured range, dampened by `'low'`
+    benchmark confidence so it never outranks a direct measurement); only a series with
+    no measured sibling still scores 0.
+
+- be3c714: feat(lmlm): consume pooled models freshly — event-driven refresh, live analysis model, score-seed, runtime feedback, task-aware selection, warming
+
+  The pool install side was fast, but consumption was pull-based and static: a
+  newly installed model wasn't used by agents for up to a poll cycle and by the
+  analysis pipeline never (until restart), a fresh entry sat at `currentScore: 0`,
+  runtime outcomes didn't feed back, and selection ignored the ranker's per-task
+  profiles. This wires the pool through to inference.
+  - **Freshness loop** — `LocalModelResolver.refresh()` debounce-re-probes on a
+    `local-models:pool` mutation, so an install/swap is resolvable in seconds. The
+    analysis provider reads its model live per request (`getModel` seam) instead of
+    snapshotting once at construction, unless the operator pinned a layer model.
+  - **Score-seed** — an installed pool entry seeds `currentScore` from its ranked
+    score rather than `0`, so an explicitly-installed model isn't buried until the
+    next re-rank.
+  - **Runtime feedback** — `lastUsedAt` is stamped on real inference; a model that
+    fails N consecutive inferences is deprioritized until it recovers.
+  - **Task-aware selection** — per-profile pool scoring (general/coding/reasoning)
+    routes each use-case to its best-fit pooled model, degrading to composite score
+    when the benchmark snapshot lacks profile tags.
+  - **Warming** — the resolver best-effort warms a newly selected model
+    (`keep_alive`) so the next dispatch isn't a cold start.
+
+  See `docs/changes/lmlm-pool-consumption/proposal.md` and the task-aware selection
+  ADR under `docs/knowledge/decisions/`.
+
 ## 0.19.0
 
 ### Minor Changes
