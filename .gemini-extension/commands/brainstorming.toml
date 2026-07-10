@@ -75,6 +75,8 @@ When no arguments are provided (standalone invocation), the skill operates exact
     - **Contradiction with the user's feature description:** do NOT auto-resolve. Carry the contradiction forward as an open question into Phase 2 EVALUATE — surface it explicitly so the human can decide whether to refine the feature or update strategy via `/harness:strategy`.
 
 1. **Load project context.** Call `gather_context({ path: "<project-root>", intent: "<feature description>", skill: "harness-brainstorming", session: "<session-slug-if-known>", include: ["graph", "businessKnowledge", "sessions", "validation"] })`. The `graph` context surfaces `business_fact` nodes relevant to the feature domain. The `businessKnowledge` context loads documented domain knowledge from `docs/knowledge/`. Use both to ground exploration in verified facts rather than assumptions. When `STRATEGY.md` was loaded in step 0a, treat its sections as a higher-tier grounding source than `businessKnowledge` — strategy reflects an explicit human commitment, knowledge is observation.
+   1b. **Consume the PRD when present.** If `docs/product-requirements/<item>/prd.md` exists for this feature/item (authored upstream by the `product-requirements` skill), read it and treat its user stories and EARS acceptance criteria as settled requirements. In Phase 4, seed the spec's `## User Stories` and `## Success Criteria` from them rather than re-deriving criteria the PRD already resolved, and cite the PRD as evidence. When no PRD exists, proceed unchanged — the PRD is an optional richer input, never required.
+
 2. **Read the existing codebase.** Understand architecture, constraints, and conventions. Check AGENTS.md, existing specs in `docs/`, and relevant source files.
 3. **Identify the problem boundary.** What exactly needs solving? What is out of scope? Write both down. Cross-reference `businessKnowledge` domains — if documented business rules constrain the problem, note them.
 4. **Check for prior art.** Has this been partially solved elsewhere? Are there patterns to follow or deliberately break?
@@ -150,7 +152,7 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    - Decisions made (with rationale from brainstorming)
    - Technical design (data structures, APIs, file layout)
    - Integration points (entry points, registrations, docs, decisions, knowledge impact)
-   - Success criteria (observable, testable outcomes)
+   - Success criteria (observable, testable outcomes) — when a PRD exists at `docs/product-requirements/<item>/prd.md`, seed these from its EARS acceptance criteria (see Phase 1 step 1b)
    - Implementation order (high-level phases, not detailed tasks)
 
    The **Integration Points** section is required in every spec. It defines how the feature connects to the existing system. Populate it with five subsections:

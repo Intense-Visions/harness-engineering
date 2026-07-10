@@ -152,6 +152,11 @@ RMH005). See knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowled
 1. Determine the transition target:
    - If the feature has a `spec` field (non-null): transition to `harness:autopilot`
    - If the feature has no `spec`: transition to `harness:brainstorming`
+   - **Optional (feature-shaped items):** before brainstorming, a no-spec item that carries
+     user-facing behavior may first run `product-requirements` to author a PRD (user stories +
+     acceptance criteria + prioritization) at `docs/product-requirements/<item>/prd.md`, which
+     brainstorming then consumes. Suggest this for feature work; skip it for bugs, chores, and
+     refactors (a PRD there is speculative ceremony).
 
 2. Present the transition to the human via `emit_interaction`:
 

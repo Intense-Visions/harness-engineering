@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-763 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+764 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (45 skills)
+## Tier 2 — Maintenance (46 skills)
 
 ### acceptance-eval
 
@@ -548,6 +548,16 @@ LLM-judgment skill that produces a structured, confidence-rated verdict on wheth
 - **Platforms:** claude-code
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### product-requirements
+
+Guided-interview skill that turns one picked work item into a durable Product Requirements Document (PRD) — user stories, testable EARS acceptance criteria, and MoSCoW prioritization — written to a per-item file under docs/product-requirements/. The product-management middle between product-advisor (BRD) and harness-brainstorming (spec). Reads a BRD/roadmap/description as available and degrades gracefully to description-only; authors requirements but never the spec, never mutates the roadmap, and never assigns.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
+- **Depends on:** harness-brainstorming
 
 ### security-craft
 

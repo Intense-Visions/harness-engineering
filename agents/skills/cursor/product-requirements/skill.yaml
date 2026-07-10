@@ -1,0 +1,70 @@
+name: product-requirements
+version: "0.1.0"
+description: Guided-interview skill that turns one picked work item into a durable Product Requirements Document (PRD) — user stories, testable EARS acceptance criteria, and MoSCoW prioritization — written to a per-item file under docs/product-requirements/. The product-management middle between product-advisor (BRD) and harness-brainstorming (spec). Reads a BRD/roadmap/description as available and degrades gracefully to description-only; authors requirements but never the spec, never mutates the roadmap, and never assigns.
+stability: static
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run product-requirements
+  args:
+    - name: item
+      description: Slug/name of the work item. Sets the item's artifact directory under docs/product-requirements/. Resolved from this argument, the roadmap row being worked, or by asking.
+      required: false
+    - name: description
+      description: Plain feature description, used as the seed when no BRD or roadmap row exists. The only hard input the skill needs.
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: product-requirements
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: ingest
+    description: Load the richest available input — a mapped BRD under docs/inception/, else the roadmap row summary, else the description argument. Optionally read STRATEGY.md for alignment. Soft-degrade to description-only and record a gap when the seed is sparse; never abort.
+    required: true
+  - name: draft-prd
+    description: Synthesize a first PRD into the item's file under docs/product-requirements/ (Context, Goal, User Stories with EARS acceptance criteria + MoSCoW priority, Prioritization summary, Non-Goals, Open Questions). Tag every rubric miss as a severity-ranked gap.
+    required: true
+  - name: gap-interview
+    description: Walk the author through the gap queue one question at a time (plain-text tables), highest severity first; fold each answer back into the PRD; keep unresolvable gaps as open chase-list questions.
+    required: true
+  - name: finalize
+    description: Finalize the PRD with Open Questions listed; do not mutate the roadmap or write an assignee; emit the handoff transition to harness-brainstorming (which seeds the spec's Success Criteria from the PRD's EARS criteria); run harness validate.
+    required: true
+state:
+  persistent: true
+  files:
+    - docs/product-requirements/
+depends_on:
+  - harness-brainstorming
+related_skills:
+  - product-advisor
+  - harness-brainstorming
+  - harness-roadmap-pilot
+  - acceptance-eval
+keywords:
+  - product-requirements
+  - PRD
+  - user-stories
+  - acceptance-criteria
+  - EARS
+  - MoSCoW
+  - requirements-authoring
+  - guided-interview
+  - configuration-interviewer
+  - lifecycle-middle
