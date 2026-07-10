@@ -1,5 +1,101 @@
 # @harness-engineering/dashboard
 
+## 0.14.0
+
+### Minor Changes
+
+- db24d89: fix(lmlm): async model install with WebSocket download progress
+
+  Operator model install (`POST /api/v1/local-models/pool/install`) now returns
+  `202 { disposition: 'installing' }` as soon as the pull is accepted and streams
+  byte-level download progress plus the terminal outcome over a new
+  `local-models:install` WebSocket topic, instead of blocking the HTTP response for
+  the entire `ollama pull`.
+
+  This fixes the `502 Orchestrator proxy error: fetch failed (cause: Headers Timeout
+Error)` that a multi-GB pull triggered — the dashboard reverse-proxy's undici
+  `headersTimeout` (~5 min) fired because no response headers were sent until the
+  pull completed. The Recommendations panel now renders a live download progress bar
+  and surfaces retryable install errors.
+
+  Approving an `add`/`swap` model **proposal** (`POST /api/v1/proposals/:id/approve`)
+  also installs the target, so it shares the same async treatment: it returns `202`
+  and streams the download over `local-models:install`, and the Pending Proposals row
+  shows the same progress bar instead of hanging the Approve button until the proxy
+  times out. (`evict` approvals and rejects stay synchronous.)
+
+  The Recommendations panel also gains a **Refresh** button that triggers a
+  force-refresh tick (`POST /api/v1/local-models/refresh`) to recompute
+  recommendations on demand and refetch the panel.
+
+  Fixes a refresh-tick ordering bug where the pool was diffed against the ranking
+  **before** the re-ranked scores were written back. A freshly-installed member
+  enters the pool at `currentScore: 0` until its first re-rank, so diffing first
+  produced phantom swap proposals justified as "replace a pool member scoring 0"
+  (and inflated `scoreDelta`s). The tick now re-scores the pool before diffing.
+
+### Patch Changes
+
+- f3a4d31: fix(lmlm): distinguish same-model quant rows + stop duplicate swap proposals
+
+  Two "same item" confusions on the Local Models panel:
+  - **Recommendations** listed the same `hfRepoId` at two quants (e.g. `Qwen3-32B`
+    Q4_K_M @ 21.5 GB and Q8_0 @ 35.1 GB) as visually identical rows because the quant
+    was never shown. The row now displays the quant, so the two options read as the
+    distinct VRAM/speed trade-offs they are.
+  - **Pending proposals** could show the same install target twice (e.g. two
+    "Swap in llama3.3:70b" rows for different pool members). The diff engine's dedup
+    was per-`(target, replaces)` pair, so across ticks the same model accumulated
+    multiple pending proposals — all pulling the same blob. The engine now also
+    suppresses a candidate that is already the install target of an **open** proposal
+    (rejections stay pair-scoped, since declining one swap of a model does not veto a
+    different swap of it).
+
+- 134b055: feat(lmlm): live HuggingFace candidate discovery on startup + Refresh button
+
+  The recommendation candidate list was a bundled, human-curated `candidates.json`
+  imported statically at build. The orchestrator now refreshes it **live from
+  HuggingFace** — on startup (in the background, non-blocking) and on the operator's
+  **Refresh** button — while keeping the frozen list as the offline-safe fallback.
+  - New `discoverCandidates()` in `@harness-engineering/local-models` composes the
+    existing HF client + GGUF parser and **merges the curated `ollamaName`/`family`
+    tags** from the frozen snapshot back in — the HF API doesn't carry them, and a
+    candidate without an `ollamaName` isn't installable, so an un-mappable model is
+    dropped rather than surfaced as a broken row.
+  - The orchestrator seeds the recommender from the frozen list immediately, then
+    swaps in live results when discovery returns; `POST /api/v1/local-models/candidates/refresh`
+    re-discovers + re-seeds + re-ranks on demand. Fail-closed: any HF error or empty
+    result keeps the current candidates.
+  - The dashboard **Refresh** button now triggers the live refresh (one button = "get
+    the latest").
+  - Discovery defaults to a no-op on the `Orchestrator` (so tests make no network
+    calls); the CLI's `orchestrator run` wires the real implementation.
+
+  Delivers the `lmlm-live-hf-candidate-discovery` roadmap item. Note: discovery
+  refreshes/ranks the **curated** model set — onboarding a brand-new installable
+  model still needs its `ollamaName` mapping added (a deliberate curation boundary).
+
+- f3a4d31: fix(lmlm): round numbers on the Local Models panel so raw floats stop leaking
+
+  Disk usage, pool entry sizes/scores, hardware values, and the model-proposal
+  justification text rendered raw floats (`75.65831765532494 GB`,
+  `score 57.629999999999995`, `18.067657947540283GB VRAM est`). They now follow the
+  panel's existing convention via a shared formatter: sizes/VRAM to one decimal,
+  absolute scores as whole numbers. The server-side `buildJustification` rounds the
+  score and VRAM values it embeds, so the stored proposal summary is clean too.
+
+- Updated dependencies [7527285]
+- Updated dependencies [db24d89]
+- Updated dependencies [eb8435f]
+- Updated dependencies [134b055]
+- Updated dependencies [caf3d70]
+- Updated dependencies [be3c714]
+  - @harness-engineering/core@0.35.0
+  - @harness-engineering/orchestrator@0.12.0
+  - @harness-engineering/types@0.20.0
+  - @harness-engineering/graph@0.11.6
+  - @harness-engineering/signals@0.2.4
+
 ## 0.13.2
 
 ### Patch Changes
