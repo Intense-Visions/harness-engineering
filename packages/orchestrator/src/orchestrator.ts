@@ -2077,6 +2077,18 @@ export class Orchestrator extends EventEmitter {
       });
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
+      // AMR finding #3: a fail-closed PrivacyNoMatch (RoutingError code
+      // 'privacy-no-match') from AdaptiveRouter.route() is NOT a transport/runner
+      // failure — it must surface as a DISTINCT routing:no-tier-match steward
+      // escalation, never lumped into the generic dispatch/transport bucket and
+      // never fed to the escalation breaker. `handleRoutingFailure` claims it
+      // (queues needs-human) and we still transition the unit out of `running` as
+      // blocked via `emitWorkerExit` with an explicit 'neutral' outcome (so
+      // recordAmrOutcome no-ops — no transport double-count, no escalation feed).
+      if (this.handleRoutingFailure(issue, error)) {
+        await this.emitWorkerExit(issue.id, 'error', attempt, String(error), 'neutral');
+        return;
+      }
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
       await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
     }
@@ -2268,12 +2280,23 @@ export class Orchestrator extends EventEmitter {
    * state when still present. Fire-and-forget + `.catch` — a queue write must never
    * block or throw out of the dispatch/outcome path.
    */
-  private escalateRoutingToHuman(coherenceUnit: string, error: RoutingError): void {
+  private escalateRoutingToHuman(
+    coherenceUnit: string,
+    error: RoutingError,
+    issue?: { identifier?: string; title?: string; description?: string | null }
+  ): void {
     const entry = this.state.running.get(coherenceUnit) as
       | { identifier?: string; issue?: { title?: string; description?: string | null } }
       | undefined;
-    const issueTitle = entry?.issue?.title ?? entry?.identifier ?? coherenceUnit;
-    const issueDescription = entry?.issue?.description ?? null;
+    // Prefer the in-scope issue (dispatch-boundary path has the full object), fall
+    // back to running state (the onExhausted path fires from an outcome).
+    const issueTitle =
+      issue?.title ??
+      issue?.identifier ??
+      entry?.issue?.title ??
+      entry?.identifier ??
+      coherenceUnit;
+    const issueDescription = issue?.description ?? entry?.issue?.description ?? null;
     void this.interactionQueue
       .push({
         id: `interaction-${randomUUID()}`,
@@ -2297,6 +2320,42 @@ export class Orchestrator extends EventEmitter {
           error: String(err),
         });
       });
+  }
+
+  /**
+   * AMR dispatch-boundary routing-failure handler (finding #3). When
+   * `AdaptiveRouter.route()` throws a fail-closed `PrivacyNoMatch`
+   * (`RoutingError` code `'privacy-no-match'`) at dispatch, that distinct
+   * signal MUST NOT be swallowed by the generic transport/dispatch-error path
+   * (S4-001): it is not a runner/transport failure, so it must never be recorded
+   * as one or feed the vertical escalation breaker. Instead it emits a DISTINCT
+   * `routing:no-tier-match` steward escalation (needs-human, same mechanism as
+   * `onExhausted`) carrying the coherence unit + reason. Fail-closed is preserved
+   * — `route()` already refused to pick a non-compliant backend, and returning
+   * `true` here stops the caller from falling through to identity routing.
+   *
+   * Returns `true` when the boundary CLAIMED the error (privacy-no-match), so the
+   * caller returns without the generic transport `emitWorkerExit`. Returns `false`
+   * for any other error (including `escalation-exhausted`, which the `onExhausted`
+   * seam owns) so the generic dispatch-error path runs unchanged.
+   */
+  private handleRoutingFailure(
+    issue: { id: string; identifier?: string },
+    error: unknown
+  ): boolean {
+    if (!(error instanceof RoutingError) || error.code !== 'privacy-no-match') return false;
+    this.logger.warn('routing:no-tier-match', {
+      coherenceUnit: issue.id,
+      identifier: issue.identifier,
+      reason: error.message,
+    });
+    // Fail-closed: surface to a human; the issue is NOT dispatched to any backend.
+    this.escalateRoutingToHuman(
+      issue.id,
+      error,
+      issue as { identifier?: string; title?: string; description?: string | null }
+    );
+    return true;
   }
 
   /**
