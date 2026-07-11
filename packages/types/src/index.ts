@@ -22,6 +22,8 @@ export type {
   StepOutcome,
   WorkflowStepResult,
   WorkflowResult,
+  WorkflowExecutionPlan,
+  StageRun,
 } from './workflow';
 
 // --- Skill & Pipeline ---
