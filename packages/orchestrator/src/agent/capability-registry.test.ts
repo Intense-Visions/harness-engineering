@@ -4,6 +4,7 @@ import type {
   BackendCapabilityRegistry,
   BackendDef,
 } from '@harness-engineering/types';
+import { RoutingError } from '@harness-engineering/types';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import {
   selectCheapestQualifying,
@@ -52,6 +53,31 @@ describe('selectCheapestQualifying — fail-closed distinguishability', () => {
     expect(() => selectCheapestQualifying(cloudOnly, 'fast', { allowed: [] })).toThrow(
       PrivacyNoMatch
     );
+  });
+});
+
+describe('RoutingError unification (finding #4)', () => {
+  // finding #4: PrivacyNoMatch and the escalation-exhausted path must share ONE
+  // typed error family (the exported RoutingError) so no dead exported error type
+  // ships in the minor. PrivacyNoMatch stays orchestrator-local (layering) but
+  // extends RoutingError and carries the canonical 'privacy-no-match' code.
+  it('PrivacyNoMatch is a RoutingError with code "privacy-no-match"', () => {
+    const err = new PrivacyNoMatch('no compliant backend');
+    expect(err).toBeInstanceOf(RoutingError);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.code).toBe('privacy-no-match');
+    expect(err.name).toBe('PrivacyNoMatch');
+    expect(err.message).toBe('no compliant backend');
+  });
+
+  it('a thrown PrivacyNoMatch is catchable as RoutingError and narrowable by code', () => {
+    try {
+      selectCheapestQualifying(cloudOnly, 'fast', { privacyFloor: 'on-device' });
+      throw new Error('expected PrivacyNoMatch');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RoutingError);
+      expect((e as RoutingError).code).toBe('privacy-no-match');
+    }
   });
 });
 

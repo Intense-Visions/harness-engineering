@@ -5,18 +5,29 @@ import type {
   PrivacyClass,
   BackendDef,
 } from '@harness-engineering/types';
+import { RoutingError } from '@harness-engineering/types';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { poolStateToCandidates } from '@harness-engineering/local-models';
 // Single guarded source (derive-tier.ts): TIER_RANK is pinned to the full
 // `CapabilityTier` union via a compile-time exhaustiveness link.
 import { TIER_RANK } from '@harness-engineering/intelligence';
 
-/** Fail-closed signal: privacy floor / allowlist emptied the candidate set (S4-001).
- *  Distinguishable from a tier/cost-only exclusion, which returns `undefined`. */
-export class PrivacyNoMatch extends Error {
-  readonly code = 'privacy-no-match' as const;
+/**
+ * Fail-closed signal: privacy floor / allowlist emptied the candidate set (S4-001).
+ * Distinguishable from a tier/cost-only exclusion, which returns `undefined`.
+ *
+ * Finding #4 — ONE typed error family: `PrivacyNoMatch` stays orchestrator-local
+ * (it is thrown deep in the selector, a layer below the exported types package) but
+ * EXTENDS the exported `RoutingError`, carrying its canonical `'privacy-no-match'`
+ * code. The dispatch boundary can therefore catch it as either `PrivacyNoMatch`
+ * (ergonomic `instanceof`) or `RoutingError` (code-narrowed), and the sibling
+ * `escalation-exhausted` code is emitted via `RoutingError` too — no divergent
+ * surfaces, no dead exported error type. `code` narrows to the literal here.
+ */
+export class PrivacyNoMatch extends RoutingError {
+  override readonly code = 'privacy-no-match' as const;
   constructor(message: string) {
-    super(message);
+    super('privacy-no-match', message);
     this.name = 'PrivacyNoMatch';
   }
 }
