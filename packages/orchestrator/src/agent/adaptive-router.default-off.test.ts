@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execSync } from 'node:child_process';
+import { execSync, type execFile } from 'node:child_process';
 import type {
   WorkflowConfig,
   IssueTrackerClient,
@@ -12,7 +12,22 @@ import { Ok } from '@harness-engineering/types';
 import { Orchestrator } from '../orchestrator.js';
 import { MockBackend } from './backends/mock.js';
 import { BackendRouter } from './backend-router.js';
-import { noopExecFile } from '../../tests/helpers/noop-exec-file.js';
+
+/**
+ * Inline no-op `execFile` (mirrors tests/helpers/noop-exec-file). Kept local so
+ * this `src/`-rooted test never imports across the tsconfig rootDir boundary.
+ * Prevents PRDetector from shelling out to `gh`; promisify() resolves 0 open PRs.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const noopExecFileFn = ((...args: unknown[]) => {
+  const cb = args[args.length - 1];
+  if (typeof cb === 'function') process.nextTick(() => cb(null, '0\n', ''));
+  return undefined as any;
+}) as typeof execFile;
+(noopExecFileFn as any)[Symbol.for('nodejs.util.promisify.custom')] = () =>
+  Promise.resolve({ stdout: '0\n', stderr: '' });
+const noopExecFile: typeof execFile = noopExecFileFn;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * AMR Phase 3 (D11 / SC8 / SC17 / SC19): the default-off adopter-portability
