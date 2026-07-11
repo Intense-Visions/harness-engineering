@@ -70,6 +70,7 @@ import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { toArray } from './agent/backend-router';
+import { AdaptiveRouter } from './agent/adaptive-router';
 import { RoutingDecisionBus } from './routing/decision-bus.js';
 // Spec B Phase 3: detectScopeTier / artifactPresenceFromIssue moved to
 // `./agent/use-case-builder` (the new caller). The dispatch site no
@@ -196,6 +197,13 @@ export class Orchestrator extends EventEmitter {
    * construction time. Eliminating this fallback is autopilot Phase 4+.
    */
   private backendFactory: OrchestratorBackendFactory | null;
+  /**
+   * AMR Phase 3 (D11): opt-in adaptive router. Constructed ONLY when
+   * `agent.routing.policy` is present and non-empty; `null` otherwise so
+   * dispatch stays byte-identical on the shipped `BackendRouter`
+   * (SC8/SC17/SC19). Exposed for tests via {@link getAdaptiveRouter}.
+   */
+  private adaptiveRouter: AdaptiveRouter | null = null;
   /**
    * Spec B Phase 4 (D8): per-orchestrator in-process bus for
    * `RoutingDecision` events. Constructed alongside backendFactory when
@@ -660,9 +668,38 @@ export class Orchestrator extends EventEmitter {
           };
         },
       });
+
+      // AMR Phase 3 (D11): construct AdaptiveRouter ONLY when routing.policy is
+      // present AND non-empty. Absent/empty ⇒ dispatch stays on the shipped
+      // BackendRouter, byte-identical, no classify(), no added latency
+      // (SC8/SC17/SC19). The gate only CONSTRUCTS the router; it does NOT swap
+      // forUseCase dispatch to route through it (that would risk the
+      // byte-identical guarantee) — enrichment-on-dispatch is a later step.
+      const policy = routing.policy;
+      const policyActive = policy !== undefined && Object.keys(policy).length > 0;
+      this.adaptiveRouter = policyActive
+        ? AdaptiveRouter.fromConfig({
+            router: this.backendFactory.getRouter(),
+            backends: this.config.agent.backends,
+            ...(this.modelPool ? { pool: this.modelPool } : {}),
+            policy,
+            // classify seam: an async classifier resolved to a sync verdict-provider.
+            // Phase 3 wires a conservative default; richer async triage is invoked
+            // upstream and passed via req.complexity. (Spec Failure modes: classifier
+            // failure ⇒ { level:'moderate', confidence:'low' } — never blocks dispatch.)
+            classify: () => ({
+              level: 'moderate',
+              confidence: 'low',
+              signals: {},
+              source: 'static',
+            }),
+          })
+        : null;
     } else {
       this.backendFactory = null;
       this.routingDecisionBus = null;
+      // AMR Phase 3 (D11): no backends ⇒ no adaptive routing.
+      this.adaptiveRouter = null;
     }
 
     // Pipeline construction deferred to start() — see initLocalModelAndPipeline().
@@ -2695,6 +2732,16 @@ export class Orchestrator extends EventEmitter {
    */
   public getRoutingDecisionBus(): RoutingDecisionBus | null {
     return this.routingDecisionBus;
+  }
+
+  /**
+   * AMR Phase 3 (D11): the opt-in adaptive router, or `null` when no
+   * `routing.policy` is configured (the default-off path). Exposed for the
+   * SC8/SC17/SC19 default-off proof: `null` here means dispatch stays on the
+   * shipped `BackendRouter`, byte-identical, with no classify()/telemetry.
+   */
+  public getAdaptiveRouter(): AdaptiveRouter | null {
+    return this.adaptiveRouter;
   }
 
   /**
