@@ -17,6 +17,23 @@ interface TraceResponse {
   estCostUsd?: number;
 }
 
+// Client-side enum guards mirror the server's zod schema
+// (orchestrator server/routes/v1/routing.ts). Validating here turns an invalid
+// value into a friendly, self-documenting error instead of round-tripping to a
+// generic server 400. Keep these in sync with that schema.
+const COMPLEXITY_VALUES = ['trivial', 'simple', 'moderate', 'complex'] as const;
+const RISK_VALUES = ['low', 'high'] as const;
+
+/** Returns an error message if `value` is not one of `allowed`, else null. */
+function validateEnum(
+  flag: string,
+  value: string | undefined,
+  allowed: readonly string[]
+): string | null {
+  if (value === undefined || allowed.includes(value)) return null;
+  return `Invalid ${flag} "${value}". Allowed values: ${allowed.join(', ')}.`;
+}
+
 function buildUseCase(opts: { skill?: string; mode?: string }): RoutingUseCase | null {
   if (opts.skill) {
     return opts.mode
@@ -69,6 +86,16 @@ export function createTraceCommand(): Command {
         const useCase = buildUseCase(opts);
         if (!useCase) {
           logger.error('Either --skill <name> or --mode <m> is required');
+          process.exit(ExitCode.ERROR);
+          return;
+        }
+        // Fail fast on bad enum values with a friendly, allowed-values error
+        // rather than a generic server 400.
+        const enumError =
+          validateEnum('--complexity', opts.complexity, COMPLEXITY_VALUES) ??
+          validateEnum('--risk', opts.risk, RISK_VALUES);
+        if (enumError) {
+          logger.error(enumError);
           process.exit(ExitCode.ERROR);
           return;
         }

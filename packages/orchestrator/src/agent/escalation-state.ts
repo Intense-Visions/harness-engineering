@@ -44,11 +44,13 @@ export class EscalationState {
    * 'exhausted' (router emits routing:escalation-exhausted). `ok` clears the
    * in-progress count but leaves the raised floor (monotonic per D10).
    *
-   * `_tier` (the tier the outcome occurred at) is part of the D10 contract —
-   * mirrors `LocalModelResolver.recordFailure(model)` positional shape — but the
-   * climb is driven off the unit's own `floorTier`, so the argument is currently
-   * advisory. Kept in the signature so the call-site contract is stable when a
-   * future refinement guards against out-of-order (stale-tier) reports.
+   * `_tier` (the tier the outcome occurred at) is ADVISORY/UNUSED today: the climb
+   * is driven entirely off the unit's own `state.floorTier`, not off this argument.
+   * It is kept in the signature so the call-site contract stays stable for a future
+   * refinement that guards against out-of-order (stale-tier) reports. (Note: this is
+   * NOT positionally mirroring `LocalModelResolver.recordFailure`, which keys on a
+   * model identifier and takes no tier — the earlier comment claiming that shape was
+   * misleading.)
    */
   recordOutcome(
     coherenceUnit: string,

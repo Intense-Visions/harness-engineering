@@ -58,6 +58,13 @@ export async function classify(
   const tiebreak = await llmTiebreak(provider, input.prompt, models?.fast);
 
   // D4c: escalate to standard tier only when confidence stays low AND risk is high.
+  // NOTE: this `riskHigh` classifier gate is intentionally DECOUPLED from the D5
+  // blast-radius veto (sensitive-path / core|types layer / public API → hard
+  // `strong`). D5 is re-derived downstream in deriveRequiredTier (derive-tier.ts)
+  // as a tier floor; here `riskHigh` only decides whether to spend a second LLM
+  // tie-break to sharpen a low-confidence complexity verdict. The two must not be
+  // conflated: a low-blast task can still be `riskHigh` (worth a re-tiebreak), and
+  // a high-blast task is force-`strong` regardless of what this gate concludes.
   if (tiebreak.confidence === 'low' && input.riskHigh) {
     const escalated = await llmTiebreak(provider, input.prompt, models?.standard);
     return {

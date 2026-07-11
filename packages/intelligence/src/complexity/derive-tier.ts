@@ -6,8 +6,16 @@ import type {
   ComplexityLevel,
 } from '@harness-engineering/types';
 
-const TIER_RANK: Record<CapabilityTier, number> = { fast: 0, standard: 1, strong: 2 };
-const RANK_TIER: CapabilityTier[] = ['fast', 'standard', 'strong'];
+const TIER_RANK = { fast: 0, standard: 1, strong: 2 } satisfies Record<CapabilityTier, number>;
+// `RANK_TIER` is the rank→tier inverse of `TIER_RANK`. The `satisfies` below is a
+// compile-time exhaustiveness link: the tuple's union of members must equal the
+// full `CapabilityTier` union, so adding a tier without extending BOTH tables
+// (or leaving RANK_TIER short) fails typecheck instead of silently indexing
+// `undefined` at runtime.
+const RANK_TIER = ['fast', 'standard', 'strong'] as const satisfies readonly CapabilityTier[];
+type _RankTierCoversUnion = CapabilityTier extends (typeof RANK_TIER)[number] ? true : never;
+const _rankTierCoversUnion: _RankTierCoversUnion = true;
+void _rankTierCoversUnion;
 
 /**
  * Documented seed threshold for the D5 high-blast veto. The spec lists
@@ -71,6 +79,9 @@ export function baseTier(
   const matrix = policy.complexityTierMatrix ?? {};
   const fromMatrix = matrix[complexity.level] ?? DEFAULT_MATRIX[complexity.level];
 
+  // `: 0` is the identity element for the surrounding `Math.max` (no override ⇒
+  // contribute nothing), NOT a `fast`-tier floor. The effective floor is
+  // whichever of the override rank / matrix rank is higher.
   let rank = Math.max(override !== undefined ? TIER_RANK[override] : 0, TIER_RANK[fromMatrix]);
 
   // SC6: low confidence degrades UP one step (never below the resolved default;

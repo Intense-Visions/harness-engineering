@@ -221,6 +221,35 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
   });
 
   // -------------------------------------------------------------------------
+  // trace client-side enum validation (fail fast, no server round-trip)
+  // -------------------------------------------------------------------------
+  it('trace --complexity <bad>: fails fast with allowed-values error and never calls fetch', async () => {
+    const { calls } = mockFetch(() => new Response('{}', { status: 200 }));
+
+    const cmd = createTraceCommand();
+    await cmd.parseAsync(['--skill', 'x', '--complexity', 'nonsense'], { from: 'user' });
+
+    expect(exitSpy).toHaveBeenCalledWith(2);
+    expect(calls).toHaveLength(0); // never round-tripped to the server
+    const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
+    expect(allErr).toMatch(/Invalid --complexity "nonsense"/);
+    expect(allErr).toMatch(/trivial, simple, moderate, complex/);
+  });
+
+  it('trace --risk <bad>: fails fast with allowed-values error and never calls fetch', async () => {
+    const { calls } = mockFetch(() => new Response('{}', { status: 200 }));
+
+    const cmd = createTraceCommand();
+    await cmd.parseAsync(['--skill', 'x', '--risk', 'medium'], { from: 'user' });
+
+    expect(exitSpy).toHaveBeenCalledWith(2);
+    expect(calls).toHaveLength(0);
+    const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
+    expect(allErr).toMatch(/Invalid --risk "medium"/);
+    expect(allErr).toMatch(/low, high/);
+  });
+
+  // -------------------------------------------------------------------------
   // decisions filters + --last (Observable Truth 4 / F8)
   // -------------------------------------------------------------------------
   it('decisions --skill X --last 3: passes filter + limit query params and prints table', async () => {
