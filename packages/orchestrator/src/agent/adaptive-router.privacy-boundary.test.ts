@@ -119,7 +119,10 @@ interface QueuedInteraction {
 interface OrchInternals {
   adaptiveRouter: { recordOutcome: (...a: unknown[]) => void } | null;
   interactionQueue: { onPush: (fn: (i: QueuedInteraction) => void) => void };
-  handleRoutingFailure: (issue: { id: string; identifier?: string }, error: unknown) => boolean;
+  handleRoutingFailure: (
+    issue: { id: string; identifier?: string },
+    error: unknown
+  ) => Promise<boolean>;
 }
 
 function internals(orch: Orchestrator): OrchInternals {
@@ -164,7 +167,7 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     const recordSpy = vi.spyOn(i.adaptiveRouter!, 'recordOutcome');
     const queued = await collectPushes(i);
 
-    const handled = i.handleRoutingFailure(ISSUE, new PrivacyNoMatch('no compliant backend'));
+    const handled = await i.handleRoutingFailure(ISSUE, new PrivacyNoMatch('no compliant backend'));
 
     expect(handled).toBe(true); // boundary claimed it — the generic transport path must NOT also run
     for (let n = 0; n < 50 && queued.filter((q) => q.issueId === ISSUE.id).length === 0; n++) {
@@ -185,7 +188,7 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     const i = internals(orch);
     const queued = await collectPushes(i);
 
-    const handled = i.handleRoutingFailure(
+    const handled = await i.handleRoutingFailure(
       ISSUE,
       new RoutingError('privacy-no-match', 'allowlist emptied the set')
     );
@@ -202,7 +205,7 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     const i = internals(orch);
     const queued = await collectPushes(i);
 
-    const handled = i.handleRoutingFailure(ISSUE, new Error('spawn ENOENT'));
+    const handled = await i.handleRoutingFailure(ISSUE, new Error('spawn ENOENT'));
 
     expect(handled).toBe(false); // generic dispatch-error path (transport) still owns it
     await new Promise((r) => setTimeout(r, 20));
@@ -213,7 +216,7 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     // escalation-exhausted is handled by the onExhausted seam (item 1), not here.
     const orch = newOrch(livePolicyConfig());
     const i = internals(orch);
-    const handled = i.handleRoutingFailure(
+    const handled = await i.handleRoutingFailure(
       ISSUE,
       new RoutingError('escalation-exhausted', 'ceiling re-crossed')
     );

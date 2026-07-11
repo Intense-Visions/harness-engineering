@@ -13,7 +13,7 @@ import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
 import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
-import type { OrchestratorState, LiveSession } from './types/internal';
+import type { OrchestratorState, LiveSession, RunningEntry } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
 import { applyEvent } from './core/state-machine';
 import { createEmptyState } from './core/state-helpers';
@@ -2077,16 +2077,19 @@ export class Orchestrator extends EventEmitter {
       });
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
-      // AMR finding #3: a fail-closed PrivacyNoMatch (RoutingError code
-      // 'privacy-no-match') from AdaptiveRouter.route() is NOT a transport/runner
-      // failure — it must surface as a DISTINCT routing:no-tier-match steward
-      // escalation, never lumped into the generic dispatch/transport bucket and
-      // never fed to the escalation breaker. `handleRoutingFailure` claims it
-      // (queues needs-human) and we still transition the unit out of `running` as
-      // blocked via `emitWorkerExit` with an explicit 'neutral' outcome (so
-      // recordAmrOutcome no-ops — no transport double-count, no escalation feed).
-      if (this.handleRoutingFailure(issue, error)) {
-        await this.emitWorkerExit(issue.id, 'error', attempt, String(error), 'neutral');
+      // AMR finding #3 + live-wiring review blocker: a fail-closed PrivacyNoMatch
+      // (RoutingError code 'privacy-no-match') from AdaptiveRouter.route() is NOT a
+      // transport/runner failure — it must surface as a DISTINCT routing:no-tier-match
+      // steward escalation, never lumped into the generic dispatch/transport bucket
+      // and never fed to the escalation breaker. It is ALSO deterministic
+      // (config-driven privacyFloor/allowlist — it CANNOT succeed on re-dispatch), so
+      // it must be TERMINAL: `handleRoutingFailure` claims it, queues exactly ONE
+      // needs-human escalation, and drives the unit to the terminal `canceled` lane
+      // WITHOUT going through `emitWorkerExit('error')` (whose state-machine error
+      // branch would enqueue a retry and re-run the same fail-closed route → an
+      // escalate-then-retry loop up to `maxRetries` times). Returning here means no
+      // transport double-count, no escalation-state feed, and no retry.
+      if (await this.handleRoutingFailure(issue, error)) {
         return;
       }
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
@@ -2285,18 +2288,16 @@ export class Orchestrator extends EventEmitter {
     error: RoutingError,
     issue?: { identifier?: string; title?: string; description?: string | null }
   ): void {
-    const entry = this.state.running.get(coherenceUnit) as
-      | { identifier?: string; issue?: { title?: string; description?: string | null } }
-      | undefined;
+    // Use the real typed running-entry accessor (`Map<string, RunningEntry>`), not
+    // a loose inline cast: a structural cast would silently yield `undefined` if the
+    // running-entry / `Issue` shape drifts, quietly degrading the escalation the
+    // `onExhausted` path relies on. `entry.issue` is a full `Issue`.
+    const entry: RunningEntry | undefined = this.state.running.get(coherenceUnit);
     // Prefer the in-scope issue (dispatch-boundary path has the full object), fall
     // back to running state (the onExhausted path fires from an outcome).
     const issueTitle =
-      issue?.title ??
-      issue?.identifier ??
-      entry?.issue?.title ??
-      entry?.identifier ??
-      coherenceUnit;
-    const issueDescription = issue?.description ?? entry?.issue?.description ?? null;
+      issue?.title ?? issue?.identifier ?? entry?.issue.title ?? entry?.identifier ?? coherenceUnit;
+    const issueDescription = issue?.description ?? entry?.issue.description ?? null;
     void this.interactionQueue
       .push({
         id: `interaction-${randomUUID()}`,
@@ -2323,39 +2324,73 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * AMR dispatch-boundary routing-failure handler (finding #3). When
-   * `AdaptiveRouter.route()` throws a fail-closed `PrivacyNoMatch`
-   * (`RoutingError` code `'privacy-no-match'`) at dispatch, that distinct
-   * signal MUST NOT be swallowed by the generic transport/dispatch-error path
-   * (S4-001): it is not a runner/transport failure, so it must never be recorded
-   * as one or feed the vertical escalation breaker. Instead it emits a DISTINCT
-   * `routing:no-tier-match` steward escalation (needs-human, same mechanism as
-   * `onExhausted`) carrying the coherence unit + reason. Fail-closed is preserved
-   * — `route()` already refused to pick a non-compliant backend, and returning
-   * `true` here stops the caller from falling through to identity routing.
+   * AMR dispatch-boundary routing-failure handler (finding #3 + live-wiring
+   * review blocker). When `AdaptiveRouter.route()` throws a fail-closed
+   * `PrivacyNoMatch` (`RoutingError` code `'privacy-no-match'`) at dispatch, that
+   * distinct signal MUST NOT be swallowed by the generic transport/dispatch-error
+   * path (S4-001): it is not a runner/transport failure, so it must never be
+   * recorded as one or feed the vertical escalation breaker. Instead it emits a
+   * DISTINCT `routing:no-tier-match` steward escalation (needs-human, same
+   * mechanism as `onExhausted`) carrying the coherence unit + reason.
+   *
+   * It is ALSO deterministic — the `privacyFloor`/allowlist that emptied the
+   * candidate set is config-driven, so re-dispatch would throw the SAME
+   * `PrivacyNoMatch`. Therefore this path is TERMINAL: it drives the unit to the
+   * `canceled` lane and removes it from `running`/`claimed` directly, rather than
+   * routing through `emitWorkerExit('error')` (whose state-machine error branch
+   * enqueues a retry whenever the retry budget is not yet exhausted — which would
+   * re-dispatch, re-fail closed, and re-escalate up to `maxRetries` times). No
+   * retry is scheduled, no transport outcome is recorded, and exactly one
+   * needs-human escalation is queued. Fail-closed is preserved — `route()` already
+   * refused to pick a non-compliant backend, and returning `true` here stops the
+   * caller from falling through to any further routing.
    *
    * Returns `true` when the boundary CLAIMED the error (privacy-no-match), so the
-   * caller returns without the generic transport `emitWorkerExit`. Returns `false`
-   * for any other error (including `escalation-exhausted`, which the `onExhausted`
-   * seam owns) so the generic dispatch-error path runs unchanged.
+   * caller returns without ANY `emitWorkerExit`. Returns `false` for any other
+   * error (including `escalation-exhausted`, which the `onExhausted` seam owns) so
+   * the generic dispatch-error path runs unchanged.
    */
-  private handleRoutingFailure(
+  private async handleRoutingFailure(
     issue: { id: string; identifier?: string },
     error: unknown
-  ): boolean {
+  ): Promise<boolean> {
     if (!(error instanceof RoutingError) || error.code !== 'privacy-no-match') return false;
     this.logger.warn('routing:no-tier-match', {
       coherenceUnit: issue.id,
       identifier: issue.identifier,
       reason: error.message,
     });
-    // Fail-closed: surface to a human; the issue is NOT dispatched to any backend.
+    // Fail-closed: surface to a human exactly once; the issue is NOT dispatched to
+    // any backend.
     this.escalateRoutingToHuman(
       issue.id,
       error,
       issue as { identifier?: string; title?: string; description?: string | null }
     );
+    // Terminal: drop the unit out of `running`/`claimed` and persist the terminal
+    // `canceled` lane. Deterministic → no retry is scheduled (contrast the generic
+    // `emitWorkerExit('error')` path, which would enqueue one).
+    await this.finalizeRoutingTerminal(issue.id);
     return true;
+  }
+
+  /**
+   * AMR live-wiring review blocker: terminally retire a unit whose dispatch failed
+   * closed (`privacy-no-match`). Mirrors the terminal side of a worker exit —
+   * remove the unit from `running` and release its `claimed` slot — then persist
+   * the terminal `canceled` lane (`abandon`), matching how retry-exhausted
+   * escalations settle. Crucially it does NOT run the state-machine `worker_exit`
+   * reducer, so no `scheduleRetry` effect is emitted. Best-effort lane persistence
+   * (`persistLaneSafe` never throws). No transport/escalation outcome is recorded —
+   * that stays the sole job of the single `routing:no-tier-match` escalation already
+   * queued by `escalateRoutingToHuman`.
+   */
+  private async finalizeRoutingTerminal(issueId: string): Promise<void> {
+    this.state.running.delete(issueId);
+    this.state.claimed.delete(issueId);
+    // abandon → canceled (terminal). Best-effort; never blocks or throws.
+    await this.persistLaneSafe(issueId, 'abandon');
+    this.emit('state_change', this.getSnapshot());
   }
 
   /**

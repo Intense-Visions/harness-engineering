@@ -36,8 +36,11 @@ byte-identical to the shipped `BackendRouter` (no new spans, LLM calls, or laten
   **surface to a human** via the `needs-human` interaction queue (not just a log): a
   fail-closed `PrivacyNoMatch` at the dispatch boundary emits a distinct
   `routing:no-tier-match` steward escalation (never recorded as a transport failure, never
-  fed to escalation), and an exhausted `strong`-ceiling re-crossing emits
-  `routing:escalation-exhausted` (D10 hard-fail-to-human).
+  fed to escalation) and, because it is deterministic (config-driven privacy floor /
+  allowlist that cannot succeed on re-dispatch), is **terminal** — the unit moves to the
+  `canceled` lane with no retry enqueued rather than looping through escalate-then-retry.
+  An exhausted `strong`-ceiling re-crossing emits `routing:escalation-exhausted`
+  (D10 hard-fail-to-human).
 - **cli**: `harness routing trace --complexity <level> --risk <band>` dry-runs a
   routing decision (prints derived tier + chosen backend without dispatching), with
   client-side enum validation.
