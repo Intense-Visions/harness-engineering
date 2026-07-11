@@ -29,6 +29,19 @@ export * from './tui/launcher';
 // internal paths.
 export { BackendRouter } from './agent/backend-router';
 export type { BackendRouterOptions } from './agent/backend-router';
+// AMR Phase 3: adaptive-routing surface (wraps BackendRouter) + the Phase-1
+// capability-selection primitives it composes. Exported so the server/CLI
+// `routing trace` dry-run and external consumers can derive tier + cost.
+export { AdaptiveRouter } from './agent/adaptive-router';
+export type { AdaptiveRouterDeps } from './agent/adaptive-router';
+export {
+  selectCheapestQualifying,
+  buildCapabilityRegistry,
+  defaultPoolCapabilities,
+  PrivacyNoMatch,
+} from './agent/capability-registry';
+export type { SelectConstraints } from './agent/capability-registry';
+export { estimateCost } from './agent/cost-estimator';
 export { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
 export type { OrchestratorBackendFactoryOptions } from './agent/orchestrator-backend-factory';
 export { migrateAgentConfig } from './agent/config-migration';
