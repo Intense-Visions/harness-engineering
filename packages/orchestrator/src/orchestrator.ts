@@ -693,6 +693,17 @@ export class Orchestrator extends EventEmitter {
               signals: {},
               source: 'static',
             }),
+            // D10: fromConfig seeds a fresh EscalationState from
+            // policy.escalationThreshold (default 2). Bind the strong-cap
+            // exhaustion seam to a structured steward-escalation log line
+            // (routing:escalation-exhausted) — the decision bus is typed for
+            // RoutingDecision, so exhaustion rides the logger channel.
+            onExhausted: (coherenceUnit: string) => {
+              this.logger.warn('routing:escalation-exhausted', {
+                coherenceUnit,
+                reason: 'quality failures exhausted the strong tier ceiling (D10/SC16)',
+              });
+            },
           })
         : null;
     } else {
