@@ -44,3 +44,23 @@ describe('selectCheapestQualifying — fail-closed distinguishability', () => {
     );
   });
 });
+
+describe('selectCheapestQualifying — SC2 (cheapest qualifying; registry-driven)', () => {
+  const base: BackendCapabilityRegistry = new Map([
+    ['sonnet', cap({ tier: 'standard', costPer1kTokens: 3 })],
+    ['opus', cap({ tier: 'strong', costPer1kTokens: 15 })],
+  ]);
+  it('standard resolves to the cheapest backend with tier ≥ standard', () => {
+    expect(selectCheapestQualifying(base, 'standard', {})?.name).toBe('sonnet');
+  });
+  it('adding a cheaper qualifying backend flips the choice with no other change', () => {
+    const cheaper = new Map(base);
+    cheaper.set('gpt4o-mini', cap({ tier: 'standard', costPer1kTokens: 0.6 }));
+    expect(selectCheapestQualifying(cheaper, 'standard', {})?.name).toBe('gpt4o-mini');
+  });
+  it('respects capability superset requirements (minContextTokens)', () => {
+    expect(
+      selectCheapestQualifying(base, 'standard', { minContextTokens: 1_000_000 })
+    ).toBeUndefined();
+  });
+});
