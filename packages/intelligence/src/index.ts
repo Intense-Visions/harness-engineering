@@ -153,6 +153,8 @@ export {
   applyBudgetClamp,
   blastRadiusVeto,
   SENSITIVE_BLAST_THRESHOLD,
+  TIER_RANK,
+  RANK_TIER,
   serializeSignals,
 } from './complexity/index.js';
 export type {

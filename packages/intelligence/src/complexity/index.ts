@@ -20,6 +20,8 @@ export {
   applyBudgetClamp,
   blastRadiusVeto,
   SENSITIVE_BLAST_THRESHOLD,
+  TIER_RANK,
+  RANK_TIER,
 } from './derive-tier.js';
 
 export { serializeSignals } from './signals.js';

@@ -7,6 +7,9 @@ import type {
 } from '@harness-engineering/types';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import { poolStateToCandidates } from '@harness-engineering/local-models';
+// Single guarded source (derive-tier.ts): TIER_RANK is pinned to the full
+// `CapabilityTier` union via a compile-time exhaustiveness link.
+import { TIER_RANK } from '@harness-engineering/intelligence';
 
 /** Fail-closed signal: privacy floor / allowlist emptied the candidate set (S4-001).
  *  Distinguishable from a tier/cost-only exclusion, which returns `undefined`. */
@@ -17,9 +20,6 @@ export class PrivacyNoMatch extends Error {
     this.name = 'PrivacyNoMatch';
   }
 }
-
-/** Rank: higher index = more capable. A backend qualifies when its tier index ≥ required. */
-const TIER_RANK: Record<CapabilityTier, number> = { fast: 0, standard: 1, strong: 2 };
 
 /** Privacy floor: lower index = stronger guarantee. A backend satisfies a floor
  *  when its privacy index ≤ the floor's index (at least as strong). */

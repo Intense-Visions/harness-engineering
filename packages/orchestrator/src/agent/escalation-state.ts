@@ -1,7 +1,9 @@
 import type { CapabilityTier } from '@harness-engineering/types';
-
-const TIER_RANK: Record<CapabilityTier, number> = { fast: 0, standard: 1, strong: 2 };
-const RANK_TIER: CapabilityTier[] = ['fast', 'standard', 'strong'];
+// Single guarded source: `derive-tier.ts` pins TIER_RANK/RANK_TIER to the full
+// `CapabilityTier` union via a compile-time exhaustiveness link, so adding a
+// tier without extending both tables fails typecheck instead of the
+// `RANK_TIER[currentRank + 1]!` below silently reading out-of-range.
+import { TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 
 interface UnitState {
   floorTier: CapabilityTier;
