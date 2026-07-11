@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { AgentBackend, AgentEvent, StageRun, WorkflowStep } from '@harness-engineering/types';
-import { stageAttemptKey, runStageSession } from './execute-workflow';
+import { stageAttemptKey, runStageSession, executeWorkflow } from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
+import type { WorkflowExecutionPlan } from '@harness-engineering/types';
 
 /** A minimal WorkflowStep for tests. */
 function step(produces: string): WorkflowStep {
@@ -163,5 +164,39 @@ describe('runStageSession — engine-owned per-stage state (C1/split-routing P1)
     const run = await runStageSession(ctx, 'issue-1', 0, 0, step('a'), fakeBackend(), {});
     expect(run.sessionId).toBe('sess-only');
     expect(run.tokens).toEqual({ input: 100, output: 50, total: 150 });
+  });
+});
+
+describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
+  it('runs 3 stages in order on one worktree, each with its own sessionId+tokens, one success exit (SC1)', async () => {
+    const { ctx, runOrder, runWorkspaces, successCalls, terminalCalls } = makeFakeCtx({
+      sessionIds: ['sess-0', 'sess-1', 'sess-2'],
+      usagePerStage: [
+        { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+        { inputTokens: 20, outputTokens: 7, totalTokens: 27 },
+        { inputTokens: 30, outputTokens: 9, totalTokens: 39 },
+      ],
+    });
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [step('a'), step('b'), step('c')],
+    };
+    await executeWorkflow(ctx, plan);
+
+    // SC1-a: sequential, in plan order, on the single shared worktree
+    expect(runOrder).toEqual([0, 1, 2]);
+    expect(runWorkspaces).toEqual(['/tmp/ws-shared', '/tmp/ws-shared', '/tmp/ws-shared']);
+
+    // SC5-a: exactly one success exit, no terminal (failure) exit
+    expect(successCalls).toHaveLength(1);
+    expect(terminalCalls).toHaveLength(0);
+
+    // SC1-b: each StageRun carries its OWN sessionId + tokens
+    const runs = successCalls[0]!;
+    expect(runs.map((r) => r.index)).toEqual([0, 1, 2]);
+    expect(runs.map((r) => r.sessionId)).toEqual(['sess-0', 'sess-1', 'sess-2']);
+    expect(runs.map((r) => r.tokens?.total)).toEqual([15, 27, 39]);
+    // distinct per-stage token totals — cost is attributable per stage
+    expect(new Set(runs.map((r) => r.tokens?.total)).size).toBe(3);
   });
 });

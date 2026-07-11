@@ -145,3 +145,45 @@ export async function runStageSession(
   if (ret) run.sessionId = ret.sessionId;
   return run;
 }
+
+/**
+ * Execute a multi-stage workflow's stages sequentially on one worktree. The
+ * whole body is inside a `try` so EVERY exit path — all-pass, or any throw
+ * between/within stages, or a throw from `emitWorkflowSuccess` itself — drives
+ * EXACTLY ONE terminal transition (D6/I1/SC5). Reconciliation cannot clear an
+ * orphaned `running` (state-machine.ts:288-303), so this single-exit guarantee
+ * is load-bearing: the `catch` must be total and must never rethrow.
+ */
+export async function executeWorkflow(
+  ctx: WorkflowEngineContext,
+  plan: WorkflowExecutionPlan
+): Promise<void> {
+  const runs: StageRun[] = [];
+  try {
+    for (const [index, step] of plan.stages.entries()) {
+      const backend = ctx.resolveStageBackend(step); // Phase 1 stub: identity single backend
+      const run = await runStageSession(
+        ctx,
+        plan.coherenceUnit,
+        index,
+        0,
+        step,
+        backend,
+        priorOutputs(runs)
+      );
+      runs.push(run);
+      // Phase 1 has no gates → runs never fail; Phase 3 adds:
+      //   if (run.outcome !== 'pass') return finalizeWorkflowTerminal(...)
+    }
+    await ctx.emitWorkflowSuccess(plan.coherenceUnit, runs); // D6: one success exit
+  } catch (err) {
+    // I1 safety net: any throw in the loop (or in emitWorkflowSuccess) → exactly
+    // one terminal transition, no orphaned running/claimed. Swallowed, not rethrown.
+    await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, undefined, err);
+  }
+}
+
+function priorOutputs(_runs: StageRun[]): Record<string, unknown> {
+  // Phase 1 stub; Phase 2/D4 threads produces→expects across the shared worktree.
+  return {};
+}
