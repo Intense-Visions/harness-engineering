@@ -112,9 +112,20 @@ function livePolicyConfig(): WorkflowConfig {
   });
 }
 
+interface QueuedInteraction {
+  issueId: string;
+  type: string;
+  reasons: string[];
+  context: { issueTitle: string; issueDescription: string | null };
+}
+
 interface OrchInternals {
-  adaptiveRouter: { recordOutcome: (u: string, t: CapabilityTier, ok: boolean) => void } | null;
+  adaptiveRouter: {
+    recordOutcome: (u: string, t: CapabilityTier, ok: boolean) => void;
+    deps: { escalation: EscalationState };
+  } | null;
   state: { running: Map<string, { lastRoutedTier?: CapabilityTier }> };
+  interactionQueue: { onPush: (fn: (i: QueuedInteraction) => void) => void };
   emitWorkerExit: (
     issueId: string,
     reason: 'normal' | 'error',
@@ -259,5 +270,71 @@ describe('AMR outcome → escalation wiring (D10/SC16, Task 9)', () => {
     await callExitTolerant(i, 'issue-4', 'normal', 1);
 
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * D10 hard-fail-to-human (final-review + Phase-4-review, item 1). When a
+ * coherence unit's escalation floor is ALREADY `strong` and a quality failure
+ * re-crosses the threshold, `recordOutcome` returns `'exhausted'` and the router
+ * fires `onExhausted`. Per spec D10 the task must HARD-FAIL TO A HUMAN — not just
+ * log — so `onExhausted` queues a `needs-human` interaction carrying the
+ * coherence unit + reason via the SAME mechanism as every other escalation.
+ */
+describe('AMR escalation-exhausted → needs-human (D10, item 1)', () => {
+  /** Force the unit to the strong ceiling with a threshold-crossing failure pending. */
+  function seedExhaustedNextFail(orch: Orchestrator, unit: string): void {
+    const escalation = (
+      internals(orch).adaptiveRouter as unknown as { deps: { escalation: EscalationState } }
+    ).deps.escalation;
+    // climb fast→standard→strong (threshold 2 ⇒ two fails per step), landing at strong
+    for (let n = 0; n < 4; n++) escalation.recordOutcome(unit, 'fast', false);
+    expect(escalation.floorFor(unit)).toBe('strong');
+    // one more below-threshold failure so the NEXT quality-fail returns 'exhausted'
+    expect(escalation.recordOutcome(unit, 'strong', false)).toBe('ok');
+  }
+
+  it('queues a needs-human interaction (not just a log) when the strong ceiling re-crosses the threshold', async () => {
+    const orch = newOrch(livePolicyConfig());
+    const i = internals(orch);
+    expect(i.adaptiveRouter).not.toBeNull();
+
+    const queued: QueuedInteraction[] = [];
+    i.interactionQueue.onPush((interaction) => queued.push(interaction));
+
+    seedRunning(orch, 'issue-exh', 'strong');
+    seedExhaustedNextFail(orch, 'issue-exh');
+
+    // the threshold-crossing quality failure at the strong ceiling ⇒ 'exhausted' ⇒ onExhausted
+    await callExitTolerant(i, 'issue-exh', 'error', 1, 'gate NOT_SATISFIED', 'quality-fail');
+
+    // onExhausted fires the queue push fire-and-forget (async fs I/O); poll briefly
+    for (let n = 0; n < 50 && queued.filter((q) => q.issueId === 'issue-exh').length === 0; n++) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+
+    const escalations = queued.filter((q) => q.issueId === 'issue-exh');
+    expect(escalations.length).toBeGreaterThanOrEqual(1);
+    const esc = escalations[escalations.length - 1]!;
+    expect(esc.type).toBe('needs-human');
+    expect(esc.reasons.join(' ')).toMatch(/escalation-exhausted|strong/i);
+  });
+
+  it('a below-ceiling climb (escalated, not exhausted) does NOT hard-fail to a human', async () => {
+    const orch = newOrch(livePolicyConfig());
+    const i = internals(orch);
+
+    const queued: QueuedInteraction[] = [];
+    i.interactionQueue.onPush((interaction) => queued.push(interaction));
+
+    seedRunning(orch, 'issue-climb', 'fast');
+    // threshold 2: two quality-fails climb fast→standard ('escalated', not 'exhausted')
+    await callExitTolerant(i, 'issue-climb', 'error', 1, 'gate NOT_SATISFIED', 'quality-fail');
+    await callExitTolerant(i, 'issue-climb', 'error', 1, 'gate NOT_SATISFIED', 'quality-fail');
+    // give any (erroneous) fire-and-forget push time to land before asserting none did
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(queued.filter((q) => q.issueId === 'issue-climb')).toHaveLength(0);
+    expect(i.adaptiveRouter!.deps.escalation.floorFor('issue-climb')).toBe('standard');
   });
 });

@@ -7,6 +7,7 @@ import type {
   RoutingRequest,
   RoutingDecision,
 } from '@harness-engineering/types';
+import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
@@ -713,14 +714,23 @@ export class Orchestrator extends EventEmitter {
             classify: makeLiveClassify(() => this.resolveComplexityProvider()),
             // D10: fromConfig seeds a fresh EscalationState from
             // policy.escalationThreshold (default 2). Bind the strong-cap
-            // exhaustion seam to a structured steward-escalation log line
-            // (routing:escalation-exhausted) — the decision bus is typed for
-            // RoutingDecision, so exhaustion rides the logger channel.
+            // exhaustion seam to a HARD-FAIL-TO-HUMAN (spec D10): once the floor is
+            // already `strong` and a quality failure re-crosses the threshold there
+            // is no higher tier to climb to, so the coherence unit must surface to a
+            // human — not merely log. `escalateRoutingToHuman` queues a `needs-human`
+            // interaction (same mechanism as every other escalation), carrying a
+            // typed RoutingError('escalation-exhausted') reason. The structured warn
+            // is kept for the steward log channel.
             onExhausted: (coherenceUnit: string) => {
+              const err = new RoutingError(
+                'escalation-exhausted',
+                `Coherence unit ${coherenceUnit} exhausted the strong tier ceiling: quality failures re-crossed the escalation threshold with no higher tier to climb to (D10/SC16)`
+              );
               this.logger.warn('routing:escalation-exhausted', {
                 coherenceUnit,
-                reason: 'quality failures exhausted the strong tier ceiling (D10/SC16)',
+                reason: err.message,
               });
+              this.escalateRoutingToHuman(coherenceUnit, err);
             },
             // SC9: emit the ENRICHED decision (complexity/tierRequired/estCostUsd)
             // onto the same bus dispatch already uses, so a subscriber receives the
@@ -2245,6 +2255,48 @@ export class Orchestrator extends EventEmitter {
     const tier = this.state.running.get(issueId)?.lastRoutedTier;
     if (tier === undefined) return; // dispatch was not AMR-routed (override/no policy)
     this.adaptiveRouter.recordOutcome(issueId, tier, outcomeClass === 'quality-pass');
+  }
+
+  /**
+   * AMR steward-escalation seam (D10, findings item 1 + 2). Queues a `needs-human`
+   * interaction for a coherence unit whose routing hard-failed — either the vertical
+   * escalation exhausted the `strong` ceiling (`escalation-exhausted`) or the
+   * fail-closed selector left no compliant backend (`privacy-no-match`). Both ride
+   * the SAME `needs-human` mechanism as every other escalation. The `RoutingError`
+   * code disambiguates the two on the steward's channel. The coherence unit is the
+   * issue id (D6 issue-grain pinning); title/description are recovered from running
+   * state when still present. Fire-and-forget + `.catch` — a queue write must never
+   * block or throw out of the dispatch/outcome path.
+   */
+  private escalateRoutingToHuman(coherenceUnit: string, error: RoutingError): void {
+    const entry = this.state.running.get(coherenceUnit) as
+      | { identifier?: string; issue?: { title?: string; description?: string | null } }
+      | undefined;
+    const issueTitle = entry?.issue?.title ?? entry?.identifier ?? coherenceUnit;
+    const issueDescription = entry?.issue?.description ?? null;
+    void this.interactionQueue
+      .push({
+        id: `interaction-${randomUUID()}`,
+        issueId: coherenceUnit,
+        type: 'needs-human',
+        reasons: [`routing:${error.code}`, error.message],
+        context: {
+          issueTitle,
+          issueDescription,
+          specPath: null,
+          planPath: null,
+          relatedFiles: [],
+        },
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      })
+      .catch((err) => {
+        this.logger.warn(`Failed to queue routing steward escalation for ${coherenceUnit}`, {
+          coherenceUnit,
+          code: error.code,
+          error: String(err),
+        });
+      });
   }
 
   /**
