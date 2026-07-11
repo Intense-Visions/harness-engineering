@@ -1,170 +1,192 @@
 # Split-Routing — Workflow Stage-Execution Engine (AMR Phase 4b)
 
-**Status:** Draft · **Tier:** Large · **Domain:** orchestrator
+**Status:** Draft (rev. 2 — post-feasibility-review) · **Tier:** Large · **Domain:** orchestrator
 **Keywords:** workflow, stage-execution, split-routing, coherence-unit, per-stage-routing, AMR, opt-in, additive
 
 ## Overview
 
-Adaptive Model Routing (AMR, [#796](../adaptive-model-routing/proposal.md)) routes **one dispatch** to the cheapest capable backend by task complexity. Its D6/SC4 promise — **split-routing**, where a single unit of work fans its internal stages to different models (mechanical checks → free, security review → strong, style → fast) — was deferred because **the orchestrator has no stage-execution engine and nothing emits multi-stage workflows**: `WorkflowStep` (`packages/types/src/workflow.ts:4-23`) has no `model` field, the per-stage `model` in `workflow/schema.ts` is validated but has **zero runtime consumers**, and no skill emits a `Workflow` artifact.
+Adaptive Model Routing (AMR, [#796](../adaptive-model-routing/proposal.md)) routes **one dispatch** to the cheapest capable backend by task complexity. Its D6/SC4 promise — **split-routing**, where a single unit of work fans its internal stages to different models — was deferred because **the orchestrator has no stage-execution engine and nothing emits multi-stage workflows** (`WorkflowStep`, `packages/types/src/workflow.ts:4-23`, has no runtime consumer; no skill emits a `Workflow`).
 
-This spec builds that engine: a **general, opt-in workflow stage-execution engine** in the orchestrator that runs an ordered `Workflow`'s stages as sequential sub-runs on a shared worktree, **routing each stage independently via `AdaptiveRouter.route()` with a shared `coherenceUnit`** (coherence-pinning — one escalation floor across the whole unit, D6). It ships with a **first real producer** (a declarative staged-workflow input the orchestrator executes) so the engine is proven end-to-end (SC4), not a speculative abstraction with no consumer.
+This spec builds that engine: a **general, opt-in workflow stage-execution engine** in the orchestrator that runs an ordered workflow's stages as sequential sub-runs on a shared worktree, **routing each stage independently via `AdaptiveRouter.route()` with a shared `coherenceUnit`** (coherence-pinning). It ships with a **real declarative producer** (an operator/caller declares stages for a unit) so it is proven end-to-end (SC2), not a speculative abstraction.
 
-It is **strictly additive and doubly opt-in**: a unit runs staged only when a `Workflow` is declared for it **and** `routing.policy` is set. Absent either, dispatch is **byte-identical** to today's single-agent path (`dispatchIssue`, `packages/orchestrator/src/orchestrator.ts:1841-2096`).
+It is **strictly additive and doubly opt-in**: a unit runs staged only when a **≥2-stage** workflow is declared for it **and** `routing.policy` is set. Absent either, dispatch is **behaviorally identical** to today's single-agent path (`dispatchIssue`, `orchestrator.ts:1841-2096`).
+
+> **Rev-2 note:** rev-1's feasibility review found three state-layer integration bugs (per-stage session/recorder/abort keying, mid-workflow retry wiping the worktree, and wrong escalation math). This revision resolves them explicitly — they are the load-bearing design content, so they are decisions here, not implementation details.
 
 ## Why now
 
-1. **AMR's split-routing (SC4) is unfulfillable without an execution substrate** — the routing engine exists, the per-stage seam (`RoutingRequest.coherenceUnit`, `orchestrator.ts:1964-1966`) exists, but nothing calls `route()` per stage. This is the missing consumer.
-2. **The value is real and measured by AMR's own thesis** — a code-review-shaped unit today runs entirely on one tier; splitting mechanical/security/style stages across tiers is the dominant cost-vs-quality win the AMR spec is grounded in.
-3. **The primitives already exist** — worktree-per-unit (`workspace/manager.ts:89-142`), the stateless per-dispatch agent runner (`agent/runner.ts`), `coherenceUnit`-keyed `EscalationState` (`agent/escalation-state.ts`, already multi-stage-ready), and immutable state cloning (`core/state-machine.ts:41-54`). The engine composes them; it does not reinvent dispatch.
+1. **AMR's split-routing (SC4) is unfulfillable without an execution substrate** — the routing engine + the per-stage seam (`RoutingRequest.coherenceUnit`, `orchestrator.ts:1964-1966`) exist, but nothing calls `route()` per stage.
+2. **The value is real** — routing a unit's mechanical/creative/verification stages to different tiers is the dominant cost-vs-quality win the AMR thesis is grounded in; per-stage _cost capture_ makes it measurable.
+3. **The primitives exist** — worktree-per-unit (`workspace/manager.ts:89-142`), the stateless per-run `AgentRunner` (`agent/runner.ts`), `coherenceUnit`-keyed `EscalationState`, immutable state cloning. The engine composes them.
 
 ## Non-goals
 
-- **Parallel stages.** v1 runs stages **sequentially** (artifacts flow forward on one worktree). Parallel/DAG stages are a follow-up — sequential is the sound floor and matches the "coherence unit" model.
-- **Rich producers (staged code-review dimensions, autopilot-as-workflow).** v1 ships ONE minimal declarative producer to prove the engine. Wiring `code-review`'s dimensions or the autopilot phase sequence as workflows is a follow-up that becomes trivial once the substrate exists (see Decision D7).
-- **A new backend transport / touching `AdaptiveRouter` or `BackendRouter` internals** (D2 from AMR holds — the engine _calls_ `route()`, never modifies it).
-- **Changing single-agent dispatch.** Non-workflow units use the exact path they use today, unchanged.
-- **Per-dimension review-agent model tiering.** The `code-review` pipeline's dimensions (`packages/core/src/review/fan-out.ts`) are a _separate_ concern with its own home and mechanism: those agents are currently **synchronous heuristic analyzers** (no LLM, no model), and `core/review` already owns a purpose-built `model-tier-resolver.ts` for its anticipated "Phase 8 model tiering." Crucially, `core` **cannot import `orchestrator`** (layer boundary), so AMR's `AdaptiveRouter` cannot drive review dimensions — review tiering must use `core/review`'s own resolver and first requires converting heuristic agents to LLM-backed ones. That is a distinct, larger effort owned by the review pipeline, explicitly **out of 4b's scope** (see D9).
+- **Parallel stages.** v1 is sequential (artifacts flow forward on one worktree). Parallel/DAG stages are a follow-up.
+- **Rich auto-producers (autopilot-as-workflow; a staged code-review producer).** v1 ships the declarative producer; auto-producers are follow-ups on the substrate (D7).
+- **Mid-workflow _resume_ across process restart.** A workflow is one atomic unit; if the process dies mid-workflow, the next attempt **restarts from stage 0 on a fresh worktree** (D11) — no partial-resume, no persisted stage cursor. Re-running completed stages is acceptable (idempotent) and explicitly not optimized in v1.
+- **Stage-local transport retry.** A transport/runner error mid-workflow **terminally fails the unit** (D10) rather than re-running from stage 0 (which would wipe the shared worktree and destroy prior stages). Preserving-and-resuming a failed stage in place is a follow-up.
+- **Touching `AdaptiveRouter`/`BackendRouter` internals** (AMR D2 holds — the engine _calls_ `route()`).
+- **Changing single-agent dispatch.** Non-workflow (and ≤1-stage) units use today's path unchanged.
+- **Per-dimension review-agent model tiering.** See D9 — that is `core/review`'s separate future concern (its agents are synchronous heuristics with no model; `core` cannot import `orchestrator`).
 
 ## Assumptions
 
-- **Runtime:** Node.js ≥ 18.x; engine hosted in the orchestrator process (matches AMR).
-- **Shared worktree:** all stages of a unit operate on the **one** worktree created for the unit (`ensureWorkspace(issue.identifier)`), so intermediate artifacts pass forward as files on disk — no cross-worktree copying.
-- **One coherence unit per unit of work:** `coherenceUnit = issue.id` across all stages (matches AMR's dispatch seam), so the escalation floor climbs once per unit and is visible to every stage.
-- **AMR is the routing authority:** stage backends come only from `AdaptiveRouter.route()`; with no `routing.policy`, there is no per-stage routing (the engine still runs stages, but each resolves through identity routing exactly as a single dispatch would).
+- Node.js ≥ 18.x; engine hosted in the orchestrator process.
+- **Shared worktree:** all stages of a unit run on the one worktree from `ensureWorkspace(issue.identifier)`; artifacts pass forward as files. `ensureWorkspace` wipes+recreates per _attempt_ (`manager.ts:93-118`), so a whole-unit retry restarts the whole workflow (D11).
+- **One coherence unit:** `coherenceUnit = issue.id` across all stages; the escalation floor is unit-scoped.
+- **AMR is the routing authority:** stage backends come from `AdaptiveRouter.route()`; with no `routing.policy`, each stage resolves via identity routing (no `AdaptiveRouter`).
 
-## Backward compatibility (doubly opt-in, default-off)
+## Backward compatibility (doubly opt-in, additive)
 
-- **No `Workflow` declared for a unit** → `dispatchIssue` takes its existing single-agent path, byte-identical. The engine is only entered when a workflow is present.
-- **`Workflow` declared but no `routing.policy`** → stages still run sequentially, but each stage resolves through identity routing (no `AdaptiveRouter`), so no behavior change vs. how those stages would route without AMR.
-- **Neither** → nothing in this feature executes; `RunningEntry`/state-machine shapes gain only optional fields.
-- The default-off AMR gate (`orchestrator.ts:1959-1963`) is unchanged and still governs whether routing is active.
+- **No ≥2-stage workflow declared** → `dispatchIssue` takes its existing single-agent path. `workflowFor(issue)` is a **cheap pure predicate** with no side effects on the non-workflow path, so behavior is unchanged (SC4). A **0-stage** workflow is a config-validation error; a **1-stage** workflow falls back to single dispatch (D13).
+- **Workflow declared but no `routing.policy`** → stages run sequentially, each resolving via identity routing (no `AdaptiveRouter`) — same backend each stage would get without AMR.
+- **Neither** → nothing executes; new type/state fields are optional.
 
 ## Decisions
 
-| #      | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Rationale                                                                                                                                                                                                                          |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | **General sequential stage-execution engine in the orchestrator, reusing existing primitives.** `executeWorkflow(workflow, coherenceUnit)` runs stages in order on the unit's single worktree; each stage builds a `RoutingUseCase` (stage's `cognitiveMode` from the skill catalog) + `RoutingRequest{ coherenceUnit }`, calls `AdaptiveRouter.route()`, spawns the runner at the resolved backend, streams events, records the stage outcome, then advances.                                                                                                                                                                                                                                                                                                                                                       | The substrate the AMR spec always intended. Reuses worktree/runner/state/escalation rather than reinventing dispatch — small, composable, testable.                                                                                |
-| **D2** | **Coherence-pinning: one `coherenceUnit` (= `issue.id`) across all stages.** Each stage routes independently (different `cognitiveMode` → potentially different tier/backend), but the escalation floor is shared: a quality failure in any stage climbs the floor for **all remaining stages** (D10 from AMR).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | This is the definition of a coherence unit (D6). Shared floor prevents cross-stage thrashing and makes escalation coherent for the whole unit.                                                                                     |
-| **D3** | **Ship a first real producer: a declarative staged `Workflow` the orchestrator executes.** Extend `WorkflowStep` with a runtime-populated `model?` and add a stage list to the unit's workflow input; the orchestrator detects a workflow-bearing unit and routes it to `executeWorkflow`. A concrete multi-stage fixture is wired end-to-end and SC4-tested.                                                                                                                                                                                                                                                                                                                                                                                                                                                        | An engine with no producer is speculative over-engineering (YAGNI). A minimal real producer proves the whole path and pins SC4; it does not commit us to a specific rich producer prematurely.                                     |
-| **D4** | **Sequential artifact passing via the shared worktree + a stage-outputs map.** Each stage's `produces` output lands on the worktree; the next stage's prompt context includes prior stage outputs (`WorkflowStep.expects`). No artifact store beyond the worktree in v1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Simplest sound model; the worktree already persists across stages. Avoids inventing an artifact-versioning subsystem.                                                                                                              |
-| **D5** | **Doubly opt-in, strictly additive (byte-identical when off).** The engine runs only when a `Workflow` is declared AND is entered from the existing `dispatchIssue` seam; all new type/state fields are optional. Non-workflow dispatch is unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Same adopter-portability guarantee as AMR (D11). Zero risk to existing single-agent flows.                                                                                                                                         |
-| **D6** | **Atomic unit lifecycle: one claim, one lane entry, one completion — aggregating stage outcomes.** The unit holds one claim (`orchestrator.ts:1852`), one lane (`persistLaneSafe`, keyed by `issue.id`), and emits **one** `emitWorkerExit` after the last stage (or on a stage's terminal failure). Per-stage progress lives on `RunningEntry` (new optional fields), not as separate claims.                                                                                                                                                                                                                                                                                                                                                                                                                       | Preserves the single-unit atomicity + lane invariants the exploration flagged as the riskiest coupling. A workflow is still ONE unit of accountability.                                                                            |
-| **D7** | **v1 producer is minimal-declarative; rich producers are follow-ups.** Staged `code-review` (dimensions as stages) and autopilot-as-workflow are explicitly out of v1 and become thin adapters onto the engine once it lands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Avoids over-integrating into `review-ci`/host-agent paths before the substrate is proven. Keeps the PR reviewable and the abstraction honest.                                                                                      |
-| **D8** | **Stage failure → escalate-then-continue-or-fail, capped.** A stage whose gate fails records a quality-fail (climbs the shared floor) and **retries that stage once at the raised tier**; if it fails again at `strong`, the whole unit terminally fails to a human (reusing AMR's `finalizeRoutingTerminal`/needs-human path). Non-gate stages that error follow the existing transport-retry budget.                                                                                                                                                                                                                                                                                                                                                                                                               | Makes D10 escalation _live within a unit_ (the very quality-fan-in AMR deferred). Bounded + capped ⇒ no loops; hard-fail-to-human on exhaustion.                                                                                   |
-| **D9** | **Split-routing is homed in the orchestrator (where AMR lives), not the review pipeline.** Investigation of `packages/core/src/review/fan-out.ts` + `model-tier-resolver.ts` found the review pipeline already anticipates per-dimension tiering ("Phase 8"), but (a) its agents are synchronous heuristics with no model today, and (b) `core` cannot import `orchestrator`, so AMR cannot drive them. 4b therefore delivers split-routing for **AMR-routed dispatch stages** (the orchestrator's domain); review-dimension tiering remains `core/review`'s separate future work. The engine's producer is a **real declarative staged-workflow input** (an operator/caller declares stages for a unit) — a usable API, not a throwaway fixture — with richer auto-producers (autopilot-as-workflow) deferred (D7). | Picks the correct layer and avoids a speculative cross-layer coupling. Delivers real, usable split-routing (declare a staged workflow → each stage AMR-routed) without rewriting the review pipeline or inverting the layer graph. |
+| #       | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Rationale                                                                                                                                                                                                             |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1**  | **General sequential stage-execution engine in the orchestrator, reusing existing primitives.** `executeWorkflow(ctx, plan)` runs stages in order on the unit's single worktree.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | The substrate AMR intended; composes worktree/runner/router/escalation rather than reinventing dispatch.                                                                                                              |
+| **D2**  | **Coherence-pinning: one `coherenceUnit` (=`issue.id`) across all stages.** Each stage routes independently; the escalation floor is shared and _cumulative_ across stages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Definition of a coherence unit (D6 from AMR); shared floor keeps cross-stage escalation coherent.                                                                                                                     |
+| **D3**  | **The engine owns per-stage session/recorder/abort/token state directly (C1 fix).** It calls `runner.runSession` per stage itself — NOT `runAgentInBackgroundTask` (which writes issue-keyed `session`/recorder/abort at `orchestrator.ts:2020-2150`). Each stage gets its own session object, its own `startRecording`/`finishRecording` keyed by `(issueId, stageIndex)`, and its own abort handle held in `StageRun`; the engine summarizes into the one `RunningEntry` (current stage, aggregate phase) at stage boundaries. **`StageRun` carries per-stage `tokens` + `sessionId`** so split-routing's cost is attributable per stage.                                                                                                                                                        | rev-1 keyed session/recorder/abort 1:1 to the issue — N stages would clobber recordings, lose per-stage tokens, and race `stopIssue`'s single abort controller. Per-stage cost capture is the point of split-routing. |
+| **D4**  | **Sequential artifact passing via the shared worktree + a stage-outputs map.** Each stage's `produces` lands on the worktree; the next stage's context includes prior outputs (`expects`). No artifact store beyond the worktree.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Simplest sound model; the worktree persists across stages.                                                                                                                                                            |
+| **D5**  | **Doubly opt-in + `≥2`-stage gate; behaviorally identical when off.** Enter `executeWorkflow` only when a ≥2-stage workflow is declared. `workflowFor` is a pure predicate. All new type/state fields optional.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Adopter-portability (AMR D11). ≤1 stage has no split to route, so it uses the unchanged path (D13).                                                                                                                   |
+| **D6**  | **Atomic unit lifecycle: one claim, one lane, one `emitWorkerExit` — inside a `try/finally` (I1 fix).** The whole `executeWorkflow` body is wrapped so that **every** exit path (all stages pass, a stage terminally fails, or the engine loop itself throws) drives **exactly one** terminal transition (`emitWorkerExit` on success, `finalizeRoutingTerminal` on failure). No stage calls the issue-level `emitWorkerExit`.                                                                                                                                                                                                                                                                                                                                                                     | Preserves single-unit atomicity + lane invariants; the `try/finally` closes the orphaned-`running`/`claimed` hole rev-1 left (reconciliation only clears claimed-not-running, `state-machine.ts:293-303`).            |
+| **D7**  | **v1 producer is the declarative staged-workflow API; rich auto-producers are follow-ups.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Avoids over-integration before the substrate is proven; keeps the PR reviewable.                                                                                                                                      |
+| **D8**  | **Three separated failure mechanisms (C3/S4 fix): (a) engine-owned per-stage retry cap = 1; (b) floor-climb feed; (c) terminal-fail trigger.** A `pass-required` stage that fails is retried **once by the engine at an explicitly-bumped tier** (the engine computes `nextTier(decision.tierRequired)` and passes it as the stage's required floor — it does NOT rely on `recordOutcome`'s threshold climb). Independently, the engine calls `recordOutcome(coherenceUnit, tier, false)` on each quality failure to feed the **cumulative** unit floor (which climbs per `EscalationState`'s threshold, `escalation-state.ts:23,57-90`) so _later_ stages inherit escalation. If the single engine-retry also fails, the unit terminally fails to a human. `advisory` stages never fail the unit. | rev-1 conflated the engine's per-stage retry with `recordOutcome`'s threshold climb (one failure doesn't climb a `threshold=2` ladder). Separating them makes escalation correct and bounded.                         |
+| **D9**  | **Split-routing is homed in the orchestrator (where AMR lives), not the review pipeline.** `core/review`'s dimension agents are synchronous heuristics with no model (`fan-out.ts:22-45`), and `core` cannot import `orchestrator` (`harness.config.json` layers: "Core layer cannot import from higher layers"), so AMR cannot drive them; review-dimension tiering is `core/review`'s separate future work using its own `model-tier-resolver`. **Note:** the _other_ way to tier review is to dispatch review dimensions as orchestrator **workflow stages** — which is exactly what a future D7 staged-review producer would be. So this engine is the orchestrator-side path to staged review later; "core owns review tiering" is true only for the _in-process_ `core/review` agents.       | Correct layer, no cross-layer coupling, no review rewrite.                                                                                                                                                            |
+| **D10** | **A mid-workflow transport/runner error terminally fails the unit (C2 fix).** It does NOT re-enter the whole-issue retry budget (`enqueueRetry`, `state-machine.ts:508`), which re-runs from stage 0 and wipes the worktree (`ensureWorkspace`), destroying completed-stage artifacts. The engine catches the stage error and calls `finalizeRoutingTerminal` + a `needs-human` escalation.                                                                                                                                                                                                                                                                                                                                                                                                        | The existing retry model is per-_dispatch_, not per-_stage_; reusing it would silently violate D4's artifact-forward contract. Stage-local retry-in-place is a follow-up.                                             |
+| **D11** | **Restart = restart-from-stage-0 on a fresh worktree.** `RunningEntry`/`currentStageIndex` are in-memory (`OrchestratorState`, `internal.ts:98`); a process death mid-workflow re-runs the whole workflow on the next attempt (idempotent). No persisted stage cursor in v1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Matches the existing single-dispatch restart semantics; partial-resume is a follow-up (a non-goal).                                                                                                                   |
+| **D12** | **Per-stage wall-clock deadline.** Each stage runs under a configurable per-stage timeout (in addition to the runner's `maxTurns`); a stage that exceeds it is treated as a stage failure → D8 (retry once) → terminal. Issue-grain stall detection (`state-machine.ts:736`) is bypassed for workflow units (the engine owns per-stage liveness).                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A single long-lived running entry would otherwise let one hung stage hang the whole unit with no bound (I3).                                                                                                          |
+| **D13** | **0-stage workflow = validation error; 1-stage workflow = single dispatch.** `workflowFor` only returns a plan for `stages.length ≥ 2`; a declared 0-stage workflow fails config validation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | A 0-stage "success" would mark an issue done having done nothing; a 1-stage workflow is behaviorally single dispatch and should take the proven path (I4).                                                            |
 
 ## Technical Design
 
 ### Type changes (`packages/types`)
 
 ```ts
-// workflow.ts — additive
+// workflow.ts — additive. NOTE: no `model?` on WorkflowStep — routing produces a
+// RoutingDecision captured on StageRun; a WorkflowStep.model with no consumer would be
+// the exact "validated, zero-consumer" anti-pattern this spec criticizes (S2/YAGNI).
 export interface WorkflowStep {
   skill: string;
   produces: string;
   expects?: string;
   gate?: 'pass-required' | 'advisory';
-  cognitiveMode?: string; // NEW: drives per-stage RoutingUseCase (D2)
-  model?: string | string[]; // NEW: runtime-populated by routing (declarative default optional)
+  cognitiveMode?: string; // drives per-stage RoutingUseCase
+  // Deterministic routing hint so a stage can force a tier for testing/fixtures (S3):
+  // when present it seeds RoutingRequest.complexity/risk so the fixture's `strong` and
+  // `fast` stages resolve differently without depending on live text classification.
+  routingHint?: { complexity?: ComplexityVerdict; risk?: RoutingRisk };
 }
 
-// A unit's optional staged plan. Absent ⇒ single-agent dispatch (D5).
 export interface WorkflowExecutionPlan {
-  coherenceUnit: string; // = issue.id
+  coherenceUnit: string;
   stages: WorkflowStep[];
 }
 
-// Per-stage runtime record (lives on RunningEntry).
 export interface StageRun {
   index: number;
   step: WorkflowStep;
-  decision?: RoutingDecision; // resolved backend + tier + cost (AMR enrichment)
+  decision?: RoutingDecision; // resolved backend + tier + cost
+  sessionId?: string; // C1: per-stage session, not the issue's
+  tokens?: { input: number; output: number; total: number }; // C1: per-stage cost
   outcome?: 'pass' | 'fail' | 'error';
   tier?: CapabilityTier;
+  attempt?: number; // 0 or 1 (D8 engine retry cap)
   durationMs?: number;
 }
 ```
 
-`RunningEntry` (`packages/orchestrator/src/types/internal.ts:98-125`) gains optional `workflow?: WorkflowExecutionPlan`, `currentStageIndex?: number`, `stageRuns?: StageRun[]` — all optional, so non-workflow units are unchanged.
+`RunningEntry` (`types/internal.ts:98-125`) gains optional `workflow?: WorkflowExecutionPlan`, `currentStageIndex?: number`, `stageRuns?: StageRun[]` — the engine owns these; non-workflow entries are unchanged. The per-stage `session`/abort live in `stageRuns[i]`, **not** the issue-level `session` field (C1).
 
 ### The engine (`packages/orchestrator/src/workflow/execute-workflow.ts`, new)
 
 ```ts
-async function executeWorkflow(ctx, plan: WorkflowExecutionPlan): Promise<WorkerExit> {
-  const outcomes: StageRun[] = [];
-  for (const [index, step] of plan.stages.entries()) {
-    const useCase = buildStageUseCase(step); // { kind:'skill', skillName, cognitiveMode }
-    const req: RoutingRequest = {
-      useCase,
-      coherenceUnit: plan.coherenceUnit,
-      taskText: stageText(step, outcomes),
-    };
-    const { decision, def } = ctx.adaptiveRouter
-      ? await ctx.adaptiveRouter.route(req) // per-stage routing (D2)
-      : ctx.identityResolve(useCase); // no policy → identity (D5)
-    const result = await ctx.runStage(step, def, ctx.worktree, priorOutputs(outcomes)); // reuse runner + worktree
-    const ok = step.gate !== 'pass-required' || result.passed;
-    ctx.adaptiveRouter?.recordOutcome(plan.coherenceUnit, decision.tierRequired, ok); // shared floor (D2)
-    outcomes.push({
-      index,
-      step,
-      decision,
-      outcome: ok ? 'pass' : 'fail',
-      tier: decision.tierRequired,
-    });
-    if (!ok) {
-      const escalated = await ctx.retryStageAtRaisedTier(step, plan.coherenceUnit, outcomes); // D8
-      if (!escalated.ok) return terminalFailToHuman(plan.coherenceUnit, step); // D8 cap
+async function executeWorkflow(ctx, plan: WorkflowExecutionPlan): Promise<void> {
+  const runs: StageRun[] = [];
+  try {
+    // D6/I1: exactly one terminal exit
+    for (const [index, step] of plan.stages.entries()) {
+      const run = await runStageWithRetry(ctx, plan.coherenceUnit, step, index, runs);
+      runs.push(run);
+      if (run.outcome === 'fail' || run.outcome === 'error') {
+        return await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, step); // D8/D10
+      }
     }
+    return await ctx.emitWorkflowSuccess(plan.coherenceUnit, runs); // D6 one exit
+  } catch (err) {
+    // I1 safety net
+    return await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, undefined, err);
   }
-  return aggregateSuccess(outcomes); // one emitWorkerExit (D6)
+}
+
+async function runStageWithRetry(ctx, unit, step, index, prior): Promise<StageRun> {
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    // D8(a): engine retry cap = 1
+    const floor = attempt === 0 ? undefined : ctx.nextTier(prior /*bumped tier*/);
+    const req = buildStageRequest(step, unit, prior, floor); // seeds routingHint (S3)
+    const { decision, def } = ctx.adaptiveRouter
+      ? await ctx.adaptiveRouter.route(req)
+      : ctx.identityResolve(req.useCase); // D5
+    // C1/D3: engine owns the session, recorder (keyed by (unit,index,attempt)), abort, tokens.
+    // D12: per-stage wall-clock deadline wraps runStageSession.
+    const result = await ctx.runStageSession(unit, index, attempt, step, def, priorOutputs(prior));
+    const ok = step.gate !== 'pass-required' || result.passed;
+    ctx.adaptiveRouter?.recordOutcome(unit, decision.tierRequired, ok); // D8(b): cumulative floor
+    if (ok || step.gate !== 'pass-required')
+      return stageRun(index, step, decision, result, 'pass', attempt);
+    if (attempt === 1) return stageRun(index, step, decision, result, 'fail', attempt); // D8(c)
+    // else: loop once more at the bumped tier
+  }
+  /* unreachable */ return stageRun(index, step, undefined, undefined, 'error', 1);
 }
 ```
 
-Entered from `dispatchIssue` (`orchestrator.ts:1841`): after workspace + claim, `if (workflowFor(issue)) return this.executeWorkflow(...)` else the existing single-agent path. The claim, lane, and a single `emitWorkerExit` wrap the whole workflow (D6).
+- **Entered from `dispatchIssue`** after workspace + claim: `const plan = workflowFor(issue); if (plan) return this.executeWorkflow(ctx, plan);` else the unchanged single-agent path (D5/D13).
+- **`runStageSession`** drives `AgentRunner.runSession` directly, holding a per-stage `LiveSession`, a per-stage recorder (`startRecording`/`finishRecording` keyed by `(issueId, index, attempt)`), and a per-stage `AbortController` in `stageRuns[index]` — never the issue-level fields (C1). It accrues tokens into `StageRun.tokens`.
+- **`emitWorkflowSuccess`** performs the single terminal success transition (running.delete → completed.set → claimed.delete → cleanWorkspace), aggregating `stageRuns` into the completion record — one `emitWorkerExit`-equivalent (D6).
+- **`finalizeWorkflowTerminal`** = AMR's `finalizeRoutingTerminal` pattern (running/claimed delete + `persistLaneSafe('abandon')` + `needs-human`) **plus `cleanWorkspace`** (S5) so a failed workflow doesn't leak its worktree.
 
-### Reused primitives (no reinvention)
+### Reused primitives (unchanged)
 
-- **Worktree:** `WorkspaceManager.ensureWorkspace` once per unit; all stages share it (`workspace/manager.ts:89-142`).
-- **Runner:** `AgentRunner` per stage (per-dispatch construction is already the pattern — `agent/runner.ts`).
-- **Routing:** `AdaptiveRouter.route()` unchanged (`agent/adaptive-router.ts:117-148`); called per stage with shared `coherenceUnit`.
-- **Escalation:** `EscalationState.recordOutcome/floorFor` unchanged — already `coherenceUnit`-keyed (`agent/escalation-state.ts`).
-- **Terminal fail:** AMR's `finalizeRoutingTerminal` + needs-human queue for D8 exhaustion.
+Worktree (`ensureWorkspace`, one per unit), `AgentRunner.runSession` (per stage), `AdaptiveRouter.route()` (per stage, shared `coherenceUnit`), `EscalationState` (cumulative unit floor), `finalizeRoutingTerminal` pattern (terminal fail).
 
 ## Integration Points
 
-- **Entry Points:** new `executeWorkflow` branch inside `dispatchIssue`; new `packages/orchestrator/src/workflow/execute-workflow.ts`; optional `workflow` on the dispatch input.
-- **Registrations Required:** barrel exports for the new types (`pnpm generate:barrels`); no new CLI command in v1 (the producer is declarative input).
-- **Documentation Updates:** AGENTS.md orchestrator section (staged dispatch); the AMR spec's "Deferred follow-ups" 4b entry → "landed".
-- **Architectural Decisions:** D1 (engine reuses primitives), D6 (atomic unit lifecycle over stages), and D7 (minimal producer, rich producers deferred) each warrant an ADR — they are the load-bearing long-term calls.
-- **Knowledge Impact:** "workflow stage", "coherence unit", "split-routing" enter the graph as first-class execution concepts.
+- **Entry Points:** `executeWorkflow` branch in `dispatchIssue`; new `packages/orchestrator/src/workflow/execute-workflow.ts`; optional `workflow` on dispatch input; a `workflowFor` predicate + config validation (D13).
+- **Registrations Required:** barrel exports for new types (`pnpm generate:barrels`).
+- **Documentation Updates:** AGENTS.md orchestrator section; AMR spec "Deferred follow-ups" 4b → landed.
+- **Architectural Decisions:** D3 (engine owns per-stage session state), D6 (atomic try/finally lifecycle), D8 (separated failure mechanisms), D9 (orchestrator homing), D10 (mid-workflow error = terminal) each warrant an ADR — they are the load-bearing calls the feasibility review surfaced.
+- **Knowledge Impact:** "workflow stage", "coherence unit", "per-stage cost" enter the graph.
 
 ## Success Criteria
 
 ### Functional
 
-- **SC1** — A declared 3-stage workflow runs all stages sequentially on one worktree, in order, producing one completion.
-- **SC2** — With `routing.policy` set, each stage routes independently: a `strong`-tagged stage and a `fast`-tagged stage in the same unit resolve to different tiers/backends (SC4 from AMR, now live).
-- **SC3** — All stages of a unit share one `coherenceUnit`; a quality failure in stage N raises the escalation floor for stages > N (verified: stage N+1 resolves at ≥ the raised tier).
+- **SC1** — A declared 3-stage workflow runs all stages sequentially on one worktree, in order, producing one completion; each stage's `StageRun` carries its own `sessionId` + `tokens` (per-stage cost captured, D3).
+- **SC2** — With `routing.policy` set and stages carrying distinct `routingHint`s, a `strong`-hinted stage and a `fast`-hinted stage in the same unit resolve to different tiers/backends (SC4 from AMR, deterministically — S3).
+- **SC3** — The unit floor is **cumulative**: after `EscalationState.threshold` quality failures across the unit's stages, a subsequent stage resolves at ≥ the raised tier (matches `EscalationState` semantics — not "one failure climbs," which the ladder does not do, C3).
 
 ### Safety / Invariants
 
-- **SC4** — With no workflow declared, `dispatchIssue` is byte-identical to today (single-agent path); with a workflow but no `routing.policy`, stages resolve via identity routing (no `AdaptiveRouter`) — both regression-tested.
-- **SC5** — One claim, one lane entry, one `emitWorkerExit` per workflow unit regardless of stage count (D6); no orphaned `running`/`claimed` state on stage failure.
-- **SC6** — A `pass-required` stage that fails at `strong` after the escalation retry terminally fails the unit to a human exactly once (no retry loop — reuses AMR's terminal path); `advisory` stages never fail the unit.
+- **SC4** — With no ≥2-stage workflow, `dispatchIssue` is behaviorally identical (single-agent path; `workflowFor` is a pure no-side-effect predicate). A 1-stage workflow uses the single path; a 0-stage workflow is rejected at validation (D13).
+- **SC5** — **Exactly one** claim, one lane entry, one terminal transition per workflow unit for **every** exit path — all-pass, stage terminal-fail, or an exception thrown inside the engine loop — with **no orphaned `running`/`claimed`** (the `try/finally`, D6/I1). Regression-tested by forcing a throw between stages.
+- **SC6** — A `pass-required` stage that fails, is retried **once** at a bumped tier, and fails again → the unit terminally fails to a human exactly once (no loop; `cleanWorkspace` runs). A mid-workflow transport error → terminal, **without** re-running from stage 0 or wiping completed-stage artifacts (D10). `advisory` stages never fail the unit.
+- **SC7** — A stage exceeding its per-stage deadline is treated as a stage failure (D12), not an unbounded hang.
 
 ### Non-regression
 
-- **SC7** — `AdaptiveRouter`/`BackendRouter` byte-unchanged (D2); existing single-dispatch + AMR tests pass unchanged.
+- **SC8** — `AdaptiveRouter`/`BackendRouter` byte-unchanged (AMR D2); existing single-dispatch + AMR tests pass unchanged.
 
 ## Implementation Order
 
-**Phase 1 — Types + engine skeleton (substrate, ~3d).** `WorkflowStep.cognitiveMode/model`, `WorkflowExecutionPlan`, `StageRun`; `executeWorkflow` running stages sequentially on the shared worktree via the existing runner (no routing yet); barrels. Prove SC1.
+**Phase 1 — Types + engine skeleton with per-stage session ownership (substrate, ~4d).** `WorkflowStep`(+`cognitiveMode`/`routingHint`, **no** `model`), `WorkflowExecutionPlan`, `StageRun`(+`sessionId`/`tokens`); `executeWorkflow` + `runStageSession` driving `AgentRunner.runSession` per stage with **engine-owned** per-stage session/recorder/abort/tokens (C1/D3); `try/finally` single-exit (D6/I1). Prove SC1 + SC5 (orphan-on-throw).
 
-**Phase 2 — Per-stage routing + coherence-pinning (~3d).** Call `AdaptiveRouter.route()` per stage with shared `coherenceUnit`; populate `StageRun.decision`; `recordOutcome` on the shared floor. Prove SC2/SC3.
+**Phase 2 — Per-stage routing + cumulative coherence-pinning (~3d).** Per-stage `route()` with shared `coherenceUnit` + `routingHint` seeding (S3); `recordOutcome` cumulative floor. Prove SC2/SC3.
 
-**Phase 3 — Failure/escalation + atomic lifecycle (~3d).** D8 stage-fail escalate-retry-or-terminal; D6 single claim/lane/exit aggregation; reuse `finalizeRoutingTerminal`. Prove SC5/SC6.
+**Phase 3 — Separated failure mechanisms + terminal semantics (~3d).** D8 engine retry-cap-1 at a bumped tier + floor feed + terminal; D10 mid-workflow-error terminal (no worktree wipe); D12 per-stage deadline; `finalizeWorkflowTerminal` (+`cleanWorkspace`, S5). Prove SC6/SC7.
 
-**Phase 4 — Opt-in gate + first producer + docs (~2d).** The `dispatchIssue` detection branch (workflow present → engine, else unchanged); the minimal declarative producer + an end-to-end SC2 fixture; default-off/identity regression tests (SC4); docs + ADRs. Prove SC4/SC7.
+**Phase 4 — Opt-in gate + declarative producer + docs (~2d).** `workflowFor` predicate + `≥2`-stage gate + 0-stage validation (D13); the declarative producer + an end-to-end SC2 fixture; behavioral-identity + restart-from-0 regression tests (SC4/D11); docs + ADRs. Prove SC4/SC8.
 
-**Total:** ~11 working days. Phases 1–3 are the engine; Phase 4 wires it in opt-in and proves the whole path with a real producer. Parallel stages and rich producers (staged code-review, autopilot-as-workflow) are follow-ups on this substrate.
+**Total:** ~12 working days. Phases 1–3 are the engine (with the state-layer integration the feasibility review surfaced made explicit); Phase 4 wires it in opt-in with a real producer. Parallel stages, stage-local retry-in-place, partial-resume, and rich auto-producers are follow-ups on this substrate.
