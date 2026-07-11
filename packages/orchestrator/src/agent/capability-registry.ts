@@ -5,6 +5,8 @@ import type {
   PrivacyClass,
   BackendDef,
 } from '@harness-engineering/types';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
+import { poolStateToCandidates } from '@harness-engineering/local-models';
 
 /** Fail-closed signal: privacy floor / allowlist emptied the candidate set (S4-001).
  *  Distinguishable from a tier/cost-only exclusion, which returns `undefined`. */
@@ -119,4 +121,36 @@ export function selectCheapestQualifying(
   );
   const head = qualifying[0]!;
   return { name: head.name, capabilities: head.capabilities };
+}
+
+/** Default capability block derived for an LMLM pool candidate that carries no
+ *  explicit capabilities. On-device ⇒ strongest privacy, zero marginal cost.
+ *  Seed values (tunable in later phases); a candidate is thus visible to tier
+ *  selection (spec "Failure modes": a backend with NO capabilities is invisible,
+ *  but a pool candidate is always given a derived block so it can win on cost). */
+export function defaultPoolCapabilities(): BackendCapabilities {
+  return { tier: 'fast', costPer1kTokens: 0, privacyClass: 'on-device', contextWindow: 8192 };
+}
+
+/**
+ * Build the tier-selection registry (name → capabilities) from configured
+ * `agent.backends` (their `capabilities` blocks, when present) merged with LMLM
+ * pool candidates (each given a derived on-device/zero-cost block). A configured
+ * backend WITHOUT a `capabilities` block is omitted — invisible to tier selection,
+ * reachable only via identity routing (spec "Failure modes"). No LMLM code changes.
+ */
+export function buildCapabilityRegistry(
+  backends: Record<string, BackendDef>,
+  pool?: PoolStateProvider
+): BackendCapabilityRegistry {
+  const out = new Map<string, BackendCapabilities>();
+  for (const [name, def] of Object.entries(backends)) {
+    if (def.capabilities) out.set(name, def.capabilities);
+  }
+  if (pool) {
+    for (const candidate of poolStateToCandidates(pool.snapshot())) {
+      if (!out.has(candidate)) out.set(candidate, defaultPoolCapabilities());
+    }
+  }
+  return out;
 }

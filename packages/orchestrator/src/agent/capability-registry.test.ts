@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import type { BackendCapabilities, BackendCapabilityRegistry } from '@harness-engineering/types';
-import { selectCheapestQualifying, PrivacyNoMatch } from './capability-registry.js';
+import type {
+  BackendCapabilities,
+  BackendCapabilityRegistry,
+  BackendDef,
+} from '@harness-engineering/types';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
+import {
+  selectCheapestQualifying,
+  PrivacyNoMatch,
+  buildCapabilityRegistry,
+  defaultPoolCapabilities,
+} from './capability-registry.js';
 
 const cap = (
   o: Partial<BackendCapabilities> & Pick<BackendCapabilities, 'tier' | 'costPer1kTokens'>
@@ -62,5 +72,58 @@ describe('selectCheapestQualifying — SC2 (cheapest qualifying; registry-driven
     expect(
       selectCheapestQualifying(base, 'standard', { minContextTokens: 1_000_000 })
     ).toBeUndefined();
+  });
+});
+
+const fakePool = (names: string[]): PoolStateProvider => ({
+  snapshot: () => ({
+    diskBudgetGb: 100,
+    diskUsedGb: 0,
+    allowedOrgs: [],
+    allowedFamilies: [],
+    lastRefreshAt: null,
+    entries: names.map((ollamaName, i) => ({
+      ollamaName,
+      hfRepoId: `org/${ollamaName}`,
+      sizeOnDiskGb: 1,
+      installedAt: '2026-01-01T00:00:00Z',
+      lastUsedAt: null,
+      currentScore: 100 - i,
+    })),
+  }),
+});
+
+describe('buildCapabilityRegistry — SC12 (LMLM pool candidates present)', () => {
+  const backends: Record<string, BackendDef> = {
+    opus: {
+      type: 'anthropic',
+      model: 'claude-opus',
+      capabilities: cap({ tier: 'strong', costPer1kTokens: 15 }),
+    },
+    plainClaude: { type: 'claude' }, // no capabilities → invisible to tier selection
+  };
+  it('includes configured backends that declare capabilities; omits those that do not', () => {
+    const reg = buildCapabilityRegistry(backends);
+    expect(reg.has('opus')).toBe(true);
+    expect(reg.has('plainClaude')).toBe(false);
+  });
+  it('includes pool candidates with derived on-device, zero-cost capabilities', () => {
+    const reg = buildCapabilityRegistry(backends, fakePool(['qwen3:32b', 'llama3:8b']));
+    expect(reg.get('qwen3:32b')?.privacyClass).toBe('on-device');
+    expect(reg.get('qwen3:32b')?.costPer1kTokens).toBe(0);
+    expect(reg.get('llama3:8b')?.tier).toBe(defaultPoolCapabilities().tier);
+  });
+  it('a configured backend of the same name wins over a derived pool default', () => {
+    const withNamedLocal = {
+      ...backends,
+      'qwen3:32b': {
+        type: 'local',
+        endpoint: 'x',
+        model: 'qwen3:32b',
+        capabilities: cap({ tier: 'standard', costPer1kTokens: 0 }),
+      } as BackendDef,
+    };
+    const reg = buildCapabilityRegistry(withNamedLocal, fakePool(['qwen3:32b']));
+    expect(reg.get('qwen3:32b')?.tier).toBe('standard'); // configured, not derived 'fast'
   });
 });
