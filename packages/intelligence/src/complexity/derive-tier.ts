@@ -1,0 +1,88 @@
+import type {
+  CapabilityTier,
+  ComplexityVerdict,
+  RoutingRisk,
+  RoutingPolicy,
+  ComplexityLevel,
+} from '@harness-engineering/types';
+
+const TIER_RANK: Record<CapabilityTier, number> = { fast: 0, standard: 1, strong: 2 };
+const RANK_TIER: CapabilityTier[] = ['fast', 'standard', 'strong'];
+
+/**
+ * Documented seed threshold for the D5 high-blast veto. The spec lists
+ * sensitive-path / core|types layer / public API explicitly but pins no numeric
+ * blast threshold, so this is a plan-chosen seed — overridable later.
+ */
+export const SENSITIVE_BLAST_THRESHOLD = 25;
+
+/** Default (complexity level) → required tier matrix. Overridable via policy. */
+const DEFAULT_MATRIX: Record<ComplexityLevel, CapabilityTier> = {
+  trivial: 'fast',
+  simple: 'fast',
+  moderate: 'standard',
+  complex: 'strong',
+};
+
+/** Clamp a rank into the valid tier range and map back to a tier. */
+function tierAtRank(rank: number): CapabilityTier {
+  const clamped = Math.max(0, Math.min(RANK_TIER.length - 1, rank));
+  return RANK_TIER[clamped]!;
+}
+
+/**
+ * D5: any sensitive-path / core|types layer / public API / high blast → force
+ * `strong`, regardless of complexity (SC5). This is a HARD floor; downstream
+ * budget clamping (D8) must not undercut it.
+ */
+export function blastRadiusVeto(risk?: RoutingRisk): boolean {
+  if (!risk) return false;
+  return (
+    risk.sensitivePath === true ||
+    risk.publicApi === true ||
+    risk.layer === 'core' ||
+    risk.layer === 'types' ||
+    (typeof risk.blastRadius === 'number' && risk.blastRadius >= SENSITIVE_BLAST_THRESHOLD)
+  );
+}
+
+/**
+ * Pre-budget tier resolution (Task 7): skillTierOverride → matrix → D5 veto →
+ * low-confidence bump. Pure; the LLM never influences it (mirrors
+ * outcome-eval/authority.ts). Task 8's `deriveRequiredTier` calls this then
+ * applies the D8 budget clamp and D10 escalation floor.
+ *
+ * SC6: a `low`-confidence verdict degrades the tier UP one step (never below the
+ * matrix default and never to a cheaper tier) — uncertainty routes to a more
+ * capable model, never a Tier-A cheap one.
+ */
+export function baseTier(
+  complexity: ComplexityVerdict,
+  risk: RoutingRisk | undefined,
+  policy: RoutingPolicy,
+  skillKey?: string
+): CapabilityTier {
+  // D5 veto is a hard `strong` floor — evaluate it up front.
+  const veto = blastRadiusVeto(risk);
+
+  // Skill/phase override precedes the matrix.
+  const override = skillKey !== undefined ? policy.skillTierOverrides?.[skillKey] : undefined;
+
+  const matrix = policy.complexityTierMatrix ?? {};
+  const fromMatrix = matrix[complexity.level] ?? DEFAULT_MATRIX[complexity.level];
+
+  let rank = Math.max(override !== undefined ? TIER_RANK[override] : 0, TIER_RANK[fromMatrix]);
+
+  // SC6: low confidence degrades UP one step (never below the resolved default;
+  // tierAtRank clamps the bump at `strong`).
+  if (complexity.confidence === 'low') {
+    rank = rank + 1;
+  }
+
+  // D5 veto forces at least `strong`.
+  if (veto) rank = Math.max(rank, TIER_RANK.strong);
+
+  return tierAtRank(rank);
+}
+
+export { TIER_RANK, RANK_TIER, DEFAULT_MATRIX };
