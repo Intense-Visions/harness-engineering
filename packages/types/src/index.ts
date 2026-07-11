@@ -162,6 +162,7 @@ export type {
   ComplexityVerdict,
   RoutingRisk,
   RoutingRequest,
+  RoutingTaskText,
   BudgetSnapshot,
   RoutingPolicy,
 } from './orchestrator';

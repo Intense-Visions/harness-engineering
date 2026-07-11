@@ -377,6 +377,25 @@ export interface RoutingRisk {
   publicApi?: boolean;
 }
 
+/**
+ * Pre-diff text-only signals the orchestrator knows about a unit at dispatch
+ * time, BEFORE any diff exists (S3-001 phase-awareness). Threaded on the
+ * RoutingRequest so the live classifier seam can score real task difficulty
+ * without fabricating diff-based signals (no fake blast-radius pre-diff). Absent
+ * ⇒ the classifier degrades to a conservative verdict (D4). Additive/optional:
+ * existing requests validate and behave byte-identically (SC8/SC19).
+ */
+export interface RoutingTaskText {
+  /** Length of the task's title + description (chars). Drives the static pass. */
+  descriptionLength: number;
+  /** A spec file is attached to the unit — a well-scoped signal that LOWERS complexity. */
+  specExists: boolean;
+  /** Acceptance criteria look measurable — a well-scoped signal that LOWERS complexity. */
+  acceptanceMeasurable: boolean;
+  /** Free-text prompt for the optional LLM tie-break (title + description). */
+  prompt: string;
+}
+
 /** Decision vector fed to the AMR layer. `complexity` absent ⇒ classifier runs (Phase 3). */
 export interface RoutingRequest {
   useCase: RoutingUseCase;
@@ -384,6 +403,12 @@ export interface RoutingRequest {
   risk?: RoutingRisk;
   capabilities?: { needsVision?: boolean; needsToolUse?: boolean; minContextTokens?: number };
   coherenceUnit?: string;
+  /**
+   * Pre-diff text signals for the LIVE complexity classifier (S3-001). Populated
+   * at the dispatch call site from what the orchestrator knows about the unit;
+   * consumed by the classify seam. Absent ⇒ conservative fallback (D4).
+   */
+  taskText?: RoutingTaskText;
 }
 
 /**

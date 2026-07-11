@@ -10,7 +10,7 @@ import type {
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
-import type { EnrichedSpec } from '@harness-engineering/intelligence';
+import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
@@ -82,6 +82,9 @@ import { RoutingDecisionBus } from './routing/decision-bus.js';
 // longer references them directly.
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
 import { buildRoutingUseCase } from './agent/use-case-builder';
+import { makeLiveClassify } from './agent/live-classify';
+import { buildTaskText } from './agent/complexity-request';
+import { buildAnalysisProviderForLayer } from './agent/intelligence-factory';
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
@@ -318,6 +321,15 @@ export class Orchestrator extends EventEmitter {
    */
   private localModelStatusUnsubscribes: Array<() => void> = [];
   private pipeline: IntelligencePipeline | null;
+  /**
+   * AMR live-classifier provider (final-review finding #2). The complexity
+   * cascade may spend a fast-tier LLM tie-break; it borrows the SEL-layer
+   * AnalysisProvider. Built lazily on first classify (the AdaptiveRouter is
+   * constructed before start(), so this cannot be eager); `null` means "no
+   * provider — cascade stays fully offline / static-only". `undefined` means
+   * "not yet resolved".
+   */
+  private complexityProvider: AnalysisProvider | null | undefined = undefined;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
@@ -688,16 +700,17 @@ export class Orchestrator extends EventEmitter {
             backends: this.config.agent.backends,
             ...(this.modelPool ? { pool: this.modelPool } : {}),
             policy,
-            // classify seam: an async classifier resolved to a sync verdict-provider.
-            // Phase 3 wires a conservative default; richer async triage is invoked
-            // upstream and passed via req.complexity. (Spec Failure modes: classifier
-            // failure ⇒ { level:'moderate', confidence:'low' } — never blocks dispatch.)
-            classify: () => ({
-              level: 'moderate',
-              confidence: 'low',
-              signals: {},
-              source: 'static',
-            }),
+            // classify seam (final-review finding #2): the REAL intelligence
+            // cascade, replacing the Phase-3 constant `{moderate, low}` stub.
+            // `makeLiveClassify` reads `req.taskText` (populated at the dispatch
+            // call site), runs the phase-aware `pre-diff` static pass, and spends a
+            // fast-tier LLM tie-break ONLY when a provider is available AND the
+            // static verdict is low-confidence. The provider is resolved LAZILY
+            // (per dispatch) because it is built in start(), after this
+            // constructor. No provider / no taskText ⇒ fully-offline conservative
+            // verdict — never throws, and classifySafe still guards any surprise
+            // throw/timeout so classification can never block dispatch (D4).
+            classify: makeLiveClassify(() => this.resolveComplexityProvider()),
             // D10: fromConfig seeds a fresh EscalationState from
             // policy.escalationThreshold (default 2). Bind the strong-cap
             // exhaustion seam to a structured steward-escalation log line
@@ -1228,6 +1241,41 @@ export class Orchestrator extends EventEmitter {
     if (!bundle) return null;
     this.graphStore = bundle.graphStore;
     return bundle.pipeline;
+  }
+
+  /**
+   * AMR live-classifier provider resolution (final-review finding #2). The
+   * complexity cascade's OPTIONAL fast-tier tie-break borrows the SEL-layer
+   * AnalysisProvider (the same one intelligence enrichment uses). Resolved and
+   * memoized on first classify because the AdaptiveRouter is constructed BEFORE
+   * start(), so the provider cannot be resolved eagerly.
+   *
+   * Returns `undefined` when no provider is available (intelligence disabled, no
+   * backendFactory, or the layer resolves to nothing) — the cascade then stays
+   * fully offline and returns the static verdict (never throws). A build failure
+   * degrades the same way: static-only, never blocks dispatch (D4).
+   */
+  private resolveComplexityProvider(): AnalysisProvider | undefined {
+    if (this.complexityProvider !== undefined) {
+      return this.complexityProvider ?? undefined;
+    }
+    let provider: AnalysisProvider | null = null;
+    try {
+      if (this.config.intelligence?.enabled && this.backendFactory) {
+        provider =
+          buildAnalysisProviderForLayer('sel', {
+            config: this.config,
+            localResolvers: this.localResolvers,
+            logger: this.logger,
+            router: this.backendFactory.getRouter(),
+          }) ?? null;
+      }
+    } catch {
+      // Never let provider construction block dispatch — degrade to static-only.
+      provider = null;
+    }
+    this.complexityProvider = provider;
+    return provider ?? undefined;
   }
 
   /**
@@ -1906,7 +1954,12 @@ export class Orchestrator extends EventEmitter {
         const req: RoutingRequest = {
           useCase,
           coherenceUnit: issue.id, // one issue = one coherence unit (D6 pinning at issue grain)
-          // no req.complexity ⇒ AdaptiveRouter.route awaits classifySafe (D4)
+          // Live classification (final-review finding #2): pass the PRE-DIFF text
+          // signals the orchestrator actually knows about this unit (title/desc
+          // length, spec attached, measurable acceptance). The classify seam runs
+          // the real cascade over these; no req.complexity ⇒ route() awaits
+          // classifySafe (D4). Diff-based signals stay absent by design (S3-001).
+          taskText: buildTaskText(issue),
         };
         const routed = await this.adaptiveRouter.route(req);
         amrDecision = routed.decision;
