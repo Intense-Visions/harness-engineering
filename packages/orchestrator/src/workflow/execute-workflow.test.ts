@@ -200,3 +200,71 @@ describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
     expect(new Set(runs.map((r) => r.tokens?.total)).size).toBe(3);
   });
 });
+
+describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routing P1)', () => {
+  it('a throw between stages → exactly one finalizeWorkflowTerminal, no orphaned running/claimed (SC5-b)', async () => {
+    // Seed a coherence unit as running + claimed; the terminal transition must
+    // clear BOTH. Reconciliation would NOT clear an orphaned `running`
+    // (state-machine.ts:288-303), so the try/finally is the only safety net.
+    const running = new Set(['issue-1']);
+    const claimed = new Set(['issue-1']);
+    const { ctx, successCalls, terminalCalls, runOrder } = makeFakeCtx({
+      sessionIds: ['sess-0', 'sess-1', 'sess-2'],
+      throwAtIndex: 1, // forced throw BETWEEN stages (during stage index 1)
+      onSuccess: (u) => {
+        running.delete(u);
+        claimed.delete(u);
+      },
+      onTerminal: (u) => {
+        running.delete(u);
+        claimed.delete(u);
+      },
+    });
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [step('a'), step('b'), step('c')],
+    };
+
+    // engine swallows the throw into the terminal path, does NOT rethrow
+    await expect(executeWorkflow(ctx, plan)).resolves.toBeUndefined();
+
+    expect(runOrder).toEqual([0, 1]); // stage 2 never ran (threw during stage 1)
+    expect(successCalls).toHaveLength(0); // no success exit
+    expect(terminalCalls).toHaveLength(1); // EXACTLY ONE terminal transition
+    expect(running.has('issue-1')).toBe(false); // no orphaned running
+    expect(claimed.has('issue-1')).toBe(false); // no orphaned claimed
+  });
+
+  it('emitWorkflowSuccess itself throwing → still exactly one terminal, no orphan (SC5)', async () => {
+    const running = new Set(['issue-1']);
+    const claimed = new Set(['issue-1']);
+    const successCalls: number[] = [];
+    const terminalCalls: number[] = [];
+    // Hand-build a ctx where the success path throws (all 2 stages pass, then
+    // emitWorkflowSuccess throws) — the catch must still drive one terminal.
+    const base = makeFakeCtx({ sessionIds: ['sess-0', 'sess-1'] });
+    const ctx: WorkflowEngineContext = {
+      ...base.ctx,
+      emitWorkflowSuccess: async () => {
+        successCalls.push(1);
+        throw new Error('success path blew up');
+      },
+      finalizeWorkflowTerminal: async (u) => {
+        terminalCalls.push(1);
+        running.delete(u);
+        claimed.delete(u);
+      },
+    };
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [step('a'), step('b')],
+    };
+
+    await expect(executeWorkflow(ctx, plan)).resolves.toBeUndefined();
+
+    expect(successCalls).toHaveLength(1); // success path was entered and threw
+    expect(terminalCalls).toHaveLength(1); // the catch drove exactly one terminal
+    expect(running.has('issue-1')).toBe(false);
+    expect(claimed.has('issue-1')).toBe(false);
+  });
+});
