@@ -77,3 +77,70 @@ describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
     expect(decision.complexity).toEqual(verdict('complex'));
   });
 });
+
+describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5)', () => {
+  const backends = {
+    cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    midStandard: localDef(cap({ tier: 'standard', costPer1kTokens: 3 })),
+    strong: localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
+  };
+  // Routing default is `strong` so we can prove tier selection OVERRODE the
+  // identity default when it resolves a cheaper qualifying backend.
+  const routing = { default: 'strong' } as const;
+
+  it('a trivial verdict resolves via the cheapest fast backend (invocationOverride)', () => {
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: () => verdict('trivial'),
+    });
+
+    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.backendName).toBe('cheapFast');
+    expect(decision.tierRequired).toBe('fast');
+  });
+
+  it('a complex verdict resolves via the strong backend', () => {
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: () => verdict('complex'),
+    });
+
+    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.backendName).toBe('strong');
+    expect(decision.tierRequired).toBe('strong');
+  });
+
+  it('threads req.capabilities (needsVision/needsToolUse/minContextTokens) into constraints', () => {
+    // Only `strong` has vision; a trivial verdict would otherwise pick cheapFast,
+    // but needsVision must force selection to a vision-capable backend.
+    const visionBackends = {
+      cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0, vision: false })),
+      strong: localDef(cap({ tier: 'fast', costPer1kTokens: 10, vision: true })),
+    };
+    const router = new BackendRouter({
+      backends: visionBackends,
+      routing: { default: 'cheapFast' },
+    });
+    const registry = buildCapabilityRegistry(visionBackends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: () => verdict('trivial'),
+    });
+
+    const { decision } = adaptive.route({
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      capabilities: { needsVision: true },
+    });
+    expect(decision.backendName).toBe('strong');
+  });
+});

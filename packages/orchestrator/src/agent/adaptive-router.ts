@@ -9,6 +9,7 @@ import type {
 } from '@harness-engineering/types';
 import { deriveRequiredTier } from '@harness-engineering/intelligence';
 import type { BackendRouter } from './backend-router.js';
+import { selectCheapestQualifying, type SelectConstraints } from './capability-registry.js';
 import { estimateCost } from './cost-estimator.js';
 
 export interface AdaptiveRouterDeps {
@@ -62,8 +63,38 @@ export class AdaptiveRouter {
     };
   }
 
-  // Placeholder — replaced in Tasks 5–7. Returns undefined so Task 4 delegates to identity chain.
-  private selectTarget(_tier: CapabilityTier, _req: RoutingRequest): string | undefined {
-    return undefined;
+  private selectTarget(tier: CapabilityTier, req: RoutingRequest): string | undefined {
+    const target = selectCheapestQualifying(
+      this.deps.registry,
+      tier,
+      this.buildConstraints(req),
+      this.deps.providerOf
+    );
+    return target?.name;
+  }
+
+  /**
+   * Translate the request's declared constraints into {@link SelectConstraints}.
+   * `policy.privacyFloor` and the per-request capability needs are threaded in;
+   * the provider allowlist branch stays DORMANT in Phase 3 (`RoutingPolicy` does
+   * not declare `allowedProviders` until Phase 5 tenant push-down). Task 6 still
+   * derives `providerOf` unconditionally so enabling the allowlist later cannot
+   * silently fail-close every request (Phase-1 finding, capability-registry.ts:60-66).
+   */
+  private buildConstraints(req: RoutingRequest): SelectConstraints {
+    return {
+      ...(this.deps.policy.privacyFloor !== undefined
+        ? { privacyFloor: this.deps.policy.privacyFloor }
+        : {}),
+      ...(req.capabilities?.needsVision !== undefined
+        ? { needsVision: req.capabilities.needsVision }
+        : {}),
+      ...(req.capabilities?.needsToolUse !== undefined
+        ? { needsToolUse: req.capabilities.needsToolUse }
+        : {}),
+      ...(req.capabilities?.minContextTokens !== undefined
+        ? { minContextTokens: req.capabilities.minContextTokens }
+        : {}),
+    };
   }
 }
