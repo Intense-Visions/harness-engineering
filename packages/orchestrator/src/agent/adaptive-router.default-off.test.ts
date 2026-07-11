@@ -193,4 +193,55 @@ describe('AMR default-off gate (D11/SC8/SC17/SC19)', () => {
     const orch = newOrch(makeConfig({ backends: BACKENDS, routing: ROUTING }));
     expect(getAdaptiveRouter(orch)).toBeNull();
   });
+
+  it('AFTER dispatch swap: no policy ⇒ resolution still byte-identical + AdaptiveRouter absent (SC8/SC17 regression guard)', () => {
+    // AMR Phase 4 critical regression guard. The dispatch swap (orchestrator.ts:
+    // "when adaptiveRouter !== null … route through AdaptiveRouter.route()") must
+    // ONLY take effect when the router is constructed. With NO policy the router
+    // is null, so the swap branch is dead code and dispatch resolution is exactly
+    // the shipped BackendRouter — byte-identical across every use case. Because
+    // the AdaptiveRouter (and the classify seam it owns) is never constructed,
+    // classify() provably cannot run on this path.
+    const orch = newOrch(makeConfig({ backends: BACKENDS, routing: ROUTING }));
+
+    // The swap gate: adaptiveRouter is null ⇒ the AMR branch is unreachable.
+    expect(getAdaptiveRouter(orch)).toBeNull();
+
+    const factoryRouter = (
+      orch as unknown as { getBackendRouter(): BackendRouter | null }
+    ).getBackendRouter();
+    expect(factoryRouter).not.toBeNull();
+
+    const bare = new BackendRouter({ backends: BACKENDS, routing: ROUTING });
+
+    for (const useCase of USE_CASES) {
+      const viaOrch = factoryRouter!.resolve(useCase);
+      const viaBare = bare.resolve(useCase);
+      expect({
+        backendName: viaOrch.backendName,
+        backendType: viaOrch.backendType,
+        resolutionPath: viaOrch.resolutionPath,
+      }).toEqual({
+        backendName: viaBare.backendName,
+        backendType: viaBare.backendType,
+        resolutionPath: viaBare.resolutionPath,
+      });
+    }
+  });
+
+  it('AFTER dispatch swap: WITH policy, the AdaptiveRouter IS live (swap can engage) — the gate discriminates on policy alone', () => {
+    // Complements the guard above: the swap is gated purely on the presence of a
+    // non-empty policy. This asserts the ON side so the OFF side's "byte-identical"
+    // is a genuine discriminator, not a vacuous always-off.
+    const withPolicy = newOrch(
+      makeConfig({
+        backends: BACKENDS,
+        routing: { ...ROUTING, policy: { budget: { capUsd: 10, onBudgetExhausted: 'degrade' } } },
+      })
+    );
+    expect(getAdaptiveRouter(withPolicy)).not.toBeNull();
+
+    const withoutPolicy = newOrch(makeConfig({ backends: BACKENDS, routing: ROUTING }));
+    expect(getAdaptiveRouter(withoutPolicy)).toBeNull();
+  });
 });
