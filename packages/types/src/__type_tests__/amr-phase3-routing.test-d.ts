@@ -31,8 +31,33 @@ void _cfgWithPolicy;
 const _cfgNoPolicy: RoutingConfig = { default: 'claude-opus' };
 void _cfgNoPolicy;
 
-// --- 4. RoutingDecision enrichment fields are asserted in Task 2 (below, appended). ---
-// Keep the imports referenced so the fixture stays typecheck-clean between tasks.
-void (undefined as unknown as ComplexityVerdict | undefined);
-void (undefined as unknown as CapabilityTier | undefined);
-void (undefined as unknown as RoutingDecision | undefined);
+// --- 4. RoutingDecision accepts the three optional AMR enrichment fields (SC9) ---
+const _verdict: ComplexityVerdict = {
+  level: 'complex',
+  confidence: 'high',
+  signals: {},
+  source: 'static',
+};
+const _enriched: RoutingDecision = {
+  timestamp: '2026-07-11T00:00:00.000Z',
+  useCase: { kind: 'tier', tier: 'quick-fix' },
+  resolutionPath: [],
+  backendName: 'local-fast',
+  backendType: 'local',
+  durationMs: 0.1,
+  complexity: _verdict,
+  tierRequired: 'strong' satisfies CapabilityTier,
+  estCostUsd: 0.012,
+};
+void _enriched;
+
+// --- 5. RoutingDecision omitting all three enrichment fields still compiles (back-compat) ---
+const _bare: RoutingDecision = {
+  timestamp: '2026-07-11T00:00:00.000Z',
+  useCase: { kind: 'tier', tier: 'quick-fix' },
+  resolutionPath: [],
+  backendName: 'local-fast',
+  backendType: 'local',
+  durationMs: 0.1,
+};
+void _bare;

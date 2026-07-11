@@ -697,6 +697,12 @@ export interface RoutingDecision {
   backendType: BackendDef['type'];
   /** Wall-clock duration of the resolve() call in milliseconds. */
   durationMs: number;
+  /** AMR Phase 3 (D9/SC9): the complexity verdict that drove tier selection. Absent for identity-only (non-AMR) dispatch. */
+  complexity?: ComplexityVerdict;
+  /** AMR Phase 3 (D9/SC9): the derived required CapabilityTier. Absent for identity-only dispatch. */
+  tierRequired?: CapabilityTier;
+  /** AMR Phase 3 (D9/SC9): estimated USD cost of the resolved backend for this invocation. */
+  estCostUsd?: number;
 }
 
 /**
