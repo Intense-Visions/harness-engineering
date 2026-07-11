@@ -629,6 +629,14 @@ export interface RoutingConfig {
    * `skills` and before `tier`.
    */
   modes?: Record<string, RoutingValue>;
+  /**
+   * AMR Phase 3 (D11): opt-in adaptive-routing policy. Its PRESENCE and
+   * non-emptiness is the default-off gate — the orchestrator constructs
+   * `AdaptiveRouter` only when this is set. Absent ⇒ dispatch is byte-identical
+   * to the shipped `BackendRouter` (SC8/SC17/SC19). Every other `RoutingConfig`
+   * field keeps its meaning; a config without `policy` validates unchanged.
+   */
+  policy?: RoutingPolicy;
 }
 
 // --- Spec B: Granular Task→Backend Routing (Phase 0 — types-only) ---
