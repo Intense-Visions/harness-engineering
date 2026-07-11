@@ -1,4 +1,9 @@
-import type { ComplexityVerdict, RoutingRisk } from './orchestrator';
+import type {
+  ComplexityVerdict,
+  RoutingRisk,
+  RoutingDecision,
+  CapabilityTier,
+} from './orchestrator';
 
 /**
  * A single step in a multi-skill workflow.
@@ -53,6 +58,10 @@ export interface StageRun {
   /** 0 or 1 (Phase 3 engine retry cap); always 0 in Phase 1. */
   attempt?: number;
   durationMs?: number;
+  /** split-routing Phase 2: the resolved backend + tier + cost for this stage. */
+  decision?: RoutingDecision;
+  /** split-routing Phase 2: the derived required tier (== decision.tierRequired). */
+  tier?: CapabilityTier;
 }
 
 /**
