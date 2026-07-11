@@ -1,3 +1,5 @@
+import type { ComplexityVerdict, RoutingRisk } from './orchestrator';
+
 /**
  * A single step in a multi-skill workflow.
  */
@@ -10,6 +12,15 @@ export interface WorkflowStep {
   expects?: string;
   /** Whether failure of this step stops the workflow */
   gate?: 'pass-required' | 'advisory';
+  /** Drives the per-stage RoutingUseCase (Phase 2 consumer). */
+  cognitiveMode?: string;
+  /**
+   * Deterministic routing hint (S3): when present, Phase 2 seeds
+   * RoutingRequest.complexity/risk so a fixture's `strong` and `fast`
+   * stages resolve differently without live text classification.
+   * No runtime consumer in Phase 1 (types are additive).
+   */
+  routingHint?: { complexity?: ComplexityVerdict; risk?: RoutingRisk };
 }
 
 /**
