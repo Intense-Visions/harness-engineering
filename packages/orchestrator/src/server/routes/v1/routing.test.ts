@@ -200,4 +200,61 @@ describe('handleV1RoutingRoute — POST /api/v1/routing/trace', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(statusCode()).toBe(503);
   });
+
+  it('SC10: synthetic complexity/risk return derived tierRequired + estCostUsd, ring unchanged', async () => {
+    const backends: Record<string, BackendDef> = {
+      strong: {
+        type: 'anthropic',
+        model: 'claude-opus',
+        capabilities: {
+          tier: 'strong',
+          costPer1kTokens: 6,
+          privacyClass: 'shared-cloud',
+          contextWindow: 200000,
+        },
+      },
+    };
+    const routing: RoutingConfig = { default: 'strong' };
+    const router = new BackendRouter({ backends, routing });
+    const bus = new RoutingDecisionBus();
+    const ringBefore = bus.recent().length;
+    const req = makeJsonReq('POST', '/api/v1/routing/trace', {
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      complexity: 'complex',
+      risk: 'high',
+    });
+    const { res, chunks, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, { router, bus, routing, backends });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode()).toBe(200);
+    const body = JSON.parse(chunks.join(''));
+    expect(body.decision.backendName).toBe('strong');
+    expect(body.def).toEqual({ type: 'anthropic' });
+    // complex + high risk ⇒ strong tier; est cost positive for a priced backend.
+    expect(body.tierRequired).toBe('strong');
+    expect(typeof body.estCostUsd).toBe('number');
+    expect(body.estCostUsd).toBeGreaterThan(0);
+    // dry-run invariant preserved.
+    expect(bus.recent().length).toBe(ringBefore);
+  });
+
+  it('back-compat: a trace WITHOUT complexity/risk returns the legacy shape (no tier/cost)', async () => {
+    const backends: Record<string, BackendDef> = {
+      'claude-opus': { type: 'anthropic', model: 'x' },
+    };
+    const routing: RoutingConfig = { default: 'claude-opus' };
+    const router = new BackendRouter({ backends, routing });
+    const bus = new RoutingDecisionBus();
+    const req = makeJsonReq('POST', '/api/v1/routing/trace', {
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+    });
+    const { res, chunks, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, { router, bus, routing, backends });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode()).toBe(200);
+    const body = JSON.parse(chunks.join(''));
+    expect(body.decision.backendName).toBe('claude-opus');
+    expect(body.tierRequired).toBeUndefined();
+    expect(body.estCostUsd).toBeUndefined();
+  });
 });

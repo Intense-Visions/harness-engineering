@@ -1,12 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type {
   BackendDef,
+  ComplexityLevel,
+  ComplexityVerdict,
   RoutingConfig,
+  RoutingRisk,
   RoutingUseCase,
   RoutingValue,
 } from '@harness-engineering/types';
 import { z } from 'zod';
+import { deriveRequiredTier } from '@harness-engineering/intelligence';
 import { BackendRouter, toArray } from '../../../agent/backend-router';
+import { estimateCost } from '../../../agent/cost-estimator';
 import type { RoutingDecisionBus } from '../../../routing/decision-bus';
 import { readBody } from '../../utils';
 
@@ -171,6 +176,11 @@ const UseCaseSchema = z.discriminatedUnion('kind', [
 const TraceBodySchema = z.object({
   useCase: UseCaseSchema,
   invocationOverride: z.string().min(1).optional(),
+  // AMR Phase 3 (SC10): synthetic classification inputs for a dry-run tier +
+  // cost derivation. When present, handleTrace derives `tierRequired`/`estCostUsd`
+  // WITHOUT dispatching (no LLM classify, no bus emission).
+  complexity: z.enum(['trivial', 'simple', 'moderate', 'complex']).optional(),
+  risk: z.enum(['low', 'high']).optional(),
 });
 
 /**
@@ -227,6 +237,31 @@ async function handleTrace(
       r.data.useCase as RoutingUseCase,
       opts
     );
+    // AMR Phase 3 (SC10): when synthetic complexity/risk are supplied, derive the
+    // required tier + estimated cost WITHOUT dispatching. The tier is TS-derived
+    // (never LLM-trusted); no bus emission, so the dry-run invariant holds.
+    if (r.data.complexity !== undefined || r.data.risk !== undefined) {
+      const verdict: ComplexityVerdict = {
+        level: (r.data.complexity ?? 'moderate') as ComplexityLevel,
+        confidence: 'high',
+        signals: {},
+        source: 'static',
+      };
+      const risk: RoutingRisk =
+        r.data.risk === 'high'
+          ? { blastRadius: 10, sensitivePath: true }
+          : { blastRadius: 0, sensitivePath: false };
+      const tierRequired = deriveRequiredTier(
+        verdict,
+        risk,
+        deps.routing.policy ?? {},
+        { spentUsd: 0 },
+        'fast'
+      );
+      const estCostUsd = estimateCost(def, { useCase: r.data.useCase as RoutingUseCase });
+      sendJSON(res, 200, { decision, def: { type: def.type }, tierRequired, estCostUsd });
+      return true;
+    }
     sendJSON(res, 200, { decision, def: { type: def.type } });
   } catch (err) {
     sendJSON(res, 500, { error: String(err) });
