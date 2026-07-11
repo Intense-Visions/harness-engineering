@@ -85,4 +85,56 @@ export function baseTier(
   return tierAtRank(rank);
 }
 
+/** Default budget degrade threshold (% of cap) when policy omits one (D8). */
+const DEFAULT_DEGRADE_AT_PCT = 90;
+
+/**
+ * D8: while spend is at/above `degradeAtPct` of `capUsd`, clamp the tier DOWN
+ * one step (`strong→standard→fast`, `fast→fast`). The D5 blast-radius veto is a
+ * HARD `strong` floor the clamp must NOT undercut (SC5 says sensitive-path /
+ * core|types / publicApi force `strong` "regardless"), so a vetoed request stays
+ * `strong` even under budget pressure. No budget block ⇒ no clamp.
+ */
+export function applyBudgetClamp(
+  tier: CapabilityTier,
+  risk: RoutingRisk | undefined,
+  policy: RoutingPolicy,
+  spend: { spentUsd: number }
+): CapabilityTier {
+  const budget = policy.budget;
+  if (!budget || budget.capUsd <= 0) return tier;
+
+  const degradeAt = (budget.degradeAtPct ?? DEFAULT_DEGRADE_AT_PCT) / 100;
+  const spentFraction = spend.spentUsd / budget.capUsd;
+  if (spentFraction < degradeAt) return tier;
+
+  // Under budget pressure — but the D5 veto floor is inviolable.
+  if (blastRadiusVeto(risk)) return tier; // stays strong
+
+  return tierAtRank(TIER_RANK[tier] - 1);
+}
+
+/**
+ * Pure (complexity × risk × policy × spend × floor) → required tier.
+ *
+ * `baseTier` resolves override → matrix → D5 veto → low-confidence bump; the D8
+ * budget clamp lowers one step under budget pressure (never below the veto
+ * floor); the D10 escalation floor raises the result but never lowers it. The
+ * LLM never influences this — mirrors outcome-eval/authority.ts (TS-derived
+ * authority). Referentially transparent; never mutates `policy`.
+ */
+export function deriveRequiredTier(
+  complexity: ComplexityVerdict,
+  risk: RoutingRisk | undefined,
+  policy: RoutingPolicy,
+  spend: { spentUsd: number },
+  escalationFloor: CapabilityTier,
+  skillKey?: string
+): CapabilityTier {
+  const base = baseTier(complexity, risk, policy, skillKey);
+  const clamped = applyBudgetClamp(base, risk, policy, spend);
+  // D10: floor raises, never lowers.
+  return tierAtRank(Math.max(TIER_RANK[escalationFloor], TIER_RANK[clamped]));
+}
+
 export { TIER_RANK, RANK_TIER, DEFAULT_MATRIX };
