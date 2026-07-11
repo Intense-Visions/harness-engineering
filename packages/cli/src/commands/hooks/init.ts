@@ -18,7 +18,7 @@ const VALID_PROFILES: HookProfile[] = ['minimal', 'standard', 'strict'];
  * In dev:  __dirname = src/commands/hooks/ → ../../hooks/ = src/hooks/
  * In dist: __dirname = dist/ (flat bundle)  → ./hooks/    = dist/hooks/
  */
-function resolveHookSourceDir(): string {
+export function resolveHookSourceDir(): string {
   const candidates = [
     // Dev layout: src/commands/hooks/ → ../../hooks/
     path.resolve(__dirname, '..', '..', 'hooks'),
