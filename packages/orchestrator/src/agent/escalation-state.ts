@@ -30,6 +30,12 @@ export class EscalationState {
     return this.units.get(coherenceUnit)?.floorTier ?? 'fast';
   }
 
+  /** D10 mechanism flag: has this unit ever climbed a tier? (Phase 6 reads this for Tier-A disqualification.) */
+  isEscalated(coherenceUnit?: string): boolean {
+    if (coherenceUnit === undefined) return false;
+    return this.units.get(coherenceUnit)?.escalated ?? false;
+  }
+
   /**
    * SC16: a QUALITY failure at `tier` increments this unit's counter; on the
    * Nth (threshold) consecutive failure the floor climbs one step (fast→standard

@@ -27,3 +27,22 @@ describe('EscalationState.recordOutcome climb (SC16)', () => {
     expect(s.floorFor('u')).toBe('strong'); // never above strong
   });
 });
+
+describe('EscalationState recovery + escalated flag (SC16)', () => {
+  it('a success clears the in-progress count but keeps a raised floor', () => {
+    const s = new EscalationState(2);
+    s.recordOutcome('u', 'fast', false);
+    s.recordOutcome('u', 'fast', false); // → standard
+    s.recordOutcome('u', 'standard', true); // recovery
+    expect(s.floorFor('u')).toBe('standard'); // monotonic: stays raised
+    expect(s.isEscalated('u')).toBe(true);
+  });
+  it('a single failure then success never climbs (quality-only, count reset)', () => {
+    const s = new EscalationState(2);
+    s.recordOutcome('u', 'fast', false);
+    s.recordOutcome('u', 'fast', true);
+    s.recordOutcome('u', 'fast', false); // count was reset → still below threshold
+    expect(s.floorFor('u')).toBe('fast');
+    expect(s.isEscalated('u')).toBe(false);
+  });
+});
