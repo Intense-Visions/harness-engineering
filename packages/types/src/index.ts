@@ -166,6 +166,9 @@ export type {
   RoutingPolicy,
 } from './orchestrator';
 
+// --- AMR Phase 4: routing error (value/class export, D10) ---
+export { RoutingError } from './orchestrator';
+
 // --- Container & Secrets ---
 export type {
   ContainerErrorCategory,

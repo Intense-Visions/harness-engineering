@@ -386,6 +386,22 @@ export interface RoutingRequest {
   coherenceUnit?: string;
 }
 
+/**
+ * AMR routing failure (D10). `privacy-no-match` mirrors the capability-registry
+ * fail-closed signal; `escalation-exhausted` is raised when a coherence unit's
+ * vertical escalation floor is already `strong` and re-crosses the failure
+ * threshold — the router emits it (bus/logger) for steward escalation.
+ */
+export class RoutingError extends Error {
+  constructor(
+    readonly code: 'privacy-no-match' | 'escalation-exhausted',
+    message: string
+  ) {
+    super(message);
+    this.name = 'RoutingError';
+  }
+}
+
 /** Injected spend snapshot (D8/S1-001) — keeps deriveRequiredTier pure. */
 export interface BudgetSnapshot {
   spentUsd: number;
