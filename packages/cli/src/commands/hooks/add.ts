@@ -1,22 +1,14 @@
 import { Command } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { HOOK_SCRIPTS } from '../../hooks/profiles';
 import { supportFilesFor } from '../../hooks/support-files';
 import { logger } from '../../output/logger';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { resolveHookSourceDir } from './init';
 
 const ALIASES: Record<string, string[]> = {
   sentinel: ['sentinel-pre', 'sentinel-post'],
 };
-
-function hookSourceDir(): string {
-  const d = path.resolve(__dirname, '..', '..', 'hooks');
-  if (fs.existsSync(d)) return d;
-  throw new Error(`Hook scripts not found: ${d}`);
-}
 
 export interface AddResult {
   added: string[];
@@ -42,7 +34,7 @@ function registerHook(s: JsonObject, ev: string, matcher: string, name: string):
 export function addHooks(hookName: string, projectDir: string): AddResult {
   const names = ALIASES[hookName] ?? [hookName];
   const result: AddResult = { added: [], alreadyInstalled: [], notFound: [] };
-  const srcDir = hookSourceDir();
+  const srcDir = resolveHookSourceDir();
   const destDir = path.join(projectDir, '.harness', 'hooks');
   fs.mkdirSync(destDir, { recursive: true });
 
