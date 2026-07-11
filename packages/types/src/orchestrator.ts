@@ -351,6 +351,68 @@ export interface BackendCapabilities {
 /** Backend name → capabilities. Consumed by selectCheapestQualifying (AMR). */
 export type BackendCapabilityRegistry = ReadonlyMap<string, BackendCapabilities>;
 
+// --- AMR Phase 2: complexity cascade + routing policy (types-only) ---
+// Additive. Existing configs validate and behave byte-identically (SC8/SC19).
+// The complexity cascade + pure deriveRequiredTier consume these shapes; the
+// LLM may set level/confidence but the tier is always TS-derived (D3).
+
+/** Complexity band of a single invocation (D3). Ordered trivial→complex. */
+export type ComplexityLevel = 'trivial' | 'simple' | 'moderate' | 'complex';
+
+/** Confidence-rated verdict, shaped like the eval verdicts (D3). The LLM may set
+ *  `level`/`confidence`; the tier is always derived in TS (never trusted from the LLM). */
+export interface ComplexityVerdict {
+  level: ComplexityLevel;
+  confidence: 'high' | 'medium' | 'low';
+  /** blastRadius, filesTouched, layersTouched, specExists, ... */
+  signals: Record<string, number | boolean | string>;
+  source: 'static' | 'llm-tiebreak' | 'escalated';
+}
+
+/** Per-invocation risk facets fed to deriveRequiredTier (D5). */
+export interface RoutingRisk {
+  blastRadius: number;
+  sensitivePath: boolean;
+  layer?: string;
+  publicApi?: boolean;
+}
+
+/** Decision vector fed to the AMR layer. `complexity` absent ⇒ classifier runs (Phase 3). */
+export interface RoutingRequest {
+  useCase: RoutingUseCase;
+  complexity?: ComplexityVerdict;
+  risk?: RoutingRisk;
+  capabilities?: { needsVision?: boolean; needsToolUse?: boolean; minContextTokens?: number };
+  coherenceUnit?: string;
+}
+
+/** Injected spend snapshot (D8/S1-001) — keeps deriveRequiredTier pure. */
+export interface BudgetSnapshot {
+  spentUsd: number;
+}
+
+/**
+ * Policy block injected per orchestrator (Phase 2/3 scope only). Tenant/Shuttle
+ * fields (allowedProviders push-down, autonomy scope) arrive in Phase 5.
+ */
+export interface RoutingPolicy {
+  /** (complexity level) → required tier. Defaults provided in code; overridable. */
+  complexityTierMatrix?: Partial<Record<ComplexityLevel, CapabilityTier>>;
+  /** Per-skill/phase required-tier override, evaluated before the matrix. */
+  skillTierOverrides?: Record<string, CapabilityTier>;
+  privacyFloor?: PrivacyClass;
+  budget?: {
+    capUsd: number;
+    /** clamp tier down one step at this % of cap; default 90 (D8). */
+    degradeAtPct?: number;
+    onBudgetExhausted: 'degrade' | 'pause' | 'human';
+  };
+  /** globs → blast-radius veto (D5). */
+  sensitivePaths?: string[];
+  /** consecutive quality failures before tier bump; default 2 (D10, consumed Phase 4). */
+  escalationThreshold?: number;
+}
+
 /**
  * Discriminated union of all backend definitions, keyed by `type`.
  *

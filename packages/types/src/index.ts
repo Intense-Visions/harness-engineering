@@ -157,6 +157,13 @@ export type {
   PrivacyClass,
   BackendCapabilities,
   BackendCapabilityRegistry,
+  // --- AMR Phase 2: complexity cascade + routing policy (types-only) ---
+  ComplexityLevel,
+  ComplexityVerdict,
+  RoutingRisk,
+  RoutingRequest,
+  BudgetSnapshot,
+  RoutingPolicy,
 } from './orchestrator';
 
 // --- Container & Secrets ---
