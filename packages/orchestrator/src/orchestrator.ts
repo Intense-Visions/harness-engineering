@@ -709,6 +709,10 @@ export class Orchestrator extends EventEmitter {
                 reason: 'quality failures exhausted the strong tier ceiling (D10/SC16)',
               });
             },
+            // SC9: emit the ENRICHED decision (complexity/tierRequired/estCostUsd)
+            // onto the same bus dispatch already uses, so a subscriber receives the
+            // AMR telemetry the D2-frozen base emit cannot carry.
+            ...(this.routingDecisionBus ? { decisionBus: this.routingDecisionBus } : {}),
           })
         : null;
     } else {

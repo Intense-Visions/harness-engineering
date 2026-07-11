@@ -286,7 +286,7 @@ describe('AdaptiveRouter — fail modes (Task 7)', () => {
   });
 });
 
-describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Task 12)', () => {
+describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Task 12 / Phase-4 fix)', () => {
   it('the RETURNED decision carries complexity/tierRequired/estCostUsd (SC9/D9)', async () => {
     const backends = {
       cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
@@ -307,24 +307,57 @@ describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Ta
       registry,
       policy: {},
       classify: () => verdict('complex'), // complex ⇒ strong tier
+      decisionBus: bus, // Phase-4 SC9 fix: AdaptiveRouter emits the enriched decision here
     });
 
     const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
 
-    // Phase-3 guarantee: the RETURNED decision is enriched (SC9). The telemetry
-    // drain / caller reads this returned value.
+    // The RETURNED decision is enriched (SC9). The caller reads this value.
     expect(decision.complexity).toEqual(verdict('complex'));
     expect(decision.tierRequired).toBe('strong');
     expect(typeof decision.estCostUsd).toBe('number');
     expect(decision.estCostUsd).toBeGreaterThan(0);
 
-    // SEAM (documented, D9): the bus emits INSIDE resolveDecisionAndDef, BEFORE
-    // AdaptiveRouter enriches the returned object. So a subscriber observes the
-    // base (un-enriched) decision in Phase 3; full bus-payload enrichment (the
-    // Meridian/Shuttle protocol form) is a Phase-5 adapter concern. We assert the
-    // subscriber saw exactly one decision naming the tier-selected backend.
+    // Phase-4 SC9 fix: the router's `resolveDecisionAndDef` emits the BASE
+    // decision, THEN AdaptiveRouter emits the ENRICHED one. So a subscriber now
+    // ACTUALLY RECEIVES the enrichment — at least one observed decision carries
+    // complexity/tierRequired/estCostUsd (was impossible in Phase 3).
+    const enriched = observed.filter((d) => d.complexity !== undefined);
+    expect(enriched).toHaveLength(1);
+    expect(enriched[0]?.complexity).toEqual(verdict('complex'));
+    expect(enriched[0]?.tierRequired).toBe('strong');
+    expect(typeof enriched[0]?.estCostUsd).toBe('number');
+    expect(enriched[0]?.backendName).toBe('strong');
+  });
+
+  it('emits NOTHING extra when no decisionBus is injected (bus untouched ⇒ SC8/SC17 off-path safe)', async () => {
+    const backends = {
+      cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+      strong: localDef(cap({ tier: 'strong', costPer1kTokens: 6 })),
+    };
+    // A bus wired to the ROUTER (base emits) but NOT to the AdaptiveRouter.
+    const bus = new RoutingDecisionBus();
+    const observed: RoutingDecision[] = [];
+    bus.subscribe((d) => observed.push(d));
+    const router = new BackendRouter({
+      backends,
+      routing: { default: 'cheapFast' },
+      decisionBus: bus,
+    });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('complex'),
+      // no decisionBus injected into AdaptiveRouter
+    });
+
+    await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+
+    // Only the base emit from resolveDecisionAndDef — no enriched emit added.
     expect(observed).toHaveLength(1);
-    expect(observed[0]?.backendName).toBe('strong');
+    expect(observed[0]?.complexity).toBeUndefined();
   });
 });
 

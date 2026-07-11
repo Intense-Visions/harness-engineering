@@ -18,6 +18,7 @@ import {
 } from './capability-registry.js';
 import { estimateCost } from './cost-estimator.js';
 import { EscalationState } from './escalation-state.js';
+import type { RoutingDecisionBus } from '../routing/decision-bus.js';
 
 export interface AdaptiveRouterDeps {
   router: BackendRouter;
@@ -47,6 +48,15 @@ export interface AdaptiveRouterDeps {
    * `routing:escalation-exhausted`.
    */
   onExhausted?: (coherenceUnit: string) => void;
+  /**
+   * SC9: enriched-decision bus. The shipped `resolveDecisionAndDef` emits the
+   * BASE decision inside the D2-frozen router (no `complexity`/`tierRequired`/
+   * `estCostUsd`). When `AdaptiveRouter` owns live dispatch it emits the
+   * ENRICHED decision here so a subscriber actually receives the AMR telemetry.
+   * Absent ⇒ no enriched emit (and when AMR is off the router isn't constructed,
+   * so nothing changes on the bus — SC8/SC17 preserved).
+   */
+  decisionBus?: RoutingDecisionBus;
 }
 
 /**
@@ -86,6 +96,8 @@ export class AdaptiveRouter {
     escalation?: EscalationState;
     /** D10: steward-escalation seam bound by the orchestrator to the decision bus/logger. */
     onExhausted?: (coherenceUnit: string) => void;
+    /** SC9: enriched-decision bus (the same instance dispatch emits base decisions onto). */
+    decisionBus?: RoutingDecisionBus;
   }): AdaptiveRouter {
     const registry = buildCapabilityRegistry(args.backends, args.pool);
     const providerOf = (name: string): BackendDef['type'] | undefined => args.backends[name]?.type;
@@ -99,6 +111,7 @@ export class AdaptiveRouter {
       escalation,
       ...(args.budgetState ? { budgetState: args.budgetState } : {}),
       ...(args.onExhausted ? { onExhausted: args.onExhausted } : {}),
+      ...(args.decisionBus ? { decisionBus: args.decisionBus } : {}),
     });
   }
 
@@ -120,15 +133,19 @@ export class AdaptiveRouter {
     const { decision, def } = this.deps.router.resolveDecisionAndDef(req.useCase, {
       ...(target !== undefined ? { invocationOverride: target } : {}),
     });
-    return {
-      decision: {
-        ...decision,
-        complexity,
-        tierRequired: requiredTier,
-        estCostUsd: estimateCost(def, req),
-      },
-      def,
+    const enriched: RoutingDecision = {
+      ...decision,
+      complexity,
+      tierRequired: requiredTier,
+      estCostUsd: estimateCost(def, req),
     };
+    // SC9: surface the enrichment to bus subscribers. `resolveDecisionAndDef`
+    // already emitted the BASE decision (D2-frozen); this second emit carries the
+    // AMR fields (`complexity`/`tierRequired`/`estCostUsd`) so telemetry drains and
+    // dashboards see complexity-aware routing. Only fires on the AMR path — when
+    // no policy is set the router is never constructed, so the bus is unchanged.
+    this.deps.decisionBus?.emit(enriched);
+    return { decision: enriched, def };
   }
 
   /**
