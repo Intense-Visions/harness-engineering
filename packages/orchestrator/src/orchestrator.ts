@@ -1,7 +1,12 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { WorkflowConfig, AgentBackend } from '@harness-engineering/types';
+import type {
+  WorkflowConfig,
+  AgentBackend,
+  RoutingRequest,
+  RoutingDecision,
+} from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
@@ -1879,9 +1884,35 @@ export class Orchestrator extends EventEmitter {
         );
       }
 
+      // AMR Phase 4 (dispatch swap): when an AdaptiveRouter is constructed
+      // (routing.policy present) AND neither the test override nor the
+      // HARNESS_BACKEND_OVERRIDE env hint is active, route live dispatch through
+      // AdaptiveRouter.route() — it classifies, derives+escalation-floors the
+      // required tier, and picks the cheapest qualifying backend. The result is
+      // resolved ONCE here and reused for both the routed name and the
+      // AgentBackend materialization below. When adaptiveRouter === null (no
+      // policy) or an override is active, this stays undefined and the EXISTING
+      // branches run unchanged — the byte-identical-when-off guarantee (SC8/SC17).
+      let amrDecision: RoutingDecision | undefined;
+      if (
+        this.adaptiveRouter !== null &&
+        this.overrideBackend === null &&
+        invocationOverride === undefined
+      ) {
+        const req: RoutingRequest = {
+          useCase,
+          coherenceUnit: issue.id, // one issue = one coherence unit (D6 pinning at issue grain)
+          // no req.complexity ⇒ AdaptiveRouter.route awaits classifySafe (D4)
+        };
+        const routed = await this.adaptiveRouter.route(req);
+        amrDecision = routed.decision;
+      }
+
       let routedBackendName: string;
       if (this.overrideBackend !== null) {
         routedBackendName = this.overrideBackend.name;
+      } else if (amrDecision !== undefined) {
+        routedBackendName = amrDecision.backendName;
       } else if (this.backendFactory !== null) {
         routedBackendName = this.backendFactory.resolveName(useCase, routerOpts);
       } else {
@@ -1926,6 +1957,11 @@ export class Orchestrator extends EventEmitter {
           workspacePath,
           phase: 'LaunchingAgent',
           session,
+          // D10/SC16: capture the AMR-resolved tier so a later quality outcome
+          // can climb the escalation floor for this coherence unit (issue).
+          ...(amrDecision?.tierRequired !== undefined
+            ? { lastRoutedTier: amrDecision.tierRequired }
+            : {}),
         });
       }
 
@@ -1950,6 +1986,15 @@ export class Orchestrator extends EventEmitter {
       let agentBackend: AgentBackend;
       if (this.overrideBackend !== null) {
         agentBackend = this.overrideBackend;
+      } else if (amrDecision !== undefined && this.backendFactory !== null) {
+        // AMR Phase 4: materialize the router-chosen backend via the factory,
+        // passing the AMR name as an invocationOverride so the factory's
+        // local/pi resolver + container wrapping still apply. The factory
+        // re-resolves the (now-overridden) name — same emit shape as the
+        // default-off resolveName+forUseCase pair, so no net emit regression.
+        agentBackend = this.backendFactory.forUseCase(useCase, {
+          invocationOverride: amrDecision.backendName,
+        });
       } else if (this.backendFactory !== null) {
         agentBackend = this.backendFactory.forUseCase(useCase, routerOpts);
       } else {

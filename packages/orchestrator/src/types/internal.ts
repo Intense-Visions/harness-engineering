@@ -50,6 +50,13 @@ export interface RunningEntry {
   startedAt: string;
   phase: RunAttemptPhase;
   session: LiveSession | null;
+  /**
+   * AMR Phase 4 (D10/SC16): the tier the AdaptiveRouter resolved this dispatch
+   * at (`decision.tierRequired`), captured so a later quality outcome can feed
+   * `AdaptiveRouter.recordOutcome(issue.id, lastRoutedTier, ok)`. Absent when
+   * AMR is off (no policy) or the dispatch used an override.
+   */
+  lastRoutedTier?: import('@harness-engineering/types').CapabilityTier;
 }
 
 /**
