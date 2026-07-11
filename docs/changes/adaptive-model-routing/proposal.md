@@ -267,7 +267,7 @@ The steward dashboard exposes the scope, the queue, and the per-tenant kill swit
 
 ## Integration Points
 
-- **`packages/types/src/orchestrator.ts`** — add `BackendCapabilities`, `ComplexityVerdict`, `RoutingRequest`, `RoutingPolicy`; widen `RoutingValue` with the tier-token variant; add `capabilities?` to each `BackendDef`; add optional `complexity`/`tierRequired`/`estCostUsd` to `RoutingDecision`. Barrel regen via `pnpm generate:barrels`.
+- **`packages/types/src/orchestrator.ts`** — add `BackendCapabilities`, `ComplexityVerdict`, `RoutingRequest`, `RoutingPolicy`; add `capabilities?` to each `BackendDef`; add optional `complexity`/`tierRequired`/`estCostUsd` to `RoutingDecision`. Barrel regen via `pnpm generate:barrels`. (`RoutingValue` is **not** widened — tier resolution lives in the AMR layer only; S5-002/D2.)
 - **`packages/orchestrator/src/agent/adaptive-router.ts`** — NEW; wraps `BackendRouter`.
 - **`packages/orchestrator/src/agent/backend-router.ts`** — no behavior change; consumed as-is.
 - **`packages/intelligence/src/complexity/`** — NEW cascade classifier.
@@ -324,3 +324,11 @@ The steward dashboard exposes the scope, the queue, and the per-tenant kill swit
 **Phase 6 — Autonomy hook + Meridian audit (~4d).** `deriveAutonomyEligibility` Tier A–D (reads D10 `escalated`); graduate Meridian Decide step behind per-tenant `AuthorityScope`; protocol audit events; per-tenant kill switch; `rollback`/canary wiring for Tier A (D9).
 
 **Total:** ~21 working days. Phases 1–4 are substrate-only and independently shippable (deliver provider-neutral + complexity + escalation routing before any SaaS work). Phases 5–6 depend on Shuttle's adapter surface and should land after 1–4 prove out in single-tenant.
+
+## Deferred follow-ups
+
+Phases 1–4 CORE are implemented, unit-tested, and reviewed. The following are knowingly deferred; this section records the honest scope boundary so downstream readers don't over-read what has landed.
+
+- **Phase 4c — live quality-gate fan-in (D10/SC16).** The vertical escalation _mechanism_ is complete and unit-tested: `EscalationState` climbs a coherence unit's floor tier on the Nth consecutive quality failure (monotonic, `strong`-capped, `exhausted`-signalling), and `AdaptiveRouter.recordOutcome` / the orchestrator's `recordAmrOutcome` seam feed it. What is NOT yet wired is a **live call site that emits `quality-fail`**: no gate currently reports per-`coherenceUnit` quality verdicts into `recordOutcome`. A bare normal runner exit is deliberately escalation-_neutral_ (it records nothing — quality is decided by later gates), so today escalation cannot actually climb in production. Wiring `outcome-eval` / review / verify to emit per-unit quality outcomes into `recordOutcome` (and making `onExhausted` escalate to a human, not merely log `routing:escalation-exhausted`) is deferred. **Net: SC16 is mechanism-satisfied, not yet live-satisfied.**
+- **Phase 4b — split-routing (D6/SC4).** Deferred. There is no per-stage workflow execution engine that reads a per-stage `model` and calls `route()` per stage with coherence pinning. The Workflow `model` field is **schema-only** today (it validates and round-trips but nothing consumes it to drive per-stage backend selection). Split-routing lands once a workflow stage-execution consumer exists.
+- **Phases 5–6 — Shuttle (cross-repo).** Tenant policy push-down (`allowedProviders` / `tenant-ai-config.routingPolicy` via the Shuttle adapter capability) and the autonomy hook + Meridian audit trail (`deriveAutonomyEligibility` consuming `EscalationState.isEscalated`, graduated Decide behind per-tenant `AuthorityScope`) are deferred to the Shuttle SaaS work and depend on its adapter surface.
