@@ -22,7 +22,13 @@ export interface AdaptiveRouterDeps {
   router: BackendRouter;
   registry: BackendCapabilityRegistry;
   policy: RoutingPolicy;
-  classify: (req: RoutingRequest) => ComplexityVerdict;
+  /**
+   * Complexity classifier. Accepts a sync verdict-provider (Phase-3 conservative
+   * stub) OR an async classifier (D4 live cascade); `route()` awaits either shape.
+   * A rejection/throw is caught and degraded to `{moderate, low}` (never blocks
+   * dispatch — Failure modes / D4).
+   */
+  classify: (req: RoutingRequest) => ComplexityVerdict | Promise<ComplexityVerdict>;
   /** name → provider type, derived from agent.backends (Task 6). REQUIRED when policy.allowedProviders is set. */
   providerOf?: (name: string) => BackendDef['type'] | undefined;
   /** Injected spend snapshot (D8/S1-001). Defaults to 0-spend. */
@@ -60,7 +66,7 @@ export class AdaptiveRouter {
     backends: Record<string, BackendDef>;
     pool?: PoolStateProvider;
     policy: RoutingPolicy;
-    classify: (req: RoutingRequest) => ComplexityVerdict;
+    classify: (req: RoutingRequest) => ComplexityVerdict | Promise<ComplexityVerdict>;
     budgetState?: () => { spentUsd: number };
   }): AdaptiveRouter {
     const registry = buildCapabilityRegistry(args.backends, args.pool);
@@ -75,8 +81,8 @@ export class AdaptiveRouter {
     });
   }
 
-  route(req: RoutingRequest): { decision: RoutingDecision; def: BackendDef } {
-    const complexity = req.complexity ?? this.deps.classify(req);
+  async route(req: RoutingRequest): Promise<{ decision: RoutingDecision; def: BackendDef }> {
+    const complexity = req.complexity ?? (await this.classifySafe(req));
     const spend = (this.deps.budgetState ?? (() => ({ spentUsd: 0 })))();
     // Phase-4 seam: escalation floor is a no-op 'fast' until EscalationState lands.
     const requiredTier: CapabilityTier = deriveRequiredTier(
@@ -99,6 +105,20 @@ export class AdaptiveRouter {
       },
       def,
     };
+  }
+
+  /**
+   * D4 fail-safe: await the (possibly async) classifier; if it rejects or throws,
+   * degrade to a conservative `{ level:'moderate', confidence:'low' }` verdict.
+   * Classification NEVER blocks dispatch — a classifier failure/timeout must not
+   * propagate out of `route()`.
+   */
+  private async classifySafe(req: RoutingRequest): Promise<ComplexityVerdict> {
+    try {
+      return await this.deps.classify(req);
+    } catch {
+      return { level: 'moderate', confidence: 'low', signals: {}, source: 'static' };
+    }
   }
 
   private selectTarget(tier: CapabilityTier, req: RoutingRequest): string | undefined {

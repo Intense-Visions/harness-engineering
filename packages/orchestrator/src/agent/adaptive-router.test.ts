@@ -37,7 +37,7 @@ const verdict = (level: ComplexityVerdict['level'] = 'moderate'): ComplexityVerd
 const minimalPolicy: RoutingPolicy = {};
 
 describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
-  it('route() returns { decision, def } enriched with complexity/tierRequired/estCostUsd', () => {
+  it('route() returns { decision, def } enriched with complexity/tierRequired/estCostUsd', async () => {
     const backends = { 'cheap-fast': localDef(cap({ costPer1kTokens: 0 })) };
     const router = new BackendRouter({ backends, routing: { default: 'cheap-fast' } });
     const registry = buildCapabilityRegistry(backends);
@@ -51,7 +51,7 @@ describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
     });
 
     const req: RoutingRequest = { useCase: { kind: 'tier', tier: 'quick-fix' } };
-    const { decision, def } = adaptive.route(req);
+    const { decision, def } = await adaptive.route(req);
 
     expect(def.type).toBe('local');
     expect(decision.complexity).toEqual(verdict('moderate'));
@@ -61,7 +61,47 @@ describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
     expect(classify).toHaveBeenCalledTimes(1);
   });
 
-  it('does NOT call classify when req.complexity is already provided', () => {
+  it('awaits classify; a classify failure yields a conservative {moderate,low} verdict, never throws (D4)', async () => {
+    const backends = { 'cheap-fast': localDef(cap({ costPer1kTokens: 0 })) };
+    const router = new BackendRouter({ backends, routing: { default: 'cheap-fast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const failingClassify = () => {
+      throw new Error('timeout');
+    };
+
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: failingClassify,
+    });
+
+    const { decision } = await adaptive.route({ useCase: { kind: 'chat' } });
+    expect(decision.complexity).toEqual(
+      expect.objectContaining({ level: 'moderate', confidence: 'low' })
+    );
+  });
+
+  it('awaits an async classifier that rejects and still degrades to {moderate,low} (D4)', async () => {
+    const backends = { 'cheap-fast': localDef(cap({ costPer1kTokens: 0 })) };
+    const router = new BackendRouter({ backends, routing: { default: 'cheap-fast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const asyncFailing = () => Promise.reject(new Error('provider down'));
+
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: asyncFailing,
+    });
+
+    const { decision } = await adaptive.route({ useCase: { kind: 'chat' } });
+    expect(decision.complexity).toEqual(
+      expect.objectContaining({ level: 'moderate', confidence: 'low' })
+    );
+  });
+
+  it('does NOT call classify when req.complexity is already provided', async () => {
     const backends = { 'cheap-fast': localDef(cap()) };
     const router = new BackendRouter({ backends, routing: { default: 'cheap-fast' } });
     const registry = buildCapabilityRegistry(backends);
@@ -73,7 +113,7 @@ describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
       useCase: { kind: 'tier', tier: 'quick-fix' },
       complexity: verdict('complex'),
     };
-    const { decision } = adaptive.route(req);
+    const { decision } = await adaptive.route(req);
 
     expect(classify).toHaveBeenCalledTimes(0);
     expect(decision.complexity).toEqual(verdict('complex'));
@@ -90,7 +130,7 @@ describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5
   // identity default when it resolves a cheaper qualifying backend.
   const routing = { default: 'strong' } as const;
 
-  it('a trivial verdict resolves via the cheapest fast backend (invocationOverride)', () => {
+  it('a trivial verdict resolves via the cheapest fast backend (invocationOverride)', async () => {
     const router = new BackendRouter({ backends, routing });
     const registry = buildCapabilityRegistry(backends);
     const adaptive = new AdaptiveRouter({
@@ -100,12 +140,12 @@ describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5
       classify: () => verdict('trivial'),
     });
 
-    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
     expect(decision.backendName).toBe('cheapFast');
     expect(decision.tierRequired).toBe('fast');
   });
 
-  it('a complex verdict resolves via the strong backend', () => {
+  it('a complex verdict resolves via the strong backend', async () => {
     const router = new BackendRouter({ backends, routing });
     const registry = buildCapabilityRegistry(backends);
     const adaptive = new AdaptiveRouter({
@@ -115,12 +155,12 @@ describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5
       classify: () => verdict('complex'),
     });
 
-    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
     expect(decision.backendName).toBe('strong');
     expect(decision.tierRequired).toBe('strong');
   });
 
-  it('threads req.capabilities (needsVision/needsToolUse/minContextTokens) into constraints', () => {
+  it('threads req.capabilities (needsVision/needsToolUse/minContextTokens) into constraints', async () => {
     // Only `strong` has vision; a trivial verdict would otherwise pick cheapFast,
     // but needsVision must force selection to a vision-capable backend.
     const visionBackends = {
@@ -139,7 +179,7 @@ describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5
       classify: () => verdict('trivial'),
     });
 
-    const { decision } = adaptive.route({
+    const { decision } = await adaptive.route({
       useCase: { kind: 'tier', tier: 'quick-fix' },
       capabilities: { needsVision: true },
     });
@@ -156,7 +196,7 @@ describe('AdaptiveRouter.fromConfig — providerOf derivation (Task 6, fail-clos
     strong: localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
   };
 
-  it('builds the registry and derives providerOf = (name) => backends[name].type', () => {
+  it('builds the registry and derives providerOf = (name) => backends[name].type', async () => {
     const router = new BackendRouter({ backends, routing: { default: 'strong' } });
     const adaptive = AdaptiveRouter.fromConfig({
       router,
@@ -165,7 +205,7 @@ describe('AdaptiveRouter.fromConfig — providerOf derivation (Task 6, fail-clos
       classify: () => verdict('trivial'),
     });
     // A trivial verdict resolves cheapFast — proves the derived registry works.
-    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
     expect(decision.backendName).toBe('cheapFast');
   });
 
@@ -187,7 +227,7 @@ describe('AdaptiveRouter.fromConfig — providerOf derivation (Task 6, fail-clos
 });
 
 describe('AdaptiveRouter — fail modes (Task 7)', () => {
-  it('PrivacyNoMatch fails closed: route() does NOT delegate to identity routing (S4-001)', () => {
+  it('PrivacyNoMatch fails closed: route() does NOT delegate to identity routing (S4-001)', async () => {
     // Only backend is shared-cloud, but the policy demands an on-device floor →
     // selectCheapestQualifying throws PrivacyNoMatch. route() must re-raise and
     // NEVER call resolveDecisionAndDef with a non-compliant fallback.
@@ -207,13 +247,13 @@ describe('AdaptiveRouter — fail modes (Task 7)', () => {
       classify: () => verdict('moderate'),
     });
 
-    expect(() => adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } })).toThrow(
+    await expect(adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } })).rejects.toThrow(
       PrivacyNoMatch
     );
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('tier/cost undefined falls through: resolveDecisionAndDef called with NO invocationOverride', () => {
+  it('tier/cost undefined falls through: resolveDecisionAndDef called with NO invocationOverride', async () => {
     // All backends are below `strong` → selectCheapestQualifying returns undefined
     // (tier/cost-only exclusion, best-effort). route() must delegate to the identity
     // chain (no invocationOverride) and still enrich the returned decision.
@@ -232,7 +272,7 @@ describe('AdaptiveRouter — fail modes (Task 7)', () => {
       classify: () => verdict('complex'), // complex → strong required, none qualify
     });
 
-    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
 
     // Delegated WITHOUT an invocationOverride (empty opts object).
     expect(spy).toHaveBeenCalledTimes(1);
@@ -246,7 +286,7 @@ describe('AdaptiveRouter — fail modes (Task 7)', () => {
 });
 
 describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Task 12)', () => {
-  it('the RETURNED decision carries complexity/tierRequired/estCostUsd (SC9/D9)', () => {
+  it('the RETURNED decision carries complexity/tierRequired/estCostUsd (SC9/D9)', async () => {
     const backends = {
       cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
       strong: localDef(cap({ tier: 'strong', costPer1kTokens: 6 })),
@@ -268,7 +308,7 @@ describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Ta
       classify: () => verdict('complex'), // complex ⇒ strong tier
     });
 
-    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
 
     // Phase-3 guarantee: the RETURNED decision is enriched (SC9). The telemetry
     // drain / caller reads this returned value.
