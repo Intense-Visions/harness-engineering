@@ -152,6 +152,11 @@ export type {
   RoutingDecision,
   ResolutionStep,
   ResolutionSource,
+  // --- AMR Phase 1: capability registry (types-only) ---
+  CapabilityTier,
+  PrivacyClass,
+  BackendCapabilities,
+  BackendCapabilityRegistry,
 } from './orchestrator';
 
 // --- Container & Secrets ---

@@ -326,6 +326,31 @@ export interface HooksConfig {
  */
 export type IsolationTier = 'none' | 'container' | 'remote-sandbox';
 
+// --- AMR Phase 1: provider-neutral backend capability metadata (D1) ---
+// Additive + optional on every BackendDef member. Existing configs validate
+// and behave byte-identically (SC8/SC19). Tier resolution lives in the AMR
+// layer only; RoutingValue/RoutingConfig are NOT widened (S5-002/D2).
+
+/** Capability bar a backend clears. Cheap→capable, never local-vs-cloud. */
+export type CapabilityTier = 'fast' | 'standard' | 'strong';
+
+/** Privacy guarantee a backend provides. Ordered floor: on-device is strongest. */
+export type PrivacyClass = 'on-device' | 'pooled-isolated' | 'byo-endpoint' | 'shared-cloud';
+
+/** Provider-neutral capability block attached (optionally) to a BackendDef. */
+export interface BackendCapabilities {
+  tier: CapabilityTier;
+  /** USD per 1k blended tokens; 0 for operator-local. Drives min-cost selection. */
+  costPer1kTokens: number;
+  privacyClass: PrivacyClass;
+  contextWindow: number;
+  vision?: boolean;
+  toolUse?: boolean;
+}
+
+/** Backend name → capabilities. Consumed by selectCheapestQualifying (AMR). */
+export type BackendCapabilityRegistry = ReadonlyMap<string, BackendCapabilities>;
+
 /**
  * Discriminated union of all backend definitions, keyed by `type`.
  *
@@ -348,6 +373,8 @@ export interface MockBackendDef {
   type: 'mock';
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Claude CLI subprocess backend (subscription-based, no token billing). */
@@ -357,6 +384,8 @@ export interface ClaudeBackendDef {
   command?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Anthropic API backend (token-billed). */
@@ -366,6 +395,8 @@ export interface AnthropicBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** OpenAI API backend (token-billed). */
@@ -375,6 +406,8 @@ export interface OpenAIBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Google Gemini API backend (token-billed). */
@@ -384,6 +417,8 @@ export interface GeminiBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** OpenAI-compatible local backend (LM Studio, Ollama, vLLM, etc.). */
@@ -399,6 +434,8 @@ export interface LocalBackendDef {
   probeIntervalMs?: number;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Pi-coding-agent backend pointing at a local OpenAI-compatible server. */
@@ -413,6 +450,8 @@ export interface PiBackendDef {
   probeIntervalMs?: number;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
@@ -442,6 +481,8 @@ export interface SshBackendDef {
   sshBinary?: string;
   /** Native isolation tier. Defaults to `'remote-sandbox'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
@@ -469,6 +510,8 @@ export interface ServerlessBackendDef {
   runtime?: 'docker' | 'podman';
   /** Native isolation tier. Defaults to `'remote-sandbox'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
