@@ -8,3 +8,22 @@ describe('EscalationState.floorFor (D10)', () => {
     expect(s.floorFor(undefined)).toBe('fast');
   });
 });
+
+describe('EscalationState.recordOutcome climb (SC16)', () => {
+  it('raises floor one step after threshold consecutive quality failures', () => {
+    const s = new EscalationState(2);
+    s.recordOutcome('u', 'fast', false);
+    expect(s.floorFor('u')).toBe('fast'); // below threshold
+    s.recordOutcome('u', 'fast', false);
+    expect(s.floorFor('u')).toBe('standard'); // bumped, count reset
+  });
+  it('caps at strong and reports exhaustion', () => {
+    const s = new EscalationState(1);
+    s.recordOutcome('u', 'fast', false);
+    expect(s.floorFor('u')).toBe('standard');
+    s.recordOutcome('u', 'standard', false);
+    expect(s.floorFor('u')).toBe('strong');
+    expect(s.recordOutcome('u', 'strong', false)).toBe('exhausted');
+    expect(s.floorFor('u')).toBe('strong'); // never above strong
+  });
+});
