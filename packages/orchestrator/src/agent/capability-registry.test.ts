@@ -93,6 +93,35 @@ const fakePool = (names: string[]): PoolStateProvider => ({
   }),
 });
 
+describe('selectCheapestQualifying — allowlist with providerOf (populated path)', () => {
+  const providerOf = (name: string): BackendDef['type'] | undefined => {
+    const map: Record<string, BackendDef['type']> = {
+      haiku: 'anthropic',
+      sonnet: 'anthropic',
+      opus: 'anthropic',
+    };
+    return map[name];
+  };
+
+  it('admits the cheapest backend whose provider is on the allowlist', () => {
+    expect(
+      selectCheapestQualifying(cloudOnly, 'fast', { allowed: ['anthropic'] }, providerOf)?.name
+    ).toBe('haiku');
+  });
+  it('fails closed when the allowlist excludes every backend provider', () => {
+    expect(() =>
+      selectCheapestQualifying(cloudOnly, 'fast', { allowed: ['openai'] }, providerOf)
+    ).toThrow(PrivacyNoMatch);
+  });
+});
+
+describe('selectCheapestQualifying — empty registry is best-effort, not a privacy violation', () => {
+  it('returns undefined (not a throw) for an empty registry even with a privacy floor', () => {
+    const empty: BackendCapabilityRegistry = new Map();
+    expect(selectCheapestQualifying(empty, 'fast', { privacyFloor: 'on-device' })).toBeUndefined();
+  });
+});
+
 describe('buildCapabilityRegistry — SC12 (LMLM pool candidates present)', () => {
   const backends: Record<string, BackendDef> = {
     opus: {

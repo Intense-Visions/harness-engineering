@@ -30,14 +30,6 @@ const PRIVACY_RANK: Record<PrivacyClass, number> = {
   'shared-cloud': 3,
 };
 
-/** Registry entry carrying the backend name + its provider type (for allowlist). */
-export interface RegistryEntry {
-  name: string;
-  capabilities: BackendCapabilities;
-  /** Provider type for allowlist filtering; optional (pool candidates may omit). */
-  provider?: BackendDef['type'];
-}
-
 export interface SelectConstraints {
   privacyFloor?: PrivacyClass;
   /** Present ⇒ only these providers allowed. Absent ⇒ all allowed. Empty array ⇒ none. */
@@ -63,7 +55,14 @@ export function selectCheapestQualifying(
   registry: BackendCapabilityRegistry,
   requiredTier: CapabilityTier,
   constraints: SelectConstraints,
-  /** Optional provider lookup by name (for allowlist). Absent ⇒ allowlist not enforced per-entry. */
+  /**
+   * Provider lookup by name, required to enforce a `constraints.allowed` allowlist.
+   * If `allowed` is set but `providerOf` is absent (or returns `undefined` for an
+   * entry), that entry cannot be admitted → excluded; an allowlist with no
+   * `providerOf` therefore excludes ALL candidates and fails closed
+   * (`PrivacyNoMatch`). Phase 3 (`AdaptiveRouter`) MUST derive this from
+   * `agent.backends` whenever it sets an allowlist. Absent `allowed` ⇒ unused.
+   */
   providerOf?: (name: string) => BackendDef['type'] | undefined
 ): { name: string; capabilities: BackendCapabilities } | undefined {
   const requiredRank = TIER_RANK[requiredTier];
