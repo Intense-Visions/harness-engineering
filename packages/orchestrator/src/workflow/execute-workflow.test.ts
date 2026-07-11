@@ -268,3 +268,35 @@ describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routin
     expect(claimed.has('issue-1')).toBe(false);
   });
 });
+
+describe('executeWorkflow — never writes the issue-level session (C1/SC1-c)', () => {
+  it('leaves RunningEntry.session untouched; per-stage sessionIds are distinct from it', async () => {
+    // A sentinel issue-level session object. C1: the engine owns per-stage
+    // session state (in StageRun) and must NEVER mutate this issue-level field.
+    // The WorkflowEngineContext surface deliberately exposes NO setter for it,
+    // so this is structurally guaranteed — the test makes it explicit.
+    const sentinel = { sessionId: 'ISSUE-LEVEL-DO-NOT-TOUCH' };
+    const running = new Map<string, { issueId: string; session: { sessionId: string } }>([
+      ['issue-1', { issueId: 'issue-1', session: sentinel }],
+    ]);
+    const { ctx, successCalls } = makeFakeCtx({ sessionIds: ['sess-0', 'sess-1'] });
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [step('a'), step('b')],
+    };
+
+    await executeWorkflow(ctx, plan);
+
+    // issue-level session is the SAME object, unchanged
+    const entry = running.get('issue-1')!;
+    expect(entry.session).toBe(sentinel);
+    expect(entry.session.sessionId).toBe('ISSUE-LEVEL-DO-NOT-TOUCH');
+
+    // per-stage sessionIds are the engine-owned ones, distinct from the issue-level sentinel
+    const runs = successCalls[0]!;
+    expect(runs.map((r) => r.sessionId)).toEqual(['sess-0', 'sess-1']);
+    for (const r of runs) {
+      expect(r.sessionId).not.toBe('ISSUE-LEVEL-DO-NOT-TOUCH');
+    }
+  });
+});
