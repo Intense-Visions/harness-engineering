@@ -141,3 +141,24 @@ export type {
 } from './specialization/types.js';
 export type { TemporalConfig } from './specialization/temporal.js';
 export type { ProfileStore } from './specialization/persistence.js';
+
+// Complexity cascade (AMR Phase 2) — phase-aware classifier + pure deriveRequiredTier
+export {
+  classify,
+  runStaticPass,
+  STATIC_WEIGHTS,
+  llmTiebreak,
+  deriveRequiredTier,
+  baseTier,
+  applyBudgetClamp,
+  blastRadiusVeto,
+  SENSITIVE_BLAST_THRESHOLD,
+  serializeSignals,
+} from './complexity/index.js';
+export type {
+  ClassifyInput,
+  TiebreakResult,
+  Phase,
+  ComplexitySignals,
+  StaticVerdict,
+} from './complexity/index.js';
