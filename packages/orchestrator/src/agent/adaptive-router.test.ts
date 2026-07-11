@@ -7,7 +7,7 @@ import type {
   RoutingRequest,
 } from '@harness-engineering/types';
 import { BackendRouter } from './backend-router.js';
-import { buildCapabilityRegistry } from './capability-registry.js';
+import { buildCapabilityRegistry, PrivacyNoMatch } from './capability-registry.js';
 import { AdaptiveRouter } from './adaptive-router.js';
 
 const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
@@ -181,5 +181,64 @@ describe('AdaptiveRouter.fromConfig — providerOf derivation (Task 6, fail-clos
     expect(providerOf).toBeDefined();
     expect(providerOf?.('cheapFast')).toBe('local');
     expect(providerOf?.('does-not-exist')).toBeUndefined();
+  });
+});
+
+describe('AdaptiveRouter — fail modes (Task 7)', () => {
+  it('PrivacyNoMatch fails closed: route() does NOT delegate to identity routing (S4-001)', () => {
+    // Only backend is shared-cloud, but the policy demands an on-device floor →
+    // selectCheapestQualifying throws PrivacyNoMatch. route() must re-raise and
+    // NEVER call resolveDecisionAndDef with a non-compliant fallback.
+    const backends = {
+      cloudOnly: localDef(
+        cap({ tier: 'strong', costPer1kTokens: 5, privacyClass: 'shared-cloud' })
+      ),
+    };
+    const router = new BackendRouter({ backends, routing: { default: 'cloudOnly' } });
+    const registry = buildCapabilityRegistry(backends);
+    const spy = vi.spyOn(router, 'resolveDecisionAndDef');
+
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { privacyFloor: 'on-device' },
+      classify: () => verdict('moderate'),
+    });
+
+    expect(() => adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } })).toThrow(
+      PrivacyNoMatch
+    );
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('tier/cost undefined falls through: resolveDecisionAndDef called with NO invocationOverride', () => {
+    // All backends are below `strong` → selectCheapestQualifying returns undefined
+    // (tier/cost-only exclusion, best-effort). route() must delegate to the identity
+    // chain (no invocationOverride) and still enrich the returned decision.
+    const backends = {
+      cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+      midStandard: localDef(cap({ tier: 'standard', costPer1kTokens: 3 })),
+    };
+    const router = new BackendRouter({ backends, routing: { default: 'midStandard' } });
+    const registry = buildCapabilityRegistry(backends);
+    const spy = vi.spyOn(router, 'resolveDecisionAndDef');
+
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('complex'), // complex → strong required, none qualify
+    });
+
+    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+
+    // Delegated WITHOUT an invocationOverride (empty opts object).
+    expect(spy).toHaveBeenCalledTimes(1);
+    const optsArg = spy.mock.calls[0]?.[1];
+    expect(optsArg).toEqual({});
+    // Identity/default chain resolved, enriched with the derived tier.
+    expect(decision.backendName).toBe('midStandard');
+    expect(decision.tierRequired).toBe('strong');
+    expect(decision.complexity?.level).toBe('complex');
   });
 });

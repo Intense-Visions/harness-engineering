@@ -13,6 +13,7 @@ import type { BackendRouter } from './backend-router.js';
 import {
   buildCapabilityRegistry,
   selectCheapestQualifying,
+  PrivacyNoMatch,
   type SelectConstraints,
 } from './capability-registry.js';
 import { estimateCost } from './cost-estimator.js';
@@ -101,12 +102,26 @@ export class AdaptiveRouter {
   }
 
   private selectTarget(tier: CapabilityTier, req: RoutingRequest): string | undefined {
-    const target = selectCheapestQualifying(
-      this.deps.registry,
-      tier,
-      this.buildConstraints(req),
-      this.deps.providerOf
-    );
+    let target: ReturnType<typeof selectCheapestQualifying>;
+    try {
+      target = selectCheapestQualifying(
+        this.deps.registry,
+        tier,
+        this.buildConstraints(req),
+        this.deps.providerOf
+      );
+    } catch (err) {
+      if (err instanceof PrivacyNoMatch) {
+        // S4-001: privacy/allowlist exclusion fails CLOSED — never fall through
+        // to identity routing at a non-compliant backend. Re-raise; the dispatch
+        // site (orchestrator, Task 8/9) maps this to a routing:no-tier-match
+        // steward escalation. route() therefore never calls resolveDecisionAndDef
+        // with a compliant-fallback override on this path.
+        throw err;
+      }
+      throw err;
+    }
+    // undefined ⇒ tier/cost-only exclusion ⇒ identity/default fall-through (best-effort).
     return target?.name;
   }
 
