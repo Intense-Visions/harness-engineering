@@ -9,6 +9,7 @@ import type {
 import { BackendRouter } from './backend-router.js';
 import { buildCapabilityRegistry, PrivacyNoMatch } from './capability-registry.js';
 import { AdaptiveRouter } from './adaptive-router.js';
+import { EscalationState } from './escalation-state.js';
 import { RoutingDecisionBus } from '../routing/decision-bus.js';
 import type { RoutingDecision } from '@harness-engineering/types';
 
@@ -324,5 +325,84 @@ describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Ta
     // subscriber saw exactly one decision naming the tier-selected backend.
     expect(observed).toHaveLength(1);
     expect(observed[0]?.backendName).toBe('strong');
+  });
+});
+
+describe('AdaptiveRouter — escalation floor + recordOutcome (D10/SC16, Task 6)', () => {
+  const backends = {
+    cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    midStandard: localDef(cap({ tier: 'standard', costPer1kTokens: 3 })),
+    strong: localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
+  };
+
+  it('uses the EscalationState floor so a climbed unit resolves at the higher tier (SC16)', async () => {
+    const esc = new EscalationState(1); // threshold 1 ⇒ one failure climbs
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('trivial'), // trivial ⇒ base tier fast
+      escalation: esc,
+    });
+
+    // Baseline: trivial ⇒ fast, cheapFast selected.
+    const before = await adaptive.route({
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      coherenceUnit: 'unit-x',
+    });
+    expect(before.decision.tierRequired).toBe('fast');
+
+    // A quality failure at fast climbs the floor to standard for unit-x.
+    esc.recordOutcome('unit-x', 'fast', false);
+
+    const after = await adaptive.route({
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      coherenceUnit: 'unit-x',
+    });
+    expect(after.decision.tierRequired).toBe('standard'); // floor raised the tier
+    expect(after.decision.backendName).toBe('midStandard');
+
+    // A different unit is unaffected — still fast.
+    const other = await adaptive.route({
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      coherenceUnit: 'unit-y',
+    });
+    expect(other.decision.tierRequired).toBe('fast');
+  });
+
+  it('recordOutcome exhaustion emits routing:escalation-exhausted via the injected callback', () => {
+    const esc = new EscalationState(1);
+    const emitted: string[] = [];
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('trivial'),
+      escalation: esc,
+      onExhausted: (unit) => emitted.push(`routing:escalation-exhausted:${unit}`),
+    });
+
+    // Climb fast→standard→strong, then re-cross at strong ⇒ exhausted.
+    adaptive.recordOutcome('u', 'fast', false); // → standard
+    adaptive.recordOutcome('u', 'standard', false); // → strong
+    expect(emitted).toHaveLength(0);
+    adaptive.recordOutcome('u', 'strong', false); // strong re-crosses ⇒ exhausted
+    expect(emitted).toContain('routing:escalation-exhausted:u');
+  });
+
+  it('recordOutcome is a safe no-op when no EscalationState is injected', () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('trivial'),
+    });
+    expect(() => adaptive.recordOutcome('u', 'fast', false)).not.toThrow();
   });
 });

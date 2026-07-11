@@ -17,6 +17,7 @@ import {
   type SelectConstraints,
 } from './capability-registry.js';
 import { estimateCost } from './cost-estimator.js';
+import { EscalationState } from './escalation-state.js';
 
 export interface AdaptiveRouterDeps {
   router: BackendRouter;
@@ -33,6 +34,19 @@ export interface AdaptiveRouterDeps {
   providerOf?: (name: string) => BackendDef['type'] | undefined;
   /** Injected spend snapshot (D8/S1-001). Defaults to 0-spend. */
   budgetState?: () => { spentUsd: number };
+  /**
+   * D10 vertical escalation state. When present, `route()` uses
+   * `escalation.floorFor(req.coherenceUnit)` as the tier floor (a climbed unit
+   * resolves higher); when absent, the floor is the no-op `'fast'`.
+   */
+  escalation?: EscalationState;
+  /**
+   * D10 steward-escalation seam. Invoked with the `coherenceUnit` when
+   * `recordOutcome` returns `'exhausted'` (floor already `strong`, re-crossed the
+   * threshold). The orchestrator binds this to `routingDecisionBus`/logger to emit
+   * `routing:escalation-exhausted`.
+   */
+  onExhausted?: (coherenceUnit: string) => void;
 }
 
 /**
@@ -68,29 +82,39 @@ export class AdaptiveRouter {
     policy: RoutingPolicy;
     classify: (req: RoutingRequest) => ComplexityVerdict | Promise<ComplexityVerdict>;
     budgetState?: () => { spentUsd: number };
+    /** D10: injected escalation state; defaults to a fresh one seeded from `policy.escalationThreshold`. */
+    escalation?: EscalationState;
+    /** D10: steward-escalation seam bound by the orchestrator to the decision bus/logger. */
+    onExhausted?: (coherenceUnit: string) => void;
   }): AdaptiveRouter {
     const registry = buildCapabilityRegistry(args.backends, args.pool);
     const providerOf = (name: string): BackendDef['type'] | undefined => args.backends[name]?.type;
+    const escalation = args.escalation ?? new EscalationState(args.policy.escalationThreshold);
     return new AdaptiveRouter({
       router: args.router,
       registry,
       policy: args.policy,
       classify: args.classify,
       providerOf,
+      escalation,
       ...(args.budgetState ? { budgetState: args.budgetState } : {}),
+      ...(args.onExhausted ? { onExhausted: args.onExhausted } : {}),
     });
   }
 
   async route(req: RoutingRequest): Promise<{ decision: RoutingDecision; def: BackendDef }> {
     const complexity = req.complexity ?? (await this.classifySafe(req));
     const spend = (this.deps.budgetState ?? (() => ({ spentUsd: 0 })))();
-    // Phase-4 seam: escalation floor is a no-op 'fast' until EscalationState lands.
+    // D10: the escalation floor raises the derived tier for a coherence unit that
+    // has climbed on repeated quality failure. Absent EscalationState ⇒ no-op 'fast'.
+    const escalationFloor: CapabilityTier =
+      this.deps.escalation?.floorFor(req.coherenceUnit) ?? 'fast';
     const requiredTier: CapabilityTier = deriveRequiredTier(
       complexity,
       req.risk,
       this.deps.policy,
       spend,
-      'fast'
+      escalationFloor
     );
     const target = this.selectTarget(requiredTier, req); // Tasks 5–7 fill this
     const { decision, def } = this.deps.router.resolveDecisionAndDef(req.useCase, {
@@ -118,6 +142,22 @@ export class AdaptiveRouter {
       return await this.deps.classify(req);
     } catch {
       return { level: 'moderate', confidence: 'low', signals: {}, source: 'static' };
+    }
+  }
+
+  /**
+   * D10 outcome feedback (mirrors LocalModelResolver.recordSuccess/recordFailure).
+   * Only QUALITY failures are reported here; transport/inference errors go to the
+   * shipped per-model breaker and must NOT reach this path (they never
+   * double-count). A quality failure that re-crosses the threshold while the floor
+   * is already `strong` returns `'exhausted'` from EscalationState, at which point
+   * the injected `onExhausted` seam emits `routing:escalation-exhausted` for
+   * steward escalation. No-op when no EscalationState is injected.
+   */
+  recordOutcome(coherenceUnit: string, tier: CapabilityTier, ok: boolean): void {
+    const result = this.deps.escalation?.recordOutcome(coherenceUnit, tier, ok);
+    if (result === 'exhausted') {
+      this.deps.onExhausted?.(coherenceUnit);
     }
   }
 
