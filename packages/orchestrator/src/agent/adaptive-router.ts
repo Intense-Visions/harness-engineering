@@ -8,8 +8,13 @@ import type {
   RoutingRequest,
 } from '@harness-engineering/types';
 import { deriveRequiredTier } from '@harness-engineering/intelligence';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
 import type { BackendRouter } from './backend-router.js';
-import { selectCheapestQualifying, type SelectConstraints } from './capability-registry.js';
+import {
+  buildCapabilityRegistry,
+  selectCheapestQualifying,
+  type SelectConstraints,
+} from './capability-registry.js';
 import { estimateCost } from './cost-estimator.js';
 
 export interface AdaptiveRouterDeps {
@@ -36,6 +41,38 @@ export interface AdaptiveRouterDeps {
  */
 export class AdaptiveRouter {
   constructor(private readonly deps: AdaptiveRouterDeps) {}
+
+  /**
+   * Construct an `AdaptiveRouter` from an orchestrator's `agent.backends`
+   * (plus optional LMLM pool). Builds the capability registry via
+   * `buildCapabilityRegistry` and — crucially — derives `providerOf`
+   * UNCONDITIONALLY from `agent.backends` (name → `def.type`).
+   *
+   * Phase-1 finding (capability-registry.ts:60-66): passing an allowlist to
+   * `selectCheapestQualifying` WITHOUT a `providerOf` fail-closes EVERY request
+   * (silent DoS), because every candidate's provider reads back as `undefined`.
+   * Deriving `providerOf` here means enabling the (Phase-5) allowlist branch can
+   * never accidentally deny-all.
+   */
+  static fromConfig(args: {
+    router: BackendRouter;
+    backends: Record<string, BackendDef>;
+    pool?: PoolStateProvider;
+    policy: RoutingPolicy;
+    classify: (req: RoutingRequest) => ComplexityVerdict;
+    budgetState?: () => { spentUsd: number };
+  }): AdaptiveRouter {
+    const registry = buildCapabilityRegistry(args.backends, args.pool);
+    const providerOf = (name: string): BackendDef['type'] | undefined => args.backends[name]?.type;
+    return new AdaptiveRouter({
+      router: args.router,
+      registry,
+      policy: args.policy,
+      classify: args.classify,
+      providerOf,
+      ...(args.budgetState ? { budgetState: args.budgetState } : {}),
+    });
+  }
 
   route(req: RoutingRequest): { decision: RoutingDecision; def: BackendDef } {
     const complexity = req.complexity ?? this.deps.classify(req);

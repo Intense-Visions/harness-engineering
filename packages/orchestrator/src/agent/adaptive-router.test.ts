@@ -144,3 +144,42 @@ describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5
     expect(decision.backendName).toBe('strong');
   });
 });
+
+describe('AdaptiveRouter.fromConfig — providerOf derivation (Task 6, fail-closed DoS guard)', () => {
+  // Phase-1 finding (capability-registry.ts:60-66): an allowlist with NO
+  // providerOf fail-closes EVERY request (silent DoS). fromConfig must ALWAYS
+  // derive providerOf from agent.backends so enabling the allowlist later is safe.
+  const backends = {
+    cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    strong: localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
+  };
+
+  it('builds the registry and derives providerOf = (name) => backends[name].type', () => {
+    const router = new BackendRouter({ backends, routing: { default: 'strong' } });
+    const adaptive = AdaptiveRouter.fromConfig({
+      router,
+      backends,
+      policy: minimalPolicy,
+      classify: () => verdict('trivial'),
+    });
+    // A trivial verdict resolves cheapFast — proves the derived registry works.
+    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.backendName).toBe('cheapFast');
+  });
+
+  it('supplies a derived providerOf so an allowlist path can never fail-close every request', () => {
+    const router = new BackendRouter({ backends, routing: { default: 'strong' } });
+    const adaptive = AdaptiveRouter.fromConfig({
+      router,
+      backends,
+      policy: minimalPolicy,
+      classify: () => verdict('trivial'),
+    });
+    // Reach into the constructed deps to assert providerOf is present + correct.
+    const providerOf = (adaptive as unknown as { deps: { providerOf?: (n: string) => unknown } })
+      .deps.providerOf;
+    expect(providerOf).toBeDefined();
+    expect(providerOf?.('cheapFast')).toBe('local');
+    expect(providerOf?.('does-not-exist')).toBeUndefined();
+  });
+});
