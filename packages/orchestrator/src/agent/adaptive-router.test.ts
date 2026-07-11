@@ -9,6 +9,8 @@ import type {
 import { BackendRouter } from './backend-router.js';
 import { buildCapabilityRegistry, PrivacyNoMatch } from './capability-registry.js';
 import { AdaptiveRouter } from './adaptive-router.js';
+import { RoutingDecisionBus } from '../routing/decision-bus.js';
+import type { RoutingDecision } from '@harness-engineering/types';
 
 const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
   tier: 'fast',
@@ -240,5 +242,47 @@ describe('AdaptiveRouter — fail modes (Task 7)', () => {
     expect(decision.backendName).toBe('midStandard');
     expect(decision.tierRequired).toBe('strong');
     expect(decision.complexity?.level).toBe('complex');
+  });
+});
+
+describe('AdaptiveRouter — SC9 decision enrichment on routing:decision bus (Task 12)', () => {
+  it('the RETURNED decision carries complexity/tierRequired/estCostUsd (SC9/D9)', () => {
+    const backends = {
+      cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+      strong: localDef(cap({ tier: 'strong', costPer1kTokens: 6 })),
+    };
+    const bus = new RoutingDecisionBus();
+    const observed: RoutingDecision[] = [];
+    bus.subscribe((d) => observed.push(d));
+
+    const router = new BackendRouter({
+      backends,
+      routing: { default: 'cheapFast' },
+      decisionBus: bus,
+    });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: () => verdict('complex'), // complex ⇒ strong tier
+    });
+
+    const { decision } = adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+
+    // Phase-3 guarantee: the RETURNED decision is enriched (SC9). The telemetry
+    // drain / caller reads this returned value.
+    expect(decision.complexity).toEqual(verdict('complex'));
+    expect(decision.tierRequired).toBe('strong');
+    expect(typeof decision.estCostUsd).toBe('number');
+    expect(decision.estCostUsd).toBeGreaterThan(0);
+
+    // SEAM (documented, D9): the bus emits INSIDE resolveDecisionAndDef, BEFORE
+    // AdaptiveRouter enriches the returned object. So a subscriber observes the
+    // base (un-enriched) decision in Phase 3; full bus-payload enrichment (the
+    // Meridian/Shuttle protocol form) is a Phase-5 adapter concern. We assert the
+    // subscriber saw exactly one decision naming the tier-selected backend.
+    expect(observed).toHaveLength(1);
+    expect(observed[0]?.backendName).toBe('strong');
   });
 });
