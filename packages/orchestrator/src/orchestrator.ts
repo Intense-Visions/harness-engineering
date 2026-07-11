@@ -2132,8 +2132,26 @@ export class Orchestrator extends EventEmitter {
     issueId: string,
     reason: 'normal' | 'error',
     attempt: number | null,
-    error?: string
+    error?: string,
+    /**
+     * AMR Phase 4 (D10/SC16): classifies the exit for vertical escalation.
+     * - `'quality-pass'` (default for `reason==='normal'`) → recordOutcome(ok=true)
+     *   clears the unit's in-progress failure count (recovery).
+     * - `'quality-fail'` → recordOutcome(ok=false) climbs the escalation floor.
+     * - `'transport'` (default for `reason==='error'`) → NEVER feeds escalation;
+     *   transport/runner failures are the shipped per-model breaker's job (they
+     *   must not double-count). This is the single explicit call-site; the deeper
+     *   gate/outcome-eval seam that raises `'quality-fail'` on NOT_SATISFIED is
+     *   refined as those gates report (spec Failure modes).
+     */
+    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport'
   ): Promise<void> {
+    // D10/SC16: feed quality outcomes into the AMR escalation state. Transport
+    // failures are excluded (breaker's job). Only fires when AMR is live.
+    this.recordAmrOutcome(
+      issueId,
+      outcomeClass ?? (reason === 'normal' ? 'quality-pass' : 'transport')
+    );
     // Phase 4 (DLane-5): worker completion is the authoritative success/failure
     // signal — success→in_review, failure→blocked. Persist BEFORE handing off to
     // the completion handler (whose downstream cleanWorkspace/releaseClaim/escalate
@@ -2147,6 +2165,24 @@ export class Orchestrator extends EventEmitter {
     // it must never block the completion path.
     void this.drainDeferredEvictions();
     this.emit('state_change', this.getSnapshot());
+  }
+
+  /**
+   * AMR Phase 4 (D10/SC16): feed a dispatch outcome into vertical escalation.
+   * No-op unless an AdaptiveRouter is live (policy present) AND this dispatch was
+   * AMR-routed (a `lastRoutedTier` was captured). Transport outcomes never reach
+   * `recordOutcome` — the shipped per-model breaker owns those, so the two signals
+   * never double-count. The coherence unit is the issue id (D6 issue-grain pinning).
+   */
+  private recordAmrOutcome(
+    issueId: string,
+    outcomeClass: 'quality-pass' | 'quality-fail' | 'transport'
+  ): void {
+    if (this.adaptiveRouter === null) return;
+    if (outcomeClass === 'transport') return; // breaker's job — never escalate
+    const tier = this.state.running.get(issueId)?.lastRoutedTier;
+    if (tier === undefined) return; // dispatch was not AMR-routed (override/no policy)
+    this.adaptiveRouter.recordOutcome(issueId, tier, outcomeClass === 'quality-pass');
   }
 
   /**
