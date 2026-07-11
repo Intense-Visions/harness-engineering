@@ -34,6 +34,8 @@ export type { BackendRouterOptions } from './agent/backend-router';
 // `routing trace` dry-run and external consumers can derive tier + cost.
 export { AdaptiveRouter } from './agent/adaptive-router';
 export type { AdaptiveRouterDeps } from './agent/adaptive-router';
+// AMR Phase 4 (D10/SC16): vertical escalation mechanism.
+export { EscalationState } from './agent/escalation-state';
 export {
   selectCheapestQualifying,
   buildCapabilityRegistry,
