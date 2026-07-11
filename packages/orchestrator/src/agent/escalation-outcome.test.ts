@@ -10,6 +10,7 @@ import type {
 } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { Orchestrator } from '../orchestrator.js';
+import { EscalationState } from './escalation-state.js';
 import { MockBackend } from './backends/mock.js';
 
 /**
@@ -119,7 +120,7 @@ interface OrchInternals {
     reason: 'normal' | 'error',
     attempt: number | null,
     error?: string,
-    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport'
+    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport' | 'neutral'
   ) => Promise<void>;
 }
 
@@ -189,7 +190,11 @@ describe('AMR outcome → escalation wiring (D10/SC16, Task 9)', () => {
     expect(spy).toHaveBeenCalledWith('issue-1', 'fast', false);
   });
 
-  it('a normal (quality-pass) exit calls recordOutcome(issue.id, tier, true)', async () => {
+  it('a normal (runner) exit is escalation-NEUTRAL — it does NOT call recordOutcome (D10)', async () => {
+    // A normal runner exit ≠ quality passed: gates/review/verify run LATER and are
+    // the authoritative quality verdict. A premature quality-pass here would clear
+    // the unit's in-progress escalation failure count. Only an explicit
+    // quality-pass/quality-fail (real quality verdict) may reach EscalationState.
     const orch = newOrch(livePolicyConfig());
     const i = internals(orch);
     seedRunning(orch, 'issue-2', 'standard');
@@ -197,8 +202,31 @@ describe('AMR outcome → escalation wiring (D10/SC16, Task 9)', () => {
 
     await callExitTolerant(i, 'issue-2', 'normal', 1);
 
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith('issue-2', 'standard', true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('a normal exit does NOT clear a pre-existing escalation failure count (D10 footgun guard)', async () => {
+    // Inject an EscalationState carrying a below-threshold in-progress failure for
+    // the unit, then take a normal runner exit. The failure count must survive:
+    // a premature quality-pass would zero it and mask the accumulating failures.
+    const escalation = new EscalationState(2); // threshold 2
+    // one quality failure recorded ⇒ in-progress count = 1 (below threshold, no climb yet)
+    expect(escalation.recordOutcome('issue-2b', 'fast', false)).toBe('ok');
+    expect(escalation.floorFor('issue-2b')).toBe('fast'); // not yet climbed
+
+    const orch = newOrch(livePolicyConfig());
+    const i = internals(orch);
+    // swap in our seeded escalation state so the count is observable
+    (i.adaptiveRouter as unknown as { deps: { escalation: EscalationState } }).deps.escalation =
+      escalation;
+    seedRunning(orch, 'issue-2b', 'fast');
+
+    await callExitTolerant(i, 'issue-2b', 'normal', 1);
+
+    // The pre-existing failure count is intact: the NEXT quality failure crosses the
+    // threshold and climbs. Had the normal exit cleared it, this would still be 'ok'.
+    expect(escalation.recordOutcome('issue-2b', 'fast', false)).toBe('escalated');
+    expect(escalation.floorFor('issue-2b')).toBe('standard');
   });
 
   it('a transport error (default for reason=error) does NOT call recordOutcome (breaker owns it)', async () => {

@@ -2139,23 +2139,27 @@ export class Orchestrator extends EventEmitter {
     error?: string,
     /**
      * AMR Phase 4 (D10/SC16): classifies the exit for vertical escalation.
-     * - `'quality-pass'` (default for `reason==='normal'`) → recordOutcome(ok=true)
-     *   clears the unit's in-progress failure count (recovery).
+     * - `'neutral'` (default for `reason==='normal'`) → records NOTHING. A normal
+     *   runner exit is NOT a quality verdict: gates/review/verify run LATER and are
+     *   the authoritative pass/fail. Recording a premature `quality-pass` here would
+     *   clear the unit's in-progress escalation failure count and mask accumulating
+     *   failures — so a bare normal exit must stay escalation-neutral.
+     * - `'quality-pass'` → recordOutcome(ok=true) clears the in-progress failure
+     *   count (recovery). Only an EXPLICIT quality verdict may pass this.
      * - `'quality-fail'` → recordOutcome(ok=false) climbs the escalation floor.
+     *   (The live gate/outcome-eval fan-in that raises this per coherence unit is
+     *   deferred — see docs/changes/adaptive-model-routing/proposal.md "Deferred
+     *   follow-ups", Phase 4c.)
      * - `'transport'` (default for `reason==='error'`) → NEVER feeds escalation;
      *   transport/runner failures are the shipped per-model breaker's job (they
-     *   must not double-count). This is the single explicit call-site; the deeper
-     *   gate/outcome-eval seam that raises `'quality-fail'` on NOT_SATISFIED is
-     *   refined as those gates report (spec Failure modes).
+     *   must not double-count).
      */
-    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport'
+    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport' | 'neutral'
   ): Promise<void> {
-    // D10/SC16: feed quality outcomes into the AMR escalation state. Transport
-    // failures are excluded (breaker's job). Only fires when AMR is live.
-    this.recordAmrOutcome(
-      issueId,
-      outcomeClass ?? (reason === 'normal' ? 'quality-pass' : 'transport')
-    );
+    // D10/SC16: feed quality outcomes into the AMR escalation state. A bare normal
+    // exit is NEUTRAL (records nothing — quality is decided by later gates), and
+    // transport failures are excluded (breaker's job). Only fires when AMR is live.
+    this.recordAmrOutcome(issueId, outcomeClass ?? (reason === 'normal' ? 'neutral' : 'transport'));
     // Phase 4 (DLane-5): worker completion is the authoritative success/failure
     // signal — success→in_review, failure→blocked. Persist BEFORE handing off to
     // the completion handler (whose downstream cleanWorkspace/releaseClaim/escalate
@@ -2180,10 +2184,11 @@ export class Orchestrator extends EventEmitter {
    */
   private recordAmrOutcome(
     issueId: string,
-    outcomeClass: 'quality-pass' | 'quality-fail' | 'transport'
+    outcomeClass: 'quality-pass' | 'quality-fail' | 'transport' | 'neutral'
   ): void {
     if (this.adaptiveRouter === null) return;
     if (outcomeClass === 'transport') return; // breaker's job — never escalate
+    if (outcomeClass === 'neutral') return; // normal runner exit ≠ quality verdict — record nothing
     const tier = this.state.running.get(issueId)?.lastRoutedTier;
     if (tier === undefined) return; // dispatch was not AMR-routed (override/no policy)
     this.adaptiveRouter.recordOutcome(issueId, tier, outcomeClass === 'quality-pass');
