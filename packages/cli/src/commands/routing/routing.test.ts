@@ -154,6 +154,73 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
   });
 
   // -------------------------------------------------------------------------
+  // trace --complexity/--risk (AMR Phase 3 / SC10)
+  // -------------------------------------------------------------------------
+  it('trace --complexity/--risk: POSTs synthetic verdict and prints tier + est cost', async () => {
+    const body = {
+      decision: {
+        backendName: 'strong',
+        backendType: 'anthropic',
+        useCase: { kind: 'skill', skillName: 'harness-debugging' },
+        resolutionPath: [{ source: 'skill', candidate: 'strong', outcome: 'chosen' }],
+        timestamp: '2026-07-11T00:00:00Z',
+        durationMs: 0.5,
+      },
+      def: { type: 'anthropic' },
+      tierRequired: 'strong',
+      estCostUsd: 0.024,
+    };
+    const { calls } = mockFetch(() => new Response(JSON.stringify(body), { status: 200 }));
+
+    const cmd = createTraceCommand();
+    await cmd.parseAsync(
+      ['--skill', 'harness-debugging', '--complexity', 'complex', '--risk', 'high'],
+      { from: 'user' }
+    );
+
+    expect(calls).toHaveLength(1);
+    const reqBody = JSON.parse(
+      typeof calls[0]!.init.body === 'string' ? (calls[0]!.init.body as string) : ''
+    );
+    expect(reqBody).toEqual({
+      useCase: { kind: 'skill', skillName: 'harness-debugging' },
+      complexity: 'complex',
+      risk: 'high',
+    });
+
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/Tier required: strong/);
+    expect(allLog).toMatch(/Est cost: \$0\.0240/);
+  });
+
+  it('trace WITHOUT --complexity/--risk: omits those flags AND the tier/cost lines', async () => {
+    const body = {
+      decision: {
+        backendName: 'local-fast',
+        backendType: 'local',
+        useCase: { kind: 'skill', skillName: 'harness-debugging' },
+        resolutionPath: [{ source: 'skill', candidate: 'local-fast', outcome: 'chosen' }],
+        timestamp: '2026-07-11T00:00:00Z',
+        durationMs: 0.5,
+      },
+      def: { type: 'local' },
+    };
+    const { calls } = mockFetch(() => new Response(JSON.stringify(body), { status: 200 }));
+
+    const cmd = createTraceCommand();
+    await cmd.parseAsync(['--skill', 'harness-debugging'], { from: 'user' });
+
+    const reqBody = JSON.parse(
+      typeof calls[0]!.init.body === 'string' ? (calls[0]!.init.body as string) : ''
+    );
+    expect(reqBody).toEqual({ useCase: { kind: 'skill', skillName: 'harness-debugging' } });
+
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).not.toMatch(/Tier required/);
+    expect(allLog).not.toMatch(/Est cost/);
+  });
+
+  // -------------------------------------------------------------------------
   // decisions filters + --last (Observable Truth 4 / F8)
   // -------------------------------------------------------------------------
   it('decisions --skill X --last 3: passes filter + limit query params and prints table', async () => {
