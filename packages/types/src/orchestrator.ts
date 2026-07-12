@@ -409,6 +409,15 @@ export interface RoutingRequest {
    * consumed by the classify seam. Absent ⇒ conservative fallback (D4).
    */
   taskText?: RoutingTaskText;
+  /**
+   * split-routing D8(a): a caller-supplied required-tier floor for THIS request,
+   * used by the workflow engine's one-shot per-stage retry to route the retry at
+   * a bumped tier (`nextTier(prior tier)`) WITHOUT mutating the cumulative
+   * EscalationState floor. `route()` takes the max-by-rank of this and the unit's
+   * escalation floor. Additive/optional: absent ⇒ `route()` behaves byte-
+   * identically to today (SC8), so all existing routing paths are unaffected.
+   */
+  floor?: CapabilityTier;
 }
 
 /**
