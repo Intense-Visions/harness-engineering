@@ -6,6 +6,8 @@ import type {
   RoutingDecision,
   RoutingPolicy,
   RoutingRequest,
+  RoutingTelemetry,
+  RoutingTelemetryDecision,
 } from '@harness-engineering/types';
 import { deriveRequiredTier, TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
@@ -114,6 +116,59 @@ export class AdaptiveRouter {
     });
   }
 
+  /**
+   * AMR Phase 5 (D1): hot-swap the routing policy in place. The capability
+   * registry and `providerOf` are derived from `agent.backends` — NOT from
+   * `policy` — so a policy edit leaves them untouched; `route()` /
+   * `buildConstraints` / `deriveRequiredTier` all read `this.deps.policy` fresh,
+   * so the NEXT dispatch routes under the new `policy`. The live
+   * {@link EscalationState} is preserved by reference: a unit's climbed floor
+   * survives the swap (a policy edit must not reset accumulated escalation).
+   *
+   * Threshold note: the `EscalationState` was seeded with the ORIGINAL policy's
+   * `escalationThreshold` and is intentionally NOT re-seeded here — re-seeding
+   * would conflate "raise the bar" with "reset progress". Preserving climbed
+   * floors is the invariant (SC1); a live threshold change is out of scope (D1).
+   */
+  setPolicy(policy: RoutingPolicy): void {
+    this.deps.policy = policy;
+  }
+
+  /**
+   * AMR Phase 5 (D2): project the ENRICHED routing decisions in the bus ring
+   * buffer into the Shuttle telemetry wire shape ({@link RoutingTelemetry}).
+   *
+   * Non-destructive — this backs the idempotent `GET /api/v1/routing/telemetry`,
+   * so it reads (never clears) the ring; the ring self-evicts FIFO at capacity
+   * and Shuttle dedups by `decisionTs`. `spentUsd` is therefore a sum over the
+   * RETAINED ring (telemetry, not billing-of-record).
+   *
+   * Filters to ENRICHED decisions only — those `AdaptiveRouter.route()` emitted,
+   * carrying `estCostUsd`+`tierRequired`. The SAME bus also carries the BASE emit
+   * from `BackendRouter.resolveDecisionAndDef` (neither field), so an unfiltered
+   * projection would double-count rows and under-fill `spentUsd`. Returns an
+   * empty payload when no bus is wired or no enriched decisions exist.
+   */
+  projectTelemetry(): RoutingTelemetry {
+    const bus = this.deps.decisionBus;
+    if (bus === undefined) return { decisions: [], spentUsd: 0 };
+    const decisions: RoutingTelemetryDecision[] = [];
+    let spentUsd = 0;
+    for (const d of bus.recent()) {
+      // Enriched rows carry BOTH fields; the base BackendRouter emit carries
+      // neither. Guard on both so a partially-shaped decision can't slip in.
+      if (d.estCostUsd === undefined || d.tierRequired === undefined) continue;
+      decisions.push({
+        decisionTs: d.timestamp,
+        tierRequired: d.tierRequired,
+        backend: d.backendName,
+        estCostUsd: d.estCostUsd,
+      });
+      spentUsd += d.estCostUsd;
+    }
+    return { decisions, spentUsd };
+  }
+
   async route(req: RoutingRequest): Promise<{ decision: RoutingDecision; def: BackendDef }> {
     const complexity = req.complexity ?? (await this.classifySafe(req));
     const spend = (this.deps.budgetState ?? (() => ({ spentUsd: 0 })))();
@@ -206,17 +261,21 @@ export class AdaptiveRouter {
 
   /**
    * Translate the request's declared constraints into {@link SelectConstraints}.
-   * `policy.privacyFloor` and the per-request capability needs are threaded in;
-   * the provider allowlist branch stays DORMANT in Phase 3 (`RoutingPolicy` does
-   * not declare `allowedProviders` until Phase 5 tenant push-down). Task 6 still
-   * derives `providerOf` unconditionally so enabling the allowlist later cannot
-   * silently fail-close every request (Phase-1 finding, capability-registry.ts:60-66).
+   * `policy.privacyFloor`, the provider allowlist (AMR Phase 5, D3), and the
+   * per-request capability needs are threaded in. `providerOf` is derived
+   * unconditionally in `fromConfig`, so the allowlist can never silently
+   * fail-close every request (Phase-1 finding, capability-registry.ts:60-66).
    */
   private buildConstraints(req: RoutingRequest): SelectConstraints {
+    const allowed = this.deps.policy.allowedProviders;
     return {
       ...(this.deps.policy.privacyFloor !== undefined
         ? { privacyFloor: this.deps.policy.privacyFloor }
         : {}),
+      // AMR Phase 5 (D3): provider allowlist. Pass ONLY when non-empty — an empty
+      // array would fail-close EVERY request (`selectCheapestQualifying` treats
+      // `allowed: []` as "admit none"). Absent/empty ⇒ all providers eligible.
+      ...(allowed !== undefined && allowed.length > 0 ? { allowed } : {}),
       ...(req.capabilities?.needsVision !== undefined
         ? { needsVision: req.capabilities.needsVision }
         : {}),

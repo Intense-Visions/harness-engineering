@@ -443,7 +443,8 @@ export interface BudgetSnapshot {
 
 /**
  * Policy block injected per orchestrator (Phase 2/3 scope only). Tenant/Shuttle
- * fields (allowedProviders push-down, autonomy scope) arrive in Phase 5.
+ * fields arrive in Phase 5 — `allowedProviders` (below) is the first, pushed by
+ * the Shuttle control plane via `PUT /api/v1/routing/policy`.
  */
 export interface RoutingPolicy {
   /** (complexity level) → required tier. Defaults provided in code; overridable. */
@@ -461,6 +462,14 @@ export interface RoutingPolicy {
   sensitivePaths?: string[];
   /** consecutive quality failures before tier bump; default 2 (D10, consumed Phase 4). */
   escalationThreshold?: number;
+  /**
+   * AMR Phase 5 (D3): provider-type allowlist. When present and non-empty, tier
+   * selection considers only backends whose `type` is in this set (fail-closed
+   * if it empties the qualifying set). Absent/empty → all backends eligible.
+   * Pushed by the Shuttle control plane; wired through `selectCheapestQualifying`'s
+   * `allowed` constraint.
+   */
+  allowedProviders?: BackendDef['type'][];
 }
 
 /**
@@ -753,6 +762,41 @@ export interface RoutingDecision {
   tierRequired?: CapabilityTier;
   /** AMR Phase 3 (D9/SC9): estimated USD cost of the resolved backend for this invocation. */
   estCostUsd?: number;
+}
+
+/**
+ * AMR Phase 5 (D2): a single routing decision projected into the Shuttle
+ * telemetry wire shape. This is the cross-repo contract — it MUST match
+ * Shuttle's `RoutingDecision` in `src/types/routing.ts` exactly
+ * (`{ decisionTs, tierRequired, backend, estCostUsd, workItemId?, domainId? }`).
+ * Distinct from the orchestrator-internal {@link RoutingDecision}, which is
+ * resolver-shaped; `GET /api/v1/routing/telemetry` projects the internal ring
+ * buffer into this shape so a real Shuttle drain deserializes to non-empty rows.
+ */
+export interface RoutingTelemetryDecision {
+  /** ISO-8601 timestamp the decision was made (internal `timestamp`). */
+  decisionTs: string;
+  /** The required CapabilityTier that drove selection. */
+  tierRequired: CapabilityTier;
+  /** The selected backend's name (internal `backendName`). */
+  backend: string;
+  /** Estimated USD cost of the resolved backend for this invocation. */
+  estCostUsd: number;
+  /** Optional work-item correlation id (absent in single-container harness dispatch). */
+  workItemId?: string;
+  /** Optional domain correlation id (absent in single-container harness dispatch). */
+  domainId?: string;
+}
+
+/**
+ * AMR Phase 5 (D2): the telemetry drain payload returned by
+ * `GET /api/v1/routing/telemetry`. Matches Shuttle's `RoutingTelemetry`.
+ * `spentUsd` is the sum of `estCostUsd` over the retained ring (capped, FIFO) —
+ * telemetry, not billing-of-record.
+ */
+export interface RoutingTelemetry {
+  decisions: RoutingTelemetryDecision[];
+  spentUsd: number;
 }
 
 /**
