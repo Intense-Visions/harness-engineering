@@ -5,6 +5,7 @@ import {
   runStageSession,
   executeWorkflow,
   buildStageRequest,
+  nextTier,
 } from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
 import type {
@@ -184,6 +185,14 @@ describe('buildStageRequest — request construction (split-routing P2)', () => 
     const withoutRouter = {} as Partial<WorkflowEngineContext>;
     expect(withRouter.adaptiveRouter).toBeDefined();
     expect(withoutRouter.adaptiveRouter).toBeUndefined();
+  });
+});
+
+describe('nextTier (D8a / P3)', () => {
+  it('bumps one tier and clamps at strong', () => {
+    expect(nextTier('fast')).toBe('standard');
+    expect(nextTier('standard')).toBe('strong');
+    expect(nextTier('strong')).toBe('strong'); // clamp
   });
 });
 

@@ -7,8 +7,20 @@ import type {
   RoutingDecision,
   CapabilityTier,
 } from '@harness-engineering/types';
+import { TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { StructuredLogger } from '../logging/logger';
+
+/**
+ * D8(a): bump one capability tier, clamped at `strong`. Pure; reuses the guarded
+ * TIER_RANK/RANK_TIER tables from `@harness-engineering/intelligence` (the same
+ * source escalation-state.ts uses) — it never re-implements them, so derive-tier
+ * stays the single tier-ordering authority (SC8).
+ */
+export function nextTier(t: CapabilityTier): CapabilityTier {
+  const next = Math.min(TIER_RANK[t] + 1, TIER_RANK.strong);
+  return RANK_TIER[next]!;
+}
 
 /**
  * Narrow surface the stage-execution engine needs. The Orchestrator will
