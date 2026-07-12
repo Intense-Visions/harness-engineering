@@ -9,7 +9,7 @@ import {
   STANDARD_COGNITIVE_MODES,
   type RoutingValue,
 } from '@harness-engineering/types';
-import { BackendDefSchema, RoutingConfigSchema } from './schema.js';
+import { BackendDefSchema, RoutingConfigSchema, StagedWorkflowDeclSchema } from './schema.js';
 
 const REQUIRED_SECTIONS = ['tracker', 'polling', 'workspace', 'hooks', 'agent', 'server'] as const;
 
@@ -213,6 +213,15 @@ export function validateWorkflowConfig(
       // Spec B Phase 2 / S3: non-blocking warnings.
       warnings.push(...routingWarnings(routingData, options.knownSkillNames ?? []));
     }
+  }
+
+  // split-routing D7/D13: validate the declarative staged-workflow producer
+  // surface when present. Absent ⇒ unchanged (SC4). Each decl is parsed by
+  // StagedWorkflowDeclSchema, which encodes the 0-stage validation error (D13);
+  // the `>= 2`-stage opt-in gate is workflowFor's job, not the schema's.
+  if (c.workflows !== undefined) {
+    const parsed = z.array(StagedWorkflowDeclSchema).safeParse(c.workflows);
+    if (!parsed.success) return Err(new Error(`workflows: ${parsed.error.message}`));
   }
 
   return Ok({ config: config as WorkflowConfig, warnings });
