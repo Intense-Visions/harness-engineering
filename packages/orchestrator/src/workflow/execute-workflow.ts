@@ -23,6 +23,13 @@ export function nextTier(t: CapabilityTier): CapabilityTier {
 }
 
 /**
+ * D12 default per-stage wall-clock deadline (ms). Mirrors the runner request
+ * timeout / maintenance.ts:80. `WorkflowEngineContext.stageDeadlineMs` overrides
+ * it; per-stage config is Phase 4.
+ */
+export const DEFAULT_STAGE_DEADLINE_MS = 120_000;
+
+/**
  * Narrow surface the stage-execution engine needs. The Orchestrator will
  * implement this in Phase 4 when dispatchIssue wires the branch; the engine
  * must NOT import orchestrator.ts (layer cycle). Phase 1 tests inject a fake.
@@ -35,6 +42,15 @@ export interface WorkflowEngineContext {
   identifier: string;
   externalId: string | null;
   workspacePath: string;
+  /**
+   * D12 (SC7): per-stage wall-clock deadline in ms. If a stage does not finish
+   * within it, the engine fires the per-stage abort (running the runner's
+   * `finally { stopSession }` via `gen.return()`) and treats the stage as
+   * `passed:false` → feeds the D8 retry/terminal path (never an unbounded hang).
+   * Absent ⇒ the engine default (`DEFAULT_STAGE_DEADLINE_MS`). Per-stage/config
+   * override is Phase 4.
+   */
+  stageDeadlineMs?: number;
   /** Build a runner for a stage's routed backend. Phase 1: single stubbed backend. */
   makeRunner(backend: AgentBackend): {
     runSession: (
@@ -177,6 +193,18 @@ export async function runStageSession(
   // Phase 1: prompt is a stub derived from the step; Phase 2/4 render real per-stage prompts.
   const gen = runner.runSession(undefined, ctx.workspacePath, step.skill);
 
+  // D12 (SC7): arm a per-stage wall-clock deadline that fires `abort` if the stage
+  // runs too long. A pending `abort` is resolved through `abortWaiter` so the drain
+  // loop's `await` never blocks unboundedly even when the generator never yields
+  // and never returns (an unbounded hang). Always cleared in `finally`.
+  const deadlineMs = ctx.stageDeadlineMs ?? DEFAULT_STAGE_DEADLINE_MS;
+  let onAbort: (() => void) | undefined;
+  const abortWaiter = new Promise<'aborted'>((resolve) => {
+    onAbort = () => resolve('aborted');
+    abort.signal.addEventListener('abort', onAbort, { once: true });
+  });
+  const timer = setTimeout(() => abort.abort(), deadlineMs);
+
   let ret:
     | {
         sessionId: string;
@@ -184,22 +212,42 @@ export async function runStageSession(
         usage: { inputTokens: number; outputTokens: number; totalTokens: number };
       }
     | undefined;
-  for (;;) {
-    const n = await gen.next();
-    if (n.done) {
-      ret = n.value;
-      break;
+  try {
+    for (;;) {
+      // Race the next event against the deadline abort so a never-yielding stage
+      // cannot hang the loop (SC7). `Promise.race` returns 'aborted' the moment the
+      // deadline fires; the still-pending gen.next() is discarded and cleaned up
+      // via gen.return() below.
+      const raced = await Promise.race([gen.next(), abortWaiter]);
+      if (raced === 'aborted') {
+        // carry-forward (a): drive the runner generator's `finally { stopSession }`
+        // (runner.ts:108-110) so an aborted/deadlined stage never leaks a session.
+        // `ret` stays unset → `passed=false` → feeds D8 (retry once → terminal).
+        await gen.return(undefined as never);
+        break;
+      }
+      const n = raced;
+      if (n.done) {
+        ret = n.value;
+        break;
+      }
+      const ev = n.value;
+      ctx.recorder.recordEvent(ctx.issueId, key, ev);
+      if (ev.usage) {
+        input += ev.usage.inputTokens;
+        output += ev.usage.outputTokens;
+        total += ev.usage.totalTokens;
+      }
+      // C1: if this stage's abort fired between events, stop draining and run the
+      // runner's finally via gen.return() (same cleanup as the deadline path).
+      if (abort.signal.aborted) {
+        await gen.return(undefined as never);
+        break;
+      }
     }
-    const ev = n.value;
-    ctx.recorder.recordEvent(ctx.issueId, key, ev);
-    if (ev.usage) {
-      input += ev.usage.inputTokens;
-      output += ev.usage.outputTokens;
-      total += ev.usage.totalTokens;
-    }
-    // C1: if this stage's abort fired, stop draining events. `ret` stays unset
-    // (no generator return) → the stage carries no sessionId for the aborted run.
-    if (abort.signal.aborted) break;
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) abort.signal.removeEventListener('abort', onAbort);
   }
 
   ctx.recorder.finishRecording(ctx.issueId, key, 'normal', {

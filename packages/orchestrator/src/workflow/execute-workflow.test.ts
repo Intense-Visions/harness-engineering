@@ -872,6 +872,73 @@ describe('split-routing P2 acceptance — real AdaptiveRouter', () => {
   });
 });
 
+describe('runStageSession — abort cleanup (carry-forward a)', () => {
+  it('calls gen.return() on deadline abort so the runner generator finally { stopSession } runs', async () => {
+    vi.useFakeTimers();
+    try {
+      let stopped = false;
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        stageDeadlineMs: 50,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            try {
+              // A long-running stage: yields a heartbeat, then awaits a short delay
+              // before the next. When the deadline fires the loop's Promise.race
+              // resolves 'aborted' and calls gen.return(); advancing the faked
+              // clock lets the inter-yield await settle so the generator resumes
+              // and runs this finally — mirroring runner.ts:108-110 stopSession.
+              for (let i = 0; i < 1000; i++) {
+                yield {
+                  type: 'usage',
+                  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                } as unknown as AgentEvent;
+                await new Promise((r) => setTimeout(r, 10));
+              }
+              // unreachable (aborted first) — satisfies the return-value type
+              return {
+                sessionId: 'never',
+                success: true,
+                usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+              };
+            } finally {
+              stopped = true; // proves gen.return() ran the generator's finally
+            }
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async () => {},
+        finalizeWorkflowTerminal: async () => {},
+      };
+
+      const p = runStageSession(ctx, 'issue-1', 0, 0, step('a'), fakeBackend(), {});
+      // advance past the deadline; flush microtasks so the race + gen.return() settle
+      await vi.advanceTimersByTimeAsync(60);
+      const run = await p;
+
+      expect(stopped).toBe(true); // gen.return() ran the runner's finally { stopSession }
+      // aborted stage: no generator return → no sessionId
+      expect(run.sessionId).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('executeWorkflow — never writes the issue-level session (C1/SC1-c)', () => {
   it('leaves RunningEntry.session untouched; per-stage sessionIds are distinct from it', async () => {
     // A sentinel issue-level session object. C1: the engine owns per-stage
