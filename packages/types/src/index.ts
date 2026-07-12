@@ -168,6 +168,9 @@ export type {
   RoutingTaskText,
   BudgetSnapshot,
   RoutingPolicy,
+  // --- AMR Phase 5: telemetry projection wire types (types-only) ---
+  RoutingTelemetryDecision,
+  RoutingTelemetry,
 } from './orchestrator';
 
 // --- AMR Phase 4: routing error (value/class export, D10) ---

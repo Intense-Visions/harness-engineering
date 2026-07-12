@@ -38,6 +38,8 @@ import type {
   Proposal,
   RoutingConfig,
   RoutingDecision,
+  RoutingPolicy,
+  RoutingTelemetry,
 } from '@harness-engineering/types';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
@@ -171,6 +173,14 @@ export interface ServerDependencies {
   getRoutingConfig?: () => RoutingConfig | null;
   getBackends?: () => Record<string, BackendDef> | null;
   /**
+   * AMR Phase 5 (D1/D2): runtime routing-policy ingestion + telemetry
+   * projection. `ingestRoutingPolicy` hot-swaps the live AdaptiveRouter for a
+   * pushed policy (`PUT /routing/policy`); `getRoutingTelemetry` projects the
+   * enriched decision ring into the Shuttle wire shape (`GET /routing/telemetry`).
+   */
+  ingestRoutingPolicy?: (policy: RoutingPolicy) => void;
+  getRoutingTelemetry?: () => RoutingTelemetry;
+  /**
    * Hermes Phase 4: project root used as the base path for
    * `.harness/proposals/` reads/writes and `agents/skills/` promotion.
    * Defaults to `process.cwd()`.
@@ -254,6 +264,9 @@ export class OrchestratorServer {
   private getRoutingDecisionBusFn: (() => RoutingDecisionBus | null) | null = null;
   private getRoutingConfigFn: (() => RoutingConfig | null) | null = null;
   private getBackendsFn: (() => Record<string, BackendDef> | null) | null = null;
+  // AMR Phase 5 — runtime routing-policy ingestion + telemetry projection.
+  private ingestRoutingPolicyFn: ((policy: RoutingPolicy) => void) | null = null;
+  private getRoutingTelemetryFn: (() => RoutingTelemetry) | null = null;
   // LMLM Phase 6 — live model pool + refresh scheduler accessors.
   private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
   private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
@@ -330,6 +343,8 @@ export class OrchestratorServer {
     this.getRoutingDecisionBusFn = deps?.getRoutingDecisionBus ?? null;
     this.getRoutingConfigFn = deps?.getRoutingConfig ?? null;
     this.getBackendsFn = deps?.getBackends ?? null;
+    this.ingestRoutingPolicyFn = deps?.ingestRoutingPolicy ?? null;
+    this.getRoutingTelemetryFn = deps?.getRoutingTelemetry ?? null;
     // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
     this.getModelPoolFn = deps?.getModelPool ?? null;
     this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
@@ -580,6 +595,8 @@ export class OrchestratorServer {
           bus: this.getRoutingDecisionBusFn?.() ?? null,
           routing: this.getRoutingConfigFn?.() ?? null,
           backends: this.getBackendsFn?.() ?? null,
+          ingestRoutingPolicy: this.ingestRoutingPolicyFn,
+          getTelemetry: this.getRoutingTelemetryFn,
         }),
       // Hermes Phase 4 — skill proposal review queue. Read scopes
       // (`read-status`) and write scopes (`manage-proposals`) are enforced
