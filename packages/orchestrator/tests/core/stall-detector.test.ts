@@ -132,4 +132,20 @@ describe('detectStalledIssues', () => {
   it('returns empty when running is empty', () => {
     expect(detectStalledIssues(new Map(), Date.now(), 60_000)).toEqual([]);
   });
+
+  it('D12: SKIPS a stale entry whose workflow is set (workflow units own per-stage liveness)', () => {
+    const running = new Map<string, RunningEntry>();
+    // A stale workflow unit: silent long past stallTimeoutMs, but `workflow` set.
+    const wfEntry = makeRunning('wf', '2026-01-01T00:00:00Z', null);
+    wfEntry.workflow = { coherenceUnit: 'wf', stages: [{ skill: 'a', produces: 'x' }] };
+    running.set('wf', wfEntry);
+    // A stale non-workflow unit: still stall-detected (unchanged).
+    running.set('plain', makeRunning('plain', '2026-01-01T00:00:00Z', null));
+
+    const nowMs = new Date('2026-01-01T00:10:00Z').getTime();
+    const stalled = detectStalledIssues(running, nowMs, 60_000);
+
+    // The workflow unit is bypassed; the plain unit is still returned.
+    expect(stalled).toEqual(['plain']);
+  });
 });

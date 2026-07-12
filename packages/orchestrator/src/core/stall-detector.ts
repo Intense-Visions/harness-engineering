@@ -22,6 +22,11 @@ export function detectStalledIssues(
 
   const stalled: string[] = [];
   for (const [runId, entry] of running) {
+    // split-routing D12: a workflow unit's liveness is per-stage — the engine's
+    // per-stage deadline (DEFAULT_STAGE_DEADLINE_MS) owns it, not this issue-grain
+    // detector. A long multi-stage unit would otherwise be falsely stalled+retried,
+    // which wipes the shared worktree mid-workflow. Skip entries with a plan set.
+    if (entry.workflow) continue;
     const reference = entry.session?.lastTimestamp ?? entry.startedAt;
     if (!reference) continue;
     const silentMs = nowMs - new Date(reference).getTime();
