@@ -256,7 +256,7 @@ export async function runStageSession(
     turnCount: 0,
   });
 
-  // Phase 3 gate eval (SC6-c): `passed` is the runner's own TurnResult.success
+  // Phase 3 gate evaluation (SC6-c): `passed` is the runner's own TurnResult.success
   // (v1). An aborted/deadlined stage leaves `ret` unset → `passed=false` (the
   // deadline path, Task 11). Only a `pass-required` gate can FAIL the unit;
   // `advisory` (or an absent gate) always passes regardless of `passed`.
