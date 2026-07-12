@@ -498,6 +498,48 @@ describe('runStageWithRetry — engine retry cap=1 (SC6-a / D8a)', () => {
   });
 });
 
+describe('runStageWithRetry — floor feed (SC6 / D8b)', () => {
+  it('records ok:false once per failed attempt, independent of the engine retry', async () => {
+    const { ctx, recordCalls, terminalCalls } = makeRetryCtx({
+      successByAttempt: { doomed: [false, false] },
+      tierForReq: () => 'fast',
+    });
+    const s: WorkflowStep = { skill: 'doomed', produces: 'd', gate: 'pass-required' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    expect(terminalCalls).toHaveLength(1);
+    // recordOutcome called with ok=false TWICE (once per attempt) — the floor feed
+    // is driven by quality, NOT gated by the retry branch (D8b, the C3 fix).
+    const falseCalls = recordCalls.filter(([, , ok]) => ok === false);
+    expect(falseCalls).toHaveLength(2);
+    expect(falseCalls.every(([u, t]) => u === 'issue-1' && t === 'fast')).toBe(true);
+  });
+
+  it('records ok:true once for a passing stage', async () => {
+    const { ctx, recordCalls, successCalls } = makeRetryCtx({
+      successByAttempt: { good: [true] },
+      tierForReq: () => 'fast',
+    });
+    const s: WorkflowStep = { skill: 'good', produces: 'g', gate: 'pass-required' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    expect(successCalls).toHaveLength(1);
+    expect(recordCalls).toEqual([['issue-1', 'fast', true]]);
+  });
+
+  it('records ok:true for an advisory stage even when the runner reports success:false', async () => {
+    // advisory quality failures do NOT climb the floor (they never fail the unit).
+    const { ctx, recordCalls } = makeRetryCtx({
+      successByAttempt: { adv: [false] },
+      tierForReq: () => 'fast',
+    });
+    const s: WorkflowStep = { skill: 'adv', produces: 'a', gate: 'advisory' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    expect(recordCalls).toEqual([['issue-1', 'fast', true]]);
+  });
+});
+
 describe('executeWorkflow — per-stage routing vs identity fallback (split-routing P2)', () => {
   it('routes each stage via adaptiveRouter and writes decision+tier onto the StageRun (SC2 wiring)', async () => {
     const routeSpy = vi.fn(async (req: RoutingRequest) => {

@@ -271,11 +271,15 @@ export async function runStageWithRetry(
       );
       run.decision = decision;
       if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
-      // D8(b)/SC3: feed the CUMULATIVE unit floor once per attempt. Phase 2 records
-      // `true`; Task 7 refines this to record the real quality outcome (`ok`) so a
-      // failing attempt climbs the floor INDEPENDENTLY of the engine's own retry.
+      // D8(b)/SC3 — the C3 fix: feed the CUMULATIVE unit floor once per ATTEMPT
+      // with the REAL quality outcome. `ok` is false only on a `pass-required`
+      // gate failure (advisory/absent gates always report `ok=true` — they never
+      // climb the floor). This call is UNCONDITIONAL on quality and INSIDE the
+      // attempt loop, so a failing attempt climbs the floor per EscalationState's
+      // threshold INDEPENDENTLY of the engine's own retry decision below.
       if (decision.tierRequired !== undefined) {
-        ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, true);
+        const ok = step.gate !== 'pass-required' || run.outcome === 'pass';
+        ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, ok);
       }
     } else {
       // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
