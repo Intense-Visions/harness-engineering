@@ -1,5 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import { LazyLocalAdapter } from '../../../src/shared/craft/llm/lazy-local-adapter';
+import type { LlmProvider } from '../../../src/shared/craft/llm/contracts';
+
+// A stub provider so `callText` never opens a real socket to the (dead) endpoint.
+// The tests exercise model resolution + error handling, not the HTTP call itself;
+// without this seam the OpenAI SDK's connect-timeout + retry backoff makes these
+// tests multi-second and flaky under parallel coverage load.
+const stubProvider = (modelId: string): LlmProvider => ({
+  providerId: 'local',
+  model: modelId,
+  callText: async () => {
+    throw new Error('stub provider: no server (test)');
+  },
+  callVision: async () => {
+    throw new Error('stub provider: no server (test)');
+  },
+  recordCost: () => {},
+  getCosts: () => [],
+});
 
 describe('LazyLocalAdapter', () => {
   it('resolves to the first configured model that the endpoint reports as loaded', async () => {
@@ -9,6 +27,7 @@ describe('LazyLocalAdapter', () => {
       apiKey: 'ollama',
       configured: ['gemma-4-e4b', 'qwen3:8b', 'deepseek-coder-v2'],
       fetchModels,
+      makeProvider: stubProvider,
     });
 
     // Pre-call: resolution hasn't happened yet.
@@ -33,10 +52,7 @@ describe('LazyLocalAdapter', () => {
       apiKey: 'lm-studio',
       configured: ['gemma-4-e4b', 'qwen3:8b'],
       fetchModels,
-      // Fail fast on the unreachable port — the test is about caching, not HTTP.
-      // Without this, the OpenAI SDK's default 90s timeout + retry backoff blows
-      // past vitest's 30s testTimeout when looping 3 calls.
-      llmTimeoutMs: 100,
+      makeProvider: stubProvider,
     });
 
     for (let i = 0; i < 3; i++) {
