@@ -459,3 +459,206 @@ describe('SC2 end-to-end — two stages route to two tiers through the real cont
     expect(state.running.has('issue-1')).toBe(false);
   });
 });
+
+describe('D11 restart-from-0 + SC5/SC6/SC7 through the real workflow context', () => {
+  let orch: Orchestrator;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-d11-'));
+    execSync(
+      'git init && git config user.email "t@t" && git config user.name "t" && git commit --allow-empty -m init',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
+    vi.spyOn(WorkspaceManager.prototype, 'findPushedBranch').mockResolvedValue(null);
+    vi.spyOn(WorkspaceManager.prototype, 'removeWorkspace').mockResolvedValue(Ok(undefined));
+  });
+
+  afterEach(async () => {
+    if (orch) await orch.stop();
+    vi.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('D11: re-dispatch after completion re-runs from stage 0 on a fresh worktree (ensureWorkspace called again)', async () => {
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    const ensureSpy = vi
+      .spyOn(WorkspaceManager.prototype, 'ensureWorkspace')
+      .mockImplementation(async () => {
+        fs.mkdirSync(workspacePath, { recursive: true });
+        return Ok(workspacePath);
+      });
+    orch = makeDispatchOrch([
+      { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
+    ]);
+    const successSpy = vi.spyOn(
+      orch as unknown as { settleWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> },
+      'settleWorkflowSuccess'
+    );
+
+    // First dispatch → completes.
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    await vi.waitFor(() => expect(successSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    const ensureAfterFirst = ensureSpy.mock.calls.length;
+    // clear completed so the re-dispatch is not gated (simulate a process-restart re-pickup)
+    (orch as unknown as { state: { completed: Map<string, number> } }).state.completed.clear();
+
+    // Re-dispatch the SAME unit.
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    await vi.waitFor(() => expect(successSpy).toHaveBeenCalledTimes(2), { timeout: 5000 });
+
+    // A fresh worktree was ensured again (no persisted stage cursor — restart from 0).
+    expect(ensureSpy.mock.calls.length).toBeGreaterThan(ensureAfterFirst);
+  });
+
+  it('SC5: a runner throw inside a stage → exactly one terminal, no orphaned running/claimed', async () => {
+    orch = makeDispatchOrch([
+      { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
+    ]);
+    const terminalSpy = vi.spyOn(
+      orch as unknown as { settleWorkflowTerminal: (...a: unknown[]) => Promise<void> },
+      'settleWorkflowTerminal'
+    );
+    // Make the materialized backend's runner throw by breaking startSession.
+    const factory = (
+      orch as unknown as { backendFactory: { forUseCase: (...a: unknown[]) => unknown } }
+    ).backendFactory;
+    vi.spyOn(factory, 'forUseCase').mockImplementation(() => ({
+      name: 'boom',
+      startSession: async () => {
+        throw new Error('startSession blew up');
+      },
+      stopSession: async () => {},
+    }));
+
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    await vi.waitFor(() => expect(terminalSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
+
+    const state = (
+      orch as unknown as { state: { running: Map<string, unknown>; claimed: Set<string> } }
+    ).state;
+    expect(state.running.has('issue-1')).toBe(false);
+    expect(state.claimed.has('issue-1')).toBe(false);
+  });
+
+  it('SC6: a pass-required stage failing both attempts → one terminal + one needs-human', async () => {
+    // >= 2 stages so workflowFor selects the plan; the FIRST is pass-required and
+    // fails both attempts → terminal before the 2nd stage ever runs.
+    const stages = [
+      {
+        skill: 'gate',
+        produces: 'x',
+        gate: 'pass-required',
+        routingHint: { complexity: verdict('complex') },
+      },
+      { skill: 'after', produces: 'y', expects: 'x' },
+    ];
+    orch = new Orchestrator(
+      createRoutedConfig([{ name: 'w', match: { identifierPrefix: 'REV-' }, stages }]),
+      'Prompt',
+      {
+        tracker: {
+          fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([])),
+          fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
+          fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map())),
+          markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+          claimIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+          releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+        } as never,
+      }
+    );
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
+      fs.mkdirSync(workspacePath, { recursive: true });
+      return Ok(workspacePath);
+    });
+    // Force the runner to always report TurnResult.success=false so the pass-required
+    // gate fails on both the attempt-0 and attempt-1 (bumped-floor) runs.
+    const factory = (
+      orch as unknown as { backendFactory: { forUseCase: (...a: unknown[]) => unknown } }
+    ).backendFactory;
+    vi.spyOn(factory, 'forUseCase').mockImplementation(
+      (_u, opts?: { invocationOverride?: string }) => ({
+        name: opts?.invocationOverride ?? 'fast',
+        startSession: async () =>
+          Ok({ sessionId: 's', workspacePath, backendName: 'x', startedAt: '' }),
+        // eslint-disable-next-line require-yield
+        async *runTurn() {
+          return {
+            success: false,
+            sessionId: 's',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+        stopSession: async () => {},
+      })
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as { settleWorkflowTerminal: (...a: unknown[]) => Promise<void> },
+      'settleWorkflowTerminal'
+    );
+    const queue = (orch as unknown as { interactionQueue: { push: (i: unknown) => Promise<void> } })
+      .interactionQueue;
+    const pushSpy = vi.spyOn(queue, 'push');
+
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    await vi.waitFor(() => expect(terminalSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
+
+    // Exactly one terminal + exactly one needs-human queued.
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    const state = (
+      orch as unknown as { state: { running: Map<string, unknown>; claimed: Set<string> } }
+    ).state;
+    expect(state.running.has('issue-1')).toBe(false);
+    expect(state.claimed.has('issue-1')).toBe(false);
+  });
+
+  it('SC7: a stage exceeding stageDeadlineMs → treated as failure → terminal', async () => {
+    // >= 2 stages so workflowFor selects the plan; the FIRST hangs past the 50ms
+    // deadline → stage failure (pass-required) → terminal before stage 2.
+    const stages = [
+      { skill: 'slow', produces: 'x', gate: 'pass-required' },
+      { skill: 'after', produces: 'y', expects: 'x' },
+    ];
+    orch = makeDispatchOrch([
+      { name: 'w', match: { identifierPrefix: 'REV-' }, stages, stageDeadlineMs: 50 },
+    ]);
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
+      fs.mkdirSync(workspacePath, { recursive: true });
+      return Ok(workspacePath);
+    });
+    // A runner that never returns within the 50ms deadline (hangs on the first turn).
+    const factory = (
+      orch as unknown as { backendFactory: { forUseCase: (...a: unknown[]) => unknown } }
+    ).backendFactory;
+    vi.spyOn(factory, 'forUseCase').mockImplementation(() => ({
+      name: 'slow',
+      startSession: async () =>
+        Ok({ sessionId: 's', workspacePath, backendName: 'slow', startedAt: '' }),
+      async *runTurn() {
+        // Yield nothing and hang well past the 50ms deadline.
+        await new Promise((r) => setTimeout(r, 2000));
+        return {
+          success: true,
+          sessionId: 's',
+          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        };
+      },
+      stopSession: async () => {},
+    }));
+    const terminalSpy = vi.spyOn(
+      orch as unknown as { settleWorkflowTerminal: (...a: unknown[]) => Promise<void> },
+      'settleWorkflowTerminal'
+    );
+
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    await vi.waitFor(() => expect(terminalSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
+
+    const state = (
+      orch as unknown as { state: { running: Map<string, unknown>; claimed: Set<string> } }
+    ).state;
+    expect(state.running.has('issue-1')).toBe(false);
+    expect(state.claimed.has('issue-1')).toBe(false);
+  });
+});
