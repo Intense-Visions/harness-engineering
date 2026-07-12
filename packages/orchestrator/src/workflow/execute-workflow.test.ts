@@ -210,6 +210,12 @@ describe('stageAttemptKey (split-routing P1)', () => {
     expect(stageAttemptKey(1, 0)).toBe(1000);
     expect(stageAttemptKey(0, 1)).toBe(1);
   });
+
+  it('asserts the attempt<1000 collision-freedom invariant (carry-forward b)', () => {
+    expect(() => stageAttemptKey(0, 1000)).toThrow();
+    expect(() => stageAttemptKey(0, -1)).toThrow();
+    expect(() => stageAttemptKey(0, 999)).not.toThrow();
+  });
 });
 
 describe('runStageSession — engine-owned per-stage state (C1/split-routing P1)', () => {

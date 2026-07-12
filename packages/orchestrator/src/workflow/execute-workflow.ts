@@ -84,8 +84,17 @@ export interface WorkflowEngineContext {
  * has NO stageIndex parameter — so we encode the stage into the attempt integer
  * to keep N stages' recordings from clobbering, WITHOUT modifying StreamRecorder.
  * attempt is 0 in Phase 1; Phase 3 uses 0|1 for the engine retry cap.
+ *
+ * INVARIANT (carry-forward b): the `stageIndex * 1000 + attempt` encoding is
+ * collision-free ONLY while `0 <= attempt < 1000` (else `attempt` would spill
+ * into the next stage's key band and silently clobber its recordings). We assert
+ * it here so a future retry-cap change that raised `attempt` past 999 fails loud
+ * instead of corrupting stream recordings.
  */
 export function stageAttemptKey(stageIndex: number, attempt: number): number {
+  if (attempt < 0 || attempt >= 1000) {
+    throw new RangeError(`stageAttemptKey: attempt must be 0..999 (got ${attempt})`);
+  }
   return stageIndex * 1000 + attempt;
 }
 
