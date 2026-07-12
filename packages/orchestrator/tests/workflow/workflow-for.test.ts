@@ -46,12 +46,35 @@ describe('workflowFor (SC4 / D5 / D13)', () => {
     expect(workflowFor(makeIssue(), makeConfig([]))).toBeUndefined();
   });
 
-  it('D5: returns a plan for the first matching decl with >= 2 stages', () => {
+  it('D5: returns { plan } for the first matching decl with >= 2 stages', () => {
     const config = makeConfig([
       { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
     ]);
-    const plan = workflowFor(makeIssue({ id: 'issue-1', identifier: 'REV-42' }), config);
-    expect(plan).toEqual({ coherenceUnit: 'issue-1', stages: twoStages });
+    const match = workflowFor(makeIssue({ id: 'issue-1', identifier: 'REV-42' }), config);
+    expect(match?.plan).toEqual({ coherenceUnit: 'issue-1', stages: twoStages });
+  });
+
+  it('D12: threads the matched decl stageDeadlineMs on the result (single match authority)', () => {
+    const config = makeConfig([
+      {
+        name: 'w',
+        match: { identifierPrefix: 'REV-' },
+        stages: twoStages,
+        stageDeadlineMs: 4200,
+      },
+    ]);
+    const match = workflowFor(makeIssue({ id: 'issue-1', identifier: 'REV-42' }), config);
+    expect(match?.plan).toEqual({ coherenceUnit: 'issue-1', stages: twoStages });
+    expect(match?.stageDeadlineMs).toBe(4200);
+  });
+
+  it('D12: omits stageDeadlineMs when the matched decl does not declare it', () => {
+    const config = makeConfig([
+      { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
+    ]);
+    const match = workflowFor(makeIssue({ identifier: 'REV-42' }), config);
+    expect(match).toBeDefined();
+    expect(match?.stageDeadlineMs).toBeUndefined();
   });
 
   it('D13: a matching 1-stage decl returns undefined (single dispatch)', () => {
@@ -70,7 +93,7 @@ describe('workflowFor (SC4 / D5 / D13)', () => {
 
   it('matches by labels (all declared labels must be present)', () => {
     const config = makeConfig([{ name: 'w', match: { labels: ['staged'] }, stages: twoStages }]);
-    expect(workflowFor(makeIssue({ labels: ['staged', 'x'] }), config)).toEqual({
+    expect(workflowFor(makeIssue({ labels: ['staged', 'x'] }), config)?.plan).toEqual({
       coherenceUnit: 'issue-1',
       stages: twoStages,
     });
@@ -84,7 +107,7 @@ describe('workflowFor (SC4 / D5 / D13)', () => {
     ]);
     // prefix matches but label missing ⇒ no match
     expect(workflowFor(makeIssue({ identifier: 'REV-1', labels: [] }), config)).toBeUndefined();
-    // both match ⇒ plan
+    // both match ⇒ match
     expect(
       workflowFor(makeIssue({ identifier: 'REV-1', labels: ['staged'] }), config)
     ).toBeDefined();

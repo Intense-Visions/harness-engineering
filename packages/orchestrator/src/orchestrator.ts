@@ -1927,18 +1927,11 @@ export class Orchestrator extends EventEmitter {
       // ensureWorkspace + the claim, so the workflow reuses the ONE worktree (D11) and
       // SC5's "one claim" holds. When it fires, the engine owns the terminal transition
       // via the settle callbacks; we return without touching the single-agent path.
-      const workflowPlan = workflowFor(issue, this.config);
-      if (workflowPlan) {
-        // Recover the matched decl to thread its optional stageDeadlineMs override
-        // (D12). The match logic mirrors workflowFor exactly (prefix AND labels).
-        const matched = this.config.workflows?.find((d) => {
-          const prefixOk =
-            d.match.identifierPrefix === undefined ||
-            issue.identifier.startsWith(d.match.identifierPrefix);
-          const labelsOk =
-            d.match.labels === undefined || d.match.labels.every((l) => issue.labels.includes(l));
-          return prefixOk && labelsOk && d.stages.length >= 2;
-        });
+      const workflowMatch = workflowFor(issue, this.config);
+      if (workflowMatch) {
+        // `workflowFor` is the single match authority: it returns BOTH the plan AND
+        // the matched decl's optional stageDeadlineMs (D12). No re-matching here.
+        const workflowPlan = workflowMatch.plan;
         const ctx = buildWorkflowContext({
           recorder: this.recorder,
           logger: this.logger,
@@ -1953,8 +1946,8 @@ export class Orchestrator extends EventEmitter {
             const d = this.config.agent.routing?.default;
             return d !== undefined ? toArray(d)[0] : undefined;
           })(),
-          ...(matched?.stageDeadlineMs !== undefined
-            ? { stageDeadlineMs: matched.stageDeadlineMs }
+          ...(workflowMatch.stageDeadlineMs !== undefined
+            ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
             : {}),
           settleSuccess: (u, r) => this.settleWorkflowSuccess(u, r),
           settleTerminal: (u, r, s, e) => this.settleWorkflowTerminal(u, r, s, e),
