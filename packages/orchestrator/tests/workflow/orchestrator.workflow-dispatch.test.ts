@@ -4,7 +4,13 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { Ok } from '@harness-engineering/types';
-import type { Issue, StageRun, WorkflowConfig } from '@harness-engineering/types';
+import type {
+  Issue,
+  StageRun,
+  WorkflowConfig,
+  BackendCapabilities,
+  ComplexityVerdict,
+} from '@harness-engineering/types';
 import { Orchestrator } from '../../src/orchestrator.js';
 import { WorkspaceManager } from '../../src/workspace/manager.js';
 import { MockBackend } from '../../src/agent/backends/mock.js';
@@ -314,5 +320,142 @@ describe('dispatchIssue workflow branch (SC4 identity / D13 / workflow entry)', 
     expect(state.running.has('issue-1')).toBe(false);
     expect(state.claimed.has('issue-1')).toBe(false);
     expect(state.completed.has('issue-1')).toBe(true);
+  });
+});
+
+const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
+  tier: 'fast',
+  costPer1kTokens: 0,
+  privacyClass: 'on-device',
+  contextWindow: 8192,
+  ...over,
+});
+
+const verdict = (level: ComplexityVerdict['level']): ComplexityVerdict => ({
+  level,
+  confidence: 'high',
+  signals: {},
+  source: 'static',
+});
+
+/** Config with a fast + strong mock backend and routing.policy set (adaptiveRouter !== null). */
+function createRoutedConfig(workflows: WorkflowConfig['workflows']): WorkflowConfig {
+  return {
+    tracker: { kind: 'mock', activeStates: ['planned'], terminalStates: ['done'] },
+    polling: { intervalMs: 1000 },
+    workspace: { root: path.join(tmpDir, '.harness', 'workspaces') },
+    hooks: {
+      afterCreate: null,
+      beforeRun: null,
+      afterRun: null,
+      beforeRemove: null,
+      timeoutMs: 1000,
+    },
+    agent: {
+      maxConcurrentAgents: 2,
+      maxTurns: 3,
+      maxRetryBackoffMs: 1000,
+      maxRetries: 5,
+      maxConcurrentAgentsByState: { planned: 1 },
+      turnTimeoutMs: 5000,
+      readTimeoutMs: 5000,
+      stallTimeoutMs: 5000,
+      backends: {
+        fast: { type: 'mock', capabilities: cap({ tier: 'fast', costPer1kTokens: 0 }) },
+        strong: { type: 'mock', capabilities: cap({ tier: 'strong', costPer1kTokens: 10 }) },
+      },
+      // Non-empty policy so the orchestrator's policyActive gate constructs the
+      // AdaptiveRouter (orchestrator.ts:701: Object.keys(policy).length > 0).
+      routing: { default: 'fast', policy: { escalationThreshold: 2 } },
+    },
+    server: { port: null },
+    workflows,
+  } as unknown as WorkflowConfig;
+}
+
+describe('SC2 end-to-end — two stages route to two tiers through the real context', () => {
+  let orch: Orchestrator;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-sc2-'));
+    execSync(
+      'git init && git config user.email "t@t" && git config user.name "t" && git commit --allow-empty -m init',
+      { cwd: tmpDir, stdio: 'ignore' }
+    );
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
+      fs.mkdirSync(workspacePath, { recursive: true });
+      return Ok(workspacePath);
+    });
+    vi.spyOn(WorkspaceManager.prototype, 'findPushedBranch').mockResolvedValue(null);
+    vi.spyOn(WorkspaceManager.prototype, 'removeWorkspace').mockResolvedValue(Ok(undefined));
+  });
+
+  afterEach(async () => {
+    if (orch) await orch.stop();
+    vi.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('a complex-hinted stage routes strong and a trivial-hinted stage routes fast (distinct tiers)', async () => {
+    const stages = [
+      { skill: 'design', produces: 'plan', routingHint: { complexity: verdict('complex') } },
+      {
+        skill: 'lint',
+        produces: 'clean',
+        expects: 'plan',
+        routingHint: { complexity: verdict('trivial') },
+      },
+    ];
+    orch = new Orchestrator(
+      createRoutedConfig([{ name: 'w', match: { identifierPrefix: 'REV-' }, stages }]),
+      'Prompt',
+      {
+        tracker: {
+          fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([])),
+          fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
+          fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map())),
+          markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+          claimIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+          releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+        } as never,
+      }
+    );
+
+    // Capture the per-stage runs by wrapping the success settle.
+    let capturedRuns: StageRun[] = [];
+    const realSuccess = (
+      orch as unknown as { settleWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> }
+    ).settleWorkflowSuccess.bind(orch);
+    vi.spyOn(
+      orch as unknown as { settleWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> },
+      'settleWorkflowSuccess'
+    ).mockImplementation(async (u, r) => {
+      capturedRuns = r;
+      return realSuccess(u, r);
+    });
+
+    await dispatch(orch, makeIssue({ identifier: 'REV-9' }));
+    await vi.waitFor(() => expect(capturedRuns.length).toBe(2), { timeout: 5000 });
+
+    // Stage 0 (complex) → strong; stage 1 (trivial) → fast. Distinct tiers + backends.
+    const [s0, s1] = capturedRuns;
+    expect(s0!.tier).toBe('strong');
+    expect(s1!.tier).toBe('fast');
+    expect(s0!.decision?.backendName).not.toBe(s1!.decision?.backendName);
+
+    // One completion; state drained.
+    const state = (
+      orch as unknown as {
+        state: {
+          running: Map<string, unknown>;
+          claimed: Set<string>;
+          completed: Map<string, number>;
+        };
+      }
+    ).state;
+    expect(state.completed.has('issue-1')).toBe(true);
+    expect(state.running.has('issue-1')).toBe(false);
   });
 });
