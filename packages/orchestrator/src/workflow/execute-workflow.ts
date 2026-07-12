@@ -248,51 +248,75 @@ export async function runStageWithRetry(
   let run: StageRun | undefined;
 
   for (let attempt = 0; attempt <= 1; attempt++) {
-    if (ctx.adaptiveRouter) {
-      // attempt 0 → no engine floor; attempt 1 → bump to nextTier(prior tier).
-      const floor: CapabilityTier | undefined =
-        attempt >= 1 && priorDecision?.tierRequired !== undefined
-          ? nextTier(priorDecision.tierRequired)
-          : undefined;
-      const req = buildStageRequest(step, unit, priorRuns, floor);
-      const { decision } = await ctx.adaptiveRouter.route(req);
-      priorDecision = decision;
-      // route() returns def:BackendDef (no `name`); the backend name is
-      // decision.backendName. Pass a name-only surface — real def→runner is Phase 4.
-      const backend = { name: decision.backendName } as AgentBackend;
-      run = await runStageSession(
-        ctx,
-        unit,
-        index,
-        attempt,
-        step,
-        backend,
-        priorOutputs(priorRuns)
-      );
-      run.decision = decision;
-      if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
-      // D8(b)/SC3 — the C3 fix: feed the CUMULATIVE unit floor once per ATTEMPT
-      // with the REAL quality outcome. `ok` is false only on a `pass-required`
-      // gate failure (advisory/absent gates always report `ok=true` — they never
-      // climb the floor). This call is UNCONDITIONAL on quality and INSIDE the
-      // attempt loop, so a failing attempt climbs the floor per EscalationState's
-      // threshold INDEPENDENTLY of the engine's own retry decision below.
-      if (decision.tierRequired !== undefined) {
-        const ok = step.gate !== 'pass-required' || run.outcome === 'pass';
-        ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, ok);
+    try {
+      if (ctx.adaptiveRouter) {
+        // attempt 0 → no engine floor; attempt 1 → bump to nextTier(prior tier).
+        const floor: CapabilityTier | undefined =
+          attempt >= 1 && priorDecision?.tierRequired !== undefined
+            ? nextTier(priorDecision.tierRequired)
+            : undefined;
+        const req = buildStageRequest(step, unit, priorRuns, floor);
+        const { decision } = await ctx.adaptiveRouter.route(req);
+        priorDecision = decision;
+        // route() returns def:BackendDef (no `name`); the backend name is
+        // decision.backendName. Pass a name-only surface — real def→runner is Phase 4.
+        const backend = { name: decision.backendName } as AgentBackend;
+        run = await runStageSession(
+          ctx,
+          unit,
+          index,
+          attempt,
+          step,
+          backend,
+          priorOutputs(priorRuns)
+        );
+        run.decision = decision;
+        if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
+        // D8(b)/SC3 — the C3 fix: feed the CUMULATIVE unit floor once per ATTEMPT
+        // with the REAL quality outcome. `ok` is false only on a `pass-required`
+        // gate failure (advisory/absent gates always report `ok=true` — they never
+        // climb the floor). This call is UNCONDITIONAL on quality and INSIDE the
+        // attempt loop, so a failing attempt climbs the floor per EscalationState's
+        // threshold INDEPENDENTLY of the engine's own retry decision below.
+        if (decision.tierRequired !== undefined) {
+          const ok = step.gate !== 'pass-required' || run.outcome === 'pass';
+          ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, ok);
+        }
+      } else {
+        // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
+        const backend = ctx.resolveStageBackend(step);
+        run = await runStageSession(
+          ctx,
+          unit,
+          index,
+          attempt,
+          step,
+          backend,
+          priorOutputs(priorRuns)
+        );
       }
-    } else {
-      // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
-      const backend = ctx.resolveStageBackend(step);
-      run = await runStageSession(
-        ctx,
+    } catch (err) {
+      // D10 (SC6-b): a runner THROW mid-stage (transport/runner error) is TERMINAL
+      // for the unit, NOT a retry. We attribute the error to THIS stage with
+      // `outcome:'error'` and return it so executeWorkflow's `outcome !== 'pass'`
+      // branch drives finalizeWorkflowTerminal(unit, runs, step) exactly once —
+      // without re-entering the loop, re-running from stage 0, or calling
+      // ensureWorkspace (prior-stage artifacts on the shared worktree are preserved).
+      ctx.logger.error('workflow stage runner threw — terminal (D10)', {
         unit,
-        index,
+        stageIndex: index,
         attempt,
+        skill: step.skill,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return {
+        index,
         step,
-        backend,
-        priorOutputs(priorRuns)
-      );
+        tokens: { input: 0, output: 0, total: 0 },
+        outcome: 'error',
+        attempt,
+        durationMs: 0,
+      };
     }
 
     // A `pass-required` quality failure on attempt 0 triggers the single retry;

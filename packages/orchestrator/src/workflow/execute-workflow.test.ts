@@ -621,6 +621,60 @@ describe('executeWorkflow — per-stage routing vs identity fallback (split-rout
   });
 });
 
+describe('executeWorkflow — mid-workflow error is terminal (SC6-b / D10)', () => {
+  it('a runner throw mid-stage → outcome error, terminal once, no restart-from-0, prior artifacts preserved', async () => {
+    // 3-stage plan; stage 1's runner THROWS (transport error). D10: the unit goes
+    // terminal via finalizeWorkflowTerminal WITHOUT re-running from stage 0 (no
+    // ensureWorkspace wipe) — stage 0's completed StageRun is preserved in the
+    // terminal payload, stage 2 never runs.
+    const terminalFailingSteps: (WorkflowStep | undefined)[] = [];
+    const seenSkills: string[] = [];
+    const base = makeRetryCtx({ successByAttempt: {} });
+    const ctx: WorkflowEngineContext = {
+      ...base.ctx,
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, prompt: string) {
+          seenSkills.push(prompt);
+          const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+          if (prompt === 'b') {
+            throw new Error('transport error at stage 1');
+          }
+          yield { type: 'usage', usage } as unknown as AgentEvent;
+          return { sessionId: `${prompt}-0`, success: true, usage };
+        },
+      }),
+      finalizeWorkflowTerminal: async (_u, runs, failingStep) => {
+        base.terminalCalls.push(runs);
+        terminalFailingSteps.push(failingStep as WorkflowStep | undefined);
+      },
+    };
+    const s0: WorkflowStep = { skill: 'a', produces: 'a', gate: 'pass-required' };
+    const s1: WorkflowStep = { skill: 'b', produces: 'b', gate: 'pass-required' };
+    const s2: WorkflowStep = { skill: 'c', produces: 'c' };
+
+    await expect(
+      executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s0, s1, s2] })
+    ).resolves.toBeUndefined();
+
+    expect(base.terminalCalls).toHaveLength(1);
+    expect(base.successCalls).toHaveLength(0);
+    // stage 0 ran once, stage 1 (skill 'b') attempted once and threw, stage 2 never ran
+    expect(seenSkills).toEqual(['a', 'b']);
+    expect(seenSkills.filter((s) => s === 'c')).toHaveLength(0);
+    expect(seenSkills.filter((s) => s === 'a')).toHaveLength(1); // NO restart-from-0
+
+    const runs = base.terminalCalls[0]!;
+    // prior-stage artifact preserved: stage 0's completed pass is in the payload
+    expect(runs[0]!.index).toBe(0);
+    expect(runs[0]!.outcome).toBe('pass');
+    // the failing stage 1 carries outcome:'error'
+    const errored = runs.find((r) => r.index === 1)!;
+    expect(errored.outcome).toBe('error');
+    // the failingStep passed to the terminal is stage 1's step
+    expect(terminalFailingSteps[0]).toBe(s1);
+  });
+});
+
 describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routing P1)', () => {
   it('a throw between stages → exactly one finalizeWorkflowTerminal, no orphaned running/claimed (SC5-b)', async () => {
     // Seed a coherence unit as running + claimed; the terminal transition must
