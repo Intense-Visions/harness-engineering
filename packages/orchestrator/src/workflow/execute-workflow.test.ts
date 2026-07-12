@@ -58,11 +58,13 @@ function makeFakeCtx(opts: {
   recordEventSpy: ReturnType<typeof vi.fn>;
   successCalls: StageRun[][];
   terminalCalls: StageRun[][];
+  terminalFailingSteps: (WorkflowStep | undefined)[];
 } {
   const runOrder: number[] = [];
   const runWorkspaces: string[] = [];
   const successCalls: StageRun[][] = [];
   const terminalCalls: StageRun[][] = [];
+  const terminalFailingSteps: (WorkflowStep | undefined)[] = [];
   const startRecordingSpy = vi.fn();
   const finishRecordingSpy = vi.fn();
   const recordEventSpy = vi.fn();
@@ -115,8 +117,9 @@ function makeFakeCtx(opts: {
       successCalls.push(runs);
       opts.onSuccess?.(unit, runs);
     },
-    finalizeWorkflowTerminal: async (unit, runs, _failingStep, err) => {
+    finalizeWorkflowTerminal: async (unit, runs, failingStep, err) => {
       terminalCalls.push(runs);
+      terminalFailingSteps.push(failingStep as WorkflowStep | undefined);
       opts.onTerminal?.(unit, runs, err);
     },
   };
@@ -130,6 +133,7 @@ function makeFakeCtx(opts: {
     recordEventSpy,
     successCalls,
     terminalCalls,
+    terminalFailingSteps,
   };
 }
 
@@ -305,6 +309,24 @@ describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
     expect(runs.map((r) => r.tokens?.total)).toEqual([15, 27, 39]);
     // distinct per-stage token totals — cost is attributable per stage
     expect(new Set(runs.map((r) => r.tokens?.total)).size).toBe(3);
+  });
+});
+
+describe('executeWorkflow — terminal on stage fail (SC6 / P3)', () => {
+  it('a failing pass-required stage goes terminal exactly once; downstream stages never run', async () => {
+    const { ctx, runOrder, successCalls, terminalCalls, terminalFailingSteps } = makeFakeCtx({
+      sessionIds: ['s0', 's1'],
+      successPerStage: [false, true], // stage 0 fails its gate
+    });
+    const s0: WorkflowStep = { skill: 'a', produces: 'a', gate: 'pass-required' };
+    const s1: WorkflowStep = { skill: 'b', produces: 'b' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s0, s1] });
+
+    expect(terminalCalls).toHaveLength(1);
+    expect(successCalls).toHaveLength(0);
+    expect(runOrder).toEqual([0]); // stage 1 never runs
+    // the failingStep passed to finalizeWorkflowTerminal is stage 0's step
+    expect(terminalFailingSteps[0]).toBe(s0);
   });
 });
 

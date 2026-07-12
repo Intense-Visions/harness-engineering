@@ -263,8 +263,15 @@ export async function executeWorkflow(
         );
       }
       runs.push(run);
-      // Phase 1 has no gates → runs never fail; Phase 3 adds:
-      //   if (run.outcome !== 'pass') return finalizeWorkflowTerminal(...)
+      // D8(c)/D10 (SC6): a non-pass stage outcome (a `pass-required` quality
+      // failure or a mid-stage runner error) terminates the unit exactly once
+      // via finalizeWorkflowTerminal — running/claimed delete + persistLaneSafe
+      // ('abandon') + one needs-human + cleanWorkspace — and downstream stages
+      // never run. The engine retry (Task 6) sits INSIDE runStageWithRetry, so by
+      // the time a `fail` reaches here the single retry is already exhausted.
+      if (run.outcome !== 'pass') {
+        return await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, step);
+      }
     }
     await ctx.emitWorkflowSuccess(plan.coherenceUnit, runs); // D6: one success exit
   } catch (err) {
