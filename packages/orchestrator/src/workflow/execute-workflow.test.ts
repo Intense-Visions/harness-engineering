@@ -1078,6 +1078,159 @@ describe('runStageSession — abort cleanup (carry-forward a)', () => {
   });
 });
 
+describe('finalizeWorkflowTerminal contract (SC6 / SC5 / S5)', () => {
+  /**
+   * Build a ctx whose finalizeWorkflowTerminal fake models the Phase-4 contract:
+   * running/claimed delete + persistLaneSafe('abandon') + exactly one needs-human
+   * + one cleanWorkspace. `sideEffects` records the ordered calls so the test can
+   * assert the terminal ran the full S5 contract exactly once.
+   */
+  function makeContractCtx(runSessionImpl: {
+    makeRunner: WorkflowEngineContext['makeRunner'];
+    stageDeadlineMs?: number;
+  }): {
+    ctx: WorkflowEngineContext;
+    running: Set<string>;
+    claimed: Set<string>;
+    side: { needsHuman: number; cleanWorkspace: number; abandon: number; terminalCalls: number };
+    successCalls: number;
+  } {
+    const running = new Set(['issue-1']);
+    const claimed = new Set(['issue-1']);
+    const side = { needsHuman: 0, cleanWorkspace: 0, abandon: 0, terminalCalls: 0 };
+    let successCalls = 0;
+    const ctx: WorkflowEngineContext = {
+      recorder: {
+        startRecording: vi.fn(),
+        recordEvent: vi.fn(),
+        finishRecording: vi.fn(),
+      } as unknown as WorkflowEngineContext['recorder'],
+      logger: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      } as unknown as WorkflowEngineContext['logger'],
+      issueId: 'issue-1',
+      identifier: 'issue-1',
+      externalId: null,
+      workspacePath: '/tmp/ws',
+      ...(runSessionImpl.stageDeadlineMs !== undefined
+        ? { stageDeadlineMs: runSessionImpl.stageDeadlineMs }
+        : {}),
+      makeRunner: runSessionImpl.makeRunner,
+      adaptiveRouter: {
+        route: async () => ({
+          decision: { backendName: 'b', tierRequired: 'fast' } as unknown as RoutingDecision,
+        }),
+        recordOutcome: vi.fn(),
+      },
+      resolveStageBackend: () => fakeBackend(),
+      emitWorkflowSuccess: async () => {
+        successCalls++;
+        running.delete('issue-1');
+        claimed.delete('issue-1');
+      },
+      // The S5 terminal contract Phase 4 must implement; pinned here on the fake.
+      finalizeWorkflowTerminal: async (unit) => {
+        side.terminalCalls++;
+        running.delete(unit); // (a) delete running
+        claimed.delete(unit); // (a) delete claimed
+        side.abandon++; // (b) persistLaneSafe('abandon')
+        side.needsHuman++; // (c) exactly one needs-human
+        side.cleanWorkspace++; // (d) cleanWorkspace — no leaked worktree (S5)
+      },
+    };
+    return { ctx, running, claimed, side, successCalls };
+  }
+
+  function assertTerminalContract(
+    running: Set<string>,
+    claimed: Set<string>,
+    side: { needsHuman: number; cleanWorkspace: number; abandon: number; terminalCalls: number }
+  ) {
+    expect(side.terminalCalls).toBe(1); // exactly one terminal transition
+    expect(running.has('issue-1')).toBe(false); // no orphaned running
+    expect(claimed.has('issue-1')).toBe(false); // no orphaned claimed
+    expect(side.abandon).toBe(1); // persistLaneSafe('abandon')
+    expect(side.needsHuman).toBe(1); // exactly one needs-human
+    expect(side.cleanWorkspace).toBe(1); // exactly one cleanWorkspace (S5)
+  }
+
+  it('stage fail (D8a retry exhausted) → the full terminal contract exactly once', async () => {
+    const seen: string[] = [];
+    const { ctx, running, claimed, side } = makeContractCtx({
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, p: string) {
+          seen.push(p);
+          const usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+          yield { type: 'usage', usage } as unknown as AgentEvent;
+          return { sessionId: `${p}-${seen.length}`, success: false, usage }; // always fails
+        },
+      }),
+    });
+    await executeWorkflow(ctx, {
+      coherenceUnit: 'issue-1',
+      stages: [{ skill: 'a', produces: 'a', gate: 'pass-required' }],
+    });
+    assertTerminalContract(running, claimed, side);
+  });
+
+  it('stage error (D10 runner throw) → the full terminal contract exactly once', async () => {
+    const { ctx, running, claimed, side } = makeContractCtx({
+      makeRunner: () => ({
+        // eslint-disable-next-line require-yield
+        async *runSession() {
+          throw new Error('transport error');
+        },
+      }),
+    });
+    await executeWorkflow(ctx, {
+      coherenceUnit: 'issue-1',
+      stages: [{ skill: 'a', produces: 'a', gate: 'pass-required' }],
+    });
+    assertTerminalContract(running, claimed, side);
+  });
+
+  it('deadline (D12 timeout) → the full terminal contract exactly once', async () => {
+    vi.useFakeTimers();
+    try {
+      const { ctx, running, claimed, side } = makeContractCtx({
+        stageDeadlineMs: 50,
+        makeRunner: () => ({
+          async *runSession() {
+            try {
+              for (let i = 0; i < 1000; i++) {
+                yield {
+                  type: 'usage',
+                  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                } as unknown as AgentEvent;
+                await new Promise((r) => setTimeout(r, 10));
+              }
+              return {
+                sessionId: 'never',
+                success: true,
+                usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+              };
+            } finally {
+              /* stopSession */
+            }
+          },
+        }),
+      });
+      const p = executeWorkflow(ctx, {
+        coherenceUnit: 'issue-1',
+        stages: [{ skill: 'a', produces: 'a', gate: 'pass-required' }],
+      });
+      await vi.advanceTimersByTimeAsync(1000);
+      await p;
+      assertTerminalContract(running, claimed, side);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('executeWorkflow — never writes the issue-level session (C1/SC1-c)', () => {
   it('leaves RunningEntry.session untouched; per-stage sessionIds are distinct from it', async () => {
     // A sentinel issue-level session object. C1: the engine owns per-stage
