@@ -128,6 +128,25 @@ describe('buildStageRequest — request construction (split-routing P2)', () => 
     expect('complexity' in req).toBe(false);
     expect('risk' in req).toBe(false);
   });
+
+  it('seeds complexity+risk from routingHint so routing is deterministic (S3)', () => {
+    const complexity = {
+      level: 'complex' as const,
+      confidence: 'high' as const,
+      signals: {},
+      source: 'static' as const,
+    };
+    const risk = { blastRadius: 3, sensitivePath: false };
+    const req = buildStageRequest(
+      { skill: 'design-review', produces: 'r', routingHint: { complexity, risk } },
+      'issue-1',
+      []
+    );
+    expect(req.complexity).toEqual(complexity);
+    expect(req.risk).toEqual(risk);
+    // useCase has no cognitiveMode when the step omits it
+    expect(req.useCase).toEqual({ kind: 'skill', skillName: 'design-review' });
+  });
 });
 
 describe('stageAttemptKey (split-routing P1)', () => {
