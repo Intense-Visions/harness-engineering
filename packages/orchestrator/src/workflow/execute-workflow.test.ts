@@ -43,6 +43,8 @@ function fakeBackend(name = 'mock'): AgentBackend {
 function makeFakeCtx(opts: {
   sessionIds: string[];
   usagePerStage?: { inputTokens: number; outputTokens: number; totalTokens: number }[];
+  /** Phase 3: the runner's TurnResult.success per stage index (default true). */
+  successPerStage?: boolean[];
   throwAtIndex?: number;
   onSuccess?: (unit: string, runs: StageRun[]) => void;
   onTerminal?: (unit: string, runs: StageRun[], err?: unknown) => void;
@@ -100,7 +102,11 @@ function makeFakeCtx(opts: {
         };
         const ev: AgentEvent = { type: 'usage', usage } as unknown as AgentEvent;
         yield ev;
-        return { sessionId: opts.sessionIds[index] ?? `sess-${index}`, usage };
+        return {
+          sessionId: opts.sessionIds[index] ?? `sess-${index}`,
+          success: opts.successPerStage?.[index] ?? true,
+          usage,
+        };
       },
     }),
     resolveStageBackend: () => fakeBackend(),

@@ -33,6 +33,7 @@ export interface WorkflowEngineContext {
       AgentEvent,
       {
         sessionId: string;
+        success: boolean; // Phase 3: the runner's TurnResult.success — quality signal for gate eval
         usage: { inputTokens: number; outputTokens: number; totalTokens: number };
       },
       void
@@ -154,6 +155,7 @@ export async function runStageSession(
   let ret:
     | {
         sessionId: string;
+        success: boolean;
         usage: { inputTokens: number; outputTokens: number; totalTokens: number };
       }
     | undefined;
