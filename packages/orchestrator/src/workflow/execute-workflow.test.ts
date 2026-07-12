@@ -749,6 +749,88 @@ describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routin
   });
 });
 
+describe('SC8 additivity — route() is behaviorally identical when req.floor is absent (P3)', () => {
+  const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
+    tier: 'fast',
+    costPer1kTokens: 0,
+    privacyClass: 'on-device',
+    contextWindow: 8192,
+    ...over,
+  });
+  const localDef = (capabilities: BackendCapabilities): BackendDef => ({
+    type: 'local',
+    endpoint: 'http://localhost:1234',
+    model: 'm',
+    capabilities,
+  });
+  const verdict = (level: ComplexityVerdict['level']): ComplexityVerdict => ({
+    level,
+    confidence: 'high',
+    signals: {},
+    source: 'static',
+  });
+
+  function makeAdaptive(escalation?: EscalationState) {
+    const backends = {
+      'fast-b': localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+      'std-b': localDef(cap({ tier: 'standard', costPer1kTokens: 3 })),
+      'strong-b': localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
+    };
+    const router = new BackendRouter({ backends, routing: { default: 'fast-b' } });
+    const registry = buildCapabilityRegistry(backends);
+    return new AdaptiveRouter({
+      router,
+      registry,
+      policy: {},
+      classify: vi.fn(() => verdict('moderate')),
+      ...(escalation ? { escalation } : {}),
+    });
+  }
+
+  it('a no-floor request resolves the SAME tier as before Option A (fast for a trivial hint)', async () => {
+    const adaptive = makeAdaptive();
+    const noFloor = await adaptive.route(
+      buildStageRequest(
+        { skill: 'x', produces: 'x', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        []
+      )
+    );
+    expect(noFloor.decision.tierRequired).toBe('fast');
+    // 'floor' is not part of a no-floor buildStageRequest (exactOptionalPropertyTypes)
+    const req = buildStageRequest(
+      { skill: 'x', produces: 'x', routingHint: { complexity: verdict('trivial') } },
+      'issue-1',
+      []
+    );
+    expect('floor' in req).toBe(false);
+  });
+
+  it('an explicit req.floor RAISES the resolved tier (the retry seam) without touching EscalationState', async () => {
+    const escalation = new EscalationState(2);
+    const adaptive = makeAdaptive(escalation);
+    // same trivial-hinted request, but the engine pins floor='standard' for a retry
+    const withFloor = await adaptive.route(
+      buildStageRequest(
+        { skill: 'x', produces: 'x', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        [],
+        'standard'
+      )
+    );
+    expect(withFloor.decision.tierRequired).toBe('standard'); // floor honored (max-by-rank)
+    // the cumulative floor was NOT mutated — a subsequent NO-floor request is 'fast' again
+    const after = await adaptive.route(
+      buildStageRequest(
+        { skill: 'y', produces: 'y', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        []
+      )
+    );
+    expect(after.decision.tierRequired).toBe('fast');
+  });
+});
+
 describe('split-routing P2 acceptance — real AdaptiveRouter', () => {
   const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
     tier: 'fast',
