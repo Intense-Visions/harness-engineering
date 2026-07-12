@@ -126,6 +126,7 @@ export type {
   AgentConfig,
   ServerConfig,
   WorkflowConfig,
+  StagedWorkflowDecl,
   WorkflowDefinition,
   ScopeTier,
   ConcernSignal,
