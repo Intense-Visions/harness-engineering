@@ -4,6 +4,7 @@ import type {
   WorkflowExecutionPlan,
   StageRun,
   RoutingRequest,
+  RoutingDecision,
   CapabilityTier,
 } from '@harness-engineering/types';
 import type { StreamRecorder } from '../core/stream-recorder';
@@ -39,6 +40,20 @@ export interface WorkflowEngineContext {
   };
   /** Phase 1 stub: resolve the single backend for a stage (Phase 2 replaces with route()). */
   resolveStageBackend(step: WorkflowExecutionPlan['stages'][number]): AgentBackend;
+  /**
+   * split-routing Phase 2: per-stage adaptive router. Present ⇒ each stage is
+   * routed via `route(buildStageRequest(...))`; ABSENT ⇒ identity fallback via
+   * `resolveStageBackend` (no `routing.policy`). Narrow surface only (route +
+   * recordOutcome) so the engine stays off the orchestrator import cycle.
+   *
+   * `route()` returns `{ decision }` only — the engine derives the backend name
+   * from `decision.backendName` (a `BackendDef` carries no `name`; the name is
+   * the router map key), so `def` is deliberately not part of this surface.
+   */
+  adaptiveRouter?: {
+    route(req: RoutingRequest): Promise<{ decision: RoutingDecision }>;
+    recordOutcome(coherenceUnit: string, tier: CapabilityTier, ok: boolean): void;
+  };
   /** Terminal success — exactly one running/claimed delete + one lane persist (D6). */
   emitWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void>;
   /** Terminal failure/safety-net — exactly one running/claimed delete + one lane persist (D6/I1). */

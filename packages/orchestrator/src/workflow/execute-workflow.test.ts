@@ -7,7 +7,7 @@ import {
   buildStageRequest,
 } from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
-import type { WorkflowExecutionPlan } from '@harness-engineering/types';
+import type { WorkflowExecutionPlan, RoutingDecision } from '@harness-engineering/types';
 
 /** A minimal WorkflowStep for tests. */
 function step(produces: string): WorkflowStep {
@@ -146,6 +146,18 @@ describe('buildStageRequest — request construction (split-routing P2)', () => 
     expect(req.risk).toEqual(risk);
     // useCase has no cognitiveMode when the step omits it
     expect(req.useCase).toEqual({ kind: 'skill', skillName: 'design-review' });
+  });
+
+  it('WorkflowEngineContext accepts an optional adaptiveRouter (route + recordOutcome)', () => {
+    const withRouter = {
+      adaptiveRouter: {
+        route: async () => ({ decision: {} as RoutingDecision }),
+        recordOutcome: () => {},
+      },
+    } as Partial<WorkflowEngineContext>;
+    const withoutRouter = {} as Partial<WorkflowEngineContext>;
+    expect(withRouter.adaptiveRouter).toBeDefined();
+    expect(withoutRouter.adaptiveRouter).toBeUndefined();
   });
 });
 
