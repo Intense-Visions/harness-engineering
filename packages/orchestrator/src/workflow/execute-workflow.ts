@@ -3,6 +3,8 @@ import type {
   AgentEvent,
   WorkflowExecutionPlan,
   StageRun,
+  RoutingRequest,
+  CapabilityTier,
 } from '@harness-engineering/types';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { StructuredLogger } from '../logging/logger';
@@ -57,6 +59,39 @@ export interface WorkflowEngineContext {
  */
 export function stageAttemptKey(stageIndex: number, attempt: number): number {
   return stageIndex * 1000 + attempt;
+}
+
+/**
+ * Build the per-stage RoutingRequest. The useCase is derived from the step
+ * (skill + optional cognitiveMode); the shared `coherenceUnit` pins all stages
+ * to one escalation floor (D2). When `step.routingHint` is present we seed
+ * `complexity`/`risk` so `route()` short-circuits live classification
+ * (adaptive-router.ts:118) and the stage resolves DETERMINISTICALLY (S3) — a
+ * `complex`-hinted stage → `strong`, a `trivial`-hinted stage → `fast`, without
+ * depending on the LLM/text classifier. `floor` is plumbed for Phase 3's engine
+ * retry (a bumped required floor); it is always `undefined` in Phase 2 (Phase 3
+ * threads it into the request). exactOptionalPropertyTypes ⇒ conditional
+ * spreads, never explicit `undefined`.
+ */
+export function buildStageRequest(
+  step: WorkflowExecutionPlan['stages'][number],
+  coherenceUnit: string,
+  _priorRuns: StageRun[],
+  _floor?: CapabilityTier
+): RoutingRequest {
+  const useCase = {
+    kind: 'skill' as const,
+    skillName: step.skill,
+    ...(step.cognitiveMode !== undefined ? { cognitiveMode: step.cognitiveMode } : {}),
+  };
+  return {
+    useCase,
+    coherenceUnit,
+    ...(step.routingHint?.complexity !== undefined
+      ? { complexity: step.routingHint.complexity }
+      : {}),
+    ...(step.routingHint?.risk !== undefined ? { risk: step.routingHint.risk } : {}),
+  };
 }
 
 /**

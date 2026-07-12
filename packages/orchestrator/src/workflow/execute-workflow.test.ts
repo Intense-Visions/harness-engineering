@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { AgentBackend, AgentEvent, StageRun, WorkflowStep } from '@harness-engineering/types';
-import { stageAttemptKey, runStageSession, executeWorkflow } from './execute-workflow';
+import {
+  stageAttemptKey,
+  runStageSession,
+  executeWorkflow,
+  buildStageRequest,
+} from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
 import type { WorkflowExecutionPlan } from '@harness-engineering/types';
 
@@ -105,6 +110,25 @@ function makeFakeCtx(opts: {
     terminalCalls,
   };
 }
+
+describe('buildStageRequest — request construction (split-routing P2)', () => {
+  it('builds a skill useCase + shared coherenceUnit; omits complexity/risk when no routingHint', () => {
+    const req = buildStageRequest(
+      { skill: 'harness-debugging', produces: 'a', cognitiveMode: 'diagnostic' },
+      'issue-1',
+      []
+    );
+    expect(req.useCase).toEqual({
+      kind: 'skill',
+      skillName: 'harness-debugging',
+      cognitiveMode: 'diagnostic',
+    });
+    expect(req.coherenceUnit).toBe('issue-1');
+    // exactOptionalPropertyTypes: absent (not `undefined`) when no hint
+    expect('complexity' in req).toBe(false);
+    expect('risk' in req).toBe(false);
+  });
+});
 
 describe('stageAttemptKey (split-routing P1)', () => {
   it('produces distinct recorder attempt keys per (stageIndex, attempt) so streams do not clobber', () => {
