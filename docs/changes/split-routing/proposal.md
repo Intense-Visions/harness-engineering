@@ -190,3 +190,15 @@ Worktree (`ensureWorkspace`, one per unit), `AgentRunner.runSession` (per stage)
 **Phase 4 — Opt-in gate + declarative producer + docs (~2d).** `workflowFor` predicate + `≥2`-stage gate + 0-stage validation (D13); the declarative producer + an end-to-end SC2 fixture; behavioral-identity + restart-from-0 regression tests (SC4/D11); docs + ADRs. Prove SC4/SC8.
 
 **Total:** ~12 working days. Phases 1–3 are the engine (with the state-layer integration the feasibility review surfaced made explicit); Phase 4 wires it in opt-in with a real producer. Parallel stages, stage-local retry-in-place, partial-resume, and rich auto-producers are follow-ups on this substrate.
+
+## Deferred follow-ups
+
+The engine, per-stage routing, cumulative escalation, terminal semantics, and the opt-in/default-off gate are **complete and tested** (SC1–SC8 proven through the real `WorkflowEngineContext`). What is deferred is the **operational prompt-richness layer** on top of that substrate:
+
+- **Per-stage prompt rendering + D4 artifact-context threading are stubbed.** Today `runStageSession` passes the bare `step.skill` string as the stage prompt, and `priorOutputs(priorRuns)` returns `{}`. Stages therefore currently operate off the **shared worktree file-state** carried between stages (each stage sees the prior stage's file changes on the one worktree) with only a **skill-name prompt** — they do _not_ yet receive a rendered per-stage prompt or an in-memory `produces → expects` output payload. The real layer is: a `PromptRenderer` invocation per stage (rendering the stage's skill/template with issue + attempt context, as the single-agent path already does) plus `produces → expects` context threading so a downstream stage receives its upstream's declared outputs as structured context rather than relying solely on worktree diffs. This is the next layer of work; the routing/escalation/terminal machinery underneath it is done.
+- **Parallel stages** — the engine runs stages strictly sequentially on one worktree. Fan-out/fan-in across a DAG of stages is a follow-up.
+- **Stage-local retry-in-place** — the current retry cap-1 re-runs the failing stage at a bumped tier but does not support richer per-stage retry policies (e.g. distinct retry counts or per-stage backoff).
+- **Partial-resume** — a re-dispatch restarts from stage 0 on a fresh worktree (D11); there is no persisted stage cursor to resume mid-workflow after an interruption.
+- **Rich auto-producers** — the declarative `WorkflowConfig.workflows` producer is the v1 source; auto-deriving workflows from skill catalogs / issue shape is a follow-up.
+
+None of these gaps affect the shipped invariants (SC4 byte-identity when off, SC5 single-exit, SC8 router non-regression). They are additive layers on the proven engine.
