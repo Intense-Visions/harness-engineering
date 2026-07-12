@@ -1204,6 +1204,8 @@ Dry-run a routing decision without dispatching (Spec B F7)
 
 - `--skill` — Skill name to trace
 - `--mode` — Cognitive mode to trace (or attach to --skill per spec D12)
+- `--complexity` — Synthetic complexity (trivial|simple|moderate|complex) — dry-run only
+- `--risk` — Synthetic risk band (low|high) — dry-run only
 - `--json` — Emit JSON to stdout instead of human-readable text
 
 ## Skill Commands

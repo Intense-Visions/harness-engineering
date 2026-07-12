@@ -1,0 +1,166 @@
+import type {
+  BackendCapabilities,
+  BackendCapabilityRegistry,
+  CapabilityTier,
+  PrivacyClass,
+  BackendDef,
+} from '@harness-engineering/types';
+import { RoutingError } from '@harness-engineering/types';
+import type { PoolStateProvider } from '@harness-engineering/local-models';
+import { poolStateToCandidates } from '@harness-engineering/local-models';
+// Single guarded source (derive-tier.ts): TIER_RANK is pinned to the full
+// `CapabilityTier` union via a compile-time exhaustiveness link.
+import { TIER_RANK } from '@harness-engineering/intelligence';
+
+/**
+ * Fail-closed signal: privacy floor / allowlist emptied the candidate set (S4-001).
+ * Distinguishable from a tier/cost-only exclusion, which returns `undefined`.
+ *
+ * Finding #4 — ONE typed error family: `PrivacyNoMatch` stays orchestrator-local
+ * (it is thrown deep in the selector, a layer below the exported types package) but
+ * EXTENDS the exported `RoutingError`, carrying its canonical `'privacy-no-match'`
+ * code. The dispatch boundary can therefore catch it as either `PrivacyNoMatch`
+ * (ergonomic `instanceof`) or `RoutingError` (code-narrowed), and the sibling
+ * `escalation-exhausted` code is emitted via `RoutingError` too — no divergent
+ * surfaces, no dead exported error type. `code` narrows to the literal here.
+ */
+export class PrivacyNoMatch extends RoutingError {
+  override readonly code = 'privacy-no-match' as const;
+  constructor(message: string) {
+    super('privacy-no-match', message);
+    this.name = 'PrivacyNoMatch';
+  }
+}
+
+/** Privacy floor: lower index = stronger guarantee. A backend satisfies a floor
+ *  when its privacy index ≤ the floor's index (at least as strong). */
+const PRIVACY_RANK: Record<PrivacyClass, number> = {
+  'on-device': 0,
+  'pooled-isolated': 1,
+  'byo-endpoint': 2,
+  'shared-cloud': 3,
+};
+
+export interface SelectConstraints {
+  privacyFloor?: PrivacyClass;
+  /** Present ⇒ only these providers allowed. Absent ⇒ all allowed. Empty array ⇒ none. */
+  allowed?: BackendDef['type'][];
+  needsVision?: boolean;
+  needsToolUse?: boolean;
+  minContextTokens?: number;
+}
+
+/**
+ * D1 core: filter the registry to backends with tier ≥ requiredTier, privacyClass
+ * at least as strong as the floor, provider in the allowlist, and capabilities ⊇
+ * required (vision/toolUse/minContextTokens); sort by costPer1kTokens ascending;
+ * return the cheapest.
+ *
+ * Fail-closed (S4-001): if a privacy-floor OR allowlist constraint empties the set,
+ * throw PrivacyNoMatch (the item must surface to the steward — never fall through
+ * to identity routing at a non-compliant backend). A tier/cost-only exclusion is
+ * best-effort: return undefined so the caller can fall back to the shipped router's
+ * identity/default chain. No `if (local)` anywhere.
+ */
+export function selectCheapestQualifying(
+  registry: BackendCapabilityRegistry,
+  requiredTier: CapabilityTier,
+  constraints: SelectConstraints,
+  /**
+   * Provider lookup by name, required to enforce a `constraints.allowed` allowlist.
+   * If `allowed` is set but `providerOf` is absent (or returns `undefined` for an
+   * entry), that entry cannot be admitted → excluded; an allowlist with no
+   * `providerOf` therefore excludes ALL candidates and fails closed
+   * (`PrivacyNoMatch`). Phase 3 (`AdaptiveRouter`) MUST derive this from
+   * `agent.backends` whenever it sets an allowlist. Absent `allowed` ⇒ unused.
+   */
+  providerOf?: (name: string) => BackendDef['type'] | undefined
+): { name: string; capabilities: BackendCapabilities } | undefined {
+  const requiredRank = TIER_RANK[requiredTier];
+  const entries = [...registry.entries()].map(([name, capabilities]) => ({
+    name,
+    capabilities,
+  }));
+
+  // Partition so we can distinguish WHY the set emptied (S4-001).
+  const passesPrivacyAllow = entries.filter((e) => {
+    if (
+      constraints.privacyFloor !== undefined &&
+      PRIVACY_RANK[e.capabilities.privacyClass] > PRIVACY_RANK[constraints.privacyFloor]
+    ) {
+      return false;
+    }
+    if (constraints.allowed !== undefined) {
+      const type = providerOf?.(e.name);
+      // When provider is unknown, an explicit allowlist cannot admit it → excluded.
+      if (type === undefined || !constraints.allowed.includes(type)) return false;
+    }
+    return true;
+  });
+
+  // Fail closed: the ONLY thing that removed candidates was privacy/allowlist.
+  if (passesPrivacyAllow.length === 0 && entries.length > 0) {
+    throw new PrivacyNoMatch(
+      `No backend satisfies privacyFloor=${constraints.privacyFloor ?? 'none'} / allowlist=${JSON.stringify(constraints.allowed ?? 'all')}`
+    );
+  }
+
+  const qualifying = passesPrivacyAllow.filter((e) => {
+    const c = e.capabilities;
+    if (TIER_RANK[c.tier] < requiredRank) return false;
+    if (constraints.needsVision && !c.vision) return false;
+    if (constraints.needsToolUse && !c.toolUse) return false;
+    if (
+      constraints.minContextTokens !== undefined &&
+      c.contextWindow < constraints.minContextTokens
+    )
+      return false;
+    return true;
+  });
+
+  if (qualifying.length === 0) return undefined; // tier/cost-only exclusion → best-effort
+
+  qualifying.sort((a, b) =>
+    a.capabilities.costPer1kTokens !== b.capabilities.costPer1kTokens
+      ? a.capabilities.costPer1kTokens - b.capabilities.costPer1kTokens
+      : a.name < b.name
+        ? -1
+        : a.name > b.name
+          ? 1
+          : 0
+  );
+  const head = qualifying[0]!;
+  return { name: head.name, capabilities: head.capabilities };
+}
+
+/** Default capability block derived for an LMLM pool candidate that carries no
+ *  explicit capabilities. On-device ⇒ strongest privacy, zero marginal cost.
+ *  Seed values (tunable in later phases); a candidate is thus visible to tier
+ *  selection (spec "Failure modes": a backend with NO capabilities is invisible,
+ *  but a pool candidate is always given a derived block so it can win on cost). */
+export function defaultPoolCapabilities(): BackendCapabilities {
+  return { tier: 'fast', costPer1kTokens: 0, privacyClass: 'on-device', contextWindow: 8192 };
+}
+
+/**
+ * Build the tier-selection registry (name → capabilities) from configured
+ * `agent.backends` (their `capabilities` blocks, when present) merged with LMLM
+ * pool candidates (each given a derived on-device/zero-cost block). A configured
+ * backend WITHOUT a `capabilities` block is omitted — invisible to tier selection,
+ * reachable only via identity routing (spec "Failure modes"). No LMLM code changes.
+ */
+export function buildCapabilityRegistry(
+  backends: Record<string, BackendDef>,
+  pool?: PoolStateProvider
+): BackendCapabilityRegistry {
+  const out = new Map<string, BackendCapabilities>();
+  for (const [name, def] of Object.entries(backends)) {
+    if (def.capabilities) out.set(name, def.capabilities);
+  }
+  if (pool) {
+    for (const candidate of poolStateToCandidates(pool.snapshot())) {
+      if (!out.has(candidate)) out.set(candidate, defaultPoolCapabilities());
+    }
+  }
+  return out;
+}

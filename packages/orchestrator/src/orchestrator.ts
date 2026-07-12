@@ -1,13 +1,19 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { WorkflowConfig, AgentBackend } from '@harness-engineering/types';
+import type {
+  WorkflowConfig,
+  AgentBackend,
+  RoutingRequest,
+  RoutingDecision,
+} from '@harness-engineering/types';
+import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
-import type { EnrichedSpec } from '@harness-engineering/intelligence';
+import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
-import type { OrchestratorState, LiveSession } from './types/internal';
+import type { OrchestratorState, LiveSession, RunningEntry } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
 import { applyEvent } from './core/state-machine';
 import { createEmptyState } from './core/state-helpers';
@@ -70,12 +76,16 @@ import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
 import { buildIntelligencePipeline } from './agent/intelligence-factory';
 import { toArray } from './agent/backend-router';
+import { AdaptiveRouter } from './agent/adaptive-router';
 import { RoutingDecisionBus } from './routing/decision-bus.js';
 // Spec B Phase 3: detectScopeTier / artifactPresenceFromIssue moved to
 // `./agent/use-case-builder` (the new caller). The dispatch site no
 // longer references them directly.
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
 import { buildRoutingUseCase } from './agent/use-case-builder';
+import { makeLiveClassify } from './agent/live-classify';
+import { buildTaskText } from './agent/complexity-request';
+import { buildAnalysisProviderForLayer } from './agent/intelligence-factory';
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
@@ -197,6 +207,13 @@ export class Orchestrator extends EventEmitter {
    */
   private backendFactory: OrchestratorBackendFactory | null;
   /**
+   * AMR Phase 3 (D11): opt-in adaptive router. Constructed ONLY when
+   * `agent.routing.policy` is present and non-empty; `null` otherwise so
+   * dispatch stays byte-identical on the shipped `BackendRouter`
+   * (SC8/SC17/SC19). Exposed for tests via {@link getAdaptiveRouter}.
+   */
+  private adaptiveRouter: AdaptiveRouter | null = null;
+  /**
    * Spec B Phase 4 (D8): per-orchestrator in-process bus for
    * `RoutingDecision` events. Constructed alongside backendFactory when
    * agent.backends synthesis succeeds; null when legacy single-backend
@@ -305,6 +322,15 @@ export class Orchestrator extends EventEmitter {
    */
   private localModelStatusUnsubscribes: Array<() => void> = [];
   private pipeline: IntelligencePipeline | null;
+  /**
+   * AMR live-classifier provider (final-review finding #2). The complexity
+   * cascade may spend a fast-tier LLM tie-break; it borrows the SEL-layer
+   * AnalysisProvider. Built lazily on first classify (the AdaptiveRouter is
+   * constructed before start(), so this cannot be eager); `null` means "no
+   * provider — cascade stays fully offline / static-only". `undefined` means
+   * "not yet resolved".
+   */
+  private complexityProvider: AnalysisProvider | null | undefined = undefined;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private claimManager: ClaimManager | null = null;
@@ -660,9 +686,63 @@ export class Orchestrator extends EventEmitter {
           };
         },
       });
+
+      // AMR Phase 3 (D11): construct AdaptiveRouter ONLY when routing.policy is
+      // present AND non-empty. Absent/empty ⇒ dispatch stays on the shipped
+      // BackendRouter, byte-identical, no classify(), no added latency
+      // (SC8/SC17/SC19). The gate only CONSTRUCTS the router; it does NOT swap
+      // forUseCase dispatch to route through it (that would risk the
+      // byte-identical guarantee) — enrichment-on-dispatch is a later step.
+      const policy = routing.policy;
+      const policyActive = policy !== undefined && Object.keys(policy).length > 0;
+      this.adaptiveRouter = policyActive
+        ? AdaptiveRouter.fromConfig({
+            router: this.backendFactory.getRouter(),
+            backends: this.config.agent.backends,
+            ...(this.modelPool ? { pool: this.modelPool } : {}),
+            policy,
+            // classify seam (final-review finding #2): the REAL intelligence
+            // cascade, replacing the Phase-3 constant `{moderate, low}` stub.
+            // `makeLiveClassify` reads `req.taskText` (populated at the dispatch
+            // call site), runs the phase-aware `pre-diff` static pass, and spends a
+            // fast-tier LLM tie-break ONLY when a provider is available AND the
+            // static verdict is low-confidence. The provider is resolved LAZILY
+            // (per dispatch) because it is built in start(), after this
+            // constructor. No provider / no taskText ⇒ fully-offline conservative
+            // verdict — never throws, and classifySafe still guards any surprise
+            // throw/timeout so classification can never block dispatch (D4).
+            classify: makeLiveClassify(() => this.resolveComplexityProvider()),
+            // D10: fromConfig seeds a fresh EscalationState from
+            // policy.escalationThreshold (default 2). Bind the strong-cap
+            // exhaustion seam to a HARD-FAIL-TO-HUMAN (spec D10): once the floor is
+            // already `strong` and a quality failure re-crosses the threshold there
+            // is no higher tier to climb to, so the coherence unit must surface to a
+            // human — not merely log. `escalateRoutingToHuman` queues a `needs-human`
+            // interaction (same mechanism as every other escalation), carrying a
+            // typed RoutingError('escalation-exhausted') reason. The structured warn
+            // is kept for the steward log channel.
+            onExhausted: (coherenceUnit: string) => {
+              const err = new RoutingError(
+                'escalation-exhausted',
+                `Coherence unit ${coherenceUnit} exhausted the strong tier ceiling: quality failures re-crossed the escalation threshold with no higher tier to climb to (D10/SC16)`
+              );
+              this.logger.warn('routing:escalation-exhausted', {
+                coherenceUnit,
+                reason: err.message,
+              });
+              this.escalateRoutingToHuman(coherenceUnit, err);
+            },
+            // SC9: emit the ENRICHED decision (complexity/tierRequired/estCostUsd)
+            // onto the same bus dispatch already uses, so a subscriber receives the
+            // AMR telemetry the D2-frozen base emit cannot carry.
+            ...(this.routingDecisionBus ? { decisionBus: this.routingDecisionBus } : {}),
+          })
+        : null;
     } else {
       this.backendFactory = null;
       this.routingDecisionBus = null;
+      // AMR Phase 3 (D11): no backends ⇒ no adaptive routing.
+      this.adaptiveRouter = null;
     }
 
     // Pipeline construction deferred to start() — see initLocalModelAndPipeline().
@@ -1171,6 +1251,41 @@ export class Orchestrator extends EventEmitter {
     if (!bundle) return null;
     this.graphStore = bundle.graphStore;
     return bundle.pipeline;
+  }
+
+  /**
+   * AMR live-classifier provider resolution (final-review finding #2). The
+   * complexity cascade's OPTIONAL fast-tier tie-break borrows the SEL-layer
+   * AnalysisProvider (the same one intelligence enrichment uses). Resolved and
+   * memoized on first classify because the AdaptiveRouter is constructed BEFORE
+   * start(), so the provider cannot be resolved eagerly.
+   *
+   * Returns `undefined` when no provider is available (intelligence disabled, no
+   * backendFactory, or the layer resolves to nothing) — the cascade then stays
+   * fully offline and returns the static verdict (never throws). A build failure
+   * degrades the same way: static-only, never blocks dispatch (D4).
+   */
+  private resolveComplexityProvider(): AnalysisProvider | undefined {
+    if (this.complexityProvider !== undefined) {
+      return this.complexityProvider ?? undefined;
+    }
+    let provider: AnalysisProvider | null = null;
+    try {
+      if (this.config.intelligence?.enabled && this.backendFactory) {
+        provider =
+          buildAnalysisProviderForLayer('sel', {
+            config: this.config,
+            localResolvers: this.localResolvers,
+            logger: this.logger,
+            router: this.backendFactory.getRouter(),
+          }) ?? null;
+      }
+    } catch {
+      // Never let provider construction block dispatch — degrade to static-only.
+      provider = null;
+    }
+    this.complexityProvider = provider;
+    return provider ?? undefined;
   }
 
   /**
@@ -1831,9 +1946,40 @@ export class Orchestrator extends EventEmitter {
         );
       }
 
+      // AMR Phase 4 (dispatch swap): when an AdaptiveRouter is constructed
+      // (routing.policy present) AND neither the test override nor the
+      // HARNESS_BACKEND_OVERRIDE env hint is active, route live dispatch through
+      // AdaptiveRouter.route() — it classifies, derives+escalation-floors the
+      // required tier, and picks the cheapest qualifying backend. The result is
+      // resolved ONCE here and reused for both the routed name and the
+      // AgentBackend materialization below. When adaptiveRouter === null (no
+      // policy) or an override is active, this stays undefined and the EXISTING
+      // branches run unchanged — the byte-identical-when-off guarantee (SC8/SC17).
+      let amrDecision: RoutingDecision | undefined;
+      if (
+        this.adaptiveRouter !== null &&
+        this.overrideBackend === null &&
+        invocationOverride === undefined
+      ) {
+        const req: RoutingRequest = {
+          useCase,
+          coherenceUnit: issue.id, // one issue = one coherence unit (D6 pinning at issue grain)
+          // Live classification (final-review finding #2): pass the PRE-DIFF text
+          // signals the orchestrator actually knows about this unit (title/desc
+          // length, spec attached, measurable acceptance). The classify seam runs
+          // the real cascade over these; no req.complexity ⇒ route() awaits
+          // classifySafe (D4). Diff-based signals stay absent by design (S3-001).
+          taskText: buildTaskText(issue),
+        };
+        const routed = await this.adaptiveRouter.route(req);
+        amrDecision = routed.decision;
+      }
+
       let routedBackendName: string;
       if (this.overrideBackend !== null) {
         routedBackendName = this.overrideBackend.name;
+      } else if (amrDecision !== undefined) {
+        routedBackendName = amrDecision.backendName;
       } else if (this.backendFactory !== null) {
         routedBackendName = this.backendFactory.resolveName(useCase, routerOpts);
       } else {
@@ -1878,6 +2024,11 @@ export class Orchestrator extends EventEmitter {
           workspacePath,
           phase: 'LaunchingAgent',
           session,
+          // D10/SC16: capture the AMR-resolved tier so a later quality outcome
+          // can climb the escalation floor for this coherence unit (issue).
+          ...(amrDecision?.tierRequired !== undefined
+            ? { lastRoutedTier: amrDecision.tierRequired }
+            : {}),
         });
       }
 
@@ -1902,6 +2053,15 @@ export class Orchestrator extends EventEmitter {
       let agentBackend: AgentBackend;
       if (this.overrideBackend !== null) {
         agentBackend = this.overrideBackend;
+      } else if (amrDecision !== undefined && this.backendFactory !== null) {
+        // AMR Phase 4: materialize the router-chosen backend via the factory,
+        // passing the AMR name as an invocationOverride so the factory's
+        // local/pi resolver + container wrapping still apply. The factory
+        // re-resolves the (now-overridden) name — same emit shape as the
+        // default-off resolveName+forUseCase pair, so no net emit regression.
+        agentBackend = this.backendFactory.forUseCase(useCase, {
+          invocationOverride: amrDecision.backendName,
+        });
       } else if (this.backendFactory !== null) {
         agentBackend = this.backendFactory.forUseCase(useCase, routerOpts);
       } else {
@@ -1917,6 +2077,21 @@ export class Orchestrator extends EventEmitter {
       });
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
+      // AMR finding #3 + live-wiring review blocker: a fail-closed PrivacyNoMatch
+      // (RoutingError code 'privacy-no-match') from AdaptiveRouter.route() is NOT a
+      // transport/runner failure — it must surface as a DISTINCT routing:no-tier-match
+      // steward escalation, never lumped into the generic dispatch/transport bucket
+      // and never fed to the escalation breaker. It is ALSO deterministic
+      // (config-driven privacyFloor/allowlist — it CANNOT succeed on re-dispatch), so
+      // it must be TERMINAL: `handleRoutingFailure` claims it, queues exactly ONE
+      // needs-human escalation, and drives the unit to the terminal `canceled` lane
+      // WITHOUT going through `emitWorkerExit('error')` (whose state-machine error
+      // branch would enqueue a retry and re-run the same fail-closed route → an
+      // escalate-then-retry loop up to `maxRetries` times). Returning here means no
+      // transport double-count, no escalation-state feed, and no retry.
+      if (await this.handleRoutingFailure(issue, error)) {
+        return;
+      }
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
       await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
     }
@@ -2039,8 +2214,30 @@ export class Orchestrator extends EventEmitter {
     issueId: string,
     reason: 'normal' | 'error',
     attempt: number | null,
-    error?: string
+    error?: string,
+    /**
+     * AMR Phase 4 (D10/SC16): classifies the exit for vertical escalation.
+     * - `'neutral'` (default for `reason==='normal'`) → records NOTHING. A normal
+     *   runner exit is NOT a quality verdict: gates/review/verify run LATER and are
+     *   the authoritative pass/fail. Recording a premature `quality-pass` here would
+     *   clear the unit's in-progress escalation failure count and mask accumulating
+     *   failures — so a bare normal exit must stay escalation-neutral.
+     * - `'quality-pass'` → recordOutcome(ok=true) clears the in-progress failure
+     *   count (recovery). Only an EXPLICIT quality verdict may pass this.
+     * - `'quality-fail'` → recordOutcome(ok=false) climbs the escalation floor.
+     *   (The live gate/outcome-eval fan-in that raises this per coherence unit is
+     *   deferred — see docs/changes/adaptive-model-routing/proposal.md "Deferred
+     *   follow-ups", Phase 4c.)
+     * - `'transport'` (default for `reason==='error'`) → NEVER feeds escalation;
+     *   transport/runner failures are the shipped per-model breaker's job (they
+     *   must not double-count).
+     */
+    outcomeClass?: 'quality-pass' | 'quality-fail' | 'transport' | 'neutral'
   ): Promise<void> {
+    // D10/SC16: feed quality outcomes into the AMR escalation state. A bare normal
+    // exit is NEUTRAL (records nothing — quality is decided by later gates), and
+    // transport failures are excluded (breaker's job). Only fires when AMR is live.
+    this.recordAmrOutcome(issueId, outcomeClass ?? (reason === 'normal' ? 'neutral' : 'transport'));
     // Phase 4 (DLane-5): worker completion is the authoritative success/failure
     // signal — success→in_review, failure→blocked. Persist BEFORE handing off to
     // the completion handler (whose downstream cleanWorkspace/releaseClaim/escalate
@@ -2053,6 +2250,146 @@ export class Orchestrator extends EventEmitter {
     // eviction was deferred while it was in use. Best-effort, fire-and-forget —
     // it must never block the completion path.
     void this.drainDeferredEvictions();
+    this.emit('state_change', this.getSnapshot());
+  }
+
+  /**
+   * AMR Phase 4 (D10/SC16): feed a dispatch outcome into vertical escalation.
+   * No-op unless an AdaptiveRouter is live (policy present) AND this dispatch was
+   * AMR-routed (a `lastRoutedTier` was captured). Transport outcomes never reach
+   * `recordOutcome` — the shipped per-model breaker owns those, so the two signals
+   * never double-count. The coherence unit is the issue id (D6 issue-grain pinning).
+   */
+  private recordAmrOutcome(
+    issueId: string,
+    outcomeClass: 'quality-pass' | 'quality-fail' | 'transport' | 'neutral'
+  ): void {
+    if (this.adaptiveRouter === null) return;
+    if (outcomeClass === 'transport') return; // breaker's job — never escalate
+    if (outcomeClass === 'neutral') return; // normal runner exit ≠ quality verdict — record nothing
+    const tier = this.state.running.get(issueId)?.lastRoutedTier;
+    if (tier === undefined) return; // dispatch was not AMR-routed (override/no policy)
+    this.adaptiveRouter.recordOutcome(issueId, tier, outcomeClass === 'quality-pass');
+  }
+
+  /**
+   * AMR steward-escalation seam (D10, findings item 1 + 2). Queues a `needs-human`
+   * interaction for a coherence unit whose routing hard-failed — either the vertical
+   * escalation exhausted the `strong` ceiling (`escalation-exhausted`) or the
+   * fail-closed selector left no compliant backend (`privacy-no-match`). Both ride
+   * the SAME `needs-human` mechanism as every other escalation. The `RoutingError`
+   * code disambiguates the two on the steward's channel. The coherence unit is the
+   * issue id (D6 issue-grain pinning); title/description are recovered from running
+   * state when still present. Fire-and-forget + `.catch` — a queue write must never
+   * block or throw out of the dispatch/outcome path.
+   */
+  private escalateRoutingToHuman(
+    coherenceUnit: string,
+    error: RoutingError,
+    issue?: { identifier?: string; title?: string; description?: string | null }
+  ): void {
+    // Use the real typed running-entry accessor (`Map<string, RunningEntry>`), not
+    // a loose inline cast: a structural cast would silently yield `undefined` if the
+    // running-entry / `Issue` shape drifts, quietly degrading the escalation the
+    // `onExhausted` path relies on. `entry.issue` is a full `Issue`.
+    const entry: RunningEntry | undefined = this.state.running.get(coherenceUnit);
+    // Prefer the in-scope issue (dispatch-boundary path has the full object), fall
+    // back to running state (the onExhausted path fires from an outcome).
+    const issueTitle =
+      issue?.title ?? issue?.identifier ?? entry?.issue.title ?? entry?.identifier ?? coherenceUnit;
+    const issueDescription = issue?.description ?? entry?.issue.description ?? null;
+    void this.interactionQueue
+      .push({
+        id: `interaction-${randomUUID()}`,
+        issueId: coherenceUnit,
+        type: 'needs-human',
+        reasons: [`routing:${error.code}`, error.message],
+        context: {
+          issueTitle,
+          issueDescription,
+          specPath: null,
+          planPath: null,
+          relatedFiles: [],
+        },
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      })
+      .catch((err) => {
+        this.logger.warn(`Failed to queue routing steward escalation for ${coherenceUnit}`, {
+          coherenceUnit,
+          code: error.code,
+          error: String(err),
+        });
+      });
+  }
+
+  /**
+   * AMR dispatch-boundary routing-failure handler (finding #3 + live-wiring
+   * review blocker). When `AdaptiveRouter.route()` throws a fail-closed
+   * `PrivacyNoMatch` (`RoutingError` code `'privacy-no-match'`) at dispatch, that
+   * distinct signal MUST NOT be swallowed by the generic transport/dispatch-error
+   * path (S4-001): it is not a runner/transport failure, so it must never be
+   * recorded as one or feed the vertical escalation breaker. Instead it emits a
+   * DISTINCT `routing:no-tier-match` steward escalation (needs-human, same
+   * mechanism as `onExhausted`) carrying the coherence unit + reason.
+   *
+   * It is ALSO deterministic — the `privacyFloor`/allowlist that emptied the
+   * candidate set is config-driven, so re-dispatch would throw the SAME
+   * `PrivacyNoMatch`. Therefore this path is TERMINAL: it drives the unit to the
+   * `canceled` lane and removes it from `running`/`claimed` directly, rather than
+   * routing through `emitWorkerExit('error')` (whose state-machine error branch
+   * enqueues a retry whenever the retry budget is not yet exhausted — which would
+   * re-dispatch, re-fail closed, and re-escalate up to `maxRetries` times). No
+   * retry is scheduled, no transport outcome is recorded, and exactly one
+   * needs-human escalation is queued. Fail-closed is preserved — `route()` already
+   * refused to pick a non-compliant backend, and returning `true` here stops the
+   * caller from falling through to any further routing.
+   *
+   * Returns `true` when the boundary CLAIMED the error (privacy-no-match), so the
+   * caller returns without ANY `emitWorkerExit`. Returns `false` for any other
+   * error (including `escalation-exhausted`, which the `onExhausted` seam owns) so
+   * the generic dispatch-error path runs unchanged.
+   */
+  private async handleRoutingFailure(
+    issue: { id: string; identifier?: string },
+    error: unknown
+  ): Promise<boolean> {
+    if (!(error instanceof RoutingError) || error.code !== 'privacy-no-match') return false;
+    this.logger.warn('routing:no-tier-match', {
+      coherenceUnit: issue.id,
+      identifier: issue.identifier,
+      reason: error.message,
+    });
+    // Fail-closed: surface to a human exactly once; the issue is NOT dispatched to
+    // any backend.
+    this.escalateRoutingToHuman(
+      issue.id,
+      error,
+      issue as { identifier?: string; title?: string; description?: string | null }
+    );
+    // Terminal: drop the unit out of `running`/`claimed` and persist the terminal
+    // `canceled` lane. Deterministic → no retry is scheduled (contrast the generic
+    // `emitWorkerExit('error')` path, which would enqueue one).
+    await this.finalizeRoutingTerminal(issue.id);
+    return true;
+  }
+
+  /**
+   * AMR live-wiring review blocker: terminally retire a unit whose dispatch failed
+   * closed (`privacy-no-match`). Mirrors the terminal side of a worker exit —
+   * remove the unit from `running` and release its `claimed` slot — then persist
+   * the terminal `canceled` lane (`abandon`), matching how retry-exhausted
+   * escalations settle. Crucially it does NOT run the state-machine `worker_exit`
+   * reducer, so no `scheduleRetry` effect is emitted. Best-effort lane persistence
+   * (`persistLaneSafe` never throws). No transport/escalation outcome is recorded —
+   * that stays the sole job of the single `routing:no-tier-match` escalation already
+   * queued by `escalateRoutingToHuman`.
+   */
+  private async finalizeRoutingTerminal(issueId: string): Promise<void> {
+    this.state.running.delete(issueId);
+    this.state.claimed.delete(issueId);
+    // abandon → canceled (terminal). Best-effort; never blocks or throws.
+    await this.persistLaneSafe(issueId, 'abandon');
     this.emit('state_change', this.getSnapshot());
   }
 
@@ -2695,6 +3032,16 @@ export class Orchestrator extends EventEmitter {
    */
   public getRoutingDecisionBus(): RoutingDecisionBus | null {
     return this.routingDecisionBus;
+  }
+
+  /**
+   * AMR Phase 3 (D11): the opt-in adaptive router, or `null` when no
+   * `routing.policy` is configured (the default-off path). Exposed for the
+   * SC8/SC17/SC19 default-off proof: `null` here means dispatch stays on the
+   * shipped `BackendRouter`, byte-identical, with no classify()/telemetry.
+   */
+  public getAdaptiveRouter(): AdaptiveRouter | null {
+    return this.adaptiveRouter;
   }
 
   /**

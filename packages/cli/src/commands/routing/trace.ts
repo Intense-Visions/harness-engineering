@@ -12,6 +12,26 @@ import type { RoutingDecision, RoutingUseCase } from '@harness-engineering/types
 interface TraceResponse {
   decision: RoutingDecision;
   def: { type: string };
+  /** AMR Phase 3 (SC10): present when --complexity/--risk were supplied. */
+  tierRequired?: string;
+  estCostUsd?: number;
+}
+
+// Client-side enum guards mirror the server's zod schema
+// (orchestrator server/routes/v1/routing.ts). Validating here turns an invalid
+// value into a friendly, self-documenting error instead of round-tripping to a
+// generic server 400. Keep these in sync with that schema.
+const COMPLEXITY_VALUES = ['trivial', 'simple', 'moderate', 'complex'] as const;
+const RISK_VALUES = ['low', 'high'] as const;
+
+/** Returns an error message if `value` is not one of `allowed`, else null. */
+function validateEnum(
+  flag: string,
+  value: string | undefined,
+  allowed: readonly string[]
+): string | null {
+  if (value === undefined || allowed.includes(value)) return null;
+  return `Invalid ${flag} "${value}". Allowed values: ${allowed.join(', ')}.`;
 }
 
 function buildUseCase(opts: { skill?: string; mode?: string }): RoutingUseCase | null {
@@ -35,6 +55,13 @@ function renderHuman(r: TraceResponse): void {
   for (const step of r.decision.resolutionPath) {
     console.log(`  ${step.source}:${step.candidate} -> ${step.outcome}`);
   }
+  // AMR Phase 3 (SC10): only present on --complexity/--risk dry-runs.
+  if (r.tierRequired !== undefined) {
+    console.log(`Tier required: ${r.tierRequired}`);
+  }
+  if (r.estCostUsd !== undefined) {
+    console.log(`Est cost: $${r.estCostUsd.toFixed(4)}`);
+  }
 }
 
 export function createTraceCommand(): Command {
@@ -42,34 +69,61 @@ export function createTraceCommand(): Command {
     .description('Dry-run a routing decision without dispatching (Spec B F7)')
     .option('--skill <name>', 'Skill name to trace')
     .option('--mode <m>', 'Cognitive mode to trace (or attach to --skill per spec D12)')
+    .option(
+      '--complexity <level>',
+      'Synthetic complexity (trivial|simple|moderate|complex) — dry-run only'
+    )
+    .option('--risk <band>', 'Synthetic risk band (low|high) — dry-run only')
     .option('--json', 'Emit JSON to stdout instead of human-readable text')
-    .action(async (opts: { skill?: string; mode?: string; json?: boolean }) => {
-      const useCase = buildUseCase(opts);
-      if (!useCase) {
-        logger.error('Either --skill <name> or --mode <m> is required');
-        process.exit(ExitCode.ERROR);
-        return;
-      }
-      const r = await postJson<TraceResponse>('/api/v1/routing/trace', { useCase });
-      if (!r.ok) {
-        if (r.status === 0) {
-          logger.error(
-            `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
-          );
-        } else if (r.status === 503) {
-          logger.error(
-            'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)'
-          );
-        } else {
-          logger.error(`Trace failed (${r.status}): ${r.error ?? ''}`);
+    .action(
+      async (opts: {
+        skill?: string;
+        mode?: string;
+        complexity?: string;
+        risk?: string;
+        json?: boolean;
+      }) => {
+        const useCase = buildUseCase(opts);
+        if (!useCase) {
+          logger.error('Either --skill <name> or --mode <m> is required');
+          process.exit(ExitCode.ERROR);
+          return;
         }
-        process.exit(ExitCode.ERROR);
-        return;
+        // Fail fast on bad enum values with a friendly, allowed-values error
+        // rather than a generic server 400.
+        const enumError =
+          validateEnum('--complexity', opts.complexity, COMPLEXITY_VALUES) ??
+          validateEnum('--risk', opts.risk, RISK_VALUES);
+        if (enumError) {
+          logger.error(enumError);
+          process.exit(ExitCode.ERROR);
+          return;
+        }
+        const r = await postJson<TraceResponse>('/api/v1/routing/trace', {
+          useCase,
+          ...(opts.complexity ? { complexity: opts.complexity } : {}),
+          ...(opts.risk ? { risk: opts.risk } : {}),
+        });
+        if (!r.ok) {
+          if (r.status === 0) {
+            logger.error(
+              `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
+            );
+          } else if (r.status === 503) {
+            logger.error(
+              'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)'
+            );
+          } else {
+            logger.error(`Trace failed (${r.status}): ${r.error ?? ''}`);
+          }
+          process.exit(ExitCode.ERROR);
+          return;
+        }
+        if (opts.json) {
+          console.log(JSON.stringify(r.body, null, 2));
+          return;
+        }
+        if (r.body) renderHuman(r.body);
       }
-      if (opts.json) {
-        console.log(JSON.stringify(r.body, null, 2));
-        return;
-      }
-      if (r.body) renderHuman(r.body);
-    });
+    );
 }

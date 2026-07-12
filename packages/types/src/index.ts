@@ -152,7 +152,23 @@ export type {
   RoutingDecision,
   ResolutionStep,
   ResolutionSource,
+  // --- AMR Phase 1: capability registry (types-only) ---
+  CapabilityTier,
+  PrivacyClass,
+  BackendCapabilities,
+  BackendCapabilityRegistry,
+  // --- AMR Phase 2: complexity cascade + routing policy (types-only) ---
+  ComplexityLevel,
+  ComplexityVerdict,
+  RoutingRisk,
+  RoutingRequest,
+  RoutingTaskText,
+  BudgetSnapshot,
+  RoutingPolicy,
 } from './orchestrator';
+
+// --- AMR Phase 4: routing error (value/class export, D10) ---
+export { RoutingError } from './orchestrator';
 
 // --- Container & Secrets ---
 export type {

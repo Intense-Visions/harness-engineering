@@ -326,6 +326,134 @@ export interface HooksConfig {
  */
 export type IsolationTier = 'none' | 'container' | 'remote-sandbox';
 
+// --- AMR Phase 1: provider-neutral backend capability metadata (D1) ---
+// Additive + optional on every BackendDef member. Existing configs validate
+// and behave byte-identically (SC8/SC19). Tier resolution lives in the AMR
+// layer only; RoutingValue/RoutingConfig are NOT widened (S5-002/D2).
+
+/** Capability bar a backend clears. Cheap→capable, never local-vs-cloud. */
+export type CapabilityTier = 'fast' | 'standard' | 'strong';
+
+/** Privacy guarantee a backend provides. Ordered floor: on-device is strongest. */
+export type PrivacyClass = 'on-device' | 'pooled-isolated' | 'byo-endpoint' | 'shared-cloud';
+
+/** Provider-neutral capability block attached (optionally) to a BackendDef. */
+export interface BackendCapabilities {
+  tier: CapabilityTier;
+  /** USD per 1k blended tokens; 0 for operator-local. Drives min-cost selection. */
+  costPer1kTokens: number;
+  privacyClass: PrivacyClass;
+  contextWindow: number;
+  vision?: boolean;
+  toolUse?: boolean;
+}
+
+/** Backend name → capabilities. Consumed by selectCheapestQualifying (AMR). */
+export type BackendCapabilityRegistry = ReadonlyMap<string, BackendCapabilities>;
+
+// --- AMR Phase 2: complexity cascade + routing policy (types-only) ---
+// Additive. Existing configs validate and behave byte-identically (SC8/SC19).
+// The complexity cascade + pure deriveRequiredTier consume these shapes; the
+// LLM may set level/confidence but the tier is always TS-derived (D3).
+
+/** Complexity band of a single invocation (D3). Ordered trivial→complex. */
+export type ComplexityLevel = 'trivial' | 'simple' | 'moderate' | 'complex';
+
+/** Confidence-rated verdict, shaped like the eval verdicts (D3). The LLM may set
+ *  `level`/`confidence`; the tier is always derived in TS (never trusted from the LLM). */
+export interface ComplexityVerdict {
+  level: ComplexityLevel;
+  confidence: 'high' | 'medium' | 'low';
+  /** blastRadius, filesTouched, layersTouched, specExists, ... */
+  signals: Record<string, number | boolean | string>;
+  source: 'static' | 'llm-tiebreak' | 'escalated';
+}
+
+/** Per-invocation risk facets fed to deriveRequiredTier (D5). */
+export interface RoutingRisk {
+  blastRadius: number;
+  sensitivePath: boolean;
+  layer?: string;
+  publicApi?: boolean;
+}
+
+/**
+ * Pre-diff text-only signals the orchestrator knows about a unit at dispatch
+ * time, BEFORE any diff exists (S3-001 phase-awareness). Threaded on the
+ * RoutingRequest so the live classifier seam can score real task difficulty
+ * without fabricating diff-based signals (no fake blast-radius pre-diff). Absent
+ * ⇒ the classifier degrades to a conservative verdict (D4). Additive/optional:
+ * existing requests validate and behave byte-identically (SC8/SC19).
+ */
+export interface RoutingTaskText {
+  /** Length of the task's title + description (chars). Drives the static pass. */
+  descriptionLength: number;
+  /** A spec file is attached to the unit — a well-scoped signal that LOWERS complexity. */
+  specExists: boolean;
+  /** Acceptance criteria look measurable — a well-scoped signal that LOWERS complexity. */
+  acceptanceMeasurable: boolean;
+  /** Free-text prompt for the optional LLM tie-break (title + description). */
+  prompt: string;
+}
+
+/** Decision vector fed to the AMR layer. `complexity` absent ⇒ classifier runs (Phase 3). */
+export interface RoutingRequest {
+  useCase: RoutingUseCase;
+  complexity?: ComplexityVerdict;
+  risk?: RoutingRisk;
+  capabilities?: { needsVision?: boolean; needsToolUse?: boolean; minContextTokens?: number };
+  coherenceUnit?: string;
+  /**
+   * Pre-diff text signals for the LIVE complexity classifier (S3-001). Populated
+   * at the dispatch call site from what the orchestrator knows about the unit;
+   * consumed by the classify seam. Absent ⇒ conservative fallback (D4).
+   */
+  taskText?: RoutingTaskText;
+}
+
+/**
+ * AMR routing failure (D10). `privacy-no-match` mirrors the capability-registry
+ * fail-closed signal; `escalation-exhausted` is raised when a coherence unit's
+ * vertical escalation floor is already `strong` and re-crosses the failure
+ * threshold — the router emits it (bus/logger) for steward escalation.
+ */
+export class RoutingError extends Error {
+  constructor(
+    readonly code: 'privacy-no-match' | 'escalation-exhausted',
+    message: string
+  ) {
+    super(message);
+    this.name = 'RoutingError';
+  }
+}
+
+/** Injected spend snapshot (D8/S1-001) — keeps deriveRequiredTier pure. */
+export interface BudgetSnapshot {
+  spentUsd: number;
+}
+
+/**
+ * Policy block injected per orchestrator (Phase 2/3 scope only). Tenant/Shuttle
+ * fields (allowedProviders push-down, autonomy scope) arrive in Phase 5.
+ */
+export interface RoutingPolicy {
+  /** (complexity level) → required tier. Defaults provided in code; overridable. */
+  complexityTierMatrix?: Partial<Record<ComplexityLevel, CapabilityTier>>;
+  /** Per-skill/phase required-tier override, evaluated before the matrix. */
+  skillTierOverrides?: Record<string, CapabilityTier>;
+  privacyFloor?: PrivacyClass;
+  budget?: {
+    capUsd: number;
+    /** clamp tier down one step at this % of cap; default 90 (D8). */
+    degradeAtPct?: number;
+    onBudgetExhausted: 'degrade' | 'pause' | 'human';
+  };
+  /** globs → blast-radius veto (D5). */
+  sensitivePaths?: string[];
+  /** consecutive quality failures before tier bump; default 2 (D10, consumed Phase 4). */
+  escalationThreshold?: number;
+}
+
 /**
  * Discriminated union of all backend definitions, keyed by `type`.
  *
@@ -348,6 +476,8 @@ export interface MockBackendDef {
   type: 'mock';
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Claude CLI subprocess backend (subscription-based, no token billing). */
@@ -357,6 +487,8 @@ export interface ClaudeBackendDef {
   command?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Anthropic API backend (token-billed). */
@@ -366,6 +498,8 @@ export interface AnthropicBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** OpenAI API backend (token-billed). */
@@ -375,6 +509,8 @@ export interface OpenAIBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Google Gemini API backend (token-billed). */
@@ -384,6 +520,8 @@ export interface GeminiBackendDef {
   apiKey?: string;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** OpenAI-compatible local backend (LM Studio, Ollama, vLLM, etc.). */
@@ -399,6 +537,8 @@ export interface LocalBackendDef {
   probeIntervalMs?: number;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /** Pi-coding-agent backend pointing at a local OpenAI-compatible server. */
@@ -413,6 +553,8 @@ export interface PiBackendDef {
   probeIntervalMs?: number;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
@@ -442,6 +584,8 @@ export interface SshBackendDef {
   sshBinary?: string;
   /** Native isolation tier. Defaults to `'remote-sandbox'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
@@ -469,6 +613,8 @@ export interface ServerlessBackendDef {
   runtime?: 'docker' | 'podman';
   /** Native isolation tier. Defaults to `'remote-sandbox'`. */
   isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
 }
 
 /**
@@ -524,6 +670,14 @@ export interface RoutingConfig {
    * `skills` and before `tier`.
    */
   modes?: Record<string, RoutingValue>;
+  /**
+   * AMR Phase 3 (D11): opt-in adaptive-routing policy. Its PRESENCE and
+   * non-emptiness is the default-off gate — the orchestrator constructs
+   * `AdaptiveRouter` only when this is set. Absent ⇒ dispatch is byte-identical
+   * to the shipped `BackendRouter` (SC8/SC17/SC19). Every other `RoutingConfig`
+   * field keeps its meaning; a config without `policy` validates unchanged.
+   */
+  policy?: RoutingPolicy;
 }
 
 // --- Spec B: Granular Task→Backend Routing (Phase 0 — types-only) ---
@@ -584,6 +738,12 @@ export interface RoutingDecision {
   backendType: BackendDef['type'];
   /** Wall-clock duration of the resolve() call in milliseconds. */
   durationMs: number;
+  /** AMR Phase 3 (D9/SC9): the complexity verdict that drove tier selection. Absent for identity-only (non-AMR) dispatch. */
+  complexity?: ComplexityVerdict;
+  /** AMR Phase 3 (D9/SC9): the derived required CapabilityTier. Absent for identity-only dispatch. */
+  tierRequired?: CapabilityTier;
+  /** AMR Phase 3 (D9/SC9): estimated USD cost of the resolved backend for this invocation. */
+  estCostUsd?: number;
 }
 
 /**
