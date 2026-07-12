@@ -369,6 +369,10 @@ const RoutingPolicySchema = z.object({
  * policy restores default-off (D5). 503 when routing is unavailable (no
  * backends), mirroring the sibling routes. Scope `admin` is enforced upstream
  * by `V1_BRIDGE_ROUTES`.
+ *
+ * Note (D1): a policy UPDATE preserves the live `EscalationState` climbed floors
+ * (setPolicy path); a changed `escalationThreshold` does NOT take effect until
+ * the router is reconstructed (disable then re-enable) — see AdaptiveRouter.setPolicy.
  */
 async function handlePolicy(
   req: IncomingMessage,
@@ -395,9 +399,32 @@ async function handlePolicy(
     sendJSON(res, 400, { error: r.error.message });
     return true;
   }
+  // Strip-to-empty guard (review): the schema tolerates unknown fields
+  // (forward-compat, D3) by STRIPPING them. But a body that had keys yet
+  // validated to `{}` means every field was unrecognized (a typo or wrong
+  // shape) — that must NOT be silently treated as the intentional `{}` disable
+  // (D5), which would tear down the live router + its EscalationState behind a
+  // 204. A real disable is a LITERAL empty object.
+  const rawKeyCount =
+    parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? Object.keys(parsed as Record<string, unknown>).length
+      : 0;
+  if (rawKeyCount > 0 && Object.keys(r.data).length === 0) {
+    sendJSON(res, 400, {
+      error: 'no recognized routing-policy fields (to disable routing, send an empty object {})',
+    });
+    return true;
+  }
   // `allowedProviders: string[]` widens `BackendDef['type'][]`; the validated
-  // wire object is the boundary — narrow it to the domain type here.
-  deps.ingestRoutingPolicy(r.data as RoutingPolicy);
+  // wire object is the boundary — narrow it to the domain type here. Guard the
+  // ingest so a future throw in router construction returns 500 rather than
+  // becoming an unhandled rejection (the dispatcher fire-and-forgets this).
+  try {
+    deps.ingestRoutingPolicy(r.data as RoutingPolicy);
+  } catch (err) {
+    sendJSON(res, 500, { error: String(err) });
+    return true;
+  }
   res.writeHead(204);
   res.end();
   return true;

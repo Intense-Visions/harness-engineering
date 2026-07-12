@@ -132,6 +132,32 @@ describe('PUT /api/v1/routing/policy', () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 
+  it('rejects an unknown-fields-only body with 400 (strip-to-empty ≠ disable)', async () => {
+    // A typo'd/unknown-only body strips to {} under the tolerant schema; it must
+    // NOT be treated as the intentional {} disable (which tears down the live
+    // router). Only a LITERAL {} disables.
+    const ingest = vi.fn();
+    const req = makeBodyReq('PUT', '/api/v1/routing/policy', {
+      complexityTierMatrics: { trivial: 'fast' },
+    });
+    const { res, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
+    await flush();
+    expect(statusCode()).toBe(400);
+    expect(ingest).not.toHaveBeenCalled(); // never silently disabled
+  });
+
+  it('returns 500 (not an unhandled rejection) if ingestion throws', async () => {
+    const ingest = vi.fn(() => {
+      throw new Error('router construction blew up');
+    });
+    const req = makeBodyReq('PUT', '/api/v1/routing/policy', { privacyFloor: 'on-device' });
+    const { res, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
+    await flush();
+    expect(statusCode()).toBe(500);
+  });
+
   it('returns 503 when routing is unavailable (no router / no ingestion fn)', async () => {
     const req = makeBodyReq('PUT', '/api/v1/routing/policy', { privacyFloor: 'on-device' });
     const { res, statusCode } = makeRes();
