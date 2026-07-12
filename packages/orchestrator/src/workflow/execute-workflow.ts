@@ -232,6 +232,14 @@ export async function executeWorkflow(
         run.decision = decision;
         // exactOptionalPropertyTypes: assign `tier` only when tierRequired is defined.
         if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
+        // D8(b)/SC3: feed the CUMULATIVE unit floor. Phase 2 treats every stage as
+        // ok=true (gate/quality evaluation is Phase 3). This wires recordOutcome +
+        // the floor-read in route() so a LATER stage inherits a raised floor once
+        // Phase 3 reports real quality failures. The tier reported is THIS stage's
+        // own resolved tier (decision.tierRequired).
+        if (run.decision.tierRequired !== undefined) {
+          ctx.adaptiveRouter.recordOutcome(plan.coherenceUnit, run.decision.tierRequired, true);
+        }
       } else {
         // Phase-1 identity fallback (byte-unchanged): no decision/tier, no recordOutcome.
         const backend = ctx.resolveStageBackend(step);

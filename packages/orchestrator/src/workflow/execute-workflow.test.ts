@@ -308,6 +308,39 @@ describe('executeWorkflow — per-stage routing vs identity fallback (split-rout
       expect(r.tier).toBeUndefined();
     }
   });
+
+  it('calls adaptiveRouter.recordOutcome(unit, tier, true) once per stage (SC3 wiring)', async () => {
+    const recordSpy = vi.fn();
+    const routeSpy = vi.fn(async (req: RoutingRequest) => ({
+      decision: {
+        backendName: 'b',
+        tierRequired: req.complexity?.level === 'complex' ? 'strong' : 'fast',
+      } as unknown as RoutingDecision,
+    }));
+    const { ctx } = makeFakeCtx({
+      sessionIds: ['s0', 's1'],
+      adaptiveRouter: { route: routeSpy, recordOutcome: recordSpy },
+    });
+    const strong: WorkflowStep = {
+      skill: 'a',
+      produces: 'a',
+      routingHint: {
+        complexity: { level: 'complex', confidence: 'high', signals: {}, source: 'static' },
+      },
+    };
+    const fast: WorkflowStep = {
+      skill: 'b',
+      produces: 'b',
+      routingHint: {
+        complexity: { level: 'trivial', confidence: 'high', signals: {}, source: 'static' },
+      },
+    };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [strong, fast] });
+
+    expect(recordSpy).toHaveBeenCalledTimes(2);
+    expect(recordSpy).toHaveBeenNthCalledWith(1, 'issue-1', 'strong', true);
+    expect(recordSpy).toHaveBeenNthCalledWith(2, 'issue-1', 'fast', true);
+  });
 });
 
 describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routing P1)', () => {
