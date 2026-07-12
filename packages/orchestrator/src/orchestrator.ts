@@ -6,6 +6,8 @@ import type {
   AgentBackend,
   RoutingRequest,
   RoutingDecision,
+  RoutingPolicy,
+  RoutingTelemetry,
   StageRun,
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
@@ -698,51 +700,16 @@ export class Orchestrator extends EventEmitter {
       // (SC8/SC17/SC19). The gate only CONSTRUCTS the router; it does NOT swap
       // forUseCase dispatch to route through it (that would risk the
       // byte-identical guarantee) — enrichment-on-dispatch is a later step.
+      // AMR Phase 3 (D11): construct ONLY when routing.policy is present AND
+      // non-empty (default-off gate). Phase 5 (D1): the construction body is
+      // extracted to `buildAdaptiveRouter` so runtime policy ingestion
+      // (`ingestRoutingPolicy`) builds a byte-identical router. The condition
+      // inlines `policy !== undefined` so TS narrows `policy` to `RoutingPolicy`.
       const policy = routing.policy;
-      const policyActive = policy !== undefined && Object.keys(policy).length > 0;
-      this.adaptiveRouter = policyActive
-        ? AdaptiveRouter.fromConfig({
-            router: this.backendFactory.getRouter(),
-            backends: this.config.agent.backends,
-            ...(this.modelPool ? { pool: this.modelPool } : {}),
-            policy,
-            // classify seam (final-review finding #2): the REAL intelligence
-            // cascade, replacing the Phase-3 constant `{moderate, low}` stub.
-            // `makeLiveClassify` reads `req.taskText` (populated at the dispatch
-            // call site), runs the phase-aware `pre-diff` static pass, and spends a
-            // fast-tier LLM tie-break ONLY when a provider is available AND the
-            // static verdict is low-confidence. The provider is resolved LAZILY
-            // (per dispatch) because it is built in start(), after this
-            // constructor. No provider / no taskText ⇒ fully-offline conservative
-            // verdict — never throws, and classifySafe still guards any surprise
-            // throw/timeout so classification can never block dispatch (D4).
-            classify: makeLiveClassify(() => this.resolveComplexityProvider()),
-            // D10: fromConfig seeds a fresh EscalationState from
-            // policy.escalationThreshold (default 2). Bind the strong-cap
-            // exhaustion seam to a HARD-FAIL-TO-HUMAN (spec D10): once the floor is
-            // already `strong` and a quality failure re-crosses the threshold there
-            // is no higher tier to climb to, so the coherence unit must surface to a
-            // human — not merely log. `escalateRoutingToHuman` queues a `needs-human`
-            // interaction (same mechanism as every other escalation), carrying a
-            // typed RoutingError('escalation-exhausted') reason. The structured warn
-            // is kept for the steward log channel.
-            onExhausted: (coherenceUnit: string) => {
-              const err = new RoutingError(
-                'escalation-exhausted',
-                `Coherence unit ${coherenceUnit} exhausted the strong tier ceiling: quality failures re-crossed the escalation threshold with no higher tier to climb to (D10/SC16)`
-              );
-              this.logger.warn('routing:escalation-exhausted', {
-                coherenceUnit,
-                reason: err.message,
-              });
-              this.escalateRoutingToHuman(coherenceUnit, err);
-            },
-            // SC9: emit the ENRICHED decision (complexity/tierRequired/estCostUsd)
-            // onto the same bus dispatch already uses, so a subscriber receives the
-            // AMR telemetry the D2-frozen base emit cannot carry.
-            ...(this.routingDecisionBus ? { decisionBus: this.routingDecisionBus } : {}),
-          })
-        : null;
+      this.adaptiveRouter =
+        policy !== undefined && Object.keys(policy).length > 0
+          ? this.buildAdaptiveRouter(policy)
+          : null;
     } else {
       this.backendFactory = null;
       this.routingDecisionBus = null;
@@ -848,6 +815,9 @@ export class Orchestrator extends EventEmitter {
         getRoutingDecisionBus: () => this.getRoutingDecisionBus(),
         getRoutingConfig: () => this.getRoutingConfig(),
         getBackends: () => this.getBackends(),
+        // AMR Phase 5 (D1/D2): runtime policy ingestion + telemetry projection.
+        ingestRoutingPolicy: (p) => this.ingestRoutingPolicy(p),
+        getRoutingTelemetry: () => this.getRoutingTelemetry(),
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -3208,6 +3178,92 @@ export class Orchestrator extends EventEmitter {
    */
   public getAdaptiveRouter(): AdaptiveRouter | null {
     return this.adaptiveRouter;
+  }
+
+  /**
+   * AMR Phase 3 (D11) / Phase 5 (D1): construct the opt-in AdaptiveRouter for a
+   * policy. Extracted from the constructor so runtime ingestion
+   * (`ingestRoutingPolicy`) builds a router IDENTICAL to the constructor's —
+   * same live classify seam, strong-cap escalation-exhaustion hard-fail-to-human
+   * (D10), and enriched-decision bus (SC9). Precondition: the routing subsystem
+   * exists (`backendFactory` + `agent.backends` present); callers guard.
+   */
+  private buildAdaptiveRouter(policy: RoutingPolicy): AdaptiveRouter {
+    const factory = this.backendFactory;
+    const backends = this.config.agent.backends;
+    if (factory === null || backends === undefined) {
+      throw new Error('AdaptiveRouter requires a backend factory and agent.backends');
+    }
+    return AdaptiveRouter.fromConfig({
+      router: factory.getRouter(),
+      backends,
+      ...(this.modelPool ? { pool: this.modelPool } : {}),
+      policy,
+      // The REAL intelligence cascade (final-review finding #2): reads
+      // `req.taskText`, runs the static pre-diff pass, and spends a fast-tier LLM
+      // tie-break only when a provider is available AND the static verdict is
+      // low-confidence. Provider resolved lazily (built in start()); classifySafe
+      // guards any throw/timeout so classification never blocks dispatch (D4).
+      classify: makeLiveClassify(() => this.resolveComplexityProvider()),
+      // D10 strong-cap exhaustion: once the floor is already `strong` and a
+      // quality failure re-crosses the threshold, there is no higher tier — the
+      // coherence unit surfaces to a human (not merely a log line).
+      onExhausted: (coherenceUnit: string) => {
+        const err = new RoutingError(
+          'escalation-exhausted',
+          `Coherence unit ${coherenceUnit} exhausted the strong tier ceiling: quality failures re-crossed the escalation threshold with no higher tier to climb to (D10/SC16)`
+        );
+        this.logger.warn('routing:escalation-exhausted', {
+          coherenceUnit,
+          reason: err.message,
+        });
+        this.escalateRoutingToHuman(coherenceUnit, err);
+      },
+      // SC9: emit the ENRICHED decision onto the same bus dispatch uses.
+      ...(this.routingDecisionBus ? { decisionBus: this.routingDecisionBus } : {}),
+    });
+  }
+
+  /**
+   * AMR Phase 5 (D1/D5): ingest a routing policy pushed at runtime by the
+   * Shuttle control plane (`PUT /api/v1/routing/policy`). Hot-swaps the live
+   * router:
+   *   - empty policy (`{}` / no activating fields) → `adaptiveRouter = null`
+   *     (default-off restored, D5 — byte-identical dispatch resumes);
+   *   - an existing router → `setPolicy` (preserves the accumulated
+   *     `EscalationState` climbed floors — a policy edit must not reset them);
+   *   - no router yet → construct one from the pushed policy.
+   *
+   * The field-swap is atomic between `await`s (single-threaded): a dispatch that
+   * already captured the router finishes on it; the next dispatch sees the new
+   * policy. No-op-safe when the routing subsystem is absent (`backendFactory`
+   * null) — the caller (`PUT` handler) reports 503 in that case, so this path is
+   * reached only when routing is available.
+   */
+  public ingestRoutingPolicy(policy: RoutingPolicy): void {
+    if (Object.keys(policy).length === 0) {
+      this.adaptiveRouter = null;
+      return;
+    }
+    if (this.backendFactory === null) {
+      // No routing subsystem — nothing to route. Leave default-off.
+      this.adaptiveRouter = null;
+      return;
+    }
+    if (this.adaptiveRouter !== null) {
+      this.adaptiveRouter.setPolicy(policy);
+    } else {
+      this.adaptiveRouter = this.buildAdaptiveRouter(policy);
+    }
+  }
+
+  /**
+   * AMR Phase 5 (D2): project the live router's enriched decision ring into the
+   * Shuttle telemetry wire shape (`GET /api/v1/routing/telemetry`). Returns an
+   * empty payload when routing is off (no router) — a safe, idempotent read.
+   */
+  public getRoutingTelemetry(): RoutingTelemetry {
+    return this.adaptiveRouter?.projectTelemetry() ?? { decisions: [], spentUsd: 0 };
   }
 
   /**

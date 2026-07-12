@@ -191,6 +191,25 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     scope: 'read-telemetry',
     description: 'Dry-run a routing decision without side effects (no bus emit, no dispatch).',
   },
+  // ── AMR Phase 5 routing control plane ──
+  // GET telemetry is read-only observability → `read-telemetry` (matches the
+  // sibling routes). PUT policy is a control-plane WRITE → reuses the existing
+  // `admin` scope: pushing per-container routing policy is an administrative
+  // authority action, and reusing an existing scope avoids the TokenScopeSchema
+  // + ADR cascade a bespoke `manage-routing` scope would trigger (D4).
+  {
+    method: 'PUT',
+    pattern: /^\/api\/v1\/routing\/policy(?:\?.*)?$/,
+    scope: 'admin',
+    description: 'Ingest a routing policy at runtime (hot-swap the AdaptiveRouter).',
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/routing\/telemetry(?:\?.*)?$/,
+    scope: 'read-telemetry',
+    description:
+      'Routing telemetry projected into the Shuttle wire shape ({ decisions, spentUsd }).',
+  },
 ];
 
 export function isV1Bridge(method: string, url: string): boolean {

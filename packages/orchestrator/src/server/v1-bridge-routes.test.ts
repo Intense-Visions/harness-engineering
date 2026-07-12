@@ -53,4 +53,16 @@ describe('V1_BRIDGE_ROUTES registry', () => {
     expect(isV1Bridge('POST', '/api/v1/local-models/pool')).toBe(false);
     expect(isV1Bridge('DELETE', '/api/v1/local-models/hardware')).toBe(false);
   });
+
+  // ── AMR Phase 5 routing control plane (D4) ──
+  it('gates PUT /routing/policy behind `admin` and GET /routing/telemetry behind `read-telemetry`', () => {
+    // PUT policy is a control-plane WRITE → admin (a superset scope); the GET is
+    // read-only observability → read-telemetry (matches config/decisions/trace).
+    expect(requiredBridgeScope('PUT', '/api/v1/routing/policy')).toBe('admin');
+    expect(requiredBridgeScope('GET', '/api/v1/routing/telemetry')).toBe('read-telemetry');
+    expect(isV1Bridge('PUT', '/api/v1/routing/policy')).toBe(true);
+    expect(isV1Bridge('GET', '/api/v1/routing/telemetry?since=0')).toBe(true);
+    // A GET on the policy write-path is NOT registered (no accidental read alias).
+    expect(requiredBridgeScope('GET', '/api/v1/routing/policy')).toBeNull();
+  });
 });

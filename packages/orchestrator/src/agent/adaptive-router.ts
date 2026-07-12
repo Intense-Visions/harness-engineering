@@ -117,13 +117,14 @@ export class AdaptiveRouter {
   }
 
   /**
-   * AMR Phase 5 (D1): hot-swap the routing policy in place. The capability
-   * registry and `providerOf` are derived from `agent.backends` — NOT from
-   * `policy` — so a policy edit leaves them untouched; `route()` /
+   * AMR Phase 5 (D1): hot-swap the routing policy in place. Every policy field
+   * takes effect on the NEXT dispatch EXCEPT `escalationThreshold` (see note) —
+   * the capability registry and `providerOf` are derived from `agent.backends`,
+   * NOT from `policy`, so a policy edit leaves them untouched; `route()` /
    * `buildConstraints` / `deriveRequiredTier` all read `this.deps.policy` fresh,
-   * so the NEXT dispatch routes under the new `policy`. The live
-   * {@link EscalationState} is preserved by reference: a unit's climbed floor
-   * survives the swap (a policy edit must not reset accumulated escalation).
+   * so the swapped-in tier matrix / privacy floor / allowlist / budget all apply.
+   * The live {@link EscalationState} is preserved by reference: a unit's climbed
+   * floor survives the swap (a policy edit must not reset accumulated escalation).
    *
    * Threshold note: the `EscalationState` was seeded with the ORIGINAL policy's
    * `escalationThreshold` and is intentionally NOT re-seeded here — re-seeding

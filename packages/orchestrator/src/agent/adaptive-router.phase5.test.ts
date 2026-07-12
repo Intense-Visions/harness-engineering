@@ -39,8 +39,7 @@ const localDef = (capabilities: BackendCapabilities): BackendDef => ({
 });
 
 // A second provider TYPE so the allowlist has something to discriminate on.
-const mockDef = (capabilities: BackendCapabilities): BackendDef =>
-  ({ type: 'mock', capabilities }) as unknown as BackendDef;
+const mockDef = (capabilities: BackendCapabilities): BackendDef => ({ type: 'mock', capabilities });
 
 const verdict = (level: ComplexityVerdict['level'] = 'trivial'): ComplexityVerdict => ({
   level,

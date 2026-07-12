@@ -4,7 +4,9 @@ import type {
   ComplexityLevel,
   ComplexityVerdict,
   RoutingConfig,
+  RoutingPolicy,
   RoutingRisk,
+  RoutingTelemetry,
   RoutingUseCase,
   RoutingValue,
 } from '@harness-engineering/types';
@@ -23,6 +25,8 @@ import { readBody } from '../../utils';
 const CONFIG_RE = /^\/api\/v1\/routing\/config(?:\?.*)?$/;
 const DECISIONS_RE = /^\/api\/v1\/routing\/decisions(?:\?.*)?$/;
 const TRACE_RE = /^\/api\/v1\/routing\/trace(?:\?.*)?$/;
+const POLICY_RE = /^\/api\/v1\/routing\/policy(?:\?.*)?$/;
+const TELEMETRY_RE = /^\/api\/v1\/routing\/telemetry(?:\?.*)?$/;
 
 /**
  * Spec B Phase 5 — routing observability route dependencies.
@@ -39,6 +43,17 @@ export interface RoutingRouteDeps {
   bus: RoutingDecisionBus | null;
   routing: RoutingConfig | null;
   backends: Record<string, BackendDef> | null;
+  /**
+   * AMR Phase 5 (D1): hot-swap the live AdaptiveRouter for a pushed policy.
+   * Absent/null when the routing subsystem is absent (no backendFactory) — the
+   * PUT handler renders 503, mirroring the other routes' `unavailable` guard.
+   */
+  ingestRoutingPolicy?: ((policy: RoutingPolicy) => void) | null;
+  /**
+   * AMR Phase 5 (D2): project the enriched decision ring into the Shuttle wire
+   * shape. Absent/null in fakes/tests ⇒ the GET returns an empty payload (safe).
+   */
+  getTelemetry?: (() => RoutingTelemetry) | null;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -316,11 +331,100 @@ async function handleTrace(
   return true;
 }
 
+const CAPABILITY_TIER = z.enum(['fast', 'standard', 'strong']);
+const COMPLEXITY_LEVEL = z.enum(['trivial', 'simple', 'moderate', 'complex']);
+const PRIVACY_CLASS = z.enum(['on-device', 'byo-endpoint', 'shared-cloud']);
+
 /**
- * Spec B Phase 5 dispatcher: GET /api/v1/routing/config, GET
- * /api/v1/routing/decisions, POST /api/v1/routing/trace. Returns true
- * when the route matched (response was written) and false to let the
- * caller fall through to the next handler in the table.
+ * AMR Phase 5 (D3/D4): inbound `RoutingPolicy` schema for `PUT /routing/policy`.
+ * Mirrors the `RoutingPolicy` interface; NOT `.strict()` so the schema tolerates
+ * forward-compatible extra fields the Shuttle control plane may add.
+ *
+ * `allowedProviders` is validated as `string[]`, NOT narrowed to the finite
+ * `BackendDef['type']` union: Shuttle types it `readonly string[]`, and an
+ * unknown provider string must fail CLOSED at tier selection (it simply never
+ * matches a backend `type`) rather than 4xx-ing the entire policy push
+ * (Phase-1 review note). An empty `{}` body is valid — it restores default-off.
+ */
+const RoutingPolicySchema = z.object({
+  complexityTierMatrix: z.record(COMPLEXITY_LEVEL, CAPABILITY_TIER).optional(),
+  skillTierOverrides: z.record(z.string(), CAPABILITY_TIER).optional(),
+  privacyFloor: PRIVACY_CLASS.optional(),
+  budget: z
+    .object({
+      capUsd: z.number(),
+      degradeAtPct: z.number().optional(),
+      onBudgetExhausted: z.enum(['degrade', 'pause', 'human']),
+    })
+    .optional(),
+  sensitivePaths: z.array(z.string()).optional(),
+  escalationThreshold: z.number().optional(),
+  allowedProviders: z.array(z.string()).optional(),
+});
+
+/**
+ * AMR Phase 5 (D1/D4/D5): `PUT /api/v1/routing/policy`. Validates a
+ * `RoutingPolicy`, hot-swaps the live router via `ingestRoutingPolicy`, and
+ * returns 204 (no body — matches Shuttle's 204-safe client). An empty `{}`
+ * policy restores default-off (D5). 503 when routing is unavailable (no
+ * backends), mirroring the sibling routes. Scope `admin` is enforced upstream
+ * by `V1_BRIDGE_ROUTES`.
+ */
+async function handlePolicy(
+  req: IncomingMessage,
+  res: ServerResponse,
+  deps: RoutingRouteDeps
+): Promise<boolean> {
+  if (!deps.ingestRoutingPolicy || deps.router === null) return unavailable(res);
+  let raw: string;
+  try {
+    raw = await readBody(req);
+  } catch {
+    sendJSON(res, 400, { error: 'body read failed' });
+    return true;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    sendJSON(res, 400, { error: 'invalid JSON body' });
+    return true;
+  }
+  const r = RoutingPolicySchema.safeParse(parsed);
+  if (!r.success) {
+    sendJSON(res, 400, { error: r.error.message });
+    return true;
+  }
+  // `allowedProviders: string[]` widens `BackendDef['type'][]`; the validated
+  // wire object is the boundary — narrow it to the domain type here.
+  deps.ingestRoutingPolicy(r.data as RoutingPolicy);
+  res.writeHead(204);
+  res.end();
+  return true;
+}
+
+/**
+ * AMR Phase 5 (D2): `GET /api/v1/routing/telemetry`. Projects the enriched
+ * decision ring into the Shuttle wire shape (`{ decisions, spentUsd }`).
+ * Idempotent/non-destructive; always 200 — an empty payload when routing is off
+ * or the accessor is absent (fakes) — so Shuttle can poll harmlessly. Scope
+ * `read-telemetry` is enforced upstream.
+ */
+function handleTelemetry(res: ServerResponse, deps: RoutingRouteDeps): boolean {
+  const telemetry: RoutingTelemetry = deps.getTelemetry?.() ?? { decisions: [], spentUsd: 0 };
+  sendJSON(res, 200, telemetry);
+  return true;
+}
+
+/**
+ * Spec B Phase 5 + AMR Phase 5 dispatcher:
+ *   GET  /api/v1/routing/config     — resolved config + chains
+ *   GET  /api/v1/routing/decisions  — recent decision ring
+ *   POST /api/v1/routing/trace      — dry-run a decision
+ *   PUT  /api/v1/routing/policy     — hot-swap the routing policy (AMR D1)
+ *   GET  /api/v1/routing/telemetry  — Shuttle telemetry projection (AMR D2)
+ * Returns true when the route matched (response was written) and false to let
+ * the caller fall through to the next handler in the table.
  */
 export function handleV1RoutingRoute(
   req: IncomingMessage,
@@ -335,5 +439,10 @@ export function handleV1RoutingRoute(
     void handleTrace(req, res, deps);
     return true;
   }
+  if (method === 'PUT' && POLICY_RE.test(url)) {
+    void handlePolicy(req, res, deps);
+    return true;
+  }
+  if (method === 'GET' && TELEMETRY_RE.test(url)) return handleTelemetry(res, deps);
   return false;
 }
