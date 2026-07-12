@@ -105,7 +105,7 @@ export function buildStageRequest(
   step: WorkflowExecutionPlan['stages'][number],
   coherenceUnit: string,
   _priorRuns: StageRun[],
-  _floor?: CapabilityTier
+  floor?: CapabilityTier
 ): RoutingRequest {
   const useCase = {
     kind: 'skill' as const,
@@ -119,6 +119,10 @@ export function buildStageRequest(
       ? { complexity: step.routingHint.complexity }
       : {}),
     ...(step.routingHint?.risk !== undefined ? { risk: step.routingHint.risk } : {}),
+    // Phase 3 D8(a): thread the engine's one-shot bumped floor into route().
+    // exactOptionalPropertyTypes ⇒ conditional spread, never an explicit undefined
+    // (so a Phase-2 no-floor request stays byte-identical — SC8).
+    ...(floor !== undefined ? { floor } : {}),
   };
 }
 
@@ -218,6 +222,86 @@ export async function runStageSession(
 }
 
 /**
+ * D8(a): run ONE stage with the engine-owned retry cap of 1. Attempt 0 routes
+ * normally; if a `pass-required` stage's quality gate fails (`outcome === 'fail'`)
+ * the engine retries it EXACTLY ONCE at a bumped required floor
+ * `nextTier(attempt-0 decision.tierRequired)`, threaded to `route()` via
+ * `RoutingRequest.floor` (Task-5 Option A). A 2nd `pass-required` failure returns
+ * `outcome:'fail'` with `attempt === 1` (no 3rd attempt). `advisory`/absent-gate
+ * stages never fail the gate, so they never retry (`attempt === 0`).
+ *
+ * The engine retry is SEPARATE from the cumulative floor feed (D8b, Task 7): the
+ * retry decision here is driven solely by THIS stage's `outcome`, never by
+ * `recordOutcome`'s threshold climb (that was the rev-1 C3 conflation bug).
+ *
+ * Identity fallback (no `adaptiveRouter`) has no tier to bump, so it runs a single
+ * attempt — its gate outcome still applies but no retry is possible.
+ */
+export async function runStageWithRetry(
+  ctx: WorkflowEngineContext,
+  unit: string,
+  index: number,
+  step: WorkflowExecutionPlan['stages'][number],
+  priorRuns: StageRun[]
+): Promise<StageRun> {
+  let priorDecision: RoutingDecision | undefined;
+  let run: StageRun | undefined;
+
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    if (ctx.adaptiveRouter) {
+      // attempt 0 → no engine floor; attempt 1 → bump to nextTier(prior tier).
+      const floor: CapabilityTier | undefined =
+        attempt >= 1 && priorDecision?.tierRequired !== undefined
+          ? nextTier(priorDecision.tierRequired)
+          : undefined;
+      const req = buildStageRequest(step, unit, priorRuns, floor);
+      const { decision } = await ctx.adaptiveRouter.route(req);
+      priorDecision = decision;
+      // route() returns def:BackendDef (no `name`); the backend name is
+      // decision.backendName. Pass a name-only surface — real def→runner is Phase 4.
+      const backend = { name: decision.backendName } as AgentBackend;
+      run = await runStageSession(
+        ctx,
+        unit,
+        index,
+        attempt,
+        step,
+        backend,
+        priorOutputs(priorRuns)
+      );
+      run.decision = decision;
+      if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
+      // D8(b)/SC3: feed the CUMULATIVE unit floor once per attempt. Phase 2 records
+      // `true`; Task 7 refines this to record the real quality outcome (`ok`) so a
+      // failing attempt climbs the floor INDEPENDENTLY of the engine's own retry.
+      if (decision.tierRequired !== undefined) {
+        ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, true);
+      }
+    } else {
+      // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
+      const backend = ctx.resolveStageBackend(step);
+      run = await runStageSession(
+        ctx,
+        unit,
+        index,
+        attempt,
+        step,
+        backend,
+        priorOutputs(priorRuns)
+      );
+    }
+
+    // A `pass-required` quality failure on attempt 0 triggers the single retry;
+    // otherwise (pass, advisory, or the retry already ran) this run is final.
+    const gateFailed = step.gate === 'pass-required' && run.outcome === 'fail';
+    if (!gateFailed || attempt >= 1) return run;
+  }
+
+  // Unreachable in practice (the loop returns on attempt 1), but TS needs a value.
+  return run!;
+}
+
+/**
  * Execute a multi-stage workflow's stages sequentially on one worktree. The
  * whole body is inside a `try` so EVERY exit path — all-pass, or any throw
  * between/within stages, or a throw from `emitWorkflowSuccess` itself — drives
@@ -232,55 +316,13 @@ export async function executeWorkflow(
   const runs: StageRun[] = [];
   try {
     for (const [index, step] of plan.stages.entries()) {
-      let run: StageRun;
-      if (ctx.adaptiveRouter) {
-        // Phase 2: route this stage under the shared coherenceUnit. `floor` is
-        // omitted (Phase 3 supplies the bumped required floor on engine retry).
-        const req = buildStageRequest(step, plan.coherenceUnit, runs);
-        const { decision } = await ctx.adaptiveRouter.route(req);
-        // route() returns def:BackendDef (no `name`); the backend name is
-        // decision.backendName. Pass a name-only surface — real def→runner is Phase 4.
-        const backend = { name: decision.backendName } as AgentBackend;
-        run = await runStageSession(
-          ctx,
-          plan.coherenceUnit,
-          index,
-          0,
-          step,
-          backend,
-          priorOutputs(runs)
-        );
-        run.decision = decision;
-        // exactOptionalPropertyTypes: assign `tier` only when tierRequired is defined.
-        if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
-        // D8(b)/SC3: feed the CUMULATIVE unit floor. Phase 2 treats every stage as
-        // ok=true (gate/quality evaluation is Phase 3). This wires recordOutcome +
-        // the floor-read in route() so a LATER stage inherits a raised floor once
-        // Phase 3 reports real quality failures. The tier reported is THIS stage's
-        // own resolved tier (decision.tierRequired).
-        if (run.decision.tierRequired !== undefined) {
-          ctx.adaptiveRouter.recordOutcome(plan.coherenceUnit, run.decision.tierRequired, true);
-        }
-      } else {
-        // Phase-1 identity fallback (byte-unchanged): no decision/tier, no recordOutcome.
-        const backend = ctx.resolveStageBackend(step);
-        run = await runStageSession(
-          ctx,
-          plan.coherenceUnit,
-          index,
-          0,
-          step,
-          backend,
-          priorOutputs(runs)
-        );
-      }
+      const run = await runStageWithRetry(ctx, plan.coherenceUnit, index, step, runs);
       runs.push(run);
       // D8(c)/D10 (SC6): a non-pass stage outcome (a `pass-required` quality
-      // failure or a mid-stage runner error) terminates the unit exactly once
-      // via finalizeWorkflowTerminal — running/claimed delete + persistLaneSafe
-      // ('abandon') + one needs-human + cleanWorkspace — and downstream stages
-      // never run. The engine retry (Task 6) sits INSIDE runStageWithRetry, so by
-      // the time a `fail` reaches here the single retry is already exhausted.
+      // failure that survived the single engine retry, or a mid-stage runner
+      // error) terminates the unit exactly once via finalizeWorkflowTerminal —
+      // running/claimed delete + persistLaneSafe('abandon') + one needs-human +
+      // cleanWorkspace — and downstream stages never run.
       if (run.outcome !== 'pass') {
         return await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, step);
       }

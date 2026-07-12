@@ -322,20 +322,179 @@ describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
 });
 
 describe('executeWorkflow — terminal on stage fail (SC6 / P3)', () => {
-  it('a failing pass-required stage goes terminal exactly once; downstream stages never run', async () => {
-    const { ctx, runOrder, successCalls, terminalCalls, terminalFailingSteps } = makeFakeCtx({
-      sessionIds: ['s0', 's1'],
-      successPerStage: [false, true], // stage 0 fails its gate
-    });
+  it('a pass-required stage that fails BOTH attempts goes terminal exactly once; downstream stages never run', async () => {
+    // The engine retries a failing pass-required stage once (Task 6), so terminal
+    // requires failing both attempts. Downstream stage 1 must never run.
+    const terminalFailingSteps: (WorkflowStep | undefined)[] = [];
+    const base = makeRetryCtx({ successByAttempt: { a: [false, false] } });
+    let runOrderCount = 0;
+    const seenSkills: string[] = [];
+    const ctx: WorkflowEngineContext = {
+      ...base.ctx,
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, prompt: string) {
+          seenSkills.push(prompt);
+          runOrderCount++;
+          const attempt = seenSkills.filter((s) => s === prompt).length - 1;
+          const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+          yield { type: 'usage', usage } as unknown as AgentEvent;
+          const success = prompt === 'a' ? [false, false][attempt]! : true;
+          return { sessionId: `${prompt}-${attempt}`, success, usage };
+        },
+      }),
+      finalizeWorkflowTerminal: async (_u, runs, failingStep) => {
+        base.terminalCalls.push(runs);
+        terminalFailingSteps.push(failingStep as WorkflowStep | undefined);
+      },
+    };
     const s0: WorkflowStep = { skill: 'a', produces: 'a', gate: 'pass-required' };
     const s1: WorkflowStep = { skill: 'b', produces: 'b' };
     await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s0, s1] });
 
-    expect(terminalCalls).toHaveLength(1);
-    expect(successCalls).toHaveLength(0);
-    expect(runOrder).toEqual([0]); // stage 1 never runs
-    // the failingStep passed to finalizeWorkflowTerminal is stage 0's step
+    expect(base.terminalCalls).toHaveLength(1);
+    expect(base.successCalls).toHaveLength(0);
+    // stage 0 ran twice (retry); stage 1 (skill 'b') never ran
+    expect(seenSkills.filter((s) => s === 'b')).toHaveLength(0);
+    expect(runOrderCount).toBe(2);
     expect(terminalFailingSteps[0]).toBe(s0);
+  });
+});
+
+/**
+ * A retry-aware fake ctx: `successByAttempt[skill]` is a per-attempt boolean
+ * array (index = attempt 0|1) for that stage's runner success, so the same stage
+ * can fail attempt 0 then pass attempt 1. `routeSpy` captures each RoutingRequest
+ * (so tests assert the bumped `req.floor` on the retry). `recordSpy` captures the
+ * cumulative-floor feed.
+ */
+function makeRetryCtx(opts: {
+  successByAttempt: Record<string, boolean[]>;
+  tierForReq?: (req: RoutingRequest) => 'fast' | 'standard' | 'strong';
+}): {
+  ctx: WorkflowEngineContext;
+  routeReqs: RoutingRequest[];
+  runSessionCount: () => number;
+  recordCalls: [string, string, boolean][];
+  terminalCalls: StageRun[][];
+  successCalls: StageRun[][];
+} {
+  const attemptsSeen: Record<string, number> = {};
+  let runSessions = 0;
+  const routeReqs: RoutingRequest[] = [];
+  const recordCalls: [string, string, boolean][] = [];
+  const terminalCalls: StageRun[][] = [];
+  const successCalls: StageRun[][] = [];
+  const tierFor = opts.tierForReq ?? (() => 'fast');
+
+  // The runner is keyed by the backend name the engine derived from route(); but
+  // the fake needs the CURRENT stage skill + attempt to pick success. We stash the
+  // pending (skill, attempt) on each route() call and consume it in runSession.
+  let pendingSkill = '';
+  const routeSpy = vi.fn(async (req: RoutingRequest) => {
+    routeReqs.push(req);
+    pendingSkill = (req.useCase as { skillName: string }).skillName;
+    return {
+      decision: {
+        backendName: `${tierFor(req)}-backend`,
+        tierRequired: tierFor(req),
+      } as unknown as RoutingDecision,
+    };
+  });
+
+  const ctx: WorkflowEngineContext = {
+    recorder: {
+      startRecording: vi.fn(),
+      recordEvent: vi.fn(),
+      finishRecording: vi.fn(),
+    } as unknown as WorkflowEngineContext['recorder'],
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as WorkflowEngineContext['logger'],
+    issueId: 'issue-1',
+    identifier: 'issue-1',
+    externalId: null,
+    workspacePath: '/tmp/ws-shared',
+    makeRunner: () => ({
+      async *runSession(_issue: unknown, _ws: string, prompt: string) {
+        // prompt === step.skill (Phase-1 stub). Attempt = how many times this
+        // skill has run so far.
+        const skill = prompt || pendingSkill;
+        const attempt = attemptsSeen[skill] ?? 0;
+        attemptsSeen[skill] = attempt + 1;
+        runSessions++;
+        const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+        yield { type: 'usage', usage } as unknown as AgentEvent;
+        const success = opts.successByAttempt[skill]?.[attempt] ?? true;
+        return { sessionId: `${skill}-a${attempt}`, success, usage };
+      },
+    }),
+    resolveStageBackend: () => fakeBackend(),
+    adaptiveRouter: { route: routeSpy, recordOutcome: (u, t, ok) => recordCalls.push([u, t, ok]) },
+    emitWorkflowSuccess: async (_u, runs) => {
+      successCalls.push(runs);
+    },
+    finalizeWorkflowTerminal: async (_u, runs) => {
+      terminalCalls.push(runs);
+    },
+  };
+
+  return {
+    ctx,
+    routeReqs,
+    runSessionCount: () => runSessions,
+    recordCalls,
+    terminalCalls,
+    successCalls,
+  };
+}
+
+describe('runStageWithRetry — engine retry cap=1 (SC6-a / D8a)', () => {
+  it('pass-required: fail attempt 0 then pass attempt 1 → outcome pass, attempt 1, retry routed at bumped floor', async () => {
+    const { ctx, routeReqs, runSessionCount, successCalls } = makeRetryCtx({
+      successByAttempt: { retryme: [false, true] },
+      tierForReq: () => 'fast',
+    });
+    const s: WorkflowStep = { skill: 'retryme', produces: 'r', gate: 'pass-required' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    const runs = successCalls[0]!;
+    expect(runs[0]!.outcome).toBe('pass');
+    expect(runs[0]!.attempt).toBe(1);
+    expect(runSessionCount()).toBe(2);
+    // attempt 0 carries no engine floor; attempt 1 carries the bumped floor.
+    expect('floor' in routeReqs[0]!).toBe(false);
+    expect(routeReqs[1]!.floor).toBe('standard'); // nextTier('fast')
+  });
+
+  it('pass-required: fail both attempts → outcome fail, attempt 1, exactly 2 runSession calls (no 3rd)', async () => {
+    const { ctx, runSessionCount, terminalCalls } = makeRetryCtx({
+      successByAttempt: { doomed: [false, false] },
+      tierForReq: () => 'fast',
+    });
+    const s: WorkflowStep = { skill: 'doomed', produces: 'd', gate: 'pass-required' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    expect(terminalCalls).toHaveLength(1);
+    const runs = terminalCalls[0]!;
+    expect(runs[0]!.outcome).toBe('fail');
+    expect(runs[0]!.attempt).toBe(1);
+    expect(runSessionCount()).toBe(2); // no 3rd attempt
+  });
+
+  it('advisory: fail attempt 0 → outcome pass, attempt 0, no retry', async () => {
+    const { ctx, runSessionCount, successCalls } = makeRetryCtx({
+      successByAttempt: { adv: [false] },
+    });
+    const s: WorkflowStep = { skill: 'adv', produces: 'a', gate: 'advisory' };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+
+    const runs = successCalls[0]!;
+    expect(runs[0]!.outcome).toBe('pass');
+    expect(runs[0]!.attempt).toBe(0);
+    expect(runSessionCount()).toBe(1); // no retry
   });
 });
 
