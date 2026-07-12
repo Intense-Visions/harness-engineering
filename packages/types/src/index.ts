@@ -22,6 +22,8 @@ export type {
   StepOutcome,
   WorkflowStepResult,
   WorkflowResult,
+  WorkflowExecutionPlan,
+  StageRun,
 } from './workflow';
 
 // --- Skill & Pipeline ---
@@ -124,6 +126,7 @@ export type {
   AgentConfig,
   ServerConfig,
   WorkflowConfig,
+  StagedWorkflowDecl,
   WorkflowDefinition,
   ScopeTier,
   ConcernSignal,

@@ -6,6 +6,8 @@ import type {
   AgentBackend,
   RoutingRequest,
   RoutingDecision,
+  StageRun,
+  WorkflowExecutionPlan,
 } from '@harness-engineering/types';
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
@@ -82,6 +84,9 @@ import { RoutingDecisionBus } from './routing/decision-bus.js';
 // `./agent/use-case-builder` (the new caller). The dispatch site no
 // longer references them directly.
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
+import { workflowFor } from './workflow/workflow-for';
+import { buildWorkflowContext } from './workflow/orchestrator-context';
+import { executeWorkflow } from './workflow/execute-workflow';
 import { buildRoutingUseCase } from './agent/use-case-builder';
 import { makeLiveClassify } from './agent/live-classify';
 import { buildTaskText } from './agent/complexity-request';
@@ -1916,6 +1921,50 @@ export class Orchestrator extends EventEmitter {
         );
       }
 
+      // split-routing Phase 4 (D5/D13): doubly-opt-in staged dispatch. `workflowFor`
+      // is a PURE predicate over the already-in-hand issue+config — undefined ⇒ fall
+      // through to the UNCHANGED single-agent path below (SC4). The branch sits AFTER
+      // ensureWorkspace + the claim, so the workflow reuses the ONE worktree (D11) and
+      // SC5's "one claim" holds. When it fires, the engine owns the terminal transition
+      // via the settle callbacks; we return without touching the single-agent path.
+      const workflowMatch = workflowFor(issue, this.config);
+      if (workflowMatch) {
+        // `workflowFor` is the single match authority: it returns BOTH the plan AND
+        // the matched decl's optional stageDeadlineMs (D12). No re-matching here.
+        const workflowPlan = workflowMatch.plan;
+        const ctx = buildWorkflowContext({
+          recorder: this.recorder,
+          logger: this.logger,
+          issue,
+          workspacePath,
+          maxTurns: this.config.agent.maxTurns,
+          backendFactory: this.backendFactory,
+          // this.adaptiveRouter.route returns { decision, def }; the engine reads only
+          // { decision } — structurally compatible with the narrow router dep.
+          adaptiveRouter: this.adaptiveRouter,
+          routingDefault: (() => {
+            const d = this.config.agent.routing?.default;
+            return d !== undefined ? toArray(d)[0] : undefined;
+          })(),
+          ...(workflowMatch.stageDeadlineMs !== undefined
+            ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
+            : {}),
+          settleSuccess: (u, r) => this.settleWorkflowSuccess(u, r),
+          settleTerminal: (u, r, s, e) => this.settleWorkflowTerminal(u, r, s, e),
+        });
+        // Record the plan on the running entry (D11 in-memory cursor; the stall
+        // bypass reads `entry.workflow`). No persisted stage cursor — a re-dispatch
+        // restarts from stage 0 on a fresh worktree.
+        const entry = this.state.running.get(issue.id);
+        if (entry) {
+          this.state.running.set(issue.id, { ...entry, workflow: workflowPlan, workspacePath });
+        }
+        // Fire-and-forget like runAgentInBackgroundTask; the engine drives the single
+        // terminal transition via the settle callbacks above.
+        void executeWorkflow(ctx, workflowPlan);
+        return;
+      }
+
       // 4. Render prompt
       const prompt = await this.renderer.render(this.promptTemplate, {
         issue,
@@ -2391,6 +2440,123 @@ export class Orchestrator extends EventEmitter {
     // abandon → canceled (terminal). Best-effort; never blocks or throws.
     await this.persistLaneSafe(issueId, 'abandon');
     this.emit('state_change', this.getSnapshot());
+  }
+
+  /**
+   * split-routing Phase 4 (D6/SC5) — terminal SUCCESS settle for a workflow unit.
+   * The real `WorkflowEngineContext.emitWorkflowSuccess` forwards here (bound via
+   * the context's `settleSuccess` dep in `dispatchIssue`). It reproduces the
+   * `worker_exit`/`reason==='normal'` reducer BY HAND (state-machine.ts:457,467-474):
+   * `running.delete` → `completed.set(now)` → `claimed.delete` → `cleanWorkspace`
+   * effect → then persists the terminal `success` lane and emits one state change.
+   *
+   * It deliberately does NOT route through `emitWorkerExit`/`handleWorkerExit`
+   * (completion/handler.ts): that fires the ISSUE-keyed `finishRecording(issueId,
+   * attempt)` + `recordAmrOutcome`, but the engine already ran PER-STAGE recorders
+   * (`stageAttemptKey(index, attempt)`) and per-stage `recordOutcome`. Going through
+   * the worker-exit path would (a) finish a recording never started at the
+   * issue-attempt key and (b) double-feed the escalation state. This is the ONE
+   * hand-reproduced reducer sequence in Phase 4; the `worker_exit` reducer itself
+   * stays untouched (Task 12 pins it) so the two remain in sync.
+   *
+   * `runs` are the per-stage records (best-effort telemetry; the per-stage cost is
+   * already attributable via the recorders). Never throws — a success settle must
+   * complete the single terminal transition (D6).
+   */
+  private async settleWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void> {
+    const entry = this.state.running.get(unit);
+    // Reducer normal-exit sequence (state-machine.ts:457,467-469):
+    this.state.running.delete(unit);
+    this.state.completed.set(unit, Date.now());
+    this.state.claimed.delete(unit);
+    this.logger.info(`Workflow unit ${unit} completed all stages`, {
+      issueId: unit,
+      stages: runs.length,
+    });
+    // The reducer's cleanWorkspace effect (state-machine.ts:470-474), run inline.
+    await this.cleanWorkspaceWithGuard(entry?.identifier ?? unit, unit);
+    // success → done (terminal). Best-effort; never blocks or throws.
+    await this.persistLaneSafe(unit, 'success');
+    // S1 drain (ADR 0060) — emitWorkerExit parity (orchestrator.ts drain on normal
+    // exit). A model pinned by the final stage's backendFactory.forUseCase may now be
+    // free; drain it here rather than waiting for the next refresh-tick. Fire-and-forget.
+    void this.drainDeferredEvictions();
+    this.emit('state_change', this.getSnapshot());
+  }
+
+  /**
+   * split-routing Phase 4 (D6/I1/SC5) — terminal FAILURE/safety-net settle for a
+   * workflow unit. The real context's `finalizeWorkflowTerminal` forwards here
+   * (bound via `settleTerminal`). Composed from the `finalizeRoutingTerminal`
+   * pattern (`running.delete` + `claimed.delete` + `persistLaneSafe('abandon')`,
+   * orchestrator.ts:2388-2394) PLUS a single `needs-human` escalation
+   * (escalateRoutingToHuman-style queue push, :2301-2316) PLUS `cleanWorkspace`
+   * (S5). It must NEVER rethrow — the engine's `catch` calls it on the I1 safety
+   * net, so a throw here would defeat the single-exit guarantee.
+   *
+   * It is NOT a verbatim `finalizeRoutingTerminal` call (that lacks the needs-human
+   * + cleanWorkspace the Phase-3 terminal contract pinned). Exactly one needs-human
+   * per terminal transition.
+   */
+  private async settleWorkflowTerminal(
+    unit: string,
+    runs: StageRun[],
+    failingStep?: WorkflowExecutionPlan['stages'][number],
+    err?: unknown
+  ): Promise<void> {
+    try {
+      const entry = this.state.running.get(unit);
+      const identifier = entry?.identifier ?? unit;
+      this.state.running.delete(unit);
+      this.state.claimed.delete(unit);
+      await this.persistLaneSafe(unit, 'abandon');
+      // Exactly one needs-human escalation (mirrors escalateRoutingToHuman's push,
+      // :2301-2316) — carries the failing stage + error context for the steward.
+      const errMessage =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
+      const reasons = [
+        'workflow:terminal',
+        failingStep ? `stage:${failingStep.skill} did not pass` : 'workflow stage error',
+        ...(err !== undefined ? [errMessage] : []),
+      ];
+      await this.interactionQueue
+        .push({
+          id: `interaction-${randomUUID()}`,
+          issueId: unit,
+          type: 'needs-human',
+          reasons,
+          context: {
+            issueTitle: entry?.issue.title ?? identifier,
+            issueDescription: entry?.issue.description ?? null,
+            specPath: null,
+            planPath: null,
+            relatedFiles: [],
+          },
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+        })
+        .catch((qerr) => {
+          this.logger.warn(`Failed to queue workflow terminal escalation for ${unit}`, {
+            unit,
+            error: String(qerr),
+          });
+        });
+      await this.cleanWorkspaceWithGuard(identifier, unit);
+      // S1 drain (ADR 0060) — emitWorkerExit parity (drain on error exit). Free any
+      // model pinned by the failing stage's backendFactory.forUseCase. Fire-and-forget.
+      void this.drainDeferredEvictions();
+      this.logger.warn(`Workflow unit ${unit} terminated (${runs.length} stage run(s))`, {
+        issueId: unit,
+        failingSkill: failingStep?.skill,
+      });
+      this.emit('state_change', this.getSnapshot());
+    } catch (settleErr) {
+      // I1: never rethrow — a settle failure must not break the single-exit guarantee.
+      this.logger.error(`settleWorkflowTerminal failed for ${unit}`, {
+        unit,
+        error: String(settleErr),
+      });
+    }
   }
 
   /**

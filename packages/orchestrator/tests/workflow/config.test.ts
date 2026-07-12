@@ -145,3 +145,47 @@ describe('validateWorkflowConfig — backend requirement (Spec 2 SC15)', () => {
     });
   });
 });
+
+describe('validateWorkflowConfig — declarative workflows (D7/D13)', () => {
+  const twoStages = [
+    { skill: 'review', produces: 'review-notes' },
+    { skill: 'implement', produces: 'patch', expects: 'review-notes', gate: 'pass-required' },
+  ];
+
+  it('accepts a config with NO workflows field (unchanged; SC4)', () => {
+    const cfg = getDefaultConfig();
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(true);
+  });
+
+  it('D13: rejects a workflows decl with 0 stages ("at least 1 stage")', () => {
+    const cfg = getDefaultConfig() as Record<string, unknown>;
+    cfg.workflows = [{ name: 'empty', match: { identifierPrefix: 'REV-' }, stages: [] }];
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toMatch(/at least 1 stage/i);
+    }
+  });
+
+  it('accepts a config with a valid 2-stage workflow decl', () => {
+    const cfg = getDefaultConfig() as Record<string, unknown>;
+    cfg.workflows = [
+      { name: 'review-then-implement', match: { identifierPrefix: 'REV-' }, stages: twoStages },
+    ];
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects a workflows decl with a malformed step (missing skill)', () => {
+    const cfg = getDefaultConfig() as Record<string, unknown>;
+    cfg.workflows = [
+      { name: 'bad', match: { identifierPrefix: 'REV-' }, stages: [{ produces: 'x' }] },
+    ];
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toMatch(/workflows/i);
+    }
+  });
+});

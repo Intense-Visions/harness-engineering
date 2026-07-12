@@ -1,4 +1,4 @@
-import type { Issue } from '@harness-engineering/types';
+import type { Issue, WorkflowExecutionPlan, StageRun } from '@harness-engineering/types';
 
 /**
  * Run attempt lifecycle phases (internal to orchestrator).
@@ -57,6 +57,15 @@ export interface RunningEntry {
    * AMR is off (no policy) or the dispatch used an override.
    */
   lastRoutedTier?: import('@harness-engineering/types').CapabilityTier;
+  /** split-routing: the plan this unit is running staged, if any. Engine-owned. */
+  workflow?: WorkflowExecutionPlan;
+  /** split-routing: the stage index currently executing. Engine-owned. */
+  currentStageIndex?: number;
+  /**
+   * split-routing: per-stage runs. The per-stage session/abort live HERE
+   * (C1), never in the issue-level `session` field above.
+   */
+  stageRuns?: StageRun[];
 }
 
 /**

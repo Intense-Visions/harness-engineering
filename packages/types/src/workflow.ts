@@ -1,3 +1,10 @@
+import type {
+  ComplexityVerdict,
+  RoutingRisk,
+  RoutingDecision,
+  CapabilityTier,
+} from './orchestrator';
+
 /**
  * A single step in a multi-skill workflow.
  */
@@ -10,6 +17,15 @@ export interface WorkflowStep {
   expects?: string;
   /** Whether failure of this step stops the workflow */
   gate?: 'pass-required' | 'advisory';
+  /** Drives the per-stage RoutingUseCase (Phase 2 consumer). */
+  cognitiveMode?: string;
+  /**
+   * Deterministic routing hint (S3): when present, Phase 2 seeds
+   * RoutingRequest.complexity/risk so a fixture's `strong` and `fast`
+   * stages resolve differently without live text classification.
+   * No runtime consumer in Phase 1 (types are additive).
+   */
+  routingHint?: { complexity?: ComplexityVerdict; risk?: RoutingRisk };
 }
 
 /**
@@ -20,6 +36,32 @@ export interface Workflow {
   name: string;
   /** Ordered list of steps */
   steps: WorkflowStep[];
+}
+
+/** A resolved plan the stage-execution engine runs (split-routing). */
+export interface WorkflowExecutionPlan {
+  /** One coherence unit across all stages (= issue.id). */
+  coherenceUnit: string;
+  /** Ordered stages; the engine runs them sequentially on one worktree. */
+  stages: WorkflowStep[];
+}
+
+/** Per-stage execution record — carries per-stage session + cost (C1/D3). */
+export interface StageRun {
+  index: number;
+  step: WorkflowStep;
+  /** C1: this stage's own session id — NOT the issue's. */
+  sessionId?: string;
+  /** C1: per-stage token cost, so split-routing cost is attributable. */
+  tokens?: { input: number; output: number; total: number };
+  outcome?: 'pass' | 'fail' | 'error';
+  /** 0 or 1 (Phase 3 engine retry cap); always 0 in Phase 1. */
+  attempt?: number;
+  durationMs?: number;
+  /** split-routing Phase 2: the resolved backend + tier + cost for this stage. */
+  decision?: RoutingDecision;
+  /** split-routing Phase 2: the derived required tier (== decision.tierRequired). */
+  tier?: CapabilityTier;
 }
 
 /**

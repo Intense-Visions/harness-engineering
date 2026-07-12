@@ -409,6 +409,15 @@ export interface RoutingRequest {
    * consumed by the classify seam. Absent ⇒ conservative fallback (D4).
    */
   taskText?: RoutingTaskText;
+  /**
+   * split-routing D8(a): a caller-supplied required-tier floor for THIS request,
+   * used by the workflow engine's one-shot per-stage retry to route the retry at
+   * a bumped tier (`nextTier(prior tier)`) WITHOUT mutating the cumulative
+   * EscalationState floor. `route()` takes the max-by-rank of this and the unit's
+   * escalation floor. Additive/optional: absent ⇒ `route()` behaves byte-
+   * identically to today (SC8), so all existing routing paths are unaffected.
+   */
+  floor?: CapabilityTier;
 }
 
 /**
@@ -919,6 +928,25 @@ export interface TelemetryWorkflowConfig {
 }
 
 /**
+ * split-routing D7: an operator declaration binding a staged workflow to units.
+ * Additive + optional so every existing config is byte-valid (SC4). The producer
+ * surface is config-declared (parsed by the existing `validateWorkflowConfig`),
+ * NOT a dispatch-input field: `workflowFor(issue, config)` selects the matching
+ * decl. A 0-stage decl is a validation error; a 1-stage decl falls back to single
+ * dispatch (D13).
+ */
+export interface StagedWorkflowDecl {
+  /** Human label for logs/telemetry. */
+  name: string;
+  /** Match units by identifier prefix and/or labels (v1 matchers). */
+  match: { identifierPrefix?: string; labels?: string[] };
+  /** Ordered stages; `workflowFor` only returns a plan for length >= 2 (D13). */
+  stages: import('./workflow').WorkflowStep[];
+  /** D12 override; absent ⇒ engine default DEFAULT_STAGE_DEADLINE_MS. */
+  stageDeadlineMs?: number;
+}
+
+/**
  * Root workflow configuration object.
  */
 export interface WorkflowConfig {
@@ -955,6 +983,13 @@ export interface WorkflowConfig {
   localModels?: import('./local-models').LocalModelsConfig;
   /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
   orchestratorId?: string;
+  /**
+   * split-routing D7: declarative staged workflows (opt-in; absent ⇒ single
+   * dispatch). Parsed by the existing `validateWorkflowConfig`; selected per unit
+   * by the pure `workflowFor(issue, config)` predicate (>= 2 stages ⇒ staged
+   * dispatch, else single dispatch).
+   */
+  workflows?: StagedWorkflowDecl[];
 }
 
 /**

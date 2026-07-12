@@ -7,7 +7,7 @@ import type {
   RoutingPolicy,
   RoutingRequest,
 } from '@harness-engineering/types';
-import { deriveRequiredTier } from '@harness-engineering/intelligence';
+import { deriveRequiredTier, TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import type { BackendRouter } from './backend-router.js';
 import {
@@ -119,8 +119,16 @@ export class AdaptiveRouter {
     const spend = (this.deps.budgetState ?? (() => ({ spentUsd: 0 })))();
     // D10: the escalation floor raises the derived tier for a coherence unit that
     // has climbed on repeated quality failure. Absent EscalationState ⇒ no-op 'fast'.
+    // split-routing D8(a): a caller (the workflow engine's one-shot per-stage
+    // retry) may pin a request-scoped floor via `req.floor` (a bumped tier). We
+    // take the max-by-rank of the cumulative unit floor and the request floor so
+    // the retry routes at the higher tier WITHOUT mutating EscalationState.
+    // Additive: `req.floor` absent ⇒ this reduces to the prior expression exactly
+    // (max(escalationFloor, 'fast') === escalationFloor), so `route()` is
+    // behaviorally identical to before (SC8).
+    const unitFloor: CapabilityTier = this.deps.escalation?.floorFor(req.coherenceUnit) ?? 'fast';
     const escalationFloor: CapabilityTier =
-      this.deps.escalation?.floorFor(req.coherenceUnit) ?? 'fast';
+      RANK_TIER[Math.max(TIER_RANK[unitFloor], TIER_RANK[req.floor ?? 'fast'])]!;
     const requiredTier: CapabilityTier = deriveRequiredTier(
       complexity,
       req.risk,

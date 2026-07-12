@@ -13,6 +13,13 @@ export * from './core/index';
 export * from './workflow/loader';
 export * from './workflow/config';
 export * from './workflow/skill-catalog';
+// split-routing Phase 4: the doubly-opt-in staged-dispatch surface.
+// `workflowFor` (pure >=2-stage predicate) + `buildWorkflowContext` (the real
+// WorkflowEngineContext composition) so external consumers / tests can select
+// and compose staged dispatch without reaching into internal paths.
+export { workflowFor } from './workflow/workflow-for';
+export { buildWorkflowContext } from './workflow/orchestrator-context';
+export type { BuildWorkflowContextDeps, WorkflowRouterDep } from './workflow/orchestrator-context';
 export * from './tracker/adapters/roadmap';
 export * from './tracker/extensions/linear';
 export * from './workspace/manager';
