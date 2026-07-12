@@ -308,6 +308,10 @@ export async function runStageWithRetry(
     try {
       if (ctx.adaptiveRouter) {
         // attempt 0 → no engine floor; attempt 1 → bump to nextTier(prior tier).
+        // This bump is a FLOOR derived from the prior attempt's tier, not an absolute
+        // tier: route()'s max-by-rank makes it safe — if the unit's active escalation
+        // floor is already higher, route() keeps the higher one, so we never route
+        // below the active escalation floor.
         const floor: CapabilityTier | undefined =
           attempt >= 1 && priorDecision?.tierRequired !== undefined
             ? nextTier(priorDecision.tierRequired)
@@ -328,16 +332,19 @@ export async function runStageWithRetry(
           priorOutputs(priorRuns)
         );
         run.decision = decision;
-        if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
+        // One narrowed binding shared by the run.tier assign and the recordOutcome
+        // guard below (readability; behavior identical).
+        const tier = decision.tierRequired;
+        if (tier !== undefined) run.tier = tier;
         // D8(b)/SC3 — the C3 fix: feed the CUMULATIVE unit floor once per ATTEMPT
         // with the REAL quality outcome. `ok` is false only on a `pass-required`
         // gate failure (advisory/absent gates always report `ok=true` — they never
         // climb the floor). This call is UNCONDITIONAL on quality and INSIDE the
         // attempt loop, so a failing attempt climbs the floor per EscalationState's
         // threshold INDEPENDENTLY of the engine's own retry decision below.
-        if (decision.tierRequired !== undefined) {
+        if (tier !== undefined) {
           const ok = step.gate !== 'pass-required' || run.outcome === 'pass';
-          ctx.adaptiveRouter.recordOutcome(unit, decision.tierRequired, ok);
+          ctx.adaptiveRouter.recordOutcome(unit, tier, ok);
         }
       } else {
         // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
@@ -382,8 +389,10 @@ export async function runStageWithRetry(
     if (!gateFailed || attempt >= 1) return run;
   }
 
-  // Unreachable in practice (the loop returns on attempt 1), but TS needs a value.
-  return run!;
+  // Unreachable in practice (the loop returns on attempt 1). Fail loud on the
+  // invariant break rather than silently non-null-asserting — mirrors the
+  // stageAttemptKey range guard.
+  throw new Error('runStageWithRetry: loop exited without a run');
 }
 
 /**
