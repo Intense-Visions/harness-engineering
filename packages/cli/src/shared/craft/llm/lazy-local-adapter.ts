@@ -27,6 +27,14 @@ export interface LazyLocalAdapterOptions {
   fetchModels?: (endpoint: string, apiKey?: string) => Promise<string[]>;
   /** Per-request timeout for the LLM call itself (not the probe). */
   llmTimeoutMs?: number;
+  /**
+   * Test injection: build the resolved provider for a matched model. Defaults
+   * to a real `OpenAICompatibleAnalysisProvider` wrapped in `AnalysisProviderAdapter`.
+   * Injected in tests so `callText` resolves against a stub instead of opening a
+   * real socket to the endpoint (whose connect-timeout + retry backoff is slow and
+   * load-dependent). Mirrors the `fetchModels` seam above.
+   */
+  makeProvider?: (modelId: string) => LlmProvider;
 }
 
 /**
@@ -73,6 +81,22 @@ export class LazyLocalAdapter implements LlmProvider {
     return this.resolved?.modelId ?? null;
   }
 
+  /** Construct the real OpenAI-compatible provider for a matched model. */
+  private buildDefaultProvider(modelId: string): LlmProvider {
+    const inner = new OpenAICompatibleAnalysisProvider({
+      apiKey: this.opts.apiKey,
+      baseUrl: this.opts.endpoint,
+      defaultModel: modelId,
+      ...(this.opts.llmTimeoutMs !== undefined ? { timeoutMs: this.opts.llmTimeoutMs } : {}),
+    });
+    return new AnalysisProviderAdapter({
+      providerId: this.providerId,
+      model: modelId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      inner: inner as any,
+    });
+  }
+
   private async resolve(): Promise<{ provider: LlmProvider; modelId: string }> {
     if (this.resolved !== null) return this.resolved;
     if (this.resolvePromise !== null) return this.resolvePromise;
@@ -98,18 +122,9 @@ export class LazyLocalAdapter implements LlmProvider {
             'Load one of the configured models or update agent.backends.<name>.model.'
         );
       }
-      const inner = new OpenAICompatibleAnalysisProvider({
-        apiKey: this.opts.apiKey,
-        baseUrl: this.opts.endpoint,
-        defaultModel: match,
-        ...(this.opts.llmTimeoutMs !== undefined ? { timeoutMs: this.opts.llmTimeoutMs } : {}),
-      });
-      const provider = new AnalysisProviderAdapter({
-        providerId: this.providerId,
-        model: match,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        inner: inner as any,
-      });
+      const provider = this.opts.makeProvider
+        ? this.opts.makeProvider(match)
+        : this.buildDefaultProvider(match);
       const resolved = { provider, modelId: match };
       this.resolved = resolved;
       return resolved;
