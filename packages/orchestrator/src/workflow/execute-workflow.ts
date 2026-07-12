@@ -211,16 +211,40 @@ export async function executeWorkflow(
   const runs: StageRun[] = [];
   try {
     for (const [index, step] of plan.stages.entries()) {
-      const backend = ctx.resolveStageBackend(step); // Phase 1 stub: identity single backend
-      const run = await runStageSession(
-        ctx,
-        plan.coherenceUnit,
-        index,
-        0,
-        step,
-        backend,
-        priorOutputs(runs)
-      );
+      let run: StageRun;
+      if (ctx.adaptiveRouter) {
+        // Phase 2: route this stage under the shared coherenceUnit. `floor` is
+        // omitted (Phase 3 supplies the bumped required floor on engine retry).
+        const req = buildStageRequest(step, plan.coherenceUnit, runs);
+        const { decision } = await ctx.adaptiveRouter.route(req);
+        // route() returns def:BackendDef (no `name`); the backend name is
+        // decision.backendName. Pass a name-only surface — real def→runner is Phase 4.
+        const backend = { name: decision.backendName } as AgentBackend;
+        run = await runStageSession(
+          ctx,
+          plan.coherenceUnit,
+          index,
+          0,
+          step,
+          backend,
+          priorOutputs(runs)
+        );
+        run.decision = decision;
+        // exactOptionalPropertyTypes: assign `tier` only when tierRequired is defined.
+        if (decision.tierRequired !== undefined) run.tier = decision.tierRequired;
+      } else {
+        // Phase-1 identity fallback (byte-unchanged): no decision/tier, no recordOutcome.
+        const backend = ctx.resolveStageBackend(step);
+        run = await runStageSession(
+          ctx,
+          plan.coherenceUnit,
+          index,
+          0,
+          step,
+          backend,
+          priorOutputs(runs)
+        );
+      }
       runs.push(run);
       // Phase 1 has no gates → runs never fail; Phase 3 adds:
       //   if (run.outcome !== 'pass') return finalizeWorkflowTerminal(...)

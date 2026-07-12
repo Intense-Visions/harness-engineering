@@ -7,7 +7,11 @@ import {
   buildStageRequest,
 } from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
-import type { WorkflowExecutionPlan, RoutingDecision } from '@harness-engineering/types';
+import type {
+  WorkflowExecutionPlan,
+  RoutingDecision,
+  RoutingRequest,
+} from '@harness-engineering/types';
 
 /** A minimal WorkflowStep for tests. */
 function step(produces: string): WorkflowStep {
@@ -32,6 +36,7 @@ function makeFakeCtx(opts: {
   throwAtIndex?: number;
   onSuccess?: (unit: string, runs: StageRun[]) => void;
   onTerminal?: (unit: string, runs: StageRun[], err?: unknown) => void;
+  adaptiveRouter?: WorkflowEngineContext['adaptiveRouter'];
 }): {
   ctx: WorkflowEngineContext;
   runOrder: number[];
@@ -89,6 +94,7 @@ function makeFakeCtx(opts: {
       },
     }),
     resolveStageBackend: () => fakeBackend(),
+    ...(opts.adaptiveRouter ? { adaptiveRouter: opts.adaptiveRouter } : {}),
     emitWorkflowSuccess: async (unit, runs) => {
       successCalls.push(runs);
       opts.onSuccess?.(unit, runs);
@@ -253,6 +259,54 @@ describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
     expect(runs.map((r) => r.tokens?.total)).toEqual([15, 27, 39]);
     // distinct per-stage token totals — cost is attributable per stage
     expect(new Set(runs.map((r) => r.tokens?.total)).size).toBe(3);
+  });
+});
+
+describe('executeWorkflow — per-stage routing vs identity fallback (split-routing P2)', () => {
+  it('routes each stage via adaptiveRouter and writes decision+tier onto the StageRun (SC2 wiring)', async () => {
+    const routeSpy = vi.fn(async (req: RoutingRequest) => {
+      const tier = req.complexity?.level === 'complex' ? 'strong' : 'fast';
+      return {
+        decision: {
+          backendName: `${tier}-backend`,
+          tierRequired: tier,
+        } as unknown as RoutingDecision,
+      };
+    });
+    const { ctx, successCalls } = makeFakeCtx({
+      sessionIds: ['s0', 's1'],
+      adaptiveRouter: { route: routeSpy, recordOutcome: vi.fn() },
+    });
+    const strongStep: WorkflowStep = {
+      skill: 'a',
+      produces: 'a',
+      routingHint: {
+        complexity: { level: 'complex', confidence: 'high', signals: {}, source: 'static' },
+      },
+    };
+    const fastStep: WorkflowStep = {
+      skill: 'b',
+      produces: 'b',
+      routingHint: {
+        complexity: { level: 'trivial', confidence: 'high', signals: {}, source: 'static' },
+      },
+    };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [strongStep, fastStep] });
+
+    expect(routeSpy).toHaveBeenCalledTimes(2);
+    const runs = successCalls[0]!;
+    expect(runs.map((r) => r.tier)).toEqual(['strong', 'fast']);
+    expect(runs.map((r) => r.decision?.backendName)).toEqual(['strong-backend', 'fast-backend']);
+  });
+
+  it('falls back to resolveStageBackend when adaptiveRouter is absent (no decision/tier)', async () => {
+    const { ctx, successCalls } = makeFakeCtx({ sessionIds: ['s0', 's1'] });
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [step('a'), step('b')] });
+    const runs = successCalls[0]!;
+    for (const r of runs) {
+      expect(r.decision).toBeUndefined();
+      expect(r.tier).toBeUndefined();
+    }
   });
 });
 
