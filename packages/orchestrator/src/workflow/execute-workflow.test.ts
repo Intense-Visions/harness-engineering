@@ -872,6 +872,145 @@ describe('split-routing P2 acceptance — real AdaptiveRouter', () => {
   });
 });
 
+describe('per-stage deadline (SC7 / D12)', () => {
+  it('a pass-required stage that never finishes times out → stage failure → retry once → terminal (no hang)', async () => {
+    vi.useFakeTimers();
+    try {
+      let finallyRuns = 0;
+      let runSessions = 0;
+      const terminalCalls: StageRun[][] = [];
+      const successCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        stageDeadlineMs: 100,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            runSessions++;
+            try {
+              for (let i = 0; i < 1000; i++) {
+                yield {
+                  type: 'usage',
+                  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                } as unknown as AgentEvent;
+                await new Promise((r) => setTimeout(r, 20));
+              }
+              return {
+                sessionId: 'never',
+                success: true,
+                usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+              };
+            } finally {
+              finallyRuns++;
+            }
+          },
+        }),
+        adaptiveRouter: {
+          route: async () => ({
+            decision: { backendName: 'b', tierRequired: 'fast' } as unknown as RoutingDecision,
+          }),
+          recordOutcome: vi.fn(),
+        },
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async (_u, runs) => {
+          terminalCalls.push(runs);
+        },
+      };
+      const s: WorkflowStep = { skill: 'slow', produces: 's', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      // advance well past both attempts' deadlines (100ms each + heartbeats)
+      await vi.advanceTimersByTimeAsync(1000);
+      await p;
+
+      // both attempts timed out (retry once), then terminal — never an unbounded hang
+      expect(runSessions).toBe(2);
+      expect(finallyRuns).toBe(2); // gen.return() ran the runner finally each attempt
+      expect(successCalls).toHaveLength(0);
+      expect(terminalCalls).toHaveLength(1);
+      const runs = terminalCalls[0]!;
+      expect(runs[0]!.outcome).toBe('fail'); // timeout → passed:false → pass-required fail
+      expect(runs[0]!.attempt).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a stage that returns before the deadline takes the normal path (no abort)', async () => {
+    vi.useFakeTimers();
+    try {
+      let finallyRuns = 0;
+      const successCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        stageDeadlineMs: 10_000,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            try {
+              yield {
+                type: 'usage',
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              } as unknown as AgentEvent;
+              return {
+                sessionId: 'ok',
+                success: true,
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              };
+            } finally {
+              finallyRuns++;
+            }
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async () => {},
+      };
+      const s: WorkflowStep = { skill: 'quick', produces: 'q', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      await vi.advanceTimersByTimeAsync(1);
+      await p;
+
+      expect(successCalls).toHaveLength(1);
+      expect(successCalls[0]![0]!.outcome).toBe('pass');
+      expect(successCalls[0]![0]!.sessionId).toBe('ok');
+      expect(finallyRuns).toBe(1); // generator completed normally (its own finally)
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('runStageSession — abort cleanup (carry-forward a)', () => {
   it('calls gen.return() on deadline abort so the runner generator finally { stopSession } runs', async () => {
     vi.useFakeTimers();
