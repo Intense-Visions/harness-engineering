@@ -106,10 +106,18 @@ function buildStageUseCase(step: WorkflowExecutionPlan['stages'][number]): Routi
  *  - `resolveStageBackend(step)` → identity fallback: `backendFactory.forUseCase(useCase)`
  *    when the factory exists, else a name-only backend from `routingDefault`.
  *  - `adaptiveRouter` → present iff `deps.adaptiveRouter !== null` (D5).
+ *
+ * The two TERMINAL seams (`emitWorkflowSuccess` / `finalizeWorkflowTerminal`,
+ * SC5) are thin forwarders to the orchestrator's `settleSuccess` / `settleTerminal`
+ * callbacks. They are NOT routed through `emitWorkerExit`/`handleWorkerExit`
+ * (which fire the ISSUE-keyed `finishRecording(attempt)` + `recordAmrOutcome` — a
+ * DOUBLE-fire, since the engine already ran PER-STAGE recorders + per-stage
+ * `recordOutcome`). The reducer-reproduction (running.delete → completed.set →
+ * claimed.delete → cleanWorkspace → persist → emit for success; and the
+ * finalizeRoutingTerminal + needs-human + cleanWorkspace sequence for terminal)
+ * lives in the orchestrator's private methods (Task 7) the callbacks bind to.
  */
-export function buildWorkflowContext(
-  deps: BuildWorkflowContextDeps
-): Omit<WorkflowEngineContext, 'emitWorkflowSuccess' | 'finalizeWorkflowTerminal'> {
+export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEngineContext {
   const {
     recorder,
     logger,
@@ -134,7 +142,7 @@ export function buildWorkflowContext(
     return backendFactory.forUseCase(useCase, { invocationOverride: name });
   };
 
-  const ctx: Omit<WorkflowEngineContext, 'emitWorkflowSuccess' | 'finalizeWorkflowTerminal'> = {
+  const ctx: WorkflowEngineContext = {
     recorder,
     logger,
     issueId: issue.id,
@@ -169,6 +177,25 @@ export function buildWorkflowContext(
       if (backendFactory !== null) return backendFactory.forUseCase(useCase);
       // Legacy fallback (no factory): a name-only backend from routing.default.
       return { name: routingDefault ?? 'unknown' } as AgentBackend;
+    },
+
+    // SC5 terminal seams — thin forwarders to the orchestrator's settle methods
+    // (Task 7). The reducer-reproduction lives THERE (running/completed/claimed
+    // mutation + cleanWorkspace + lane persist + emit); crucially the SUCCESS path
+    // must NOT re-enter emitWorkerExit (that double-fires the issue-keyed recorder
+    // + AMR outcome the engine already owns per-stage). Exactly one settle per
+    // terminal transition (D6/I1) — the engine's total try/catch guarantees the
+    // single call; these forwarders never add a second.
+    emitWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void> {
+      return deps.settleSuccess(unit, runs);
+    },
+    finalizeWorkflowTerminal(
+      unit: string,
+      runs: StageRun[],
+      failingStep?: WorkflowExecutionPlan['stages'][number],
+      err?: unknown
+    ): Promise<void> {
+      return deps.settleTerminal(unit, runs, failingStep, err);
     },
 
     ...(adaptiveRouter !== null

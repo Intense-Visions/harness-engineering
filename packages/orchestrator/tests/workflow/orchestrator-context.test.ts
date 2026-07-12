@@ -9,7 +9,11 @@ import type {
   RoutingDecision,
 } from '@harness-engineering/types';
 import { buildWorkflowContext } from '../../src/workflow/orchestrator-context.js';
-import { runStageSession, stageAttemptKey } from '../../src/workflow/execute-workflow.js';
+import {
+  runStageSession,
+  stageAttemptKey,
+  executeWorkflow,
+} from '../../src/workflow/execute-workflow.js';
 import { MockBackend } from '../../src/agent/backends/mock.js';
 import { StructuredLogger } from '../../src/logging/logger.js';
 
@@ -173,5 +177,184 @@ describe('buildWorkflowContext — real seams (SC1/carry-forward)', () => {
     expect('stageDeadlineMs' in withoutDeadline ? withoutDeadline.stageDeadlineMs : undefined).toBe(
       undefined
     );
+  });
+});
+
+/**
+ * SC5 — the single-exit terminal seams driven through the REAL context. The
+ * context's `emitWorkflowSuccess`/`finalizeWorkflowTerminal` forward to the
+ * orchestrator's settle callbacks; here we supply an in-test FAKE settle that
+ * reproduces exactly the reducer sequence the orchestrator method will (Task 7),
+ * so we can assert "exactly one of each, in order" — the same structural
+ * single-unit invariants the Phase-1 fake context guaranteed.
+ */
+describe('terminal seams — single exit (SC5)', () => {
+  /** An in-test fake orchestrator state + spied settle effects. */
+  function makeFakeSettle() {
+    const state = {
+      running: new Map<string, unknown>(),
+      claimed: new Set<string>(),
+      completed: new Map<string, number>(),
+    };
+    const order: string[] = [];
+    const persistLaneSafe = vi.fn(async (_unit: string, signal: string) => {
+      order.push(`persist:${signal}`);
+    });
+    const cleanWorkspace = vi.fn(async () => {
+      order.push('clean');
+    });
+    const needsHumanPush = vi.fn(() => {
+      order.push('needs-human');
+    });
+    const emitStateChange = vi.fn(() => {
+      order.push('emit');
+    });
+
+    const settleSuccess = vi.fn(async (unit: string, _runs: StageRun[]) => {
+      // Reproduce state-machine.ts:457,467-474 (worker_exit / normal):
+      state.running.delete(unit);
+      state.completed.set(unit, Date.now());
+      state.claimed.delete(unit);
+      await cleanWorkspace();
+      await persistLaneSafe(unit, 'success');
+      emitStateChange();
+    });
+    const settleTerminal = vi.fn(
+      async (unit: string, _runs: StageRun[], _step?: WorkflowStep, _err?: unknown) => {
+        // Reproduce finalizeRoutingTerminal (orchestrator.ts:2388-2394) + needs-human
+        // (:2301-2316) + cleanWorkspace (S5):
+        state.running.delete(unit);
+        state.claimed.delete(unit);
+        await persistLaneSafe(unit, 'abandon');
+        needsHumanPush();
+        await cleanWorkspace();
+        emitStateChange();
+      }
+    );
+
+    return {
+      state,
+      order,
+      persistLaneSafe,
+      cleanWorkspace,
+      needsHumanPush,
+      emitStateChange,
+      settleSuccess,
+      settleTerminal,
+    };
+  }
+
+  const twoSteps: WorkflowStep[] = [
+    { skill: 'a', produces: 'x' },
+    { skill: 'b', produces: 'y' },
+  ];
+
+  it('emitWorkflowSuccess forwards to settleSuccess exactly once, in reducer order', async () => {
+    const fake = makeFakeSettle();
+    fake.state.running.set('issue-1', {});
+    fake.state.claimed.add('issue-1');
+    const ctx = buildWorkflowContext(
+      baseDeps({ settleSuccess: fake.settleSuccess, settleTerminal: fake.settleTerminal })
+    );
+    await ctx.emitWorkflowSuccess('issue-1', []);
+
+    expect(fake.settleSuccess).toHaveBeenCalledTimes(1);
+    expect(fake.settleTerminal).not.toHaveBeenCalled();
+    expect(fake.state.running.has('issue-1')).toBe(false);
+    expect(fake.state.claimed.has('issue-1')).toBe(false);
+    expect(fake.state.completed.has('issue-1')).toBe(true);
+    expect(fake.order).toEqual(['clean', 'persist:success', 'emit']);
+  });
+
+  it('finalizeWorkflowTerminal forwards to settleTerminal once — for fail and I1 err', async () => {
+    const fake = makeFakeSettle();
+    fake.state.running.set('issue-1', {});
+    fake.state.claimed.add('issue-1');
+    const ctx = buildWorkflowContext(
+      baseDeps({ settleSuccess: fake.settleSuccess, settleTerminal: fake.settleTerminal })
+    );
+    // a fail with a failing step
+    await ctx.finalizeWorkflowTerminal('issue-1', [], twoSteps[0]);
+    // an I1 err-carrying call
+    await ctx.finalizeWorkflowTerminal('issue-1', [], undefined, new Error('boom'));
+
+    expect(fake.settleTerminal).toHaveBeenCalledTimes(2);
+    expect(fake.needsHumanPush).toHaveBeenCalledTimes(2);
+    expect(fake.state.running.has('issue-1')).toBe(false);
+    expect(fake.state.claimed.has('issue-1')).toBe(false);
+  });
+
+  it('executeWorkflow all-pass → exactly one success settle, zero terminal (SC5)', async () => {
+    const fake = makeFakeSettle();
+    fake.state.running.set('issue-1', {});
+    fake.state.claimed.add('issue-1');
+    const ctx = buildWorkflowContext(
+      baseDeps({ settleSuccess: fake.settleSuccess, settleTerminal: fake.settleTerminal })
+    );
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: twoSteps });
+
+    expect(fake.settleSuccess).toHaveBeenCalledTimes(1);
+    expect(fake.settleTerminal).toHaveBeenCalledTimes(0);
+    expect(fake.state.running.has('issue-1')).toBe(false);
+    expect(fake.state.claimed.has('issue-1')).toBe(false);
+    expect(fake.state.completed.has('issue-1')).toBe(true);
+  });
+
+  it('executeWorkflow stage-fail (pass-required) → zero success, exactly one terminal (SC5)', async () => {
+    const fake = makeFakeSettle();
+    fake.state.running.set('issue-1', {});
+    fake.state.claimed.add('issue-1');
+    // A backend whose runner reports success:false so a pass-required gate fails.
+    const failingRunner = {
+      // eslint-disable-next-line require-yield
+      async *runSession() {
+        return {
+          sessionId: 's',
+          success: false,
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        };
+      },
+    };
+    const ctx = {
+      ...buildWorkflowContext(
+        baseDeps({ settleSuccess: fake.settleSuccess, settleTerminal: fake.settleTerminal })
+      ),
+      // no adaptiveRouter ⇒ identity fallback single attempt; override makeRunner
+      // to force the pass-required gate failure deterministically.
+      makeRunner: () => failingRunner,
+    };
+    await executeWorkflow(ctx as never, {
+      coherenceUnit: 'issue-1',
+      stages: [{ skill: 'a', produces: 'x', gate: 'pass-required' }],
+    });
+
+    expect(fake.settleSuccess).toHaveBeenCalledTimes(0);
+    expect(fake.settleTerminal).toHaveBeenCalledTimes(1);
+    expect(fake.state.running.has('issue-1')).toBe(false);
+    expect(fake.state.claimed.has('issue-1')).toBe(false);
+  });
+
+  it('executeWorkflow forced throw between stages → exactly one terminal, no orphans (SC5/I1)', async () => {
+    const fake = makeFakeSettle();
+    fake.state.running.set('issue-1', {});
+    fake.state.claimed.add('issue-1');
+    const throwingRunner = {
+      // eslint-disable-next-line require-yield
+      async *runSession() {
+        throw new Error('runner blew up');
+      },
+    };
+    const ctx = {
+      ...buildWorkflowContext(
+        baseDeps({ settleSuccess: fake.settleSuccess, settleTerminal: fake.settleTerminal })
+      ),
+      makeRunner: () => throwingRunner,
+    };
+    await executeWorkflow(ctx as never, { coherenceUnit: 'issue-1', stages: twoSteps });
+
+    expect(fake.settleSuccess).toHaveBeenCalledTimes(0);
+    expect(fake.settleTerminal).toHaveBeenCalledTimes(1);
+    expect(fake.state.running.has('issue-1')).toBe(false);
+    expect(fake.state.claimed.has('issue-1')).toBe(false);
   });
 });
