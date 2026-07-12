@@ -4,6 +4,8 @@ import {
   BackendDefSchema,
   RoutingConfigSchema,
   validateBackendsAndRouting,
+  StagedWorkflowDeclSchema,
+  WorkflowStepSchema,
 } from '../../src/workflow/schema';
 import type { BackendDef } from '@harness-engineering/types';
 
@@ -190,5 +192,81 @@ describe('validateBackendsAndRouting (cross-field superRefine helper)', () => {
       backends: { cloud: { type: 'claude' } },
     });
     expect(b.success).toBe(true);
+  });
+});
+
+describe('StagedWorkflowDecl schema (D7/D13)', () => {
+  const oneStep = { skill: 'review', produces: 'review-notes' };
+  const twoSteps = [
+    { skill: 'review', produces: 'review-notes' },
+    { skill: 'implement', produces: 'patch', expects: 'review-notes', gate: 'pass-required' },
+  ];
+
+  it('D13: rejects a 0-stage decl with a message naming "at least 1 stage"', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'empty',
+      match: { identifierPrefix: 'REV-' },
+      stages: [],
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const messages = result.error.issues.map((i) => i.message).join('\n');
+    expect(messages).toContain('at least 1 stage');
+  });
+
+  it('D13: accepts a 1-stage decl (schema-valid; single-dispatch fallback is workflowFor)', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'single',
+      match: { identifierPrefix: 'REV-' },
+      stages: [oneStep],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid 2-stage decl matched by identifierPrefix', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'review-then-implement',
+      match: { identifierPrefix: 'REV-' },
+      stages: twoSteps,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid decl matched by labels + a stageDeadlineMs override', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'labelled',
+      match: { labels: ['staged'] },
+      stages: twoSteps,
+      stageDeadlineMs: 90_000,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a step missing `skill`', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'bad-step',
+      match: { identifierPrefix: 'REV-' },
+      stages: [{ produces: 'x' }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an unknown top-level decl key (strict)', () => {
+    const result = StagedWorkflowDeclSchema.safeParse({
+      name: 'typo',
+      match: { identifierPrefix: 'REV-' },
+      stages: twoSteps,
+      bogus: true,
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const codes = result.error.issues.map((i) => i.code);
+    expect(codes).toContain('unrecognized_keys');
+  });
+
+  it('WorkflowStepSchema requires a non-empty skill + produces', () => {
+    expect(WorkflowStepSchema.safeParse({ skill: 's', produces: 'p' }).success).toBe(true);
+    expect(WorkflowStepSchema.safeParse({ skill: '', produces: 'p' }).success).toBe(false);
+    expect(WorkflowStepSchema.safeParse({ skill: 's' }).success).toBe(false);
   });
 });

@@ -137,6 +137,50 @@ export const RoutingConfigSchema = z
   .strict();
 
 /**
+ * split-routing D7: Zod schema for a workflow STEP (a stage in a declared
+ * staged workflow). Mirrors the `WorkflowStep` interface (types/workflow.ts:11)
+ * — `skill`/`produces` are required and non-empty; the rest are optional. The
+ * `routingHint` complexity/risk are typed loosely (`z.any()`) here because the
+ * deterministic-hint enums live in intelligence/types and the engine only reads
+ * them structurally (execute-workflow.ts:143-146); tightening them is a future
+ * follow-up, not a validation contract Phase 4 needs.
+ */
+export const WorkflowStepSchema = z
+  .object({
+    skill: z.string().min(1),
+    produces: z.string().min(1),
+    expects: z.string().min(1).optional(),
+    gate: z.enum(['pass-required', 'advisory']).optional(),
+    cognitiveMode: z.string().min(1).optional(),
+    routingHint: z.object({ complexity: z.any().optional(), risk: z.any().optional() }).optional(),
+  })
+  .strict();
+
+/**
+ * split-routing D7/D13: Zod schema for a `StagedWorkflowDecl` (the operator's
+ * declarative producer surface on `WorkflowConfig.workflows`).
+ *
+ * D13 nuance: `.min(1)` rejects a 0-stage decl AT THE SCHEMA (an empty workflow
+ * is a config error). A 1-stage decl is schema-VALID — the `>= 2`-stage opt-in
+ * gate lives in `workflowFor` (a 1-stage decl simply falls back to single
+ * dispatch), NOT in the schema.
+ */
+export const StagedWorkflowDeclSchema = z
+  .object({
+    name: z.string().min(1),
+    match: z
+      .object({
+        identifierPrefix: z.string().min(1).optional(),
+        labels: z.array(z.string().min(1)).optional(),
+      })
+      .strict(),
+    // D13: 0-stage is a validation error; 1-stage is valid (single-dispatch fallback).
+    stages: z.array(WorkflowStepSchema).min(1, 'a workflow must declare at least 1 stage (D13)'),
+    stageDeadlineMs: z.number().int().positive().optional(),
+  })
+  .strict();
+
+/**
  * Cross-field validator: every value in `routing` must reference a key
  * that exists in `backends`. Run as a `superRefine` so the issue paths
  * land at the offending routing entry, not at the parent object.
