@@ -12,6 +12,16 @@ import type {
   RoutingDecision,
   RoutingRequest,
 } from '@harness-engineering/types';
+import { BackendRouter } from '../agent/backend-router.js';
+import { buildCapabilityRegistry } from '../agent/capability-registry.js';
+import { AdaptiveRouter } from '../agent/adaptive-router.js';
+import { EscalationState } from '../agent/escalation-state.js';
+import type {
+  BackendCapabilities,
+  BackendDef,
+  ComplexityVerdict,
+  RoutingPolicy,
+} from '@harness-engineering/types';
 
 /** A minimal WorkflowStep for tests. */
 function step(produces: string): WorkflowStep {
@@ -408,6 +418,129 @@ describe('executeWorkflow — single terminal exit + no orphan (SC5/split-routin
     expect(terminalCalls).toHaveLength(1); // the catch drove exactly one terminal
     expect(running.has('issue-1')).toBe(false);
     expect(claimed.has('issue-1')).toBe(false);
+  });
+});
+
+describe('split-routing P2 acceptance — real AdaptiveRouter', () => {
+  const cap = (over: Partial<BackendCapabilities> = {}): BackendCapabilities => ({
+    tier: 'fast',
+    costPer1kTokens: 0,
+    privacyClass: 'on-device',
+    contextWindow: 8192,
+    ...over,
+  });
+  const localDef = (capabilities: BackendCapabilities): BackendDef => ({
+    type: 'local',
+    endpoint: 'http://localhost:1234',
+    model: 'm',
+    capabilities,
+  });
+  const verdict = (level: ComplexityVerdict['level']): ComplexityVerdict => ({
+    level,
+    confidence: 'high',
+    signals: {},
+    source: 'static',
+  });
+  // distinct backend per tier so SC2-b resolves to DIFFERENT backends
+  const backends = {
+    'fast-b': localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    'std-b': localDef(cap({ tier: 'standard', costPer1kTokens: 3 })),
+    'strong-b': localDef(cap({ tier: 'strong', costPer1kTokens: 10 })),
+  };
+  const policy: RoutingPolicy = {}; // default matrix; no budget clamp, no skill override
+  function makeAdaptive(escalation?: EscalationState) {
+    const router = new BackendRouter({ backends, routing: { default: 'fast-b' } });
+    const registry = buildCapabilityRegistry(backends);
+    const classify = vi.fn(() => verdict('moderate')); // must NOT be called when hint seeds complexity
+    return {
+      classify,
+      adaptive: new AdaptiveRouter({
+        router,
+        registry,
+        policy,
+        classify,
+        ...(escalation ? { escalation } : {}),
+      }),
+    };
+  }
+
+  it('SC2: a strong-hinted and a fast-hinted stage in one unit resolve to different tiers/backends, deterministically', async () => {
+    const { adaptive, classify } = makeAdaptive();
+    const { ctx, successCalls } = makeFakeCtx({
+      sessionIds: ['s0', 's1'],
+      adaptiveRouter: {
+        route: (req) => adaptive.route(req),
+        recordOutcome: (u, t, ok) => adaptive.recordOutcome(u, t, ok),
+      },
+    });
+    const strong: WorkflowStep = {
+      skill: 'a',
+      produces: 'a',
+      routingHint: { complexity: verdict('complex') },
+    };
+    const fast: WorkflowStep = {
+      skill: 'b',
+      produces: 'b',
+      routingHint: { complexity: verdict('trivial') },
+    };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [strong, fast] });
+
+    const runs = successCalls[0]!;
+    expect(runs[0]!.tier).toBe('strong');
+    expect(runs[1]!.tier).toBe('fast');
+    expect(runs[0]!.decision!.backendName).toBe('strong-b');
+    expect(runs[1]!.decision!.backendName).toBe('fast-b');
+    expect(runs[0]!.decision!.backendName).not.toBe(runs[1]!.decision!.backendName);
+    // deterministic: live classification never ran (hint seeded req.complexity)
+    expect(classify).not.toHaveBeenCalled();
+  });
+
+  it('SC3: after threshold (2) quality failures across stages, a later stage resolves at >= the raised tier (cumulative)', async () => {
+    const escalation = new EscalationState(2); // real threshold semantics
+    const { adaptive } = makeAdaptive(escalation);
+
+    // Pre-climb: a fast-hinted route BEFORE any failure resolves 'fast'.
+    const before = await adaptive.route(
+      buildStageRequest(
+        { skill: 'x', produces: 'x', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        []
+      )
+    );
+    expect(before.decision.tierRequired).toBe('fast');
+
+    // Drive exactly threshold (2) quality failures for the unit. The climb
+    // (fast->standard) happens on the 2ND failure, not the 1st (escalation-state.ts:73).
+    adaptive.recordOutcome('issue-1', 'fast', false); // failures=1, no climb yet
+    const mid = await adaptive.route(
+      buildStageRequest(
+        { skill: 'y', produces: 'y', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        []
+      )
+    );
+    expect(mid.decision.tierRequired).toBe('fast'); // 1 failure < threshold ⇒ NOT climbed
+    adaptive.recordOutcome('issue-1', 'fast', false); // failures=2 == threshold ⇒ floor climbs to 'standard'
+
+    // A SUBSEQUENT fast-hinted stage now inherits the raised floor.
+    const after = await adaptive.route(
+      buildStageRequest(
+        { skill: 'z', produces: 'z', routingHint: { complexity: verdict('trivial') } },
+        'issue-1',
+        []
+      )
+    );
+    expect(after.decision.tierRequired).toBe('standard'); // >= raised tier, despite a 'trivial' hint
+
+    // The floor is unit-scoped: a DIFFERENT unit is unaffected (still 'fast').
+    const otherUnit = await adaptive.route(
+      buildStageRequest(
+        { skill: 'z', produces: 'z', routingHint: { complexity: verdict('trivial') } },
+        'issue-2',
+        []
+      )
+    );
+    expect(otherUnit.decision.tierRequired).toBe('fast');
   });
 });
 
