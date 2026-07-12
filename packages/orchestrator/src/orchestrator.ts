@@ -2484,6 +2484,10 @@ export class Orchestrator extends EventEmitter {
     await this.cleanWorkspaceWithGuard(entry?.identifier ?? unit, unit);
     // success → done (terminal). Best-effort; never blocks or throws.
     await this.persistLaneSafe(unit, 'success');
+    // S1 drain (ADR 0060) — emitWorkerExit parity (orchestrator.ts drain on normal
+    // exit). A model pinned by the final stage's backendFactory.forUseCase may now be
+    // free; drain it here rather than waiting for the next refresh-tick. Fire-and-forget.
+    void this.drainDeferredEvictions();
     this.emit('state_change', this.getSnapshot());
   }
 
@@ -2545,6 +2549,9 @@ export class Orchestrator extends EventEmitter {
           });
         });
       await this.cleanWorkspaceWithGuard(identifier, unit);
+      // S1 drain (ADR 0060) — emitWorkerExit parity (drain on error exit). Free any
+      // model pinned by the failing stage's backendFactory.forUseCase. Fire-and-forget.
+      void this.drainDeferredEvictions();
       this.logger.warn(`Workflow unit ${unit} terminated (${runs.length} stage run(s))`, {
         issueId: unit,
         failingSkill: failingStep?.skill,

@@ -142,6 +142,26 @@ describe('Orchestrator settleWorkflowSuccess / settleWorkflowTerminal (Task 7)',
     expect(state.completed.has(issue.id)).toBe(true);
   });
 
+  it('settleWorkflowSuccess drains deferred evictions (emitWorkerExit parity)', async () => {
+    const issue = makeIssue();
+    seedRunning(orch, issue);
+    const drainSpy = vi.spyOn(
+      orch as unknown as { drainDeferredEvictions: () => Promise<void> },
+      'drainDeferredEvictions'
+    );
+    const runs: StageRun[] = [
+      { index: 0, step: { skill: 'a', produces: 'x' }, outcome: 'pass', attempt: 0 },
+    ];
+    await (
+      orch as unknown as { settleWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> }
+    ).settleWorkflowSuccess(issue.id, runs);
+
+    // A local model pinned by the final stage's backendFactory.forUseCase must not
+    // stay pending until the next refresh-tick drain — the settle drains it, matching
+    // emitWorkerExit (orchestrator.ts drainDeferredEvictions on the normal-exit path).
+    expect(drainSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('settleWorkflowTerminal removes running+claimed, persists abandon, queues exactly one interaction', async () => {
     const issue = makeIssue();
     seedRunning(orch, issue);
@@ -170,6 +190,32 @@ describe('Orchestrator settleWorkflowSuccess / settleWorkflowTerminal (Task 7)',
     expect(state.running.has(issue.id)).toBe(false);
     expect(state.claimed.has(issue.id)).toBe(false);
     expect(pushSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('settleWorkflowTerminal drains deferred evictions (emitWorkerExit parity)', async () => {
+    const issue = makeIssue();
+    seedRunning(orch, issue);
+    const drainSpy = vi.spyOn(
+      orch as unknown as { drainDeferredEvictions: () => Promise<void> },
+      'drainDeferredEvictions'
+    );
+    const runs: StageRun[] = [
+      { index: 0, step: { skill: 'a', produces: 'x' }, outcome: 'fail', attempt: 1 },
+    ];
+    await (
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: StageRun[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      }
+    ).settleWorkflowTerminal(issue.id, runs, runs[0]!.step);
+
+    // The terminal settle must also free a model pinned by the failing stage — parity
+    // with emitWorkerExit's drain on the error-exit path.
+    expect(drainSpy).toHaveBeenCalledTimes(1);
   });
 });
 
