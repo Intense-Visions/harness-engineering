@@ -183,11 +183,18 @@ export async function runStageSession(
     turnCount: 0,
   });
 
+  // Phase 3 gate eval (SC6-c): `passed` is the runner's own TurnResult.success
+  // (v1). An aborted/deadlined stage leaves `ret` unset → `passed=false` (the
+  // deadline path, Task 11). Only a `pass-required` gate can FAIL the unit;
+  // `advisory` (or an absent gate) always passes regardless of `passed`.
+  const passed = ret?.success ?? false;
+  const outcome: StageRun['outcome'] = step.gate === 'pass-required' && !passed ? 'fail' : 'pass';
+
   const run: StageRun = {
     index,
     step,
     tokens: { input, output, total },
-    outcome: 'pass', // Phase 1: no gates/routing — every stage passes (Phase 3 adds gate eval)
+    outcome,
     attempt,
     durationMs: Date.now() - startedAt,
   };

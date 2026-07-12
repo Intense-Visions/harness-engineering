@@ -244,6 +244,36 @@ describe('runStageSession — engine-owned per-stage state (C1/split-routing P1)
   });
 });
 
+describe('runStageSession — gate eval (SC6-c / P3)', () => {
+  it('pass-required + runner success:false → outcome fail', async () => {
+    const { ctx } = makeFakeCtx({ sessionIds: ['s0'], successPerStage: [false] });
+    const s: WorkflowStep = { skill: 'a', produces: 'a', gate: 'pass-required' };
+    const run = await runStageSession(ctx, 'issue-1', 0, 0, s, fakeBackend(), {});
+    expect(run.outcome).toBe('fail');
+  });
+
+  it('pass-required + runner success:true → outcome pass', async () => {
+    const { ctx } = makeFakeCtx({ sessionIds: ['s0'], successPerStage: [true] });
+    const s: WorkflowStep = { skill: 'a', produces: 'a', gate: 'pass-required' };
+    const run = await runStageSession(ctx, 'issue-1', 0, 0, s, fakeBackend(), {});
+    expect(run.outcome).toBe('pass');
+  });
+
+  it('advisory + runner success:false → outcome pass (advisory never fails the unit)', async () => {
+    const { ctx } = makeFakeCtx({ sessionIds: ['s0'], successPerStage: [false] });
+    const s: WorkflowStep = { skill: 'a', produces: 'a', gate: 'advisory' };
+    const run = await runStageSession(ctx, 'issue-1', 0, 0, s, fakeBackend(), {});
+    expect(run.outcome).toBe('pass');
+  });
+
+  it('no gate + runner success:false → outcome pass (default is advisory-like)', async () => {
+    const { ctx } = makeFakeCtx({ sessionIds: ['s0'], successPerStage: [false] });
+    const s: WorkflowStep = { skill: 'a', produces: 'a' };
+    const run = await runStageSession(ctx, 'issue-1', 0, 0, s, fakeBackend(), {});
+    expect(run.outcome).toBe('pass');
+  });
+});
+
 describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
   it('runs 3 stages in order on one worktree, each with its own sessionId+tokens, one success exit (SC1)', async () => {
     const { ctx, runOrder, runWorkspaces, successCalls, terminalCalls } = makeFakeCtx({
