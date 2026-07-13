@@ -16,8 +16,14 @@ hooks:
   timeoutMs: 60000
 agent:
   # Named backend definitions (Spec 2). See docs/guides/multi-backend-routing.md.
+  # `capabilities` (tier/cost/privacy/context) let AMR compare backends and select a
+  # capability tier per dispatch — a backend without one is invisible to tier selection.
   backends:
-    primary: { type: claude, command: claude }
+    primary:
+      type: claude
+      command: claude
+      capabilities:
+        { tier: strong, costPer1kTokens: 15, privacyClass: shared-cloud, contextWindow: 200000 }
     # Local backend for autonomous execution of simple tasks.
     # `model` accepts a string OR a prefer-and-fallback array — first
     # match wins after a `/v1/models` probe.
@@ -30,6 +36,8 @@ agent:
       # first (local routes are quick-fix/diagnostic), general model as fallback.
       # Quote the names — the ':tag' colon otherwise breaks YAML flow parsing.
       model: ['qwen2.5-coder:7b', 'gemma3n:e4b']
+      capabilities:
+        { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
   # Routing — controls WHICH backend handles each use case.
   routing:
     default: primary
@@ -39,6 +47,17 @@ agent:
     intelligence:
       sel: local
       pesl: local
+    # AMR (Adaptive Model Routing) — opt-in; its PRESENCE flips dispatch from the
+    # identity/default chain to complexity-aware tier selection. trivial/simple →
+    # local (fast, free); moderate/complex → claude (no `standard` backend, so a
+    # `standard` requirement resolves to the cheapest backend at-or-above it =
+    # primary). The always-on baseline-relative security-defect feeder climbs a
+    # unit's tier after `escalationThreshold` consecutive quality failures
+    # (strong-capped, then hard-fails to a human). Budget cap + LLM acceptance-eval
+    # are available opt-ins (docs/guides/adaptive-model-routing.md) — left off here.
+    policy:
+      complexityTierMatrix: { trivial: fast, simple: fast, moderate: standard, complex: strong }
+      escalationThreshold: 2
   # Escalation — controls WHETHER a tier dispatches at all (orthogonal to routing).
   escalation:
     alwaysHuman: [full-exploration]

@@ -162,12 +162,24 @@
     "backends": {
       "primary": {
         "type": "claude",
-        "command": "claude"
+        "command": "claude",
+        "capabilities": {
+          "tier": "strong",
+          "costPer1kTokens": 15,
+          "privacyClass": "shared-cloud",
+          "contextWindow": 200000
+        }
       },
       "local": {
         "type": "pi",
         "endpoint": "http://localhost:1234/v1",
-        "model": ["google/gemma-4-e4b"]
+        "model": ["google/gemma-4-e4b"],
+        "capabilities": {
+          "tier": "fast",
+          "costPer1kTokens": 0,
+          "privacyClass": "on-device",
+          "contextWindow": 32768
+        }
       }
     },
     "routing": {
@@ -177,6 +189,15 @@
       "intelligence": {
         "sel": "local",
         "pesl": "local"
+      },
+      "policy": {
+        "complexityTierMatrix": {
+          "trivial": "fast",
+          "simple": "fast",
+          "moderate": "standard",
+          "complex": "strong"
+        },
+        "escalationThreshold": 2
       }
     }
   },
