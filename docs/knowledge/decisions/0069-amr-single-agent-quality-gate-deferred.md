@@ -28,7 +28,7 @@ source: docs/changes/adaptive-model-routing/proposal.md
 > provider the live classifier already builds — the "orchestrator does not run a
 > model inline" constraint no longer holds) over the introduced diff vs the spec's
 > success-criteria section, and feeds `quality-fail` only on a **high-confidence
-> `NOT_SATISFIED`** (`authority === 'blocking'`, TS-derived). It is gated separately
+> NOT_SATISFIED** (`authority === 'blocking'`, TS-derived). It is gated separately
 > from the cheap security scan because a model call is heavy; it is conservative
 > (never a premature `quality-pass`) and fully guarded (no spec / no provider /
 > empty diff / any error → neutral). See `Orchestrator.deriveAcceptanceEvalVerdict`,
