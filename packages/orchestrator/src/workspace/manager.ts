@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { WorkspaceConfig, Result, Ok, Err } from '@harness-engineering/types';
+import { parseIntroducedHunks, type IntroducedHunk } from '../agent/quality-verdict.js';
 
 /**
  * Structured event emitted when {@link WorkspaceManager.resolveBaseRef}
@@ -64,6 +65,26 @@ export class WorkspaceManager {
   public resolvePath(identifier: string): string {
     const sanitized = this.sanitizeIdentifier(identifier);
     return path.join(this.config.root, sanitized);
+  }
+
+  /**
+   * AMR 4c: the lines the dispatched agent INTRODUCED in its worktree, as
+   * per-hunk added-line blocks — the sound input for a baseline-relative quality
+   * scan (pre-existing content is excluded by construction). Diffs the working
+   * tree (so both committed AND uncommitted agent work is captured) against the
+   * MERGE-BASE of the worktree HEAD and the base ref — merge-base, not the base
+   * ref itself, so a base branch that advanced mid-dispatch never attributes
+   * other merges to this agent. The seeded handoff overlay (`seedPaths`) is
+   * excluded — those files are not the agent's work.
+   */
+  public async getIntroducedDiff(identifier: string): Promise<IntroducedHunk[]> {
+    const workspacePath = path.resolve(this.resolvePath(identifier));
+    const repoRoot = await this.getRepoRoot();
+    const baseRef = await this.resolveBaseRef(repoRoot);
+    const mergeBase = (await this.git(['merge-base', 'HEAD', baseRef], workspacePath)).trim();
+    const raw = await this.git(['diff', '--unified=0', mergeBase, '--', '.'], workspacePath);
+    const seedPaths = this.config.seedPaths ?? WorkspaceManager.DEFAULT_SEED_PATHS;
+    return parseIntroducedHunks(raw, seedPaths);
   }
 
   /**
