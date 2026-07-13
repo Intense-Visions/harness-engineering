@@ -26,7 +26,12 @@ function renderHuman(s: RoutingStatus): void {
 
   if (s.budget) {
     const b = s.budget;
-    const state = b.degrading ? 'DEGRADING (clamping tiers down)' : 'ok';
+    // Hard cap (>=100%) supersedes the soft degrade state in the display.
+    const state = b.exhausted
+      ? 'EXHAUSTED (hard cap — forcing fast / surfacing to steward)'
+      : b.degrading
+        ? 'DEGRADING (clamping tiers down)'
+        : 'ok';
     console.log('');
     console.log('Budget:');
     console.log(

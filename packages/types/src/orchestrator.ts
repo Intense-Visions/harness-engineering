@@ -428,7 +428,7 @@ export interface RoutingRequest {
  */
 export class RoutingError extends Error {
   constructor(
-    readonly code: 'privacy-no-match' | 'escalation-exhausted',
+    readonly code: 'privacy-no-match' | 'escalation-exhausted' | 'budget-exhausted',
     message: string
   ) {
     super(message);
@@ -814,6 +814,12 @@ export interface RoutingBudgetStatus {
   spentPct: number;
   /** True once `spentPct >= degradeAtPct` — the clamp is now stepping tiers down. */
   degrading: boolean;
+  /**
+   * True once `spentUsd >= capUsd` — the D8 HARD cap. At/above it, `degrade`/`pause`
+   * routing is forced all the way to `fast` and `human` mode surfaces the unit to a
+   * steward (`routing:budget-exhausted`) instead of routing.
+   */
+  exhausted: boolean;
 }
 
 /** AMR observability: one coherence unit that has climbed its escalation floor. */

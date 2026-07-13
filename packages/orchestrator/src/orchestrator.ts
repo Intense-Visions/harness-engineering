@@ -2406,17 +2406,33 @@ export class Orchestrator extends EventEmitter {
    * refused to pick a non-compliant backend, and returning `true` here stops the
    * caller from falling through to any further routing.
    *
-   * Returns `true` when the boundary CLAIMED the error (privacy-no-match), so the
-   * caller returns without ANY `emitWorkerExit`. Returns `false` for any other
-   * error (including `escalation-exhausted`, which the `onExhausted` seam owns) so
-   * the generic dispatch-error path runs unchanged.
+   * Returns `true` when the boundary CLAIMED the error (`privacy-no-match` or the
+   * hard-cap `budget-exhausted`), so the caller returns without ANY
+   * `emitWorkerExit`. Returns `false` for any other error (including
+   * `escalation-exhausted`, which the `onExhausted` seam owns) so the generic
+   * dispatch-error path runs unchanged.
    */
   private async handleRoutingFailure(
     issue: { id: string; identifier?: string },
     error: unknown
   ): Promise<boolean> {
-    if (!(error instanceof RoutingError) || error.code !== 'privacy-no-match') return false;
-    this.logger.warn('routing:no-tier-match', {
+    // Two fail-closed route() codes ride this terminal steward-escalation path:
+    //  - `privacy-no-match`: deterministic (config-driven empty candidate set).
+    //  - `budget-exhausted`: `onBudgetExhausted:'human'` at/above the hard cap. NOT
+    //    deterministic (a cap raise / accumulator reset could let it proceed), but an
+    //    auto-retry would just re-hit the same cap up to `maxRetries` times, so it is
+    //    ALSO terminal: surface once to a steward, who raises the cap and re-queues.
+    if (
+      !(error instanceof RoutingError) ||
+      (error.code !== 'privacy-no-match' && error.code !== 'budget-exhausted')
+    ) {
+      return false;
+    }
+    // `escalateRoutingToHuman` tags the escalation `routing:${error.code}`; mirror
+    // that in the operator log so the two failure modes read distinctly.
+    const logTag =
+      error.code === 'budget-exhausted' ? 'routing:budget-exhausted' : 'routing:no-tier-match';
+    this.logger.warn(logTag, {
       coherenceUnit: issue.id,
       identifier: issue.identifier,
       reason: error.message,

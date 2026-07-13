@@ -100,11 +100,22 @@ export function baseTier(
 const DEFAULT_DEGRADE_AT_PCT = 90;
 
 /**
- * D8: while spend is at/above `degradeAtPct` of `capUsd`, clamp the tier DOWN
- * one step (`strong→standard→fast`, `fast→fast`). The D5 blast-radius veto is a
- * HARD `strong` floor the clamp must NOT undercut (SC5 says sensitive-path /
- * core|types / publicApi force `strong` "regardless"), so a vetoed request stays
- * `strong` even under budget pressure. No budget block ⇒ no clamp.
+ * D8: budget-pressure tier clamp. Two thresholds:
+ *
+ * - **Soft (`degradeAtPct`, default 90%):** clamp the tier DOWN one step
+ *   (`strong→standard→fast`, `fast→fast`) — a lagging degrade signal.
+ * - **Hard (100% of `capUsd`):** for `degrade`/`pause` policies, force the tier
+ *   all the way to `fast` — the strongest sound floor on the routing DECISION
+ *   (it is not an admission gate; the monotonic accumulator lags under
+ *   concurrency, so it cannot prevent overshoot, only route the cheapest tier
+ *   once the read crosses the cap). `human` mode is handled one layer up in
+ *   `AdaptiveRouter.route()`, which surfaces the unit to a steward instead of
+ *   routing; here it falls through to the soft one-step degrade.
+ *
+ * The D5 blast-radius veto is a HARD `strong` floor the clamp must NOT undercut
+ * (SC5 says sensitive-path / core|types / publicApi force `strong` "regardless"),
+ * so a vetoed request stays `strong` even at the hard cap — the veto guard sits
+ * ABOVE both the hard-floor and the soft-step branches. No budget block ⇒ no clamp.
  */
 export function applyBudgetClamp(
   tier: CapabilityTier,
@@ -119,8 +130,15 @@ export function applyBudgetClamp(
   const spentFraction = spend.spentUsd / budget.capUsd;
   if (spentFraction < degradeAt) return tier;
 
-  // Under budget pressure — but the D5 veto floor is inviolable.
+  // Under budget pressure — but the D5 veto floor is inviolable, so it wins over
+  // BOTH the hard floor and the soft step below.
   if (blastRadiusVeto(risk)) return tier; // stays strong
+
+  // Hard cap: at/above 100%, `degrade`/`pause` drop straight to `fast` (never
+  // more expensive than the soft one-step degrade). `human` is intercepted in
+  // route() before it reaches here; if it ever does, it takes the soft step.
+  const mode = budget.onBudgetExhausted ?? 'degrade';
+  if (spentFraction >= 1 && mode !== 'human') return 'fast';
 
   return tierAtRank(TIER_RANK[tier] - 1);
 }
