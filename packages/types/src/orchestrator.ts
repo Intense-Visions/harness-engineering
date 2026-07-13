@@ -463,6 +463,21 @@ export interface RoutingPolicy {
   /** consecutive quality failures before tier bump; default 2 (D10, consumed Phase 4). */
   escalationThreshold?: number;
   /**
+   * AMR 4c (v2): opt-in LLM spec-satisfaction verdict fed into single-agent
+   * escalation on a NORMAL exit, ALONGSIDE the always-on baseline-relative
+   * security-defect feeder. Off unless `enabled: true` — it is heavy (one model
+   * call + latency per exit), so it is gated separately from the cheap security
+   * scan. Conservative by construction: only a high-confidence `NOT_SATISFIED`
+   * outcome-eval verdict escalates (`quality-fail`); `SATISFIED` / `INCONCLUSIVE`
+   * / any lower-confidence verdict, a missing spec, or an unavailable model
+   * provider is neutral (never a premature `quality-pass`).
+   */
+  acceptanceEval?: {
+    enabled: boolean;
+    /** Override model for the eval call; defaults to the SEL intelligence layer. */
+    model?: string;
+  };
+  /**
    * AMR Phase 5 (D3): provider-type allowlist. When present and non-empty, tier
    * selection considers only backends whose `type` is in this set (fail-closed
    * if it empties the qualifying set). Absent/empty → all backends eligible.

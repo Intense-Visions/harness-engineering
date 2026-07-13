@@ -50,14 +50,15 @@ tier selection and only reachable via the identity/default chain.
 
 ## `agent.routing.policy`
 
-| field                  | type                                           | effect                                                                                              |
-| ---------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `complexityTierMatrix` | `{ trivial\|simple\|moderate\|complex: tier }` | Maps the classified complexity level to a required tier. Defaults are provided; override per level. |
-| `skillTierOverrides`   | `{ [skillName]: tier }`                        | Pin a specific skill/phase to a tier, evaluated before the matrix.                                  |
-| `privacyFloor`         | `on-device \| byo-endpoint \| shared-cloud`    | Excludes backends whose `privacyClass` is weaker than the floor. Fail-closed (see below).           |
-| `budget`               | `{ capUsd, degradeAtPct?, onBudgetExhausted }` | Soft spend cap that degrades the tier under pressure. See **Budget**.                               |
-| `allowedProviders`     | `BackendType[]`                                | Provider-type allowlist; only these backend `type`s are eligible. Fail-closed if it empties.        |
-| `escalationThreshold`  | `number` (default 2)                           | Consecutive quality failures before a unit's tier floor climbs. See **Escalation**.                 |
+| field                  | type                                           | effect                                                                                                                                                  |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `complexityTierMatrix` | `{ trivial\|simple\|moderate\|complex: tier }` | Maps the classified complexity level to a required tier. Defaults are provided; override per level.                                                     |
+| `skillTierOverrides`   | `{ [skillName]: tier }`                        | Pin a specific skill/phase to a tier, evaluated before the matrix.                                                                                      |
+| `privacyFloor`         | `on-device \| byo-endpoint \| shared-cloud`    | Excludes backends whose `privacyClass` is weaker than the floor. Fail-closed (see below).                                                               |
+| `budget`               | `{ capUsd, degradeAtPct?, onBudgetExhausted }` | Soft spend cap that degrades the tier under pressure. See **Budget**.                                                                                   |
+| `allowedProviders`     | `BackendType[]`                                | Provider-type allowlist; only these backend `type`s are eligible. Fail-closed if it empties.                                                            |
+| `escalationThreshold`  | `number` (default 2)                           | Consecutive quality failures before a unit's tier floor climbs. See **Escalation**.                                                                     |
+| `acceptanceEval`       | `{ enabled, model? }`                          | Opt-in LLM spec-satisfaction check on single-agent exit; escalates only on high-confidence `NOT_SATISFIED`. Off by default (heavy). See **Escalation**. |
 
 ### How a tier is chosen
 
@@ -120,6 +121,15 @@ This is **live for both dispatch paths**:
   count) feeds `quality-fail` on a new error-severity finding. It is a no-op when
   AMR is off and never breaks completion. Design rationale + why it was deferred
   until a sound source existed: [ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md).
+  - **Optional LLM spec-satisfaction check** — set `acceptanceEval.enabled` to
+    `true` on the policy to _also_ run an outcome-eval (LLM) judgment on each
+    single-agent exit: it judges the introduced diff against the spec's
+    success-criteria section and
+    feeds `quality-fail` only on a **high-confidence `NOT_SATISFIED`** verdict
+    (`SATISFIED` / `INCONCLUSIVE` / lower-confidence / no-spec / no-provider are all
+    neutral — never a premature pass). It is **off by default** because it is heavy
+    (one model call + latency per exit) and runs only after the cheap security scan
+    comes back clean, so a security defect never wastes a model call.
 
 ## Split-routing workflows
 
@@ -200,10 +210,13 @@ orchestrator exposes:
 - **`pause` mode is not true blocking** — it behaves as `degrade` at the hard cap.
   Real pause/admission-blocking is deferred (it needs blocking-admission machinery
   the lagging accumulator can't provide).
-- **Single-agent escalation is scoped to security defects (v1)** — it escalates on a
-  new error-severity _security_ finding in the diff, not on spec-satisfaction or
-  logic quality (that needs an LLM acceptance-eval, still deferred —
-  [ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md)).
+- **Single-agent security escalation is always-on; spec-satisfaction is opt-in.**
+  The baseline-relative _security_ scan runs whenever AMR is on. The LLM
+  spec-satisfaction (outcome-eval) check escalates only when
+  `policy.acceptanceEval.enabled` is set, and only on a high-confidence
+  `NOT_SATISFIED` (see **Escalation**). Neither escalates on general logic quality
+  beyond what the security scan / spec judgment covers —
+  [ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md).
 - **Two `spentUsd` numbers exist:** `routing telemetry`/`GET /telemetry` report the
   bounded ring sum (last N decisions, telemetry-grade); `routing status` reports the
   monotonic accumulator that actually drives the budget clamp. Use `status` for

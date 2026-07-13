@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { SecurityScanner } from '@harness-engineering/core';
-import { parseIntroducedHunks, hasIntroducedSecurityDefect } from './quality-verdict';
+import type { OutcomeVerdict } from '@harness-engineering/intelligence';
+import {
+  parseIntroducedHunks,
+  hasIntroducedSecurityDefect,
+  outcomeVerdictToQualityFail,
+} from './quality-verdict';
 
 /** AMR 4c — baseline-relative diff parsing + introduced-security-defect verdict. */
 
@@ -108,5 +113,50 @@ describe('hasIntroducedSecurityDefect', () => {
       { file: 'src/x.ts', addedContent: 'const ok = true; // just a comment', startLine: 1 },
     ];
     expect(hasIntroducedSecurityDefect(hunks, scanner)).toBe(false);
+  });
+});
+
+describe('outcomeVerdictToQualityFail (4c v2 acceptance-eval mapping)', () => {
+  const verdict = (over: Partial<OutcomeVerdict>): OutcomeVerdict => ({
+    verdict: 'INCONCLUSIVE',
+    confidence: 'low',
+    rationale: 'r',
+    judgedAgainst: 'success-criteria',
+    unmetCriteria: [],
+    authority: 'advisory',
+    ...over,
+  });
+
+  it('maps a BLOCKING verdict (high-confidence NOT_SATISFIED) to quality-fail', () => {
+    expect(
+      outcomeVerdictToQualityFail(
+        verdict({ verdict: 'NOT_SATISFIED', confidence: 'high', authority: 'blocking' })
+      )
+    ).toBe('quality-fail');
+  });
+
+  it('maps every non-blocking verdict to undefined (neutral, never a premature pass)', () => {
+    // SATISFIED, INCONCLUSIVE, and a LOWER-confidence NOT_SATISFIED are all advisory.
+    expect(
+      outcomeVerdictToQualityFail(verdict({ verdict: 'SATISFIED', confidence: 'high' }))
+    ).toBeUndefined();
+    expect(
+      outcomeVerdictToQualityFail(verdict({ verdict: 'INCONCLUSIVE', confidence: 'low' }))
+    ).toBeUndefined();
+    expect(
+      outcomeVerdictToQualityFail(
+        verdict({ verdict: 'NOT_SATISFIED', confidence: 'medium', authority: 'advisory' })
+      )
+    ).toBeUndefined();
+  });
+
+  it('trusts the TS-derived authority, not the raw verdict/confidence', () => {
+    // Even a NOT_SATISFIED+high shape must NOT escalate if authority says advisory
+    // (defends against an LLM-forged verdict that slipped an inconsistent authority).
+    expect(
+      outcomeVerdictToQualityFail(
+        verdict({ verdict: 'NOT_SATISFIED', confidence: 'high', authority: 'advisory' })
+      )
+    ).toBeUndefined();
   });
 });

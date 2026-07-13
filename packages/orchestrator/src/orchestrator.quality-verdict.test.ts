@@ -86,6 +86,14 @@ const withPolicy = (): WorkflowConfig =>
   });
 const withoutPolicy = (): WorkflowConfig =>
   makeConfig({ backends: BACKENDS, routing: { default: 'cheapFast' } });
+const withAcceptanceEval = (): WorkflowConfig =>
+  makeConfig({
+    backends: BACKENDS,
+    routing: {
+      default: 'cheapFast',
+      policy: { escalationThreshold: 2, acceptanceEval: { enabled: true } },
+    },
+  });
 
 function newOrch(cfg: WorkflowConfig): Orchestrator {
   return new Orchestrator(cfg, 'Prompt', {
@@ -121,6 +129,32 @@ function stubDiff(
   (orch as unknown as { workspace: { getIntroducedDiff: unknown } }).workspace.getIntroducedDiff =
     spy;
   return spy;
+}
+function stubDiffText(orch: Orchestrator, impl: () => Promise<string>): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(impl);
+  (
+    orch as unknown as { workspace: { getIntroducedDiffText: unknown } }
+  ).workspace.getIntroducedDiffText = spy;
+  return spy;
+}
+/** Inject a fake analysis provider whose one-shot `analyze` returns a canned verdict. */
+function stubProvider(
+  orch: Orchestrator,
+  llmVerdict: Record<string, unknown> | null
+): ReturnType<typeof vi.fn> {
+  const analyze = vi.fn(async () => ({ result: llmVerdict }));
+  (orch as unknown as { resolveComplexityProvider: () => unknown }).resolveComplexityProvider =
+    () => (llmVerdict === null ? undefined : { analyze });
+  return analyze;
+}
+/** Write a spec with a judgeable `## Success Criteria` section; return its rel path. */
+function writeSpec(): string {
+  const rel = 'spec.md';
+  fs.writeFileSync(
+    path.join(tmpDir, rel),
+    '# Feature\n\n## Success Criteria\n\n- The widget must debounce input by 300ms.\n'
+  );
+  return rel;
 }
 
 beforeEach(() => {
@@ -174,5 +208,93 @@ describe('deriveSingleAgentQualityVerdict', () => {
       throw new Error('git blew up');
     });
     expect(await feeder(orch)(ISSUE, tmpDir)).toBeUndefined();
+  });
+});
+
+describe('deriveSingleAgentQualityVerdict — acceptance-eval (4c v2)', () => {
+  const withSpec = (): Issue => ({ ...ISSUE, spec: writeSpec() }) as unknown as Issue;
+
+  it('acceptanceEval DISABLED (default): the eval path is never taken (no diff-text read, no provider)', async () => {
+    const orch = newOrch(withPolicy()); // policy present but no acceptanceEval
+    stubDiff(orch, async () => cleanHunk); // security clean
+    const textSpy = stubDiffText(orch, async () => 'diff');
+    const analyze = stubProvider(orch, { verdict: 'NOT_SATISFIED', confidence: 'high' });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBeUndefined();
+    expect(textSpy).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('enabled + blocking verdict (NOT_SATISFIED, high) → quality-fail', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk); // security clean ⇒ reach the eval
+    stubDiffText(orch, async () => 'diff --git a/x b/x\n+broke it');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'debounce not implemented',
+      unmetCriteria: ['debounce 300ms'],
+    });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBe('quality-fail');
+  });
+
+  it('enabled + SATISFIED → undefined (neutral; success never a premature quality-pass)', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk);
+    stubDiffText(orch, async () => 'diff --git a/x b/x\n+ok');
+    stubProvider(orch, {
+      verdict: 'SATISFIED',
+      confidence: 'high',
+      rationale: 'looks right',
+      unmetCriteria: [],
+    });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBeUndefined();
+  });
+
+  it('enabled + low-confidence NOT_SATISFIED → undefined (only high-confidence blocks)', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk);
+    stubDiffText(orch, async () => 'diff --git a/x b/x\n+maybe');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'low',
+      rationale: 'unclear',
+      unmetCriteria: [],
+    });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBeUndefined();
+  });
+
+  it('enabled but issue has no spec → undefined, provider never called', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk);
+    const analyze = stubProvider(orch, { verdict: 'NOT_SATISFIED', confidence: 'high' });
+    expect(await feeder(orch)(ISSUE, tmpDir)).toBeUndefined(); // ISSUE.spec is undefined/null
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('enabled but no analysis provider available → undefined (degrade)', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk);
+    stubProvider(orch, null); // resolveComplexityProvider → undefined
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBeUndefined();
+  });
+
+  it('a security defect SHORT-CIRCUITS the eval (no wasted model call)', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => defectHunk); // security defect
+    const textSpy = stubDiffText(orch, async () => 'diff');
+    const analyze = stubProvider(orch, { verdict: 'SATISFIED', confidence: 'high' });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBe('quality-fail');
+    expect(textSpy).not.toHaveBeenCalled(); // eval path never reached
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('enabled + eval throws → undefined (guarded, never breaks completion)', async () => {
+    const orch = newOrch(withAcceptanceEval());
+    stubDiff(orch, async () => cleanHunk);
+    stubDiffText(orch, async () => {
+      throw new Error('git diff blew up');
+    });
+    stubProvider(orch, { verdict: 'NOT_SATISFIED', confidence: 'high' });
+    expect(await feeder(orch)(withSpec(), tmpDir)).toBeUndefined();
   });
 });

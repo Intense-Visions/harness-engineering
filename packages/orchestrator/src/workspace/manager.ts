@@ -88,6 +88,25 @@ export class WorkspaceManager {
   }
 
   /**
+   * AMR 4c v2: the SAME introduced change as {@link getIntroducedDiff}, but as the
+   * RAW unified diff text (default context, NOT `--unified=0`) — the input an LLM
+   * spec-satisfaction eval needs to judge whether the diff satisfies the spec.
+   * Merge-base relative for the same reason (a base branch that advanced
+   * mid-dispatch never attributes other merges here), and the seeded handoff
+   * overlay is excluded via git `:(exclude)` pathspecs so the judge never reads
+   * pre-seeded proposal/roadmap content as the agent's work.
+   */
+  public async getIntroducedDiffText(identifier: string): Promise<string> {
+    const workspacePath = path.resolve(this.resolvePath(identifier));
+    const repoRoot = await this.getRepoRoot();
+    const baseRef = await this.resolveBaseRef(repoRoot);
+    const mergeBase = (await this.git(['merge-base', 'HEAD', baseRef], workspacePath)).trim();
+    const seedPaths = this.config.seedPaths ?? WorkspaceManager.DEFAULT_SEED_PATHS;
+    const excludes = seedPaths.map((p) => `:(exclude)${p}`);
+    return this.git(['diff', mergeBase, '--', '.', ...excludes], workspacePath);
+  }
+
+  /**
    * Discovers the git repository root from the workspace root directory.
    */
   private async getRepoRoot(): Promise<string> {
