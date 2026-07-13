@@ -407,6 +407,12 @@ const RoutingPolicySchema = z.object({
   sensitivePaths: z.array(z.string()).optional(),
   escalationThreshold: z.number().optional(),
   allowedProviders: z.array(z.string()).optional(),
+  acceptanceEval: z
+    .object({
+      enabled: z.boolean(),
+      model: z.string().optional(),
+    })
+    .optional(),
 });
 
 /**

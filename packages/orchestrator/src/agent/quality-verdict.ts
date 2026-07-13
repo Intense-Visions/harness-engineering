@@ -1,4 +1,5 @@
 import type { SecurityScanner } from '@harness-engineering/core';
+import type { OutcomeVerdict } from '@harness-engineering/intelligence';
 
 /**
  * AMR 4c: a single-agent quality-verdict source (ADR 0069). The escalation
@@ -97,4 +98,18 @@ export function hasIntroducedSecurityDefect(
     if (findings.some((f) => f.severity === 'error')) return true;
   }
   return false;
+}
+
+/**
+ * AMR 4c v2: map an outcome-eval spec-satisfaction verdict to the single-agent
+ * escalation quality class. Only a BLOCKING verdict escalates — `authority` is
+ * TS-derived (`deriveAuthority`) as `'blocking'` iff a high-confidence
+ * NOT_SATISFIED, so SATISFIED / INCONCLUSIVE / any lower-confidence verdict
+ * maps to `undefined` (neutral) and never a premature `quality-pass`. Trusting the
+ * TS-derived `authority` (not the raw verdict/confidence) keeps the blocking rule
+ * in one place and immune to an LLM-injected `authority` (the evaluator strips it
+ * at a `.strict()` parse boundary).
+ */
+export function outcomeVerdictToQualityFail(verdict: OutcomeVerdict): 'quality-fail' | undefined {
+  return verdict.authority === 'blocking' ? 'quality-fail' : undefined;
 }

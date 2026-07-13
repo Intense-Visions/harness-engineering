@@ -15,8 +15,8 @@ import type {
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint, SecurityScanner } from '@harness-engineering/core';
-import { hasIntroducedSecurityDefect } from './agent/quality-verdict';
-import { IntelligencePipeline } from '@harness-engineering/intelligence';
+import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict';
+import { IntelligencePipeline, OutcomeEvaluator } from '@harness-engineering/intelligence';
 import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession, RunningEntry } from './types/internal';
@@ -2250,6 +2250,11 @@ export class Orchestrator extends EventEmitter {
     if (this.adaptiveRouter === null) return undefined;
     try {
       const introduced = await this.workspace.getIntroducedDiff(issue.identifier);
+      // No introduced (added) lines ⇒ nothing to judge: skip BOTH the security scan
+      // and the acceptance-eval. A pure-deletion / no-op change is therefore not
+      // spec-checked — deliberate (a NOT_SATISFIED on an empty added-line set is
+      // low-value and this matches the security feeder's boundary); do NOT "fix"
+      // this into a path that runs the eval on an empty diff.
       if (introduced.length === 0) return undefined;
       const scanner = new SecurityScanner();
       scanner.configureForProject(workspacePath);
@@ -2259,6 +2264,9 @@ export class Orchestrator extends EventEmitter {
         });
         return 'quality-fail';
       }
+      // Opt-in LLM spec-satisfaction verdict (4c v2). Only reached when the cheap
+      // security scan is clean, so a defect never wastes a model call.
+      return await this.deriveAcceptanceEvalVerdict(issue, workspacePath);
     } catch (err) {
       this.logger.debug('amr quality verdict skipped (best-effort)', {
         issueId: issue.id,
@@ -2266,6 +2274,58 @@ export class Orchestrator extends EventEmitter {
       });
     }
     return undefined;
+  }
+
+  /**
+   * AMR 4c v2: opt-in LLM spec-satisfaction verdict. Gated on
+   * `routing.policy.acceptanceEval.enabled` (HEAVY — one model call + latency per
+   * exit, so separate from the always-on cheap security scan), a present spec, and
+   * an available analysis provider. Runs the shared `OutcomeEvaluator` over the
+   * introduced diff vs the spec's judgment section, reusing the SEL-layer provider
+   * the live classifier already builds; a BLOCKING verdict (high-confidence
+   * NOT_SATISFIED) → `'quality-fail'`. Conservative + fully guarded: no
+   * spec / no provider / empty diff / any error → `undefined` (neutral). The mapper
+   * only ever emits the negative, so success can never become a premature
+   * `'quality-pass'`. An absent GraphStore falls back to an ephemeral one — the
+   * evaluator's `execution_outcome` persistence is best-effort and never blocks.
+   */
+  private async deriveAcceptanceEvalVerdict(
+    issue: Issue,
+    workspacePath: string
+  ): Promise<'quality-fail' | undefined> {
+    const acceptanceEval = this.config.agent.routing?.policy?.acceptanceEval;
+    if (acceptanceEval?.enabled !== true || issue.spec === null) return undefined;
+    const provider = this.resolveComplexityProvider();
+    if (provider === undefined) return undefined;
+    try {
+      const diff = await this.workspace.getIntroducedDiffText(issue.identifier);
+      if (diff.trim() === '') return undefined;
+      const evaluator = new OutcomeEvaluator(provider, this.graphStore ?? new GraphStore(), {
+        ...(acceptanceEval.model !== undefined ? { model: acceptanceEval.model } : {}),
+      });
+      const verdict = await evaluator.evaluate({
+        specPath: path.join(workspacePath, issue.spec),
+        diff,
+        // No captured test output at the single-agent-exit seam — intentionally
+        // omitted (the evaluator judges diff-vs-spec and treats absent test output
+        // as weaker evidence → lower confidence, never a false blocking verdict).
+        testOutput: '',
+      });
+      const cls = outcomeVerdictToQualityFail(verdict);
+      if (cls === 'quality-fail') {
+        this.logger.info('amr:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)', {
+          issueId: issue.id,
+          rationale: verdict.rationale,
+        });
+      }
+      return cls;
+    } catch (err) {
+      this.logger.debug('amr acceptance-eval skipped (best-effort)', {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return undefined;
+    }
   }
 
   /**

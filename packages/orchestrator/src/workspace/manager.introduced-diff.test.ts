@@ -33,6 +33,24 @@ class StubWM extends WorkspaceManager {
   }
 }
 
+const RAW_DIFF_TEXT = [
+  'diff --git a/src/app.ts b/src/app.ts',
+  '@@ -1,2 +1,3 @@',
+  ' unchanged context',
+  '+const r = eval(x);',
+].join('\n');
+
+class RawStubWM extends WorkspaceManager {
+  public readonly calls: string[][] = [];
+  protected async git(args: string[], _cwd: string): Promise<string> {
+    this.calls.push(args);
+    if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+    if (args[0] === 'merge-base') return 'basesha123\n';
+    if (args[0] === 'diff') return RAW_DIFF_TEXT;
+    return 'ok\n';
+  }
+}
+
 const config = (over: Partial<WorkspaceConfig> = {}): WorkspaceConfig =>
   ({ root: '/tmp/ws', baseRef: 'origin/main', ...over }) as WorkspaceConfig;
 
@@ -60,5 +78,40 @@ describe('WorkspaceManager.getIntroducedDiff', () => {
     const hunks = await wm.getIntroducedDiff('ISS-1');
     // src/app.ts now excluded; roadmap.md is no longer a seed ⇒ it comes through.
     expect(hunks.map((h) => h.file)).toEqual(['docs/roadmap.md']);
+  });
+});
+
+describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eval)', () => {
+  it('returns the RAW unified diff (with context) vs merge-base, seed paths excluded via pathspec', async () => {
+    const wm = new RawStubWM(config()); // DEFAULT_SEED_PATHS = .harness/proposals, docs/roadmap.md
+    const text = await wm.getIntroducedDiffText('ISS-1');
+
+    // Merge-base relative (robust to a moving base branch).
+    expect(
+      wm.calls.some((c) => c[0] === 'merge-base' && c.includes('HEAD') && c.includes('origin/main'))
+    ).toBe(true);
+    // Full-context diff (NOT --unified=0) with git `:(exclude)` pathspecs for the
+    // seeded handoff overlay, so the judge never reads pre-seeded content.
+    const diffCall = wm.calls.find((c) => c[0] === 'diff');
+    expect(diffCall).toEqual([
+      'diff',
+      'basesha123',
+      '--',
+      '.',
+      ':(exclude).harness/proposals',
+      ':(exclude)docs/roadmap.md',
+    ]);
+    // Raw text is returned verbatim (unparsed) — context + removed lines preserved.
+    expect(text).toBe(RAW_DIFF_TEXT);
+    expect(text).toContain(' unchanged context'); // context line survives (no --unified=0)
+  });
+
+  it('relativizes an absolute seed path against the repo root before excluding it', async () => {
+    // repoRoot is '/repo' (rev-parse --show-toplevel stub). An absolute in-repo
+    // seed must become a repo-relative pathspec so `:(exclude)` actually matches.
+    const wm = new RawStubWM(config({ seedPaths: ['/repo/docs/roadmap.md'] }));
+    await wm.getIntroducedDiffText('ISS-1');
+    const diffCall = wm.calls.find((c) => c[0] === 'diff');
+    expect(diffCall).toEqual(['diff', 'basesha123', '--', '.', ':(exclude)docs/roadmap.md']);
   });
 });

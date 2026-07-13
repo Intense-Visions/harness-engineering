@@ -19,6 +19,20 @@ source: docs/changes/adaptive-model-routing/proposal.md
 > `WorkspaceManager.getIntroducedDiff`, and `Orchestrator.deriveSingleAgentQualityVerdict`.
 > The decision below stands as the record of _why_ it was deferred and _which_
 > option was chosen.
+>
+> **Update (2026-07-13): the LLM acceptance-eval (option 4) is now also built —
+> opt-in.** The second sound source named below has landed behind
+> `routing.policy.acceptanceEval.enabled` (off by default). On a normal
+> single-agent exit, _after_ the always-on security scan comes back clean, the
+> orchestrator runs the shared `OutcomeEvaluator` (reusing the SEL-layer analysis
+> provider the live classifier already builds — the "orchestrator does not run a
+> model inline" constraint no longer holds) over the introduced diff vs the spec's
+> success-criteria section, and feeds `quality-fail` only on a **high-confidence
+> NOT_SATISFIED** (`authority === 'blocking'`, TS-derived). It is gated separately
+> from the cheap security scan because a model call is heavy; it is conservative
+> (never a premature `quality-pass`) and fully guarded (no spec / no provider /
+> empty diff / any error → neutral). See `Orchestrator.deriveAcceptanceEvalVerdict`,
+> `outcomeVerdictToQualityFail`, and `WorkspaceManager.getIntroducedDiffText`.
 
 ## Context
 

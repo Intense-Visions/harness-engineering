@@ -88,6 +88,34 @@ export class WorkspaceManager {
   }
 
   /**
+   * AMR 4c v2: the SAME introduced change as {@link getIntroducedDiff}, but as the
+   * RAW unified diff text (default context, NOT `--unified=0`) — the input an LLM
+   * spec-satisfaction eval needs to judge whether the diff satisfies the spec.
+   * Merge-base relative for the same reason (a base branch that advanced
+   * mid-dispatch never attributes other merges here), and the seeded handoff
+   * overlay is excluded via git `:(exclude)` pathspecs so the judge never reads
+   * pre-seeded proposal/roadmap content as the agent's work.
+   */
+  public async getIntroducedDiffText(identifier: string): Promise<string> {
+    const workspacePath = path.resolve(this.resolvePath(identifier));
+    const repoRoot = await this.getRepoRoot();
+    const baseRef = await this.resolveBaseRef(repoRoot);
+    const mergeBase = (await this.git(['merge-base', 'HEAD', baseRef], workspacePath)).trim();
+    const seedPaths = this.config.seedPaths ?? WorkspaceManager.DEFAULT_SEED_PATHS;
+    // Normalize identically to seedWorkspace: relativize an absolute seed entry
+    // against the repo root and drop anything that escapes it, so a git
+    // `:(exclude)` pathspec always matches the same overlay that was seeded (an
+    // un-relativized absolute path would be a silent no-op exclude, leaking the
+    // seeded overlay into the eval diff). Array argv (no shell) makes each pathspec
+    // a single literal arg — special chars can't break or inject.
+    const excludes = seedPaths
+      .map((p) => (path.isAbsolute(p) ? path.relative(repoRoot, p).replaceAll('\\', '/') : p))
+      .filter((rel) => rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel))
+      .map((rel) => `:(exclude)${rel}`);
+    return this.git(['diff', mergeBase, '--', '.', ...excludes], workspacePath);
+  }
+
+  /**
    * Discovers the git repository root from the workspace root directory.
    */
   private async getRepoRoot(): Promise<string> {
