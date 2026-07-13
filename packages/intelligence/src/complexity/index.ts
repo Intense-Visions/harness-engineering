@@ -22,6 +22,7 @@ export {
   SENSITIVE_BLAST_THRESHOLD,
   TIER_RANK,
   RANK_TIER,
+  DEFAULT_DEGRADE_AT_PCT,
 } from './derive-tier.js';
 
 export { serializeSignals } from './signals.js';

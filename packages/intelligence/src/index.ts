@@ -155,6 +155,7 @@ export {
   SENSITIVE_BLAST_THRESHOLD,
   TIER_RANK,
   RANK_TIER,
+  DEFAULT_DEGRADE_AT_PCT,
   serializeSignals,
 } from './complexity/index.js';
 export type {

@@ -148,4 +148,4 @@ export function deriveRequiredTier(
   return tierAtRank(Math.max(TIER_RANK[escalationFloor], TIER_RANK[clamped]));
 }
 
-export { TIER_RANK, RANK_TIER, DEFAULT_MATRIX };
+export { TIER_RANK, RANK_TIER, DEFAULT_MATRIX, DEFAULT_DEGRADE_AT_PCT };

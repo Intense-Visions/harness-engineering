@@ -2,6 +2,7 @@
 '@harness-engineering/orchestrator': minor
 '@harness-engineering/cli': minor
 '@harness-engineering/types': minor
+'@harness-engineering/intelligence': patch
 ---
 
 AMR operator observability. Adds a live routing status surface so operators

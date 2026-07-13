@@ -19,12 +19,14 @@ function shortIso(iso: string): string {
   return tail.replace('Z', '');
 }
 
-function renderHuman(data: RoutingTelemetry): void {
+// The tier distribution + spend total always summarize the FULL retained ring;
+// `tableLimit` bounds only the verbose per-decision table below them.
+function renderHuman(data: RoutingTelemetry, tableLimit?: number): void {
   if (data.decisions.length === 0) {
     console.log('(no routing telemetry — AMR is off or no decisions recorded yet)');
     return;
   }
-  // Tier distribution.
+  // Tier distribution over the full ring.
   const byTier = new Map<CapabilityTier, { count: number; cost: number }>();
   for (const t of TIERS) byTier.set(t, { count: 0, cost: 0 });
   for (const d of data.decisions) {
@@ -40,14 +42,17 @@ function renderHuman(data: RoutingTelemetry): void {
   console.log('TIER      COUNT   SHARE   COST');
   for (const t of TIERS) {
     const b = byTier.get(t)!;
-    const share = data.decisions.length ? Math.round((b.count / data.decisions.length) * 100) : 0;
+    const share = Math.round((b.count / data.decisions.length) * 100);
     console.log(
       `${t.padEnd(9)} ${String(b.count).padStart(5)}   ${String(share).padStart(4)}%   $${b.cost.toFixed(4)}`
     );
   }
   console.log('');
-  console.log('TIMESTAMP     TIER      BACKEND         COST');
-  for (const d of data.decisions) {
+  const rows = tableLimit !== undefined ? data.decisions.slice(0, tableLimit) : data.decisions;
+  console.log(
+    `TIMESTAMP     TIER      BACKEND         COST${tableLimit !== undefined ? `  (latest ${rows.length} of ${data.decisions.length})` : ''}`
+  );
+  for (const d of rows) {
     const ts = shortIso(d.decisionTs).padEnd(13);
     const tier = d.tierRequired.padEnd(9);
     const be = d.backend.padEnd(15);
@@ -74,16 +79,18 @@ export function createTelemetryCommand(): Command {
         return;
       }
       const body = r.body ?? { decisions: [], spentUsd: 0 };
-      // `--last N` bounds only the per-decision table; the tier distribution +
-      // spend total still summarize the full retained ring.
-      const limited: RoutingTelemetry =
-        opts.last && Number.isFinite(Number(opts.last)) && Number(opts.last) > 0
-          ? { ...body, decisions: body.decisions.slice(0, Math.floor(Number(opts.last))) }
-          : body;
       if (opts.json) {
-        console.log(JSON.stringify(limited, null, 2));
+        // JSON is the full retained payload (for scripting); `--last` is a
+        // display convenience for the human table only.
+        console.log(JSON.stringify(body, null, 2));
         return;
       }
-      renderHuman(limited);
+      // `--last N` bounds only the per-decision table; the tier distribution +
+      // spend total still summarize the full retained ring.
+      const tableLimit =
+        opts.last && Number.isFinite(Number(opts.last)) && Number(opts.last) > 0
+          ? Math.floor(Number(opts.last))
+          : undefined;
+      renderHuman(body, tableLimit);
     });
 }

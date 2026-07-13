@@ -11,7 +11,12 @@ import type {
   RoutingStatus,
   RoutingBudgetStatus,
 } from '@harness-engineering/types';
-import { deriveRequiredTier, TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
+import {
+  deriveRequiredTier,
+  TIER_RANK,
+  RANK_TIER,
+  DEFAULT_DEGRADE_AT_PCT,
+} from '@harness-engineering/intelligence';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import type { BackendRouter } from './backend-router.js';
 import {
@@ -219,8 +224,9 @@ export class AdaptiveRouter {
     let budgetStatus: RoutingBudgetStatus | null = null;
     if (budget && budget.capUsd > 0) {
       const spentUsd = this.getSpentUsd();
-      // Mirror deriveRequiredTier's default (derive-tier.ts DEFAULT_DEGRADE_AT_PCT).
-      const degradeAtPct = budget.degradeAtPct ?? 90;
+      // Same default the clamp uses, imported (not hardcoded) so status can't
+      // drift from deriveRequiredTier's actual behavior.
+      const degradeAtPct = budget.degradeAtPct ?? DEFAULT_DEGRADE_AT_PCT;
       budgetStatus = {
         spentUsd,
         capUsd: budget.capUsd,

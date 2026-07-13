@@ -391,6 +391,43 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     expect(allLog).toMatch(/"spentUsd"/);
   });
 
+  it('telemetry --last bounds only the per-decision table; distribution summarizes the full ring', async () => {
+    const telemetry = {
+      spentUsd: 1.0,
+      decisions: [
+        {
+          decisionTs: '2026-07-12T12:00:00.000Z',
+          tierRequired: 'strong',
+          backend: 'a',
+          estCostUsd: 0.5,
+        },
+        {
+          decisionTs: '2026-07-12T12:00:01.000Z',
+          tierRequired: 'strong',
+          backend: 'b',
+          estCostUsd: 0.3,
+        },
+        {
+          decisionTs: '2026-07-12T12:00:02.000Z',
+          tierRequired: 'fast',
+          backend: 'c',
+          estCostUsd: 0.2,
+        },
+      ],
+    };
+    mockFetch(() => new Response(JSON.stringify(telemetry), { status: 200 }));
+    await createTelemetryCommand().parseAsync(['--last', '1'], { from: 'user' });
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    // Distribution reflects the full ring (3 decisions), not the limited table.
+    expect(allLog).toMatch(/Decisions \(retained ring\): 3/);
+    expect(allLog).toMatch(/strong\s+2/); // 2 strong across the full ring
+    // The per-decision table is limited to the latest 1 and says so.
+    expect(allLog).toMatch(/latest 1 of 3/);
+    // Only backend 'a' (first row) shows in the table; 'b'/'c' are omitted.
+    expect(allLog).toMatch(/ a /);
+    expect(allLog).not.toMatch(/ c /);
+  });
+
   it('status: renders the budget bar + escalation + allowlist from /routing/status', async () => {
     const status = {
       active: true,
