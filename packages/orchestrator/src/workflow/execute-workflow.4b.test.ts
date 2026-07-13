@@ -303,4 +303,85 @@ describe('executeWorkflow — stage N output threads to stage N+1 (D4)', () => {
     await executeWorkflow(ctx, plan);
     expect(renderCalls[1]!.priorOutputs).toEqual({}); // spec produced nothing ⇒ nothing threaded
   });
+
+  // Runs `stages` where each stage's captured output is `content[i]` (undefined ⇒
+  // the stage emits no result event). Returns what each render saw.
+  async function threadOutputs(
+    stages: WorkflowStep[],
+    content: (string | undefined)[]
+  ): Promise<Record<string, string>[]> {
+    const seen: Record<string, string>[] = [];
+    let stageIx = 0;
+    const ctx: WorkflowEngineContext = {
+      ...fakeCtx({}),
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, _p: string) {
+          const ix = stageIx++;
+          if (content[ix] !== undefined) {
+            yield { type: 'result', content: content[ix], timestamp: 't' } as unknown as AgentEvent;
+          }
+          return {
+            sessionId: `sess-${ix}`,
+            success: true,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      }),
+      renderStagePrompt: (_step, index, priorOutputs) => {
+        seen[index] = { ...priorOutputs };
+        return `prompt-${index}`;
+      },
+    };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages });
+    return seen;
+  }
+
+  it('a prototype-name label (`constructor`) with a no-output producer threads {} — not the inherited member', async () => {
+    // The producer of `constructor` emits nothing, so the label is not an OWN key
+    // of the prior-output map. A bare bracket lookup would return
+    // Object.prototype.constructor (a function); the hasOwnProperty guard must
+    // instead thread nothing.
+    const seen = await threadOutputs(
+      [
+        step({ skill: 'a', produces: 'constructor' }),
+        step({ skill: 'b', produces: 'review', expects: 'constructor' }),
+      ],
+      [undefined, 'out-1']
+    );
+    expect(seen[1]).toEqual({}); // NOT { constructor: <function> }
+  });
+
+  it('a prototype-name label that IS produced threads its real value', async () => {
+    const seen = await threadOutputs(
+      [
+        step({ skill: 'a', produces: 'toString' }),
+        step({ skill: 'b', produces: 'review', expects: 'toString' }),
+      ],
+      ['real-value', 'out-1']
+    );
+    expect(seen[1]).toEqual({ toString: 'real-value' });
+  });
+
+  it('`expects` on a last-write label threads the LATER producer’s output', async () => {
+    const seen = await threadOutputs(
+      [
+        step({ skill: 'draft', produces: 'code' }),
+        step({ skill: 'refine', produces: 'code' }),
+        step({ skill: 'review', produces: 'review', expects: 'code' }),
+      ],
+      ['first', 'second', 'out-2']
+    );
+    expect(seen[2]).toEqual({ code: 'second' }); // last-write wins
+  });
+
+  it('threads an empty-string output (not filtered as absent)', async () => {
+    const seen = await threadOutputs(
+      [
+        step({ skill: 'a', produces: 'code' }),
+        step({ skill: 'b', produces: 'review', expects: 'code' }),
+      ],
+      ['', 'out-1']
+    );
+    expect(seen[1]).toEqual({ code: '' });
+  });
 });

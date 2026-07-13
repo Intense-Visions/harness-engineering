@@ -514,6 +514,13 @@ function priorOutputs(runs: StageRun[], step: WorkflowStep): Record<string, stri
     if (run.output !== undefined) all[run.step.produces] = run.output;
   }
   if (step.expects === undefined) return all;
-  const wanted = all[step.expects];
-  return wanted !== undefined ? { [step.expects]: wanted } : {};
+  // `hasOwnProperty`, not `all[step.expects] !== undefined`: a label that collides
+  // with an Object.prototype member (`constructor`, `toString`, `__proto__`, …) is
+  // schema-valid, and if its producer emitted no output a bare bracket lookup would
+  // return the INHERITED prototype value (a function) instead of falling through to
+  // the empty map. Guard on own-key presence so a no-output producer always threads
+  // nothing, exactly as intended.
+  return Object.prototype.hasOwnProperty.call(all, step.expects)
+    ? { [step.expects]: all[step.expects]! }
+    : {};
 }
