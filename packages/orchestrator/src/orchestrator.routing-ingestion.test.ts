@@ -178,4 +178,21 @@ describe('Orchestrator.ingestRoutingPolicy', () => {
     const orch = newOrch(withoutPolicy());
     expect(orch.getRoutingTelemetry()).toEqual({ decisions: [], spentUsd: 0 });
   });
+
+  it('getRoutingStatus reports inactive when routing is off', () => {
+    const orch = newOrch(withoutPolicy());
+    expect(orch.getRoutingStatus()).toEqual({
+      active: false,
+      budget: null,
+      escalation: [],
+      allowedProviders: null,
+    });
+  });
+
+  it('getRoutingStatus reports active + the budget picture when a budget policy is set', () => {
+    const orch = newOrch(withPolicy()); // budget capUsd 10
+    const s = orch.getRoutingStatus();
+    expect(s.active).toBe(true);
+    expect(s.budget).toMatchObject({ capUsd: 10, spentUsd: 0, degrading: false });
+  });
 });

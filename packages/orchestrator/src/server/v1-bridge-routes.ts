@@ -210,6 +210,12 @@ export const V1_BRIDGE_ROUTES: ReadonlyArray<V1BridgeRoute> = [
     description:
       'Routing telemetry projected into the Shuttle wire shape ({ decisions, spentUsd }).',
   },
+  {
+    method: 'GET',
+    pattern: /^\/api\/v1\/routing\/status(?:\?.*)?$/,
+    scope: 'read-telemetry',
+    description: 'Live routing status: budget spend-vs-cap, escalated units, provider allowlist.',
+  },
 ];
 
 export function isV1Bridge(method: string, url: string): boolean {

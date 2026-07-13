@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createConfigCommand } from './config';
 import { createTraceCommand } from './trace';
 import { createDecisionsCommand } from './decisions';
+import { createTelemetryCommand } from './telemetry';
+import { createStatusCommand } from './status';
 
 /**
  * Spec B Phase 6: pins Observable Truths 1, 2, 3, 4, 5, 7, 8 for the
@@ -349,5 +351,69 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     expect(exitSpy).toHaveBeenCalledWith(2);
     const allErr = errSpy.mock.calls.map((c: unknown[]) => String(c[1] ?? c[0])).join('\n');
     expect(allErr).toMatch(/Routing observability not available/);
+  });
+
+  // -------------------------------------------------------------------------
+  // AMR observability: telemetry + status commands
+  // -------------------------------------------------------------------------
+  it('telemetry: renders tier distribution + per-decision cost from /routing/telemetry', async () => {
+    const telemetry = {
+      spentUsd: 0.6,
+      decisions: [
+        {
+          decisionTs: '2026-07-12T12:00:00.000Z',
+          tierRequired: 'strong',
+          backend: 'cloud',
+          estCostUsd: 0.4,
+        },
+        {
+          decisionTs: '2026-07-12T12:00:01.000Z',
+          tierRequired: 'fast',
+          backend: 'local',
+          estCostUsd: 0.2,
+        },
+      ],
+    };
+    const { calls } = mockFetch(() => new Response(JSON.stringify(telemetry), { status: 200 }));
+    await createTelemetryCommand().parseAsync([], { from: 'user' });
+    expect(calls[0]!.url).toContain('/api/v1/routing/telemetry');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/Ring spend total:\s+\$0\.6000/);
+    expect(allLog).toMatch(/strong/);
+    expect(allLog).toMatch(/cloud/);
+    expect(allLog).toMatch(/\$0\.4000/);
+  });
+
+  it('telemetry --json: emits the raw payload', async () => {
+    mockFetch(() => new Response(JSON.stringify({ decisions: [], spentUsd: 0 }), { status: 200 }));
+    await createTelemetryCommand().parseAsync(['--json'], { from: 'user' });
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/"spentUsd"/);
+  });
+
+  it('status: renders the budget bar + escalation + allowlist from /routing/status', async () => {
+    const status = {
+      active: true,
+      budget: { spentUsd: 80, capUsd: 100, degradeAtPct: 50, spentPct: 80, degrading: true },
+      escalation: [{ coherenceUnit: 'issue-7', floor: 'strong' }],
+      allowedProviders: ['local'],
+    };
+    const { calls } = mockFetch(() => new Response(JSON.stringify(status), { status: 200 }));
+    await createStatusCommand().parseAsync([], { from: 'user' });
+    expect(calls[0]!.url).toContain('/api/v1/routing/status');
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/Adaptive routing: ON/);
+    expect(allLog).toMatch(/\$80\.0000 \/ \$100\.00/);
+    expect(allLog).toMatch(/DEGRADING/);
+    expect(allLog).toMatch(/issue-7/);
+    expect(allLog).toMatch(/local/);
+  });
+
+  it('status: renders OFF when routing is inactive', async () => {
+    const status = { active: false, budget: null, escalation: [], allowedProviders: null };
+    mockFetch(() => new Response(JSON.stringify(status), { status: 200 }));
+    await createStatusCommand().parseAsync([], { from: 'user' });
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/Adaptive routing: OFF/);
   });
 });

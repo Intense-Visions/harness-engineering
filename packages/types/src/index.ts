@@ -171,6 +171,10 @@ export type {
   // --- AMR Phase 5: telemetry projection wire types (types-only) ---
   RoutingTelemetryDecision,
   RoutingTelemetry,
+  // --- AMR observability: operator status types (types-only) ---
+  RoutingBudgetStatus,
+  RoutingEscalationUnit,
+  RoutingStatus,
 } from './orchestrator';
 
 // --- AMR Phase 4: routing error (value/class export, D10) ---

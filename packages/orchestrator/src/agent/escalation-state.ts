@@ -39,6 +39,21 @@ export class EscalationState {
   }
 
   /**
+   * AMR observability: the coherence units that have climbed ABOVE the `fast`
+   * floor, with their current floor tier. Operator status only (read-only) — an
+   * empty list means nothing has escalated. Units still at `fast` are omitted.
+   */
+  climbedUnits(): Array<{ coherenceUnit: string; floor: CapabilityTier }> {
+    const out: Array<{ coherenceUnit: string; floor: CapabilityTier }> = [];
+    for (const [coherenceUnit, state] of this.units) {
+      if (TIER_RANK[state.floorTier] > TIER_RANK.fast) {
+        out.push({ coherenceUnit, floor: state.floorTier });
+      }
+    }
+    return out;
+  }
+
+  /**
    * SC16: a QUALITY failure at `tier` increments this unit's counter; on the
    * Nth (threshold) consecutive failure the floor climbs one step (fast→standard
    * →strong), the count resets, and `escalated` latches true. `strong` is the

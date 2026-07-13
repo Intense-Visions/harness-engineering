@@ -800,6 +800,46 @@ export interface RoutingTelemetry {
 }
 
 /**
+ * AMR observability (operator status): the live budget picture, distinct from
+ * the {@link RoutingTelemetry} ring-sum. `spentUsd` here is the MONOTONIC
+ * accumulator that actually drives the D8 clamp (not the bounded ring sum).
+ */
+export interface RoutingBudgetStatus {
+  /** Monotonic total spend that drives the clamp (`AdaptiveRouter.getSpentUsd()`). */
+  spentUsd: number;
+  capUsd: number;
+  /** Degrade threshold as a percent of `capUsd` (default 90). */
+  degradeAtPct: number;
+  /** `spentUsd / capUsd * 100`, rounded. */
+  spentPct: number;
+  /** True once `spentPct >= degradeAtPct` — the clamp is now stepping tiers down. */
+  degrading: boolean;
+}
+
+/** AMR observability: one coherence unit that has climbed its escalation floor. */
+export interface RoutingEscalationUnit {
+  coherenceUnit: string;
+  floor: CapabilityTier;
+}
+
+/**
+ * AMR observability payload for `GET /api/v1/routing/status` — the live operator
+ * view of the adaptive router: whether it's active, budget spend-vs-cap, the
+ * units that have escalated, and the active provider allowlist. Read-only; NOT
+ * the Shuttle wire contract (that is {@link RoutingTelemetry}).
+ */
+export interface RoutingStatus {
+  /** AMR active for this container (a `routing.policy` is set). */
+  active: boolean;
+  /** Budget picture, or `null` when no `budget` is configured. */
+  budget: RoutingBudgetStatus | null;
+  /** Coherence units that have climbed above the `fast` floor (empty if none). */
+  escalation: RoutingEscalationUnit[];
+  /** Active provider-type allowlist, or `null` when unset. */
+  allowedProviders: BackendDef['type'][] | null;
+}
+
+/**
  * Discriminated union describing a single routing query (Spec 2 §3 / SC16-SC21).
  *
  * Consumed by `BackendRouter.resolve(useCase)` and

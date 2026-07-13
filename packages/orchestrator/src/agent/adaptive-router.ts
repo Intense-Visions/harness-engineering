@@ -8,6 +8,8 @@ import type {
   RoutingRequest,
   RoutingTelemetry,
   RoutingTelemetryDecision,
+  RoutingStatus,
+  RoutingBudgetStatus,
 } from '@harness-engineering/types';
 import { deriveRequiredTier, TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
@@ -203,6 +205,38 @@ export class AdaptiveRouter {
    */
   getSpentUsd(): number {
     return this.deps.budgetState ? this.deps.budgetState().spentUsd : this.spentUsd;
+  }
+
+  /**
+   * AMR observability: the live operator status — budget spend-vs-cap (using the
+   * monotonic accumulator that drives the clamp, NOT the telemetry ring sum),
+   * the coherence units that have climbed their escalation floor, and the active
+   * provider allowlist. Called only on a live router, so `active` is always true.
+   */
+  getStatus(): RoutingStatus {
+    const policy = this.deps.policy;
+    const budget = policy.budget;
+    let budgetStatus: RoutingBudgetStatus | null = null;
+    if (budget && budget.capUsd > 0) {
+      const spentUsd = this.getSpentUsd();
+      // Mirror deriveRequiredTier's default (derive-tier.ts DEFAULT_DEGRADE_AT_PCT).
+      const degradeAtPct = budget.degradeAtPct ?? 90;
+      budgetStatus = {
+        spentUsd,
+        capUsd: budget.capUsd,
+        degradeAtPct,
+        spentPct: Math.round((spentUsd / budget.capUsd) * 100),
+        // Compute from the exact fraction so this matches the real clamp condition
+        // (`spentFraction >= degradeAt`), not the display-rounded percent.
+        degrading: spentUsd / budget.capUsd >= degradeAtPct / 100,
+      };
+    }
+    return {
+      active: true,
+      budget: budgetStatus,
+      escalation: this.deps.escalation?.climbedUnits() ?? [],
+      allowedProviders: policy.allowedProviders ?? null,
+    };
   }
 
   async route(req: RoutingRequest): Promise<{ decision: RoutingDecision; def: BackendDef }> {
