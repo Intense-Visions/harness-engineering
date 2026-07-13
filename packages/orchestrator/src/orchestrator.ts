@@ -14,7 +14,8 @@ import type {
 } from '@harness-engineering/types';
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
-import { writeTaint } from '@harness-engineering/core';
+import { writeTaint, SecurityScanner } from '@harness-engineering/core';
+import { hasIntroducedSecurityDefect } from './agent/quality-verdict';
 import { IntelligencePipeline } from '@harness-engineering/intelligence';
 import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
@@ -2208,7 +2209,8 @@ export class Orchestrator extends EventEmitter {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
-          await this.emitWorkerExit(issue.id, 'normal', attempt);
+          const outcomeClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
+          await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
         }
       } catch (error) {
         this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });
@@ -2226,6 +2228,44 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+  }
+
+  /**
+   * AMR 4c (ADR 0069): the sound single-agent quality-verdict feeder. On a normal
+   * exit, when AMR is active, run a BASELINE-RELATIVE security scan of the lines
+   * the agent INTRODUCED (only added lines — a pre-existing pattern never counts);
+   * a NEW error-severity finding → `'quality-fail'`, which climbs the coherence
+   * unit's escalation floor. Success stays `neutral` (returns `undefined`) — a
+   * premature `'quality-pass'` would clear accumulating failures (ADR 0069).
+   *
+   * Fully guarded: any error (git/scan/parse) → `undefined` → `neutral`, so this
+   * NEVER breaks completion. No-op (zero cost) when AMR is off, keeping the
+   * dispatch path byte-identical. Staged workflows use their own per-stage gate
+   * feeder; this is the single-agent equivalent.
+   */
+  private async deriveSingleAgentQualityVerdict(
+    issue: Issue,
+    workspacePath: string
+  ): Promise<'quality-fail' | undefined> {
+    if (this.adaptiveRouter === null) return undefined;
+    try {
+      const introduced = await this.workspace.getIntroducedDiff(issue.identifier);
+      if (introduced.length === 0) return undefined;
+      const scanner = new SecurityScanner();
+      scanner.configureForProject(workspacePath);
+      if (hasIntroducedSecurityDefect(introduced, scanner)) {
+        this.logger.info('amr:quality-fail — agent introduced an error-severity security finding', {
+          issueId: issue.id,
+        });
+        return 'quality-fail';
+      }
+    } catch (err) {
+      this.logger.debug('amr quality verdict skipped (best-effort)', {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return undefined;
   }
 
   /**

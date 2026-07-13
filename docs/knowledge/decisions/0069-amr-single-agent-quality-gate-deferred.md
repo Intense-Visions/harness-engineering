@@ -7,6 +7,19 @@ tier: medium
 source: docs/changes/adaptive-model-routing/proposal.md
 ---
 
+> **Update (2026-07-13): implemented.** The deferral held until a sound source
+> existed — and the **baseline-relative diff review** option below was then built.
+> On a normal single-agent exit, the orchestrator now scans only the ADDED lines
+> of the agent's diff (working-tree vs `merge-base(HEAD, baseRef)`, seeded overlay
+> excluded) and feeds `quality-fail` on a NEW error-severity security finding.
+> It is sound because every security rule is single-line, so per-added-line
+> matching yields exactly the introduced findings — pre-existing patterns never
+> count. Success stays `neutral` (never a premature `quality-pass`), the feeder is
+> a no-op when AMR is off, and it is fully guarded. See `packages/orchestrator/src/agent/quality-verdict.ts`,
+> `WorkspaceManager.getIntroducedDiff`, and `Orchestrator.deriveSingleAgentQualityVerdict`.
+> The decision below stands as the record of _why_ it was deferred and _which_
+> option was chosen.
+
 ## Context
 
 AMR's vertical escalation (D10/SC16) climbs a coherence unit's required tier when

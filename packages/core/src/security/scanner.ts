@@ -96,6 +96,17 @@ export class SecurityScanner {
     return this.scanContentForFile(content, filePath, 1);
   }
 
+  /**
+   * Scan in-memory content for a specific `filePath`, applying the same
+   * `fileGlob` rule filtering as {@link scanFile} — unlike {@link scanContent},
+   * which fires every active rule regardless of path. Use this to scan content
+   * you already hold (e.g. a diff's added lines) without a disk read; `startLine`
+   * offsets the reported line numbers to the content's true position.
+   */
+  scanFileContent(content: string, filePath: string, startLine = 1): SecurityFinding[] {
+    return this.scanContentForFile(content, filePath, startLine);
+  }
+
   private scanContentForFile(
     content: string,
     filePath: string,

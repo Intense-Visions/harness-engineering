@@ -100,11 +100,14 @@ unit's tier floor (`escalationThreshold` consecutive failures → climb one step
 `strong`-capped). If a unit re-crosses the threshold already at `strong`, it
 **hard-fails to a human** (`routing:escalation-exhausted`).
 
-This is **live for staged workflows** — a `pass-required` stage's gate outcome
-feeds the escalation directly. For **single-agent** dispatch the escalation
-mechanism and seam are complete but **not yet fed** (there is no sound per-issue
-quality verdict source today — see
-[ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md)).
+This is **live for both dispatch paths**:
+
+- **Staged workflows** — a `pass-required` stage's gate outcome feeds escalation directly.
+- **Single-agent** — on a normal exit, a **baseline-relative** security scan of the
+  lines the agent introduced (only added lines, so pre-existing patterns never
+  count) feeds `quality-fail` on a new error-severity finding. It is a no-op when
+  AMR is off and never breaks completion. Design rationale + why it was deferred
+  until a sound source existed: [ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md).
 
 ## Split-routing workflows
 
@@ -171,9 +174,10 @@ orchestrator exposes:
 
 - **Budget is a soft cap** (lagging, single-step degrade), not a hard ceiling — see
   **Budget**.
-- **Single-agent escalation is deferred** — the mechanism and seam are complete and
-  staged workflows escalate, but single-agent dispatch has no live quality-verdict
-  source yet ([ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md)).
+- **Single-agent escalation is scoped to security defects (v1)** — it escalates on a
+  new error-severity _security_ finding in the diff, not on spec-satisfaction or
+  logic quality (that needs an LLM acceptance-eval, still deferred —
+  [ADR 0069](../knowledge/decisions/0069-amr-single-agent-quality-gate-deferred.md)).
 - **Two `spentUsd` numbers exist:** `routing telemetry`/`GET /telemetry` report the
   bounded ring sum (last N decisions, telemetry-grade); `routing status` reports the
   monotonic accumulator that actually drives the budget clamp. Use `status` for
