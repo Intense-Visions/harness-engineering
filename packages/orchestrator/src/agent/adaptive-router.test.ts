@@ -464,6 +464,45 @@ describe('AdaptiveRouter — D8 HARD cap (route-layer: human surfaces, degrade f
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it('human mode over the cap throws BEFORE routing even for a veto (sensitive) task — paused, not cheapened', async () => {
+    // The throw sits before deriveRequiredTier/selectTarget/accrual, so a
+    // security-forced `strong` task at the cap is PAUSED for human budget approval
+    // (never routed, never cheapened). Pins the throw-before-risk ordering so a
+    // refactor that moved the throw below tier derivation would fail loudly.
+    const router = new BackendRouter({ backends, routing: { default: 'priceyStrong' } });
+    const registry = buildCapabilityRegistry(backends);
+    const spy = vi.spyOn(router, 'resolveDecisionAndDef');
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, degradeAtPct: 90, onBudgetExhausted: 'human' } },
+      classify: () => verdict('trivial'),
+      budgetState: () => ({ spentUsd: 50 }), // way over the cap
+    });
+    await expect(
+      adaptive.route({
+        useCase: { kind: 'tier', tier: 'quick-fix' },
+        risk: { blastRadius: 0, sensitivePath: true }, // D5 veto would force strong
+      })
+    ).rejects.toMatchObject({ name: 'RoutingError', code: 'budget-exhausted' });
+    expect(spy).not.toHaveBeenCalled(); // never routed → nothing accrued
+  });
+
+  it('no budget policy ⇒ the new hard-cap throw guard never fires (default-off byte-identical)', async () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: {}, // no budget at all
+      classify: () => verdict('complex'),
+      budgetState: () => ({ spentUsd: 1_000_000 }), // huge, but no cap to compare against
+    });
+    // Must resolve normally — the throw guard's `budget && ...` clause is unreachable.
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.tierRequired).toBeDefined();
+  });
+
   it('human mode below the cap routes normally (no throw)', async () => {
     const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
     const registry = buildCapabilityRegistry(backends);
