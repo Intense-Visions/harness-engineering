@@ -2,6 +2,7 @@ import type {
   AgentBackend,
   AgentEvent,
   WorkflowExecutionPlan,
+  WorkflowStep,
   StageRun,
   RoutingRequest,
   RoutingDecision,
@@ -366,7 +367,7 @@ export async function runStageWithRetry(
           attempt,
           step,
           backend,
-          priorOutputs(priorRuns)
+          priorOutputs(priorRuns, step)
         );
         run.decision = decision;
         // One narrowed binding shared by the run.tier assign and the recordOutcome
@@ -393,7 +394,7 @@ export async function runStageWithRetry(
           attempt,
           step,
           backend,
-          priorOutputs(priorRuns)
+          priorOutputs(priorRuns, step)
         );
       }
     } catch (err) {
@@ -496,11 +497,30 @@ function resultEventText(content: unknown): string | undefined {
  * the most recent output for a given label. This is the TEXT channel (the common
  * case); file-artifact threading via `produces`/`expects` as paths is a separate
  * contract.
+ *
+ * `expects` (opt-in per stage) NARROWS the channel: when a stage declares
+ * `expects: <label>`, only that one prior artifact is threaded — the operator
+ * states exactly which upstream output this stage consumes, instead of every
+ * prior output landing in every prompt (which bloats the prompt and widens the
+ * injection surface). Absent `expects`, the FULL prior-output map is returned —
+ * byte-identical to the pre-`expects` default. A schema-time refinement
+ * (`schema.ts`) guarantees `expects` names a `produces` from an EARLIER stage, so
+ * at runtime a set `expects` that misses the map means the producing stage simply
+ * emitted no output (aborted / no `result` event) ⇒ nothing to thread.
  */
-function priorOutputs(runs: StageRun[]): Record<string, string> {
-  const out: Record<string, string> = {};
+function priorOutputs(runs: StageRun[], step: WorkflowStep): Record<string, string> {
+  const all: Record<string, string> = {};
   for (const run of runs) {
-    if (run.output !== undefined) out[run.step.produces] = run.output;
+    if (run.output !== undefined) all[run.step.produces] = run.output;
   }
-  return out;
+  if (step.expects === undefined) return all;
+  // `hasOwnProperty`, not `all[step.expects] !== undefined`: a label that collides
+  // with an Object.prototype member (`constructor`, `toString`, `__proto__`, …) is
+  // schema-valid, and if its producer emitted no output a bare bracket lookup would
+  // return the INHERITED prototype value (a function) instead of falling through to
+  // the empty map. Guard on own-key presence so a no-output producer always threads
+  // nothing, exactly as intended.
+  return Object.prototype.hasOwnProperty.call(all, step.expects)
+    ? { [step.expects]: all[step.expects]! }
+    : {};
 }

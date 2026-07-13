@@ -178,7 +178,25 @@ export const StagedWorkflowDeclSchema = z
     stages: z.array(WorkflowStepSchema).min(1, 'a workflow must declare at least 1 stage (D13)'),
     stageDeadlineMs: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  // 4b: a stage's `expects` must name a `produces` from an EARLIER stage — the
+  // text channel can only thread outputs already captured on the shared worktree.
+  // Catches label typos / mis-orderings at config-load instead of silently
+  // threading nothing at runtime. Mirrors validateBackendsAndRouting: the issue
+  // path points at the offending `stages[i].expects`.
+  .superRefine((decl, ctx) => {
+    const producedByEarlier = new Set<string>();
+    decl.stages.forEach((stage, i) => {
+      if (stage.expects !== undefined && !producedByEarlier.has(stage.expects)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['stages', i, 'expects'],
+          message: `stage '${stage.skill}' expects '${stage.expects}', which no earlier stage produces. Produced by earlier stages: [${[...producedByEarlier].join(', ')}].`,
+        });
+      }
+      producedByEarlier.add(stage.produces);
+    });
+  });
 
 /**
  * Cross-field validator: every value in `routing` must reference a key
