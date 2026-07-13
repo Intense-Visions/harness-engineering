@@ -72,6 +72,29 @@ export interface AdaptiveRouterDeps {
  * selection abstains (`undefined`) dispatch falls through unchanged.
  */
 export class AdaptiveRouter {
+  /**
+   * D8 live spend accumulator. Monotonic sum of `estCostUsd` over every decision
+   * this router has made. `route()` reads it (via the `budgetState` default)
+   * BEFORE deriving a tier, so `deriveRequiredTier`'s budget clamp actually fires
+   * as spend accrues — previously `budgetState` was an un-wired `{ spentUsd: 0 }`
+   * stub, so the clamp was dead.
+   *
+   * Semantics (deliberately modest — do NOT read this as a hard ceiling):
+   * - **Soft, lagging cap.** The clamp reads spend accrued from PRIOR dispatches;
+   *   a burst of concurrent dispatches all read a stale-low total before any of
+   *   them accrues, so a burst can overshoot `capUsd` before the clamp engages.
+   *   This is a degrade *signal*, not an admission gate.
+   * - **Single-step degrade.** `deriveRequiredTier` lowers the tier by exactly ONE
+   *   step under budget pressure and never below the D5 privacy veto floor — it
+   *   does not throttle progressively toward `fast`.
+   * - **Monotonic** (NOT the bounded `projectTelemetry` ring-sum): a long run must
+   *   not evict early spend and un-clamp. Preserved across `setPolicy` (instance
+   *   persists) — note a *lowered* `capUsd` then clamps immediately and, since the
+   *   total never decreases, irreversibly for the rest of the run.
+   * An injected `deps.budgetState` overrides this for the clamp (DI/tests).
+   */
+  private spentUsd = 0;
+
   constructor(private readonly deps: AdaptiveRouterDeps) {}
 
   /**
@@ -125,6 +148,8 @@ export class AdaptiveRouter {
    * so the swapped-in tier matrix / privacy floor / allowlist / budget all apply.
    * The live {@link EscalationState} is preserved by reference: a unit's climbed
    * floor survives the swap (a policy edit must not reset accumulated escalation).
+   * The monotonic spend accumulator also persists — so a swap that LOWERS `capUsd`
+   * clamps immediately and irreversibly for the rest of the run (see `spentUsd`).
    *
    * Threshold note: the `EscalationState` was seeded with the ORIGINAL policy's
    * `escalationThreshold` and is intentionally NOT re-seeded here — re-seeding
@@ -170,9 +195,24 @@ export class AdaptiveRouter {
     return { decisions, spentUsd };
   }
 
+  /**
+   * D8: the EFFECTIVE spend total the budget clamp reads — the injected
+   * `budgetState` when present, otherwise the router's own monotonic accumulator.
+   * Returning the effective value (not blindly the internal tally) means an
+   * operator reading this always sees the number that actually drove routing.
+   */
+  getSpentUsd(): number {
+    return this.deps.budgetState ? this.deps.budgetState().spentUsd : this.spentUsd;
+  }
+
   async route(req: RoutingRequest): Promise<{ decision: RoutingDecision; def: BackendDef }> {
     const complexity = req.complexity ?? (await this.classifySafe(req));
-    const spend = (this.deps.budgetState ?? (() => ({ spentUsd: 0 })))();
+    // D8: the budget clamp reads the spend accrued from PRIOR dispatches (this
+    // decision's own cost isn't known until a backend is selected below). An
+    // injected `budgetState` wins (DI/tests); otherwise the live internal
+    // accumulator. From here to the accumulate below there is NO `await`, so the
+    // read → derive → accumulate window is atomic per call (no lost updates).
+    const spend = this.deps.budgetState ? this.deps.budgetState() : { spentUsd: this.spentUsd };
     // D10: the escalation floor raises the derived tier for a coherence unit that
     // has climbed on repeated quality failure. Absent EscalationState ⇒ no-op 'fast'.
     // split-routing D8(a): a caller (the workflow engine's one-shot per-stage
@@ -196,11 +236,17 @@ export class AdaptiveRouter {
     const { decision, def } = this.deps.router.resolveDecisionAndDef(req.useCase, {
       ...(target !== undefined ? { invocationOverride: target } : {}),
     });
+    const estCostUsd = estimateCost(def, req);
+    // D8: accrue this decision's estimated cost into the monotonic accumulator so
+    // the NEXT dispatch's budget clamp sees it. Always accrues (cheap; harmless
+    // when no budget is set — the clamp simply no-ops); an injected `budgetState`
+    // means the caller owns accounting, so we leave the internal total unused.
+    this.spentUsd += estCostUsd;
     const enriched: RoutingDecision = {
       ...decision,
       complexity,
       tierRequired: requiredTier,
-      estCostUsd: estimateCost(def, req),
+      estCostUsd,
     };
     // SC9: surface the enrichment to bus subscribers. `resolveDecisionAndDef`
     // already emitted the BASE decision (D2-frozen); this second emit carries the
