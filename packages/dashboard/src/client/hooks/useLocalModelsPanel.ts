@@ -69,6 +69,81 @@ function getWsUrl(): string {
   return `${proto}//${window.location.host}/ws`;
 }
 
+/** Narrow a raw WS payload to a typed {@link WebSocketMessage}, or null if malformed. */
+function parseWsMessage(data: string): WebSocketMessage | null {
+  try {
+    // harness-ignore SEC-DES-001: client-side WebSocket consumer; trust boundary is the server, shape gated by typeof+`type` check below
+    const raw: unknown = JSON.parse(data);
+    if (typeof raw !== 'object' || raw === null || !('type' in raw)) return null;
+    return raw as WebSocketMessage;
+  } catch {
+    return null;
+  }
+}
+
+type InstallFrameData = Extract<WebSocketMessage, { type: 'local-models:install' }>['data'];
+
+/**
+ * Build the retained progress entry for a non-`complete` install frame (byte/error
+ * updates). Only ever called after the caller has ruled out `phase === 'complete'`,
+ * so `phase` is one of {@link InstallProgressState}'s three retained phases.
+ */
+function buildInstallEntry(ev: InstallFrameData): InstallProgressState {
+  return {
+    phase: ev.phase as InstallProgressState['phase'],
+    ...(ev.completedBytes !== undefined ? { completedBytes: ev.completedBytes } : {}),
+    ...(ev.totalBytes !== undefined ? { totalBytes: ev.totalBytes } : {}),
+    ...(ev.message !== undefined ? { message: ev.message } : {}),
+    ...(ev.code !== undefined ? { code: ev.code } : {}),
+  };
+}
+
+/** Dependencies a WS install frame needs to update progress / trigger a refetch. */
+interface InstallHandlers {
+  dismissInstall: (hfRepoId: string) => void;
+  scheduleRefetch: (resources: readonly DeltaResource[]) => void;
+  setInstallProgress: (
+    updater: (prev: Record<string, InstallProgressState>) => Record<string, InstallProgressState>
+  ) => void;
+}
+
+/** Apply a `local-models:install` frame: complete → dismiss+refetch, else retain progress. */
+function handleInstallFrame(ev: InstallFrameData, h: InstallHandlers): void {
+  if (ev.phase === 'complete') {
+    // Pool now holds the model; drop the progress row and refetch so it renders
+    // as "installed" (the paired `local-models:pool` frame coalesces into one).
+    h.dismissInstall(ev.hfRepoId);
+    h.scheduleRefetch(['pool', 'recommendations']);
+    return;
+  }
+  // 'started' | 'progress' (byte updates) or 'error' (retained until dismissed).
+  const entry = buildInstallEntry(ev);
+  h.setInstallProgress((prev) => ({ ...prev, [ev.hfRepoId]: entry }));
+}
+
+/** Route a decoded WS message to a delta refetch or an install-frame handler. */
+function routeWsMessage(msg: WebSocketMessage, h: InstallHandlers): void {
+  if (msg.type === 'local-models:pool') {
+    h.scheduleRefetch(['pool', 'recommendations']);
+  } else if (msg.type === 'local-models:proposal') {
+    h.scheduleRefetch(['proposals', 'recommendations']);
+  } else if (msg.type === 'local-models:install') {
+    handleInstallFrame(msg.data, h);
+  }
+}
+
+const LMLM_DISABLED = 'LMLM disabled';
+
+/** True only when all four resources returned the LMLM-disabled sentinel (Truth 8). */
+function computeAllDisabled(
+  hardware: Resource<DashHardwareProfile>,
+  pool: Resource<DashPoolStateView>,
+  recommendations: Resource<DashRankedModel[]>,
+  proposals: Resource<ModelProposalRecord[]>
+): boolean {
+  return [hardware, pool, recommendations, proposals].every((r) => r.error === LMLM_DISABLED);
+}
+
 /** Refs shared with {@link fetchResourceInto} for mount-safety and per-resource sequencing. */
 interface FetchCtx {
   mountedRef: MutableRefObject<boolean>;
@@ -265,6 +340,8 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
 
   // WebSocket subscription: refetch on delta signals (D-P8-3).
   useEffect(() => {
+    const handlers: InstallHandlers = { dismissInstall, scheduleRefetch, setInstallProgress };
+
     function connect(): void {
       const ws = new WebSocket(getWsUrl());
       wsRef.current = ws;
@@ -275,39 +352,8 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
 
       ws.onmessage = (event: MessageEvent<string>) => {
         if (!mountedRef.current) return;
-        try {
-          // harness-ignore SEC-DES-001: client-side WebSocket consumer; trust boundary is the server, shape gated by typeof+`type` check below
-          const raw: unknown = JSON.parse(event.data);
-          if (typeof raw !== 'object' || raw === null || !('type' in raw)) return;
-          const msg = raw as WebSocketMessage;
-          if (msg.type === 'local-models:pool') {
-            scheduleRefetch(['pool', 'recommendations']);
-          } else if (msg.type === 'local-models:proposal') {
-            scheduleRefetch(['proposals', 'recommendations']);
-          } else if (msg.type === 'local-models:install') {
-            const ev = msg.data;
-            if (ev.phase === 'complete') {
-              // Pool now holds the model; drop the progress row and refetch so it
-              // renders as "installed" (the paired `local-models:pool` frame also
-              // schedules this — coalesced into one refetch).
-              dismissInstall(ev.hfRepoId);
-              scheduleRefetch(['pool', 'recommendations']);
-            } else {
-              // 'started' | 'progress' (byte updates) or 'error' (retained so the
-              // row can surface the failure until retried/dismissed).
-              const entry: InstallProgressState = {
-                phase: ev.phase,
-                ...(ev.completedBytes !== undefined ? { completedBytes: ev.completedBytes } : {}),
-                ...(ev.totalBytes !== undefined ? { totalBytes: ev.totalBytes } : {}),
-                ...(ev.message !== undefined ? { message: ev.message } : {}),
-                ...(ev.code !== undefined ? { code: ev.code } : {}),
-              };
-              setInstallProgress((prev) => ({ ...prev, [ev.hfRepoId]: entry }));
-            }
-          }
-        } catch {
-          // ignore malformed messages
-        }
+        const msg = parseWsMessage(event.data);
+        if (msg) routeWsMessage(msg, handlers);
       };
 
       ws.onclose = () => {
@@ -330,11 +376,7 @@ export function useLocalModelsPanel(): UseLocalModelsPanelResult {
     };
   }, [scheduleRefetch, dismissInstall]);
 
-  const allDisabled =
-    hardware.error === 'LMLM disabled' &&
-    pool.error === 'LMLM disabled' &&
-    recommendations.error === 'LMLM disabled' &&
-    proposals.error === 'LMLM disabled';
+  const allDisabled = computeAllDisabled(hardware, pool, recommendations, proposals);
 
   return {
     hardware,

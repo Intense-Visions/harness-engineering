@@ -4,9 +4,10 @@ import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
-import { useThreadStore } from '../stores/threadStore';
-import { Search, X, Loader2 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
+import { AttentionHeader } from '../components/attention/AttentionHeader';
+import { AttentionLoading, AttentionEmpty } from '../components/attention/AttentionStates';
+import { filterAndSortInteractions, findAttentionThreadId } from '../components/attention/helpers';
 import type {
   PendingInteraction,
   InteractionEnrichedSpec,
@@ -412,97 +413,23 @@ export function Attention() {
 
   const handleClaim = useCallback(
     (id: string) => {
-      // Find existing attention thread or create new one
-      const store = useThreadStore.getState();
-      let threadId: string | undefined;
-      for (const thread of store.threads.values()) {
-        if (
-          thread.type === 'attention' &&
-          'interactionId' in thread.meta &&
-          thread.meta.interactionId === id
-        ) {
-          threadId = thread.id;
-          break;
-        }
-      }
-      if (threadId) {
-        navigate(`/t/${threadId}`);
-      }
+      // Find existing attention thread; navigate to it if one exists.
+      const threadId = findAttentionThreadId(id);
+      if (threadId) navigate(`/t/${threadId}`);
     },
     [navigate]
   );
 
-  // Filter and sort interactions
-  const filtered = allInteractions.filter((i) => {
-    if (i.status === 'resolved') return false;
-    if (!searchQuery.trim()) return true;
-
-    const query = searchQuery.toLowerCase();
-    const matchesTitle = i.context.issueTitle?.toLowerCase().includes(query);
-    const matchesDescription = i.context.issueDescription?.toLowerCase().includes(query);
-    const matchesReasons = i.reasons.some((r) => r.toLowerCase().includes(query));
-    const matchesId = i.id.toLowerCase().includes(query) || i.issueId.toLowerCase().includes(query);
-
-    return matchesTitle || matchesDescription || matchesReasons || matchesId;
-  });
-
-  const visible = filtered.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const visible = filterAndSortInteractions(allInteractions, searchQuery);
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Needs Attention</h1>
-        <div className="relative w-full max-w-sm">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-4 w-4 text-gray-500" />
-          </div>
-          <input
-            type="text"
-            className="block w-full rounded-lg border border-gray-800 bg-gray-900 py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="Search escalations..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-300"
-              onClick={() => setSearchQuery('')}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
+      <AttentionHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-      {!loaded && (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex flex-col items-center gap-2 text-gray-500">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-sm">Loading interactions...</p>
-          </div>
-        </div>
-      )}
+      {!loaded && <AttentionLoading />}
 
       {loaded && visible.length === 0 && (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-800 bg-gray-900/20 p-12 text-center">
-          <div>
-            <p className="text-sm text-gray-500">
-              {searchQuery
-                ? 'No interactions match your search.'
-                : 'No interactions require attention.'}
-            </p>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="mt-2 text-xs font-semibold text-primary-500 hover:text-primary-400"
-              >
-                Clear search
-              </button>
-            )}
-          </div>
-        </div>
+        <AttentionEmpty searchQuery={searchQuery} onClearSearch={() => setSearchQuery('')} />
       )}
 
       {loaded && visible.length > 0 && (

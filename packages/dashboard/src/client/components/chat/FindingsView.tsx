@@ -30,47 +30,64 @@ function normalizeSeverity(s: unknown): Severity {
   return 'info';
 }
 
+/** String-valued optional fields copied verbatim when present on an item. */
+const FINDING_STRING_FIELDS = [
+  'file',
+  'ruleId',
+  'ruleName',
+  'category',
+  'message',
+  'match',
+  'context',
+] as const;
+
+/** Number-valued optional fields copied verbatim when present on an item. */
+const FINDING_NUMBER_FIELDS = ['line', 'column'] as const;
+
+/** Coerce one raw finding item into a normalized {@link Finding}, dropping mistyped fields. */
+function parseFinding(item: Record<string, unknown>): Finding {
+  const out: Finding = { severity: normalizeSeverity(item.severity) };
+  for (const key of FINDING_STRING_FIELDS) {
+    if (typeof item[key] === 'string') out[key] = item[key] as string;
+  }
+  for (const key of FINDING_NUMBER_FIELDS) {
+    if (typeof item[key] === 'number') out[key] = item[key] as number;
+  }
+  return out;
+}
+
+/** Strip a leading `<!-- packed: ... -->` envelope and JSON.parse from the first `{`. */
+function stripAndParse(raw: string): Record<string, unknown> | null {
+  const stripped = raw.replace(/^\s*<!--\s*packed:[^>]*-->\s*/, '').trim();
+  const start = stripped.indexOf('{');
+  if (start === -1) return null;
+  try {
+    return JSON.parse(stripped.slice(start)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Best-effort parse of a tool result with a findings list.
  * Strips a leading `<!-- packed: ... -->` envelope and tries JSON.parse.
  * Returns the payload only if a `findings` array of severity-tagged items is present.
  */
 export function parseFindingsResult(raw: string): FindingsPayload | null {
-  const stripped = raw.replace(/^\s*<!--\s*packed:[^>]*-->\s*/, '').trim();
-  const start = stripped.indexOf('{');
-  if (start === -1) return null;
-  try {
-    const parsed = JSON.parse(stripped.slice(start)) as Record<string, unknown>;
-    const findings = parsed.findings;
-    if (!Array.isArray(findings) || findings.length === 0) return null;
-    const first = findings[0] as Record<string, unknown>;
-    if (typeof first?.severity !== 'string') return null;
+  const parsed = stripAndParse(raw);
+  if (!parsed) return null;
+  const findings = parsed.findings;
+  if (!Array.isArray(findings) || findings.length === 0) return null;
+  const first = findings[0] as Record<string, unknown>;
+  if (typeof first?.severity !== 'string') return null;
 
-    const normalized: Finding[] = findings.map((f) => {
-      const item = f as Record<string, unknown>;
-      const out: Finding = {
-        severity: normalizeSeverity(item.severity),
-      };
-      if (typeof item.file === 'string') out.file = item.file;
-      if (typeof item.line === 'number') out.line = item.line;
-      if (typeof item.column === 'number') out.column = item.column;
-      if (typeof item.ruleId === 'string') out.ruleId = item.ruleId;
-      if (typeof item.ruleName === 'string') out.ruleName = item.ruleName;
-      if (typeof item.category === 'string') out.category = item.category;
-      if (typeof item.message === 'string') out.message = item.message;
-      if (typeof item.match === 'string') out.match = item.match;
-      if (typeof item.context === 'string') out.context = item.context;
-      return out;
-    });
+  const normalized: Finding[] = findings.map((f) => parseFinding(f as Record<string, unknown>));
 
-    const summary =
-      parsed.summary && typeof parsed.summary === 'object'
-        ? (parsed.summary as FindingsPayload['summary'])
-        : undefined;
-    return summary ? { findings: normalized, summary } : { findings: normalized };
-  } catch {
-    return null;
-  }
+  const summary =
+    parsed.summary && typeof parsed.summary === 'object'
+      ? (parsed.summary as FindingsPayload['summary'])
+      : undefined;
+  return summary ? { findings: normalized, summary } : { findings: normalized };
 }
 
 const SEVERITY_STYLES: Record<Severity, { pill: string; bar: string; text: string }> = {

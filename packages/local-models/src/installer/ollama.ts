@@ -496,31 +496,42 @@ export class OllamaInstallAdapter implements InstallAdapter {
       );
     }
     const meta = parseShowMeta(request.name, body);
-    let sizeOnDiskGb = meta.sizeOnDiskGb;
-    let digest = meta.digest;
-    let modifiedAt = meta.modifiedAt;
+    const resolved: ShowMeta & { sizeOnDiskGb: number } =
+      meta.sizeOnDiskGb === undefined
+        ? await this.resolveSizeFromTags(request, meta)
+        : { ...meta, sizeOnDiskGb: meta.sizeOnDiskGb };
 
-    // Modern Ollama `/api/show` omits the on-disk size; `/api/tags` reports it.
-    // Fall back there rather than failing the install (parse_failed).
-    if (sizeOnDiskGb === undefined) {
-      const listed = await this.list(request.signal ? { signal: request.signal } : {});
-      const match = listed.find((m) => m.ollamaName === request.name);
-      if (!match) {
-        throw new InstallError(
-          'parse_failed',
-          `ollama show omitted the size for ${request.name} and it is absent from /api/tags`,
-          { target: request.name }
-        );
-      }
-      sizeOnDiskGb = match.sizeOnDiskGb;
-      digest = digest ?? match.digest;
-      modifiedAt = modifiedAt ?? match.modifiedAt;
-    }
-
-    const info: RemoteModelInfo = { ollamaName: request.name, sizeOnDiskGb };
-    if (digest !== undefined) info.digest = digest;
-    if (modifiedAt !== undefined) info.modifiedAt = modifiedAt;
+    const info: RemoteModelInfo = { ollamaName: request.name, sizeOnDiskGb: resolved.sizeOnDiskGb };
+    if (resolved.digest !== undefined) info.digest = resolved.digest;
+    if (resolved.modifiedAt !== undefined) info.modifiedAt = resolved.modifiedAt;
     return info;
+  }
+
+  /**
+   * Modern Ollama `/api/show` omits the on-disk size; `/api/tags` reports it.
+   * Fall back there rather than failing the install (parse_failed). Returns a
+   * `ShowMeta` with `sizeOnDiskGb` populated, filling `digest` / `modifiedAt`
+   * from the tags row only where `/api/show` left them undefined.
+   */
+  private async resolveSizeFromTags(
+    request: InspectRequest,
+    meta: ShowMeta
+  ): Promise<ShowMeta & { sizeOnDiskGb: number }> {
+    const listed = await this.list(request.signal ? { signal: request.signal } : {});
+    const match = listed.find((m) => m.ollamaName === request.name);
+    if (!match) {
+      throw new InstallError(
+        'parse_failed',
+        `ollama show omitted the size for ${request.name} and it is absent from /api/tags`,
+        { target: request.name }
+      );
+    }
+    const resolved: ShowMeta & { sizeOnDiskGb: number } = { sizeOnDiskGb: match.sizeOnDiskGb };
+    const digest = meta.digest ?? match.digest;
+    const modifiedAt = meta.modifiedAt ?? match.modifiedAt;
+    if (digest !== undefined) resolved.digest = digest;
+    if (modifiedAt !== undefined) resolved.modifiedAt = modifiedAt;
+    return resolved;
   }
 
   /**

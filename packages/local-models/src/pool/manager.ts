@@ -164,7 +164,9 @@ export interface AllowCheckRequest {
   family?: string;
 }
 
-const ISO = (ms: number): string => new Date(ms).toISOString();
+function ISO(ms: number): string {
+  return new Date(ms).toISOString();
+}
 
 export class PoolManager {
   private readonly store: PoolStateStore;

@@ -64,6 +64,59 @@ function renderHuman(r: TraceResponse): void {
   }
 }
 
+interface TraceOptions {
+  skill?: string;
+  mode?: string;
+  complexity?: string;
+  risk?: string;
+  json?: boolean;
+}
+
+/** Maps a failed trace response to its user-facing error message. */
+function traceErrorMessage(r: { status: number; error?: string }): string {
+  if (r.status === 0) {
+    return `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`;
+  }
+  if (r.status === 503) {
+    return 'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)';
+  }
+  return `Trace failed (${r.status}): ${r.error ?? ''}`;
+}
+
+async function runTrace(opts: TraceOptions): Promise<void> {
+  const useCase = buildUseCase(opts);
+  if (!useCase) {
+    logger.error('Either --skill <name> or --mode <m> is required');
+    process.exit(ExitCode.ERROR);
+    return;
+  }
+  // Fail fast on bad enum values with a friendly, allowed-values error
+  // rather than a generic server 400.
+  const enumError =
+    validateEnum('--complexity', opts.complexity, COMPLEXITY_VALUES) ??
+    validateEnum('--risk', opts.risk, RISK_VALUES);
+  if (enumError) {
+    logger.error(enumError);
+    process.exit(ExitCode.ERROR);
+    return;
+  }
+  const r = await postJson<TraceResponse>('/api/v1/routing/trace', {
+    useCase,
+    ...(opts.complexity ? { complexity: opts.complexity } : {}),
+    ...(opts.risk ? { risk: opts.risk } : {}),
+  });
+  if (!r.ok) {
+    logger.error(traceErrorMessage(r));
+    process.exit(ExitCode.ERROR);
+    return;
+  }
+  if (opts.json) {
+    console.log(JSON.stringify(r.body, null, 2));
+    return;
+  }
+  if (r.body) renderHuman(r.body);
+}
+
 export function createTraceCommand(): Command {
   return new Command('trace')
     .description('Dry-run a routing decision without dispatching (Spec B F7)')
@@ -75,55 +128,5 @@ export function createTraceCommand(): Command {
     )
     .option('--risk <band>', 'Synthetic risk band (low|high) — dry-run only')
     .option('--json', 'Emit JSON to stdout instead of human-readable text')
-    .action(
-      async (opts: {
-        skill?: string;
-        mode?: string;
-        complexity?: string;
-        risk?: string;
-        json?: boolean;
-      }) => {
-        const useCase = buildUseCase(opts);
-        if (!useCase) {
-          logger.error('Either --skill <name> or --mode <m> is required');
-          process.exit(ExitCode.ERROR);
-          return;
-        }
-        // Fail fast on bad enum values with a friendly, allowed-values error
-        // rather than a generic server 400.
-        const enumError =
-          validateEnum('--complexity', opts.complexity, COMPLEXITY_VALUES) ??
-          validateEnum('--risk', opts.risk, RISK_VALUES);
-        if (enumError) {
-          logger.error(enumError);
-          process.exit(ExitCode.ERROR);
-          return;
-        }
-        const r = await postJson<TraceResponse>('/api/v1/routing/trace', {
-          useCase,
-          ...(opts.complexity ? { complexity: opts.complexity } : {}),
-          ...(opts.risk ? { risk: opts.risk } : {}),
-        });
-        if (!r.ok) {
-          if (r.status === 0) {
-            logger.error(
-              `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
-            );
-          } else if (r.status === 503) {
-            logger.error(
-              'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)'
-            );
-          } else {
-            logger.error(`Trace failed (${r.status}): ${r.error ?? ''}`);
-          }
-          process.exit(ExitCode.ERROR);
-          return;
-        }
-        if (opts.json) {
-          console.log(JSON.stringify(r.body, null, 2));
-          return;
-        }
-        if (r.body) renderHuman(r.body);
-      }
-    );
+    .action(runTrace);
 }

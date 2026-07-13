@@ -120,6 +120,89 @@ function buildStageUseCase(step: WorkflowExecutionPlan['stages'][number]): Routi
 }
 
 /**
+ * Materialize a real `AgentBackend` for `name`. The routed path yields a
+ * name-only backend (`{ name: decision.backendName }`); we force that name
+ * through the factory with an `invocationOverride`, exactly as the AMR dispatch
+ * swap does, so local/pi resolvers + container wrapping still apply. When the
+ * factory is absent (legacy-only config) the name-only backend is used as-is
+ * (there is nothing to materialize).
+ */
+function materializeBackend(
+  backendFactory: OrchestratorBackendFactory | null,
+  useCase: RoutingUseCase,
+  name: string
+): AgentBackend {
+  if (backendFactory === null) return { name } as AgentBackend;
+  return backendFactory.forUseCase(useCase, { invocationOverride: name });
+}
+
+/** Build the engine's `makeRunner` seam (extracted to keep the context builder flat). */
+function makeRunnerFactory(
+  backendFactory: OrchestratorBackendFactory | null,
+  maxTurns: number
+): WorkflowEngineContext['makeRunner'] {
+  return (backend: AgentBackend) => {
+    // The engine hands us either the identity backend (already real) or a
+    // name-only routed backend; re-materialize by name so the runner always
+    // drives a real, resolver/container-wrapped backend. A generic skill
+    // use-case is sufficient because the name override pins the target
+    // deterministically (the factory re-resolves the overridden name).
+    const real = materializeBackend(
+      backendFactory,
+      { kind: 'skill', skillName: 'workflow-stage' },
+      backend.name
+    );
+    const runner = new AgentRunner(real, { maxTurns });
+    return {
+      // The seam types `issue` as `unknown`; the real runner ignores its first
+      // arg. Return type is annotated so the TurnResult seam is self-documenting
+      // (carry-forward #9): runSession resolves to the runner's `TurnResult`.
+      runSession: (
+        _issue: unknown,
+        ws: string,
+        prompt: string
+      ): AsyncGenerator<AgentEvent, TurnResult, void> =>
+        runner.runSession(undefined as never, ws, prompt),
+    };
+  };
+}
+
+/** Build the engine's `resolveStageBackend` seam (identity fallback). */
+function resolveStageBackendFactory(
+  backendFactory: OrchestratorBackendFactory | null,
+  routingDefault: string | undefined
+): NonNullable<WorkflowEngineContext['resolveStageBackend']> {
+  return (step) => {
+    const useCase = buildStageUseCase(step);
+    if (backendFactory !== null) return backendFactory.forUseCase(useCase);
+    // Legacy fallback (no factory): a name-only backend from routing.default.
+    return { name: routingDefault ?? 'unknown' } as AgentBackend;
+  };
+}
+
+/** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */
+function renderStagePromptFactory(
+  promptRenderer: PromptRenderer,
+  issue: Issue
+): NonNullable<WorkflowEngineContext['renderStagePrompt']> {
+  return (step, index, priorOutputs) => {
+    const priorEntries = Object.entries(priorOutputs).map(([name, output]) => ({
+      name,
+      output,
+    }));
+    return promptRenderer.render(STAGE_PROMPT_TEMPLATE, {
+      stageNumber: index + 1,
+      identifier: issue.identifier,
+      title: issue.title,
+      description: issue.description ?? '',
+      skill: step.skill,
+      cognitiveMode: step.cognitiveMode ?? '',
+      priorEntries,
+    });
+  };
+}
+
+/**
  * split-routing Phase 4 — compose the REAL `WorkflowEngineContext` (minus the two
  * terminal seams, which Task 6 completes) from orchestrator machinery.
  *
@@ -148,29 +231,7 @@ function buildStageUseCase(step: WorkflowExecutionPlan['stages'][number]): Routi
  * lives in the orchestrator's private methods (Task 7) the callbacks bind to.
  */
 export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEngineContext {
-  const {
-    recorder,
-    logger,
-    issue,
-    workspacePath,
-    maxTurns,
-    backendFactory,
-    adaptiveRouter,
-    routingDefault,
-  } = deps;
-
-  /**
-   * Materialize a real `AgentBackend` for `name`. The routed path yields a
-   * name-only backend (`{ name: decision.backendName }`); we force that name
-   * through the factory with an `invocationOverride`, exactly as the AMR dispatch
-   * swap does, so local/pi resolvers + container wrapping still apply. When the
-   * factory is absent (legacy-only config) the name-only backend is used as-is
-   * (there is nothing to materialize).
-   */
-  const materialize = (useCase: RoutingUseCase, name: string): AgentBackend => {
-    if (backendFactory === null) return { name } as AgentBackend;
-    return backendFactory.forUseCase(useCase, { invocationOverride: name });
-  };
+  const { recorder, logger, issue, workspacePath, maxTurns, backendFactory, adaptiveRouter } = deps;
 
   // split-routing 4b: one pure renderer for all stages of this unit.
   const promptRenderer = new PromptRenderer();
@@ -184,51 +245,13 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     workspacePath,
     ...(deps.stageDeadlineMs !== undefined ? { stageDeadlineMs: deps.stageDeadlineMs } : {}),
 
-    makeRunner(backend: AgentBackend) {
-      // The engine hands us either the identity backend (already real) or a
-      // name-only routed backend; re-materialize by name so the runner always
-      // drives a real, resolver/container-wrapped backend. A generic skill
-      // use-case is sufficient because the name override pins the target
-      // deterministically (the factory re-resolves the overridden name).
-      const real = materialize({ kind: 'skill', skillName: 'workflow-stage' }, backend.name);
-      const runner = new AgentRunner(real, { maxTurns });
-      return {
-        // The seam types `issue` as `unknown`; the real runner ignores its first
-        // arg. Return type is annotated so the TurnResult seam is self-documenting
-        // (carry-forward #9): runSession resolves to the runner's `TurnResult`.
-        runSession: (
-          _issue: unknown,
-          ws: string,
-          prompt: string
-        ): AsyncGenerator<AgentEvent, TurnResult, void> =>
-          runner.runSession(undefined as never, ws, prompt),
-      };
-    },
+    makeRunner: makeRunnerFactory(backendFactory, maxTurns),
 
-    resolveStageBackend(step) {
-      const useCase = buildStageUseCase(step);
-      if (backendFactory !== null) return backendFactory.forUseCase(useCase);
-      // Legacy fallback (no factory): a name-only backend from routing.default.
-      return { name: routingDefault ?? 'unknown' } as AgentBackend;
-    },
+    resolveStageBackend: resolveStageBackendFactory(backendFactory, deps.routingDefault),
 
     // split-routing 4b: render the real per-stage prompt (issue + stage role +
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.
-    renderStagePrompt(step, index, priorOutputs): Promise<string> {
-      const priorEntries = Object.entries(priorOutputs).map(([name, output]) => ({
-        name,
-        output,
-      }));
-      return promptRenderer.render(STAGE_PROMPT_TEMPLATE, {
-        stageNumber: index + 1,
-        identifier: issue.identifier,
-        title: issue.title,
-        description: issue.description ?? '',
-        skill: step.skill,
-        cognitiveMode: step.cognitiveMode ?? '',
-        priorEntries,
-      });
-    },
+    renderStagePrompt: renderStagePromptFactory(promptRenderer, issue),
 
     // SC5 terminal seams — thin forwarders to the orchestrator's settle methods
     // (Task 7). The reducer-reproduction lives THERE (running/completed/claimed

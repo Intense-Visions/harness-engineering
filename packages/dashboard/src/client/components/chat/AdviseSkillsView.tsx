@@ -22,29 +22,38 @@ export interface AdviseSkillsPayload {
  * Strips a leading `<!-- packed: ... -->` envelope comment if present, then
  * attempts JSON.parse. Returns the payload only if it has the expected shape.
  */
-export function parseAdviseSkillsResult(raw: string): AdviseSkillsPayload | null {
+/** Strip a leading `<!-- packed: ... -->` envelope and JSON.parse from the first `{`. */
+function stripAndParse(raw: string): Record<string, unknown> | null {
   const stripped = raw.replace(/^\s*<!--\s*packed:[^>]*-->\s*/, '').trim();
   const start = stripped.indexOf('{');
   if (start === -1) return null;
   try {
-    const parsed = JSON.parse(stripped.slice(start)) as Record<string, unknown>;
-    if (typeof parsed.featureName !== 'string') return null;
-    const looksLikeMatches = (v: unknown): v is SkillMatch[] =>
-      Array.isArray(v) &&
-      (v.length === 0 ||
-        (typeof (v[0] as SkillMatch)?.skill === 'string' &&
-          typeof (v[0] as SkillMatch)?.score === 'number'));
-    if (
-      !looksLikeMatches(parsed.apply) &&
-      !looksLikeMatches(parsed.reference) &&
-      !looksLikeMatches(parsed.consider)
-    ) {
-      return null;
-    }
-    return parsed as unknown as AdviseSkillsPayload;
+    return JSON.parse(stripped.slice(start)) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/** True when `v` is a (possibly empty) array whose first item looks like a SkillMatch. */
+function looksLikeMatches(v: unknown): v is SkillMatch[] {
+  if (!Array.isArray(v)) return false;
+  if (v.length === 0) return true;
+  const first = v[0] as SkillMatch;
+  return typeof first?.skill === 'string' && typeof first?.score === 'number';
+}
+
+export function parseAdviseSkillsResult(raw: string): AdviseSkillsPayload | null {
+  const parsed = stripAndParse(raw);
+  if (!parsed) return null;
+  if (typeof parsed.featureName !== 'string') return null;
+  if (
+    !looksLikeMatches(parsed.apply) &&
+    !looksLikeMatches(parsed.reference) &&
+    !looksLikeMatches(parsed.consider)
+  ) {
+    return null;
+  }
+  return parsed as unknown as AdviseSkillsPayload;
 }
 
 function scoreColor(score: number): string {

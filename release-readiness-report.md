@@ -1,105 +1,86 @@
 # Release Readiness Report
 
-**Date:** 2026-05-26
-**Project:** harness-engineering
+**Date:** 2026-07-13
+**Project:** harness-engineering (11-package pnpm monorepo)
 **Flags:** standard
+**Branch:** `chore/release-readiness-complexity` (base `e1f016d13`)
 
 ## Summary
 
 **Result: PASS**
 
-| Category                   | Passed                | Warnings | Failures |
-| -------------------------- | --------------------- | -------- | -------- |
-| Packaging                  | 117/117               | 0        | 0        |
-| Documentation              | 6/6                   | 0        | 0        |
-| Repo Hygiene               | 5/5                   | 0        | 0        |
-| CI/CD                      | 6/6                   | 0        | 0        |
-| i18n                       | N/A                   | —        | —        |
-| Maintenance — Doc Drift    | clean                 | —        | —        |
-| Maintenance — Dead Code    | clean                 | —        | —        |
-| Maintenance — Architecture | 0 violations          | —        | —        |
-| Maintenance — Diagnostics  | 0 errors / 0 warnings | —        | —        |
+The release-specific audit passed on the base commit before any refactoring — the
+complexity work in this branch is proactive cleanup on **baselined code that never
+blocked release**.
 
-All release-critical signals are green: every publishable package has the required fields, build/typecheck/lint/tests/arch all pass clean.
+| Category                   | Passed | Warnings | Failures |
+| -------------------------- | ------ | -------- | -------- |
+| Packaging                  | 11/11  | 1        | 0        |
+| Documentation              | 6/6    | 0        | 0        |
+| Repo Hygiene               | 5/5    | 0        | 0        |
+| CI/CD                      | 6/6    | 0        | 0        |
+| Maintenance — Doc Drift    | clean  | —        | —        |
+| Maintenance — Dead Code    | clean  | —        | —        |
+| Maintenance — Architecture | clean  | —        | —        |
+| Maintenance — Diagnostics  | clean  | —        | —        |
 
 ## Packaging
 
-All 9 publishable packages have the required fields (`name`, `version`, `license`, `exports`/`main`, `files`, `publishConfig`, `repository`, `bugs`, `homepage`, `description`).
+All 11 packages are PUBLIC and fully-fielded (name, version, license, exports,
+files, publishConfig:public, repository, bugs, homepage, description). Build ✓,
+typecheck ✓ (20/20), tests ✓ (24/24 turbo tasks, ~9,000 tests).
 
-| Package                            | Version | Build | Typecheck | Tests         |
-| ---------------------------------- | ------- | ----- | --------- | ------------- |
-| @harness-engineering/types         | 0.14.0  | ✓     | ✓         | 46 pass       |
-| @harness-engineering/graph         | 0.9.0   | ✓     | ✓         | 873 pass      |
-| @harness-engineering/core          | 0.28.0  | ✓     | ✓         | 2863 / 1 skip |
-| @harness-engineering/intelligence  | 0.2.5   | ✓     | ✓         | 220 pass      |
-| @harness-engineering/eslint-plugin | 0.3.1   | ✓     | ✓         | 180 pass      |
-| @harness-engineering/linter-gen    | 0.1.7   | ✓     | ✓         | 37 pass       |
-| @harness-engineering/orchestrator  | 0.6.1   | ✓     | ✓         | 1391 / 1 skip |
-| @harness-engineering/dashboard     | 0.7.1   | ✓     | ✓         | 413 pass      |
-| @harness-engineering/cli           | 2.6.2   | ✓     | ✓         | 3634 pass     |
+- ⚠️ `@harness-engineering/dashboard` has no `main` field — intentional (`exports`
+  defined; bundle split via manualChunks). Informational only.
 
-**Full test totals after fixes:** 33,977 tests pass (3 skipped). Architecture check: 0 violations.
+## Documentation / Repo Hygiene / CI/CD
 
-## Documentation
-
-- [x] README.md (401 lines) with install + usage sections
-- [x] CHANGELOG.md (433 lines)
-- [x] LICENSE (MIT)
-- [x] Auto-generated reference docs regenerated and current (mcp-tools.md, cli-commands.md, skills-catalog.md)
-
-## Repo Hygiene
-
-- [x] CONTRIBUTING.md
-- [x] CODE_OF_CONDUCT.md
-- [x] SECURITY.md
-- [x] .gitignore covers `node_modules/`, `dist/`, `.env*`
-- [x] No plaintext secrets in published source (test-fixture matches under `tests/` are excluded by each package's `files: ["dist", ...]` glob)
-
-## CI/CD
-
-- [x] CI workflow: `.github/workflows/ci.yml`
-- [x] Release workflow: `.github/workflows/release.yml`
-- [x] Additional workflows: benchmark, docker, smoke-test, snapshot, harness, openapi-drift-check
-- [x] root `package.json` has `test`, `lint`, `typecheck` scripts
-- [x] `assess_project` perf BigInt serialization bug — **fixed**. `JSON.stringify` of perf results now uses a `bigIntSafeReplacer` that converts BigInt values to strings. Lands in `packages/cli/src/mcp/utils/result-adapter.ts` and `packages/cli/src/mcp/tools/assess-project.ts`. (Currently-running MCP server is the pre-fix process; new sessions pick up the fix.)
+- README, CHANGELOG, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY all present.
+- `.gitignore` covers node_modules / dist / .env.
+- 11 workflows incl. `ci.yml` + `release.yml`; test/lint/typecheck scripts present.
+- `assess_project` healthy on `main` (validate, deps, docs, lint, perf, security,
+  entropy).
+- i18n: N/A (not configured).
 
 ## Maintenance Results
 
-### Doc Drift
+- **Doc Drift** — `check-docs` 95% coverage, valid. Bulk drift (36.8K) is regex
+  over-match FP. A handful of stale env-var/config references in `docs/roadmap.md`
+  flagged for the roadmap owner (left untouched — concurrent-session territory).
+- **Dead Code** — effectively clean; the ~2K raw report is near-total FP from
+  graph-resolution gaps (barrel re-exports, Zod composition, type-only edges).
+- **Architecture** — `check-arch` **passes**; layer boundaries, circular deps, and
+  forbidden imports all clean.
+- **Diagnostics** — complexity is the only real signal (all baselined; see below).
 
-- Auto-generated `docs/reference/mcp-tools.md`, `cli-commands.md`, `skills-catalog.md` regenerated — no diff (already in sync)
-- Remaining "drift" findings from `harness cleanup --type drift` were false positives: regex over-matching on filenames (`harness.config.json`) and concept names (`exactOptionalPropertyTypes`, `TOOL_DEFINITIONS.length`) that are mentioned in docs/roadmap but aren't code symbols
-- Documentation coverage is 79% (297 undocumented files, concentrated in `packages/cli`, `dashboard`, `orchestrator`, `core`); informational, not blocking
+## Complexity Cleanup (this branch)
 
-### Dead Code
+Reduced cyclomatic complexity across 25 files via behavior-preserving extraction:
 
-- `extractTitlePrefix`, `triageIssue` in `packages/orchestrator/src/core/triage-router.ts` — **verified used in production** (`use-case-builder.ts:35` calls `triageIssue`; `extractTitlePrefix` is the internal fallback at `triage-router.ts:103` and has direct unit tests). False positive from the detector's import graph.
-- Bulk of the 6,834 dead-code findings remain noise (in-file test helpers, framework template exports). Recommend tightening the detector config rather than mass-cleanup.
+- **3 NEW regressions fixed** (the only would-be gate blockers): `buildWorkflowContext`
+  14→3, `fakeCtx` nesting 5→3, `flush` block extracted.
+- **18 baselined architecture complexity violations resolved; 0 new violations.**
+- Top-level functions >15: **31 → 8**; the remaining 8 are regex-detector
+  brace-attribution artifacts (e.g. `stripAndParse` reported cc-90 on an 8-line
+  function — same class as `ISO`=71, which was a braceless-arrow artifact),
+  baseline-neutral.
+- Security-sensitive `sentinel-post`/`sentinel-pre` hooks: all 10 detection rules
+  verified **byte-identical** (diffed vs HEAD).
+- `generate-docs.mjs`: output confirmed **byte-identical** after refactor.
+- An over-aggressive first pass relocated complexity into extracted hooks (creating
+  6 self-inflicted violations); a follow-up pass fixed them same-file
+  (`useAnalyze` 33→1, `useMaintenanceData` 26→4, etc.).
 
-### Architecture
-
-- **Fixed**: 6 self-cycle violations in `packages/cli/src/*-craft/catalog/rubrics/index.ts`. The root cause was each rubric file importing `import type { XxxRubric } from './index.js'` while `index.ts` imported rubric values from each file — a type-only circular import that the dependency checker flagged.
-- Fix: extracted each rubric type interface to a sibling `types.ts` (and moved `rubricApplies` alongside where it existed). Rubric files now import from `./types.js`; `index.ts` re-exports the type. Same pattern applied to copy-craft, knowledge-craft, naming-craft, security-craft, spec-craft, test-craft.
-- Post-fix: `harness check-deps` reports validation passed (0 violations).
-
-### Diagnostics
-
-- Build health: typecheck (16/16), lint (9/9), tests (20/20) all clean
-- 0 errors, 0 warnings
-- `pnpm.overrides` warning — **fixed**. Migrated `autoInstallPeers`, `strictPeerDependencies`, and the `overrides` block from `package.json` to `pnpm-workspace.yaml` (per pnpm 10 deprecation). Moved `auditExceptions` to a top-level `package.json` field (no tool consumes it; kept for project-internal notes).
-- Dashboard client bundle — **fixed**. Was 1,505 kB single chunk. Added `manualChunks` to `packages/dashboard/vite.config.ts` splitting react, react-router, framer-motion, react-virtuoso, syntax-highlighter, and other vendor code into separate chunks. New sizes: index 334 kB, vendor 285 kB, react 143 kB, syntax-highlighter 616 kB (Prism + grammars; inherent cost), others <60 kB each. Raised `chunkSizeWarningLimit` to 700 KB so syntax-highlighter doesn't false-trip but legitimate growth elsewhere still warns. Initial gzipped load is materially smaller because chunks parallel-download and cache independently.
+**Validation:** build ✓, typecheck ✓, lint ✓, ~9,000 tests ✓, `check-arch` passes
+(0 new violations, 0 regressions after baseline update for the intentional
+module-size +1272B / dependency-depth +18 growth from decomposition).
 
 ## Fixes Applied
 
-1. **Rebuilt `better-sqlite3` native module** — unblocked 14 previously-failing tests in `packages/cli`. Now 3634/3634 cli tests pass.
-2. **Broke 6 rubric-catalog circular type imports** — added `types.ts` to each `*-craft/catalog/rubrics/` directory and repointed 45 rubric files (across the 6 craft directories) from `./index.js` to `./types.js`. Type-only cycles cleared.
-3. **Migrated `pnpm.overrides` to pnpm-workspace.yaml** — eliminates the `pnpm 10+` deprecation warning that printed on every install/run.
-4. **Fixed `assess_project` perf BigInt serialization** — added `bigIntSafeReplacer` to MCP `JSON.stringify` calls in `result-adapter.ts` and `assess-project.ts`. The perf check no longer returns `Error: Do not know how to serialize a BigInt`.
-5. **Split dashboard client bundle** — added rollup `manualChunks` to `vite.config.ts`; primary chunk dropped from 1,505 KB to 334 KB. No chunk-size warnings.
-6. **Regenerated reference docs** — ran `pnpm run generate-docs`; auto-generated reference pages already in sync.
+See `.harness/release-readiness.json` → `fixes.applied` for the full list.
 
-## Remaining Items (informational, not release-blocking)
+## Remaining Items
 
-- [ ] Documentation coverage at 79% (297 undocumented files) — large effort, mostly in `packages/cli`, `dashboard`, `orchestrator`, `core`
-- [ ] The harness dead-code detector emits ~6,000 false positives for in-file test helpers — config tightening would silence the noise (preferable to a mass cleanup)
-- [ ] Syntax-highlighter chunk is 616 KB on its own (Prism + every language grammar). Could be trimmed by switching to `react-syntax-highlighter/dist/esm/light` and registering only the languages the dashboard renders. Pure optimization, not a release issue.
+- [ ] `stripAndParse` ×3 detector artifacts — baseline-neutral; needs a fix to the
+      complexity detector's brace-attribution, not the code.
+- [ ] `docs/roadmap.md` stale env-var/config references — for the roadmap owner.

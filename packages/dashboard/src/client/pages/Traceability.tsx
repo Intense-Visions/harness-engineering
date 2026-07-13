@@ -85,6 +85,36 @@ function coverageAccent(pct: number): 'green' | 'yellow' | 'red' {
   return 'red';
 }
 
+const ACCENT_TEXT_CLASS: Record<'green' | 'yellow' | 'red', string> = {
+  green: 'text-emerald-400',
+  yellow: 'text-yellow-400',
+  red: 'text-red-400',
+};
+
+const ACCENT_BAR_CLASS: Record<'green' | 'yellow' | 'red', string> = {
+  green: 'bg-emerald-500',
+  yellow: 'bg-yellow-500',
+  red: 'bg-red-500',
+};
+
+interface DerivedCounts {
+  coveredCount: number;
+  partialCount: number;
+  uncoveredCount: number;
+}
+
+function deriveCounts(snapshot: TraceabilitySnapshot | null): DerivedCounts {
+  if (!snapshot) return { coveredCount: 0, partialCount: 0, uncoveredCount: 0 };
+  const coveredCount = snapshot.totals.fullyTraced;
+  // partial = (withCode - fullyTraced) + (withTests - fullyTraced)
+  // which simplifies to withCode + withTests - 2*fullyTraced
+  // but we need to clamp since code-only and test-only don't overlap with fullyTraced
+  const partialCount =
+    snapshot.totals.withCode + snapshot.totals.withTests - 2 * snapshot.totals.fullyTraced;
+  const uncoveredCount = snapshot.totals.untraceable;
+  return { coveredCount, partialCount, uncoveredCount };
+}
+
 // --- Sub-components ---
 
 const RequirementRow = memo(function RequirementRow({ req }: { req: TraceabilityRequirement }) {
@@ -160,6 +190,81 @@ function RequirementsTable({ requirements }: { requirements: TraceabilityRequire
   );
 }
 
+function CoverageSummary({
+  snapshot,
+  counts,
+}: {
+  snapshot: TraceabilitySnapshot;
+  counts: DerivedCounts;
+}) {
+  const { coveredCount, partialCount, uncoveredCount } = counts;
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        Coverage Summary
+      </h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <KpiCard label="Total Requirements" value={snapshot.totals.total} />
+        <KpiCard
+          label="Covered"
+          value={coveredCount}
+          accent="green"
+          sub={`${snapshot.overallCoverage}% coverage`}
+        />
+        <KpiCard
+          label="Partial"
+          value={
+            partialCount > 0 ? partialCount : snapshot.totals.total - coveredCount - uncoveredCount
+          }
+          accent="yellow"
+        />
+        <KpiCard
+          label="Uncovered"
+          value={uncoveredCount}
+          accent={uncoveredCount > 0 ? 'red' : 'green'}
+        />
+      </div>
+    </section>
+  );
+}
+
+function OverallCoverageBar({ coverage }: { coverage: number }) {
+  const accent = coverageAccent(coverage);
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        Overall Coverage
+      </h2>
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-gray-400">Fully traced</span>
+          <span className={`text-sm font-bold ${ACCENT_TEXT_CLASS[accent]}`}>{coverage}%</span>
+        </div>
+        <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${ACCENT_BAR_CLASS[accent]}`}
+            style={{ width: `${coverage}%` }}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EmptyTraceabilityState() {
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">
+      <p className="text-sm text-gray-400">
+        No traceability data available. Run{' '}
+        <code className="rounded bg-gray-800 px-1.5 py-0.5 text-xs font-mono text-gray-300">
+          harness scan
+        </code>{' '}
+        to build the knowledge graph with requirement nodes from spec files.
+      </p>
+    </div>
+  );
+}
+
 // --- Data fetching ---
 
 async function fetchTraceability(): Promise<TraceabilitySnapshot | null> {
@@ -197,14 +302,7 @@ export function Traceability() {
     void load();
   }, [load]);
 
-  const coveredCount = snapshot ? snapshot.totals.fullyTraced : 0;
-  const partialCount = snapshot
-    ? snapshot.totals.withCode + snapshot.totals.withTests - 2 * snapshot.totals.fullyTraced
-    : 0;
-  // partial = (withCode - fullyTraced) + (withTests - fullyTraced)
-  // which simplifies to withCode + withTests - 2*fullyTraced
-  // but we need to clamp since code-only and test-only don't overlap with fullyTraced
-  const uncoveredCount = snapshot ? snapshot.totals.untraceable : 0;
+  const counts = deriveCounts(snapshot);
 
   return (
     <div>
@@ -221,77 +319,12 @@ export function Traceability() {
         <p className="text-sm text-gray-500">Loading traceability data...</p>
       )}
       {error && <p className="text-sm text-red-400">{error}</p>}
-      {empty && !loading && (
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">
-          <p className="text-sm text-gray-400">
-            No traceability data available. Run{' '}
-            <code className="rounded bg-gray-800 px-1.5 py-0.5 text-xs font-mono text-gray-300">
-              harness scan
-            </code>{' '}
-            to build the knowledge graph with requirement nodes from spec files.
-          </p>
-        </div>
-      )}
+      {empty && !loading && <EmptyTraceabilityState />}
 
       {snapshot && (
         <div className="space-y-8">
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Coverage Summary
-            </h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <KpiCard label="Total Requirements" value={snapshot.totals.total} />
-              <KpiCard
-                label="Covered"
-                value={coveredCount}
-                accent="green"
-                sub={`${snapshot.overallCoverage}% coverage`}
-              />
-              <KpiCard
-                label="Partial"
-                value={
-                  partialCount > 0
-                    ? partialCount
-                    : snapshot.totals.total - coveredCount - uncoveredCount
-                }
-                accent="yellow"
-              />
-              <KpiCard
-                label="Uncovered"
-                value={uncoveredCount}
-                accent={uncoveredCount > 0 ? 'red' : 'green'}
-              />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Overall Coverage
-            </h2>
-            <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-400">Fully traced</span>
-                <span
-                  className={`text-sm font-bold ${coverageAccent(snapshot.overallCoverage) === 'green' ? 'text-emerald-400' : coverageAccent(snapshot.overallCoverage) === 'yellow' ? 'text-yellow-400' : 'text-red-400'}`}
-                >
-                  {snapshot.overallCoverage}%
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    coverageAccent(snapshot.overallCoverage) === 'green'
-                      ? 'bg-emerald-500'
-                      : coverageAccent(snapshot.overallCoverage) === 'yellow'
-                        ? 'bg-yellow-500'
-                        : 'bg-red-500'
-                  }`}
-                  style={{ width: `${snapshot.overallCoverage}%` }}
-                />
-              </div>
-            </div>
-          </section>
-
+          <CoverageSummary snapshot={snapshot} counts={counts} />
+          <OverallCoverageBar coverage={snapshot.overallCoverage} />
           <section>
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
               Requirements

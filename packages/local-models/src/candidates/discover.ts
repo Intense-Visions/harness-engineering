@@ -77,40 +77,61 @@ export async function discoverCandidates(
 
   for (const org of opts.orgs) {
     if (opts.signal?.aborted) break;
-    let models;
-    try {
-      models = await client.listModels({ author: org, search: 'gguf', sort: 'downloads', limit });
-    } catch (err) {
-      warn(`HF list failed for ${org}: ${messageOf(err)}`, err);
-      continue;
-    }
-    for (const model of models) {
-      if (opts.signal?.aborted) break;
-      if (!model.tags?.includes('gguf')) continue;
-      let detail;
-      try {
-        detail = await client.getModel(model.id, opts.signal);
-      } catch (err) {
-        warn(`HF getModel failed for ${model.id}: ${messageOf(err)}`, err);
-        continue;
-      }
-      for (const parsed of parseHfModelToCandidates(detail)) {
-        const tags = opts.curation.get(parsed.hfRepoId);
-        if (!tags) continue; // no curated ollamaName → not installable → drop (decision A)
-        const candidate: FrozenCandidate = {
-          hfRepoId: parsed.hfRepoId,
-          sizeB: parsed.sizeB,
-          quant: parsed.quant,
-          ollamaName: tags.ollamaName,
-          ...(tags.family ? { family: tags.family } : {}),
-          ...(parsed.activeB !== undefined ? { activeB: parsed.activeB } : {}),
-        };
-        collected.set(`${candidate.hfRepoId}||${candidate.quant}`, candidate);
-      }
-    }
+    await discoverOrg(org, { client, limit, opts, warn, collected });
   }
 
   return { candidates: [...collected.values()], warnings };
+}
+
+/** Per-org context shared by the org / model discovery helpers. */
+interface DiscoverContext {
+  client: Pick<HuggingFaceClient, 'listModels' | 'getModel'>;
+  limit: number;
+  opts: DiscoverCandidatesOptions;
+  warn: (message: string, cause?: unknown) => void;
+  collected: Map<string, FrozenCandidate>;
+}
+
+/** List one org's popular GGUF repos and fold each into `collected`. Fail-soft. */
+async function discoverOrg(org: string, ctx: DiscoverContext): Promise<void> {
+  const { client, limit, opts, warn } = ctx;
+  let models;
+  try {
+    models = await client.listModels({ author: org, search: 'gguf', sort: 'downloads', limit });
+  } catch (err) {
+    warn(`HF list failed for ${org}: ${messageOf(err)}`, err);
+    return;
+  }
+  for (const model of models) {
+    if (opts.signal?.aborted) break;
+    if (!model.tags?.includes('gguf')) continue;
+    await discoverModel(model.id, ctx);
+  }
+}
+
+/** Fetch one repo's detail, parse it into per-quant candidates, and collect the installable ones. */
+async function discoverModel(modelId: string, ctx: DiscoverContext): Promise<void> {
+  const { client, opts, warn, collected } = ctx;
+  let detail;
+  try {
+    detail = await client.getModel(modelId, opts.signal);
+  } catch (err) {
+    warn(`HF getModel failed for ${modelId}: ${messageOf(err)}`, err);
+    return;
+  }
+  for (const parsed of parseHfModelToCandidates(detail)) {
+    const tags = opts.curation.get(parsed.hfRepoId);
+    if (!tags) continue; // no curated ollamaName → not installable → drop (decision A)
+    const candidate: FrozenCandidate = {
+      hfRepoId: parsed.hfRepoId,
+      sizeB: parsed.sizeB,
+      quant: parsed.quant,
+      ollamaName: tags.ollamaName,
+      ...(tags.family ? { family: tags.family } : {}),
+      ...(parsed.activeB !== undefined ? { activeB: parsed.activeB } : {}),
+    };
+    collected.set(`${candidate.hfRepoId}||${candidate.quant}`, candidate);
+  }
 }
 
 function messageOf(err: unknown): string {

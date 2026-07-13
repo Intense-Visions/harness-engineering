@@ -2,6 +2,29 @@ import { useState } from 'react';
 import type { RoutingUseCase } from '@harness-engineering/types';
 import type { RoutingTraceResponse } from '../../types/routing';
 
+type ResolutionStep = RoutingTraceResponse['decision']['resolutionPath'][number];
+
+/** Tailwind color for a resolution step's outcome badge. */
+function outcomeClass(outcome: ResolutionStep['outcome']): string {
+  if (outcome === 'chosen') return 'text-emerald-300';
+  if (outcome === 'unknown-backend') return 'text-rose-400';
+  return 'text-neutral-muted';
+}
+
+/** One `<li>` in the resolution path list. */
+function ResolutionStepItem({ step }: { step: ResolutionStep }): JSX.Element {
+  return (
+    <li>
+      <span className="text-neutral-muted">{step.source}</span>
+      {' → '}
+      <span>{step.candidate}</span>
+      {' ('}
+      <span className={outcomeClass(step.outcome)}>{step.outcome}</span>
+      {')'}
+    </li>
+  );
+}
+
 /**
  * Spec B Phase 7 — RoutingTraceCard. Plain-input dry-run form
  * (D-OP-6) for POST /api/v1/routing/trace. Builds a UseCase matching
@@ -128,24 +151,7 @@ export function RoutingTraceCard(): JSX.Element {
             className="ml-4 list-decimal text-[11px] font-mono"
           >
             {result.decision.resolutionPath.map((step, i) => (
-              <li key={i}>
-                <span className="text-neutral-muted">{step.source}</span>
-                {' → '}
-                <span>{step.candidate}</span>
-                {' ('}
-                <span
-                  className={
-                    step.outcome === 'chosen'
-                      ? 'text-emerald-300'
-                      : step.outcome === 'unknown-backend'
-                        ? 'text-rose-400'
-                        : 'text-neutral-muted'
-                  }
-                >
-                  {step.outcome}
-                </span>
-                {')'}
-              </li>
+              <ResolutionStepItem key={i} step={step} />
             ))}
           </ol>
         </div>
