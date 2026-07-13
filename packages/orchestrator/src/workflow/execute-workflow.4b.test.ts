@@ -222,4 +222,85 @@ describe('executeWorkflow — stage N output threads to stage N+1 (D4)', () => {
     // stage 2 sees stage 1's output under stage 1's `produces` label.
     expect(renderCalls[1]!.priorOutputs).toEqual({ code: 'output-0' });
   });
+
+  it('`expects` NARROWS the threaded channel to just the named prior artifact', async () => {
+    const renderCalls: { index: number; priorOutputs: Record<string, string> }[] = [];
+    let stageIx = 0;
+    const ctx: WorkflowEngineContext = {
+      ...fakeCtx({}),
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, _p: string) {
+          const ix = stageIx++;
+          yield {
+            type: 'result',
+            content: `output-${ix}`,
+            timestamp: 't',
+          } as unknown as AgentEvent;
+          return {
+            sessionId: `sess-${ix}`,
+            success: true,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      }),
+      renderStagePrompt: (_step, index, priorOutputs) => {
+        renderCalls.push({ index, priorOutputs: { ...priorOutputs } });
+        return `prompt-${index}`;
+      },
+    };
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [
+        step({ skill: 'spec', produces: 'spec' }),
+        step({ skill: 'implement', produces: 'code' }),
+        // Stage 3 expects only `spec` — it must NOT also receive `code`.
+        step({ skill: 'review', produces: 'review', expects: 'spec' }),
+      ],
+    };
+    await executeWorkflow(ctx, plan);
+
+    expect(renderCalls).toHaveLength(3);
+    expect(renderCalls[1]!.priorOutputs).toEqual({ spec: 'output-0' }); // no `expects` ⇒ all priors (only spec so far)
+    // Stage 3 declared `expects: spec`, so `code` is filtered OUT.
+    expect(renderCalls[2]!.priorOutputs).toEqual({ spec: 'output-0' });
+  });
+
+  it('an `expects` whose producer emitted no output threads nothing (empty map, not a crash)', async () => {
+    const renderCalls: { index: number; priorOutputs: Record<string, string> }[] = [];
+    let stageIx = 0;
+    const ctx: WorkflowEngineContext = {
+      ...fakeCtx({}),
+      makeRunner: () => ({
+        async *runSession(_i: unknown, _ws: string, _p: string) {
+          const ix = stageIx++;
+          // Stage 1 emits NO result event ⇒ no captured output for `spec`.
+          if (ix > 0) {
+            yield {
+              type: 'result',
+              content: `output-${ix}`,
+              timestamp: 't',
+            } as unknown as AgentEvent;
+          }
+          return {
+            sessionId: `sess-${ix}`,
+            success: true,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      }),
+      renderStagePrompt: (_step, index, priorOutputs) => {
+        renderCalls.push({ index, priorOutputs: { ...priorOutputs } });
+        return `prompt-${index}`;
+      },
+    };
+    const plan: WorkflowExecutionPlan = {
+      coherenceUnit: 'issue-1',
+      stages: [
+        step({ skill: 'spec', produces: 'spec' }),
+        step({ skill: 'review', produces: 'review', expects: 'spec' }),
+      ],
+    };
+    await executeWorkflow(ctx, plan);
+    expect(renderCalls[1]!.priorOutputs).toEqual({}); // spec produced nothing ⇒ nothing threaded
+  });
 });

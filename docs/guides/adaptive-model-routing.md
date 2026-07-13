@@ -143,6 +143,15 @@ identity/default chain. Each stage renders a real prompt from the work item, its
 role, and the prior stages' outputs (threaded by `produces`). Absent a matching
 ≥2-stage workflow, dispatch is byte-identical to single-agent.
 
+**`expects` (optional) narrows the thread.** By default every prior stage's output
+is threaded into a stage's prompt. Declaring `expects: <label>` on a stage threads
+**only** that one upstream artifact — the operator states exactly which output the
+stage consumes, keeping prompts lean and shrinking the injection surface. The label
+must be a `produces` from an **earlier** stage (validated at config-load — a typo
+or forward/self reference is rejected). Omit `expects` for the all-priors default.
+(All stages share one worktree, so the _files_ a stage writes are already on disk
+for later stages regardless; `expects` governs the prompt-text channel.)
+
 ## Observability
 
 The `harness routing` command group inspects a running orchestrator (set
