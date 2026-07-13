@@ -62,6 +62,13 @@ export interface StageRun {
   decision?: RoutingDecision;
   /** split-routing Phase 2: the derived required tier (== decision.tierRequired). */
   tier?: CapabilityTier;
+  /**
+   * split-routing 4b: this stage's final assistant message (the runner's last
+   * `result` event content). Threaded into later stages' prompts via `produces`
+   * → `priorOutputs` (D4 text-artifact threading). Absent if the stage aborted /
+   * produced no result event.
+   */
+  output?: string;
 }
 
 /**

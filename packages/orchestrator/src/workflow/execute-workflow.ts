@@ -70,6 +70,23 @@ export interface WorkflowEngineContext {
   /** Phase 1 stub: resolve the single backend for a stage (Phase 2 replaces with route()). */
   resolveStageBackend(step: WorkflowExecutionPlan['stages'][number]): AgentBackend;
   /**
+   * split-routing 4b: render the REAL per-stage prompt (issue + stage role +
+   * prior-stage outputs), replacing the Phase-1 bare skill-name stub. Bound by
+   * `buildWorkflowContext` via a `PromptRenderer` (never imports orchestrator).
+   * `priorOutputs` maps each prior stage's `produces` label → its captured output.
+   * Optional so fake contexts that don't exercise prompt content fall back to the
+   * skill name (byte-identical to the old stub).
+   *
+   * CONTRACT: must be non-blocking (CPU-bound). It runs BEFORE the per-stage
+   * deadline timer is armed, so an I/O-bound renderer that hangs would stall the
+   * stage with no wall-clock bound. The shipped renderer is synchronous LiquidJS.
+   */
+  renderStagePrompt?(
+    step: WorkflowExecutionPlan['stages'][number],
+    index: number,
+    priorOutputs: Record<string, string>
+  ): string | Promise<string>;
+  /**
    * split-routing Phase 2: per-stage adaptive router. Present ⇒ each stage is
    * routed via `route(buildStageRequest(...))`; ABSENT ⇒ identity fallback via
    * `resolveStageBackend` (no `routing.policy`). Narrow surface only (route +
@@ -171,7 +188,7 @@ export async function runStageSession(
   attempt: number,
   step: WorkflowExecutionPlan['stages'][number],
   backend: AgentBackend,
-  _priorOutputs: Record<string, unknown>
+  priorOutputs: Record<string, string>
 ): Promise<StageRun> {
   const key = stageAttemptKey(index, attempt);
   const abort = new AbortController(); // C1: per-stage abort, NOT ctx-level abortControllers
@@ -179,6 +196,10 @@ export async function runStageSession(
   let input = 0;
   let output = 0;
   let total = 0;
+  // split-routing 4b: capture the stage's final assistant message (the last
+  // `result` event's content) so it can thread to later stages. Mirrors the
+  // single-agent lastMessage extraction (core/state-machine.ts result branch).
+  let stageOutput: string | undefined;
 
   ctx.recorder.startRecording(
     ctx.issueId,
@@ -190,8 +211,13 @@ export async function runStageSession(
   );
 
   const runner = ctx.makeRunner(backend);
-  // Phase 1: prompt is a stub derived from the step; Phase 2/4 render real per-stage prompts.
-  const gen = runner.runSession(undefined, ctx.workspacePath, step.skill);
+  // split-routing 4b: render the REAL per-stage prompt (issue + stage role + prior
+  // outputs) when the context provides a renderer; fall back to the bare skill
+  // name only when it does not (fake contexts) — byte-identical to the old stub.
+  const prompt = ctx.renderStagePrompt
+    ? await ctx.renderStagePrompt(step, index, priorOutputs)
+    : step.skill;
+  const gen = runner.runSession(undefined, ctx.workspacePath, prompt);
 
   // D12 (SC7): arm a per-stage wall-clock deadline that fires `abort` if the stage
   // runs too long. A pending `abort` is resolved through `abortWaiter` so the drain
@@ -238,6 +264,14 @@ export async function runStageSession(
         output += ev.usage.outputTokens;
         total += ev.usage.totalTokens;
       }
+      // split-routing 4b: harvest the final assistant text from the `result`
+      // event (last one wins). `resultEventText` never throws on the `unknown`
+      // content shape, so a malformed/non-serializable result cannot turn a stage
+      // into a terminal error — it just threads nothing.
+      if (ev.type === 'result') {
+        const captured = resultEventText(ev.content);
+        if (captured !== undefined) stageOutput = captured;
+      }
       // C1: if this stage's abort fired between events, stop draining and run the
       // runner's finally via gen.return() (same cleanup as the deadline path).
       if (abort.signal.aborted) {
@@ -275,6 +309,9 @@ export async function runStageSession(
   // the issue-level session. Omitted (not `undefined`) if the stage aborted
   // before returning — exactOptionalPropertyTypes forbids an explicit undefined.
   if (ret) run.sessionId = ret.sessionId;
+  // split-routing 4b: attach the captured final message so later stages can
+  // thread it (omitted, not explicit-undefined, per exactOptionalPropertyTypes).
+  if (stageOutput !== undefined) run.output = stageOutput;
   return run;
 }
 
@@ -429,7 +466,41 @@ export async function executeWorkflow(
   }
 }
 
-function priorOutputs(_runs: StageRun[]): Record<string, unknown> {
-  // Phase 1 stub; Phase 2/D4 threads produces→expects across the shared worktree.
-  return {};
+/**
+ * split-routing 4b: extract a stage's final assistant text from a `result`
+ * event's `content` (typed `unknown`). Mirrors the single-agent lastMessage
+ * shape (core/state-machine.ts): a raw string, or a `{ result: string }`, else a
+ * JSON stringification. NEVER throws — a circular/non-serializable payload yields
+ * `undefined` (thread nothing) rather than propagating out of the stage and
+ * turning it into a terminal error.
+ */
+function resultEventText(content: unknown): string | undefined {
+  if (typeof content === 'string') return content;
+  if (content !== null && typeof content === 'object') {
+    const r = (content as { result?: unknown }).result;
+    if (typeof r === 'string') return r;
+  }
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return undefined; // non-serializable → thread nothing (never crash the stage)
+  }
+}
+
+/**
+ * split-routing 4b (D4): thread prior stages' captured outputs to the next stage,
+ * keyed by each stage's `produces` label (schema-required, non-empty). A stage
+ * with no captured output (aborted / produced no `result` event) is skipped, so
+ * the map only carries real artifacts. NOTE: if two stages declare the SAME
+ * `produces` label the later one wins (last-write) — a downstream stage sees only
+ * the most recent output for a given label. This is the TEXT channel (the common
+ * case); file-artifact threading via `produces`/`expects` as paths is a separate
+ * contract.
+ */
+function priorOutputs(runs: StageRun[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const run of runs) {
+    if (run.output !== undefined) out[run.step.produces] = run.output;
+  }
+  return out;
 }
