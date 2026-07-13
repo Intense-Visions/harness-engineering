@@ -105,4 +105,13 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
     expect(text).toBe(RAW_DIFF_TEXT);
     expect(text).toContain(' unchanged context'); // context line survives (no --unified=0)
   });
+
+  it('relativizes an absolute seed path against the repo root before excluding it', async () => {
+    // repoRoot is '/repo' (rev-parse --show-toplevel stub). An absolute in-repo
+    // seed must become a repo-relative pathspec so `:(exclude)` actually matches.
+    const wm = new RawStubWM(config({ seedPaths: ['/repo/docs/roadmap.md'] }));
+    await wm.getIntroducedDiffText('ISS-1');
+    const diffCall = wm.calls.find((c) => c[0] === 'diff');
+    expect(diffCall).toEqual(['diff', 'basesha123', '--', '.', ':(exclude)docs/roadmap.md']);
+  });
 });

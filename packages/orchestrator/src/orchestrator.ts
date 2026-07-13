@@ -2250,6 +2250,11 @@ export class Orchestrator extends EventEmitter {
     if (this.adaptiveRouter === null) return undefined;
     try {
       const introduced = await this.workspace.getIntroducedDiff(issue.identifier);
+      // No introduced (added) lines ⇒ nothing to judge: skip BOTH the security scan
+      // and the acceptance-eval. A pure-deletion / no-op change is therefore not
+      // spec-checked — deliberate (a NOT_SATISFIED on an empty added-line set is
+      // low-value and this matches the security feeder's boundary); do NOT "fix"
+      // this into a path that runs the eval on an empty diff.
       if (introduced.length === 0) return undefined;
       const scanner = new SecurityScanner();
       scanner.configureForProject(workspacePath);
@@ -2301,6 +2306,9 @@ export class Orchestrator extends EventEmitter {
       const verdict = await evaluator.evaluate({
         specPath: path.join(workspacePath, issue.spec),
         diff,
+        // No captured test output at the single-agent-exit seam — intentionally
+        // omitted (the evaluator judges diff-vs-spec and treats absent test output
+        // as weaker evidence → lower confidence, never a false blocking verdict).
         testOutput: '',
       });
       const cls = outcomeVerdictToQualityFail(verdict);

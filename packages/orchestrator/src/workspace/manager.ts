@@ -102,7 +102,16 @@ export class WorkspaceManager {
     const baseRef = await this.resolveBaseRef(repoRoot);
     const mergeBase = (await this.git(['merge-base', 'HEAD', baseRef], workspacePath)).trim();
     const seedPaths = this.config.seedPaths ?? WorkspaceManager.DEFAULT_SEED_PATHS;
-    const excludes = seedPaths.map((p) => `:(exclude)${p}`);
+    // Normalize identically to seedWorkspace: relativize an absolute seed entry
+    // against the repo root and drop anything that escapes it, so a git
+    // `:(exclude)` pathspec always matches the same overlay that was seeded (an
+    // un-relativized absolute path would be a silent no-op exclude, leaking the
+    // seeded overlay into the eval diff). Array argv (no shell) makes each pathspec
+    // a single literal arg — special chars can't break or inject.
+    const excludes = seedPaths
+      .map((p) => (path.isAbsolute(p) ? path.relative(repoRoot, p).replaceAll('\\', '/') : p))
+      .filter((rel) => rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel))
+      .map((rel) => `:(exclude)${rel}`);
     return this.git(['diff', mergeBase, '--', '.', ...excludes], workspacePath);
   }
 
