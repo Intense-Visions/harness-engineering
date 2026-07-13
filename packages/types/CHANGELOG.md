@@ -1,5 +1,192 @@
 # @harness-engineering/types
 
+## 0.21.0
+
+### Minor Changes
+
+- 681e173: feat(adaptive-model-routing): provider-neutral capability-tier routing (AMR Phases 1–4)
+
+  Adds Adaptive Model Routing — provider-neutral, capability-tier-based backend
+  selection driven by task complexity — behind a **default-off** gate. It is fully
+  **opt-in**: with no `routing.policy` in `harness.config.json`, `AdaptiveRouter`
+  is never constructed, the complexity classifier never runs, and routing is
+  byte-identical to the shipped `BackendRouter` (no new spans, LLM calls, or latency).
+  - **types**: additive `BackendCapabilities`, `ComplexityVerdict`, `RoutingRequest`,
+    `RoutingPolicy`, `RoutingError` (codes `privacy-no-match` / `escalation-exhausted`);
+    optional `capabilities?` on `BackendDef`; optional `complexity` / `tierRequired` /
+    `estCostUsd` on `RoutingDecision`. `RoutingValue` is **not** widened — tier resolution
+    lives entirely in the AMR layer (backward-compatible). `RoutingError` is now the single
+    error family for AMR routing failures: the orchestrator's `PrivacyNoMatch` extends it
+    (carrying `code: 'privacy-no-match'`), so it is catchable/narrowable as either — a
+    backward-compatible refinement (`PrivacyNoMatch` is still an `Error` with the same
+    `name`/`code`).
+  - **intelligence**: a complexity cascade (static pass → `fast` LLM tie-break →
+    confidence-gated `standard` escalation) emitting a `ComplexityVerdict`, plus pure
+    `deriveRequiredTier` resolution (matrix → D5 blast-radius `strong` veto →
+    low-confidence up-bump → D8 budget clamp → D10 escalation floor). The LLM never
+    influences the final tier.
+  - **orchestrator**: `AdaptiveRouter` wraps `BackendRouter` (which is unchanged), a
+    capability registry + cheapest-qualifying selection that fails **closed** on
+    privacy/allowlist exclusion, enriched `routing:decision` telemetry, and a vertical
+    `EscalationState` (D10/SC16) that climbs a coherence unit's floor tier on repeated
+    quality failures (monotonic, `strong`-capped). Live dispatch routes through
+    `AdaptiveRouter` only when a `routing.policy` is present. Both routing hard-fails now
+    **surface to a human** via the `needs-human` interaction queue (not just a log): a
+    fail-closed `PrivacyNoMatch` at the dispatch boundary emits a distinct
+    `routing:no-tier-match` steward escalation (never recorded as a transport failure, never
+    fed to escalation) and, because it is deterministic (config-driven privacy floor /
+    allowlist that cannot succeed on re-dispatch), is **terminal** — the unit moves to the
+    `canceled` lane with no retry enqueued rather than looping through escalate-then-retry.
+    An exhausted `strong`-ceiling re-crossing emits `routing:escalation-exhausted`
+    (D10 hard-fail-to-human).
+  - **cli**: `harness routing trace --complexity <level> --risk <band>` dry-runs a
+    routing decision (prints derived tier + chosen backend without dispatching), with
+    client-side enum validation.
+
+  Split-routing (D6/SC4) and the live quality-gate fan-in into escalation (Phase 4c)
+  are deferred — see `docs/changes/adaptive-model-routing/proposal.md` "Deferred
+  follow-ups". No behavior changes for existing single-backend or multi-backend
+  configs.
+
+- f004f04: feat(orchestrator): opt-in LLM spec-satisfaction verdict for single-agent escalation (4c v2)
+
+  Adds the second sound quality-verdict source named in ADR 0069 — an LLM
+  spec-satisfaction (outcome-eval) judgment — behind a new **default-off** flag
+  `routing.policy.acceptanceEval.enabled`. It complements the always-on
+  baseline-relative security-defect feeder shipped earlier.
+  - On a normal single-agent exit, **after** the cheap security scan comes back clean
+    (so a defect never wastes a model call), the orchestrator runs the shared
+    `OutcomeEvaluator` over the introduced diff vs the spec's success-criteria
+    section and feeds `quality-fail` **only** on a high-confidence NOT_SATISFIED
+    verdict (`authority === 'blocking'`, derived in TypeScript — an LLM-forged
+    `authority` is stripped at the evaluator's strict-parse boundary).
+  - **Conservative + guarded:** SATISFIED / INCONCLUSIVE / lower-confidence /
+    no-spec / no-provider / empty-diff / any error → neutral (never a premature
+    `quality-pass`). Fully no-op when AMR is off or the flag is unset.
+  - **No new model plumbing:** reuses the SEL-layer `AnalysisProvider` the live
+    complexity classifier already builds inline (ADR 0069's "orchestrator can't run a
+    model inline" no longer holds). New surface is minimal: a `WorkspaceManager.getIntroducedDiffText`
+    raw-diff accessor (merge-base relative, seeded overlay excluded via git pathspec),
+    a pure `outcomeVerdictToQualityFail` mapper, and the `acceptanceEval` policy field.
+
+  Still deferred: escalation on general logic quality beyond security defects +
+  spec-satisfaction. `RoutingPolicy` gains `acceptanceEval?: { enabled; model? }`
+  (also accepted on `PUT /api/v1/routing/policy`).
+
+- ec649e6: feat(adaptive-model-routing): D8 hard budget cap — force `fast` / surface to a steward at the cap
+
+  Turns the AMR budget from a purely soft, single-step degrade into a cap that
+  actually bites at 100% of `capUsd`, while staying **opt-in / default-off** (no
+  `routing.policy.budget` ⇒ dispatch is byte-identical).
+  - **Hard floor (`degrade`/`pause`):** at/above `capUsd`, the tier is forced all the
+    way to `fast` (not just one step). Sound because it only ever routes _cheaper_
+    than the existing soft clamp, and it sits **below** the D5 blast-radius veto, so a
+    security-forced `strong` task still stays `strong`. `pause` behaves as `degrade`
+    here — true blocking admission remains deferred.
+  - **`human` mode:** at/above the cap, `AdaptiveRouter.route()` throws a fail-closed
+    `RoutingError('budget-exhausted')` **before** selecting a backend (an un-routed
+    dispatch spends nothing). The dispatch boundary surfaces the unit once to a
+    steward as `routing:budget-exhausted` and drives it terminal — no auto-retry into
+    the same cap (mirrors the `privacy-no-match` terminal path). Raise `capUsd` via
+    `PUT /api/v1/routing/policy` and re-queue to resume.
+  - **Observability:** `RoutingBudgetStatus` gains an `exhausted` flag; `harness
+routing status` shows an `EXHAUSTED` state once spend crosses the cap.
+
+  Behavior change to note in release notes: existing `budget` policies that were
+  only ever degrading one step will now force `fast` (or surface to a steward, for
+  `human`) once spend reaches the cap. It remains a lagging cap under concurrency —
+  not an admission gate.
+
+- abbaa89: AMR operator observability. Adds a live routing status surface so operators
+  running adaptive routing can see spend, degradation, and escalation — previously
+  only routing _decisions_ were inspectable.
+  - **`GET /api/v1/routing/status`** (`read-telemetry`) — the live operator view:
+    whether AMR is active, budget **spend-vs-cap** (using the monotonic accumulator
+    that actually drives the D8 clamp, not the telemetry ring sum), the coherence
+    units that have climbed their escalation floor, and the active provider
+    allowlist. Always 200; an inactive payload when AMR is off.
+  - **`harness routing status`** — renders that payload (budget bar, `DEGRADING`
+    flag, escalated-unit table, allowlist).
+  - **`harness routing telemetry`** — renders the existing `/routing/telemetry`
+    projection with a per-tier distribution and per-decision cost breakdown.
+
+  New: `AdaptiveRouter.getStatus()`, `Orchestrator.getRoutingStatus()`,
+  `EscalationState.climbedUnits()`, and the `RoutingStatus` / `RoutingBudgetStatus`
+  / `RoutingEscalationUnit` types. Read-only; no dispatch behavior change.
+
+- ea36b3c: AMR Phase 5 — orchestrator routing endpoints (closes the Shuttle mutual-deferral seam).
+
+  Adds the harness side of the routing control-plane contract so the Shuttle SaaS
+  control plane can push per-container policy and drain telemetry against a real
+  orchestrator (was mock-only):
+  - **`PUT /api/v1/routing/policy`** (`admin` scope) — Zod-validates a `RoutingPolicy`
+    and hot-swaps the live `AdaptiveRouter` via `Orchestrator.ingestRoutingPolicy`,
+    preserving accumulated `EscalationState` climbed floors across the update. An
+    empty `{}` policy restores default-off. Returns 204.
+  - **`GET /api/v1/routing/telemetry`** (`read-telemetry` scope) — projects the
+    enriched routing-decision ring into the Shuttle wire shape
+    (`{ decisions, spentUsd }`, `RoutingTelemetry`/`RoutingTelemetryDecision`),
+    fixing the cross-repo `RoutingDecision` mismatch that would have drained zero rows.
+  - **`RoutingPolicy.allowedProviders`** — new optional provider-type allowlist; wires
+    the previously-dormant `selectCheapestQualifying` allowlist branch (fail-closed).
+
+  Default-off is preserved: with no policy pushed, `adaptiveRouter` stays `null` and
+  dispatch is byte-identical. All additive — existing routing/dispatch behavior is
+  unchanged.
+
+- 787e033: Complete split-routing (4b): real per-stage prompt rendering + prior-output
+  threading. The workflow stage-execution engine previously passed each stage the
+  bare **skill name** as its prompt and threaded nothing between stages (`priorOutputs`
+  returned `{}`). Now:
+  - Each stage gets a **rendered prompt** (the work item + the stage's skill/role +
+    the outputs of prior stages) via a pure `PromptRenderer` bound in
+    `buildWorkflowContext` (no layer-cycle). The engine falls back to the skill name
+    only when no renderer is present (fake/legacy contexts), so behavior is
+    byte-identical there.
+  - Each stage's **final assistant message** is captured (from the runner's last
+    `result` event, the same extraction the single-agent path uses) into a new
+    `StageRun.output`, and threaded to later stages keyed by the stage's `produces`
+    label (D4 **text**-artifact threading).
+
+  File-artifact threading (`produces`/`expects` as workspace paths) remains a
+  separate, deferred contract — the text channel covers the common case.
+
+- 0c8e2ac: feat(split-routing): workflow stage-execution engine with per-stage AMR routing (AMR Phase 4b)
+
+  Adds split-routing — a declarative multi-stage workflow engine that runs a
+  coherence unit's stages sequentially on one worktree, routing each stage
+  independently through Adaptive Model Routing — behind a **doubly-opt-in,
+  default-off** gate. With no `>= 2`-stage workflow declared in `agent.workflows`
+  _and_ no `routing.policy` set, `dispatchIssue` is **byte-identical** to the shipped
+  single-agent path (SC4): `workflowFor` is a pure, side-effect-free matcher, so
+  calling it on every dispatch cannot change non-workflow behavior.
+  - **types**: additive `WorkflowStep` / `WorkflowExecutionPlan` / `StageRun`
+    (per-stage `sessionId` + `tokens` for per-stage cost capture) and
+    `StagedWorkflowDecl` / `WorkflowConfig.workflows` (the declarative producer with
+    optional `match` grain and per-stage `stageDeadlineMs`). No existing type is
+    widened.
+  - **orchestrator**: the `executeWorkflow` engine (`execute-workflow.ts`) driving
+    `AgentRunner.runSession` per stage with engine-owned per-stage
+    session/recorder/abort/tokens; per-stage `route()` sharing one `coherenceUnit`
+    with a **cumulative** `EscalationState` floor; separated failure mechanisms
+    (retry cap-1 at a bumped tier, mid-workflow transport error = terminal without
+    wiping completed-stage artifacts, per-stage deadline); an atomic single-exit
+    lifecycle guaranteeing exactly one claim / lane entry / terminal transition per
+    unit for every exit path (all-pass, stage terminal-fail, engine throw) with no
+    orphaned `running`/`claimed` (SC5). Live dispatch enters the engine only when a
+    `>= 2`-stage workflow matches and a `routing.policy` is present; `workflowFor` is
+    the single match authority (returns the plan plus the matched decl's
+    `stageDeadlineMs`). `AdaptiveRouter` / `BackendRouter` remain byte-unchanged (SC8).
+
+  Per-stage prompt rendering and D4 `produces → expects` artifact-context threading
+  are **stubbed** in this phase — `runStageSession` passes the bare `step.skill` as
+  the prompt and `priorOutputs` returns `{}`, so stages currently operate off the
+  shared worktree file-state with a skill-name prompt. Real per-stage `PromptRenderer`
+  invocation + structured output threading, plus parallel stages, stage-local
+  retry-in-place, partial-resume, and rich auto-producers are follow-ups — see
+  `docs/changes/split-routing/proposal.md` "Deferred follow-ups". No behavior changes
+  for existing single-agent or single-stage configs.
+
 ## 0.20.0
 
 ### Minor Changes

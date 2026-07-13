@@ -1,5 +1,11 @@
 # @harness-engineering/signals
 
+## 0.2.5
+
+### Patch Changes
+
+- @harness-engineering/graph@0.11.7
+
 ## 0.2.4
 
 ### Patch Changes

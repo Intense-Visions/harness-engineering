@@ -1,5 +1,18 @@
 # @harness-engineering/graph
 
+## 0.11.7
+
+### Patch Changes
+
+- Updated dependencies [681e173]
+- Updated dependencies [f004f04]
+- Updated dependencies [ec649e6]
+- Updated dependencies [abbaa89]
+- Updated dependencies [ea36b3c]
+- Updated dependencies [787e033]
+- Updated dependencies [0c8e2ac]
+  - @harness-engineering/types@0.21.0
+
 ## 0.11.6
 
 ### Patch Changes
