@@ -431,7 +431,14 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
   it('status: renders the budget bar + escalation + allowlist from /routing/status', async () => {
     const status = {
       active: true,
-      budget: { spentUsd: 80, capUsd: 100, degradeAtPct: 50, spentPct: 80, degrading: true },
+      budget: {
+        spentUsd: 80,
+        capUsd: 100,
+        degradeAtPct: 50,
+        spentPct: 80,
+        degrading: true,
+        exhausted: false,
+      },
       escalation: [{ coherenceUnit: 'issue-7', floor: 'strong' }],
       allowedProviders: ['local'],
     };
@@ -444,6 +451,27 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     expect(allLog).toMatch(/DEGRADING/);
     expect(allLog).toMatch(/issue-7/);
     expect(allLog).toMatch(/local/);
+  });
+
+  it('status: renders EXHAUSTED (hard cap) over DEGRADING once spend crosses the cap', async () => {
+    const status = {
+      active: true,
+      budget: {
+        spentUsd: 120,
+        capUsd: 100,
+        degradeAtPct: 50,
+        spentPct: 120,
+        degrading: true,
+        exhausted: true,
+      },
+      escalation: [],
+      allowedProviders: null,
+    };
+    mockFetch(() => new Response(JSON.stringify(status), { status: 200 }));
+    await createStatusCommand().parseAsync([], { from: 'user' });
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/EXHAUSTED/);
+    expect(allLog).not.toMatch(/DEGRADING/); // exhausted supersedes the degrade label
   });
 
   it('status: renders OFF when routing is inactive', async () => {

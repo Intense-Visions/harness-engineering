@@ -198,6 +198,69 @@ describe('deriveRequiredTier — D5 × D8 interaction (veto is a HARD floor)', (
   });
 });
 
+describe('deriveRequiredTier — D8 HARD cap (>=100% of capUsd)', () => {
+  const hardCap = (mode: 'degrade' | 'pause' | 'human'): RoutingPolicy => ({
+    budget: { capUsd: 100, degradeAtPct: 90, onBudgetExhausted: mode },
+  });
+  const atCap = { spentUsd: 100 };
+  const overCap = { spentUsd: 250 };
+
+  it('degrade mode forces fast from EVERY complexity level (not just one step)', () => {
+    const policy = hardCap('degrade');
+    for (const level of ALL_LEVELS) {
+      expect(deriveRequiredTier(verdict(level), noRisk, policy, atCap, 'fast')).toBe('fast');
+      expect(deriveRequiredTier(verdict(level), noRisk, policy, overCap, 'fast')).toBe('fast');
+    }
+  });
+
+  it('pause mode also forces fast at the hard cap (conservative fallback — true blocking is deferred)', () => {
+    const policy = hardCap('pause');
+    expect(deriveRequiredTier(verdict('complex'), noRisk, policy, atCap, 'fast')).toBe('fast');
+  });
+
+  it('human mode is NOT cheapened in the pure clamp — it takes the soft one-step degrade (route() halts it)', () => {
+    // The pure derivation never forces fast for `human`; AdaptiveRouter.route()
+    // intercepts at the cap and surfaces to a steward before this value is used.
+    const policy = hardCap('human');
+    expect(deriveRequiredTier(verdict('complex'), noRisk, policy, atCap, 'fast')).toBe('standard');
+  });
+
+  it('the hard cap is never MORE expensive than the soft one-step clamp', () => {
+    const policy = hardCap('degrade');
+    const softSpend = { spentUsd: 95 }; // in [degradeAt, 100%) → one-step degrade
+    for (const level of ALL_LEVELS) {
+      const soft = deriveRequiredTier(verdict(level), noRisk, policy, softSpend, 'fast');
+      const hard = deriveRequiredTier(verdict(level), noRisk, policy, atCap, 'fast');
+      expect(RANK[hard]).toBeLessThanOrEqual(RANK[soft]);
+    }
+  });
+
+  it('the D5 veto STILL beats the hard cap — a sensitive/core task stays strong at 100%', () => {
+    const policy = hardCap('degrade');
+    const sensitive: RoutingRisk = { blastRadius: 0, sensitivePath: true };
+    const core: RoutingRisk = { blastRadius: 0, sensitivePath: false, layer: 'core' };
+    expect(deriveRequiredTier(verdict('trivial'), sensitive, policy, overCap, 'fast')).toBe(
+      'strong'
+    );
+    expect(deriveRequiredTier(verdict('trivial'), core, policy, overCap, 'fast')).toBe('strong');
+  });
+
+  it('the D10 escalation floor STILL re-raises above the hard cap', () => {
+    // hard cap forces fast, but a climbed strong floor wins (floor only ever raises).
+    const policy = hardCap('degrade');
+    expect(deriveRequiredTier(verdict('complex'), noRisk, policy, overCap, 'strong')).toBe(
+      'strong'
+    );
+  });
+
+  it('no hard-cap effect below 100% (soft one-step degrade preserved)', () => {
+    const policy = hardCap('degrade');
+    expect(deriveRequiredTier(verdict('complex'), noRisk, policy, { spentUsd: 99 }, 'fast')).toBe(
+      'standard'
+    );
+  });
+});
+
 describe('deriveRequiredTier — D10 escalation floor', () => {
   it('escalationFloor strong forces strong on trivial/low-risk/no-budget', () => {
     expect(deriveRequiredTier(verdict('trivial'), noRisk, emptyPolicy, noSpend, 'strong')).toBe(

@@ -206,7 +206,14 @@ describe('GET /api/v1/routing/status', () => {
   it('returns the live status payload (200)', () => {
     const status = {
       active: true,
-      budget: { spentUsd: 40, capUsd: 100, degradeAtPct: 90, spentPct: 40, degrading: false },
+      budget: {
+        spentUsd: 40,
+        capUsd: 100,
+        degradeAtPct: 90,
+        spentPct: 40,
+        degrading: false,
+        exhausted: false,
+      },
       escalation: [{ coherenceUnit: 'issue-1', floor: 'standard' as const }],
       allowedProviders: ['local' as const],
     };

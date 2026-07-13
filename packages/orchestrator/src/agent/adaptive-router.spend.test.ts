@@ -136,8 +136,11 @@ describe('AdaptiveRouter — live spend accumulator (D8)', () => {
     expect(decision.backendName).toBe('strong');
 
     // Control: the SAME over-budget state, but a non-risky request DOES clamp.
+    // Spend is far past the hard cap (capUsd $1), so the D8 hard floor forces it
+    // all the way to `fast` (not just the soft one-step degrade) — the veto above
+    // is what keeps the risky request at `strong` regardless.
     const { decision: clamped } = await r.route(REQ);
-    expect(clamped.tierRequired).toBe('standard');
+    expect(clamped.tierRequired).toBe('fast');
   });
 
   it('a fail-closed (PrivacyNoMatch) dispatch does NOT accrue spend', async () => {

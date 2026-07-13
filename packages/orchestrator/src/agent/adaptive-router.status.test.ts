@@ -90,7 +90,21 @@ describe('AdaptiveRouter.getStatus', () => {
       degradeAtPct: 50,
       spentPct: 80,
       degrading: true, // 80% >= 50%
+      exhausted: false, // 80% < 100% (hard cap)
     });
+  });
+
+  it('reports exhausted once monotonic spend reaches the hard cap', async () => {
+    // capUsd 100; strong dispatches accrue ~40 each until the clamp cheapens them,
+    // so a few dispatches push the monotonic accumulator to/over the cap.
+    const r = build({ budget: { capUsd: 100, degradeAtPct: 50, onBudgetExhausted: 'degrade' } });
+    await r.route(REQ);
+    await r.route(REQ);
+    await r.route(REQ);
+    const s = r.getStatus();
+    expect(s.budget!.spentUsd).toBeGreaterThanOrEqual(100); // at/over the hard cap
+    expect(s.budget?.exhausted).toBe(true);
+    expect(s.budget?.degrading).toBe(true);
   });
 
   it('degrading is false below the threshold, and defaults degradeAtPct to 90', async () => {

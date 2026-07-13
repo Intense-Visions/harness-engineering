@@ -439,3 +439,78 @@ describe('AdaptiveRouter — escalation floor + recordOutcome (D10/SC16, Task 6)
     expect(() => adaptive.recordOutcome('u', 'fast', false)).not.toThrow();
   });
 });
+
+describe('AdaptiveRouter — D8 HARD cap (route-layer: human surfaces, degrade forces fast)', () => {
+  const backends = {
+    cheapFast: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    priceyStrong: localDef(cap({ tier: 'strong', costPer1kTokens: 30 })),
+  };
+
+  it('human mode at/over the cap throws RoutingError(budget-exhausted) WITHOUT routing (fail-closed)', async () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const spy = vi.spyOn(router, 'resolveDecisionAndDef');
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, degradeAtPct: 90, onBudgetExhausted: 'human' } },
+      classify: () => verdict('moderate'),
+      budgetState: () => ({ spentUsd: 10 }), // exactly at the cap
+    });
+    await expect(
+      adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } })
+    ).rejects.toMatchObject({ name: 'RoutingError', code: 'budget-exhausted' });
+    // No backend was ever selected/resolved ⇒ an un-routed dispatch spends nothing.
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('human mode below the cap routes normally (no throw)', async () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, degradeAtPct: 90, onBudgetExhausted: 'human' } },
+      classify: () => verdict('moderate'),
+      budgetState: () => ({ spentUsd: 5 }), // half the cap
+    });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.tierRequired).toBeDefined();
+  });
+
+  it('degrade mode at the cap does NOT throw — it routes, forced to fast by the hard clamp', async () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, onBudgetExhausted: 'degrade' } },
+      classify: () => verdict('complex'), // would be strong; hard cap forces fast
+      budgetState: () => ({ spentUsd: 20 }),
+    });
+    const { decision } = await adaptive.route({ useCase: { kind: 'tier', tier: 'quick-fix' } });
+    expect(decision.tierRequired).toBe('fast');
+  });
+
+  it('getStatus() reports exhausted once spend >= cap (and not below)', () => {
+    const router = new BackendRouter({ backends, routing: { default: 'cheapFast' } });
+    const registry = buildCapabilityRegistry(backends);
+    const over = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, onBudgetExhausted: 'degrade' } },
+      classify: () => verdict('moderate'),
+      budgetState: () => ({ spentUsd: 12 }),
+    });
+    expect(over.getStatus().budget?.exhausted).toBe(true);
+
+    const under = new AdaptiveRouter({
+      router,
+      registry,
+      policy: { budget: { capUsd: 10, onBudgetExhausted: 'degrade' } },
+      classify: () => verdict('moderate'),
+      budgetState: () => ({ spentUsd: 3 }),
+    });
+    expect(under.getStatus().budget?.exhausted).toBe(false);
+  });
+});

@@ -67,8 +67,9 @@ For each dispatch, AMR resolves the required tier in order:
    classified complexity.
 2. **Blast-radius veto (D5):** a sensitive-path / high-risk task is forced to
    `strong` regardless.
-3. **Budget clamp (D8):** if over the degrade threshold, step the tier **down** one
-   (never below the veto floor).
+3. **Budget clamp (D8):** over the soft threshold, step the tier **down** one; at
+   the hard cap, force **`fast`** (`degrade`/`pause`) or surface to a steward
+   (`human`) — never below the veto floor. See **Budget**.
 4. **Escalation floor (D10):** if the coherence unit has climbed, raise the tier
    (never lowers it).
 
@@ -79,19 +80,30 @@ as `routing:no-tier-match`) — it never silently routes to a non-compliant back
 
 ## Budget
 
-`budget` is a **soft, lagging** cap — a degrade _signal_, not a hard ceiling:
+`budget` is a **lagging** cap with two thresholds — a **soft** degrade signal and
+a **hard** floor at the cap. It is still not a true admission gate (see the
+concurrency note), but the hard floor makes the cap bite:
 
-- Spend accrues as a **monotonic** total of estimated per-dispatch cost. Once it
-  reaches `degradeAtPct` (default 90) of `capUsd`, the tier is clamped **one step
-  down** for subsequent dispatches (`strong → standard → fast`), never below the
-  blast-radius veto floor.
+- Spend accrues as a **monotonic** total of estimated per-dispatch cost.
+- **Soft (`degradeAtPct`, default 90%):** once spend reaches this fraction of
+  `capUsd`, the tier is clamped **one step down** for subsequent dispatches
+  (`strong → standard → fast`), never below the blast-radius veto floor.
+- **Hard (100% of `capUsd`):** `onBudgetExhausted` decides what happens once spend
+  reaches the cap:
+  - `degrade` (and `pause`) — the tier is forced all the way to **`fast`** (not
+    just one step), still never below the blast-radius veto floor. `pause` behaves
+    as `degrade` here: true blocking admission is deferred.
+  - `human` — the dispatch is **not routed at all**; the unit surfaces to a steward
+    as `routing:budget-exhausted` (the same needs-human channel as
+    `routing:no-tier-match`). It is terminal — no auto-retry into the same wall.
+    Raise `capUsd` (or reset) via `PUT /api/v1/routing/policy`, then re-queue.
 - It is **lagging under concurrency**: several dispatches in flight all read the
-  same pre-accrual total, so a burst can overshoot the cap before the clamp
-  engages. It nudges routing cheaper; it does not gate admission.
-- `onBudgetExhausted` (`degrade | pause | human`) is the declared intent; the
-  shipped clamp implements the `degrade` behavior.
+  same pre-accrual total, so a burst can overshoot the cap before the clamp or the
+  hard floor engages. The hard floor bounds the routing _decision_ once the read
+  crosses the cap; it cannot retroactively prevent an in-flight overshoot.
 
-Watch spend against the cap with `harness routing status` (below).
+Watch spend against the cap with `harness routing status` (below) — it shows an
+`EXHAUSTED` state once spend crosses the hard cap.
 
 ## Escalation
 
@@ -172,8 +184,13 @@ orchestrator exposes:
 
 ## Limitations
 
-- **Budget is a soft cap** (lagging, single-step degrade), not a hard ceiling — see
-  **Budget**.
+- **Budget is a lagging cap, not an admission gate.** It has a soft single-step
+  degrade (90%) and a hard floor at the cap (`degrade`/`pause` → forced `fast`;
+  `human` → surface to a steward), but because spend is read pre-accrual, a
+  concurrent burst can still overshoot before either engages — see **Budget**.
+- **`pause` mode is not true blocking** — it behaves as `degrade` at the hard cap.
+  Real pause/admission-blocking is deferred (it needs blocking-admission machinery
+  the lagging accumulator can't provide).
 - **Single-agent escalation is scoped to security defects (v1)** — it escalates on a
   new error-severity _security_ finding in the diff, not on spec-satisfaction or
   logic quality (that needs an LLM acceptance-eval, still deferred —

@@ -17,6 +17,7 @@ import {
   RANK_TIER,
   DEFAULT_DEGRADE_AT_PCT,
 } from '@harness-engineering/intelligence';
+import { RoutingError } from '@harness-engineering/types';
 import type { PoolStateProvider } from '@harness-engineering/local-models';
 import type { BackendRouter } from './backend-router.js';
 import {
@@ -232,9 +233,10 @@ export class AdaptiveRouter {
         capUsd: budget.capUsd,
         degradeAtPct,
         spentPct: Math.round((spentUsd / budget.capUsd) * 100),
-        // Compute from the exact fraction so this matches the real clamp condition
-        // (`spentFraction >= degradeAt`), not the display-rounded percent.
+        // Compute from the exact fraction so these match the real clamp conditions
+        // (`spentFraction >= degradeAt` / `>= 1`), not the display-rounded percent.
         degrading: spentUsd / budget.capUsd >= degradeAtPct / 100,
+        exhausted: spentUsd / budget.capUsd >= 1,
       };
     }
     return {
@@ -253,6 +255,28 @@ export class AdaptiveRouter {
     // accumulator. From here to the accumulate below there is NO `await`, so the
     // read → derive → accumulate window is atomic per call (no lost updates).
     const spend = this.deps.budgetState ? this.deps.budgetState() : { spentUsd: this.spentUsd };
+    // D8 hard cap, `human` mode: at/above 100% of `capUsd`, do NOT route — throw a
+    // fail-closed `budget-exhausted` that the dispatch boundary turns into a single
+    // `routing:budget-exhausted` steward escalation (mirrors the privacy-no-match
+    // path). Thrown BEFORE any backend selection / cost accrual, so an un-routed
+    // dispatch spends nothing. Fires regardless of the D5 veto: a sensitive task is
+    // not cheapened, it is paused for a human's budget decision (`degrade`/`pause`
+    // stay in the pure clamp — route cheaper, never halt). Default-off: no budget ⇒
+    // this is skipped and dispatch is byte-identical.
+    const budget = this.deps.policy.budget;
+    if (
+      budget &&
+      budget.capUsd > 0 &&
+      budget.onBudgetExhausted === 'human' &&
+      spend.spentUsd / budget.capUsd >= 1
+    ) {
+      throw new RoutingError(
+        'budget-exhausted',
+        `routing budget cap $${budget.capUsd} reached (spent ~$${spend.spentUsd.toFixed(
+          2
+        )}); onBudgetExhausted=human — surfacing to a steward instead of routing`
+      );
+    }
     // D10: the escalation floor raises the derived tier for a coherence unit that
     // has climbed on repeated quality failure. Absent EscalationState ⇒ no-op 'fast'.
     // split-routing D8(a): a caller (the workflow engine's one-shot per-stage
