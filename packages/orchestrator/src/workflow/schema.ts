@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import type { BackendDef, RoutingConfig } from '@harness-engineering/types';
+import type {
+  BackendDef,
+  RoutingConfig,
+  BackendCapabilities,
+  RoutingPolicy,
+} from '@harness-engineering/types';
 
 /**
  * Reusable schema for the local/pi `model` field — either a non-empty
@@ -17,6 +22,74 @@ const ModelSchema = z.union([z.string().min(1), z.array(z.string().min(1)).nonem
   }),
 });
 
+// --- AMR (Adaptive Model Routing) shared enums ---
+const CAPABILITY_TIER = z.enum(['fast', 'standard', 'strong']);
+const COMPLEXITY_LEVEL = z.enum(['trivial', 'simple', 'moderate', 'complex']);
+const PRIVACY_CLASS = z.enum(['on-device', 'pooled-isolated', 'byo-endpoint', 'shared-cloud']);
+
+/**
+ * AMR: a backend's capability profile (`BackendCapabilities`). With it, AMR can
+ * compare backends and select a capability tier per dispatch; without it the
+ * backend is invisible to tier selection (identity/default routing only).
+ * `.strict()` so a mistyped or misspelled field fails at config-load
+ * rather than being silently dropped. This is the config-file surface the AMR
+ * types + engine expected but the schema never exposed.
+ */
+export const BackendCapabilitiesSchema = z
+  .object({
+    tier: CAPABILITY_TIER,
+    costPer1kTokens: z.number().nonnegative(),
+    privacyClass: PRIVACY_CLASS,
+    contextWindow: z.number().int().positive(),
+    vision: z.boolean().optional(),
+    toolUse: z.boolean().optional(),
+  })
+  .strict();
+
+/**
+ * AMR: the canonical `RoutingPolicy` schema — the SINGLE source of validation for
+ * the config-file loader (`agent.routing.policy`) AND the `PUT /api/v1/routing/policy`
+ * endpoint (which imports this rather than defining its own, so the two can never
+ * drift again — the previous route-local copy had a 3-value `privacyFloor` enum,
+ * missing `pooled-isolated`). NOT `.strict()`: it tolerates forward-compatible
+ * extra fields a control plane (Shuttle) may push. An empty `{}` restores default-off.
+ * ASYMMETRY: unlike the strict `capabilities` block, a typo'd policy field in a
+ * config file (a misspelled policy key) is silently ignored, not rejected —
+ * the forward-compat cost of sharing one schema with the Shuttle wire.
+ */
+export const RoutingPolicySchema = z.object({
+  complexityTierMatrix: z.record(COMPLEXITY_LEVEL, CAPABILITY_TIER).optional(),
+  skillTierOverrides: z.record(z.string(), CAPABILITY_TIER).optional(),
+  privacyFloor: PRIVACY_CLASS.optional(),
+  budget: z
+    .object({
+      capUsd: z.number(),
+      degradeAtPct: z.number().optional(),
+      onBudgetExhausted: z.enum(['degrade', 'pause', 'human']),
+    })
+    .optional(),
+  sensitivePaths: z.array(z.string()).optional(),
+  escalationThreshold: z.number().optional(),
+  // string[], NOT the finite BackendDef['type'] union: an unknown provider must
+  // fail CLOSED at tier selection, not reject the whole policy (Shuttle wire).
+  allowedProviders: z.array(z.string()).optional(),
+  acceptanceEval: z
+    .object({
+      enabled: z.boolean(),
+      model: z.string().optional(),
+    })
+    .optional(),
+});
+
+// Drift guard: the schema output must be assignable to the canonical type, so a
+// wrong field TYPE (e.g. `costPer1kTokens: string`) stops compiling. Field-PRESENCE
+// (the bug this fixes — the schema not exposing `capabilities`/`policy` at all) is
+// pinned by the config round-trip test in schema.amr-config.test.ts.
+const _capsGuard = (c: BackendCapabilities): z.infer<typeof BackendCapabilitiesSchema> => c;
+const _policyGuard = (p: RoutingPolicy): z.infer<typeof RoutingPolicySchema> => p;
+void _capsGuard;
+void _policyGuard;
+
 /**
  * Zod schema for `BackendDef` (Spec 2 — multi-backend routing).
  *
@@ -28,11 +101,14 @@ const ModelSchema = z.union([z.string().min(1), z.array(z.string().min(1)).nonem
  * for standalone unit testing.
  */
 export const BackendDefSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('mock') }).strict(),
+  z
+    .object({ type: z.literal('mock'), capabilities: BackendCapabilitiesSchema.optional() })
+    .strict(),
   z
     .object({
       type: z.literal('claude'),
       command: z.string().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
   z
@@ -40,6 +116,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       type: z.literal('anthropic'),
       model: z.string().min(1),
       apiKey: z.string().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
   z
@@ -47,6 +124,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       type: z.literal('openai'),
       model: z.string().min(1),
       apiKey: z.string().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
   z
@@ -54,6 +132,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       type: z.literal('gemini'),
       model: z.string().min(1),
       apiKey: z.string().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
   z
@@ -64,6 +143,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       apiKey: z.string().optional(),
       timeoutMs: z.number().int().positive().optional(),
       probeIntervalMs: z.number().int().min(1000).optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
   z
@@ -74,6 +154,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       apiKey: z.string().optional(),
       timeoutMs: z.number().int().positive().optional(),
       probeIntervalMs: z.number().int().min(1000).optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
 ]);
@@ -133,6 +214,10 @@ export const RoutingConfigSchema = z
     // --- Spec B Phase 0: new optional maps (resolver wired in Phase 1) ---
     skills: z.record(z.string().min(1), RoutingValueSchema).optional(),
     modes: z.record(z.string().min(1), RoutingValueSchema).optional(),
+    // --- AMR: opt-in adaptive-routing policy. Its PRESENCE flips the orchestrator
+    // from identity/default dispatch to complexity-aware tier routing (default-off
+    // when absent). Previously accepted by the runtime PUT endpoint only. ---
+    policy: RoutingPolicySchema.optional(),
   })
   .strict();
 

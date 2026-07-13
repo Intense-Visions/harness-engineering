@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { deriveRequiredTier } from '@harness-engineering/intelligence';
 import { BackendRouter, toArray } from '../../../agent/backend-router';
 import { estimateCost } from '../../../agent/cost-estimator';
+import { RoutingPolicySchema } from '../../../workflow/schema';
 import {
   buildCapabilityRegistry,
   selectCheapestQualifying,
@@ -378,42 +379,10 @@ async function handleTrace(
   return true;
 }
 
-const CAPABILITY_TIER = z.enum(['fast', 'standard', 'strong']);
-const COMPLEXITY_LEVEL = z.enum(['trivial', 'simple', 'moderate', 'complex']);
-const PRIVACY_CLASS = z.enum(['on-device', 'byo-endpoint', 'shared-cloud']);
-
-/**
- * AMR Phase 5 (D3/D4): inbound `RoutingPolicy` schema for `PUT /routing/policy`.
- * Mirrors the `RoutingPolicy` interface; NOT `.strict()` so the schema tolerates
- * forward-compatible extra fields the Shuttle control plane may add.
- *
- * `allowedProviders` is validated as `string[]`, NOT narrowed to the finite
- * `BackendDef['type']` union: Shuttle types it `readonly string[]`, and an
- * unknown provider string must fail CLOSED at tier selection (it simply never
- * matches a backend `type`) rather than 4xx-ing the entire policy push
- * (Phase-1 review note). An empty `{}` body is valid — it restores default-off.
- */
-const RoutingPolicySchema = z.object({
-  complexityTierMatrix: z.record(COMPLEXITY_LEVEL, CAPABILITY_TIER).optional(),
-  skillTierOverrides: z.record(z.string(), CAPABILITY_TIER).optional(),
-  privacyFloor: PRIVACY_CLASS.optional(),
-  budget: z
-    .object({
-      capUsd: z.number(),
-      degradeAtPct: z.number().optional(),
-      onBudgetExhausted: z.enum(['degrade', 'pause', 'human']),
-    })
-    .optional(),
-  sensitivePaths: z.array(z.string()).optional(),
-  escalationThreshold: z.number().optional(),
-  allowedProviders: z.array(z.string()).optional(),
-  acceptanceEval: z
-    .object({
-      enabled: z.boolean(),
-      model: z.string().optional(),
-    })
-    .optional(),
-});
+// `RoutingPolicySchema` is the CANONICAL schema (workflow/schema.ts), shared with
+// the config-file loader so the PUT-endpoint and config-file validation can never
+// drift — the route-local copy this replaced had a 3-value `privacyFloor` enum
+// (missing `pooled-isolated`).
 
 /**
  * AMR Phase 5 (D1/D4/D5): `PUT /api/v1/routing/policy`. Validates a

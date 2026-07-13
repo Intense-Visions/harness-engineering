@@ -24,13 +24,15 @@ agent:
         type: local,
         endpoint: http://localhost:1234/v1,
         model: qwen3:8b,
-        capabilities: { tier: fast, costPer1kTokens: 0, privacyClass: on-device },
+        capabilities:
+          { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 8192 },
       }
     cloud-strong:
       {
         type: anthropic,
         model: claude-opus-4-8,
-        capabilities: { tier: strong, costPer1kTokens: 15, privacyClass: shared-cloud },
+        capabilities:
+          { tier: strong, costPer1kTokens: 15, privacyClass: shared-cloud, contextWindow: 200000 },
       }
   routing:
     default: cloud-strong
