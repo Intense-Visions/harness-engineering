@@ -1,5 +1,32 @@
 # @harness-engineering/dashboard
 
+## 0.14.1
+
+### Patch Changes
+
+- ede964d: Reduce cyclomatic complexity across dashboard pages/components, local-models,
+  orchestrator, and cli hooks via behavior-preserving extraction. No public API,
+  CLI contract, or runtime behavior changes; security-sensitive sentinel hooks
+  verified byte-identical in their detection rules. Resolves 18 baselined
+  architecture complexity violations and clears three new complexity regressions.
+- Updated dependencies [681e173]
+- Updated dependencies [42f771f]
+- Updated dependencies [f004f04]
+- Updated dependencies [d8df71d]
+- Updated dependencies [ec649e6]
+- Updated dependencies [abbaa89]
+- Updated dependencies [ea36b3c]
+- Updated dependencies [d40e0a0]
+- Updated dependencies [ede964d]
+- Updated dependencies [ee1f44a]
+- Updated dependencies [787e033]
+- Updated dependencies [0c8e2ac]
+  - @harness-engineering/orchestrator@0.13.0
+  - @harness-engineering/types@0.21.0
+  - @harness-engineering/core@0.36.0
+  - @harness-engineering/graph@0.11.7
+  - @harness-engineering/signals@0.2.5
+
 ## 0.14.0
 
 ### Minor Changes

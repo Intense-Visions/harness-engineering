@@ -1,5 +1,128 @@
 # @harness-engineering/cli
 
+## 6.0.0
+
+### Minor Changes
+
+- 681e173: feat(adaptive-model-routing): provider-neutral capability-tier routing (AMR Phases 1–4)
+
+  Adds Adaptive Model Routing — provider-neutral, capability-tier-based backend
+  selection driven by task complexity — behind a **default-off** gate. It is fully
+  **opt-in**: with no `routing.policy` in `harness.config.json`, `AdaptiveRouter`
+  is never constructed, the complexity classifier never runs, and routing is
+  byte-identical to the shipped `BackendRouter` (no new spans, LLM calls, or latency).
+  - **types**: additive `BackendCapabilities`, `ComplexityVerdict`, `RoutingRequest`,
+    `RoutingPolicy`, `RoutingError` (codes `privacy-no-match` / `escalation-exhausted`);
+    optional `capabilities?` on `BackendDef`; optional `complexity` / `tierRequired` /
+    `estCostUsd` on `RoutingDecision`. `RoutingValue` is **not** widened — tier resolution
+    lives entirely in the AMR layer (backward-compatible). `RoutingError` is now the single
+    error family for AMR routing failures: the orchestrator's `PrivacyNoMatch` extends it
+    (carrying `code: 'privacy-no-match'`), so it is catchable/narrowable as either — a
+    backward-compatible refinement (`PrivacyNoMatch` is still an `Error` with the same
+    `name`/`code`).
+  - **intelligence**: a complexity cascade (static pass → `fast` LLM tie-break →
+    confidence-gated `standard` escalation) emitting a `ComplexityVerdict`, plus pure
+    `deriveRequiredTier` resolution (matrix → D5 blast-radius `strong` veto →
+    low-confidence up-bump → D8 budget clamp → D10 escalation floor). The LLM never
+    influences the final tier.
+  - **orchestrator**: `AdaptiveRouter` wraps `BackendRouter` (which is unchanged), a
+    capability registry + cheapest-qualifying selection that fails **closed** on
+    privacy/allowlist exclusion, enriched `routing:decision` telemetry, and a vertical
+    `EscalationState` (D10/SC16) that climbs a coherence unit's floor tier on repeated
+    quality failures (monotonic, `strong`-capped). Live dispatch routes through
+    `AdaptiveRouter` only when a `routing.policy` is present. Both routing hard-fails now
+    **surface to a human** via the `needs-human` interaction queue (not just a log): a
+    fail-closed `PrivacyNoMatch` at the dispatch boundary emits a distinct
+    `routing:no-tier-match` steward escalation (never recorded as a transport failure, never
+    fed to escalation) and, because it is deterministic (config-driven privacy floor /
+    allowlist that cannot succeed on re-dispatch), is **terminal** — the unit moves to the
+    `canceled` lane with no retry enqueued rather than looping through escalate-then-retry.
+    An exhausted `strong`-ceiling re-crossing emits `routing:escalation-exhausted`
+    (D10 hard-fail-to-human).
+  - **cli**: `harness routing trace --complexity <level> --risk <band>` dry-runs a
+    routing decision (prints derived tier + chosen backend without dispatching), with
+    client-side enum validation.
+
+  Split-routing (D6/SC4) and the live quality-gate fan-in into escalation (Phase 4c)
+  are deferred — see `docs/changes/adaptive-model-routing/proposal.md` "Deferred
+  follow-ups". No behavior changes for existing single-backend or multi-backend
+  configs.
+
+- abbaa89: AMR operator observability. Adds a live routing status surface so operators
+  running adaptive routing can see spend, degradation, and escalation — previously
+  only routing _decisions_ were inspectable.
+  - **`GET /api/v1/routing/status`** (`read-telemetry`) — the live operator view:
+    whether AMR is active, budget **spend-vs-cap** (using the monotonic accumulator
+    that actually drives the D8 clamp, not the telemetry ring sum), the coherence
+    units that have climbed their escalation floor, and the active provider
+    allowlist. Always 200; an inactive payload when AMR is off.
+  - **`harness routing status`** — renders that payload (budget bar, `DEGRADING`
+    flag, escalated-unit table, allowlist).
+  - **`harness routing telemetry`** — renders the existing `/routing/telemetry`
+    projection with a per-tier distribution and per-decision cost breakdown.
+
+  New: `AdaptiveRouter.getStatus()`, `Orchestrator.getRoutingStatus()`,
+  `EscalationState.climbedUnits()`, and the `RoutingStatus` / `RoutingBudgetStatus`
+  / `RoutingEscalationUnit` types. Read-only; no dispatch behavior change.
+
+### Patch Changes
+
+- ec649e6: feat(adaptive-model-routing): D8 hard budget cap — force `fast` / surface to a steward at the cap
+
+  Turns the AMR budget from a purely soft, single-step degrade into a cap that
+  actually bites at 100% of `capUsd`, while staying **opt-in / default-off** (no
+  `routing.policy.budget` ⇒ dispatch is byte-identical).
+  - **Hard floor (`degrade`/`pause`):** at/above `capUsd`, the tier is forced all the
+    way to `fast` (not just one step). Sound because it only ever routes _cheaper_
+    than the existing soft clamp, and it sits **below** the D5 blast-radius veto, so a
+    security-forced `strong` task still stays `strong`. `pause` behaves as `degrade`
+    here — true blocking admission remains deferred.
+  - **`human` mode:** at/above the cap, `AdaptiveRouter.route()` throws a fail-closed
+    `RoutingError('budget-exhausted')` **before** selecting a backend (an un-routed
+    dispatch spends nothing). The dispatch boundary surfaces the unit once to a
+    steward as `routing:budget-exhausted` and drives it terminal — no auto-retry into
+    the same cap (mirrors the `privacy-no-match` terminal path). Raise `capUsd` via
+    `PUT /api/v1/routing/policy` and re-queue to resume.
+  - **Observability:** `RoutingBudgetStatus` gains an `exhausted` flag; `harness
+routing status` shows an `EXHAUSTED` state once spend crosses the cap.
+
+  Behavior change to note in release notes: existing `budget` policies that were
+  only ever degrading one step will now force `fast` (or surface to a steward, for
+  `human`) once spend reaches the cap. It remains a lagging cap under concurrency —
+  not an admission gate.
+
+- a7e57ec: Deflake the `LazyLocalAdapter` test suite. Added an optional `makeProvider`
+  injection seam to `LazyLocalAdapter` (mirroring the existing `fetchModels` seam)
+  so tests resolve against a stub instead of opening a real socket to the endpoint
+  — the OpenAI SDK's connect-timeout + retry backoff to a dead port made the suite
+  multi-second and flaky under parallel coverage load (~16.5s → 0.6s, deterministic).
+  Production default behavior is unchanged.
+- 4ee4138: `harness hooks add` now resolves hook scripts from the bundled `dist/hooks/` layout. Previously it only probed the dev layout (`src/hooks/`), so every invocation on a published npm/mise install failed with "Hook scripts not found". It now shares `resolveHookSourceDir()` with `hooks init`, which already handled both layouts.
+- ede964d: Reduce cyclomatic complexity across dashboard pages/components, local-models,
+  orchestrator, and cli hooks via behavior-preserving extraction. No public API,
+  CLI contract, or runtime behavior changes; security-sensitive sentinel hooks
+  verified byte-identical in their detection rules. Resolves 18 baselined
+  architecture complexity violations and clears three new complexity regressions.
+- Updated dependencies [681e173]
+- Updated dependencies [42f771f]
+- Updated dependencies [f004f04]
+- Updated dependencies [d8df71d]
+- Updated dependencies [ec649e6]
+- Updated dependencies [abbaa89]
+- Updated dependencies [ea36b3c]
+- Updated dependencies [d40e0a0]
+- Updated dependencies [ede964d]
+- Updated dependencies [ee1f44a]
+- Updated dependencies [787e033]
+- Updated dependencies [0c8e2ac]
+  - @harness-engineering/orchestrator@0.13.0
+  - @harness-engineering/intelligence@0.6.0
+  - @harness-engineering/types@0.21.0
+  - @harness-engineering/core@0.36.0
+  - @harness-engineering/dashboard@0.14.1
+  - @harness-engineering/graph@0.11.7
+  - @harness-engineering/signals@0.2.5
+
 ## 5.0.0
 
 ### Minor Changes
