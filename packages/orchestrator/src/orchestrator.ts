@@ -2283,7 +2283,7 @@ export class Orchestrator extends EventEmitter {
    * an available analysis provider. Runs the shared `OutcomeEvaluator` over the
    * introduced diff vs the spec's judgment section, reusing the SEL-layer provider
    * the live classifier already builds; a BLOCKING verdict (high-confidence
-   * `NOT_SATISFIED`) → `'quality-fail'`. Conservative + fully guarded: no
+   * NOT_SATISFIED) → `'quality-fail'`. Conservative + fully guarded: no
    * spec / no provider / empty diff / any error → `undefined` (neutral). The mapper
    * only ever emits the negative, so success can never become a premature
    * `'quality-pass'`. An absent GraphStore falls back to an ephemeral one — the

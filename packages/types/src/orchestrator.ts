@@ -467,8 +467,8 @@ export interface RoutingPolicy {
    * escalation on a NORMAL exit, ALONGSIDE the always-on baseline-relative
    * security-defect feeder. Off unless `enabled: true` — it is heavy (one model
    * call + latency per exit), so it is gated separately from the cheap security
-   * scan. Conservative by construction: only a high-confidence `NOT_SATISFIED`
-   * outcome-eval verdict escalates (`quality-fail`); `SATISFIED` / `INCONCLUSIVE`
+   * scan. Conservative by construction: only a high-confidence NOT_SATISFIED
+   * outcome-eval verdict escalates (`quality-fail`); SATISFIED / INCONCLUSIVE
    * / any lower-confidence verdict, a missing spec, or an unavailable model
    * provider is neutral (never a premature `quality-pass`).
    */

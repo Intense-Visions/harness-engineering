@@ -13,10 +13,10 @@ baseline-relative security-defect feeder shipped earlier.
 - On a normal single-agent exit, **after** the cheap security scan comes back clean
   (so a defect never wastes a model call), the orchestrator runs the shared
   `OutcomeEvaluator` over the introduced diff vs the spec's success-criteria
-  section and feeds `quality-fail` **only** on a high-confidence `NOT_SATISFIED`
+  section and feeds `quality-fail` **only** on a high-confidence NOT_SATISFIED
   verdict (`authority === 'blocking'`, derived in TypeScript — an LLM-forged
   `authority` is stripped at the evaluator's strict-parse boundary).
-- **Conservative + guarded:** `SATISFIED` / `INCONCLUSIVE` / lower-confidence /
+- **Conservative + guarded:** SATISFIED / INCONCLUSIVE / lower-confidence /
   no-spec / no-provider / empty-diff / any error → neutral (never a premature
   `quality-pass`). Fully no-op when AMR is off or the flag is unset.
 - **No new model plumbing:** reuses the SEL-layer `AnalysisProvider` the live

@@ -104,7 +104,7 @@ export function hasIntroducedSecurityDefect(
  * AMR 4c v2: map an outcome-eval (spec-satisfaction) verdict to the single-agent
  * escalation quality class. Only a BLOCKING verdict escalates — `authority` is
  * TS-derived (`deriveAuthority`) as `'blocking'` iff a high-confidence
- * `NOT_SATISFIED`, so `SATISFIED` / `INCONCLUSIVE` / any lower-confidence verdict
+ * NOT_SATISFIED, so SATISFIED / INCONCLUSIVE / any lower-confidence verdict
  * maps to `undefined` (neutral) and never a premature `quality-pass`. Trusting the
  * TS-derived `authority` (not the raw verdict/confidence) keeps the blocking rule
  * in one place and immune to an LLM-injected `authority` (the evaluator strips it
