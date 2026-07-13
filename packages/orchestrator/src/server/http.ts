@@ -40,6 +40,7 @@ import type {
   RoutingDecision,
   RoutingPolicy,
   RoutingTelemetry,
+  RoutingStatus,
 } from '@harness-engineering/types';
 import type { WebhookStore } from '../gateway/webhooks/store';
 import type { WebhookDelivery } from '../gateway/webhooks/delivery';
@@ -180,6 +181,8 @@ export interface ServerDependencies {
    */
   ingestRoutingPolicy?: (policy: RoutingPolicy) => void;
   getRoutingTelemetry?: () => RoutingTelemetry;
+  /** AMR observability: live operator status (`GET /routing/status`). */
+  getRoutingStatus?: () => RoutingStatus;
   /**
    * Hermes Phase 4: project root used as the base path for
    * `.harness/proposals/` reads/writes and `agents/skills/` promotion.
@@ -267,6 +270,7 @@ export class OrchestratorServer {
   // AMR Phase 5 — runtime routing-policy ingestion + telemetry projection.
   private ingestRoutingPolicyFn: ((policy: RoutingPolicy) => void) | null = null;
   private getRoutingTelemetryFn: (() => RoutingTelemetry) | null = null;
+  private getRoutingStatusFn: (() => RoutingStatus) | null = null;
   // LMLM Phase 6 — live model pool + refresh scheduler accessors.
   private getModelPoolFn: (() => ModelPoolOps | null) | null = null;
   private getRefreshSchedulerFn: (() => RefreshSchedulerOps | null) | null = null;
@@ -345,6 +349,7 @@ export class OrchestratorServer {
     this.getBackendsFn = deps?.getBackends ?? null;
     this.ingestRoutingPolicyFn = deps?.ingestRoutingPolicy ?? null;
     this.getRoutingTelemetryFn = deps?.getRoutingTelemetry ?? null;
+    this.getRoutingStatusFn = deps?.getRoutingStatus ?? null;
     // LMLM Phase 6 — model pool + refresh scheduler accessors (null when disabled).
     this.getModelPoolFn = deps?.getModelPool ?? null;
     this.getRefreshSchedulerFn = deps?.getRefreshScheduler ?? null;
@@ -597,6 +602,7 @@ export class OrchestratorServer {
           backends: this.getBackendsFn?.() ?? null,
           ingestRoutingPolicy: this.ingestRoutingPolicyFn,
           getTelemetry: this.getRoutingTelemetryFn,
+          getStatus: this.getRoutingStatusFn,
         }),
       // Hermes Phase 4 — skill proposal review queue. Read scopes
       // (`read-status`) and write scopes (`manage-proposals`) are enforced

@@ -2,6 +2,8 @@
 
 The orchestrator's `agent.backends` map defines named backend instances; `agent.routing` selects which named backend handles each use case. This is the modern config surface — it replaces `agent.backend` / `agent.localBackend` (which still work via an in-memory migration shim with a deprecation warning at orchestrator start).
 
+> **Routing by complexity + cost?** See [Adaptive Model Routing](./adaptive-model-routing.md) for tier-based routing, budgets, split-routing workflows, and the `harness routing` observability commands.
+
 ## Quick example
 
 ```yaml

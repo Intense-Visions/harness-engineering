@@ -1174,7 +1174,7 @@ Read the signal timeline and propose reverts for threshold crossings (signal arm
 
 ## Routing Commands
 
-Inspect routing config, trace decisions, and read recent dispatches
+Inspect routing config, trace decisions, and read AMR telemetry + status
 
 ### `harness routing config`
 
@@ -1194,6 +1194,23 @@ List recent routing decisions from the orchestrator ring buffer (Spec B F8)
 - `--mode` — Filter by useCase.cognitiveMode
 - `--backend` — Filter by chosen backendName
 - `--last` — Limit to the N most recent decisions
+- `--json` — Emit JSON to stdout instead of human-readable text
+
+### `harness routing status`
+
+Live routing status: budget spend-vs-cap, escalated units, provider allowlist (AMR)
+
+**Options:**
+
+- `--json` — Emit JSON to stdout instead of human-readable text
+
+### `harness routing telemetry`
+
+Routing telemetry: per-decision tier/backend/cost + tier distribution (AMR)
+
+**Options:**
+
+- `--last` — Show only the N most recent decisions in the per-decision table
 - `--json` — Emit JSON to stdout instead of human-readable text
 
 ### `harness routing trace`

@@ -201,3 +201,33 @@ describe('GET /api/v1/routing/telemetry', () => {
     expect(JSON.parse(chunks.join(''))).toEqual({ decisions: [], spentUsd: 0 });
   });
 });
+
+describe('GET /api/v1/routing/status', () => {
+  it('returns the live status payload (200)', () => {
+    const status = {
+      active: true,
+      budget: { spentUsd: 40, capUsd: 100, degradeAtPct: 90, spentPct: 40, degrading: false },
+      escalation: [{ coherenceUnit: 'issue-1', floor: 'standard' as const }],
+      allowedProviders: ['local' as const],
+    };
+    const req = makeReq('GET', '/api/v1/routing/status');
+    const { res, chunks, statusCode } = makeRes();
+    const handled = handleV1RoutingRoute(req, res, baseDeps({ getStatus: () => status }));
+    expect(handled).toBe(true);
+    expect(statusCode()).toBe(200);
+    expect(JSON.parse(chunks.join(''))).toEqual(status);
+  });
+
+  it('returns an inactive payload (200) when no status accessor is wired', () => {
+    const req = makeReq('GET', '/api/v1/routing/status');
+    const { res, chunks, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, baseDeps());
+    expect(statusCode()).toBe(200);
+    expect(JSON.parse(chunks.join(''))).toEqual({
+      active: false,
+      budget: null,
+      escalation: [],
+      allowedProviders: null,
+    });
+  });
+});

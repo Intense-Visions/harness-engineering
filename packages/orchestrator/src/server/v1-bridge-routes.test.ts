@@ -60,6 +60,7 @@ describe('V1_BRIDGE_ROUTES registry', () => {
     // read-only observability → read-telemetry (matches config/decisions/trace).
     expect(requiredBridgeScope('PUT', '/api/v1/routing/policy')).toBe('admin');
     expect(requiredBridgeScope('GET', '/api/v1/routing/telemetry')).toBe('read-telemetry');
+    expect(requiredBridgeScope('GET', '/api/v1/routing/status')).toBe('read-telemetry');
     expect(isV1Bridge('PUT', '/api/v1/routing/policy')).toBe(true);
     expect(isV1Bridge('GET', '/api/v1/routing/telemetry?since=0')).toBe(true);
     // A GET on the policy write-path is NOT registered (no accidental read alias).

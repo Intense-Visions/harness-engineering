@@ -7,6 +7,7 @@ import type {
   RoutingPolicy,
   RoutingRisk,
   RoutingTelemetry,
+  RoutingStatus,
   RoutingUseCase,
   RoutingValue,
 } from '@harness-engineering/types';
@@ -27,6 +28,7 @@ const DECISIONS_RE = /^\/api\/v1\/routing\/decisions(?:\?.*)?$/;
 const TRACE_RE = /^\/api\/v1\/routing\/trace(?:\?.*)?$/;
 const POLICY_RE = /^\/api\/v1\/routing\/policy(?:\?.*)?$/;
 const TELEMETRY_RE = /^\/api\/v1\/routing\/telemetry(?:\?.*)?$/;
+const STATUS_RE = /^\/api\/v1\/routing\/status(?:\?.*)?$/;
 
 /**
  * Spec B Phase 5 — routing observability route dependencies.
@@ -54,6 +56,11 @@ export interface RoutingRouteDeps {
    * shape. Absent/null in fakes/tests ⇒ the GET returns an empty payload (safe).
    */
   getTelemetry?: (() => RoutingTelemetry) | null;
+  /**
+   * AMR observability: live operator status (budget/escalation/allowlist).
+   * Absent/null ⇒ the GET returns an inactive payload.
+   */
+  getStatus?: (() => RoutingStatus) | null;
 }
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {
@@ -444,6 +451,22 @@ function handleTelemetry(res: ServerResponse, deps: RoutingRouteDeps): boolean {
 }
 
 /**
+ * AMR observability: `GET /api/v1/routing/status`. The live operator view —
+ * budget spend-vs-cap, escalated units, allowlist. Idempotent; always 200 (an
+ * inactive payload when AMR is off / the accessor is absent). `read-telemetry`.
+ */
+function handleStatus(res: ServerResponse, deps: RoutingRouteDeps): boolean {
+  const status: RoutingStatus = deps.getStatus?.() ?? {
+    active: false,
+    budget: null,
+    escalation: [],
+    allowedProviders: null,
+  };
+  sendJSON(res, 200, status);
+  return true;
+}
+
+/**
  * Spec B Phase 5 + AMR Phase 5 dispatcher:
  *   GET  /api/v1/routing/config     — resolved config + chains
  *   GET  /api/v1/routing/decisions  — recent decision ring
@@ -471,5 +494,6 @@ export function handleV1RoutingRoute(
     return true;
   }
   if (method === 'GET' && TELEMETRY_RE.test(url)) return handleTelemetry(res, deps);
+  if (method === 'GET' && STATUS_RE.test(url)) return handleStatus(res, deps);
   return false;
 }

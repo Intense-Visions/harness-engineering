@@ -8,6 +8,7 @@ import type {
   RoutingDecision,
   RoutingPolicy,
   RoutingTelemetry,
+  RoutingStatus,
   StageRun,
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
@@ -818,6 +819,7 @@ export class Orchestrator extends EventEmitter {
         // AMR Phase 5 (D1/D2): runtime policy ingestion + telemetry projection.
         ingestRoutingPolicy: (p) => this.ingestRoutingPolicy(p),
         getRoutingTelemetry: () => this.getRoutingTelemetry(),
+        getRoutingStatus: () => this.getRoutingStatus(),
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
@@ -3264,6 +3266,22 @@ export class Orchestrator extends EventEmitter {
    */
   public getRoutingTelemetry(): RoutingTelemetry {
     return this.adaptiveRouter?.projectTelemetry() ?? { decisions: [], spentUsd: 0 };
+  }
+
+  /**
+   * AMR observability: the live operator status (budget spend-vs-cap, escalated
+   * units, allowlist), or an inactive payload when AMR is off. Backs
+   * `GET /api/v1/routing/status`.
+   */
+  public getRoutingStatus(): RoutingStatus {
+    return (
+      this.adaptiveRouter?.getStatus() ?? {
+        active: false,
+        budget: null,
+        escalation: [],
+        allowedProviders: null,
+      }
+    );
   }
 
   /**
