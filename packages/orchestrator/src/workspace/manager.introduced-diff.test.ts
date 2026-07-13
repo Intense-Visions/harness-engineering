@@ -9,9 +9,13 @@ import type { WorkspaceConfig } from '@harness-engineering/types';
  */
 
 const CANNED_DIFF = [
+  'diff --git a/src/app.ts b/src/app.ts',
+  '--- a/src/app.ts',
   '+++ b/src/app.ts',
   '@@ -0,0 +1,1 @@',
   '+const r = eval(x);',
+  'diff --git a/docs/roadmap.md b/docs/roadmap.md',
+  '--- a/docs/roadmap.md',
   '+++ b/docs/roadmap.md',
   '@@ -0,0 +1,1 @@',
   '+seeded prose',

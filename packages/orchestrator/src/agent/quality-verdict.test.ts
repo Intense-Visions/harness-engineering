@@ -33,9 +33,13 @@ describe('parseIntroducedHunks', () => {
 
   it('excludes files under a seeded path (the handoff overlay, not agent work)', () => {
     const diff = [
+      'diff --git a/docs/roadmap.md b/docs/roadmap.md',
+      '--- a/docs/roadmap.md',
       '+++ b/docs/roadmap.md',
       '@@ -0,0 +1,1 @@',
       '+prose that mentions eval( just as text',
+      'diff --git a/src/app.ts b/src/app.ts',
+      '--- a/src/app.ts',
       '+++ b/src/app.ts',
       '@@ -0,0 +1,1 @@',
       '+const a = 1;',
@@ -45,8 +49,31 @@ describe('parseIntroducedHunks', () => {
   });
 
   it('skips deletions (+++ /dev/null) and produces no hunk', () => {
-    const diff = ['--- a/gone.ts', '+++ /dev/null', '@@ -1,2 +0,0 @@'].join('\n');
+    const diff = [
+      'diff --git a/gone.ts b/gone.ts',
+      '--- a/gone.ts',
+      '+++ /dev/null',
+      '@@ -1,2 +0,0 @@',
+    ].join('\n');
     expect(parseIntroducedHunks(diff, [])).toEqual([]);
+  });
+
+  it('does NOT misread an ADDED source line that looks like a diff header (`++ b/x`)', () => {
+    // The agent adds a line whose literal content is "++ b/evil.ts"; git renders it
+    // as "+++ b/evil.ts" INSIDE the hunk. It must be treated as added content, not
+    // a file header — so the eval below stays attributed to the real file.
+    const diff = [
+      'diff --git a/src/real.ts b/src/real.ts',
+      '--- a/src/real.ts',
+      '+++ b/src/real.ts',
+      '@@ -0,0 +1,2 @@',
+      '+++ b/evil.ts',
+      '+const r = eval(x);',
+    ].join('\n');
+    const hunks = parseIntroducedHunks(diff, []);
+    expect(hunks).toEqual([
+      { file: 'src/real.ts', addedContent: '++ b/evil.ts\nconst r = eval(x);', startLine: 1 },
+    ]);
   });
 
   it('returns [] for an empty diff', () => {

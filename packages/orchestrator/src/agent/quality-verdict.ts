@@ -37,6 +37,11 @@ export function parseIntroducedHunks(rawDiff: string, excludePaths: string[]): I
   let file: string | null = null;
   let startLine = 1;
   let added: string[] = [];
+  // `+++ `/`--- ` are file headers ONLY in a file's pre-hunk region; once inside a
+  // hunk, a line rendered as `+++ x` is an ADDED line whose content is `++ x`
+  // (git prefixes added lines with `+`). Track hunk state so an added source line
+  // that looks like a header is never misread as one. `diff --git` starts a new file.
+  let inHunk = false;
 
   const flush = (): void => {
     if (file !== null && added.length > 0 && !isExcluded(file, excludePaths)) {
@@ -46,23 +51,32 @@ export function parseIntroducedHunks(rawDiff: string, excludePaths: string[]): I
   };
 
   for (const line of rawDiff.split('\n')) {
-    if (line.startsWith('+++ ')) {
+    if (line.startsWith('diff --git ')) {
       flush();
-      const p = line.slice(4).trim();
-      // "+++ b/path" → "path"; "/dev/null" (deletion) → no file.
-      file = p === '/dev/null' ? null : p.replace(/^b\//, '');
+      inHunk = false;
+      file = null;
       continue;
     }
-    if (line.startsWith('--- ')) continue; // old-file header — not an added line
     if (line.startsWith('@@')) {
       flush();
       // @@ -a[,b] +c[,d] @@ → c is the new-file start line.
-      const m = /\+(\d+)/.exec(line);
+      const m = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(line);
       startLine = m ? Number(m[1]) : 1;
+      inHunk = true;
       continue;
     }
+    if (!inHunk) {
+      // File-header region: parse the new-file path, skip the old-file header.
+      if (line.startsWith('+++ ')) {
+        const p = line.slice(4).trim();
+        file = p === '/dev/null' ? null : p.replace(/^b\//, '');
+      }
+      // `--- ` and other metadata (index, mode, Binary files …) ignored.
+      continue;
+    }
+    // Inside a hunk: collect added lines (strip the single `+`). With
+    // --unified=0 there are no context lines; removed (`-`) lines are ignored.
     if (line.startsWith('+')) added.push(line.slice(1));
-    // With --unified=0 there are no context lines; removed (`-`) lines are ignored.
   }
   flush();
   return hunks;
