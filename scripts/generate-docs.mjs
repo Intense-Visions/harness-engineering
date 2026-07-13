@@ -101,6 +101,48 @@ function formatDefaultValue(value) {
   return JSON.stringify(value);
 }
 
+/** Render the **Arguments:** block for a command, or '' when none are described. */
+function formatArgumentsSection(args) {
+  const describedArgs = args.filter(a => a.description);
+  if (describedArgs.length === 0) return '';
+  const lines = ['**Arguments:**\n\n'];
+  for (const a of describedArgs) {
+    const req = a.required ? 'required' : 'optional';
+    lines.push(`- \`${a.name()}\` (${req}) — ${a.description}\n`);
+  }
+  lines.push('\n');
+  return lines.join('');
+}
+
+/**
+ * Filter a command's options for documentation: drop inherited --help and the
+ * implicit --version that just prints the version, but keep command-specific
+ * --version <arg> options (e.g. install --version <range>).
+ */
+function documentableOptions(cmd) {
+  return cmd.options.filter(o => {
+    if (o.long === '--help') return false;
+    if (o.long === '--version' && !o.required && !o.optional) return false;
+    return true;
+  });
+}
+
+/** Render the **Options:** block for a command, or '' when there are none. */
+function formatOptionsSection(cmd) {
+  const options = documentableOptions(cmd);
+  if (options.length === 0) return '';
+  const lines = ['**Options:**\n\n'];
+  for (const opt of options) {
+    const flags = opt.short ? `\`${opt.short}, ${opt.long}\`` : `\`${opt.long}\``;
+    const defaultStr = opt.defaultValue !== undefined && opt.defaultValue !== false
+      ? ` (default: ${formatDefaultValue(opt.defaultValue)})`
+      : '';
+    lines.push(`- ${flags} — ${opt.description}${defaultStr}\n`);
+  }
+  lines.push('\n');
+  return lines.join('');
+}
+
 function formatCommand(cmd, prefix) {
   const lines = [];
   const args = cmd._args || [];
@@ -112,37 +154,8 @@ function formatCommand(cmd, prefix) {
     lines.push(`${cmd.description()}\n\n`);
   }
 
-  // Arguments with descriptions
-  if (args.length > 0) {
-    const describedArgs = args.filter(a => a.description);
-    if (describedArgs.length > 0) {
-      lines.push('**Arguments:**\n\n');
-      for (const a of describedArgs) {
-        const req = a.required ? 'required' : 'optional';
-        lines.push(`- \`${a.name()}\` (${req}) — ${a.description}\n`);
-      }
-      lines.push('\n');
-    }
-  }
-
-  // Options (excluding inherited --help and the implicit --version that just prints the version).
-  // Keep command-specific --version <arg> options (e.g. install --version <range>).
-  const options = cmd.options.filter(o => {
-    if (o.long === '--help') return false;
-    if (o.long === '--version' && !o.required && !o.optional) return false;
-    return true;
-  });
-  if (options.length > 0) {
-    lines.push('**Options:**\n\n');
-    for (const opt of options) {
-      const flags = opt.short ? `\`${opt.short}, ${opt.long}\`` : `\`${opt.long}\``;
-      const defaultStr = opt.defaultValue !== undefined && opt.defaultValue !== false
-        ? ` (default: ${formatDefaultValue(opt.defaultValue)})`
-        : '';
-      lines.push(`- ${flags} — ${opt.description}${defaultStr}\n`);
-    }
-    lines.push('\n');
-  }
+  lines.push(formatArgumentsSection(args));
+  lines.push(formatOptionsSection(cmd));
 
   return lines.join('');
 }
@@ -213,34 +226,46 @@ async function generateMcpReference(cliAnchorLookup = new Map()) {
   for (const [category, tools] of [...categories.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     lines.push(`## ${category}\n\n`);
     for (const tool of tools.sort((a, b) => a.name.localeCompare(b.name))) {
-      lines.push(`### \`${tool.name}\`\n\n`);
-      lines.push(`${tool.description}\n\n`);
-
-      if (tool.inputSchema && tool.inputSchema.properties) {
-        const props = tool.inputSchema.properties;
-        const required = new Set(tool.inputSchema.required || []);
-        const paramEntries = Object.entries(props);
-        if (paramEntries.length > 0) {
-          lines.push('**Parameters:**\n\n');
-          for (const [pName, pSchema] of paramEntries) {
-            const req = required.has(pName) ? 'required' : 'optional';
-            const type = pSchema.type || 'any';
-            const desc = escapeVitePress(pSchema.description || '');
-            lines.push(`- \`${pName}\` (${type}, ${req})${desc ? ` — ${desc}` : ''}\n`);
-          }
-          lines.push('\n');
-        }
-      }
-
-      const cliCmd = toolToCliCommand[tool.name];
-      if (cliCmd) {
-        const anchor = cliAnchorLookup.get(cliCmd) || githubAnchor(cliCmd);
-        lines.push(`**CLI equivalent:** [\`${cliCmd}\`](cli-commands.md#${anchor})\n\n`);
-      }
+      lines.push(renderMcpTool(tool, toolToCliCommand, cliAnchorLookup));
     }
   }
 
   return lines.join('');
+}
+
+/** Render the **Parameters:** block for a tool's input schema, or '' when none. */
+function renderMcpToolParameters(inputSchema) {
+  if (!inputSchema || !inputSchema.properties) return '';
+  const paramEntries = Object.entries(inputSchema.properties);
+  if (paramEntries.length === 0) return '';
+  const required = new Set(inputSchema.required || []);
+  const lines = ['**Parameters:**\n\n'];
+  for (const [pName, pSchema] of paramEntries) {
+    const req = required.has(pName) ? 'required' : 'optional';
+    const type = pSchema.type || 'any';
+    const desc = escapeVitePress(pSchema.description || '');
+    lines.push(`- \`${pName}\` (${type}, ${req})${desc ? ` — ${desc}` : ''}\n`);
+  }
+  lines.push('\n');
+  return lines.join('');
+}
+
+/** Render the **CLI equivalent:** line for a tool, or '' when it maps to no CLI command. */
+function renderMcpCliEquivalent(toolName, toolToCliCommand, cliAnchorLookup) {
+  const cliCmd = toolToCliCommand[toolName];
+  if (!cliCmd) return '';
+  const anchor = cliAnchorLookup.get(cliCmd) || githubAnchor(cliCmd);
+  return `**CLI equivalent:** [\`${cliCmd}\`](cli-commands.md#${anchor})\n\n`;
+}
+
+/** Render a single MCP tool section (heading, description, params, CLI equivalent). */
+function renderMcpTool(tool, toolToCliCommand, cliAnchorLookup) {
+  return (
+    `### \`${tool.name}\`\n\n` +
+    `${tool.description}\n\n` +
+    renderMcpToolParameters(tool.inputSchema) +
+    renderMcpCliEquivalent(tool.name, toolToCliCommand, cliAnchorLookup)
+  );
 }
 
 /**
@@ -273,15 +298,23 @@ function buildCliAnchorLookup(cliMarkdown) {
   return lookup;
 }
 
+// Ordered prefix → category rules. First matching prefix wins, preserving the
+// original if-cascade precedence.
+const TOOL_CATEGORY_RULES = [
+  { category: 'Checkers & Validators', prefixes: ['check_', 'validate_', 'assess_'] },
+  { category: 'Generators & Creators', prefixes: ['generate_', 'create_'] },
+  { category: 'Queries & Search', prefixes: ['query_', 'search_', 'find_', 'get_', 'ask_'] },
+  { category: 'Runners & Reviewers', prefixes: ['run_', 'review_'] },
+  { category: 'State & Management', prefixes: ['manage_', 'list_', 'emit_'] },
+  { category: 'Detection & Prediction', prefixes: ['detect_', 'predict_'] },
+  { category: 'Data & Updates', prefixes: ['ingest_', 'add_', 'update_'] },
+  { category: 'Code Navigation', prefixes: ['code_'] },
+];
+
 function categorizeToolName(name) {
-  if (name.startsWith('check_') || name.startsWith('validate_') || name.startsWith('assess_')) return 'Checkers & Validators';
-  if (name.startsWith('generate_') || name.startsWith('create_')) return 'Generators & Creators';
-  if (name.startsWith('query_') || name.startsWith('search_') || name.startsWith('find_') || name.startsWith('get_') || name.startsWith('ask_')) return 'Queries & Search';
-  if (name.startsWith('run_') || name.startsWith('review_')) return 'Runners & Reviewers';
-  if (name.startsWith('manage_') || name.startsWith('list_') || name.startsWith('emit_')) return 'State & Management';
-  if (name.startsWith('detect_') || name.startsWith('predict_')) return 'Detection & Prediction';
-  if (name.startsWith('ingest_') || name.startsWith('add_') || name.startsWith('update_')) return 'Data & Updates';
-  if (name.startsWith('code_')) return 'Code Navigation';
+  for (const { category, prefixes } of TOOL_CATEGORY_RULES) {
+    if (prefixes.some((prefix) => name.startsWith(prefix))) return category;
+  }
   return 'Other';
 }
 
@@ -330,10 +363,12 @@ function parseToolDefinitionsFromSource() {
 
 // ─── Skills Catalog ──────────────────────────────────────────────────────────
 
-function generateSkillsCatalog() {
-  const skillsDir = join(ROOT, 'agents', 'skills', 'claude-code');
+/**
+ * Load and normalize skill metadata from every skill.yaml under a directory.
+ * Malformed YAML files are warned about and skipped.
+ */
+function loadSkills(skillsDir) {
   const skills = [];
-
   for (const dir of readdirSync(skillsDir, { withFileTypes: true })) {
     if (!dir.isDirectory()) continue;
     const yamlPath = join(skillsDir, dir.name, 'skill.yaml');
@@ -356,6 +391,30 @@ function generateSkillsCatalog() {
       console.warn(`  ⚠ Skipping malformed skill.yaml: ${yamlPath} (${err.message})`);
     }
   }
+  return skills;
+}
+
+/** Render a single skill's catalog entry (heading, description, metadata bullets). */
+function renderSkillEntry(skill) {
+  const lines = [];
+  lines.push(`### ${skill.name}\n\n`);
+  lines.push(`${skill.description}\n\n`);
+  lines.push(`- **Triggers:** ${skill.triggers.join(', ') || 'manual'}\n`);
+  lines.push(`- **Platforms:** ${skill.platforms.join(', ') || 'all'}\n`);
+  lines.push(`- **Type:** ${skill.type}\n`);
+  if (skill.cognitiveMode) {
+    lines.push(`- **Cognitive mode:** ${skill.cognitiveMode}\n`);
+  }
+  if (skill.dependsOn.length > 0) {
+    lines.push(`- **Depends on:** ${skill.dependsOn.join(', ')}\n`);
+  }
+  lines.push('\n');
+  return lines.join('');
+}
+
+function generateSkillsCatalog() {
+  const skillsDir = join(ROOT, 'agents', 'skills', 'claude-code');
+  const skills = loadSkills(skillsDir);
 
   // Group by tier
   const tiers = {
@@ -387,18 +446,7 @@ function generateSkillsCatalog() {
     lines.push(`## ${tier.label} (${tier.skills.length} skills)\n\n`);
 
     for (const skill of tier.skills) {
-      lines.push(`### ${skill.name}\n\n`);
-      lines.push(`${skill.description}\n\n`);
-      lines.push(`- **Triggers:** ${skill.triggers.join(', ') || 'manual'}\n`);
-      lines.push(`- **Platforms:** ${skill.platforms.join(', ') || 'all'}\n`);
-      lines.push(`- **Type:** ${skill.type}\n`);
-      if (skill.cognitiveMode) {
-        lines.push(`- **Cognitive mode:** ${skill.cognitiveMode}\n`);
-      }
-      if (skill.dependsOn.length > 0) {
-        lines.push(`- **Depends on:** ${skill.dependsOn.join(', ')}\n`);
-      }
-      lines.push('\n');
+      lines.push(renderSkillEntry(skill));
     }
   }
 

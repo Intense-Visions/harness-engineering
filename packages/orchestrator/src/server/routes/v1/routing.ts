@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type {
   BackendDef,
+  CapabilityTier,
   ComplexityLevel,
   ComplexityVerdict,
   RoutingConfig,
+  RoutingDecision,
   RoutingPolicy,
   RoutingRisk,
   RoutingTelemetry,
@@ -200,6 +202,89 @@ const UseCaseSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('mode'), cognitiveMode: z.string().min(1) }),
 ]);
 
+/**
+ * AMR Phase 3 (SC10): derive the dry-run `tierRequired` + `estCostUsd` from
+ * synthetic complexity/risk inputs WITHOUT dispatching (no LLM classify, no bus
+ * emission). Extracted from {@link handleTrace} so the handler's nested branch
+ * no longer blows the complexity budget; behavior is byte-identical.
+ *
+ * Costs the TIER-SELECTED backend (what the AdaptiveRouter would dispatch to at
+ * `tierRequired`), not the identity-routed `def`: pick the cheapest backend
+ * qualifying at `tierRequired`; if selection abstains (tier/cost exclusion, or
+ * PrivacyNoMatch) fall through to the identity `def` (SC8 semantics — identity
+ * IS the resolution, so tier and costed backend agree).
+ */
+function deriveTraceCost(
+  body: z.infer<typeof TraceBodySchema>,
+  decision: RoutingDecision,
+  def: BackendDef,
+  routing: RoutingConfig,
+  backends: Record<string, BackendDef>
+): { tierRequired: CapabilityTier; estCostUsd: number; costedBackendName: string } {
+  const verdict: ComplexityVerdict = {
+    level: (body.complexity ?? 'moderate') as ComplexityLevel,
+    confidence: 'high',
+    signals: {},
+    source: 'static',
+  };
+  const risk: RoutingRisk =
+    body.risk === 'high'
+      ? { blastRadius: 10, sensitivePath: true }
+      : { blastRadius: 0, sensitivePath: false };
+  const tierRequired = deriveRequiredTier(
+    verdict,
+    risk,
+    routing.policy ?? {},
+    { spentUsd: 0 },
+    'fast'
+  );
+  const { costedDef, costedName } = selectCostedBackend(
+    tierRequired,
+    decision,
+    def,
+    routing,
+    backends
+  );
+  const estCostUsd = estimateCost(costedDef, { useCase: body.useCase as RoutingUseCase });
+  return { tierRequired, estCostUsd, costedBackendName: costedName };
+}
+
+/**
+ * SC10 consistency: pick the cheapest backend qualifying at `tierRequired`
+ * (mirroring the router's selection). Falls back to the identity `def`/`decision`
+ * when selection abstains or raises {@link PrivacyNoMatch}. Extracted so the
+ * try/catch branch doesn't count against the caller's complexity budget.
+ */
+function selectCostedBackend(
+  tierRequired: CapabilityTier,
+  decision: RoutingDecision,
+  def: BackendDef,
+  routing: RoutingConfig,
+  backends: Record<string, BackendDef>
+): { costedDef: BackendDef; costedName: string } {
+  const registry = buildCapabilityRegistry(backends);
+  const providerOf = (name: string): BackendDef['type'] | undefined => backends[name]?.type;
+  try {
+    const selected = selectCheapestQualifying(
+      registry,
+      tierRequired,
+      routing.policy?.privacyFloor !== undefined
+        ? { privacyFloor: routing.policy.privacyFloor }
+        : {},
+      providerOf
+    );
+    const selectedDef = selected !== undefined ? backends[selected.name] : undefined;
+    if (selected !== undefined && selectedDef !== undefined) {
+      return { costedDef: selectedDef, costedName: selected.name };
+    }
+  } catch (selErr) {
+    // PrivacyNoMatch ⇒ no compliant backend at this tier; keep identity `def`
+    // for the cost estimate (the trace is best-effort, non-dispatching).
+    if (!(selErr instanceof PrivacyNoMatch)) throw selErr;
+  }
+  return { costedDef: def, costedName: decision.backendName };
+}
+
 const TraceBodySchema = z.object({
   useCase: UseCaseSchema,
   invocationOverride: z.string().min(1).optional(),
@@ -268,58 +353,13 @@ async function handleTrace(
     // required tier + estimated cost WITHOUT dispatching. The tier is TS-derived
     // (never LLM-trusted); no bus emission, so the dry-run invariant holds.
     if (r.data.complexity !== undefined || r.data.risk !== undefined) {
-      const verdict: ComplexityVerdict = {
-        level: (r.data.complexity ?? 'moderate') as ComplexityLevel,
-        confidence: 'high',
-        signals: {},
-        source: 'static',
-      };
-      const risk: RoutingRisk =
-        r.data.risk === 'high'
-          ? { blastRadius: 10, sensitivePath: true }
-          : { blastRadius: 0, sensitivePath: false };
-      const tierRequired = deriveRequiredTier(
-        verdict,
-        risk,
-        deps.routing.policy ?? {},
-        { spentUsd: 0 },
-        'fast'
+      const { tierRequired, estCostUsd, costedBackendName } = deriveTraceCost(
+        r.data,
+        decision,
+        def,
+        deps.routing,
+        deps.backends
       );
-      // SC10 consistency fix: cost the TIER-SELECTED backend (what the
-      // AdaptiveRouter would dispatch to at `tierRequired`), not the identity-
-      // routed `def`. Previously the response paired `tierRequired` with a cost
-      // for a backend that may sit at a different tier — a single-backend test
-      // hid the divergence. Mirror the router's selection: pick the cheapest
-      // backend qualifying at `tierRequired`; if selection abstains (tier/cost
-      // exclusion) fall through to the identity `def` (SC8 semantics — the tier
-      // and the costed backend then agree because identity IS the resolution).
-      const registry = buildCapabilityRegistry(deps.backends);
-      const providerOf = (name: string): BackendDef['type'] | undefined =>
-        deps.backends?.[name]?.type;
-      let costedDef: BackendDef = def;
-      let costedName: string = decision.backendName;
-      try {
-        const selected = selectCheapestQualifying(
-          registry,
-          tierRequired,
-          deps.routing.policy?.privacyFloor !== undefined
-            ? { privacyFloor: deps.routing.policy.privacyFloor }
-            : {},
-          providerOf
-        );
-        if (selected !== undefined) {
-          const selectedDef = deps.backends[selected.name];
-          if (selectedDef !== undefined) {
-            costedDef = selectedDef;
-            costedName = selected.name;
-          }
-        }
-      } catch (selErr) {
-        // PrivacyNoMatch ⇒ no compliant backend at this tier; keep identity `def`
-        // for the cost estimate (the trace is best-effort, non-dispatching).
-        if (!(selErr instanceof PrivacyNoMatch)) throw selErr;
-      }
-      const estCostUsd = estimateCost(costedDef, { useCase: r.data.useCase as RoutingUseCase });
       sendJSON(res, 200, {
         decision,
         def: { type: def.type },
@@ -327,7 +367,7 @@ async function handleTrace(
         estCostUsd,
         // Name the backend the cost belongs to so operators see tier↔cost↔backend
         // are consistent (was implicit + divergent before this fix).
-        costedBackendName: costedName,
+        costedBackendName,
       });
       return true;
     }

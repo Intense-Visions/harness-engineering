@@ -24390,6 +24390,44 @@
       "findingIds": [
         "0020d9dbc68c53fd"
       ]
+    },
+    {
+      "capturedAt": "2026-07-13T02:53:49.378Z",
+      "commitHash": "e1f016d133cb1534d12c16633009c5969963f262",
+      "securityScore": 98,
+      "totalFindings": 2,
+      "bySeverity": {
+        "error": 0,
+        "warning": 2,
+        "info": 0
+      },
+      "byCategory": {
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        },
+        "deserialization": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "0020d9dbc68c53fd",
+        "f2ceade87b90537d"
+      ]
     }
   ],
   "findingLifecycles": [
@@ -25479,6 +25517,17 @@
       "file": "packages/cli/src/design-craft/measurement/signal.ts",
       "firstSeenAt": "2026-05-29T15:15:23.744Z",
       "firstSeenCommit": "fdfd57673813bcf57641c26fa65326e3346e0857",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "f2ceade87b90537d",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "packages/cli/src/commands/models.ts",
+      "firstSeenAt": "2026-07-13T02:53:49.394Z",
+      "firstSeenCommit": "e1f016d133cb1534d12c16633009c5969963f262",
       "resolvedAt": null,
       "resolvedCommit": null
     }

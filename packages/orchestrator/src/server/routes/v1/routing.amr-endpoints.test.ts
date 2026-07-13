@@ -66,17 +66,37 @@ function baseDeps(over: Partial<RoutingRouteDeps> = {}): RoutingRouteDeps {
 // async handler has run before assertions.
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
+interface PutResult {
+  handled: boolean;
+  chunks: string[];
+  statusCode: () => number;
+}
+
+// Dispatch a PUT /routing/policy, await the async handler, and hand back the
+// response probe. `body`/`raw` mirror makeBodyReq; `deps` defaults to baseDeps
+// wired with `ingest`. Collapses the per-test request/response/flush boilerplate
+// so each `it` is just its distinct arrange + assert.
+async function putPolicy(
+  body: unknown,
+  ingest: NonNullable<RoutingRouteDeps['ingestRoutingPolicy']> & ReturnType<typeof vi.fn>,
+  opts: { raw?: string; deps?: RoutingRouteDeps } = {}
+): Promise<PutResult> {
+  const req = makeBodyReq('PUT', '/api/v1/routing/policy', body, opts.raw);
+  const { res, chunks, statusCode } = makeRes();
+  const deps = opts.deps ?? baseDeps({ ingestRoutingPolicy: ingest });
+  const handled = handleV1RoutingRoute(req, res, deps);
+  await flush();
+  return { handled, chunks, statusCode };
+}
+
 describe('PUT /api/v1/routing/policy', () => {
   it('validates a policy, ingests it, and returns 204 (no body)', async () => {
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', {
-      privacyFloor: 'on-device',
-      budget: { capUsd: 10, onBudgetExhausted: 'degrade' },
-    });
-    const { res, chunks, statusCode } = makeRes();
-    const handled = handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
+    const { handled, chunks, statusCode } = await putPolicy(
+      { privacyFloor: 'on-device', budget: { capUsd: 10, onBudgetExhausted: 'degrade' } },
+      ingest
+    );
     expect(handled).toBe(true);
-    await flush();
     expect(statusCode()).toBe(204);
     expect(chunks.join('')).toBe(''); // 204 = no body
     expect(ingest).toHaveBeenCalledTimes(1);
@@ -88,10 +108,7 @@ describe('PUT /api/v1/routing/policy', () => {
 
   it('accepts an empty {} policy (default-off restore, D5) → 204', async () => {
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', {});
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy({}, ingest);
     expect(statusCode()).toBe(204);
     expect(ingest).toHaveBeenCalledWith({});
   });
@@ -100,12 +117,10 @@ describe('PUT /api/v1/routing/policy', () => {
     // Shuttle types allowedProviders as string[]; an unknown provider must pass
     // the wire and fail closed at selection, NOT reject the whole push.
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', {
-      allowedProviders: ['local', 'some-future-provider'],
-    });
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy(
+      { allowedProviders: ['local', 'some-future-provider'] },
+      ingest
+    );
     expect(statusCode()).toBe(204);
     expect(ingest.mock.calls[0]![0]).toEqual({
       allowedProviders: ['local', 'some-future-provider'],
@@ -114,20 +129,14 @@ describe('PUT /api/v1/routing/policy', () => {
 
   it('rejects invalid JSON with 400', async () => {
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', undefined, '{not json');
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy(undefined, ingest, { raw: '{not json' });
     expect(statusCode()).toBe(400);
     expect(ingest).not.toHaveBeenCalled();
   });
 
   it('rejects a schema-invalid policy with 400 (bad privacyFloor)', async () => {
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', { privacyFloor: 'nonsense' });
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy({ privacyFloor: 'nonsense' }, ingest);
     expect(statusCode()).toBe(400);
     expect(ingest).not.toHaveBeenCalled();
   });
@@ -137,12 +146,7 @@ describe('PUT /api/v1/routing/policy', () => {
     // NOT be treated as the intentional {} disable (which tears down the live
     // router). Only a LITERAL {} disables.
     const ingest = vi.fn();
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', {
-      complexityTierMatrics: { trivial: 'fast' },
-    });
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy({ complexityTierMatrics: { trivial: 'fast' } }, ingest);
     expect(statusCode()).toBe(400);
     expect(ingest).not.toHaveBeenCalled(); // never silently disabled
   });
@@ -151,23 +155,15 @@ describe('PUT /api/v1/routing/policy', () => {
     const ingest = vi.fn(() => {
       throw new Error('router construction blew up');
     });
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', { privacyFloor: 'on-device' });
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, baseDeps({ ingestRoutingPolicy: ingest }));
-    await flush();
+    const { statusCode } = await putPolicy({ privacyFloor: 'on-device' }, ingest);
     expect(statusCode()).toBe(500);
   });
 
   it('returns 503 when routing is unavailable (no router / no ingestion fn)', async () => {
-    const req = makeBodyReq('PUT', '/api/v1/routing/policy', { privacyFloor: 'on-device' });
-    const { res, statusCode } = makeRes();
-    handleV1RoutingRoute(req, res, {
-      router: null,
-      bus: null,
-      routing: null,
-      backends: null,
+    const ingest = vi.fn();
+    const { statusCode } = await putPolicy({ privacyFloor: 'on-device' }, ingest, {
+      deps: { router: null, bus: null, routing: null, backends: null },
     });
-    await flush();
     expect(statusCode()).toBe(503);
   });
 });

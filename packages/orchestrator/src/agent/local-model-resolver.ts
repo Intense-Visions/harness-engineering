@@ -104,6 +104,45 @@ const noopLogger: ResolverLogger = {
 };
 
 /**
+ * Bind the effective `fetchModels`. A custom injection owns its own timeout
+ * policy and is used as-is; otherwise the default impl is bound to `timeoutMs`.
+ * Extracted from the constructor to keep its cyclomatic count under budget.
+ */
+function resolveFetchModels(
+  opts: LocalModelResolverOptions
+): (endpoint: string, apiKey?: string) => Promise<string[]> {
+  if (opts.fetchModels !== undefined) return opts.fetchModels;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+  return (endpoint: string, apiKey?: string) => defaultFetchModels(endpoint, apiKey, timeoutMs);
+}
+
+/** Clamped numeric knobs, resolved from options with their defaults and floors. */
+interface ResolverTunables {
+  probeIntervalMs: number;
+  refreshDebounceMs: number;
+  breakerThreshold: number;
+  breakerCooldownMs: number;
+}
+
+/**
+ * Resolve and clamp the resolver's numeric options. Extracted from the
+ * constructor so the option-defaulting decisions live here rather than inflating
+ * the constructor's cyclomatic count; the constructor assigns the returned values
+ * to its readonly fields.
+ */
+function resolveTunables(opts: LocalModelResolverOptions): ResolverTunables {
+  return {
+    probeIntervalMs: Math.max(
+      MIN_PROBE_INTERVAL_MS,
+      opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS
+    ),
+    refreshDebounceMs: Math.max(0, opts.refreshDebounceMs ?? REFRESH_DEBOUNCE_MS),
+    breakerThreshold: Math.max(1, opts.breakerThreshold ?? DEFAULT_BREAKER_THRESHOLD),
+    breakerCooldownMs: Math.max(0, opts.breakerCooldownMs ?? DEFAULT_BREAKER_COOLDOWN_MS),
+  };
+}
+
+/**
  * Default `fetchModels` — GET `${endpoint}/models` with bearer apiKey.
  * Throws on network failure, non-2xx, malformed body, or timeout.
  *
@@ -272,28 +311,25 @@ export class LocalModelResolver {
 
   constructor(opts: LocalModelResolverOptions) {
     this.endpoint = opts.endpoint;
-    if (opts.apiKey !== undefined) {
-      this.apiKey = opts.apiKey;
-    }
     this.configured = [...opts.configured];
-    if (opts.poolState !== undefined) {
-      this.poolState = opts.poolState;
-    }
-    const interval = opts.probeIntervalMs ?? DEFAULT_PROBE_INTERVAL_MS;
-    this.probeIntervalMs = Math.max(MIN_PROBE_INTERVAL_MS, interval);
-    this.refreshDebounceMs = Math.max(0, opts.refreshDebounceMs ?? REFRESH_DEBOUNCE_MS);
-    this.breakerThreshold = Math.max(1, opts.breakerThreshold ?? DEFAULT_BREAKER_THRESHOLD);
-    this.breakerCooldownMs = Math.max(0, opts.breakerCooldownMs ?? DEFAULT_BREAKER_COOLDOWN_MS);
+    // Clamped numeric knobs are resolved in a helper so the option-defaulting
+    // decisions don't inflate the constructor's cyclomatic count.
+    const tunables = resolveTunables(opts);
+    this.probeIntervalMs = tunables.probeIntervalMs;
+    this.refreshDebounceMs = tunables.refreshDebounceMs;
+    this.breakerThreshold = tunables.breakerThreshold;
+    this.breakerCooldownMs = tunables.breakerCooldownMs;
     this.now = opts.now ?? (() => Date.now());
-    const timeoutMs = opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     // Bind timeout into the default impl. Custom `fetchModels` injections own
     // their own timeout policy (typically the test harness), so we leave them
     // untouched.
-    this.fetchModels =
-      opts.fetchModels ??
-      ((endpoint: string, apiKey?: string) => defaultFetchModels(endpoint, apiKey, timeoutMs));
-    if (opts.warmModel !== undefined) this.warmModel = opts.warmModel;
+    this.fetchModels = resolveFetchModels(opts);
     this.logger = opts.logger ?? noopLogger;
+    // Optional-typed (`exactOptionalPropertyTypes`) readonly fields — assign only
+    // when present. Readonly requires these live in the constructor body.
+    if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
+    if (opts.poolState !== undefined) this.poolState = opts.poolState;
+    if (opts.warmModel !== undefined) this.warmModel = opts.warmModel;
   }
 
   /**

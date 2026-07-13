@@ -45,30 +45,43 @@ export type GraphImpactPayload =
       summary?: { totalAffected?: number; maxDepth?: number; meanProbability?: number };
     };
 
-/** Parse a get_impact / compute_blast_radius tool result, with envelope-stripping. */
-export function parseGraphImpactResult(raw: string): GraphImpactPayload | null {
+/** Strip a leading `<!-- packed: ... -->` envelope and JSON.parse from the first `{`. */
+function stripAndParse(raw: string): Record<string, unknown> | null {
   const stripped = raw.replace(/^\s*<!--\s*packed:[^>]*-->\s*/, '').trim();
   const start = stripped.indexOf('{');
   if (start === -1) return null;
   try {
-    const p = JSON.parse(stripped.slice(start)) as Record<string, unknown>;
-
-    if (
-      typeof p.targetNodeId === 'string' &&
-      (typeof p.impact === 'object' || typeof p.impactCounts === 'object')
-    ) {
-      return { kind: 'impact', ...p } as GraphImpactPayload;
-    }
-    if (
-      typeof p.sourceNodeId === 'string' &&
-      (Array.isArray(p.topRisks) || Array.isArray(p.flatSummary))
-    ) {
-      return { kind: 'blast', ...p } as GraphImpactPayload;
-    }
-    return null;
+    return JSON.parse(stripped.slice(start)) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/** Coerce to an `impact` payload when the record carries the impact shape, else null. */
+function parseImpact(p: Record<string, unknown>): GraphImpactPayload | null {
+  const hasTarget = typeof p.targetNodeId === 'string';
+  const hasImpactData = typeof p.impact === 'object' || typeof p.impactCounts === 'object';
+  if (hasTarget && hasImpactData) {
+    return { kind: 'impact', ...p } as GraphImpactPayload;
+  }
+  return null;
+}
+
+/** Coerce to a `blast` payload when the record carries the blast shape, else null. */
+function parseBlast(p: Record<string, unknown>): GraphImpactPayload | null {
+  const hasSource = typeof p.sourceNodeId === 'string';
+  const hasRisks = Array.isArray(p.topRisks) || Array.isArray(p.flatSummary);
+  if (hasSource && hasRisks) {
+    return { kind: 'blast', ...p } as GraphImpactPayload;
+  }
+  return null;
+}
+
+/** Parse a get_impact / compute_blast_radius tool result, with envelope-stripping. */
+export function parseGraphImpactResult(raw: string): GraphImpactPayload | null {
+  const p = stripAndParse(raw);
+  if (!p) return null;
+  return parseImpact(p) ?? parseBlast(p);
 }
 
 const CATEGORY_STYLES: Record<string, { color: string; label: string }> = {

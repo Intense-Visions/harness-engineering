@@ -5,6 +5,7 @@ import { useRecentSessions } from '../hooks/useRecentSessions';
 import type { NamedLocalModelStatus } from '../types/orchestrator';
 import { AssistantBlocks } from '../components/chat/AssistantBlocks';
 import { useThreadStore } from '../stores/threadStore';
+import { findAgentThreadId } from '../components/orchestrator/navigation';
 import type { AgentMeta } from '../types/thread';
 import type { ContentBlock } from '../types/chat';
 import type { StreamManifest } from '../hooks/useStreamReplay';
@@ -57,6 +58,36 @@ function LocalModelBanner({ status }: { status: NamedLocalModelStatus }) {
           </dl>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Renders a banner for every unavailable local-model backend. */
+function LocalModelBanners({ statuses }: { statuses: NamedLocalModelStatus[] }) {
+  return (
+    <>
+      {statuses
+        .filter((s) => !s.available)
+        .map((s) => (
+          <LocalModelBanner key={s.backendName} status={s} />
+        ))}
+    </>
+  );
+}
+
+/** Live/reconnecting dot + label in the page header. */
+function ConnectionIndicator({ connected }: { connected: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span
+        className={[
+          'inline-block h-2 w-2 rounded-full',
+          connected ? 'bg-emerald-500' : 'bg-yellow-400',
+        ].join(' ')}
+      />
+      <span className={connected ? 'text-gray-500' : 'text-yellow-400'}>
+        {connected ? 'Live' : 'Reconnecting...'}
+      </span>
     </div>
   );
 }
@@ -612,12 +643,11 @@ export function Orchestrator() {
   const navigateToAgent = useCallback(
     (agent: RunningAgent) => {
       const store = useThreadStore.getState();
-      for (const thread of store.threads.values()) {
-        if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === agent.issueId) {
-          store.setActiveThread(thread.id);
-          navigate(`/t/${thread.id}`);
-          return;
-        }
+      const existingId = findAgentThreadId(agent.issueId);
+      if (existingId) {
+        store.setActiveThread(existingId);
+        navigate(`/t/${existingId}`);
+        return;
       }
       // Create thread if it doesn't exist yet (e.g. just started)
       const thread = store.createThread('agent', {
@@ -639,12 +669,11 @@ export function Orchestrator() {
     (issueId: string) => {
       // Find the session from recent sessions to get full manifest data
       const store = useThreadStore.getState();
-      for (const thread of store.threads.values()) {
-        if (thread.type === 'agent' && (thread.meta as AgentMeta).issueId === issueId) {
-          store.setActiveThread(thread.id);
-          navigate(`/t/${thread.id}`);
-          return;
-        }
+      const existingId = findAgentThreadId(issueId);
+      if (existingId) {
+        store.setActiveThread(existingId);
+        navigate(`/t/${existingId}`);
+        return;
       }
       // Minimal fallback — create from issueId alone
       const thread = store.createThread('agent', {
@@ -666,11 +695,7 @@ export function Orchestrator() {
   if (!snapshot) {
     return (
       <div>
-        {localModelStatuses
-          .filter((s) => !s.available)
-          .map((s) => (
-            <LocalModelBanner key={s.backendName} status={s} />
-          ))}
+        <LocalModelBanners statuses={localModelStatuses} />
         <h1 className="mb-6 text-2xl font-bold">Agent Monitor</h1>
         <p className="text-sm text-gray-500">
           {connected ? 'Waiting for first state update...' : 'Connecting to orchestrator...'}
@@ -684,24 +709,10 @@ export function Orchestrator() {
 
   return (
     <div>
-      {localModelStatuses
-        .filter((s) => !s.available)
-        .map((s) => (
-          <LocalModelBanner key={s.backendName} status={s} />
-        ))}
+      <LocalModelBanners statuses={localModelStatuses} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agent Monitor</h1>
-        <div className="flex items-center gap-2 text-xs">
-          <span
-            className={[
-              'inline-block h-2 w-2 rounded-full',
-              connected ? 'bg-emerald-500' : 'bg-yellow-400',
-            ].join(' ')}
-          />
-          <span className={connected ? 'text-gray-500' : 'text-yellow-400'}>
-            {connected ? 'Live' : 'Reconnecting...'}
-          </span>
-        </div>
+        <ConnectionIndicator connected={connected} />
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">

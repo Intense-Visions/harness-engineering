@@ -93,39 +93,55 @@ interface FakeOpts {
   renderStagePrompt?: WorkflowEngineContext['renderStagePrompt'];
 }
 
+function fakeRecorder(): WorkflowEngineContext['recorder'] {
+  return {
+    startRecording: vi.fn(),
+    recordEvent: vi.fn(),
+    finishRecording: vi.fn(),
+  } as unknown as WorkflowEngineContext['recorder'];
+}
+
+function fakeLogger(): WorkflowEngineContext['logger'] {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  } as unknown as WorkflowEngineContext['logger'];
+}
+
+// A runner whose single session yields opts.resultContent (when present) then
+// returns a fixed success TurnResult. Extracted from fakeCtx so the generator's
+// body doesn't nest 5 levels deep inside the context literal.
+async function* fakeRunSession(
+  opts: FakeOpts,
+  prompt: string
+): AsyncGenerator<AgentEvent, unknown, void> {
+  opts.onPrompt?.(prompt);
+  if (opts.resultContent !== undefined) {
+    yield {
+      type: 'result',
+      content: opts.resultContent,
+      timestamp: 't',
+    } as unknown as AgentEvent;
+  }
+  return {
+    sessionId: 'sess-0',
+    success: true,
+    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+  };
+}
+
 function fakeCtx(opts: FakeOpts): WorkflowEngineContext {
   return {
-    recorder: {
-      startRecording: vi.fn(),
-      recordEvent: vi.fn(),
-      finishRecording: vi.fn(),
-    } as unknown as WorkflowEngineContext['recorder'],
-    logger: {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    } as unknown as WorkflowEngineContext['logger'],
+    recorder: fakeRecorder(),
+    logger: fakeLogger(),
     issueId: 'issue-1',
     identifier: 'ISS-1',
     externalId: null,
     workspacePath: '/tmp/ws',
     makeRunner: () => ({
-      async *runSession(_i: unknown, _ws: string, prompt: string) {
-        opts.onPrompt?.(prompt);
-        if (opts.resultContent !== undefined) {
-          yield {
-            type: 'result',
-            content: opts.resultContent,
-            timestamp: 't',
-          } as unknown as AgentEvent;
-        }
-        return {
-          sessionId: 'sess-0',
-          success: true,
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-        };
-      },
+      runSession: (_i: unknown, _ws: string, prompt: string) => fakeRunSession(opts, prompt),
     }),
     resolveStageBackend: () => ({ name: 'primary' }) as never,
     ...(opts.renderStagePrompt ? { renderStagePrompt: opts.renderStagePrompt } : {}),
