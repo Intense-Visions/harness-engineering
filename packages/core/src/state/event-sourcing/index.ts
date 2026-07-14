@@ -38,3 +38,14 @@ export type { ForceOpts, TransitionOpts } from './lane-machine';
 export { projectLanes } from './projections/lanes';
 export type { LanesProjection, LaneRecord, LaneHistoryEntry } from './projections/lanes';
 export { registerTask, transitionLane } from './transition';
+// Phase 0 (Roadmap Auto-Triage): append-only triage outcome-log store over the
+// event substrate. Writers (recordTriagePrediction/recordTriageOutcome), the pure
+// projection (projectTriageRecords), and the read-back (loadTriageRecords).
+export {
+  recordTriagePrediction,
+  recordTriageOutcome,
+  projectTriageRecords,
+  loadTriageRecords,
+} from './triage';
+export type { StoredTriageRecord, StoredPrediction, StoredOutcome, StoredVerdict } from './triage';
+export type { TriagePredictedInput, TriageOutcomeInput } from './events';

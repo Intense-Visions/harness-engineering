@@ -4,6 +4,8 @@ import type {
   RoutingConfig,
   BackendCapabilities,
   RoutingPolicy,
+  RoadmapConfig,
+  RoadmapAutoTriageConfig,
 } from '@harness-engineering/types';
 
 /**
@@ -220,6 +222,68 @@ export const RoutingConfigSchema = z
     policy: RoutingPolicySchema.optional(),
   })
   .strict();
+
+// --- Roadmap Auto-Triage (Phase 0, Contract 2): default-off config surface ---
+
+const CONFIDENCE = z.enum(['low', 'medium', 'high']);
+// The stored/typed ratchet-stage domain is 1–4, but v1 CAPS the reachable stages at 2
+// (SC4): auto-execute + required human-verify is the ceiling; sampled-verify (3) and
+// fully-autonomous merge (4) are deferred post-v1. Configuring a deferred stage is a
+// config error, not a silent clamp — reject it at load with a legible message so an
+// operator can't accidentally opt into autonomy the retrospective can't yet gate.
+const V1_MAX_RATCHET_STAGE = 2;
+const RATCHET_STAGE = z
+  .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+  .refine((s) => s <= V1_MAX_RATCHET_STAGE, {
+    message: `ratchetStage ${'>'} ${V1_MAX_RATCHET_STAGE} is deferred post-v1 (stages 3–4 not yet supported); use 1 or 2`,
+  });
+
+/**
+ * The whole `roadmap.autoTriage` surface, wired here so config validation ACCEPTS it
+ * (a type-only add would be silently rejected — the AMR config-surface lesson). `.strict()`
+ * so a typo'd field fails at config-load rather than being silently dropped. Every field
+ * beyond the master switch is a documented, tunable seed; the seam stays inert until
+ * `enabled` is true. An absent block (or `enabled: false`) ⇒ byte-identical roadmap
+ * behavior (SC-S1).
+ */
+export const RoadmapAutoTriageSchema = z
+  .object({
+    enabled: z.boolean(),
+    schedule: z.string().min(1).optional(),
+    ratchetStage: RATCHET_STAGE,
+    thresholds: z
+      .object({
+        dispatchConfidence: CONFIDENCE,
+        boundedScopeMax: z.number(),
+        brainstormConfidence: z.number(),
+        exceededByBands: z.number(),
+        ratchetAdvanceRate: z.number(),
+        ratchetMinSample: z.number(),
+      })
+      .strict(),
+    depthBudget: z
+      .object({
+        trivial: z.number(),
+        simple: z.number(),
+      })
+      .strict(),
+  })
+  .strict();
+
+/** The `roadmap` config namespace. `.strict()` — currently only `autoTriage`. */
+export const RoadmapConfigSchema = z
+  .object({
+    autoTriage: RoadmapAutoTriageSchema.optional(),
+  })
+  .strict();
+
+// Drift guard: the schema output must be assignable to the canonical types, so a wrong
+// field TYPE stops compiling. Field-PRESENCE (the AMR trap) is pinned by the config
+// round-trip test in schema.roadmap-triage.test.ts.
+const _roadmapGuard = (r: RoadmapConfig): z.infer<typeof RoadmapConfigSchema> => r;
+const _autoTriageGuard = (t: RoadmapAutoTriageConfig): z.infer<typeof RoadmapAutoTriageSchema> => t;
+void _roadmapGuard;
+void _autoTriageGuard;
 
 /**
  * split-routing D7: Zod schema for a workflow STEP (a stage in a declared

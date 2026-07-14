@@ -165,3 +165,74 @@ export type {
   ComplexitySignals,
   StaticVerdict,
 } from './complexity/index.js';
+
+// Roadmap Auto-Triage — shared contracts (Phase 0 foundations; inert until enabled)
+export {
+  shapeKey,
+  dispatchableShapeKey,
+  aggregatePrecedent,
+  precedentLookupFromRecords,
+  extractEntities,
+} from './triage/index.js';
+export type {
+  TriageRecord,
+  TriagePrediction,
+  TriageOutcome,
+  PrecedentLookup,
+  PrecedentRate,
+  EscalationCategory,
+  RatchetStage,
+} from './triage/index.js';
+export type {
+  LeverResult,
+  ResolvedEntity,
+  ScopeEstimate,
+  GraphScope,
+  OpenDecision,
+  HoldReason,
+  ProbeInput,
+  ProbeLevers,
+  TriageVerdict,
+} from './triage/index.js';
+export { runScopingProbe } from './triage/index.js';
+export type { ProbeConfig, ProbeDeps } from './triage/index.js';
+export { pilotScore, rankTriageCandidates } from './triage/index.js';
+export type { RankableCandidate } from './triage/index.js';
+
+// Roadmap Auto-Triage — Phase 2: the autonomous-brainstorm decision core (pure).
+export { runAutoBrainstorm, depthForLevel, DEPTH_BY_LEVEL } from './triage/index.js';
+export type {
+  ForkConfidence,
+  Fork,
+  ForkDecision,
+  ForkGenerator,
+  DepthBudget,
+  SpecDraft,
+  BrainstormInput,
+  HaltReason,
+  BrainstormOutcome,
+} from './triage/index.js';
+
+// Roadmap Auto-Triage — Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
+// Phase 4 adds `resolveGoNoGoStaged` for the per-shape evidence-derived stage (SC6).
+export { resolveGoNoGo, resolveGoNoGoStaged, AUTO_EXECUTE_CATEGORIES } from './triage/index.js';
+export type {
+  GoNoGoCandidate,
+  StagedGoNoGoCandidate,
+  ApprovedCandidate,
+  GoNoGoDecision,
+  HeldCandidate,
+  GoNoGoHoldReason,
+} from './triage/index.js';
+
+// Roadmap Auto-Triage — Phase 4: the pure post-diff retrospective + ratchet.
+export {
+  compareToPrediction,
+  LEVEL_RANK,
+  BLAST_TOLERANCE_FACTOR,
+  BLAST_TOLERANCE_ABS,
+} from './triage/index.js';
+export { DEFAULT_RETROSPECTIVE_CONFIG } from './triage/index.js';
+export type { RetrospectiveComparison, RetrospectiveConfig } from './triage/index.js';
+export { resolveStage, DEFAULT_RATCHET_CONFIG, V1_MAX_STAGE } from './triage/index.js';
+export type { V1Stage, RatchetOutcome, RatchetConfig } from './triage/index.js';

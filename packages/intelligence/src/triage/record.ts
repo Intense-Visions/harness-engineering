@@ -1,0 +1,157 @@
+// packages/intelligence/src/triage/record.ts
+//
+// Roadmap Auto-Triage — Phase 0, Contract 1: the shared triage record data model.
+//
+// One record per roadmap item, keyed by its stable `externalId`
+// (packages/core/src/roadmap/parse.ts:233). It accretes across the pipeline; each
+// phase writes its own slice and never rewrites another's:
+//   - Phase 3 writes `prediction` at dispatch.
+//   - Phase 4 writes `outcome` at the post-diff retrospective.
+// The `shapeKey` is the precedent/ratchet bucket both P1's PrecedentLookup and P4's
+// ratchet aggregate by — defined here once so the two agree without coupling.
+//
+// Layer note: this module imports ONLY @harness-engineering/types (ComplexityVerdict,
+// ComplexityLevel), which the intelligence layer is permitted to depend on. It does
+// NOT import core/orchestrator.
+
+import type { ComplexityVerdict, ComplexityLevel } from '@harness-engineering/types';
+
+/**
+ * Escalation category for a triaged item — the reason a non-dispatched item was
+ * held (SC-F2's closed set) or the routing bucket a dispatched item fell into.
+ * Part of the `shapeKey` so precedent base-rates aggregate like-for-like work.
+ */
+export type EscalationCategory =
+  | 'not-in-band'
+  | 'unresolved-scope'
+  | 'open-decision'
+  | 'halted-fork'
+  | 'precedent-contradicts'
+  | 'error'
+  | 'dispatchable';
+
+/** Autonomy-ratchet stage in effect at dispatch (D14). 1 = human before execution. */
+export type RatchetStage = 1 | 2 | 3 | 4;
+
+/**
+ * The pre-diff prediction, written by Phase 3 at dispatch. It is the confidence-capped
+ * (S3-001) claim the post-diff retrospective later grades against ground truth.
+ */
+export interface TriagePrediction {
+  /** The pre-diff prediction being made (level + confidence-capped verdict). */
+  verdict: ComplexityVerdict;
+  /**
+   * An OPAQUE DIAGNOSTIC SNAPSHOT of the probe's signals at dispatch (today: the
+   * verdict's static `signals` map) — kept for human forensics, NOT a grading input.
+   * It is deliberately NOT the typed Phase-1 `ProbeLevers`: the Phase-4 retrospective
+   * comparator grades on `verdict.level` + `scopeEstimate` ONLY (see
+   * `retrospective.ts`) and never reads this field, so its shape can vary without
+   * affecting the grade. Threading the full typed `ProbeLevers` end-to-end was
+   * rejected as unneeded coupling (the marker's `ReadyCandidate` has no consumer for
+   * it). If a future lever genuinely needs to inform grading, promote it to a typed
+   * field here rather than smuggling it through this untyped bag.
+   */
+  levers: Record<string, unknown>;
+  /** Predicted blast radius (estimated post-diff scope from the scope lever). */
+  scopeEstimate: number;
+  /** Ratchet stage in effect when this item was dispatched. */
+  ratchetStage: RatchetStage;
+}
+
+/**
+ * The post-diff outcome, written by Phase 4 at the retrospective. This is the only
+ * gate that sees ground truth; its verdict is what feeds the precedent lever (D13).
+ */
+export interface TriageOutcome {
+  /** Full-strength post-diff verdict on the ACTUAL diff (confidence may reach high). */
+  actual: ComplexityVerdict;
+  /** 0 = matched the prediction; >0 = mispredict magnitude (over-scope). */
+  exceededBy: number;
+  /** True when the actual diff stayed within the predicted band. */
+  matched: boolean;
+}
+
+/**
+ * The accreting triage record for one roadmap item. `prediction`/`outcome` are
+ * absent until the owning phase writes its slice; a record with a populated
+ * `outcome` is a graded, precedent-eligible record.
+ */
+export interface TriageRecord {
+  /** Stable item key (roadmap `External-ID`). */
+  externalId: string;
+  /** Bucketing key for precedent/ratchet aggregation (see {@link shapeKey}). */
+  shapeKey: string;
+  /** Written by Phase 3 at dispatch. */
+  prediction?: TriagePrediction;
+  /** Written by Phase 4 at the retrospective. */
+  outcome?: TriageOutcome;
+  /** ISO timestamp stamped by the writer (not by shapeKey). */
+  ts: string;
+}
+
+/**
+ * The precedent lever (P1 injects this; P4 implements the real one). A pure read over
+ * records sharing a `shapeKey` with a populated `outcome`: success rate = matched / total.
+ * Absent history ⇒ `unknown` (the P1 degrade-empty path), which is simply "no records
+ * for this shape yet" — never a block on emptiness.
+ */
+export interface PrecedentLookup {
+  /**
+   * Measured autonomous-success rate for the given shape, or `unknown` when no
+   * outcome-bearing records exist for it (cold-start).
+   */
+  rateForShape(shapeKey: string): PrecedentRate;
+}
+
+/**
+ * The precedent lever's result: a measured base-rate over recorded outcomes, or
+ * `unknown` on cold-start (no outcome-bearing records for the shape yet).
+ */
+export type PrecedentRate =
+  | { readonly kind: 'unknown' }
+  | {
+      readonly kind: 'rate';
+      readonly matched: number;
+      readonly total: number;
+      readonly rate: number;
+    };
+
+/**
+ * The bucketing key for precedent/ratchet aggregation:
+ *   `sortedLabels + '|' + escalationCategory + '|' + predictedLevel`.
+ *
+ * Deterministic and label-order-independent: labels are de-duplicated, trimmed of
+ * empties, and sorted before joining, so `['a','b']` and `['b','a']` (and
+ * `['b','a','a']`) all bucket identically. This is the quiet linchpin — too coarse
+ * lumps unlike work (unsafe base-rates), too fine leaves every item its own bucket
+ * (precedent perpetually `unknown`). Phase 4 calibration revisits this granularity
+ * first; the definition lives here so P1 and P4 never disagree.
+ */
+export function shapeKey(
+  labels: readonly string[],
+  category: EscalationCategory,
+  level: ComplexityLevel
+): string {
+  // Delimiter assumption (S1): labels are joined with `,` and the three key parts with `|`.
+  // Roadmap labels are simple slugs today (no `,`/`|`), so the key stays unambiguous. Defensive
+  // hardening: strip any stray `,`/`|` from a label so an odd label can never split the key or
+  // collide two distinct shapes. Cheap and order-independent (still de-duped + sorted below).
+  const sortedLabels = Array.from(
+    new Set(labels.map((l) => l.trim().replace(/[,|]/g, '')).filter((l) => l.length > 0))
+  ).sort();
+  return `${sortedLabels.join(',')}|${category}|${level}`;
+}
+
+/**
+ * The `dispatchable`-bucket shapeKey — the ONE convention prediction and outcome must agree on.
+ *
+ * A dispatched/approved item is (by definition) dispatchable, so its precedent/ratchet bucket is
+ * `shapeKey(labels, 'dispatchable', level)`. That spelling was previously re-typed at three sites
+ * (the probe's precedent lookup, the CLI approve gate, the orchestrator marker); if any drifted —
+ * or keyed off a different `level` source — the PREDICTION and the OUTCOME would bucket into
+ * DIFFERENT shapes and silently break precedent aggregation. Centralizing it here makes that
+ * divergence impossible: all three call this with the SAME level (the probe's `verdict.level`).
+ */
+export function dispatchableShapeKey(labels: readonly string[], level: ComplexityLevel): string {
+  return shapeKey(labels, 'dispatchable', level);
+}

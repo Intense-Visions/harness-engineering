@@ -17,7 +17,12 @@ import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint, SecurityScanner } from '@harness-engineering/core';
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict';
 import { IntelligencePipeline, OutcomeEvaluator } from '@harness-engineering/intelligence';
-import type { EnrichedSpec, AnalysisProvider } from '@harness-engineering/intelligence';
+import type {
+  EnrichedSpec,
+  AnalysisProvider,
+  TriagePrediction,
+} from '@harness-engineering/intelligence';
+import { runRetrospective, buildTriageOutcomeInput } from './agent/triage-outcome';
 import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession, RunningEntry } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
@@ -32,6 +37,7 @@ import {
   GitHubIssuesSyncAdapter,
   loadTrackerSyncConfig,
   createTrackerClient,
+  eventSourcing,
   type TrackerClientConfig,
 } from '@harness-engineering/core';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
@@ -2209,7 +2215,24 @@ export class Orchestrator extends EventEmitter {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
-          const outcomeClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
+          // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
+          // retrospective is a SIBLING verdict source to the 4c quality feeder,
+          // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
+          // returning 'quality-fail' escalates the coherence unit; a mispredict is as
+          // much a quality failure as a security defect.
+          //
+          // We must NOT short-circuit `quality ?? retro`: the retrospective's side
+          // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
+          // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
+          // a security defect AND a triage mispredict would otherwise record NO graded
+          // outcome — that bad shape would never accrue the evidence that keeps its
+          // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
+          // running it on a security-failing unit is safe. Escalation is unchanged:
+          // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
+          // retrospective annotates the PR on a match (best-effort, inside the method).
+          const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
+          const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
+          const outcomeClass = qualityClass ?? retroClass;
           await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
         }
       } catch (error) {
@@ -2325,6 +2348,187 @@ export class Orchestrator extends EventEmitter {
         error: err instanceof Error ? err.message : String(err),
       });
       return undefined;
+    }
+  }
+
+  /**
+   * Roadmap Auto-Triage Phase 4 (SC1–SC3, SC5, SC7): the post-diff routing
+   * retrospective — a SIBLING quality-verdict source to the 4c feeder above,
+   * extending (not replacing) the proven escalation path. On a normal exit, when AMR
+   * is live AND auto-triage is enabled AND this unit carries a stored pre-dispatch
+   * prediction, it classifies the ACTUAL introduced diff at full strength
+   * (phase:'post-diff') and grades it against that prediction:
+   *   - MATCH   → records the graded outcome + annotates the PR "AI autonomous —
+   *               verify" (stage-2 human-verify handling, SC4) → returns `undefined`
+   *               (neutral: a match is not an escalation).
+   *   - MISMATCH (diff exceeded prediction, or a missing/garbled prediction, or ANY
+   *               error) → records the outcome (when a shape is known) + returns
+   *               `'quality-fail'`, which climbs the coherence unit's escalation floor
+   *               via `recordAmrOutcome`; exhaustion queues `needs-human` (SC3/SC7).
+   *
+   * Fail-safe & guarded (SC7): an error never a silent pass — it takes the MISMATCH
+   * (block+escalate) path. No-op (byte-identical) when AMR is off, auto-triage is
+   * off, or the unit was not dispatched through triage (no stored prediction) — the
+   * last means an ordinary non-triaged run is never graded.
+   */
+  private async deriveRoutingRetrospectiveVerdict(
+    issue: Issue,
+    _workspacePath: string
+  ): Promise<'quality-fail' | undefined> {
+    if (this.adaptiveRouter === null) return undefined;
+    if (this.config.roadmap?.autoTriage?.enabled !== true) return undefined;
+    // The prediction is keyed by the roadmap External-ID (the marker's write key). No
+    // external id ⇒ this unit cannot have a stored prediction ⇒ nothing to grade.
+    const externalId = issue.externalId;
+    if (externalId === null || externalId === '') return undefined;
+
+    // Load the accreting triage records and find this unit's prediction slice.
+    let record: eventSourcing.StoredTriageRecord | undefined;
+    try {
+      const loaded = await eventSourcing.loadTriageRecords(this.projectRoot);
+      if (!loaded.ok) throw loaded.error;
+      record = loaded.value.find((r) => r.externalId === externalId);
+    } catch (err) {
+      this.logger.debug('amr retrospective skipped (record load failed)', {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // HARDENING (SC7 — closes the total-IO-failure window): if `issue.spec` is present, the
+      // unit carries an INDEPENDENT "this was triaged" signal — the marker attaches the spec at
+      // dispatch, and that signal does NOT depend on the (now-failed) store read. A triaged unit
+      // whose store we cannot read is a prediction we cannot confirm ⇒ BLOCK+escalate, never a
+      // silent pass (a mispredict must not merge just because the store hiccuped). Without a
+      // spec we can't distinguish an ordinary non-triaged run from a triaged one, so we must NOT
+      // block every run on an IO hiccup ⇒ neutral (the conservative default for un-triaged work).
+      if (issue.spec !== null && issue.spec !== undefined && issue.spec !== '') {
+        this.logger.info(
+          'amr:quality-fail — spec-bearing (triaged) unit but the triage store is unreadable ' +
+            '(fail-safe block: a triaged unit whose prediction we cannot read never silently passes)',
+          { issueId: issue.id, externalId }
+        );
+        return 'quality-fail';
+      }
+      return undefined;
+    }
+
+    // Not a triaged unit (no record at all) ⇒ neutral, never graded.
+    if (record === undefined) return undefined;
+
+    // A triaged unit WITH a record but WITHOUT a prediction slice is a
+    // missing/garbled prediction ⇒ block+escalate (SC7 — never a silent pass).
+    const stored = record.prediction;
+    if (stored === undefined) {
+      this.logger.info(
+        'amr:quality-fail — triaged unit has no stored prediction (fail-safe block)',
+        {
+          issueId: issue.id,
+          externalId,
+        }
+      );
+      return 'quality-fail';
+    }
+    const prediction: TriagePrediction = {
+      verdict: stored.verdict,
+      levers: stored.levers,
+      scopeEstimate: stored.scopeEstimate,
+      ratchetStage: stored.ratchetStage,
+    };
+
+    try {
+      const hunks = await this.workspace.getIntroducedDiff(issue.identifier);
+      const taskText = buildTaskText(issue);
+      // Wire the operator's comparator threshold from config (SC2). The level-band delta
+      // that counts as a mispredict is `thresholds.exceededByBands` (default 1).
+      const exceededByBands = this.config.roadmap?.autoTriage?.thresholds?.exceededByBands ?? 1;
+      const result = await runRetrospective(
+        {
+          hunks,
+          textOnly: {
+            descriptionLength: taskText.descriptionLength,
+            specExists: taskText.specExists,
+            acceptanceMeasurable: taskText.acceptanceMeasurable,
+          },
+          prediction,
+          riskHigh: false,
+          prompt: taskText.prompt,
+          comparatorConfig: { exceededByBands },
+        },
+        this.resolveComplexityProvider()
+      );
+
+      // Record the graded outcome to the Phase-0 store (closes the loop; SC5). Keyed by
+      // the SAME shapeKey the prediction used so precedent aggregates like-for-like.
+      const outcomeInput = buildTriageOutcomeInput(externalId, record.shapeKey, result);
+      const recorded = await eventSourcing.recordTriageOutcome(this.projectRoot, outcomeInput);
+      if (!recorded.ok) {
+        this.logger.warn('amr retrospective outcome record failed (best-effort)', {
+          issueId: issue.id,
+          error: recorded.error.message,
+        });
+      }
+
+      if (result.comparison.action === 'block-escalate') {
+        this.logger.info('amr:quality-fail — post-diff retrospective mispredict (block+escalate)', {
+          issueId: issue.id,
+          externalId,
+          predicted: prediction.verdict.level,
+          actual: result.actual.level,
+          exceededBy: result.comparison.exceededBy,
+        });
+        return 'quality-fail';
+      }
+
+      // MATCH ⇒ v1 stage-2 handling: annotate the PR for required human verification.
+      await this.annotateRetrospectiveMatch(issue, externalId, result.actual.level);
+      return undefined;
+    } catch (err) {
+      // SC7: any retrospective error takes the MISMATCH (block+escalate) path — an
+      // error is never a silent pass. Best-effort logged; still returns the block.
+      this.logger.info('amr:quality-fail — post-diff retrospective errored (fail-safe block)', {
+        issueId: issue.id,
+        externalId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return 'quality-fail';
+    }
+  }
+
+  /**
+   * v1 stage-2 match handling (SC4): annotate the unit's PR/issue with a "verify this
+   * autonomous change" note so a human reviews every autonomous PR. Best-effort — a
+   * missing tracker config / token / a failed comment never breaks completion (the
+   * grade already recorded above). Mirrors `postLifecycleComment`'s adapter wiring.
+   */
+  private async annotateRetrospectiveMatch(
+    issue: Issue,
+    externalId: string,
+    actualLevel: string
+  ): Promise<void> {
+    try {
+      const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
+      if (!trackerConfig) return;
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return;
+      const orchestratorId = await this.orchestratorIdPromise;
+      const adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
+      const body = [
+        `**AI autonomous change — please verify** \`${orchestratorId}\``,
+        '',
+        'The post-diff retrospective classified this change WITHIN its pre-dispatch',
+        `prediction (actual complexity: \`${actualLevel}\`). Under autonomy ratchet`,
+        'stage 2, a human must verify every autonomous PR before it merges.',
+      ].join('\n');
+      const result = await adapter.addComment(externalId, body);
+      if (!result.ok) {
+        this.logger.warn(`amr retrospective annotation failed for ${issue.identifier}`, {
+          error: result.error.message,
+        });
+      }
+    } catch (err) {
+      this.logger.debug('amr retrospective annotation skipped (best-effort)', {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

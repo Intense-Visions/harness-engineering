@@ -41,6 +41,46 @@ export type { BackendRouterOptions } from './agent/backend-router';
 // `routing trace` dry-run and external consumers can derive tier + cost.
 export { AdaptiveRouter } from './agent/adaptive-router';
 export type { AdaptiveRouterDeps } from './agent/adaptive-router';
+// Roadmap Auto-Triage Phase 1: the orchestrator-side probe wiring (Issue→ProbeInput,
+// GraphScope seam, triageIssue). The pure probe/rank live in @harness-engineering/intelligence.
+export { buildProbeInput, makeGraphScope, triageIssue } from './agent/triage-wiring';
+export { rankTriageCandidates, pilotScore } from './agent/triage-wiring';
+export type { TriageWiringDeps, RankableCandidate, TriageVerdict } from './agent/triage-wiring';
+// Roadmap Auto-Triage Phase 2: the orchestrator-side brainstorm wiring (real SEL fork
+// generator + self-consistency, spec doc write, SC4 re-score). The pure runner/types live
+// in @harness-engineering/intelligence.
+export {
+  runBrainstormForIssue,
+  makeSelForkGenerator,
+  brainstormInputFromIssue,
+  enrichIssueWithSpec,
+  renderSpecMarkdown,
+  slugFor,
+  BRAINSTORM_RUBRIC,
+} from './agent/brainstorm-wiring';
+export type {
+  BrainstormWiringDeps,
+  WiredBrainstormResult,
+  SelForkGeneratorOptions,
+} from './agent/brainstorm-wiring';
+// Roadmap Auto-Triage Phase 3: the dispatch MARKER (makes an approved item eligible for the
+// EXISTING pickup loop + records the pre-dispatch prediction). No new dispatch path.
+export { markApprovedForDispatch } from './agent/triage-mark';
+export type {
+  TriageMarkItem,
+  TriageMarkConfig,
+  TriageMarkDeps,
+  TriageMarkResult,
+  MarkSkip,
+  MarkSkipReason,
+  RecordPrediction,
+} from './agent/triage-mark';
+// Roadmap Auto-Triage Phase 4 (SC5): the REAL PrecedentLookup over recorded outcomes —
+// bridges core's StoredTriageRecord into intelligence's pure `aggregatePrecedent`. The
+// read-side lever the CLI report/approve paths inject so the gate reads real base-rates
+// once outcomes accrue (cold-start ⇒ `unknown` ⇒ byte-identical to today).
+export { precedentLookupFromStored } from './agent/triage-outcome';
+export type { StoredOutcomeRecord } from './agent/triage-outcome';
 // AMR Phase 4 (D10/SC16): vertical escalation mechanism.
 export { EscalationState } from './agent/escalation-state';
 export {

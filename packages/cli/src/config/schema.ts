@@ -472,11 +472,40 @@ export const TrackerConfigSchema = z.object({
  *
  * @see docs/changes/roadmap-tracker-only/proposal.md (Decision D5)
  */
+/**
+ * Roadmap Auto-Triage gate (Phase 0 Contract 2 — the CLI-visible read side).
+ *
+ * The full auto-triage surface (thresholds, ratchet, depthBudget) is declared in the
+ * orchestrator workflow schema + `@harness-engineering/types` RoadmapAutoTriageConfig; the
+ * CLI read-only `roadmap triage` report only needs the master switch to gate itself. Kept
+ * default-OFF: absent or `enabled: false` ⇒ the report is inert (SC8 / SC-S1).
+ */
+export const RoadmapAutoTriageConfigSchema = z
+  .object({
+    /** Master switch. Default false — the read-only triage report is gated off (D5/SC8). */
+    enabled: z.boolean().default(false),
+    /**
+     * Autonomy-ratchet stage in effect (D14). v1 caps at stage 2 (auto-execute + human
+     * verifies every PR); stages 3/4 (sampled-verify, fully-autonomous merge) are deferred
+     * post-v1 and REJECTED here — matching the orchestrator's canonical RATCHET_STAGE schema
+     * (packages/orchestrator/src/workflow/schema.ts, the source of truth). Default 1 (most
+     * conservative). FOLLOW-UP 3: the two schemas must agree so a config can't validate under
+     * the CLI yet fail the orchestrator (or vice-versa).
+     */
+    ratchetStage: z.union([z.literal(1), z.literal(2)]).default(1),
+  })
+  // Tolerate the fuller Phase-0 surface (thresholds/depthBudget) if present in a
+  // shared config file — the CLI reads only `enabled` + `ratchetStage`, so extra
+  // keys must not fail validation.
+  .passthrough();
+
 export const RoadmapConfigSchema = z.object({
   /** Roadmap storage mode. Defaults to `"file-backed"` (today's behavior). */
   mode: z.enum(['file-backed', 'file-less']).default('file-backed'),
   /** External tracker sync settings */
   tracker: TrackerConfigSchema.optional(),
+  /** Roadmap Auto-Triage gate (default-off). The read-only report consumes only `enabled`. */
+  autoTriage: RoadmapAutoTriageConfigSchema.optional(),
 });
 
 /**

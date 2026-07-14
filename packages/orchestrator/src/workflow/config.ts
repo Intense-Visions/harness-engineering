@@ -9,7 +9,12 @@ import {
   STANDARD_COGNITIVE_MODES,
   type RoutingValue,
 } from '@harness-engineering/types';
-import { BackendDefSchema, RoutingConfigSchema, StagedWorkflowDeclSchema } from './schema.js';
+import {
+  BackendDefSchema,
+  RoutingConfigSchema,
+  StagedWorkflowDeclSchema,
+  RoadmapConfigSchema,
+} from './schema.js';
 
 const REQUIRED_SECTIONS = ['tracker', 'polling', 'workspace', 'hooks', 'agent', 'server'] as const;
 
@@ -222,6 +227,15 @@ export function validateWorkflowConfig(
   if (c.workflows !== undefined) {
     const parsed = z.array(StagedWorkflowDeclSchema).safeParse(c.workflows);
     if (!parsed.success) return Err(new Error(`workflows: ${parsed.error.message}`));
+  }
+
+  // Roadmap Auto-Triage (Phase 0 Contract 2): validate the `roadmap` section when
+  // present. Absent ⇒ unchanged (feature off). A present-but-off block
+  // (`autoTriage.enabled: false`) must validate; a malformed/typo'd field is rejected
+  // at config-load (the strict schema), not silently dropped (the AMR trap).
+  if (c.roadmap !== undefined) {
+    const parsed = RoadmapConfigSchema.safeParse(c.roadmap);
+    if (!parsed.success) return Err(new Error(`roadmap: ${parsed.error.message}`));
   }
 
   return Ok({ config: config as WorkflowConfig, warnings });

@@ -85,6 +85,46 @@ const ApprovalResolvedPayload = z.object({
   response: z.string(),
 });
 
+// --- Roadmap Auto-Triage (Phase 0): append-only triage outcome log (additive) ---
+// One triage record per roadmap item accretes across separate appends keyed by
+// `externalId`: Phase 3 emits `triage_predicted` at dispatch, Phase 4 emits
+// `triage_outcome` at the post-diff retrospective. Reusing this event-sourced
+// substrate (rather than a bespoke store) keeps replay/concurrency handling and
+// mirrors how the lane writers work. The precedent lever aggregates records by
+// `shapeKey`. These payloads are the STORAGE contract; the semantic TriageRecord
+// (with ComplexityVerdict-typed verdicts) lives in the intelligence layer, which
+// core cannot import — so the verdict slices are stored as opaque records here and
+// re-typed at the intelligence boundary.
+const ComplexityVerdictPayload = z
+  .object({
+    level: z.enum(['trivial', 'simple', 'moderate', 'complex']),
+    confidence: z.enum(['high', 'medium', 'low']),
+    signals: z.record(z.union([z.number(), z.boolean(), z.string()])),
+    source: z.enum(['static', 'llm-tiebreak', 'escalated']),
+  })
+  .strict();
+
+const TriagePredictedPayload = z.object({
+  externalId: z.string().min(1),
+  shapeKey: z.string().min(1),
+  verdict: ComplexityVerdictPayload,
+  levers: z.record(z.unknown()),
+  scopeEstimate: z.number(),
+  ratchetStage: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+});
+/** Inferred input shape for a triage_predicted payload (used by recordTriagePrediction). */
+export type TriagePredictedInput = z.infer<typeof TriagePredictedPayload>;
+
+const TriageOutcomePayload = z.object({
+  externalId: z.string().min(1),
+  shapeKey: z.string().min(1),
+  actual: ComplexityVerdictPayload,
+  exceededBy: z.number(),
+  matched: z.boolean(),
+});
+/** Inferred input shape for a triage_outcome payload (used by recordTriageOutcome). */
+export type TriageOutcomeInput = z.infer<typeof TriageOutcomePayload>;
+
 /** Strict in-memory event union (payload fully present). */
 export const EventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -135,6 +175,16 @@ export const EventSchema = z.discriminatedUnion('type', [
     type: z.literal('approval_resolved'),
     payload: ApprovalResolvedPayload,
   }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('triage_predicted'),
+    payload: TriagePredictedPayload,
+  }),
+  z.object({
+    ...envelopeShape,
+    type: z.literal('triage_outcome'),
+    payload: TriageOutcomePayload,
+  }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 export type EventType = Event['type'];
@@ -163,6 +213,8 @@ export const StoredEventSchema = z.object({
     'user_input_captured',
     'approval_requested',
     'approval_resolved',
+    'triage_predicted',
+    'triage_outcome',
   ]),
   payload: z.union([z.record(z.unknown()), BlobRefSchema]),
 });
@@ -181,7 +233,9 @@ export type EventInput =
   | { type: 'lane_transitioned'; payload: z.infer<typeof LaneTransitionedPayload> }
   | { type: 'user_input_captured'; payload: z.infer<typeof UserInputCapturedPayload> }
   | { type: 'approval_requested'; payload: z.infer<typeof ApprovalRequestedPayload> }
-  | { type: 'approval_resolved'; payload: z.infer<typeof ApprovalResolvedPayload> };
+  | { type: 'approval_resolved'; payload: z.infer<typeof ApprovalResolvedPayload> }
+  | { type: 'triage_predicted'; payload: z.infer<typeof TriagePredictedPayload> }
+  | { type: 'triage_outcome'; payload: z.infer<typeof TriageOutcomePayload> };
 
 /** True when a stored payload is a blob reference rather than an inline payload. */
 export function isBlobRef(payload: unknown): payload is BlobRef {
