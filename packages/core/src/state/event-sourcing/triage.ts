@@ -31,6 +31,12 @@ export interface StoredVerdict {
 /** The stored prediction slice (Phase 3). */
 export interface StoredPrediction {
   verdict: StoredVerdict;
+  /**
+   * Opaque diagnostic snapshot of the probe's signals at dispatch — human forensics
+   * only, NOT the typed ProbeLevers and NOT a grading input. The Phase-4 comparator
+   * grades on `verdict.level` + `scopeEstimate` alone. Mirrors intelligence's
+   * `TriagePrediction.levers` doc; kept `unknown` so its shape can vary freely.
+   */
   levers: Record<string, unknown>;
   scopeEstimate: number;
   ratchetStage: 1 | 2 | 3 | 4;

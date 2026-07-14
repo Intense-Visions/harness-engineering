@@ -40,7 +40,17 @@ export type RatchetStage = 1 | 2 | 3 | 4;
 export interface TriagePrediction {
   /** The pre-diff prediction being made (level + confidence-capped verdict). */
   verdict: ComplexityVerdict;
-  /** Phase-1 probe lever results (scope / semantic-read / open-decisions / precedent). */
+  /**
+   * An OPAQUE DIAGNOSTIC SNAPSHOT of the probe's signals at dispatch (today: the
+   * verdict's static `signals` map) — kept for human forensics, NOT a grading input.
+   * It is deliberately NOT the typed Phase-1 `ProbeLevers`: the Phase-4 retrospective
+   * comparator grades on `verdict.level` + `scopeEstimate` ONLY (see
+   * `retrospective.ts`) and never reads this field, so its shape can vary without
+   * affecting the grade. Threading the full typed `ProbeLevers` end-to-end was
+   * rejected as unneeded coupling (the marker's `ReadyCandidate` has no consumer for
+   * it). If a future lever genuinely needs to inform grading, promote it to a typed
+   * field here rather than smuggling it through this untyped bag.
+   */
   levers: Record<string, unknown>;
   /** Predicted blast radius (estimated post-diff scope from the scope lever). */
   scopeEstimate: number;

@@ -174,6 +174,12 @@ export async function markApprovedForDispatch(
       externalId,
       shapeKey: key,
       verdict: it.verdict,
+      // `levers` is an OPAQUE DIAGNOSTIC SNAPSHOT (the verdict's static signals), NOT the
+      // typed ProbeLevers. The Phase-4 comparator grades on `verdict.level` +
+      // `scopeEstimate` ONLY (see retrospective.ts) and never reads `levers`, so this
+      // human-legible signal dump cannot mislead the grade. The full typed ProbeLevers
+      // are not threaded here on purpose (it would balloon ReadyCandidate→marker for a
+      // field nothing downstream consumes); `record.ts` re-documents the field to match.
       levers: it.verdict.signals,
       scopeEstimate: it.scopeEstimate,
       ratchetStage: config.ratchetStage,

@@ -93,7 +93,10 @@ export function deriveReadyCandidates(
       source: v.source,
       // scopeEstimate: the resolved-entity blast radius from the scope lever, when present.
       scopeEstimate: scopeEstimateOf(rescore),
-      labels: feature.name ? (issueLabels(feature) ?? []) : [],
+      // Roadmap features carry no labels today, so this is always `[]`. The shapeKey
+      // buckets on empty labels for now (Phase-4 calibration note): if/when labels land,
+      // this is the single place to feed them into the precedent/ratchet bucket.
+      labels: [],
     });
   }
   return ready;
@@ -104,12 +107,6 @@ function scopeEstimateOf(rescore: BrainstormReportRow['result']['rescore']): num
   const scope = rescore?.levers.scope.value;
   if (scope && scope !== 'unknown') return scope.blastRadius;
   return 0;
-}
-
-/** Labels from a feature (roadmap features carry none today, so default to []). */
-function issueLabels(feature: { name: string }): string[] {
-  void feature;
-  return [];
 }
 
 /** The result of partitioning ready candidates by an explicit human-approval set. */

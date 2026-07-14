@@ -413,6 +413,11 @@ export async function runApproveCommand(
   const store = resolveRoadmapStoreForFile({ roadmapPath });
   const recordPrediction = (payload: eventSourcing.TriagePredictedInput) =>
     eventSourcing.recordTriagePrediction(cwd, payload);
+  // NOTE: `selfAssignee` is intentionally omitted, so the marker's assignee gate is
+  // inactive here. It is redundant at this call site because `deriveReadyCandidates`
+  // already pre-filters to actionable (planned/backlog, unclaimed) features — a
+  // non-self-assigned item never reaches `plan.toMark`. The gate stays available on
+  // the marker for other call-sites that DO have an identity to enforce.
   const result = await markApprovedForDispatch(plan.toMark, {
     store,
     config: { enabled: true, ratchetStage: stage },
