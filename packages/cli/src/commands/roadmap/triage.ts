@@ -15,23 +15,25 @@
 import { Command } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { parseRoadmap } from '@harness-engineering/core';
+import { parseRoadmap, resolveRoadmapStoreForFile, eventSourcing } from '@harness-engineering/core';
 import type { GraphStore } from '@harness-engineering/graph';
 import type { Roadmap, RoadmapFeature, Issue } from '@harness-engineering/types';
 import {
   triageIssue,
   rankTriageCandidates,
   runBrainstormForIssue,
+  markApprovedForDispatch,
   type RankableCandidate,
   type TriageVerdict,
   type BrainstormWiringDeps,
   type WiredBrainstormResult,
 } from '@harness-engineering/orchestrator';
-import type { AnalysisProvider } from '@harness-engineering/intelligence';
+import type { AnalysisProvider, RatchetStage } from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
+import { deriveReadyCandidates, buildApprovalPlan } from './triage-approve.js';
 
 /** A triaged row: the verdict plus the pilot-ranking inputs derived from the feature. */
 export interface TriageReportRow extends RankableCandidate {
@@ -337,6 +339,150 @@ function resolveBrainstormProvider(configPath?: string, model?: string): Analysi
   return resolveTriageProvider(configResult.value as TriageProviderConfig, model);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3 (Task 4): `triage approve` — the batched human go/no-go (ratchet stage 1).
+// ---------------------------------------------------------------------------
+
+/** Options for the approve action (parsed from flags). */
+interface ApproveOpts {
+  approve?: string;
+  approveAll?: boolean;
+  config?: string;
+  json?: boolean;
+}
+
+/**
+ * Run the batched go/no-go: brainstorm to find READY candidates, partition by the human's
+ * explicit approval through the stage-1 gate, and MARK the approved subset for the EXISTING
+ * orchestrator pickup. Nothing here dispatches — the orchestrator loop picks up the now-eligible
+ * items on its next tick. Returns a machine-readable summary (also used by `--json`).
+ *
+ * Default-off and stage-1-only: disabled ⇒ inert; any ratchet stage but 1 refuses to mark.
+ */
+export async function runApproveCommand(
+  cwd: string,
+  opts: ApproveOpts
+): Promise<{
+  marked: string[];
+  held: Array<{ externalId: string; reason: string }>;
+  note?: string;
+}> {
+  // 1. Gate on enabled + read the ratchet stage (Phase 3 pins stage 1).
+  const configResult = resolveConfig(opts.config);
+  const cfg = configResult.ok ? configResult.value : undefined;
+  const autoTriage = cfg?.roadmap?.autoTriage;
+  if (!autoTriage || autoTriage.enabled !== true) {
+    return { marked: [], held: [], note: 'disabled' };
+  }
+  const stage = (autoTriage.ratchetStage ?? 1) as RatchetStage;
+
+  // 2. Parse the roadmap aggregate (read side).
+  const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
+  if (!fs.existsSync(roadmapPath)) {
+    return { marked: [], held: [], note: 'no-roadmap' };
+  }
+  const parsed = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
+  if (!parsed.ok) return { marked: [], held: [], note: 'roadmap-parse-error' };
+
+  // 3. Brainstorm to surface READY candidates (spec drafted + re-score dispatchable). The
+  //    provider is the FREE LOCAL backend (or explicit opt-in); absent ⇒ every item halts.
+  const graphStore = await loadGraphStore(cwd);
+  const provider = resolveBrainstormProvider(opts.config);
+  const rows = await runBrainstormReport(parsed.value, {
+    ...(graphStore ? { graphStore } : {}),
+    ...(provider ? { provider } : {}),
+    docsRoot: path.join(cwd, 'docs'),
+  });
+  const ready = deriveReadyCandidates(rows, parsed.value);
+
+  // 4. Partition by the human's explicit approval through the pure stage-1 gate.
+  const approvedIds = new Set(
+    (opts.approve ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+  );
+  const plan = buildApprovalPlan(ready, {
+    approvedIds,
+    ...(opts.approveAll ? { approveAll: true } : {}),
+    stage,
+  });
+
+  // 5. MARK the approved subset — makes them eligible for the EXISTING orchestrator pickup.
+  //    No new dispatch path: the marker only attaches the spec + records the prediction.
+  const store = resolveRoadmapStoreForFile({ roadmapPath });
+  const recordPrediction = (payload: eventSourcing.TriagePredictedInput) =>
+    eventSourcing.recordTriagePrediction(cwd, payload);
+  const result = await markApprovedForDispatch(plan.toMark, {
+    store,
+    config: { enabled: true, ratchetStage: stage },
+    recordPrediction,
+  });
+  if (!result.ok) {
+    return { marked: [], held: plan.held, note: `mark-failed: ${result.error.message}` };
+  }
+  return { marked: result.value.marked, held: plan.held };
+}
+
+/** Render the approve result for the human. */
+function renderApproveHuman(res: Awaited<ReturnType<typeof runApproveCommand>>): string {
+  if (res.note === 'disabled') {
+    return (
+      'Roadmap auto-triage is disabled (roadmap.autoTriage.enabled is not true). ' +
+      'Enable it to use `triage approve`. No changes made.'
+    );
+  }
+  if (res.note === 'no-roadmap') return 'No roadmap aggregate at docs/roadmap.md. No changes made.';
+  if (res.note === 'roadmap-parse-error') return 'Failed to parse roadmap. No changes made.';
+  const lines: string[] = [];
+  if (res.marked.length > 0) {
+    lines.push(`Marked ${res.marked.length} item(s) eligible for orchestrator pickup:`);
+    for (const id of res.marked) lines.push(`  ✓ ${id}`);
+  } else {
+    lines.push('No items marked.');
+  }
+  if (res.held.length > 0) {
+    lines.push(`\nHeld to human (${res.held.length}):`);
+    for (const h of res.held) lines.push(`  ✗ ${h.externalId} — ${h.reason}`);
+  }
+  if (res.note && res.note.startsWith('mark-failed')) lines.push(`\nERROR: ${res.note}`);
+  lines.push(
+    '\nApproved items are NOT dispatched here — the existing orchestrator pickup loop ' +
+      'dispatches them through its normal gating on its next tick.'
+  );
+  return lines.join('\n');
+}
+
+/** `harness roadmap triage approve` — batched human go/no-go over ready candidates. */
+export function createTriageApproveCommand(): Command {
+  return new Command('approve')
+    .description(
+      'Batched human go/no-go (autonomy ratchet stage 1): review READY candidates (Phase-2 ' +
+        'spec-bearing, re-score dispatchable) and approve a subset. Approved + auto-executable ' +
+        'items are MARKED eligible for the EXISTING orchestrator pickup — nothing is dispatched ' +
+        'here, and nothing is marked without an explicit approval. Gated behind ' +
+        'roadmap.autoTriage.enabled (default off).'
+    )
+    .option(
+      '--approve <ids>',
+      'Comma-separated externalIds to approve (the explicit human go). Omit to mark nothing.'
+    )
+    .option('--approve-all', 'Approve every READY candidate (still subject to the category gate).')
+    .action(async (opts: { approve?: string; approveAll?: boolean }, cmd: Command) => {
+      const cwd = process.cwd();
+      const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
+      const res = await runApproveCommand(cwd, {
+        ...opts,
+        ...(globalOpts.config !== undefined ? { config: globalOpts.config } : {}),
+      });
+      if (globalOpts.json) {
+        process.stdout.write(JSON.stringify(res, null, 2) + '\n');
+      } else {
+        logger.info(renderApproveHuman(res));
+      }
+    });
+}
+
 /**
  * `harness roadmap triage` — the read-only, gated triage report.
  */
@@ -425,5 +571,6 @@ export function createRoadmapTriageCommand(): Command {
       } else {
         logger.info(renderHuman(rows));
       }
-    });
+    })
+    .addCommand(createTriageApproveCommand());
 }
