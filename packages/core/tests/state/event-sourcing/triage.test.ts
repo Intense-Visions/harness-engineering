@@ -123,4 +123,20 @@ describe('projectTriageRecords (pure fold)', () => {
     const records = projectTriageRecords([]);
     expect(records).toEqual([]);
   });
+
+  // S5 (Phase-0 review follow-up): an orphan outcome — a `triage_outcome` with NO preceding
+  // `triage_predicted` for that externalId — must still fold into a base record carrying the
+  // outcome and NO prediction (Phase 4 can grade an item Phase 3 never wrote a prediction for;
+  // the fold must not drop it or require a prediction to exist first).
+  it('folds an orphan triage_outcome (no preceding prediction) into a base record with the outcome only', async () => {
+    await recordTriageOutcome(dir, outcome('ORPHAN-1', true));
+    const events = await unwrap(loadEvents(dir));
+    const records = projectTriageRecords(events);
+    expect(records).toHaveLength(1);
+    const rec = records[0]!;
+    expect(rec.externalId).toBe('ORPHAN-1');
+    expect(rec.prediction).toBeUndefined();
+    expect(rec.outcome?.matched).toBe(true);
+    expect(rec.shapeKey).toBe('api,auth|dispatchable|trivial');
+  });
 });

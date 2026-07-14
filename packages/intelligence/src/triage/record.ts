@@ -122,8 +122,12 @@ export function shapeKey(
   category: EscalationCategory,
   level: ComplexityLevel
 ): string {
+  // Delimiter assumption (S1): labels are joined with `,` and the three key parts with `|`.
+  // Roadmap labels are simple slugs today (no `,`/`|`), so the key stays unambiguous. Defensive
+  // hardening: strip any stray `,`/`|` from a label so an odd label can never split the key or
+  // collide two distinct shapes. Cheap and order-independent (still de-duped + sorted below).
   const sortedLabels = Array.from(
-    new Set(labels.map((l) => l.trim()).filter((l) => l.length > 0))
+    new Set(labels.map((l) => l.trim().replace(/[,|]/g, '')).filter((l) => l.length > 0))
   ).sort();
   return `${sortedLabels.join(',')}|${category}|${level}`;
 }

@@ -1081,7 +1081,12 @@ export interface RoadmapAutoTriageConfig {
     /** Minimum recorded matches before a stage may advance (P4). */
     ratchetMinSample: number;
   };
-  /** Brainstorm depth by complexity level (P2) — bounds cost per eligible band. */
+  /**
+   * Brainstorm depth by complexity level (P2) — bounds cost per eligible band. Only the
+   * `trivial`/`simple` bands are brainstorm-eligible (D1: the eligible band); `moderate`/
+   * `complex` are INTENTIONALLY omitted — those always route to a human, so they never run
+   * the autonomous brainstorm and thus need no depth budget.
+   */
   depthBudget: { trivial: number; simple: number };
 }
 

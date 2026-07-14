@@ -46,7 +46,10 @@ export interface StoredOutcome {
 /**
  * A triage record as materialized from the log. `prediction`/`outcome` are present
  * only once their owning phase has appended; a record with a populated `outcome` is
- * a graded, precedent-eligible record. `ts` is the timestamp of the latest slice.
+ * a graded, precedent-eligible record. `ts` is the timestamp of the latest slice in
+ * (seq, writerId) fold order (not necessarily the max wall-clock time) — it tracks the
+ * last-writer-wins slice, so a slice appended later in the deterministic log order stamps
+ * `ts` even if its wall-clock timestamp is earlier than an already-folded slice.
  */
 export interface StoredTriageRecord {
   externalId: string;
