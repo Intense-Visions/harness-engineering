@@ -1,5 +1,17 @@
 # @harness-engineering/dashboard
 
+## 0.14.3
+
+### Patch Changes
+
+- Updated dependencies [eb74585]
+- Updated dependencies [cf3420a]
+  - @harness-engineering/types@0.22.0
+  - @harness-engineering/core@0.37.0
+  - @harness-engineering/orchestrator@0.15.0
+  - @harness-engineering/graph@0.11.8
+  - @harness-engineering/signals@0.2.6
+
 ## 0.14.2
 
 ### Patch Changes
