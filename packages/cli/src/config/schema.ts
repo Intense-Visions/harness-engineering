@@ -485,14 +485,14 @@ export const RoadmapAutoTriageConfigSchema = z
     /** Master switch. Default false — the read-only triage report is gated off (D5/SC8). */
     enabled: z.boolean().default(false),
     /**
-     * Autonomy-ratchet stage in effect (D14). Phase 3 ships stage 1 only:
-     * a human go/no-go BEFORE execution — nothing auto-dispatches. The
-     * `triage approve` command reads this to enforce the stage-1 invariant
-     * (any stage but 1 is refused until Phase 4 lands 2). Defined in Phase 0
-     * on the orchestrator side; typed here so the CLI reads it without leaning
-     * on `.passthrough()`. Default 1 (most conservative).
+     * Autonomy-ratchet stage in effect (D14). v1 caps at stage 2 (auto-execute + human
+     * verifies every PR); stages 3/4 (sampled-verify, fully-autonomous merge) are deferred
+     * post-v1 and REJECTED here — matching the orchestrator's canonical RATCHET_STAGE schema
+     * (packages/orchestrator/src/workflow/schema.ts, the source of truth). Default 1 (most
+     * conservative). FOLLOW-UP 3: the two schemas must agree so a config can't validate under
+     * the CLI yet fail the orchestrator (or vice-versa).
      */
-    ratchetStage: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
+    ratchetStage: z.union([z.literal(1), z.literal(2)]).default(1),
   })
   // Tolerate the fuller Phase-0 surface (thresholds/depthBudget) if present in a
   // shared config file — the CLI reads only `enabled` + `ratchetStage`, so extra
