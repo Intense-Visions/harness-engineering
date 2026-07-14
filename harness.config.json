@@ -172,8 +172,8 @@
       },
       "local": {
         "type": "pi",
-        "endpoint": "http://localhost:1234/v1",
-        "model": ["google/gemma-4-e4b"],
+        "endpoint": "http://127.0.0.1:11434/v1",
+        "model": ["qwen2.5-coder:7b", "gemma3n:e4b"],
         "capabilities": {
           "tier": "fast",
           "costPer1kTokens": 0,
