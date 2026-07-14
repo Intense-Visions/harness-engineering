@@ -2417,6 +2417,9 @@ export class Orchestrator extends EventEmitter {
     try {
       const hunks = await this.workspace.getIntroducedDiff(issue.identifier);
       const taskText = buildTaskText(issue);
+      // Wire the operator's comparator threshold from config (SC2). The level-band delta
+      // that counts as a mispredict is `thresholds.exceededByBands` (default 1).
+      const exceededByBands = this.config.roadmap?.autoTriage?.thresholds?.exceededByBands ?? 1;
       const result = await runRetrospective(
         {
           hunks,
@@ -2428,6 +2431,7 @@ export class Orchestrator extends EventEmitter {
           prediction,
           riskHigh: false,
           prompt: taskText.prompt,
+          comparatorConfig: { exceededByBands },
         },
         this.resolveComplexityProvider()
       );

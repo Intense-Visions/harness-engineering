@@ -118,6 +118,20 @@ describe('compareToPrediction', () => {
     expect(r.action).toBe('block-escalate');
   });
 
+  it('SC2: a custom exceededByBands=2 tolerates a one-band drift but still blocks two bands', () => {
+    // One band over is now WITHIN tolerance (matched); two bands over still blocks.
+    const oneBand = compareToPrediction(prediction('simple', 5), actual('moderate', 4), {
+      exceededByBands: 2,
+    });
+    expect(oneBand.matched).toBe(true);
+    expect(oneBand.action).toBe('verify');
+    const twoBands = compareToPrediction(prediction('trivial', 2), actual('moderate', 2), {
+      exceededByBands: 2,
+    });
+    expect(twoBands.matched).toBe(false);
+    expect(twoBands.action).toBe('block-escalate');
+  });
+
   it('missing blast-radius signal on the actual falls back to level-only comparison (matched)', () => {
     const noBlast = {
       level: 'simple',

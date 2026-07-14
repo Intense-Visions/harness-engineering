@@ -55,6 +55,19 @@ export interface RetrospectiveComparison {
   action: 'verify' | 'block-escalate';
 }
 
+/** Tunable comparator thresholds (wired from `roadmap.autoTriage.thresholds`, SC2). */
+export interface RetrospectiveConfig {
+  /**
+   * The level-band delta that counts as a mispredict. Default 1 (any band over the
+   * prediction blocks). Raising it tolerates a wider band drift before escalating —
+   * conservative default keeps the honesty check tight (plan §Concerns).
+   */
+  exceededByBands: number;
+}
+
+/** The default comparator config: any band over the prediction is a mispredict. */
+export const DEFAULT_RETROSPECTIVE_CONFIG: RetrospectiveConfig = { exceededByBands: 1 };
+
 /** A block-escalate verdict of the given severity (default 1 = the minimum over-scope). */
 function blockEscalate(exceededBy = 1): RetrospectiveComparison {
   return { matched: false, exceededBy: Math.max(1, exceededBy), action: 'block-escalate' };
@@ -80,7 +93,8 @@ function blastRadiusOf(verdict: ComplexityVerdict): number | undefined {
  */
 export function compareToPrediction(
   prediction: TriagePrediction | undefined | null,
-  postDiffVerdict: ComplexityVerdict | undefined | null
+  postDiffVerdict: ComplexityVerdict | undefined | null,
+  config: RetrospectiveConfig = DEFAULT_RETROSPECTIVE_CONFIG
 ): RetrospectiveComparison {
   // SC7 fail-safe: any missing/garbled input is a mismatch, never a silent pass.
   if (prediction == null || postDiffVerdict == null) return blockEscalate();
@@ -89,9 +103,12 @@ export function compareToPrediction(
   if (!isLevel(predictedLevel) || !isLevel(actualLevel)) return blockEscalate();
 
   // SC2a: level-band overrun. Coming in at or below the predicted band is fine
-  // (the diff was as easy as, or easier than, predicted). A positive delta trips it.
+  // (the diff was as easy as, or easier than, predicted). A delta ≥ the configured
+  // `exceededByBands` (default 1) trips it. A ≥1 (positive but sub-threshold) drift is
+  // reported in `exceededBy` for forensics but does not block on its own.
   const levelDelta = LEVEL_RANK[actualLevel] - LEVEL_RANK[predictedLevel];
-  if (levelDelta >= 1) return blockEscalate(levelDelta);
+  const bandThreshold = Math.max(1, Math.floor(config.exceededByBands));
+  if (levelDelta >= bandThreshold) return blockEscalate(levelDelta);
 
   // SC2b: blast-radius overrun at the same-or-lower band. The predicted scope is the
   // scopeEstimate the scope lever produced pre-diff; the actual is the post-diff

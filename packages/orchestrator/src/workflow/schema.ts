@@ -226,7 +226,17 @@ export const RoutingConfigSchema = z
 // --- Roadmap Auto-Triage (Phase 0, Contract 2): default-off config surface ---
 
 const CONFIDENCE = z.enum(['low', 'medium', 'high']);
-const RATCHET_STAGE = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+// The stored/typed ratchet-stage domain is 1–4, but v1 CAPS the reachable stages at 2
+// (SC4): auto-execute + required human-verify is the ceiling; sampled-verify (3) and
+// fully-autonomous merge (4) are deferred post-v1. Configuring a deferred stage is a
+// config error, not a silent clamp — reject it at load with a legible message so an
+// operator can't accidentally opt into autonomy the retrospective can't yet gate.
+const V1_MAX_RATCHET_STAGE = 2;
+const RATCHET_STAGE = z
+  .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+  .refine((s) => s <= V1_MAX_RATCHET_STAGE, {
+    message: `ratchetStage ${'>'} ${V1_MAX_RATCHET_STAGE} is deferred post-v1 (stages 3–4 not yet supported); use 1 or 2`,
+  });
 
 /**
  * The whole `roadmap.autoTriage` surface, wired here so config validation ACCEPTS it

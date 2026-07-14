@@ -32,6 +32,7 @@ import {
 import type {
   ComplexitySignals,
   RetrospectiveComparison,
+  RetrospectiveConfig,
   TriagePrediction,
   PrecedentLookup,
   PrecedentRate,
@@ -104,6 +105,8 @@ export interface RetrospectiveDeps {
   riskHigh: boolean;
   /** Prompt for the optional LLM tie-break (title + description). */
   prompt: string;
+  /** Comparator thresholds (from `roadmap.autoTriage.thresholds`); default when omitted. */
+  comparatorConfig?: RetrospectiveConfig;
 }
 
 /** The graded retrospective result: the post-diff verdict + the comparison. */
@@ -129,7 +132,9 @@ export async function runRetrospective(
     { signals, phase: 'post-diff', riskHigh: deps.riskHigh, prompt: deps.prompt },
     provider
   );
-  const comparison = compareToPrediction(deps.prediction, actual);
+  const comparison = deps.comparatorConfig
+    ? compareToPrediction(deps.prediction, actual, deps.comparatorConfig)
+    : compareToPrediction(deps.prediction, actual);
   return { actual, comparison };
 }
 

@@ -49,6 +49,26 @@ describe('RoadmapAutoTriageSchema', () => {
     );
   });
 
+  it('SC4: accepts v1 stages 1 and 2', () => {
+    expect(RoadmapAutoTriageSchema.safeParse({ ...validAutoTriage, ratchetStage: 1 }).success).toBe(
+      true
+    );
+    expect(RoadmapAutoTriageSchema.safeParse({ ...validAutoTriage, ratchetStage: 2 }).success).toBe(
+      true
+    );
+  });
+
+  it('SC4: rejects a deferred stage (3/4) at config-load — the v1 ratchet cap', () => {
+    // Stages 3–4 (sampled-verify / fully-autonomous merge) are deferred post-v1; a
+    // config opting into them is a hard error, not a silent clamp.
+    expect(RoadmapAutoTriageSchema.safeParse({ ...validAutoTriage, ratchetStage: 3 }).success).toBe(
+      false
+    );
+    expect(RoadmapAutoTriageSchema.safeParse({ ...validAutoTriage, ratchetStage: 4 }).success).toBe(
+      false
+    );
+  });
+
   it('rejects a missing thresholds seed', () => {
     const { thresholds, ...rest } = validAutoTriage;
     void thresholds;
