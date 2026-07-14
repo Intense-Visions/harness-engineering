@@ -75,6 +75,12 @@ export type {
   MarkSkipReason,
   RecordPrediction,
 } from './agent/triage-mark';
+// Roadmap Auto-Triage Phase 4 (SC5): the REAL PrecedentLookup over recorded outcomes —
+// bridges core's StoredTriageRecord into intelligence's pure `aggregatePrecedent`. The
+// read-side lever the CLI report/approve paths inject so the gate reads real base-rates
+// once outcomes accrue (cold-start ⇒ `unknown` ⇒ byte-identical to today).
+export { precedentLookupFromStored } from './agent/triage-outcome';
+export type { StoredOutcomeRecord } from './agent/triage-outcome';
 // AMR Phase 4 (D10/SC16): vertical escalation mechanism.
 export { EscalationState } from './agent/escalation-state';
 export {

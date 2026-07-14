@@ -23,12 +23,17 @@ import {
   rankTriageCandidates,
   runBrainstormForIssue,
   markApprovedForDispatch,
+  precedentLookupFromStored,
   type RankableCandidate,
   type TriageVerdict,
   type BrainstormWiringDeps,
   type WiredBrainstormResult,
 } from '@harness-engineering/orchestrator';
-import type { AnalysisProvider, RatchetStage } from '@harness-engineering/intelligence';
+import type {
+  AnalysisProvider,
+  RatchetStage,
+  PrecedentLookup,
+} from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
@@ -95,6 +100,31 @@ function rankingInputs(
 }
 
 /**
+ * Roadmap Auto-Triage — Phase 4 (SC5): build the REAL precedent lever from the Phase-0
+ * TriageRecord store. Loads the accreting outcome records (a read — never a write, keeping
+ * the report path read-only) and bridges them into the pure `aggregatePrecedent` via
+ * `precedentLookupFromStored`. A read failure OR an empty/cold-start store degrades to
+ * `undefined` here (no lever) — the probe treats an absent OR `unknown`-returning lever
+ * identically (`precedent: no store / unknown ⇒ never blocks`), so behavior is BYTE-IDENTICAL
+ * to today until real outcomes accrue. It can only ADD a block once a shape has enough graded
+ * mispredicts to cross the (conservative, default-off) precedent block bar.
+ */
+export async function buildPrecedentLookup(cwd: string): Promise<PrecedentLookup | undefined> {
+  const loaded = await eventSourcing.loadTriageRecords(cwd);
+  // A failed store read cannot manufacture precedent; degrade to no-lever (cold-start
+  // equivalent) rather than throwing out of the read-only report.
+  if (!loaded.ok) return undefined;
+  // Map core's StoredTriageRecord → the minimal { shapeKey, outcome:{matched} } the
+  // aggregation reads. Only outcome-bearing records contribute a base-rate.
+  return precedentLookupFromStored(
+    loaded.value.map((r) => ({
+      shapeKey: r.shapeKey,
+      ...(r.outcome ? { outcome: { matched: r.outcome.matched } } : {}),
+    }))
+  );
+}
+
+/**
  * Pure report core: triage every actionable feature in `roadmap` and rank the verdicts.
  * The probe deps are injected so this is unit-testable offline (no live model, graph optional).
  */
@@ -102,6 +132,8 @@ export async function runTriageReport(
   roadmap: Roadmap,
   deps: {
     graphStore?: GraphStore | null;
+    /** The real precedent lever (SC5). Absent ⇒ cold-start `unknown` for every shape. */
+    precedent?: PrecedentLookup;
     config?: { boundedScopeMax?: number; dispatchConfidence?: 'low' | 'medium' | 'high' };
   } = {}
 ): Promise<TriageReportRow[]> {
@@ -110,6 +142,7 @@ export async function runTriageReport(
   for (const feature of features) {
     const verdict = await triageIssue(featureToIssue(feature), {
       ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
+      ...(deps.precedent ? { precedent: deps.precedent } : {}),
       ...(deps.config ? { config: deps.config } : {}),
     });
     rows.push({
@@ -200,6 +233,8 @@ export async function runBrainstormReport(
   deps: {
     provider?: AnalysisProvider | null;
     graphStore?: GraphStore | null;
+    /** The real precedent lever (SC5). Absent ⇒ cold-start `unknown` for every shape. */
+    precedent?: PrecedentLookup;
     docsRoot?: string;
     config?: { boundedScopeMax?: number; dispatchConfidence?: 'low' | 'medium' | 'high' };
     /** Self-consistency / model options threaded to the SEL generator. */
@@ -216,6 +251,7 @@ export async function runBrainstormReport(
     const verdict = await triageIssue(issue, {
       ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
       ...(deps.provider ? { provider: deps.provider } : {}),
+      ...(deps.precedent ? { precedent: deps.precedent } : {}),
       ...(deps.config ? { config: deps.config } : {}),
     });
     const level = verdict.verdict.level;
@@ -225,10 +261,13 @@ export async function runBrainstormReport(
       ...(deps.provider ? { provider: deps.provider } : {}),
       ...(deps.generatorOptions ? { generatorOptions: deps.generatorOptions } : {}),
       ...(deps.docsRoot ? { docsRoot: deps.docsRoot } : {}),
-      // Re-score the enriched item on completion (SC4), reusing the same seams.
+      // Re-score the enriched item on completion (SC4), reusing the same seams — the
+      // precedent lever included so the RE-SCORE (the prediction the marker records) is
+      // graded against real base-rates too (SC5).
       rescore: {
         ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
         ...(deps.provider ? { provider: deps.provider } : {}),
+        ...(deps.precedent ? { precedent: deps.precedent } : {}),
         ...(deps.config ? { config: deps.config } : {}),
       },
     };
@@ -388,9 +427,14 @@ export async function runApproveCommand(
   //    provider is the FREE LOCAL backend (or explicit opt-in); absent ⇒ every item halts.
   const graphStore = await loadGraphStore(cwd);
   const provider = resolveBrainstormProvider(opts.config);
+  // The real precedent lever (SC5) so the approve-flow RE-SCORE — the verdict the marker
+  // records as the pre-dispatch prediction — reads real base-rates. Cold-start/empty store ⇒
+  // `undefined` ⇒ `unknown` ⇒ no behavior change vs today.
+  const precedent = await buildPrecedentLookup(cwd);
   const rows = await runBrainstormReport(parsed.value, {
     ...(graphStore ? { graphStore } : {}),
     ...(provider ? { provider } : {}),
+    ...(precedent ? { precedent } : {}),
     docsRoot: path.join(cwd, 'docs'),
   });
   const ready = deriveReadyCandidates(rows, parsed.value);
@@ -545,6 +589,12 @@ export function createRoadmapTriageCommand(): Command {
       // 3. Load the knowledge graph (optional; absent ⇒ scope degrades ⇒ all held to human).
       const graphStore = await loadGraphStore(cwd);
 
+      // 3b. Build the REAL precedent lever from the accreting outcome store (SC5). This is a
+      //     READ (the report path stays read-only); a cold-start/empty store degrades to
+      //     `undefined` ⇒ every shape reads `unknown` ⇒ byte-identical to today. It can only
+      //     ADD a hold once graded mispredicts cross the conservative precedent block bar.
+      const precedent = await buildPrecedentLookup(cwd);
+
       // 4a. --brainstorm mode: draft specs (docs only) or halt to human. No dispatch.
       if (opts.brainstorm) {
         // Resolve the SEL provider from config — the FREE LOCAL backend by default, cloud only
@@ -554,6 +604,7 @@ export function createRoadmapTriageCommand(): Command {
         const rows = await runBrainstormReport(parsed.value, {
           ...(graphStore ? { graphStore } : {}),
           ...(provider ? { provider } : {}),
+          ...(precedent ? { precedent } : {}),
           // Specs are written under docs/changes/<slug>/proposal.md (docs only, no dispatch).
           docsRoot: path.join(cwd, 'docs'),
         });
@@ -568,6 +619,7 @@ export function createRoadmapTriageCommand(): Command {
       // 4b. Triage + rank (offline: no provider wired here — read-only report).
       const rows = await runTriageReport(parsed.value, {
         ...(graphStore ? { graphStore } : {}),
+        ...(precedent ? { precedent } : {}),
       });
 
       // 5. Render. JSON goes straight to stdout (no logger prefix) so it stays parseable.

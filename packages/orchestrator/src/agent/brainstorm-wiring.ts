@@ -259,7 +259,7 @@ export interface BrainstormWiringDeps {
   /** Re-score deps threaded to `triageIssue` (SC4). Absent ⇒ re-score is skipped. */
   rescore?: { graphStore?: GraphStore | null } & Pick<
     TriageWiringDeps,
-    'provider' | 'config' | 'models'
+    'provider' | 'precedent' | 'config' | 'models'
   >;
 }
 
@@ -341,6 +341,7 @@ export async function runBrainstormForIssue(
       result.rescore = await triageIssue(enrichedIssue, {
         ...(deps.rescore.graphStore ? { graphStore: deps.rescore.graphStore } : {}),
         ...(deps.rescore.provider ? { provider: deps.rescore.provider } : {}),
+        ...(deps.rescore.precedent ? { precedent: deps.rescore.precedent } : {}),
         ...(deps.rescore.config ? { config: deps.rescore.config } : {}),
         ...(deps.rescore.models ? { models: deps.rescore.models } : {}),
       });

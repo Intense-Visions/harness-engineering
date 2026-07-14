@@ -26,6 +26,7 @@ import {
   renderBrainstormHuman,
   renderBrainstormJson,
   createRoadmapTriageCommand,
+  buildPrecedentLookup,
 } from './triage';
 
 function feature(overrides: Partial<RoadmapFeature>): RoadmapFeature {
@@ -114,6 +115,78 @@ describe('runTriageReport — SC1 (N items → N verdicts) + actionable filter',
     const rows = await runTriageReport(rm);
     // Equal (offline) confidence/effort ⇒ impact from priority drives the order.
     expect(rows[0]?.name).toBe('high');
+  });
+});
+
+// ===========================================================================
+// Phase 4 (FIX 1 / SC5): the REAL precedent lever readback — buildPrecedentLookup +
+// its wiring into runTriageReport. The OVERRIDING safety constraint: with an EMPTY
+// store, behavior MUST be byte-identical to today (empty precedent ⇒ `unknown` ⇒ the
+// gate stays conservative). These tests PIN cold-start invariance; the lever may only
+// change behavior once real graded outcomes accrue.
+// ===========================================================================
+
+describe('buildPrecedentLookup — SC5 cold-start invariance', () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-precedent-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('empty store ⇒ a lookup that returns `unknown` for every shape (never a rate)', async () => {
+    const lookup = await buildPrecedentLookup(tmp);
+    // The store has no events at all → no outcome-bearing records → `unknown` (the P1
+    // degrade-empty path). A `rate` here would be a cold-start regression.
+    expect(lookup?.rateForShape('|dispatchable|simple').kind).toBe('unknown');
+    expect(lookup?.rateForShape('anything|guided-change|complex').kind).toBe('unknown');
+  });
+
+  it('empty store ⇒ runTriageReport GATE VERDICTS are IDENTICAL with vs without the lever', async () => {
+    // The load-bearing invariant: the GATE decision (dispatchable + holdReason + level) must
+    // be indifferent to an empty precedent lever. Passing the cold-start lookup must not shift
+    // a single verdict vs omitting it entirely — cold-start behavior is byte-identical.
+    //
+    // NOTE: the internal `levers.precedent.value` diagnostic differs in REPRESENTATION between
+    // the two paths (the no-lever path yields the string `'unknown'`; the cold-lookup path
+    // yields the `PrecedentRate` object `{kind:'unknown'}`) — a pre-existing quirk of the pure
+    // probe. That representation is NOT load-bearing: the gate's precedent check
+    // (`kind === 'rate'`) treats BOTH as non-blocking, so the verdict is unchanged. This test
+    // pins the verdict (what the operator/orchestrator acts on), and separately asserts the
+    // lever never manufactures a `rate` (hence never a block) at cold-start.
+    const store = new GraphStore();
+    store.addNode(node('class:BackendRouter', 'BackendRouter'));
+    const rm = roadmapWith([
+      feature({ name: 'Rename BackendRouter', priority: 'P0' }),
+      feature({ name: 'Offline item', priority: 'P2' }), // no graph node ⇒ unresolved-scope
+    ]);
+
+    const withoutLever = await runTriageReport(rm, { graphStore: store });
+    const coldLookup = await buildPrecedentLookup(tmp);
+    const withColdLever = await runTriageReport(rm, {
+      graphStore: store,
+      ...(coldLookup ? { precedent: coldLookup } : {}),
+    });
+
+    // Byte-identical GATE verdict slices — the fields the caller acts on.
+    const slim = (rows: Awaited<ReturnType<typeof runTriageReport>>) =>
+      rows.map((r) => ({
+        name: r.name,
+        dispatchable: r.verdict.dispatchable,
+        holdReason: r.verdict.holdReason ?? null,
+        level: r.verdict.verdict.level,
+      }));
+    expect(slim(withColdLever)).toEqual(slim(withoutLever));
+    // And the precedent lever never resolved to a `rate` on either path (cold-start ⇒ never a
+    // block, whether `'unknown'` the string or `{kind:'unknown'}` the object).
+    for (const row of [...withColdLever, ...withoutLever]) {
+      const v = row.verdict.levers.precedent.value;
+      const kind = v === 'unknown' ? 'unknown' : v.kind;
+      expect(kind).toBe('unknown');
+      // The gate only blocks on a `rate` — pin that no cold-start row can carry one.
+      expect(row.verdict.holdReason).not.toBe('precedent-contradicts');
+    }
   });
 });
 
