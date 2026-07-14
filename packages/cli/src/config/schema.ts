@@ -484,9 +484,19 @@ export const RoadmapAutoTriageConfigSchema = z
   .object({
     /** Master switch. Default false — the read-only triage report is gated off (D5/SC8). */
     enabled: z.boolean().default(false),
+    /**
+     * Autonomy-ratchet stage in effect (D14). Phase 3 ships stage 1 only:
+     * a human go/no-go BEFORE execution — nothing auto-dispatches. The
+     * `triage approve` command reads this to enforce the stage-1 invariant
+     * (any stage but 1 is refused until Phase 4 lands 2). Defined in Phase 0
+     * on the orchestrator side; typed here so the CLI reads it without leaning
+     * on `.passthrough()`. Default 1 (most conservative).
+     */
+    ratchetStage: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
   })
-  // Tolerate the fuller Phase-0 surface (thresholds/ratchet/depthBudget) if present in a
-  // shared config file — the CLI only reads `enabled`, so extra keys must not fail validation.
+  // Tolerate the fuller Phase-0 surface (thresholds/depthBudget) if present in a
+  // shared config file — the CLI reads only `enabled` + `ratchetStage`, so extra
+  // keys must not fail validation.
   .passthrough();
 
 export const RoadmapConfigSchema = z.object({
