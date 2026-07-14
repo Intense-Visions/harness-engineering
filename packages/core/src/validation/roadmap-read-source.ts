@@ -46,6 +46,10 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/cli/src/commands/roadmap/unshard.ts',
   'packages/cli/src/commands/roadmap/migrate.ts',
   'packages/cli/src/commands/roadmap/migrate-lock.ts',
+  // Read-only auto-triage: parses items to score dispatchability (report +
+  // --brainstorm); never writes roadmap.md. Same parse pattern as its peer
+  // roadmap commands above (shard/regen), and default-off behind roadmap.autoTriage.
+  'packages/cli/src/commands/roadmap/triage.ts',
   'packages/cli/src/git/merge-driver-setup.ts',
   'packages/cli/src/commands/init.ts',
   'packages/cli/src/commands/validate.ts',
