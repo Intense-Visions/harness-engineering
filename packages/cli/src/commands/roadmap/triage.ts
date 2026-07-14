@@ -21,9 +21,13 @@ import type { Roadmap, RoadmapFeature, Issue } from '@harness-engineering/types'
 import {
   triageIssue,
   rankTriageCandidates,
+  runBrainstormForIssue,
   type RankableCandidate,
   type TriageVerdict,
+  type BrainstormWiringDeps,
+  type WiredBrainstormResult,
 } from '@harness-engineering/orchestrator';
+import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
@@ -165,6 +169,180 @@ export function renderJson(rows: TriageReportRow[]): string {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2 (Task 5): the `--brainstorm` mode — docs only, no dispatch, default-off.
+// ---------------------------------------------------------------------------
+
+/** One brainstormed row: the item + its Phase-1 level + the wired brainstorm result. */
+export interface BrainstormReportRow {
+  externalId: string;
+  name: string;
+  status: string;
+  /** The Phase-1 complexity level that scaled the brainstorm depth. */
+  level: TriageVerdict['verdict']['level'];
+  result: WiredBrainstormResult;
+}
+
+/**
+ * Pure brainstorm-report core: for each actionable feature, run the Phase-1 probe (for the
+ * complexity level) and then the autonomous brainstorm. Deps are injected so this is
+ * unit-testable offline (no live model). Produces DOCUMENTS only — no dispatch, no execution.
+ *
+ * A completed brainstorm writes a proposal-shaped spec (when `docsRoot` is set) and re-scores;
+ * a halt yields the fork + reason handoff. With no provider wired, the brainstorm halts on
+ * every item (`error` reason: "no model wired") — the fail-safe, human-in-loop default.
+ */
+export async function runBrainstormReport(
+  roadmap: Roadmap,
+  deps: {
+    provider?: AnalysisProvider | null;
+    graphStore?: GraphStore | null;
+    docsRoot?: string;
+    config?: { boundedScopeMax?: number; dispatchConfidence?: 'low' | 'medium' | 'high' };
+    /** Self-consistency / model options threaded to the SEL generator. */
+    generatorOptions?: BrainstormWiringDeps['generatorOptions'];
+    /** Test seam: inject a fork generator directly (bypasses the live provider). */
+    generator?: BrainstormWiringDeps['generator'];
+  } = {}
+): Promise<BrainstormReportRow[]> {
+  const features = roadmap.milestones.flatMap((m) => m.features).filter(isActionable);
+  const rows: BrainstormReportRow[] = [];
+  for (const feature of features) {
+    const issue = featureToIssue(feature);
+    // Phase-1 probe supplies the complexity level that scales the brainstorm depth.
+    const verdict = await triageIssue(issue, {
+      ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
+      ...(deps.provider ? { provider: deps.provider } : {}),
+      ...(deps.config ? { config: deps.config } : {}),
+    });
+    const level = verdict.verdict.level;
+
+    const wiringDeps: BrainstormWiringDeps = {
+      ...(deps.generator ? { generator: deps.generator } : {}),
+      ...(deps.provider ? { provider: deps.provider } : {}),
+      ...(deps.generatorOptions ? { generatorOptions: deps.generatorOptions } : {}),
+      ...(deps.docsRoot ? { docsRoot: deps.docsRoot } : {}),
+      // Re-score the enriched item on completion (SC4), reusing the same seams.
+      rescore: {
+        ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
+        ...(deps.provider ? { provider: deps.provider } : {}),
+        ...(deps.config ? { config: deps.config } : {}),
+      },
+    };
+    const result = await runBrainstormForIssue(issue, level, wiringDeps);
+    rows.push({
+      externalId: verdict.externalId,
+      name: feature.name,
+      status: feature.status,
+      level,
+      result,
+    });
+  }
+  return rows;
+}
+
+/** Render the brainstorm rows as a human-readable report (specs written + halt handoffs). */
+export function renderBrainstormHuman(rows: BrainstormReportRow[]): string {
+  if (rows.length === 0) return 'No actionable roadmap items to brainstorm.';
+  const lines: string[] = [];
+  lines.push(`Brainstormed ${rows.length} actionable item(s):\n`);
+  for (const row of rows) {
+    const o = row.result.outcome;
+    if (o.kind === 'completed') {
+      const where = row.result.specPath ? ` → ${row.result.specPath}` : ' (dry run — no docs root)';
+      lines.push(`✓ SPEC DRAFTED  ${row.name} [${row.level}]${where}`);
+      lines.push(`    ${o.spec.decisions.length} fork(s) resolved at high confidence`);
+      if (row.result.rescore) {
+        const rv = row.result.rescore;
+        lines.push(
+          `    re-score: ${rv.dispatchable ? 'DISPATCHABLE' : `held (${rv.holdReason})`} ` +
+            `— ${rv.verdict.level}/${rv.verdict.confidence}`
+        );
+      }
+    } else {
+      lines.push(`✗ HALTED → HUMAN  ${row.name} [${row.level}]  (${o.reason})`);
+      lines.push(`    fork: ${o.fork.question || o.fork.id}`);
+      lines.push(`    ${o.detail}`);
+    }
+    lines.push('');
+  }
+  const completed = rows.filter((r) => r.result.outcome.kind === 'completed').length;
+  lines.push(
+    `${completed}/${rows.length} spec(s) drafted; ${rows.length - completed} halted to human.`
+  );
+  return lines.join('\n');
+}
+
+/** Shape the brainstorm rows for `--json` (stable, machine-readable). */
+export function renderBrainstormJson(rows: BrainstormReportRow[]): string {
+  return JSON.stringify(
+    {
+      count: rows.length,
+      drafted: rows.filter((r) => r.result.outcome.kind === 'completed').length,
+      items: rows.map((r) => {
+        const o = r.result.outcome;
+        return {
+          externalId: r.externalId,
+          name: r.name,
+          status: r.status,
+          level: r.level,
+          outcome: o.kind,
+          ...(o.kind === 'completed'
+            ? {
+                specPath: r.result.specPath ?? null,
+                forks: o.spec.decisions.map((d) => ({
+                  id: d.fork.id,
+                  question: d.fork.question,
+                  recommendation: d.recommendation,
+                  confidence: d.confidence,
+                })),
+                rescore: r.result.rescore
+                  ? {
+                      dispatchable: r.result.rescore.dispatchable,
+                      holdReason: r.result.rescore.holdReason ?? null,
+                      level: r.result.rescore.verdict.level,
+                      confidence: r.result.rescore.verdict.confidence,
+                    }
+                  : null,
+              }
+            : {
+                halt: {
+                  reason: o.reason,
+                  fork: { id: o.fork.id, question: o.fork.question },
+                  detail: o.detail,
+                },
+              }),
+        };
+      }),
+    },
+    null,
+    2
+  );
+}
+
+/**
+ * Resolve a real SEL AnalysisProvider for the brainstorm. Mirrors acceptance-eval.ts: build
+ * an AnthropicAnalysisProvider when ANTHROPIC_API_KEY is present; otherwise null so the
+ * brainstorm halts every item to a human (fail-safe — never a silent pass without a model).
+ */
+async function resolveBrainstormProvider(model?: string): Promise<AnalysisProvider | null> {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return null;
+    const intelligence = (await import('@harness-engineering/intelligence')) as Record<
+      string,
+      unknown
+    >;
+    const Provider = intelligence.AnthropicAnalysisProvider as
+      | (new (opts: { apiKey: string; defaultModel?: string }) => AnalysisProvider)
+      | undefined;
+    if (typeof Provider !== 'function') return null;
+    return new Provider(model !== undefined ? { apiKey, defaultModel: model } : { apiKey });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * `harness roadmap triage` — the read-only, gated triage report.
  */
@@ -173,9 +351,16 @@ export function createRoadmapTriageCommand(): Command {
     .description(
       'Read-only triage report: score every actionable roadmap item with the four-lever ' +
         'scoping probe and rank dispatchability. Gated behind roadmap.autoTriage.enabled ' +
-        '(default off); never writes. Offline by default (holds to human without a live model).'
+        '(default off); never writes. Offline by default (holds to human without a live model). ' +
+        'With --brainstorm, additionally run the autonomous brainstorm per candidate, emitting ' +
+        'a drafted spec (docs only) or a halt handoff (fork + reason) — still no dispatch.'
     )
-    .action(async (_opts: Record<string, never>, cmd: Command) => {
+    .option(
+      '--brainstorm',
+      'Run the autonomous brainstorm per candidate: draft a spec (docs only) or halt to a ' +
+        'human at the first fork it can not confidently recommend. No dispatch, no execution.'
+    )
+    .action(async (opts: { brainstorm?: boolean }, cmd: Command) => {
       const cwd = process.cwd();
 
       // Read the global `-c, --config` and `--json` options (both declared on the root
@@ -215,7 +400,26 @@ export function createRoadmapTriageCommand(): Command {
       // 3. Load the knowledge graph (optional; absent ⇒ scope degrades ⇒ all held to human).
       const graphStore = await loadGraphStore(cwd);
 
-      // 4. Triage + rank (offline: no provider wired here — read-only report).
+      // 4a. --brainstorm mode: draft specs (docs only) or halt to human. No dispatch.
+      if (opts.brainstorm) {
+        // Resolve a SEL provider (Anthropic via env). Absent ⇒ the brainstorm halts every
+        // item to a human (fail-safe) — never a silent pass without a model.
+        const provider = await resolveBrainstormProvider();
+        const rows = await runBrainstormReport(parsed.value, {
+          ...(graphStore ? { graphStore } : {}),
+          ...(provider ? { provider } : {}),
+          // Specs are written under docs/changes/<slug>/proposal.md (docs only, no dispatch).
+          docsRoot: path.join(cwd, 'docs'),
+        });
+        if (globalOpts.json) {
+          process.stdout.write(renderBrainstormJson(rows) + '\n');
+        } else {
+          logger.info(renderBrainstormHuman(rows));
+        }
+        return;
+      }
+
+      // 4b. Triage + rank (offline: no provider wired here — read-only report).
       const rows = await runTriageReport(parsed.value, {
         ...(graphStore ? { graphStore } : {}),
       });
