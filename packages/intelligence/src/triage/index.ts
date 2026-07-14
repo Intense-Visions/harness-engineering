@@ -50,4 +50,4 @@ export type {
   HaltReason,
   BrainstormOutcome,
 } from './brainstorm/types.js';
-// `runAutoBrainstorm` (runner.js) is exported once the runner lands (Phase 2, Task 3).
+export { runAutoBrainstorm } from './brainstorm/runner.js';

@@ -199,8 +199,7 @@ export { pilotScore, rankTriageCandidates } from './triage/index.js';
 export type { RankableCandidate } from './triage/index.js';
 
 // Roadmap Auto-Triage — Phase 2: the autonomous-brainstorm decision core (pure).
-// `runAutoBrainstorm` is added to this barrel once the runner lands (Phase 2, Task 3).
-export { depthForLevel, DEPTH_BY_LEVEL } from './triage/index.js';
+export { runAutoBrainstorm, depthForLevel, DEPTH_BY_LEVEL } from './triage/index.js';
 export type {
   ForkConfidence,
   Fork,
