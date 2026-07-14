@@ -167,7 +167,12 @@ export type {
 } from './complexity/index.js';
 
 // Roadmap Auto-Triage — shared contracts (Phase 0 foundations; inert until enabled)
-export { shapeKey, aggregatePrecedent, precedentLookupFromRecords } from './triage/index.js';
+export {
+  shapeKey,
+  aggregatePrecedent,
+  precedentLookupFromRecords,
+  extractEntities,
+} from './triage/index.js';
 export type {
   TriageRecord,
   TriagePrediction,
