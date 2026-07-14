@@ -195,3 +195,5 @@ export type {
 } from './triage/index.js';
 export { runScopingProbe } from './triage/index.js';
 export type { ProbeConfig, ProbeDeps } from './triage/index.js';
+export { pilotScore, rankTriageCandidates } from './triage/index.js';
+export type { RankableCandidate } from './triage/index.js';

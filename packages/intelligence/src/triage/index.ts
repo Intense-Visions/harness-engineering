@@ -34,3 +34,5 @@ export type {
 } from './types.js';
 export { runScopingProbe } from './probe.js';
 export type { ProbeConfig, ProbeDeps } from './probe.js';
+export { pilotScore, rankTriageCandidates } from './rank.js';
+export type { RankableCandidate } from './rank.js';
