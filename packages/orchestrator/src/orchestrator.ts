@@ -2215,12 +2215,22 @@ export class Orchestrator extends EventEmitter {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
-          const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
-          // Phase 4: the post-diff routing retrospective — a SIBLING verdict source to
-          // the 4c quality feeder, guarded identically (AMR off / feature off ⇒ no-op).
-          // Either verdict returning 'quality-fail' escalates the coherence unit; a
-          // mispredict is as much a quality failure as a security defect. The
+          // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
+          // retrospective is a SIBLING verdict source to the 4c quality feeder,
+          // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
+          // returning 'quality-fail' escalates the coherence unit; a mispredict is as
+          // much a quality failure as a security defect.
+          //
+          // We must NOT short-circuit `quality ?? retro`: the retrospective's side
+          // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
+          // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
+          // a security defect AND a triage mispredict would otherwise record NO graded
+          // outcome — that bad shape would never accrue the evidence that keeps its
+          // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
+          // running it on a security-failing unit is safe. Escalation is unchanged:
+          // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
           // retrospective annotates the PR on a match (best-effort, inside the method).
+          const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
           const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
           const outcomeClass = qualityClass ?? retroClass;
           await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);

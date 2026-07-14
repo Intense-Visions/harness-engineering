@@ -124,6 +124,15 @@ const ISSUE = {
 const smallHunk: IntroducedHunk[] = [
   { file: 'packages/core/src/roadmap/x.ts', addedContent: 'const a = 1;', startLine: 1 },
 ];
+/**
+ * A hunk carrying an introduced error-severity security defect (`eval(input)`), so
+ * `deriveSingleAgentQualityVerdict` returns 'quality-fail'. Used to prove the fan-in
+ * runs the retrospective side effect (`recordTriageOutcome`) EVEN when the security
+ * verdict already fails (FIX #1: no `quality ?? retro` short-circuit of the record).
+ */
+const securityDefectHunk: IntroducedHunk[] = [
+  { file: 'src/x.ts', addedContent: 'const r = eval(input);', startLine: 1 },
+];
 const hugeHunk: IntroducedHunk[] = Array.from({ length: 25 }, (_, i) => ({
   file: `packages/p${i}/src/layer${i}/f.ts`,
   addedContent: Array.from({ length: 40 }, (_, j) => `line ${j}`).join('\n'),
@@ -145,6 +154,16 @@ function retro(
 function stubDiff(orch: Orchestrator, impl: () => Promise<IntroducedHunk[]>): void {
   (orch as unknown as { workspace: { getIntroducedDiff: unknown } }).workspace.getIntroducedDiff =
     vi.fn(impl);
+}
+/** Reach the 4c security quality feeder — the SIBLING verdict source to the retrospective. */
+function feeder(
+  orch: Orchestrator
+): (issue: Issue, ws: string) => Promise<'quality-fail' | undefined> {
+  return (
+    orch as unknown as {
+      deriveSingleAgentQualityVerdict: (i: Issue, w: string) => Promise<'quality-fail' | undefined>;
+    }
+  ).deriveSingleAgentQualityVerdict.bind(orch);
 }
 /** Seed a pre-dispatch prediction into the Phase-0 store at projectRoot (= tmpDir). */
 async function seedPrediction(
@@ -281,5 +300,76 @@ describe('deriveRoutingRetrospectiveVerdict', () => {
     // dispatch); it does not depend on the failed store read.
     const withSpec = { ...ISSUE, spec: 'docs/changes/feature-x/proposal.md' } as unknown as Issue;
     expect(await retro(orch)(withSpec, tmpDir)).toBe('quality-fail');
+  });
+
+  // -------------------------------------------------------------------------
+  // FIX #1 (review): the agent-exit verdict fan-in must NOT short-circuit the
+  // retrospective's outcome-recording side effect. Previously `qualityClass ?? retroClass`
+  // meant that when the 4c security feeder returned 'quality-fail', the retrospective
+  // (whose `recordTriageOutcome` side effect feeds the precedent store the ratchet reads)
+  // NEVER RAN. A change that is BOTH a security defect AND a triage mispredict then recorded
+  // NO graded outcome → that bad shape never accrued the mispredict evidence that would keep
+  // its ratchet at stage 1. Fix: run BOTH sources unconditionally, then combine (`q ?? r`).
+  // Escalation is UNCHANGED (either source ⇒ 'quality-fail' ⇒ escalate, exactly once).
+  // -------------------------------------------------------------------------
+  it('CO-OCCUR: a unit that is BOTH a security defect AND a triage mispredict — retrospective STILL records its outcome, and the combined verdict still escalates exactly once', async () => {
+    const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+    // Predict trivial/1 so the huge introduced diff is a mispredict (block-escalate).
+    await seedPrediction('trivial', 1);
+    // One diff that is BOTH: an introduced error-severity security defect (eval) AND huge
+    // enough to blow past the trivial/1 prediction. Both verdict sources read the SAME diff.
+    const coOccurDiff: IntroducedHunk[] = [...securityDefectHunk, ...hugeHunk];
+    stubDiff(orch, async () => coOccurDiff);
+
+    // Run BOTH sources exactly as the fan-in does (Phase 4 seam in agentRunner).
+    const qualityClass = await feeder(orch)(ISSUE, tmpDir);
+    const retroClass = await retro(orch)(ISSUE, tmpDir);
+    const outcomeClass = qualityClass ?? retroClass;
+
+    // Both sources independently fail…
+    expect(qualityClass).toBe('quality-fail'); // security feeder saw the eval defect
+    expect(retroClass).toBe('quality-fail'); // retrospective saw the mispredict
+    // …and the combined verdict escalates (unchanged from before the fix).
+    expect(outcomeClass).toBe('quality-fail');
+
+    // THE FIX: the retrospective's graded outcome was still recorded (its side effect ran
+    // even though the security verdict already failed). Pre-fix, `q ?? r` short-circuited
+    // and this outcome would be absent.
+    const outcome = await loadOutcome();
+    expect(outcome).toBeDefined();
+    expect(outcome?.matched).toBe(false); // recorded as a mispredict
+    expect(outcome?.exceededBy).toBeGreaterThan(0);
+  });
+
+  it('CO-OCCUR: the combined verdict escalates exactly ONCE (no double-escalation) via recordAmrOutcome', async () => {
+    const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+    await seedPrediction('trivial', 1);
+    stubDiff(orch, async () => [...securityDefectHunk, ...hugeHunk]);
+
+    // Register the unit as AMR-routed so recordAmrOutcome actually fires, and spy on the
+    // router's recordOutcome to count escalations.
+    const recordOutcome = vi.fn();
+    (orch as unknown as { adaptiveRouter: { recordOutcome: unknown } | null }).adaptiveRouter = {
+      recordOutcome,
+    } as never;
+    (
+      orch as unknown as { state: { running: Map<string, { lastRoutedTier: string }> } }
+    ).state.running.set(ISSUE.id, { lastRoutedTier: 'fast' });
+
+    // Combine both sources (fan-in) exactly as agentRunner does — a SINGLE combined verdict.
+    const qualityClass = await feeder(orch)(ISSUE, tmpDir);
+    const retroClass = await retro(orch)(ISSUE, tmpDir);
+    const outcomeClass = qualityClass ?? retroClass;
+    expect(outcomeClass).toBe('quality-fail');
+
+    // emitWorkerExit funnels that ONE combined verdict through recordAmrOutcome exactly once
+    // (both failing sources collapse to a single escalation — no double-count). Drive
+    // recordAmrOutcome directly to isolate the escalation seam from the completion pipeline.
+    (
+      orch as unknown as { recordAmrOutcome: (id: string, o: 'quality-fail') => void }
+    ).recordAmrOutcome(ISSUE.id, outcomeClass as 'quality-fail');
+
+    expect(recordOutcome).toHaveBeenCalledTimes(1);
+    expect(recordOutcome).toHaveBeenCalledWith(ISSUE.id, 'fast', false);
   });
 });
