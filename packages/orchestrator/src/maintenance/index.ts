@@ -62,3 +62,8 @@ export type {
 // Phase 1 sync-main helper. Wired into the maintenance scheduler in Phase 2.
 export { syncMain } from './sync-main';
 export type { SyncMainResult, SyncMainOptions, SyncSkipReason } from './sync-main';
+
+// Roadmap Auto-Triage (Phase 0 Contract 3): leader-gated triage scheduling seam.
+// Dormant unless enabled && schedule; body injected by later phases (empty here).
+export { registerTriageTask, runTriageIfLeader, TRIAGE_TASK_ID } from './triage-task';
+export type { RegisteredTriageTask, TriageJobBody } from './triage-task';
