@@ -19,7 +19,7 @@
 // Layer note: pure, zero dependencies. No graph/core import (the resolution against the
 // graph is the scope lever's job in P1, not this extractor's).
 
-/** Backticked spans: `renderRow`, `docs/roadmap.md`. Highest-signal — author-marked. */
+/** Backticked spans: `renderRow`, `docs/architecture.md`. Highest-signal — author-marked. */
 const BACKTICKED_RE = /`([^`]+)`/g;
 
 /**
