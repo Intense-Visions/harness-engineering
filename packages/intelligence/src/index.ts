@@ -165,3 +165,15 @@ export type {
   ComplexitySignals,
   StaticVerdict,
 } from './complexity/index.js';
+
+// Roadmap Auto-Triage — shared contracts (Phase 0 foundations; inert until enabled)
+export { shapeKey } from './triage/index.js';
+export type {
+  TriageRecord,
+  TriagePrediction,
+  TriageOutcome,
+  PrecedentLookup,
+  PrecedentRate,
+  EscalationCategory,
+  RatchetStage,
+} from './triage/index.js';
