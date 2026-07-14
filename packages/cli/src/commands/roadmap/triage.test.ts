@@ -16,6 +16,7 @@ import { GraphStore } from '@harness-engineering/graph';
 import type { GraphNode } from '@harness-engineering/graph';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import type { ForkGenerator } from '@harness-engineering/intelligence';
+import { resolveStage } from '@harness-engineering/intelligence';
 import {
   isActionable,
   featureToIssue,
@@ -27,7 +28,9 @@ import {
   renderBrainstormJson,
   createRoadmapTriageCommand,
   buildPrecedentLookup,
+  buildShapeHistory,
 } from './triage';
+import { eventSourcing } from '@harness-engineering/core';
 
 function feature(overrides: Partial<RoadmapFeature>): RoadmapFeature {
   return {
@@ -187,6 +190,70 @@ describe('buildPrecedentLookup — SC5 cold-start invariance', () => {
       // The gate only blocks on a `rate` — pin that no cold-start row can carry one.
       expect(row.verdict.holdReason).not.toBe('precedent-contradicts');
     }
+  });
+});
+
+// ===========================================================================
+// FOLLOW-UP 1 (safety): buildShapeHistory threads each graded outcome's OUTCOME TIMESTAMP
+// (`ts`) so the ratchet's mispredict-reset — which keys on the chronologically-latest
+// outcome — can order the history via resolveStage's ts-sort. loadTriageRecords iterates
+// Map first-seen (prediction) order, which can diverge from outcome-timestamp order; this
+// pins that `ts` is present + correct and that resolveStage stays order-safe over it.
+// ===========================================================================
+describe('buildShapeHistory — FOLLOW-UP 1 outcome timestamps for order-safe reset', () => {
+  let tmp: string;
+  const SHAPE = 'api,auth|dispatchable|trivial';
+  const prediction = (externalId: string): eventSourcing.TriagePredictedInput => ({
+    externalId,
+    shapeKey: SHAPE,
+    verdict: { level: 'trivial', confidence: 'medium', signals: {}, source: 'static' },
+    levers: {},
+    scopeEstimate: 3,
+    ratchetStage: 1,
+  });
+  const outcome = (externalId: string, matched: boolean): eventSourcing.TriageOutcomeInput => ({
+    externalId,
+    shapeKey: SHAPE,
+    actual: { level: 'trivial', confidence: 'high', signals: {}, source: 'static' },
+    exceededBy: matched ? 0 : 2,
+    matched,
+  });
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-shapehist-'));
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('stamps each graded outcome with its record ts (so resolveStage can order the reset)', async () => {
+    // Map FIRST-SEEN order is set by prediction order: A, then B.
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    await eventSourcing.recordTriagePrediction(tmp, prediction('A'));
+    vi.setSystemTime(new Date('2026-01-01T00:00:01Z'));
+    await eventSourcing.recordTriagePrediction(tmp, prediction('B'));
+
+    // OUTCOME order (which stamps the record ts = latest slice) is the REVERSE: B graded first
+    // (older ts, a match), A graded later (newer ts, a MISS). So Map order [A, B] puts the
+    // chronologically-newest outcome (A's miss) FIRST in the returned array — NOT last.
+    vi.setSystemTime(new Date('2026-02-01T00:00:00Z'));
+    await eventSourcing.recordTriageOutcome(tmp, outcome('B', true)); // OLDER, match
+    vi.setSystemTime(new Date('2026-03-01T00:00:00Z'));
+    await eventSourcing.recordTriageOutcome(tmp, outcome('A', false)); // NEWER, miss
+
+    const historyForShape = await buildShapeHistory(tmp);
+    const hist = historyForShape(SHAPE);
+
+    // Each graded outcome carries its record's ts — the thread-through FOLLOW-UP 1 relies on.
+    const tsByMatched = new Map(hist.map((o) => [o.matched, o.ts]));
+    expect(tsByMatched.get(true)).toBe('2026-02-01T00:00:00.000Z'); // B, older
+    expect(tsByMatched.get(false)).toBe('2026-03-01T00:00:00.000Z'); // A, newer (reset trigger)
+
+    // Order-safety end-to-end: the array is in Map order (newest-miss NOT last), yet resolveStage
+    // sorts by ts and correctly HOLDS at stage 1 on the chronologically-newest miss.
+    expect(resolveStage(hist, { threshold: 0.5, minSample: 2, window: 10 })).toBe(1);
   });
 });
 

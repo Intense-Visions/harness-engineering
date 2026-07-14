@@ -101,11 +101,21 @@ export async function buildPrecedentLookup(cwd: string): Promise<PrecedentLookup
  * Roadmap Auto-Triage — Phase 4 (FIX 2 / SC6): build the PER-SHAPE graded-outcome history
  * from the Phase-0 TriageRecord store. Returns a `historyForShape(shapeKey)` lookup that the
  * approval gate uses to resolve the evidence-derived effective stage per shape. Only records
- * with a populated `outcome` (graded) contribute — one `{ matched }` per graded outcome,
- * grouped by the record's `shapeKey`. A failed store read OR an empty/cold-start store ⇒
- * every shape resolves to an EMPTY history ⇒ `resolveStage([])` = stage 1, byte-identical to
- * the Phase-3 static default. The ratchet can only advance a shape once enough graded matches
- * for THAT shape accrue.
+ * with a populated `outcome` (graded) contribute — one outcome per graded record, grouped by
+ * the record's `shapeKey`. A failed store read OR an empty/cold-start store ⇒ every shape
+ * resolves to an EMPTY history ⇒ `resolveStage([])` = stage 1, byte-identical to the Phase-3
+ * static default. The ratchet can only advance a shape once enough graded matches accrue.
+ *
+ * DECISION (v1, closed — NOT a deferred follow-up): loadTriageRecords projects LAST-WRITER-WINS
+ * per externalId, so this history is one graded outcome PER ITEM (the item's latest outcome),
+ * the SAME granularity the precedent lever aggregates. Full per-attempt history is a deliberate
+ * v1 simplification (the conservative min-sample/trailing-window floor in `resolveStage` holds
+ * regardless; designing per-attempt history well needs real multi-attempt calibration we lack) —
+ * revisit ONLY if calibration shows it matters.
+ *
+ * FOLLOW-UP 1 (safety): each outcome carries the record's `ts` so `resolveStage` can sort by it
+ * before the mispredict-reset reads "most recent" — loadTriageRecords iterates Map first-seen
+ * order (NOT timestamp order), so without `ts` the reset could key on a non-latest outcome.
  */
 export async function buildShapeHistory(
   cwd: string
@@ -114,14 +124,10 @@ export async function buildShapeHistory(
   // A failed read cannot manufacture advancement evidence; degrade to no-history (cold-start).
   const byShape = new Map<string, RatchetOutcome[]>();
   if (loaded.ok) {
-    // NOTE: loadTriageRecords projects LAST-WRITER-WINS per externalId, so this history is one
-    // graded outcome PER ITEM (the item's latest outcome), grouped by shape — the same
-    // granularity the precedent lever aggregates. (Full per-attempt history is a Phase-4
-    // calibration follow-up; the conservative min-sample/window in resolveStage still holds.)
     for (const rec of loaded.value) {
       if (!rec.outcome) continue; // only graded records count toward advancement
       const list = byShape.get(rec.shapeKey) ?? [];
-      list.push({ matched: rec.outcome.matched });
+      list.push({ matched: rec.outcome.matched, ts: rec.ts });
       byShape.set(rec.shapeKey, list);
     }
   }
@@ -535,6 +541,13 @@ export function createTriageApproveCommand(): Command {
 
 /**
  * `harness roadmap triage` — the read-only, gated triage report.
+ *
+ * FOLLOW-UP 4 (intentional design, NOT a pending refactor): this is a multi-mode command builder
+ * (gate → parse → default report vs --brainstorm) whose commander wiring drives its cyclomatic
+ * count. Extracting each mode into helpers was attempted and reverted — it only RELOCATED the
+ * count into new baseline violations (module-size/complexity) without net readability gain (the
+ * analyzer also mis-attributes sibling braceless-arrow/loop-body complexity here). Left inline on
+ * purpose; the mode branches read top-to-bottom.
  */
 export function createRoadmapTriageCommand(): Command {
   return new Command('triage')

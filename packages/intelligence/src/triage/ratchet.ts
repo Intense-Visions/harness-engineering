@@ -26,10 +26,16 @@ export type V1Stage = 1 | 2;
 /** v1's ceiling: the resolver never returns above this (SC4 — stages 3/4 deferred). */
 export const V1_MAX_STAGE = 2 as const;
 
-/** One graded outcome for a shape — the only field the ratchet reads. */
+/** One graded outcome for a shape. `matched` is the grade; `ts` fixes chronology. */
 export interface RatchetOutcome {
   /** True iff the post-diff verdict stayed within the prediction (the comparator's `matched`). */
   matched: boolean;
+  /**
+   * ISO timestamp the outcome was graded (FOLLOW-UP 1 / safety). The mispredict-reset keys on the
+   * CHRONOLOGICALLY-latest outcome, so `resolveStage` sorts by `ts` first. Optional for
+   * back-compat: the sort is a stable no-op when `ts` is absent (already-chronological callers).
+   */
+  ts?: string;
 }
 
 /** Advancement rules. Conservative defaults; the caller may override per policy. */
@@ -67,10 +73,19 @@ export function resolveStage(
   config: RatchetConfig = DEFAULT_RATCHET_CONFIG
 ): V1Stage {
   const window = Math.max(1, Math.floor(config.window));
+  // FOLLOW-UP 1 (safety): the mispredict-reset below keys on the CHRONOLOGICALLY-latest outcome,
+  // but callers may hand history in non-chronological order (the CLI's `buildShapeHistory` groups
+  // by Map first-seen order). Sort by `ts` ascending FIRST — so index-last is genuinely newest and
+  // a fresh mispredict can never be masked by a stale clean run later in the array. Stable no-op
+  // when `ts` is absent; localeCompare gives a total ISO-string order.
+  const ordered =
+    history.length > 1
+      ? [...history].sort((a, b) => (a.ts ?? '').localeCompare(b.ts ?? ''))
+      : history;
   // Recency: only the most recent `window` graded outcomes decide the current stage,
   // so a fresh mispredict genuinely resets the earned rate rather than being diluted
   // by an unbounded clean history.
-  const recent = history.slice(-window);
+  const recent = ordered.slice(-window);
   if (recent.length < config.minSample) return 1;
 
   // A mispredict RESETS (SC6): the single most-recent outcome being a mispredict holds

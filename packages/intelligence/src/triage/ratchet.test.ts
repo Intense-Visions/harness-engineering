@@ -64,4 +64,43 @@ describe('resolveStage', () => {
     // (no reset) → advance under the loosened threshold.
     expect(resolveStage([{ matched: false }, { matched: true }, { matched: true }], cfg)).toBe(2);
   });
+
+  // FOLLOW-UP 1 (order-safety): the reset keys on the CHRONOLOGICALLY-latest outcome, not the
+  // array's last element. When outcomes carry a `ts`, resolveStage sorts by it first, so a
+  // caller that hands history in a non-chronological order (e.g. Map first-seen order) can
+  // never let a stale clean run mask a fresh mispredict (the mispredict-reset linchpin).
+  it('FOLLOW-UP 1: newest mispredict buried mid-array still resets (sorts by ts)', () => {
+    const cfg = { threshold: 0.5, minSample: 3, window: 10 };
+    // Array-LAST element is a MATCH, but ts says the newest outcome is a MISS buried mid-array.
+    // A generous 0.5 threshold means the rate alone (8/9 = 0.89) would clear the bar — so the
+    // ONLY thing that can hold this at stage 1 is the reset correctly keying on the true-latest
+    // (chronologically newest) outcome being a mispredict.
+    const buried: RatchetOutcome[] = [
+      { matched: true, ts: '2026-07-01T00:00:00Z' },
+      { matched: false, ts: '2026-07-09T00:00:00Z' }, // NEWEST (miss), buried mid-array
+      { matched: true, ts: '2026-07-02T00:00:00Z' },
+      { matched: true, ts: '2026-07-03T00:00:00Z' },
+      { matched: true, ts: '2026-07-04T00:00:00Z' },
+      { matched: true, ts: '2026-07-05T00:00:00Z' },
+      { matched: true, ts: '2026-07-06T00:00:00Z' },
+      { matched: true, ts: '2026-07-07T00:00:00Z' },
+      { matched: true, ts: '2026-07-08T00:00:00Z' }, // array-last is a MATCH
+    ];
+    expect(resolveStage(buried, cfg)).toBe(1);
+
+    // Control: same multiset, but the miss is the OLDEST (array-first) and every newer outcome
+    // matched. Newest is a match (no reset) and 8/9 ≥ 0.5 ⇒ advances. Proves the sort placed the
+    // miss at the trailing edge rather than treating a mid-array match as "newest".
+    const missIsOldest: RatchetOutcome[] = [
+      { matched: false, ts: '2026-07-01T00:00:00Z' }, // OLDEST is the miss
+      { matched: true, ts: '2026-07-08T00:00:00Z' }, // NEWEST is a match (out of array order)
+      { matched: true, ts: '2026-07-02T00:00:00Z' },
+      { matched: true, ts: '2026-07-03T00:00:00Z' },
+      { matched: true, ts: '2026-07-04T00:00:00Z' },
+      { matched: true, ts: '2026-07-05T00:00:00Z' },
+      { matched: true, ts: '2026-07-06T00:00:00Z' },
+      { matched: true, ts: '2026-07-07T00:00:00Z' },
+    ];
+    expect(resolveStage(missIsOldest, cfg)).toBe(2);
+  });
 });
