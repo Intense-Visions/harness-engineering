@@ -112,23 +112,56 @@ function deriveDuration(events) {
   return max - min;
 }
 
-function main() {
-  let raw = '';
+/** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
+function readStdinJson() {
+  let raw;
   try {
     raw = readFileSync(0, 'utf-8');
   } catch {
-    process.exit(0);
+    return null;
   }
 
   if (!raw.trim()) {
-    process.exit(0);
+    return null;
   }
 
-  let input;
   try {
-    input = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
     process.stderr.write('[adoption-tracker] Could not parse stdin — skipping\n');
+    return null;
+  }
+}
+
+/** Group events by their skill name, preserving order. */
+function groupBySkill(events) {
+  const skillGroups = new Map();
+  for (const event of events) {
+    if (!skillGroups.has(event.skill)) {
+      skillGroups.set(event.skill, []);
+    }
+    skillGroups.get(event.skill).push(event);
+  }
+  return skillGroups;
+}
+
+/** Build a single adoption record for one skill's events. */
+function buildRecord(skill, events, allEvents, sessionId) {
+  // Use all events for this skill (including non-relevant) for timing
+  const allSkillEvents = allEvents.filter((e) => e.skill === skill);
+  return {
+    skill,
+    session: sessionId,
+    startedAt: allSkillEvents[0]?.timestamp ?? events[0].timestamp,
+    duration: deriveDuration(allSkillEvents.length > 0 ? allSkillEvents : events),
+    outcome: deriveOutcome(events),
+    phasesReached: derivePhasesReached(events),
+  };
+}
+
+function main() {
+  const input = readStdinJson();
+  if (input === null) {
     process.exit(0);
   }
 
@@ -170,13 +203,7 @@ function main() {
     }
 
     // Group events by skill
-    const skillGroups = new Map();
-    for (const event of relevantEvents) {
-      if (!skillGroups.has(event.skill)) {
-        skillGroups.set(event.skill, []);
-      }
-      skillGroups.get(event.skill).push(event);
-    }
+    const skillGroups = groupBySkill(relevantEvents);
 
     // Reconstruct invocation records
     const sessionId = input.session_id ?? 'unknown';
@@ -186,18 +213,7 @@ function main() {
 
     let written = 0;
     for (const [skill, events] of skillGroups) {
-      // Use all events for this skill (including non-relevant) for timing
-      const allSkillEvents = allEvents.filter((e) => e.skill === skill);
-
-      const record = {
-        skill,
-        session: sessionId,
-        startedAt: allSkillEvents[0]?.timestamp ?? events[0].timestamp,
-        duration: deriveDuration(allSkillEvents.length > 0 ? allSkillEvents : events),
-        outcome: deriveOutcome(events),
-        phasesReached: derivePhasesReached(events),
-      };
-
+      const record = buildRecord(skill, events, allEvents, sessionId);
       appendFileSync(adoptionFile, JSON.stringify(record) + '\n');
       written++;
     }

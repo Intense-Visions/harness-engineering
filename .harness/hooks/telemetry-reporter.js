@@ -37,22 +37,37 @@ function sleep(ms) {
 
 // --- Consent ---
 
-function resolveConsent(cwd) {
-  if (process.env.DO_NOT_TRACK === '1') return { allowed: false };
-  if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return { allowed: false };
-
-  const config = readJsonSafe(join(cwd, 'harness.config.json'));
-  if (config?.telemetry?.enabled === false) return { allowed: false };
-
-  const installId = getOrCreateInstallId(cwd);
-
-  const identityFile = readJsonSafe(join(cwd, '.harness', 'telemetry.json'));
+/** Copy string identity fields (project/team/alias) from the telemetry file. */
+function readIdentityFile(cwd) {
   const identity = {};
-  if (identityFile?.identity) {
-    if (typeof identityFile.identity.project === 'string') identity.project = identityFile.identity.project;
-    if (typeof identityFile.identity.team === 'string') identity.team = identityFile.identity.team;
-    if (typeof identityFile.identity.alias === 'string') identity.alias = identityFile.identity.alias;
+  const identityFile = readJsonSafe(join(cwd, '.harness', 'telemetry.json'));
+  const src = identityFile?.identity;
+  if (src) {
+    if (typeof src.project === 'string') identity.project = src.project;
+    if (typeof src.team === 'string') identity.team = src.team;
+    if (typeof src.alias === 'string') identity.alias = src.alias;
   }
+  return identity;
+}
+
+/** Resolve the git user.name, or '' when git is unavailable / unset. */
+function resolveGitAlias(cwd) {
+  try {
+    return execFileSync('git', ['config', 'user.name'], {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 2000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    // Git not available or no user.name set
+    return '';
+  }
+}
+
+/** Assemble the telemetry identity, applying config and git fallbacks. */
+function resolveIdentity(cwd, config) {
+  const identity = readIdentityFile(cwd);
 
   // Fallback: project name from harness.config.json
   if (!identity.project && typeof config?.name === 'string') {
@@ -61,18 +76,22 @@ function resolveConsent(cwd) {
 
   // Fallback: alias from git config user.name
   if (!identity.alias) {
-    try {
-      const gitName = execFileSync('git', ['config', 'user.name'], {
-        cwd,
-        encoding: 'utf-8',
-        timeout: 2000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
-      if (gitName) identity.alias = gitName;
-    } catch {
-      // Git not available or no user.name set
-    }
+    const gitName = resolveGitAlias(cwd);
+    if (gitName) identity.alias = gitName;
   }
+
+  return identity;
+}
+
+function resolveConsent(cwd) {
+  if (process.env.DO_NOT_TRACK === '1') return { allowed: false };
+  if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return { allowed: false };
+
+  const config = readJsonSafe(join(cwd, 'harness.config.json'));
+  if (config?.telemetry?.enabled === false) return { allowed: false };
+
+  const installId = getOrCreateInstallId(cwd);
+  const identity = resolveIdentity(cwd, config);
 
   return { allowed: true, installId, identity };
 }
