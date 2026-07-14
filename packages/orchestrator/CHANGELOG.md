@@ -1,5 +1,58 @@
 # @harness-engineering/orchestrator
 
+## 0.15.0
+
+### Minor Changes
+
+- eb74585: feat(triage): roadmap auto-triage — four-gate closed-loop autonomous dispatch (default-off)
+
+  Adds an opt-in system that scores roadmap items, autonomously dispatches the ones it
+  can confidently and cheaply scope, and routes everything needing human judgment to a
+  human. Entirely default-off (`roadmap.autoTriage.enabled`, byte-identical when off).
+
+  Four gates, ascending in evidence:
+  - **Scoping probe** (`intelligence/triage`): four corroborating levers (graph-grounded
+    scope / semantic read / open-decisions / precedent). Fail-closed — any `unknown`
+    lever holds to a human.
+  - **Autonomous brainstorm**: compact fork-loop on the local SEL model; halts unless
+    per-fork `confidence==='high'`, hardened with N-sample self-consistency (unstable
+    recommendation → forced low). Produces a spec or a halt handoff; executes nothing.
+  - **Dispatch + ratchet stage 1**: marks items for the existing orchestrator pickup
+    (no new dispatch path); nothing executes without an explicit human go.
+  - **Post-diff retrospective**: extends the AMR 4c quality feeder — grades the actual
+    diff against the pre-dispatch prediction, blocks+escalates mispredicts, records the
+    outcome. Closes the loop; the precedent lever and evidence-gated ratchet (capped at
+    v1 stage 2 — no auto-merge) self-calibrate from recorded outcomes.
+
+  New CLI: `harness roadmap triage` (read-only report), `--brainstorm`, and
+  `triage approve`. New config section `roadmap.autoTriage`.
+
+### Patch Changes
+
+- cf3420a: fix(routing): `harness routing trace` shows the AMR-effective backend, not the identity default
+
+  `trace --complexity <level>` displayed `decision.backendName` — the identity/default
+  chain pick — as the "Backend", so a `trivial` task under AMR showed `primary`/claude
+  even though it routes to the `fast`/local backend (the `$0` cost already reflected
+  local, making Backend↔cost inconsistent). The trace handler already computed the
+  tier-selected backend (`costedBackendName` via the same `selectCheapestQualifying`
+  real dispatch uses); the CLI just ignored it and the server didn't return its type.
+  - Server: the trace response now also carries `costedBackendType` alongside
+    `costedBackendName`.
+  - CLI: under a `--complexity`/`--risk` dry-run, the `Backend:` line shows the
+    tier-selected backend + type (what real dispatch would use), and notes when AMR
+    overrides the identity pick. Non-AMR traces are unchanged.
+
+  Routing behavior itself was always correct — this is a display/observability fix so
+  `trace` reflects what the orchestrator actually dispatches.
+
+- Updated dependencies [eb74585]
+  - @harness-engineering/types@0.22.0
+  - @harness-engineering/core@0.37.0
+  - @harness-engineering/intelligence@0.7.0
+  - @harness-engineering/graph@0.11.8
+  - @harness-engineering/local-models@0.5.2
+
 ## 0.14.0
 
 ### Minor Changes
