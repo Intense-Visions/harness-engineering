@@ -182,3 +182,14 @@ export type {
   EscalationCategory,
   RatchetStage,
 } from './triage/index.js';
+export type {
+  LeverResult,
+  ResolvedEntity,
+  ScopeEstimate,
+  GraphScope,
+  OpenDecision,
+  HoldReason,
+  ProbeInput,
+  ProbeLevers,
+  TriageVerdict,
+} from './triage/index.js';

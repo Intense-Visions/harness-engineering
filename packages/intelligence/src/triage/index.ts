@@ -19,3 +19,16 @@ export type {
   EscalationCategory,
   RatchetStage,
 } from './record.js';
+
+// Phase 1: the scoping-probe contracts (types) + pure probe/rank.
+export type {
+  LeverResult,
+  ResolvedEntity,
+  ScopeEstimate,
+  GraphScope,
+  OpenDecision,
+  HoldReason,
+  ProbeInput,
+  ProbeLevers,
+  TriageVerdict,
+} from './types.js';
