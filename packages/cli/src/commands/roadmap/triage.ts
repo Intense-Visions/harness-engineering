@@ -31,6 +31,7 @@ import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
+import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
 
 /** A triaged row: the verdict plus the pilot-ranking inputs derived from the feature. */
 export interface TriageReportRow extends RankableCandidate {
@@ -321,26 +322,19 @@ export function renderBrainstormJson(rows: BrainstormReportRow[]): string {
 }
 
 /**
- * Resolve a real SEL AnalysisProvider for the brainstorm. Mirrors acceptance-eval.ts: build
- * an AnthropicAnalysisProvider when ANTHROPIC_API_KEY is present; otherwise null so the
- * brainstorm halts every item to a human (fail-safe — never a silent pass without a model).
+ * Resolve the SEL AnalysisProvider for the brainstorm from config, preferring the FREE LOCAL
+ * backend (`agent.backends.local`/`pi` → OpenAI-compatible endpoint) — the feature premise —
+ * and reaching a paid cloud model ONLY via an explicit `intelligence.provider` opt-in. When no
+ * provider can be resolved this returns `null` so the brainstorm halts every item to a human
+ * (fail-safe — never a silent pass without a model). See `triage-provider.ts` for the order.
+ *
+ * The provider resolution proper lives in `resolveTriageProvider`; this thin wrapper reads the
+ * resolved config once and hands it in (so a failed config read degrades to `null`, not a throw).
  */
-async function resolveBrainstormProvider(model?: string): Promise<AnalysisProvider | null> {
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return null;
-    const intelligence = (await import('@harness-engineering/intelligence')) as Record<
-      string,
-      unknown
-    >;
-    const Provider = intelligence.AnthropicAnalysisProvider as
-      | (new (opts: { apiKey: string; defaultModel?: string }) => AnalysisProvider)
-      | undefined;
-    if (typeof Provider !== 'function') return null;
-    return new Provider(model !== undefined ? { apiKey, defaultModel: model } : { apiKey });
-  } catch {
-    return null;
-  }
+function resolveBrainstormProvider(configPath?: string, model?: string): AnalysisProvider | null {
+  const configResult = resolveConfig(configPath);
+  if (!configResult.ok) return null;
+  return resolveTriageProvider(configResult.value as TriageProviderConfig, model);
 }
 
 /**
@@ -402,9 +396,10 @@ export function createRoadmapTriageCommand(): Command {
 
       // 4a. --brainstorm mode: draft specs (docs only) or halt to human. No dispatch.
       if (opts.brainstorm) {
-        // Resolve a SEL provider (Anthropic via env). Absent ⇒ the brainstorm halts every
+        // Resolve the SEL provider from config — the FREE LOCAL backend by default, cloud only
+        // via an explicit intelligence.provider opt-in. Absent ⇒ the brainstorm halts every
         // item to a human (fail-safe) — never a silent pass without a model.
-        const provider = await resolveBrainstormProvider();
+        const provider = resolveBrainstormProvider(globalOpts.config);
         const rows = await runBrainstormReport(parsed.value, {
           ...(graphStore ? { graphStore } : {}),
           ...(provider ? { provider } : {}),
