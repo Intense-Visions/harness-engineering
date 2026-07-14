@@ -10,11 +10,17 @@
 //   1. Structured per-fork output (mirror `complexity/tiebreak.ts`): the model fills a Zod
 //      schema `{ done, fork?, recommendation?, confidence?, rationale? }`. Confidence is a
 //      CONSERVATIVE input — the runner halts unless it is `'high'`.
-//   2. Self-consistency N-sampling (overconfidence hardening): each fork is sampled N=3×; if
-//      the recommended OPTION flips across samples, we force `confidence:'low'` regardless of
-//      what the model reported → the runner halts. A rubric in the prompt names the human-only
-//      triggers (product/UX tradeoffs, unrevealed business priorities, security/irreversibility)
-//      so the model is biased toward LOW on exactly the forks a human must own.
+//   2. Self-consistency N-sampling (overconfidence hardening): each fork is sampled N=3×. We
+//      force `confidence:'low'` (regardless of what the model reported → the runner halts) on
+//      ANY of these degeneracies:
+//        • the recommended OPTION flips across samples (classic self-consistency instability);
+//        • the samples DRIFT to a different fork — a mismatched `forkId` or `question` — so a
+//          shared recommendation LABEL is coincidence, not agreement (fork-identity gate);
+//        • the recommendation is EMPTY/whitespace, or is NOT one of the fork's offered
+//          `options` — a content-free or off-menu value is not a confident decision.
+//      A rubric in the prompt names the human-only triggers (product/UX tradeoffs, unrevealed
+//      business priorities, security/irreversibility) so the model is biased toward LOW on
+//      exactly the forks a human must own.
 //
 // On a clean `completed`, this module renders a proposal-shaped spec to docs and then
 // RE-SCORES the now-substantive item via the Phase-1 `runScopingProbe` (through `triageIssue`)
@@ -57,6 +63,12 @@ const ForkStepSchema = z.object({
   forkId: z.string().describe('short stable id for this fork, e.g. "storage-backend"').optional(),
   question: z.string().describe('the design question this fork decides').optional(),
   options: z.array(z.string()).describe('the mutually-exclusive options considered').optional(),
+  // The AUTHORITATIVE recommendation validity checks (non-empty AND one of `options`) live in
+  // the GENERATOR, where `fork.options` is known and where a degenerate value must map to a
+  // `confidence:'low'` DOWNGRADE (→ runner halts with reason 'low-confidence'), not a hard
+  // schema/provider throw. We deliberately keep this `optional()`/unconstrained so an empty or
+  // absent recommendation still reaches the generator's semantic gate rather than short-
+  // circuiting to `halted{ reason:'error' }`. See makeSelForkGenerator's SAFETY GATE 2.
   recommendation: z.string().describe('the recommended option (one of options)').optional(),
   confidence: z
     .enum(['high', 'medium', 'low'])
@@ -94,10 +106,13 @@ export interface SelForkGeneratorOptions {
 
 /**
  * Build a real `ForkGenerator` over an `AnalysisProvider`. For each fork index the generator
- * samples the model N times; it accepts the fork only when the recommended OPTION is stable
- * across all samples AND the model itself reported `high`. Any instability forces `low` (the
- * runner then halts). The generator NEVER throws for a well-formed provider; a provider error
- * propagates and the pure runner maps it to `halted{ reason:'error' }`.
+ * samples the model N times; it accepts the fork (passing through the model's reported `high`)
+ * only when EVERY sample agrees on the SAME fork identity (`forkId` + normalized `question`)
+ * AND the SAME recommended option, AND that recommendation is non-empty AND is one of the
+ * fork's offered `options`. Any drift, instability, or degenerate/off-menu recommendation
+ * forces `confidence:'low'` (the runner then halts and a human owns the fork). The generator
+ * NEVER throws for a well-formed provider; a provider error propagates and the pure runner maps
+ * it to `halted{ reason:'error' }`.
  */
 export function makeSelForkGenerator(
   provider: AnalysisProvider,
@@ -140,21 +155,61 @@ export function makeSelForkGenerator(
         options: first.options ?? [],
       };
 
-      // Self-consistency downgrade: if the recommended option is not identical across every
-      // sample, force LOW regardless of the reported enum (overconfidence hardening).
       const recommendation = first.recommendation ?? '';
-      const stable = steps.every((st) => (st.recommendation ?? '') === recommendation);
+
+      // SAFETY GATE 1 — fork-identity agreement. Self-consistency is only meaningful across
+      // samples that decide the SAME fork. If the model drifts to a different forkId or
+      // question (even while sharing a recommendation LABEL), a matching label is a coincidence,
+      // not agreement — so we do NOT read it as "stable → high". Compare identity BEFORE the
+      // recommendation so a drifted-but-same-label fork can never masquerade as stable.
+      const normQ = (q: string | undefined): string => (q ?? '').trim().toLowerCase();
+      const firstForkId = first.forkId ?? '';
+      const firstQuestion = normQ(first.question);
+      const identityStable = steps.every(
+        (st) => (st.forkId ?? '') === firstForkId && normQ(st.question) === firstQuestion
+      );
+
+      // Self-consistency downgrade: the recommended option must be identical across every
+      // sample (overconfidence hardening).
+      const recStable = steps.every((st) => (st.recommendation ?? '') === recommendation);
+
+      // SAFETY GATE 2 — the recommendation must be a real, offered decision. An empty/whitespace
+      // recommendation is content-free (definitionally NOT a confident decision), and a value
+      // that is not one of `fork.options` is not a decision the fork actually offered. Either is
+      // forced to low so the runner halts and a human owns it. (Skip the options membership check
+      // when the model supplied no options — there is nothing authoritative to check against.)
+      const recEmpty = recommendation.trim() === '';
+      const recNotAnOption =
+        !recEmpty && fork.options.length > 0 && !fork.options.includes(recommendation);
+
+      const stable = identityStable && recStable && !recEmpty && !recNotAnOption;
       const reported: ForkConfidence = first.confidence ?? 'low';
       const confidence: ForkConfidence = stable ? reported : 'low';
+
+      let downgradeReason = '';
+      if (!identityStable) {
+        downgradeReason =
+          `fork identity drift across ${samples} samples (self-consistency downgrade to low): ` +
+          steps.map((st) => `${st.forkId ?? '∅'}:"${(st.question ?? '∅').trim()}"`).join(' / ');
+      } else if (recEmpty) {
+        downgradeReason =
+          'recommendation was empty/absent (a content-free recommendation is not a ' +
+          'confident decision; downgrade to low)';
+      } else if (recNotAnOption) {
+        downgradeReason =
+          `recommendation '${recommendation}' is not one of the offered options ` +
+          `[${fork.options.join(', ')}] (downgrade to low)`;
+      } else if (!recStable) {
+        downgradeReason =
+          `recommendation was unstable across ${samples} samples (self-consistency downgrade to low): ` +
+          steps.map((st) => st.recommendation ?? '∅').join(' / ');
+      }
 
       return {
         fork,
         recommendation,
         confidence,
-        rationale: stable
-          ? (first.rationale ?? '')
-          : `recommendation was unstable across ${samples} samples (self-consistency downgrade to low): ` +
-            steps.map((st) => st.recommendation ?? '∅').join(' / '),
+        rationale: stable ? (first.rationale ?? '') : downgradeReason,
       };
     },
   };

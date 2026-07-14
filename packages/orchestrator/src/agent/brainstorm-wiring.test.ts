@@ -167,17 +167,26 @@ function stubForkStepProvider(script: {
   confidence?: 'high' | 'medium' | 'low';
   done?: boolean;
   forkId?: string;
+  /** Optional per-CALL forkId variation (drift). Falls back to `forkId` / 'storage'. */
+  forkIds?: string[];
+  /** Optional per-CALL question variation (drift). Falls back to a fixed question. */
+  questions?: string[];
+  /** Options offered on the fork — used to exercise the "not in options" guard. */
+  options?: string[];
 }): AnalysisProvider {
   let call = 0;
   return {
     async analyze<T>(request: { responseSchema: z.ZodType }): Promise<AnalysisResponse<T>> {
       const rec = script.recommendations[call] ?? script.recommendations.at(-1) ?? 'A';
+      const forkId = script.forkIds?.[call] ?? script.forkIds?.at(-1) ?? script.forkId ?? 'storage';
+      const question =
+        script.questions?.[call] ?? script.questions?.at(-1) ?? 'Which storage backend?';
       call += 1;
       const payload = {
         done: script.done ?? false,
-        forkId: script.forkId ?? 'storage',
-        question: 'Which storage backend?',
-        options: ['sqlite', 'postgres'],
+        forkId,
+        question,
+        options: script.options ?? ['sqlite', 'postgres'],
         recommendation: rec,
         confidence: script.confidence ?? 'high',
         rationale: 'because',
@@ -243,6 +252,94 @@ describe('makeSelForkGenerator — self-consistency + confidence gate', () => {
     const d = await gen.next(0, []);
     expect(d?.confidence).toBe('low'); // hardening downgrade
     expect(d?.rationale.toLowerCase()).toContain('unstable');
+  });
+
+  it('samples agree on the recommendation LABEL but drift to a different forkId → forced low', async () => {
+    // SAFETY #1: the label is stable ('sqlite') across all samples, but the model drifted to a
+    // DIFFERENT fork (forkId storage → cache). A shared label must NOT read as "stable → high".
+    const provider = stubForkStepProvider({
+      recommendations: ['sqlite', 'sqlite', 'sqlite'], // same label…
+      forkIds: ['storage', 'cache', 'storage'], // …but different fork identity
+      confidence: 'high', // model overconfident
+    });
+    const gen = makeSelForkGenerator(provider, input, { samples: 3 });
+    const d = await gen.next(0, []);
+    expect(d?.confidence).toBe('low'); // fork-identity drift downgrade
+    expect(d?.rationale.toLowerCase()).toContain('drift');
+  });
+
+  it('samples agree on the label but drift the QUESTION → forced low', async () => {
+    // SAFETY #1 (question variant): same forkId + label, but the decided question drifted.
+    const provider = stubForkStepProvider({
+      recommendations: ['sqlite', 'sqlite'],
+      forkIds: ['storage', 'storage'],
+      questions: ['Which storage backend?', 'Which cache backend?'],
+      confidence: 'high',
+    });
+    const gen = makeSelForkGenerator(provider, input, { samples: 2 });
+    const d = await gen.next(0, []);
+    expect(d?.confidence).toBe('low');
+    expect(d?.rationale.toLowerCase()).toContain('drift');
+  });
+
+  it('an empty recommendation with high confidence is forced to low', async () => {
+    // SAFETY #2: a content-free recommendation is definitionally NOT a confident decision.
+    const provider = stubForkStepProvider({
+      recommendations: ['', '', ''],
+      confidence: 'high', // model claims high on an empty rec
+    });
+    const gen = makeSelForkGenerator(provider, input, { samples: 3 });
+    const d = await gen.next(0, []);
+    expect(d?.confidence).toBe('low');
+    expect(d?.rationale.toLowerCase()).toContain('empty');
+  });
+
+  it('a recommendation not among the fork options is forced to low', async () => {
+    // SAFETY #2: the recommended value must be one of the offered options; 'mysql' is not.
+    const provider = stubForkStepProvider({
+      recommendations: ['mysql', 'mysql', 'mysql'], // stable, but not an offered option
+      options: ['sqlite', 'postgres'],
+      confidence: 'high',
+    });
+    const gen = makeSelForkGenerator(provider, input, { samples: 3 });
+    const d = await gen.next(0, []);
+    expect(d?.confidence).toBe('low');
+    expect(d?.rationale.toLowerCase()).toContain('not one of');
+  });
+
+  it('end-to-end: forkId drift through the real generator halts the brainstorm', async () => {
+    const provider = stubForkStepProvider({
+      recommendations: ['sqlite', 'sqlite', 'sqlite'],
+      forkIds: ['storage', 'cache', 'storage'],
+      confidence: 'high',
+    });
+    const result = await runBrainstormForIssue(makeIssue(), 'simple', {
+      provider,
+      generatorOptions: { samples: 3 },
+      docsRoot: tmpDir,
+    });
+    expect(result.outcome.kind).toBe('halted');
+    if (result.outcome.kind !== 'halted') throw new Error('expected halted');
+    expect(result.outcome.reason).toBe('low-confidence');
+    expect(result.specPath).toBeUndefined();
+    expect(fs.existsSync(path.join(tmpDir, 'changes'))).toBe(false);
+  });
+
+  it('end-to-end: an empty recommendation through the real generator halts the brainstorm', async () => {
+    const provider = stubForkStepProvider({
+      recommendations: ['', '', ''],
+      confidence: 'high',
+    });
+    const result = await runBrainstormForIssue(makeIssue(), 'simple', {
+      provider,
+      generatorOptions: { samples: 3 },
+      docsRoot: tmpDir,
+    });
+    expect(result.outcome.kind).toBe('halted');
+    if (result.outcome.kind !== 'halted') throw new Error('expected halted');
+    expect(result.outcome.reason).toBe('low-confidence');
+    expect(result.specPath).toBeUndefined();
+    expect(fs.existsSync(path.join(tmpDir, 'changes'))).toBe(false);
   });
 
   it('a done=true step ends the brainstorm (generator returns null)', async () => {
