@@ -46,6 +46,23 @@ export type { AdaptiveRouterDeps } from './agent/adaptive-router';
 export { buildProbeInput, makeGraphScope, triageIssue } from './agent/triage-wiring';
 export { rankTriageCandidates, pilotScore } from './agent/triage-wiring';
 export type { TriageWiringDeps, RankableCandidate, TriageVerdict } from './agent/triage-wiring';
+// Roadmap Auto-Triage Phase 2: the orchestrator-side brainstorm wiring (real SEL fork
+// generator + self-consistency, spec doc write, SC4 re-score). The pure runner/types live
+// in @harness-engineering/intelligence.
+export {
+  runBrainstormForIssue,
+  makeSelForkGenerator,
+  brainstormInputFromIssue,
+  enrichIssueWithSpec,
+  renderSpecMarkdown,
+  slugFor,
+  BRAINSTORM_RUBRIC,
+} from './agent/brainstorm-wiring';
+export type {
+  BrainstormWiringDeps,
+  WiredBrainstormResult,
+  SelForkGeneratorOptions,
+} from './agent/brainstorm-wiring';
 // AMR Phase 4 (D10/SC16): vertical escalation mechanism.
 export { EscalationState } from './agent/escalation-state';
 export {
