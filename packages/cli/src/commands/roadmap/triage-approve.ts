@@ -28,8 +28,8 @@ import {
   type RatchetStage,
   type RatchetOutcome,
 } from '@harness-engineering/intelligence';
-import type { BrainstormReportRow } from './triage.js';
-import { featureToIssue, isActionable } from './triage.js';
+import type { BrainstormReportRow } from './triage-feature.js';
+import { featureToIssue, isActionable } from './triage-feature.js';
 import type { Roadmap } from '@harness-engineering/types';
 
 /**

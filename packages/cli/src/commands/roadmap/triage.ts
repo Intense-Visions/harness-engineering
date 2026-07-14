@@ -17,7 +17,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parseRoadmap, resolveRoadmapStoreForFile, eventSourcing } from '@harness-engineering/core';
 import type { GraphStore } from '@harness-engineering/graph';
-import type { Roadmap, RoadmapFeature, Issue } from '@harness-engineering/types';
+import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
 import {
   triageIssue,
   rankTriageCandidates,
@@ -27,7 +27,6 @@ import {
   type RankableCandidate,
   type TriageVerdict,
   type BrainstormWiringDeps,
-  type WiredBrainstormResult,
 } from '@harness-engineering/orchestrator';
 import type {
   AnalysisProvider,
@@ -40,6 +39,10 @@ import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
 import { deriveReadyCandidates, buildApprovalPlan } from './triage-approve.js';
+// The shared feature/issue leaf (extracted to break the triage ↔ triage-approve import
+// cycle). Re-exported so existing `import { ... } from './triage.js'` callers keep working.
+import { featureToIssue, isActionable, type BrainstormReportRow } from './triage-feature.js';
+export { featureToIssue, isActionable, type BrainstormReportRow } from './triage-feature.js';
 
 /** A triaged row: the verdict plus the pilot-ranking inputs derived from the feature. */
 export interface TriageReportRow extends RankableCandidate {
@@ -56,37 +59,6 @@ const EFFORT_BY_LEVEL: Record<string, number> = { trivial: 1, simple: 2, moderat
 
 /** Priority → impact proxy (roadmap has no explicit impact field; P0 highest, none = neutral). */
 const IMPACT_BY_PRIORITY: Record<string, number> = { P0: 4, P1: 3, P2: 2, P3: 1 };
-
-/**
- * A feature is ACTIONABLE for triage when it is `planned` or `backlog` (the same eligible
- * lifecycle roadmap-pilot selects from). in-progress/done/blocked/needs-human are excluded —
- * they are not awaiting a triage decision.
- */
-export function isActionable(feature: RoadmapFeature): boolean {
-  return feature.status === 'planned' || feature.status === 'backlog';
-}
-
-/** Map a `RoadmapFeature` onto the unified `Issue` model the probe wiring consumes. */
-export function featureToIssue(feature: RoadmapFeature): Issue {
-  return {
-    id: feature.name,
-    identifier: feature.name,
-    title: feature.name,
-    description: feature.summary,
-    priority: null,
-    state: feature.status,
-    branchName: null,
-    url: null,
-    labels: [],
-    blockedBy: feature.blockedBy.map((b) => ({ id: b, identifier: b, state: null })),
-    spec: feature.spec,
-    plans: feature.plans,
-    createdAt: null,
-    updatedAt: feature.updatedAt ?? null,
-    externalId: feature.externalId ?? null,
-    assignee: feature.assignee ?? null,
-  };
-}
 
 /** Derive the pilot-ranking inputs (impact/confidence/effort) from a feature + its verdict. */
 function rankingInputs(
@@ -240,16 +212,6 @@ export function renderJson(rows: TriageReportRow[]): string {
 // ---------------------------------------------------------------------------
 // Phase 2 (Task 5): the `--brainstorm` mode — docs only, no dispatch, default-off.
 // ---------------------------------------------------------------------------
-
-/** One brainstormed row: the item + its Phase-1 level + the wired brainstorm result. */
-export interface BrainstormReportRow {
-  externalId: string;
-  name: string;
-  status: string;
-  /** The Phase-1 complexity level that scaled the brainstorm depth. */
-  level: TriageVerdict['verdict']['level'];
-  result: WiredBrainstormResult;
-}
 
 /**
  * Pure brainstorm-report core: for each actionable feature, run the Phase-1 probe (for the
