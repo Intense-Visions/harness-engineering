@@ -1145,7 +1145,11 @@ Migrate docs/roadmap.md to per-row shards under docs/roadmap.d
 
 ### `harness roadmap triage`
 
-Read-only triage report: score every actionable roadmap item with the four-lever scoping probe and rank dispatchability. Gated behind roadmap.autoTriage.enabled (default off); never writes. Offline by default (holds to human without a live model).
+Read-only triage report: score every actionable roadmap item with the four-lever scoping probe and rank dispatchability. Gated behind roadmap.autoTriage.enabled (default off); never writes. Offline by default (holds to human without a live model). With --brainstorm, additionally run the autonomous brainstorm per candidate, emitting a drafted spec (docs only) or a halt handoff (fork + reason) — still no dispatch.
+
+**Options:**
+
+- `--brainstorm` — Run the autonomous brainstorm per candidate: draft a spec (docs only) or halt to a human at the first fork it can not confidently recommend. No dispatch, no execution.
 
 ### `harness roadmap unshard`
 
