@@ -19,11 +19,14 @@ import { GraphStore, CascadeSimulator, type GraphNode } from '@harness-engineeri
 import {
   runScopingProbe,
   extractEntities,
+  rankTriageCandidates,
+  pilotScore,
   type AnalysisProvider,
   type GraphScope,
   type PrecedentLookup,
   type ProbeConfig,
   type ProbeInput,
+  type RankableCandidate,
   type ResolvedEntity,
   type TriageVerdict,
 } from '@harness-engineering/intelligence';
@@ -135,3 +138,8 @@ export async function triageIssue(
     ...(deps.models ? { models: deps.models } : {}),
   });
 }
+
+// Re-export the pure ranking so CLI/report consumers get one triage entry point without
+// depending on @harness-engineering/intelligence directly.
+export { rankTriageCandidates, pilotScore };
+export type { RankableCandidate, TriageVerdict };

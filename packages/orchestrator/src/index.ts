@@ -41,6 +41,11 @@ export type { BackendRouterOptions } from './agent/backend-router';
 // `routing trace` dry-run and external consumers can derive tier + cost.
 export { AdaptiveRouter } from './agent/adaptive-router';
 export type { AdaptiveRouterDeps } from './agent/adaptive-router';
+// Roadmap Auto-Triage Phase 1: the orchestrator-side probe wiring (Issue→ProbeInput,
+// GraphScope seam, triageIssue). The pure probe/rank live in @harness-engineering/intelligence.
+export { buildProbeInput, makeGraphScope, triageIssue } from './agent/triage-wiring';
+export { rankTriageCandidates, pilotScore } from './agent/triage-wiring';
+export type { TriageWiringDeps, RankableCandidate, TriageVerdict } from './agent/triage-wiring';
 // AMR Phase 4 (D10/SC16): vertical escalation mechanism.
 export { EscalationState } from './agent/escalation-state';
 export {

@@ -472,11 +472,30 @@ export const TrackerConfigSchema = z.object({
  *
  * @see docs/changes/roadmap-tracker-only/proposal.md (Decision D5)
  */
+/**
+ * Roadmap Auto-Triage gate (Phase 0 Contract 2 — the CLI-visible read side).
+ *
+ * The full auto-triage surface (thresholds, ratchet, depthBudget) is declared in the
+ * orchestrator workflow schema + `@harness-engineering/types` RoadmapAutoTriageConfig; the
+ * CLI read-only `roadmap triage` report only needs the master switch to gate itself. Kept
+ * default-OFF: absent or `enabled: false` ⇒ the report is inert (SC8 / SC-S1).
+ */
+export const RoadmapAutoTriageConfigSchema = z
+  .object({
+    /** Master switch. Default false — the read-only triage report is gated off (D5/SC8). */
+    enabled: z.boolean().default(false),
+  })
+  // Tolerate the fuller Phase-0 surface (thresholds/ratchet/depthBudget) if present in a
+  // shared config file — the CLI only reads `enabled`, so extra keys must not fail validation.
+  .passthrough();
+
 export const RoadmapConfigSchema = z.object({
   /** Roadmap storage mode. Defaults to `"file-backed"` (today's behavior). */
   mode: z.enum(['file-backed', 'file-less']).default('file-backed'),
   /** External tracker sync settings */
   tracker: TrackerConfigSchema.optional(),
+  /** Roadmap Auto-Triage gate (default-off). The read-only report consumes only `enabled`. */
+  autoTriage: RoadmapAutoTriageConfigSchema.optional(),
 });
 
 /**

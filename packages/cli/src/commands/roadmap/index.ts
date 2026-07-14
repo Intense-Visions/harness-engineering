@@ -5,6 +5,7 @@ import { createRoadmapUnshardCommand } from './unshard';
 import { createRoadmapRegenCommand } from './regen';
 import { createRoadmapReconcileCommand } from './reconcile';
 import { createRoadmapReferencedIssuesCommand } from './referenced-issues';
+import { createRoadmapTriageCommand } from './triage';
 
 export function createRoadmapCommand(): Command {
   const roadmap = new Command('roadmap').description('Roadmap management');
@@ -14,5 +15,6 @@ export function createRoadmapCommand(): Command {
   roadmap.addCommand(createRoadmapRegenCommand());
   roadmap.addCommand(createRoadmapReconcileCommand());
   roadmap.addCommand(createRoadmapReferencedIssuesCommand());
+  roadmap.addCommand(createRoadmapTriageCommand());
   return roadmap;
 }
