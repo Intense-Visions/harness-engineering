@@ -193,3 +193,5 @@ export type {
   ProbeLevers,
   TriageVerdict,
 } from './triage/index.js';
+export { runScopingProbe } from './triage/index.js';
+export type { ProbeConfig, ProbeDeps } from './triage/index.js';

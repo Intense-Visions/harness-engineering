@@ -32,3 +32,5 @@ export type {
   ProbeLevers,
   TriageVerdict,
 } from './types.js';
+export { runScopingProbe } from './probe.js';
+export type { ProbeConfig, ProbeDeps } from './probe.js';
