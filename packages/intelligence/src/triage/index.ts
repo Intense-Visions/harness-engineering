@@ -36,3 +36,18 @@ export { runScopingProbe } from './probe.js';
 export type { ProbeConfig, ProbeDeps } from './probe.js';
 export { pilotScore, rankTriageCandidates } from './rank.js';
 export type { RankableCandidate } from './rank.js';
+
+// Phase 2: the autonomous-brainstorm decision core (pure types + runner).
+export { depthForLevel, DEPTH_BY_LEVEL } from './brainstorm/types.js';
+export type {
+  ForkConfidence,
+  Fork,
+  ForkDecision,
+  ForkGenerator,
+  DepthBudget,
+  SpecDraft,
+  BrainstormInput,
+  HaltReason,
+  BrainstormOutcome,
+} from './brainstorm/types.js';
+// `runAutoBrainstorm` (runner.js) is exported once the runner lands (Phase 2, Task 3).
