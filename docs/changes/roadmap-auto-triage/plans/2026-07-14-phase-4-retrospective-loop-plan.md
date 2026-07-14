@@ -87,14 +87,32 @@ prediction, postDiffVerdict)` → `{ matched, exceededBy, action }`.
 
 ## Tasks
 
-### Task 0 (confirm-or-abort): Review-pipeline seam
+### Task 0 (confirm-or-abort): Review-pipeline seam — ✅ RESOLVED: GO (spiked early)
 
 **Depends on:** Phase 3 | **Files:** none (investigation) | **Category:** spike
-**ACCEPTED-RISK GATE** (proposal §"accepted risks"). Confirm the exact seam by
-which the retrospective hooks the existing review pipeline
-(`packages/core/src/review/ci/orchestrator.ts` — review agent vs. orchestrator step
-vs. completion hook). If no clean seam exists, **STOP and re-plan Phase 4** rather
-than building Task 4 on a false assumption.
+**ACCEPTED-RISK GATE — cleared.** Read-only spike (run concurrently with Phase 1)
+found the retrospective's pattern is ALREADY implemented as the AMR 4c "quality
+feeder." Phase 4 extends the proven path; it does NOT build new review machinery.
+Verified anchors (file:line):
+
+- **Injection point:** `deriveSingleAgentQualityVerdict(issue, workspacePath)`
+  (`orchestrator.ts:2246`), called on agent exit at `orchestrator.ts:2212` before
+  `emitWorkerExit`. Add a sibling `deriveRoutingRetrospectiveVerdict(...)`, guarded
+  identically (`adaptiveRouter === null → undefined`; try/catch → neutral).
+- **Diff:** `WorkspaceManager.getIntroducedDiffText(id)` (`manager.ts:99`) —
+  merge-base-relative, seed-excluded (already consumed at orchestrator.ts:2301).
+- **Prediction:** pre-dispatch `RoutingDecision.complexity` (`ComplexityVerdict`)
+  from `adaptiveRouter.route()`. GAP: today only `lastRoutedTier` is stashed on the
+  running entry (`orchestrator.ts:2051`, `internal.ts:59`); the full verdict is not.
+  Fix = one field on `RunningEntry`, OR read from the Phase-0 `TriageRecord`
+  (externalId-keyed) once dispatch writes it (Phase 3).
+- **mismatch → block+escalate:** return `'quality-fail'` → `emitWorkerExit` →
+  `recordAmrOutcome` (`orchestrator.ts:2384`) → escalation floor climbs; exhaustion
+  queues **`needs-human`** (orchestrator.ts:2397).
+- **match → annotate:** `completion/handler.ts:231` `adapter.addComment(externalId,…)`.
+- **Layer:** orchestrator completion path (orchestrator-only state) — NOT core review;
+  core's `runReviewPipeline` stays a pure diff-in/verdict-out function. No core refactor.
+  No abort. Task 4 builds against these anchors.
 
 ### Task 1 (TDD): Comparator (`retrospective.ts`)
 

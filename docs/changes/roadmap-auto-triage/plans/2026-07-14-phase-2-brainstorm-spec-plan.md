@@ -81,14 +81,37 @@ doc I/O. Mirrors Phase 1's pure-core / orchestrator-wiring split.
 
 ## Tasks
 
-### Task 0 (confirm-or-abort): Fork-confidence signal
+### Task 0 (confirm-or-abort): Fork-confidence signal — ✅ RESOLVED: GO (spiked early)
 
 **Depends on:** Phase 1 | **Files:** none (spike) | **Category:** spike
-**ACCEPTED-RISK GATE** (proposal §"accepted risks"). Prove the local model emits a
-usable per-fork _confidence_ (calibrated, or derivable from option-margin/self-report
-at a conservative threshold) via `pipeline-runner.ts` + the SEL provider. If it
-can't, **STOP and re-plan Phase 2** — the halt-on-low-confidence gate is the whole
-safety mechanism; it cannot rest on an unproven signal.
+**ACCEPTED-RISK GATE — cleared.** Read-only spike (run concurrently with Phase 1),
+including a live probe, confirmed the mechanism exists and discriminates clear vs.
+ambiguous forks. Directives that now bind Tasks 1–4:
+
+- **Mechanism:** reuse the AMR tie-break's structured-output confidence. Define a
+  per-fork Zod schema `{ recommendation, confidence: enum(high|medium|low),
+rationale }` and call `AnalysisProvider.analyze<ForkDecision>({responseSchema})`
+  against the SEL provider (`buildAnalysisProviderForLayer('sel', …)`). Pattern:
+  `intelligence/src/complexity/tiebreak.ts:5-29`; contract:
+  `analysis-provider/interface.ts`.
+- **Gate:** halt unless `confidence === 'high'`. Treat the enum as conservative
+  input, NEVER authority — mirror `derive-tier.ts:87-90` (uncertainty escalates,
+  never green-lights).
+- **Overconfidence hardening (REQUIRED, T3):** raw self-report is overconfident on
+  unstable choices. Add a **self-consistency check** — sample each fork N=2–3×; if
+  the _recommendation_ flips, force `confidence = low` regardless of the reported
+  enum. Also pass a rubric in the prompt naming human-only triggers (product/UX
+  tradeoffs, unrevealed business priorities, security/irreversibility).
+- **Build approach (T3/T4): compact fork-loop, NOT drive-the-skill.**
+  `harness-brainstorming` is a human-in-loop prose playbook (waits for human replies,
+  hard-STOPs for sign-off) with no callable API — it CANNOT be driven programmatically.
+  Extract its methodology (enumerate forks → options+tradeoffs → recommend+confidence)
+  into a compact loop over `analyze()`. This resolves the plan's other P2 uncertainty.
+- **Caveat to confirm when the backend is live:** the probe used Ollama
+  `qwen2.5-coder:7b` (configured PI backend `localhost:1234` was down); confirm the
+  actual configured local model honors grammar-constrained decoding + reports
+  confidence with equal discrimination (one-line check, not a blocker).
+  No abort.
 
 ### Task 1: Brainstorm types (`brainstorm/types.ts`)
 
