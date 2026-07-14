@@ -51,6 +51,14 @@ export interface TriageMarkItem {
   verdict: ComplexityVerdict;
   /** Predicted blast radius (from the scope lever) — recorded for the retrospective. */
   scopeEstimate: number;
+  /**
+   * The EVIDENCE-DERIVED autonomy stage this item's SHAPE earned (SC6), resolved
+   * per-shape by the caller (`min(resolveStage(history), configuredCeiling, 2)`).
+   * When present it is stamped onto the prediction INSTEAD of the uniform
+   * `config.ratchetStage`, so the ratchet advances per-shape. Absent ⇒ the marker
+   * falls back to `config.ratchetStage` (the Phase-3 uniform behavior).
+   */
+  effectiveStage?: 1 | 2;
 }
 
 /** The feature-flag + ratchet surface the marker reads (default-off master switch). */
@@ -182,7 +190,10 @@ export async function markApprovedForDispatch(
       // field nothing downstream consumes); `record.ts` re-documents the field to match.
       levers: it.verdict.signals,
       scopeEstimate: it.scopeEstimate,
-      ratchetStage: config.ratchetStage,
+      // Prefer the per-shape evidence-derived stage (SC6) when the caller resolved one;
+      // fall back to the uniform config stage (Phase-3 behavior). Cold-start ⇒ the caller
+      // resolves stage 1, so this is byte-identical to `config.ratchetStage` at cold-start.
+      ratchetStage: it.effectiveStage ?? config.ratchetStage,
     };
     const recorded = await recordPrediction(prediction);
     if (!recorded.ok) {

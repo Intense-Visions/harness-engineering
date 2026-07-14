@@ -64,10 +64,13 @@ export type { RetrospectiveComparison, RetrospectiveConfig } from './retrospecti
 export { resolveStage, DEFAULT_RATCHET_CONFIG, V1_MAX_STAGE } from './ratchet.js';
 export type { V1Stage, RatchetOutcome, RatchetConfig } from './ratchet.js';
 
-// Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
-export { resolveGoNoGo, AUTO_EXECUTE_CATEGORIES } from './gate.js';
+// Phase 3: the pure go/no-go gate (autonomy ratchet stage 1). Phase 4 adds the
+// per-shape evidence-derived variant `resolveGoNoGoStaged` (SC6).
+export { resolveGoNoGo, resolveGoNoGoStaged, AUTO_EXECUTE_CATEGORIES } from './gate.js';
 export type {
   GoNoGoCandidate,
+  StagedGoNoGoCandidate,
+  ApprovedCandidate,
   GoNoGoDecision,
   HeldCandidate,
   HoldReason as GoNoGoHoldReason,

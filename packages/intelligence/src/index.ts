@@ -213,9 +213,12 @@ export type {
 } from './triage/index.js';
 
 // Roadmap Auto-Triage — Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
-export { resolveGoNoGo, AUTO_EXECUTE_CATEGORIES } from './triage/index.js';
+// Phase 4 adds `resolveGoNoGoStaged` for the per-shape evidence-derived stage (SC6).
+export { resolveGoNoGo, resolveGoNoGoStaged, AUTO_EXECUTE_CATEGORIES } from './triage/index.js';
 export type {
   GoNoGoCandidate,
+  StagedGoNoGoCandidate,
+  ApprovedCandidate,
   GoNoGoDecision,
   HeldCandidate,
   GoNoGoHoldReason,

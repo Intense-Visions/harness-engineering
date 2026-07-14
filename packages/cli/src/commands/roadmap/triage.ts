@@ -33,6 +33,7 @@ import type {
   AnalysisProvider,
   RatchetStage,
   PrecedentLookup,
+  RatchetOutcome,
 } from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
@@ -122,6 +123,37 @@ export async function buildPrecedentLookup(cwd: string): Promise<PrecedentLookup
       ...(r.outcome ? { outcome: { matched: r.outcome.matched } } : {}),
     }))
   );
+}
+
+/**
+ * Roadmap Auto-Triage — Phase 4 (FIX 2 / SC6): build the PER-SHAPE graded-outcome history
+ * from the Phase-0 TriageRecord store. Returns a `historyForShape(shapeKey)` lookup that the
+ * approval gate uses to resolve the evidence-derived effective stage per shape. Only records
+ * with a populated `outcome` (graded) contribute — one `{ matched }` per graded outcome,
+ * grouped by the record's `shapeKey`. A failed store read OR an empty/cold-start store ⇒
+ * every shape resolves to an EMPTY history ⇒ `resolveStage([])` = stage 1, byte-identical to
+ * the Phase-3 static default. The ratchet can only advance a shape once enough graded matches
+ * for THAT shape accrue.
+ */
+export async function buildShapeHistory(
+  cwd: string
+): Promise<(shapeKey: string) => readonly RatchetOutcome[]> {
+  const loaded = await eventSourcing.loadTriageRecords(cwd);
+  // A failed read cannot manufacture advancement evidence; degrade to no-history (cold-start).
+  const byShape = new Map<string, RatchetOutcome[]>();
+  if (loaded.ok) {
+    // NOTE: loadTriageRecords projects LAST-WRITER-WINS per externalId, so this history is one
+    // graded outcome PER ITEM (the item's latest outcome), grouped by shape — the same
+    // granularity the precedent lever aggregates. (Full per-attempt history is a Phase-4
+    // calibration follow-up; the conservative min-sample/window in resolveStage still holds.)
+    for (const rec of loaded.value) {
+      if (!rec.outcome) continue; // only graded records count toward advancement
+      const list = byShape.get(rec.shapeKey) ?? [];
+      list.push({ matched: rec.outcome.matched });
+      byShape.set(rec.shapeKey, list);
+    }
+  }
+  return (shapeKey: string): readonly RatchetOutcome[] => byShape.get(shapeKey) ?? [];
 }
 
 /**
@@ -439,17 +471,24 @@ export async function runApproveCommand(
   });
   const ready = deriveReadyCandidates(rows, parsed.value);
 
-  // 4. Partition by the human's explicit approval through the pure stage-1 gate.
+  // 4. Partition by the human's explicit approval through the pure go/no-go gate. The gate now
+  //    resolves the effective autonomy stage PER-SHAPE from recorded evidence (SC6): the config
+  //    `stage` is only a CEILING. Build the per-shape graded-outcome history from the SAME store
+  //    the retrospective writes; cold-start/empty ⇒ every shape resolves stage 1 (identical to
+  //    the Phase-3 static default). A failed store read ⇒ empty history ⇒ cold-start (never a
+  //    silent advance).
   const approvedIds = new Set(
     (opts.approve ?? '')
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
   );
+  const historyForShape = await buildShapeHistory(cwd);
   const plan = buildApprovalPlan(ready, {
     approvedIds,
     ...(opts.approveAll ? { approveAll: true } : {}),
     stage,
+    historyForShape,
   });
 
   // 5. MARK the approved subset — makes them eligible for the EXISTING orchestrator pickup.

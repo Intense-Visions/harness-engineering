@@ -11,7 +11,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Roadmap, RoadmapFeature } from '@harness-engineering/types';
-import { deriveReadyCandidates, buildApprovalPlan, type ReadyCandidate } from './triage-approve.js';
+import {
+  deriveReadyCandidates,
+  buildApprovalPlan,
+  resolveEffectiveStage,
+  type ReadyCandidate,
+} from './triage-approve.js';
+import { shapeKey, type RatchetOutcome } from '@harness-engineering/intelligence';
 import type { BrainstormReportRow } from './triage.js';
 import { runApproveCommand } from './triage.js';
 
@@ -159,19 +165,6 @@ describe('buildApprovalPlan — stage-1 human go/no-go partition', () => {
     expect(plan.held).toContainEqual({ externalId: 'c', reason: 'not-auto-executable' });
   });
 
-  it('refuses the whole batch when the ratchet is not at stage 1 (stages 2-4 unsupported in P3)', () => {
-    const plan = buildApprovalPlan([ready({ category: 'quick-fix' })], {
-      approvedIds: new Set(['gh:acme/repo#1']),
-      approveAll: true,
-      stage: 2,
-    });
-    expect(plan.toMark).toHaveLength(0);
-    expect(plan.held).toContainEqual({
-      externalId: 'gh:acme/repo#1',
-      reason: 'ratchet-stage-unsupported',
-    });
-  });
-
   it('builds a prediction-bearing marker item (verdict + scopeEstimate carried through)', () => {
     const plan = buildApprovalPlan(
       [ready({ category: 'quick-fix', level: 'simple', confidence: 'medium', scopeEstimate: 5 })],
@@ -181,6 +174,102 @@ describe('buildApprovalPlan — stage-1 human go/no-go partition', () => {
     expect(m.verdict.level).toBe('simple');
     expect(m.verdict.confidence).toBe('medium');
     expect(m.scopeEstimate).toBe(5);
+  });
+});
+
+// --- FIX 2 (SC6): the per-shape evidence-derived ratchet stage --------------
+
+describe('resolveEffectiveStage — min(resolveStage(history), ceiling, 2)', () => {
+  const clean = (n: number): RatchetOutcome[] =>
+    Array.from({ length: n }, () => ({ matched: true }));
+
+  it('cold-start (EMPTY history) ⇒ stage 1 for EVERY ceiling (identical to the static default)', () => {
+    for (const ceiling of [1, 2] as const) {
+      expect(resolveEffectiveStage([], ceiling)).toBe(1);
+    }
+  });
+
+  it('a shape with a strong clean history earns stage 2 — but only up to the ceiling', () => {
+    // 10 clean matches clears the default ratchet bar (≥90% over ≥5). Ceiling 2 ⇒ stage 2.
+    expect(resolveEffectiveStage(clean(10), 2)).toBe(2);
+    // The config stage is a CEILING: even with strong evidence, ceiling 1 holds it at stage 1.
+    expect(resolveEffectiveStage(clean(10), 1)).toBe(1);
+  });
+
+  it('a recent mispredict RESETS an otherwise-strong shape back to stage 1 (SC6)', () => {
+    const withRecentMiss: RatchetOutcome[] = [...clean(9), { matched: false }];
+    expect(resolveEffectiveStage(withRecentMiss, 2)).toBe(1);
+  });
+});
+
+describe('buildApprovalPlan — cold-start invariance (FIX 2 / SC6)', () => {
+  it('EMPTY history ⇒ every approved candidate gets effectiveStage 1 (byte-identical to static)', () => {
+    // The OVERRIDING safety constraint: with no accumulated outcomes, the per-shape ratchet
+    // must resolve stage 1 for every candidate — the same stage the Phase-3 static default
+    // stamped. `historyForShape` omitted ⇒ cold-start (empty history) for every shape.
+    const plan = buildApprovalPlan(
+      [
+        ready({ externalId: 'a', category: 'quick-fix' }),
+        ready({ externalId: 'b', category: 'diagnostic' }),
+      ],
+      { approvedIds: new Set(['a', 'b']), stage: 2 } // config CEILING 2, but no evidence
+    );
+    expect(plan.toMark).toHaveLength(2);
+    for (const m of plan.toMark) {
+      expect(m.effectiveStage).toBe(1); // cold-start ⇒ stage 1, not the ceiling
+    }
+  });
+
+  it('cold-start with config stage 1 also yields stage 1 (unchanged from Phase 3)', () => {
+    const plan = buildApprovalPlan([ready({ category: 'quick-fix' })], {
+      approvedIds: new Set(['gh:acme/repo#1']),
+      stage: 1,
+    });
+    expect(plan.toMark[0]!.effectiveStage).toBe(1);
+  });
+
+  it('a shape whose history earned stage 2 advances INDEPENDENTLY (only that shape)', () => {
+    // Two shapes: `trivial` has a strong clean history (earns 2); `simple` has none (stays 1).
+    const trivialKey = shapeKey([], 'dispatchable', 'trivial');
+    const history = (key: string): readonly RatchetOutcome[] =>
+      key === trivialKey ? Array.from({ length: 10 }, () => ({ matched: true })) : [];
+
+    const plan = buildApprovalPlan(
+      [
+        ready({ externalId: 'earned', category: 'quick-fix', level: 'trivial' }),
+        ready({ externalId: 'cold', category: 'quick-fix', level: 'simple' }),
+      ],
+      { approvedIds: new Set(['earned', 'cold']), stage: 2, historyForShape: history }
+    );
+    const byId = new Map(plan.toMark.map((m) => [m.candidate.externalId, m.effectiveStage]));
+    expect(byId.get('earned')).toBe(2); // evidence advanced this shape
+    expect(byId.get('cold')).toBe(1); // the OTHER shape stays at the cold-start default
+  });
+
+  it('the config ceiling still caps an evidence-strong shape (ceiling 1 ⇒ stage 1)', () => {
+    const trivialKey = shapeKey([], 'dispatchable', 'trivial');
+    const history = (key: string): readonly RatchetOutcome[] =>
+      key === trivialKey ? Array.from({ length: 10 }, () => ({ matched: true })) : [];
+    const plan = buildApprovalPlan([ready({ category: 'quick-fix', level: 'trivial' })], {
+      approvedIds: new Set(['gh:acme/repo#1']),
+      stage: 1, // ceiling 1 holds it even though the shape earned 2
+      historyForShape: history,
+    });
+    expect(plan.toMark[0]!.effectiveStage).toBe(1);
+  });
+
+  it('does NOT weaken auth: an unapproved item is still held even when its shape earned stage 2', () => {
+    const trivialKey = shapeKey([], 'dispatchable', 'trivial');
+    const history = (key: string): readonly RatchetOutcome[] =>
+      key === trivialKey ? Array.from({ length: 10 }, () => ({ matched: true })) : [];
+    const plan = buildApprovalPlan([ready({ category: 'quick-fix', level: 'trivial' })], {
+      approvedIds: new Set(), // NOT approved
+      stage: 2,
+      historyForShape: history,
+    });
+    // Even at earned stage 2, the human-go requirement holds — nothing is marked.
+    expect(plan.toMark).toHaveLength(0);
+    expect(plan.held).toContainEqual({ externalId: 'gh:acme/repo#1', reason: 'awaiting-human-go' });
   });
 });
 

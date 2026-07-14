@@ -90,6 +90,7 @@ function item(over: Partial<TriageMarkItem> = {}): TriageMarkItem {
     labels: over.labels ?? ['test'],
     verdict: over.verdict ?? verdict(),
     scopeEstimate: over.scopeEstimate ?? 2,
+    ...(over.effectiveStage !== undefined ? { effectiveStage: over.effectiveStage } : {}),
   };
 }
 
@@ -162,6 +163,30 @@ describe('markApprovedForDispatch — makes an approved item pickup-eligible (SC
     // shapeKey is present + reflects the dispatchable escalation bucket at the predicted level.
     expect(typeof p.shapeKey).toBe('string');
     expect(p.shapeKey).toContain('|dispatchable|simple');
+  });
+
+  it('FIX 2 (SC6): stamps the PER-SHAPE effectiveStage onto the prediction, overriding config', async () => {
+    const { store } = fakeStore([feature()]);
+    const rec = fakeRecorder();
+    // config ceiling is 1, but this shape earned effectiveStage 2 — the per-shape stage wins.
+    await markApprovedForDispatch([item({ effectiveStage: 2 })], {
+      store,
+      config: ON,
+      recordPrediction: rec.recordPrediction,
+    });
+    expect(rec.writes[0]!.ratchetStage).toBe(2);
+  });
+
+  it('falls back to config.ratchetStage when no per-shape effectiveStage is present (cold-start)', async () => {
+    const { store } = fakeStore([feature()]);
+    const rec = fakeRecorder();
+    // No effectiveStage on the item ⇒ the marker stamps config.ratchetStage (Phase-3 behavior).
+    await markApprovedForDispatch([item()], {
+      store,
+      config: ON,
+      recordPrediction: rec.recordPrediction,
+    });
+    expect(rec.writes[0]!.ratchetStage).toBe(1);
   });
 });
 

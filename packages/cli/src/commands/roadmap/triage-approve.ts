@@ -20,9 +20,13 @@ import {
   type TriageMarkItem,
 } from '@harness-engineering/orchestrator';
 import {
-  resolveGoNoGo,
-  type GoNoGoCandidate,
+  resolveGoNoGoStaged,
+  resolveStage,
+  shapeKey,
+  V1_MAX_STAGE,
+  type StagedGoNoGoCandidate,
   type RatchetStage,
+  type RatchetOutcome,
 } from '@harness-engineering/intelligence';
 import type { BrainstormReportRow } from './triage.js';
 import { featureToIssue, isActionable } from './triage.js';
@@ -116,32 +120,77 @@ export interface ApprovalPlan {
   /**
    * Every candidate the gate did NOT clear, each with the gate's legible reason. Covers
    * both the not-yet-approved auto-executable items (`awaiting-human-go`) and the approved
-   * items whose category is not auto-executable (`not-auto-executable`), plus the whole
-   * batch when the ratchet is not at stage 1 (`ratchet-stage-unsupported`).
+   * items whose category is not auto-executable (`not-auto-executable`), plus any item whose
+   * evidence-derived stage is deferred post-v1 (`ratchet-stage-unsupported`, unreachable given
+   * the ≤ 2 clamp but kept as a fail-safe).
    */
   held: Array<{ externalId: string; reason: string }>;
 }
 
 /**
- * Pure approval partition. Given the ready candidates and the set of externalIds a human
- * explicitly approved (plus `approveAll`), run the stage-1 gate and produce the marker inputs.
+ * The precedent bucket for a ready candidate — the SAME shapeKey the marker records the
+ * prediction under (`shapeKey(labels, 'dispatchable', level)`), so the stage the ratchet
+ * resolves here matches the stage the retrospective later grades against.
+ */
+function shapeKeyForCandidate(r: ReadyCandidate): string {
+  return shapeKey(r.labels, 'dispatchable', r.level);
+}
+
+/**
+ * Resolve the EVIDENCE-DERIVED effective stage for a shape (SC6):
+ *   `effectiveStage = min(resolveStage(historyForShape), configuredCeiling, 2)`.
  *
- * The gate is the authority: an approved-but-not-auto-executable item is still HELD (SC3), an
- * unapproved auto-executable item is HELD as `awaiting-human-go` (SC4/SC5), and any stage but
- * 1 refuses the whole batch. `approveAll` sets `humanApproved` on every ready candidate — still
- * subject to the category gate.
+ * `resolveStage` returns the stage the shape's recorded history has EARNED (cold-start /
+ * no-history ⇒ 1). The configured `ratchetStage` is a CEILING — an operator can hold the
+ * ratchet lower than the evidence would allow, never higher. `V1_MAX_STAGE` (2) is the hard
+ * cap regardless. Exported for the pinning tests.
+ */
+export function resolveEffectiveStage(
+  history: readonly RatchetOutcome[],
+  ceiling: RatchetStage
+): 1 | 2 {
+  const earned = resolveStage(history); // 1 | 2 (already v1-clamped inside)
+  return Math.min(earned, ceiling, V1_MAX_STAGE) as 1 | 2;
+}
+
+/**
+ * Pure approval partition with a PER-SHAPE evidence-derived stage (SC6). Given the ready
+ * candidates, the set of externalIds a human explicitly approved, the configured stage CEILING,
+ * and a `historyForShape` seam (this shape's recorded outcomes from the store), run the gate.
+ *
+ * The AUTHORIZATION is UNCHANGED and stage-independent (the invariant FIX 2 must not weaken): an
+ * approved-but-not-auto-executable item is still HELD (SC3), an unapproved auto-executable item
+ * is HELD as `awaiting-human-go` (SC4/SC5). The stage does NOT relax the human-go requirement —
+ * it rides along on the approved item (`effectiveStage`, stamped onto the prediction) to govern
+ * downstream match-handling/advancement only. Each shape advances INDEPENDENTLY: the stage is
+ * resolved per-candidate from its OWN shape's history, never as one batch stage. Cold-start (no
+ * history for a shape) ⇒ stage 1 ⇒ identical to the Phase-3 static default.
+ *
+ * `historyForShape` defaults to "no history" (⇒ every shape resolves stage 1) so offline callers
+ * and tests get the cold-start default without wiring a store.
  */
 export function buildApprovalPlan(
   ready: readonly ReadyCandidate[],
-  opts: { approvedIds: ReadonlySet<string>; approveAll?: boolean; stage: RatchetStage }
+  opts: {
+    approvedIds: ReadonlySet<string>;
+    approveAll?: boolean;
+    /** The configured ratchet stage — used ONLY as a ceiling on the evidence-derived stage. */
+    stage: RatchetStage;
+    /** This shape's recorded graded outcomes (from the store). Absent ⇒ cold-start (stage 1). */
+    historyForShape?: (shapeKey: string) => readonly RatchetOutcome[];
+  }
 ): ApprovalPlan {
-  const candidates: GoNoGoCandidate[] = ready.map((r) => ({
+  const historyForShape = opts.historyForShape ?? (() => []);
+
+  const candidates: StagedGoNoGoCandidate[] = ready.map((r) => ({
     externalId: r.externalId,
     category: r.category,
     humanApproved: opts.approveAll === true || opts.approvedIds.has(r.externalId),
+    // Per-shape evidence-derived stage, ceilinged by config + hard-capped at 2 (SC6).
+    effectiveStage: resolveEffectiveStage(historyForShape(shapeKeyForCandidate(r)), opts.stage),
   }));
 
-  const decision = resolveGoNoGo(candidates, opts.stage);
+  const decision = resolveGoNoGoStaged(candidates);
   const byId = new Map(ready.map((r) => [r.externalId, r]));
 
   const toMark: TriageMarkItem[] = decision.approved.map((c) => {
@@ -153,6 +202,8 @@ export function buildApprovalPlan(
       labels: r.labels,
       verdict: { level: r.level, confidence: r.confidence, signals: r.signals, source: r.source },
       scopeEstimate: r.scopeEstimate,
+      // The per-shape earned stage the marker stamps onto the prediction (SC6).
+      effectiveStage: c.effectiveStage,
     };
   });
 

@@ -53,7 +53,7 @@ export interface GoNoGoCandidate {
 
 /** Why a candidate was held rather than approved. A closed, legible set (SC-F2 style). */
 export type HoldReason =
-  /** The ratchet is not at stage 1; stages 2-4 land in Phase 4 (stage 1 is the only v1-P3 path). */
+  /** The candidate's EFFECTIVE stage is deferred post-v1 (3-4); v1 caps at stage 2. */
   | 'ratchet-stage-unsupported'
   /** The item's category is not auto-executable (guided-change / full-exploration). */
   | 'not-auto-executable'
@@ -67,58 +67,91 @@ export interface HeldCandidate {
   reason: HoldReason;
 }
 
+/** An approved candidate carrying the EVIDENCE-DERIVED stage its shape earned (SC6). */
+export interface ApprovedCandidate extends GoNoGoCandidate {
+  /**
+   * The effective autonomy stage this candidate's SHAPE earned from its recorded history
+   * (`min(resolveStage(history), configuredCeiling, 2)`). 1 = human-before-execution (the
+   * cold-start default); 2 = auto-execute + required human-verify (v1's ceiling). This governs
+   * only DOWNSTREAM match-handling/advancement — NOT the authorization above (which is stage-
+   * independent: humanApproved AND auto-executable). The marker stamps it onto the prediction.
+   */
+  effectiveStage: 1 | 2;
+}
+
 /** The gate's output: the partition of the ready set into approved vs held. */
 export interface GoNoGoDecision {
-  /** Items cleared for the marker: human-approved AND auto-executable (stage 1). */
-  approved: GoNoGoCandidate[];
+  /** Items cleared for the marker: human-approved AND auto-executable, with the earned stage. */
+  approved: ApprovedCandidate[];
   /** Everything else, each carrying the reason it was held to a human. */
   held: HeldCandidate[];
 }
 
 /**
- * Pure go/no-go partition for autonomy-ratchet stage 1.
+ * One ready candidate presented to the PER-SHAPE go/no-go gate: the base candidate plus the
+ * effective autonomy stage its shape earned from recorded evidence. The caller resolves the
+ * stage per-shape (via the pure `resolveStage` over that shape's history) so the ratchet
+ * advances INDEPENDENTLY per shape (SC6), never as one batch stage.
+ */
+export interface StagedGoNoGoCandidate extends GoNoGoCandidate {
+  /** `min(resolveStage(historyForShape), configuredCeiling, 2)`. Cold-start ⇒ 1. */
+  effectiveStage: RatchetStage;
+}
+
+/**
+ * Pure go/no-go partition with a PER-CANDIDATE evidence-derived stage (SC6).
  *
- * Stage 1 rule (the only rule Phase 3 implements): an item is `approved` iff its
- * category is in {@link AUTO_EXECUTE_CATEGORIES} AND a human explicitly approved it.
- * Any other stage (2-4) refuses the ENTIRE batch (`ratchet-stage-unsupported`) —
- * the knob cannot advance past stage 1 until Phase 4 ships the retrospective that
- * earns it. This function performs no IO and dispatches nothing; it only decides.
+ * The AUTHORIZATION rule is stage-INDEPENDENT and unchanged from Phase 3: an item is
+ * `approved` iff its category is in {@link AUTO_EXECUTE_CATEGORIES} AND a human explicitly
+ * approved it. The stage does NOT relax this — the human-go requirement holds at every stage.
+ * The stage only rides ALONG on an approved item (`effectiveStage`) to govern downstream
+ * match-handling/advancement; a candidate whose earned stage is deferred post-v1 (3-4) is
+ * refused as `ratchet-stage-unsupported` (a fail-safe belt: the caller already clamps to ≤ 2,
+ * so this should be unreachable, but a mis-set stage must never loosen the gate).
  *
- * Ordering of the two hold reasons is deliberate: the category gate is checked
- * BEFORE the approval gate, so a human-approved non-autoExecute item reads
- * `not-auto-executable` (the structural reason), never `awaiting-human-go`.
+ * Ordering of the hold reasons is deliberate and matches Phase 3: the stage guard is checked
+ * first (a deferred stage refuses regardless), then the category gate (structural), then the
+ * human-go gate — so an approved non-autoExecute item still reads `not-auto-executable`.
+ */
+export function resolveGoNoGoStaged(candidates: readonly StagedGoNoGoCandidate[]): GoNoGoDecision {
+  const approved: ApprovedCandidate[] = [];
+  const held: HeldCandidate[] = [];
+  for (const c of candidates) {
+    // 0. Stage guard (per-candidate): a deferred stage (3-4) refuses this item — never a
+    //    silent auto-go. v1 only supports {1, 2}; both share the identical auth below.
+    if (c.effectiveStage !== 1 && c.effectiveStage !== 2) {
+      held.push({
+        externalId: c.externalId,
+        category: c.category,
+        reason: 'ratchet-stage-unsupported',
+      });
+      continue;
+    }
+    // 1. Category gate (structural): non-autoExecute stays human regardless of go OR stage.
+    if (!AUTO_EXECUTE_CATEGORIES.has(c.category)) {
+      held.push({ externalId: c.externalId, category: c.category, reason: 'not-auto-executable' });
+      continue;
+    }
+    // 2. Human-go gate: auto-executable but not yet approved holds (SC4) — at EVERY stage.
+    if (!c.humanApproved) {
+      held.push({ externalId: c.externalId, category: c.category, reason: 'awaiting-human-go' });
+      continue;
+    }
+    approved.push({ ...c, effectiveStage: c.effectiveStage });
+  }
+  return { approved, held };
+}
+
+/**
+ * Pure go/no-go partition for a UNIFORM ratchet stage (Phase 3 shape, retained for callers
+ * that have not yet resolved per-shape evidence). Delegates to {@link resolveGoNoGoStaged} by
+ * stamping the SAME `stage` on every candidate — so the authorization + hold-reason ordering
+ * is defined in exactly one place. Passing a deferred stage (3-4) refuses the whole batch, and
+ * stage 1 reproduces Phase-3 behavior byte-for-byte.
  */
 export function resolveGoNoGo(
   candidates: readonly GoNoGoCandidate[],
   stage: RatchetStage
 ): GoNoGoDecision {
-  // Stage guard: Phase 3 implements stage 1 only. Any other stage holds everything
-  // — a fail-safe, never a silent auto-go (a mis-set knob must not loosen the gate).
-  if (stage !== 1) {
-    return {
-      approved: [],
-      held: candidates.map((c) => ({
-        externalId: c.externalId,
-        category: c.category,
-        reason: 'ratchet-stage-unsupported',
-      })),
-    };
-  }
-
-  const approved: GoNoGoCandidate[] = [];
-  const held: HeldCandidate[] = [];
-  for (const c of candidates) {
-    // 1. Category gate first (structural): non-autoExecute stays human regardless of go.
-    if (!AUTO_EXECUTE_CATEGORIES.has(c.category)) {
-      held.push({ externalId: c.externalId, category: c.category, reason: 'not-auto-executable' });
-      continue;
-    }
-    // 2. Human-go gate: auto-executable but not yet approved holds (SC4).
-    if (!c.humanApproved) {
-      held.push({ externalId: c.externalId, category: c.category, reason: 'awaiting-human-go' });
-      continue;
-    }
-    approved.push(c);
-  }
-  return { approved, held };
+  return resolveGoNoGoStaged(candidates.map((c) => ({ ...c, effectiveStage: stage })));
 }
