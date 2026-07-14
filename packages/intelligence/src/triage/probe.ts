@@ -306,9 +306,15 @@ function gate(
     return { dispatchable: false, holdReason: 'not-in-band' };
   }
 
-  // 3. No open decisions. An `unknown` lever CANNOT corroborate "no open decision" ⇒ hold.
+  // 3. No open decisions. DEV3: distinguish "the lever couldn't be READ" from "a real open
+  // decision was surfaced". An `unknown` lever (no provider wired / assessment errored) holds
+  // as `read-incomplete` — we can't CONFIRM there are none, but none was actually surfaced.
+  // Only an actually-surfaced decision holds as `open-decision`. Both are fail-safe.
   const decisions = levers.openDecisions.value;
-  if (decisions === 'unknown' || decisions.length > 0) {
+  if (decisions === 'unknown') {
+    return { dispatchable: false, holdReason: 'read-incomplete' };
+  }
+  if (decisions.length > 0) {
     return { dispatchable: false, holdReason: 'open-decision' };
   }
 

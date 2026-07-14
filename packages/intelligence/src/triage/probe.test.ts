@@ -252,6 +252,9 @@ describe('runScopingProbe — SC5 lever-degrade / never-throws', () => {
     expect(v.levers.openDecisions.value).toBe('unknown');
     // An unknown open-decisions lever cannot corroborate "no open decision" ⇒ not dispatchable.
     expect(v.dispatchable).toBe(false);
+    // DEV3: an UNREAD lever holds as `read-incomplete`, NOT `open-decision` — the assessment
+    // errored, no real decision was surfaced. Pin it so the two never re-conflate.
+    expect(v.holdReason).toBe('read-incomplete');
   });
 
   it('with NO provider at all (fully offline), the probe resolves without throwing and holds the item', async () => {
@@ -262,6 +265,11 @@ describe('runScopingProbe — SC5 lever-degrade / never-throws', () => {
     const v = await runScopingProbe(inputFor(), deps);
     expect(v.levers.openDecisions.value).toBe('unknown');
     expect(v.dispatchable).toBe(false);
+    // With NO provider the semantic-read lever ALSO degrades to unknown, so the gate holds at
+    // the earlier `not-in-band` step (step 2) before it ever reaches open-decisions (step 3).
+    // The DISTINCT `read-incomplete` reason (DEV3) is pinned by the throw-on-decisions case
+    // above, where the semantic read succeeds but the open-decisions lever alone is unread.
+    expect(v.holdReason).toBe('not-in-band');
   });
 });
 
@@ -313,5 +321,47 @@ describe('runScopingProbe — gate corroboration', () => {
     const v = await runScopingProbe(inputFor(), deps);
     expect(v.dispatchable).toBe(false);
     expect(v.holdReason).toBe('not-in-band');
+  });
+
+  // REV-S2: the provider-consulted path must ACTUALLY consult the provider. The static pass
+  // only defers to the LLM tie-break when its own confidence is `low` (a score sitting on a
+  // band boundary). Drive the fixture with an unambiguously boundary-low signal (blastRadius
+  // 13 with one resolved entity lands the normalized score ≈ 0.198, within 0.1 of the 0.2
+  // trivial/simple boundary → static `low` → tie-break). Assert `verdict.source ===
+  // 'llm-tiebreak'` so a future threshold nudge can't silently make the stub dead code.
+  it('the semantic-read lever CONSULTS the provider (source is llm-tiebreak) on a boundary-low signal', async () => {
+    let analyzeCalls = 0;
+    const recordingProvider: AnalysisProvider = {
+      async analyze<T>(request: {
+        prompt: string;
+        responseSchema: z.ZodType;
+      }): Promise<AnalysisResponse<T>> {
+        analyzeCalls += 1;
+        const complexityPayload = { level: 'simple', confidence: 'high' };
+        const decisionsPayload = { openDecisions: [] as { question: string }[] };
+        const asComplexity = request.responseSchema.safeParse(complexityPayload);
+        const result = asComplexity.success
+          ? asComplexity.data
+          : request.responseSchema.parse(decisionsPayload);
+        return {
+          result: result as T,
+          tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          model: 'stub',
+          latencyMs: 0,
+        };
+      },
+    };
+    const deps: ProbeDeps = {
+      provider: recordingProvider,
+      // A single resolved entity with blastRadius 13 → static score sits on the 0.2 boundary
+      // → static confidence `low` → the classifier defers to the LLM tie-break.
+      graph: stubGraph({ BackendRouter: { nodeId: 'class:BackendRouter', blastRadius: 13 } }),
+      config: { boundedScopeMax: 40, dispatchConfidence: 'medium' },
+    };
+    const v = await runScopingProbe(inputFor(), deps);
+    // The stub WAS consulted (not dead code), and the verdict carries the tie-break provenance.
+    expect(analyzeCalls).toBeGreaterThan(0);
+    expect(v.verdict.source).toBe('llm-tiebreak');
+    expect(v.verdict.level).toBe('simple'); // came from the stub, not the static pass
   });
 });

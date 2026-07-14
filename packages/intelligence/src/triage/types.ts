@@ -90,6 +90,11 @@ export type HoldReason =
   | 'not-in-band'
   | 'unresolved-scope'
   | 'open-decision'
+  // The open-decisions lever could not be READ (no provider wired / assessment errored) — the
+  // item is held because we can't CONFIRM there are no open decisions, NOT because one was
+  // surfaced. Distinct from `open-decision` (DEV3): don't conflate "unread" with "a real
+  // decision exists". Fail-safe (an unread lever never clears the gate), but legibly labelled.
+  | 'read-incomplete'
   | 'precedent-contradicts'
   | 'error';
 
